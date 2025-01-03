@@ -5,16 +5,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 )
 
 type NodeUpdate struct {
@@ -26,14 +28,19 @@ type NodeUpdate struct {
 }
 
 type UpdateNodesRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
+	Chain       deployment.Chain
+	ContractSet *ContractSet // contract set for the given chain
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
+
+	UseMCMS bool
+	// If UseMCMS is true, and Ops is not nil then the UpdateNodes contract operation
+	// will be added to the Ops.Batch
+	Ops *timelock.BatchChainOperation
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
-	return makeNodeParams(req.Registry, req.P2pToUpdates)
+	return makeNodeParams(req.ContractSet.CapabilitiesRegistry, req.P2pToUpdates)
 }
 
 // P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
@@ -52,7 +59,7 @@ func (req *UpdateNodesRequest) Validate() error {
 	for peer, updates := range req.P2pToUpdates {
 		seen := make(map[string]struct{})
 		for _, cap := range updates.Capabilities {
-			id := kslib.CapabilityID(cap)
+			id := CapabilityID(cap)
 			if _, exists := seen[id]; exists {
 				return fmt.Errorf("duplicate capability %s for %s", id, peer)
 			}
@@ -71,7 +78,7 @@ func (req *UpdateNodesRequest) Validate() error {
 		}
 	}
 
-	if req.Registry == nil {
+	if req.ContractSet.CapabilitiesRegistry == nil {
 		return errors.New("registry is nil")
 	}
 
@@ -80,10 +87,14 @@ func (req *UpdateNodesRequest) Validate() error {
 
 type UpdateNodesResponse struct {
 	NodeParams []kcr.CapabilitiesRegistryNodeParams
+	// MCMS operation to update the nodes
+	// The operation is added to the Batch of the given Ops if not nil
+	Ops *timelock.BatchChainOperation
 }
 
 // UpdateNodes updates the nodes in the registry
-// the update sets the signer and capabilities for each node. it does not append capabilities to the existing ones
+// the update sets the signer and capabilities for each node.
+// The nodes and capabilities must already exist in the registry.
 func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate request: %w", err)
@@ -91,20 +102,46 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 
 	params, err := req.NodeParams()
 	if err != nil {
-		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to make node params: %w", err)
 	}
-	tx, err := req.Registry.UpdateNodes(req.Chain.DeployerKey, params)
+	txOpts := req.Chain.DeployerKey
+	if req.UseMCMS {
+		txOpts = deployment.SimTransactOpts()
+	}
+	registry := req.ContractSet.CapabilitiesRegistry
+	tx, err := registry.UpdateNodes(txOpts, params)
 	if err != nil {
-		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateNodes: %w", err)
 	}
 
-	_, err = req.Chain.Confirm(tx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
+	ops := req.Ops
+	if !req.UseMCMS {
+		_, err = req.Chain.Confirm(tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
+		}
+	} else {
+		op := mcms.Operation{
+			To:    registry.Address(),
+			Data:  tx.Data(),
+			Value: big.NewInt(0),
+		}
+
+		if ops == nil {
+			ops = &timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
+				Batch: []mcms.Operation{
+					op,
+				},
+			}
+		} else {
+			ops.Batch = append(ops.Batch, op)
+		}
 	}
-	return &UpdateNodesResponse{NodeParams: params}, nil
+
+	return &UpdateNodesResponse{NodeParams: params, Ops: ops}, nil
 }
 
 // AppendCapabilities appends the capabilities to the existing capabilities of the nodes listed in p2pIds in the registry
@@ -145,8 +182,8 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 		var deduped []kcr.CapabilitiesRegistryCapability
 		seen := make(map[string]struct{})
 		for _, cap := range mergedCaps {
-			if _, ok := seen[kslib.CapabilityID(cap)]; !ok {
-				seen[kslib.CapabilityID(cap)] = struct{}{}
+			if _, ok := seen[CapabilityID(cap)]; !ok {
+				seen[CapabilityID(cap)] = struct{}{}
 				deduped = append(deduped, cap)
 			}
 		}
@@ -166,7 +203,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
 	if err != nil {
-		err = kslib.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
 	}
 	for _, node := range nodes {
@@ -223,11 +260,11 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 }
 
-// fetchkslib.CapabilityIDs fetches the capability ids for the given capabilities
+// fetchCapabilityIDs fetches the capability ids for the given capabilities
 func fetchCapabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) (map[string][32]byte, error) {
 	out := make(map[string][32]byte)
 	for _, cap := range caps {
-		name := kslib.CapabilityID(cap)
+		name := CapabilityID(cap)
 		if _, exists := out[name]; exists {
 			continue
 		}

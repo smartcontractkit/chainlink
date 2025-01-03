@@ -19,9 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -126,6 +128,7 @@ type service struct {
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
+	workflowKeyStore    keystore.Workflow
 	jobSpawner          job.Spawner
 	gCfg                GeneralConfig
 	featCfg             FeatureConfig
@@ -168,6 +171,7 @@ func NewService(
 		csaKeyStore:         keyStore.CSA(),
 		ocr1KeyStore:        keyStore.OCR(),
 		ocr2KeyStore:        keyStore.OCR2(),
+		workflowKeyStore:    keyStore.Workflow(),
 		gCfg:                gCfg,
 		featCfg:             fCfg,
 		insecureCfg:         insecureCfg,
@@ -275,9 +279,11 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
+	workflowKey := s.getWorkflowPublicKey()
 	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
+		WorkflowKey:  &workflowKey,
 	}); err != nil {
 		return err
 	}
@@ -362,8 +368,8 @@ func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsMa
 		return nil, errors.Wrap(err, "failed to list managers by IDs")
 	}
 
-	for _, manager := range managers {
-		manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	for i, manager := range managers {
+		managers[i].IsConnectionActive = s.connMgr.IsConnected(manager.ID)
 	}
 
 	return managers, nil
@@ -886,6 +892,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
+			case job.Stream:
+				existingJobID, txerr = tx.jobORM.FindJobIDByStreamID(ctx, *j.StreamID)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing stream job: %w", txerr)
+				}
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1170,6 +1183,20 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
+// getWorkflowPublicKey retrieves the server's Workflow public key.
+// Since there will be at most one key, it returns the first key found.
+// If an error occurs or no keys are found, it returns blank.
+func (s *service) getWorkflowPublicKey() string {
+	keys, err := s.workflowKeyStore.GetAll()
+	if err != nil {
+		return ""
+	}
+	if len(keys) < 1 {
+		return ""
+	}
+	return keys[0].PublicKeyString()
+}
+
 // observeJobProposalCounts is a helper method that queries the repository for the count of
 // job proposals by status and then updates prometheus gauges.
 func (s *service) observeJobProposalCounts(ctx context.Context) error {
@@ -1276,6 +1303,8 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
+	case job.Stream:
+		js, err = streams.ValidatedStreamSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

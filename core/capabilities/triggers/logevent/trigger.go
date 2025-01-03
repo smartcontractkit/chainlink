@@ -67,6 +67,11 @@ func newLogEventTrigger(ctx context.Context,
 		return nil, nil, err
 	}
 
+	err = contractReader.Start(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Get current block HEAD/tip of the blockchain to start polling from
 	latestHead, err := relayer.LatestHead(ctx)
 	if err != nil {

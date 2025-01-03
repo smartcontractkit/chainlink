@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
@@ -54,18 +55,6 @@ func Test_Client_DonTopologies(t *testing.T) {
 		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 		require.NoError(t, err)
 		executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-	})
-
-	methods = append(methods, func(caller commoncap.ExecutableCapability) {
-		registerToWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.NoError(t, responseError)
-		}, t)
-	})
-
-	methods = append(methods, func(caller commoncap.ExecutableCapability) {
-		unregisterFromWorkflowMethod(ctx, caller, transmissionSchedule, func(t *testing.T, responseError error) {
-			require.NoError(t, responseError)
-		}, t)
 	})
 
 	for _, method := range methods {
@@ -260,34 +249,6 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	wg.Wait()
 }
 
-func registerToWorkflowMethod(ctx context.Context, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map,
-	responseTest func(t *testing.T, responseError error), t *testing.T) {
-	err := caller.RegisterToWorkflow(ctx, commoncap.RegisterToWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
-}
-
-func unregisterFromWorkflowMethod(ctx context.Context, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map,
-	responseTest func(t *testing.T, responseError error), t *testing.T) {
-	err := caller.UnregisterFromWorkflow(ctx, commoncap.UnregisterFromWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
-}
-
 func executeMethod(ctx context.Context, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map,
 	executeInputs *values.Map, responseTest func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error), t *testing.T) {
 	responseCh, err := caller.Execute(ctx,
@@ -358,21 +319,6 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 			resp, responseErr := t.executableCapability.Execute(context.Background(), capabilityRequest)
 			payload, marshalErr := pb.MarshalCapabilityResponse(resp)
 			t.sendResponse(messageID, responseErr, payload, marshalErr)
-
-		case remotetypes.MethodRegisterToWorkflow:
-			registerRequest, err := pb.UnmarshalRegisterToWorkflowRequest(msg.Payload)
-			if err != nil {
-				panic(err)
-			}
-			responseErr := t.executableCapability.RegisterToWorkflow(context.Background(), registerRequest)
-			t.sendResponse(messageID, responseErr, nil, nil)
-		case remotetypes.MethodUnregisterFromWorkflow:
-			unregisterRequest, err := pb.UnmarshalUnregisterFromWorkflowRequest(msg.Payload)
-			if err != nil {
-				panic(err)
-			}
-			responseErr := t.executableCapability.UnregisterFromWorkflow(context.Background(), unregisterRequest)
-			t.sendResponse(messageID, responseErr, nil, nil)
 		default:
 			panic("unknown method")
 		}

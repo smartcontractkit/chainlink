@@ -13,7 +13,7 @@ import (
 type ChainReaderTester struct {
 	BoundContract  types.BoundContract
 	ContractReader types.ContractReader
-	ChainWriter    types.ChainWriter
+	ChainWriter    types.ContractWriter
 }
 
 type AccountStruct struct {

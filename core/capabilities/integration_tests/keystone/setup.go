@@ -18,7 +18,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
+	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -130,7 +130,7 @@ func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) [
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
 	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
 		BenchmarkPrice: price,
-		//nolint:gosec // disable G115
+
 		Timestamp: uint32(timestamp),
 		Bid:       big.NewInt(0),
 		Ask:       big.NewInt(0),

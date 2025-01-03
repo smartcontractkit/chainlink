@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -87,6 +87,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameOffRampGetAllSourceChainConfigs: {
 					ChainSpecificName: mustGetMethodName("getAllSourceChainConfigs", offrampABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameOffRampLatestConfigDetails: {
+					ChainSpecificName: mustGetMethodName("latestConfigDetails", offrampABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 				consts.EventNameCommitReportAccepted: {
@@ -177,6 +181,10 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetReportDigestHeader: {
 					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},
@@ -282,6 +290,23 @@ var SourceReaderConfig = evmrelaytypes.ChainReaderConfig{
 				},
 				consts.MethodNameGetFeeTokens: {
 					ChainSpecificName: mustGetMethodName("getFeeTokens", feeQuoterABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+			},
+		},
+		consts.ContractNameRMNRemote: {
+			ContractABI: rmn_remote.RMNRemoteABI,
+			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+				consts.MethodNameGetVersionedConfig: {
+					ChainSpecificName: mustGetMethodName("getVersionedConfig", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetReportDigestHeader: {
+					ChainSpecificName: mustGetMethodName("getReportDigestHeader", rmnRemoteABI),
+					ReadType:          evmrelaytypes.Method,
+				},
+				consts.MethodNameGetCursedSubjects: {
+					ChainSpecificName: mustGetMethodName("getCursedSubjects", rmnRemoteABI),
 					ReadType:          evmrelaytypes.Method,
 				},
 			},

@@ -25,6 +25,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -55,8 +56,9 @@ const fee = int64(100) // Amount paid by FA contract, in LINK-wei
 const faTimeout = uint32(1)
 
 var pollTimerPeriod = 200 * time.Millisecond // if failing due to timeouts, increase this
-var oneEth = big.NewInt(1000000000000000000)
 var emptyList = []common.Address{}
+
+func oneEth() *big.Int { return big.NewInt(1000000000000000000) }
 
 // fluxAggregatorUniverse represents the universe with which the aggregator
 // contract interacts
@@ -94,7 +96,7 @@ func WithMinMaxSubmission(min, max *big.Int) func(cfg *fluxAggregatorUniverseCon
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAggregatorUniverseConfig)) fluxAggregatorUniverse {
-	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
+	tests.SkipShort(t, "VRFCoordinatorV2Universe")
 	cfg := &fluxAggregatorUniverseConfig{
 		MinSubmission: big.NewInt(0),
 		MaxSubmission: big.NewInt(100000000000),
@@ -162,7 +164,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 
 	f.sergey.GasLimit = oldGasLimit
 
-	_, err = f.linkContract.Transfer(f.sergey, f.aggregatorContractAddress, oneEth) // Actually, LINK
+	_, err = f.linkContract.Transfer(f.sergey, f.aggregatorContractAddress, oneEth()) // Actually, LINK
 	require.NoError(t, err, "failed to fund FluxAggregator contract with LINK")
 	f.backend.Commit()
 
@@ -172,9 +174,9 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.backend.Commit()
 	availableFunds, err := f.aggregatorContract.AvailableFunds(nil)
 	require.NoError(t, err, "failed to retrieve AvailableFunds")
-	require.Equal(t, availableFunds, oneEth)
+	require.Equal(t, availableFunds, oneEth())
 
-	ilogs, err := f.aggregatorContract.FilterAvailableFundsUpdated(nil, []*big.Int{oneEth})
+	ilogs, err := f.aggregatorContract.FilterAvailableFundsUpdated(nil, []*big.Int{oneEth()})
 	require.NoError(t, err, "failed to gather AvailableFundsUpdated logs")
 
 	logs := cltest.GetLogs(t, nil, ilogs)

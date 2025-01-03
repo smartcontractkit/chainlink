@@ -164,7 +164,6 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, id=%s, name=%q, expected string got %T", trr.Task.DotID(), bridgeName, trr.Result.Value), "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
@@ -654,7 +653,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
-		lggr.Warn("cannot parse enhanced EA telemetry benchmark price, task is nil")
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
@@ -668,7 +666,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 
 	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
 	if bidTask == nil {
-		lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, 0, 0
 	}
 
@@ -678,7 +675,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
 	if askTask == nil {
-		lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, bidPrice, 0
 	}
 	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {

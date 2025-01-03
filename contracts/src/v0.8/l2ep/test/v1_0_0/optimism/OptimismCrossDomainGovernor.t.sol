@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {OptimismCrossDomainGovernor} from "../../../dev/optimism/OptimismCrossDomainGovernor.sol";
+import {OptimismCrossDomainGovernor} from "../../../optimism/OptimismCrossDomainGovernor.sol";
 import {MockOVMCrossDomainMessenger} from "../../mocks/optimism/MockOVMCrossDomainMessenger.sol";
 import {Greeter} from "../../../../tests/Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";

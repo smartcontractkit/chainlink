@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
 # profile defined and use the Foundry snapshots.
-ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared transmission workflow
+ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared workflow
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -43,7 +43,7 @@ mockery: $(mockery) ## Install mockery.
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --version nightly-3ff3d0562215bca620e07c5c4c154eec8da0f04b
+	foundryup --version nightly-aa69ed1e46dd61fbf9d73399396a4db4dd527431
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry

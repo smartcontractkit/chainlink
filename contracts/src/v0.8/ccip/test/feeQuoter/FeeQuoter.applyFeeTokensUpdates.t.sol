@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
-  function test_ApplyFeeTokensUpdates_Success() public {
+  function test_ApplyFeeTokensUpdates() public {
     address[] memory feeTokens = new address[](1);
     feeTokens[0] = s_sourceTokens[1];
 
@@ -48,7 +48,7 @@ contract FeeQuoter_applyFeeTokensUpdates is FeeQuoterSetup {
     s_feeQuoter.applyFeeTokensUpdates(feeTokens, feeTokens);
   }
 
-  function test_OnlyCallableByOwner_Revert() public {
+  function test_RevertWhen_OnlyCallableByOwner() public {
     vm.startPrank(STRANGER);
 
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);

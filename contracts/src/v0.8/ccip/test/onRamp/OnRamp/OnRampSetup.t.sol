@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IRouter} from "../../../interfaces/IRouter.sol";
 
@@ -75,7 +75,6 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     return _messageToEvent(
       message,
       SOURCE_CHAIN_SELECTOR,
-      DEST_CHAIN_SELECTOR,
       seqNum,
       nonce,
       feeTokenAmount,
@@ -89,7 +88,6 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   function _messageToEvent(
     Client.EVM2AnyMessage memory message,
     uint64 sourceChainSelector,
-    uint64 destChainSelector,
     uint64 seqNum,
     uint64 nonce,
     uint256 feeTokenAmount,
@@ -99,13 +97,13 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     TokenAdminRegistry tokenAdminRegistry
   ) internal view returns (Internal.EVM2AnyRampMessage memory) {
     Client.EVMExtraArgsV2 memory extraArgs =
-      s_feeQuoter.parseEVMExtraArgsFromBytes(message.extraArgs, destChainSelector);
+      s_feeQuoter.parseEVMExtraArgsFromBytes(message.extraArgs, DEST_CHAIN_SELECTOR);
 
     Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
       header: Internal.RampMessageHeader({
         messageId: "",
         sourceChainSelector: sourceChainSelector,
-        destChainSelector: destChainSelector,
+        destChainSelector: DEST_CHAIN_SELECTOR,
         sequenceNumber: seqNum,
         nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
       }),

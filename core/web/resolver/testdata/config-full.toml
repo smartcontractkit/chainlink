@@ -247,6 +247,7 @@ CertFile = ''
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
+TransmitConcurrency = 456
 
 [Capabilities]
 [Capabilities.Peering]
@@ -274,6 +275,11 @@ PerSenderRPS = 10.0
 PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
+[Capabilities.WorkflowRegistry]
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
@@ -331,6 +337,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '15m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = true
 MaxInFlight = 19
 MaxQueued = 99
@@ -491,6 +498,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'

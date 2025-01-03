@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
-import {IRMN} from "../../interfaces/IRMN.sol";
 import {IRMNRemote} from "../../interfaces/IRMNRemote.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
@@ -45,7 +44,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     OffRampSetup.setUp();
 
     // Deploy new source router for the new source chain
-    s_sourceRouter2 = new Router(s_sourceRouter.getWrappedNative(), address(s_mockRMN));
+    s_sourceRouter2 = new Router(s_sourceRouter.getWrappedNative(), address(s_mockRMNRemote));
 
     // Deploy new TokenAdminRegistry for the new source chain
     s_tokenAdminRegistry2 = new TokenAdminRegistry();
@@ -54,7 +53,14 @@ contract E2E is OnRampSetup, OffRampSetup {
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
       address token = s_sourceTokens[i];
       address pool = address(
-        new LockReleaseTokenPool(IERC20(token), new address[](0), address(s_mockRMN), true, address(s_sourceRouter2))
+        new LockReleaseTokenPool(
+          IERC20(token),
+          DEFAULT_TOKEN_DECIMALS,
+          new address[](0),
+          address(s_mockRMNRemote),
+          true,
+          address(s_sourceRouter2)
+        )
       );
 
       s_sourcePoolByDestPool[s_destPoolBySourceToken[token]] = pool;
@@ -76,7 +82,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     s_nonceManager2 = new NonceManager(new address[](0));
 
     (
-      // Deploy the new source chain onramp
+      // Deploy the new source chain onRamp
       // Outsource to shared helper function with OnRampSetup
       s_onRamp2,
       s_metadataHash2
@@ -95,10 +101,10 @@ contract E2E is OnRampSetup, OffRampSetup {
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: address(s_onRamp2)});
     s_sourceRouter2.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
 
-    // Deploy offramp
+    // Deploy offRamp
     _deployOffRamp(s_mockRMNRemote, s_inboundNonceManager);
 
-    // Enable source chains on offramp
+    // Enable source chains on offRamp
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](2);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
@@ -160,7 +166,7 @@ contract E2E is OnRampSetup, OffRampSetup {
       merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
       merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
-      // TODO make these real sigs :)
+      // TODO make these real sigs
       IRMNRemote.Signature[] memory rmnSignatures = new IRMNRemote.Signature[](0);
 
       Internal.MerkleRoot[] memory roots = new Internal.MerkleRoot[](2);
@@ -189,9 +195,6 @@ contract E2E is OnRampSetup, OffRampSetup {
 
     // Scoped to RMN and verify to reduce stack pressure
     {
-      s_mockRMN.setTaggedRootBlessed(IRMN.TaggedRoot({commitStore: address(s_offRamp), root: merkleRoots[0]}), true);
-      s_mockRMN.setTaggedRootBlessed(IRMN.TaggedRoot({commitStore: address(s_offRamp), root: merkleRoots[1]}), true);
-
       bytes32[] memory proofs = new bytes32[](0);
       bytes32[] memory hashedLeaves = new bytes32[](1);
       hashedLeaves[0] = merkleRoots[0];
@@ -262,16 +265,7 @@ contract E2E is OnRampSetup, OffRampSetup {
 
     message.receiver = abi.encode(address(s_receiver));
     Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
-      message,
-      sourceChainSelector,
-      DEST_CHAIN_SELECTOR,
-      expectedSeqNum,
-      nonce,
-      feeAmount,
-      feeAmount,
-      OWNER,
-      metadataHash,
-      tokenAdminRegistry
+      message, sourceChainSelector, expectedSeqNum, nonce, feeAmount, feeAmount, OWNER, metadataHash, tokenAdminRegistry
     );
 
     vm.expectEmit();

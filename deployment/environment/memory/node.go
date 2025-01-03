@@ -78,6 +78,10 @@ func NewNode(
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
+		// we're only mapping evm chains here
+		if family, err := chainsel.GetSelectorFamily(chain.Selector); err != nil || family != chainsel.FamilyEVM {
+			continue
+		}
 		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
@@ -282,6 +286,8 @@ func CreateKeys(t *testing.T,
 		}
 		backend := chain.Client.(*Backend).Sim
 		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
+		// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
+		fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 	}
 
 	return Keys{
