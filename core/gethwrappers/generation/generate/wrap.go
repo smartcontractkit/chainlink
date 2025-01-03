@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/gen_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/genwrapper"
 )
 
 func main() {
@@ -12,5 +12,5 @@ func main() {
 	className := os.Args[3]
 	pkgName := os.Args[4]
 
-	gen_wrapper.GenWrapper(abiPath, binPath, className, pkgName)
+	genwrapper.GenWrapper(abiPath, binPath, className, pkgName)
 }

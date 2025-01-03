@@ -1,4 +1,4 @@
-package gen_wrapper
+package genwrapper
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 )
 
 func GenWrapper(abiPath string, binPath string, className string, pkgName string) {
-
 	fmt.Println("Generating", pkgName, "contract wrapper")
 
 	cwd, err := os.Getwd() // gethwrappers directory

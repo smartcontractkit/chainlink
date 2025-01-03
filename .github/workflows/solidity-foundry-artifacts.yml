@@ -134,11 +134,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Extract Foundry version
-        id: extract-foundry-version
-        uses: ./.github/actions/detect-solidity-foundry-version
-        with:
-          working-directory: contracts
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Should skip code coverage report
         id: skip-code-coverage

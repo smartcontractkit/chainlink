@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/gen_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/genwrapper"
 )
 
 const (
@@ -18,5 +18,5 @@ func main() {
 	abiPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".abi.json"
 	binPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".bin"
 
-	gen_wrapper.GenWrapper(abiPath, binPath, className, pkgName)
+	genwrapper.GenWrapper(abiPath, binPath, className, pkgName)
 }
