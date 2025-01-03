@@ -422,7 +422,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 		} else if errors.Is(err, commontypes.ErrFinalityViolated) {
 			// Replay only declares finality violation and does not resolve it, as it's possible that [fromBlock, savedFinalizedBlockNumber]
 			// does not contain the violation.
-			lp.lggr.Errorw("Replay failed due to finality violation", "fromBlock", fromBlock, "err", err)
+			lp.lggr.Criticalw("Replay failed due to finality violation", "fromBlock", fromBlock, "err", err)
 			lp.finalityViolated.Store(true)
 			lp.SvcErrBuffer.Append(err)
 		}
@@ -673,14 +673,15 @@ func (lp *logPoller) run() {
 				continue
 			}
 			err := lp.BackupPollAndSaveLogs(ctx)
-			if err != nil {
+			switch {
+			case errors.Is(err, commontypes.ErrFinalityViolated):
+				// BackupPoll only declares finality violation and does not resolve it, as it's possible that processed range
+				// does not contain the violation.
+				lp.lggr.Criticalw("Backup poll failed due to finality violation", "err", err)
+				lp.finalityViolated.Store(true)
+				lp.SvcErrBuffer.Append(err)
+			case err != nil:
 				lp.lggr.Errorw("Backup poller failed, retrying later", "err", err)
-				if errors.Is(err, commontypes.ErrFinalityViolated) {
-					// BackupPoll only declares finality violation and does not resolve it, as it's possible that processed range
-					// does not contain the violation.
-					lp.finalityViolated.Store(true)
-					lp.SvcErrBuffer.Append(err)
-				}
 			}
 		}
 	}
@@ -866,7 +867,7 @@ func convertTopics(topics []common.Hash) [][]byte {
 	return topicsForDB
 }
 
-// blocksFromLogs fetches all of the blocks associated with a given list of logs. It will also unconditionally fetch endBlockNumber,
+// blocksFromFinalizedLogs fetches all of the blocks associated with a given list of logs. It will also unconditionally fetch endBlockNumber,
 // whether or not there are any logs in the list from that block
 func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.Log, endBlockNumber uint64) (blocks []LogPollerBlock, err error) {
 	numbers := make([]uint64, 0, len(logs))
@@ -982,8 +983,6 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		// TODO: do not fetch block by number as we are storing sparse chain, there is a chance that such block won't exists
-		// it should be safer to fetch ancestor of the current block and use it to verify integrity of the chain
 		lp.lggr.Infow("Do not have previous block, first poll ever on new chain", "currentBlockNumber", currentBlockNumber)
 		return currentBlock, nil
 	}
@@ -1022,12 +1021,15 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	err := lp.pollAndSaveLogs(ctx, currentBlockNumber)
+	if errors.Is(err, commontypes.ErrFinalityViolated) {
+		lp.lggr.Criticalw("Failed to poll and save logs due to finality violation, retrying later", "err", err)
+		lp.finalityViolated.Store(true)
+		lp.SvcErrBuffer.Append(err)
+		return
+	}
+
 	if err != nil {
 		lp.lggr.Errorw("Failed to poll and save logs, retrying later", "err", err)
-		if errors.Is(err, commontypes.ErrFinalityViolated) {
-			lp.finalityViolated.Store(true)
-			lp.SvcErrBuffer.Append(err)
-		}
 		return
 	}
 

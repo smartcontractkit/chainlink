@@ -703,7 +703,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
-		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{}}, nil).Once()
+		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{BlockNumber: 5}}, nil).Once()
 		mockBatchCallContext(t, ec)
 		// insert finalized block with different hash than in RPC
 		require.NoError(t, orm.InsertBlock(tests.Context(t), common.HexToHash("0x123"), 2, time.Unix(10, 0), 2))
@@ -717,14 +717,12 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		finalized := newHead(5)
 		latest := newHead(16)
-		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).RunAndReturn(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
-			return latest, finalized, nil
-		}).Once()
+		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
 		ec := evmclimocks.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
-		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{}}, nil).Once()
+		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{BlockNumber: 5}}, nil).Once()
 		mockBatchCallContextWithHead(t, ec, func(num int64) evmtypes.Head {
 			// return new hash for every call
 			return evmtypes.Head{Number: num, Hash: utils.NewHash()}
@@ -733,10 +731,42 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		lp.PollAndSaveLogs(tests.Context(t), 4)
 		require.ErrorIs(t, lp.HealthReport()[lp.Name()], commontypes.ErrFinalityViolated)
 	})
-
-	// ec.EXPECT().HeadByHash(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
-	//			return &evmtypes.Head{Number: hash.Big().Int64(), Hash: hash}, nil
-	//		})
+	t.Run("Log's hash does not match block's", func(t *testing.T) {
+		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
+		orm := NewORM(testutils.NewRandomEVMChainID(), db, lggr)
+		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		finalized := newHead(5)
+		latest := newHead(16)
+		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
+		ec := evmclimocks.NewClient(t)
+		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
+			return newHead(number.Int64()), nil
+		})
+		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{BlockNumber: 5, BlockHash: common.HexToHash("0x123")}}, nil).Once()
+		mockBatchCallContext(t, ec)
+		lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
+		lp.PollAndSaveLogs(tests.Context(t), 4)
+		require.ErrorIs(t, lp.HealthReport()[lp.Name()], commontypes.ErrFinalityViolated)
+	})
+	t.Run("Happy path", func(t *testing.T) {
+		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
+		chainID := testutils.NewRandomEVMChainID()
+		orm := NewORM(chainID, db, lggr)
+		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		finalized := newHead(5)
+		latest := newHead(16)
+		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
+		ec := evmclimocks.NewClient(t)
+		ec.EXPECT().ConfiguredChainID().Return(chainID)
+		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
+			return newHead(number.Int64()), nil
+		})
+		ec.EXPECT().FilterLogs(mock.Anything, mock.Anything).Return([]types.Log{{BlockNumber: 5, BlockHash: common.BigToHash(big.NewInt(5)), Topics: []common.Hash{{}}}}, nil).Once()
+		mockBatchCallContext(t, ec)
+		lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
+		lp.PollAndSaveLogs(tests.Context(t), 4)
+		require.NoError(t, lp.HealthReport()[lp.Name()])
+	})
 }
 
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
