@@ -270,7 +270,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	if !exists {
 		return nil, nil, fmt.Errorf("unsupported chain %v", chainFamily)
 	}
-	messageHasher := plugin.MessageHasher(i.lggr.Named("MessageHasherV1"))
+	messageHasher := plugin.MessageHasher(i.lggr.Named(chainFamily).Named("MessageHasherV1"))
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
@@ -287,7 +287,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			publicConfig.DeltaRound,
 		)
 
-		rmnCrypto := plugin.RMNCrypto(i.lggr.Named("RMNCrypto"))
+		rmnCrypto := plugin.RMNCrypto(i.lggr.Named(chainFamily).Named("RMNCrypto"))
 
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
