@@ -58,7 +58,6 @@ func Accumulate(s []*big.Int) (r *big.Int) {
 	return
 }
 
-// nolint
 var (
 	Zero  = big.NewInt(0)
 	One   = big.NewInt(1)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"sort"
@@ -441,7 +442,15 @@ func (m *MissingLogs) IsEmpty() bool {
 }
 
 // GetMissingLogs returns a map of CL node name to missing logs in that node compared to EVM node to which the provided evm client is connected
-func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmitter, client *seth.Client, clnodeCluster *test_env.ClCluster, l zerolog.Logger, coreLogger core_logger.SugaredLogger, cfg *lp_config.Config) (MissingLogs, error) {
+func GetMissingLogs(
+	startBlock, endBlock int64,
+	logEmitters []*contracts.LogEmitter,
+	client *seth.Client,
+	clnodeCluster *test_env.ClCluster,
+	l zerolog.Logger,
+	coreLogger core_logger.SugaredLogger,
+	cfg *lp_config.Config,
+) (MissingLogs, error) {
 	wg := &sync.WaitGroup{}
 
 	type dbQueryResult struct {
@@ -564,6 +573,12 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 			missingLogs := make([]geth_types.Log, 0)
 			for i, evmLog := range allLogsInEVMNode {
 				logFound := false
+				if evmLog.BlockNumber > math.MaxInt64 {
+					panic(fmt.Errorf("block number overflows int64: %d", evmLog.BlockNumber))
+				}
+				if evmLog.Index > math.MaxInt64 {
+					panic(fmt.Errorf("index overflows int64: %d", evmLog.Index))
+				}
 				for _, logPollerLog := range allLogPollerLogs[nodeName] {
 					if logPollerLog.BlockNumber == int64(evmLog.BlockNumber) && logPollerLog.TxHash == evmLog.TxHash && bytes.Equal(logPollerLog.Data, evmLog.Data) && logPollerLog.LogIndex == int64(evmLog.Index) &&
 						logPollerLog.Address == evmLog.Address && logPollerLog.BlockHash == evmLog.BlockHash && bytes.Equal(logPollerLog.Topics[0][:], evmLog.Topics[0].Bytes()) {
@@ -982,6 +997,9 @@ func GetEndBlockToWaitFor(endBlock int64, network blockchain.EVMNetwork, cfg *lp
 		return endBlock + 1, nil
 	}
 
+	if network.FinalityDepth > math.MaxInt64 {
+		return -1, fmt.Errorf("finality depth overflows int64: %d", network.FinalityDepth)
+	}
 	return endBlock + int64(network.FinalityDepth), nil
 }
 

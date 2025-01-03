@@ -36,7 +36,7 @@ contract EtherSenderReceiverTest_validateFeeToken is EtherSenderReceiverTestSetu
     s_etherSenderReceiver.validateFeeToken{value: AMOUNT}(message);
   }
 
-  function test_validateFeeToken_reverts_feeToken_tokenAmountNotEqualToMsgValue() public {
+  function test_RevertWhen_validateFeeTokens_feeToken_tokenAmountNotEqualToMsgValue() public {
     Client.EVMTokenAmount[] memory tokenAmount = new Client.EVMTokenAmount[](1);
     tokenAmount[0] = Client.EVMTokenAmount({token: address(s_weth), amount: AMOUNT});
     Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({

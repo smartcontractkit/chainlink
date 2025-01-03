@@ -209,7 +209,7 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTime
 }
 
 func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
-	//nolint sqlclosecheck false positive
+	//nolint:sqlclosecheck // false positive
 	rows, err := d.ds.QueryContext(ctx, `
 SELECT
 	config_digest,

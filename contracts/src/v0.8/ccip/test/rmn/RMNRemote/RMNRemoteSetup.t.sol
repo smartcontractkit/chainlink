@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
+import {IRMN} from "../../../interfaces/IRMN.sol";
 import {IRMNRemote} from "../../../interfaces/IRMNRemote.sol";
+
 import {Internal} from "../../../libraries/Internal.sol";
 import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {BaseTest} from "../../BaseTest.t.sol";
@@ -21,9 +23,11 @@ contract RMNRemoteSetup is BaseTest {
   bytes16 internal constant CURSE_SUBJ_2 = bytes16(keccak256("subject 2"));
   bytes16[] internal s_curseSubjects;
 
+  IRMN internal s_legacyRMN = IRMN(makeAddr("legacyRMN"));
+
   function setUp() public virtual override {
     super.setUp();
-    s_rmnRemote = new RMNRemote(1);
+    s_rmnRemote = new RMNRemote(1, s_legacyRMN);
     OFF_RAMP_ADDRESS = makeAddr("OFF RAMP");
     s_curseSubjects = [CURSE_SUBJ_1, CURSE_SUBJ_2];
 
@@ -45,7 +49,7 @@ contract RMNRemoteSetup is BaseTest {
     }
 
     for (uint256 i = 0; i < numSigners; ++i) {
-      s_signerWallets.push(vm.createWallet(_randomNum()));
+      s_signerWallets.push(vm.createWallet(vm.randomUint()));
     }
 
     _sort(s_signerWallets);
@@ -80,11 +84,11 @@ contract RMNRemoteSetup is BaseTest {
 
   /// @notice generates a random dest lane update
   function _generateRandomDestLaneUpdate() private returns (Internal.MerkleRoot memory) {
-    uint64 minSeqNum = uint32(_randomNum());
+    uint64 minSeqNum = uint32(vm.randomUint());
     uint64 maxSeqNum = minSeqNum + 100;
     return Internal.MerkleRoot({
-      sourceChainSelector: uint64(_randomNum()),
-      onRampAddress: abi.encode(_randomAddress()),
+      sourceChainSelector: uint64(vm.randomUint()),
+      onRampAddress: abi.encode(vm.randomAddress()),
       minSeqNr: minSeqNum,
       maxSeqNr: maxSeqNum,
       merkleRoot: _randomBytes32()
@@ -142,5 +146,10 @@ contract RMNRemoteSetup is BaseTest {
         return;
       }
     }
+  }
+
+  /// @dev returns a pseudo-random bytes32
+  function _randomBytes32() internal returns (bytes32) {
+    return bytes32(vm.randomUint());
   }
 }

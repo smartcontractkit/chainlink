@@ -27,6 +27,7 @@ var (
 	Version1_1_0     = *semver.MustParse("1.1.0")
 	Version1_2_0     = *semver.MustParse("1.2.0")
 	Version1_5_0     = *semver.MustParse("1.5.0")
+	Version1_5_1     = *semver.MustParse("1.5.1")
 	Version1_6_0_dev = *semver.MustParse("1.6.0-dev")
 )
 
@@ -88,26 +89,33 @@ type AddressBook interface {
 	Remove(ab AddressBook) error
 }
 
+type AddressesByChain map[uint64]map[string]TypeAndVersion
+
 type AddressBookMap struct {
-	addressesByChain map[uint64]map[string]TypeAndVersion
+	addressesByChain AddressesByChain
 	mtx              sync.RWMutex
 }
 
-// save will save an address for a given chain selector. It will error if there is a conflicting existing address.
+// Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	family, err := chainsel.GetSelectorFamily(chainSelector)
+	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
-	if address == "" || address == common.HexToAddress("0x0").Hex() {
-		return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
+	if family == chainsel.FamilyEVM {
+		if address == "" || address == common.HexToAddress("0x0").Hex() {
+			return errors.Wrap(ErrInvalidAddress, "address cannot be empty")
+		}
+		if common.IsHexAddress(address) {
+			// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
+			address = common.HexToAddress(address).Hex()
+		} else {
+			return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported for EVM chains", address)
+		}
 	}
-	if common.IsHexAddress(address) {
-		// IMPORTANT: WE ALWAYS STANDARDIZE ETHEREUM ADDRESS STRINGS TO EIP55
-		address = common.HexToAddress(address).Hex()
-	} else {
-		return errors.Wrapf(ErrInvalidAddress, "address %s is not a valid Ethereum address, only Ethereum addresses supported", address)
-	}
+
+	// TODO NONEVM-960: Add validation for non-EVM chain addresses
+
 	if typeAndVersion.Type == "" {
 		return fmt.Errorf("type cannot be empty")
 	}
@@ -142,8 +150,8 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
-	_, exists := chainsel.ChainBySelector(chainSelector)
-	if !exists {
+	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	if err != nil {
 		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
 
@@ -195,7 +203,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	// State of m.addressesByChain storage must not be changed in case of an error
 	// need to do double iteration over the address book. First validation, second actual deletion
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			if _, exists := m.addressesByChain[chainSelector][address]; !exists {
 				return errors.New("AddressBookMap does not contain address from the given address book")
 			}
@@ -203,7 +211,7 @@ func (m *AddressBookMap) Remove(ab AddressBook) error {
 	}
 
 	for chainSelector, chainAddresses := range addresses {
-		for address, _ := range chainAddresses {
+		for address := range chainAddresses {
 			delete(m.addressesByChain[chainSelector], address)
 		}
 	}
@@ -249,4 +257,42 @@ func SearchAddressBook(ab AddressBook, chain uint64, typ ContractType) (string, 
 	}
 
 	return "", fmt.Errorf("not found")
+}
+
+func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool, error) {
+	addrs, err := ab.AddressesForChain(chain)
+	if err != nil {
+		return false, err
+	}
+
+	for addr := range addrs {
+		if addr == addrToFind {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// AddressesContainBundle checks if the addresses
+// contains a single instance of all the addresses in the bundle.
+// It returns an error if there are more than one instance of a contract.
+func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeAndVersion]struct{}) (bool, error) {
+	counts := make(map[TypeAndVersion]int)
+	for wantType := range wantTypes {
+		for _, haveType := range addrs {
+			if wantType == haveType {
+				counts[wantType]++
+				if counts[wantType] > 1 {
+					return false, fmt.Errorf("found more than one instance of contract %s", wantType)
+				}
+			}
+		}
+	}
+	// Either 0 or 1, so we can just check the sum.
+	sum := 0
+	for _, count := range counts {
+		sum += count
+	}
+	return sum == len(wantTypes), nil
 }

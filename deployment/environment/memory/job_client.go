@@ -20,6 +20,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
 
 type JobClient struct {
@@ -190,14 +192,15 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		if err != nil {
 			return nil, err
 		}
-		chainID, err := chainsel.ChainIdFromSelector(selector)
-		if err != nil {
-			return nil, err
-		}
-
 		if family == chainsel.FamilyEVM {
 			// already handled above
 			continue
+		}
+
+		// NOTE: this supports non-EVM too
+		chainID, err := chainsel.GetChainIDFromSelector(selector)
+		if err != nil {
+			return nil, err
 		}
 
 		var ocrtype chaintype.ChainType
@@ -213,7 +216,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		case chainsel.FamilyAptos:
 			ocrtype = chaintype.Aptos
 		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
+			return nil, fmt.Errorf("Unsupported chain family %v", family)
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
@@ -244,7 +247,7 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(chainID)),
+				Id:   chainID,
 				Type: ctype,
 			},
 			AccountAddress: "", // TODO: support AccountAddress
@@ -294,7 +297,27 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 	// TODO: Use FMS
 	jb, err := validate.ValidatedCCIPSpec(in.Spec)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "the only supported type is currently 'ccip'") {
+			return nil, err
+		}
+		// check if it's offchainreporting2 job
+		jb, err = ocr2validate.ValidatedOracleSpecToml(
+			ctx,
+			n.App.GetConfig().OCR2(),
+			n.App.GetConfig().Insecure(),
+			in.Spec,
+			nil, // not required for validation
+		)
+		if err != nil {
+			if !strings.Contains(err.Error(), "the only supported type is currently 'offchainreporting2'") {
+				return nil, err
+			}
+			// check if it's bootstrap job
+			jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(in.Spec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate job spec only ccip, bootstrap and offchainreporting2 are supported: %w", err)
+			}
+		}
 	}
 	err = n.App.AddJobV2(ctx, &jb)
 	if err != nil {

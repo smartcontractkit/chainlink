@@ -40,6 +40,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -64,8 +65,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -693,7 +694,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -738,7 +739,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 
 func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -798,7 +799,7 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 
 func TestIntegration_OCR(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; passes local but fails CI")
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	t.Parallel()
 	tests := []struct {
 		id      int
@@ -1031,7 +1032,7 @@ observationSource = """
 
 func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {

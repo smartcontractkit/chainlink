@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -118,6 +119,9 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, erro
 		if !nodeResponse.Body.Payload.Success {
 			return 0, 0, fmt.Errorf("node response was not successful")
 		}
+	}
+	if envelope.SlotID > math.MaxUint8 {
+		return 0, 0, fmt.Errorf("slot ID overflows uint8: %d", envelope.SlotID)
 	}
 	return uint8(envelope.SlotID), envelope.Version, nil
 }

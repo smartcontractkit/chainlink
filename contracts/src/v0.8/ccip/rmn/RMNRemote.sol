@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {IRMN} from "../interfaces/IRMN.sol";
 import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 
 import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
 import {Internal} from "../libraries/Internal.sol";
-
-/// @dev An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue
-/// with a remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract
-/// is deployed, relying on isCursed().
-bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 
 /// @dev An active curse on this subject will cause isCursed() and isCursed(bytes16) to return true. Use this subject
 /// for issues affecting all of CCIP chains, or pertaining to the chain that this contract is deployed on, instead of
@@ -19,7 +15,10 @@ bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 bytes16 constant GLOBAL_CURSE_SUBJECT = 0x01000000000000000000000000000001;
 
 /// @notice This contract supports verification of RMN reports for any Any2EVM OffRamp.
-contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
+/// @dev This contract implements both the new IRMNRemote interface and the legacy IRMN interface. This is to allow for
+/// a seamless migration from the legacy RMN contract to this one. The only function that has been dropped in the newer
+/// interface is `isBlessed`. For the `isBlessed` function, this contract relays the call to the legacy RMN contract.
+contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   using EnumerableSet for EnumerableSet.Bytes16Set;
 
   error AlreadyCursed(bytes16 subject);
@@ -33,6 +32,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
   error ThresholdNotMet();
   error UnexpectedSigner();
   error ZeroValueNotAllowed();
+  error IsBlessedNotAvailable();
 
   event ConfigSet(uint32 indexed version, Config config);
   event Cursed(bytes16[] subjects);
@@ -67,6 +67,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
 
   string public constant override typeAndVersion = "RMNRemote 1.6.0-dev";
   uint64 internal immutable i_localChainSelector;
+  IRMN internal immutable i_legacyRMN;
 
   Config private s_config;
   uint32 private s_configCount;
@@ -80,11 +81,11 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
   mapping(address signer => bool exists) private s_signers; // for more gas efficient verify.
 
   /// @param localChainSelector the chain selector of the chain this contract is deployed to.
-  constructor(
-    uint64 localChainSelector
-  ) {
+  constructor(uint64 localChainSelector, IRMN legacyRMN) {
     if (localChainSelector == 0) revert ZeroValueNotAllowed();
     i_localChainSelector = localChainSelector;
+
+    i_legacyRMN = legacyRMN;
   }
 
   // ================================================================
@@ -93,7 +94,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
 
   /// @inheritdoc IRMNRemote
   function verify(
-    address offrampAddress,
+    address offRampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
     Signature[] calldata signatures
   ) external view {
@@ -109,7 +110,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
           destChainId: block.chainid,
           destChainSelector: i_localChainSelector,
           rmnRemoteContractAddress: address(this),
-          offrampAddress: offrampAddress,
+          offrampAddress: offRampAddress,
           rmnHomeContractConfigDigest: s_config.rmnHomeContractConfigDigest,
           merkleRoots: merkleRoots
         })
@@ -248,24 +249,40 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote {
   }
 
   /// @inheritdoc IRMNRemote
-  function isCursed() external view returns (bool) {
+  function isCursed() external view override(IRMN, IRMNRemote) returns (bool) {
     // There are zero curses under normal circumstances, which means it's cheaper to check for the absence of curses.
-    // than to check the subject list twice, as we have to check for both the legacy and global curse subjects.
+    // than to check the subject list for the global curse subject.
     if (s_cursedSubjects.length() == 0) {
       return false;
     }
-    return s_cursedSubjects.contains(LEGACY_CURSE_SUBJECT) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
+    return s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
   }
 
   /// @inheritdoc IRMNRemote
   function isCursed(
     bytes16 subject
-  ) external view returns (bool) {
+  ) external view override(IRMN, IRMNRemote) returns (bool) {
     // There are zero curses under normal circumstances, which means it's cheaper to check for the absence of curses.
     // than to check the subject list twice, as we have to check for both the given and global curse subjects.
     if (s_cursedSubjects.length() == 0) {
       return false;
     }
     return s_cursedSubjects.contains(subject) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
+  }
+
+  // ================================================================
+  // │                     Legacy pass through                      │
+  // ================================================================
+
+  /// @inheritdoc IRMN
+  /// @dev This function is only expected to be used for messages from CCIP versions below 1.6.
+  function isBlessed(
+    TaggedRoot calldata taggedRoot
+  ) external view returns (bool) {
+    if (i_legacyRMN == IRMN(address(0))) {
+      revert IsBlessedNotAvailable();
+    }
+
+    return i_legacyRMN.isBlessed(taggedRoot);
   }
 }

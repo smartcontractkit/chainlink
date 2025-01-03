@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Client} from "../../../libraries/Client.sol";
 import {OnRamp} from "../../../onRamp/OnRamp.sol";
@@ -29,19 +29,21 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
       new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken, i_receiver);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
-      address(s_facadeClient), s_sourceToken, address(s_mockRMN), address(s_sourceRouter)
+      address(s_facadeClient), s_sourceToken, address(s_mockRMNRemote), address(s_sourceRouter)
     );
+
+    bytes[] memory remotePoolAddresses = new bytes[](1);
+    remotePoolAddresses[0] = abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]);
 
     TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
-      remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
+      remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(s_destTokens[0]),
-      allowed: true,
       outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
-    s_maliciousTokenPool.applyChainUpdates(chainUpdates);
+    s_maliciousTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
     s_sourcePoolByToken[address(s_sourceToken)] = address(s_maliciousTokenPool);
 
     s_tokenAdminRegistry.setPool(address(s_sourceToken), address(s_maliciousTokenPool));
@@ -57,7 +59,7 @@ contract OnRampTokenPoolReentrancy is OnRampSetup {
   ///   (reenter)-> Facade -> 2nd call to ccipSend
   /// In this case, Facade's second call would produce an EVM2Any msg with a lower sequence number.
   /// The issue was fixed by implementing a reentrancy guard in OnRamp.
-  function test_OnRampTokenPoolReentrancy_Success() public {
+  function test_OnRampTokenPoolReentrancy() public {
     uint256 amount = 1;
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);

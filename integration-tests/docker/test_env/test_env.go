@@ -20,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/runid"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -36,7 +34,6 @@ var (
 type CLClusterTestEnv struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
-	LogStream     *logstream.LogStream
 	TestConfig    ctf_config.GlobalTestConfig
 
 	/* components */
@@ -69,7 +66,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.DockerNetwork.Name}
-		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName), test_env.WithLogStream(te.LogStream))
+		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	}
 	return te
 }
@@ -99,7 +96,6 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	builder := test_env.NewEthereumNetworkBuilder()
 	c, err := builder.WithExistingConfig(*cfg).
 		WithTest(te.t).
-		WithLogStream(te.LogStream).
 		Build()
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
@@ -132,7 +128,6 @@ func (te *CLClusterTestEnv) StartJobDistributor(cfg *ccip.JDConfig) error {
 		job_distributor.WithVersion(cfg.GetJDVersion()),
 		job_distributor.WithDBURL(jdDB.InternalURL.String()),
 	)
-	jd.LogStream = te.LogStream
 	err = jd.StartContainer()
 	if err != nil {
 		return fmt.Errorf("failed to start job-distributor: %w", err)
@@ -160,7 +155,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, te.LogStream, opts...)
+			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
 			if err != nil {
 				return err
 			}
@@ -192,11 +187,6 @@ type CleanupOpts struct {
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
 func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
-
-	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
-	if runIdErr != nil {
-		te.l.Warn().Msgf("Failed to remove .run.id file due to: %s (not a big deal, you can still remove it manually)", runIdErr.Error())
-	}
 
 	if te.t == nil {
 		return fmt.Errorf("cannot cleanup test environment without a testing.T")

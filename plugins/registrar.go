@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 )
 
-// RegistrarConfig generates contains static configuration inher
+// RegistrarConfig generates contains static configuration
 type RegistrarConfig interface {
 	RegisterLOOP(config CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error)
 	UnregisterLOOP(ID string)

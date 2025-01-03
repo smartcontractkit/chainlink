@@ -8,11 +8,12 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestNode(t *testing.T) {
-	chains := NewMemoryChains(t, 3)
+	chains, _ := NewMemoryChains(t, 3, 5)
 	ports := freeport.GetN(t, 1)
 	node := NewNode(t, ports[0], chains, zapcore.DebugLevel, false, deployment.CapabilityRegistryConfig{})
 	// We expect 3 transmitter keys

@@ -22,6 +22,7 @@ LogBroadcasterEnabled = true
 Enabled = false
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
