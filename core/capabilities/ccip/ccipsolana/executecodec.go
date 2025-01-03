@@ -38,7 +38,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	}
 
 	var msg ccip_router.Any2SolanaRampMessage
-	if len(chainReport.Messages) != 0 {
+	if len(chainReport.Messages) > 0 {
 		// currently only allow commiting one message at a time
 		message := chainReport.Messages[0]
 		receiver, err := solana.PublicKeyFromBase58(string(message.Receiver))
