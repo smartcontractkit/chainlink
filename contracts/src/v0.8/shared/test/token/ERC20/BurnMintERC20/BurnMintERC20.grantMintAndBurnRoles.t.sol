@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity 0.8.24;
 
 import {BurnMintERC20} from "../../../../token/ERC20/BurnMintERC20.sol";
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";

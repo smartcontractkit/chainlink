@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity 0.8.24;
 
 import {Ownable2Step} from "../../access/Ownable2Step.sol";
 import {AuthorizedCallers} from "../../access/AuthorizedCallers.sol";
