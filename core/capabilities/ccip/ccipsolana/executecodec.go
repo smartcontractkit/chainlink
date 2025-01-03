@@ -31,7 +31,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	var message ccip_router.Any2SolanaRampMessage
 	chainReport := report.ChainReports[0]
 	if len(chainReport.Messages) > 0 {
-		// currently only allow commiting one message at a time
+		// currently only allow committing one message at a time
 		msg := chainReport.Messages[0]
 		tokenAmounts := make([]ccip_router.Any2SolanaTokenTransfer, 0, len(msg.TokenAmounts))
 		for _, tokenAmount := range msg.TokenAmounts {
@@ -96,7 +96,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		Message:             message,
 		OffchainTokenData:   offchainTokenData,
 		Proofs:              solanaProofs,
-		//TODO: add TokenIndexes in the cciptypes.ExecutePluginReport
+		// TODO: add TokenIndexes in the cciptypes.ExecutePluginReport
 	}
 
 	var buf bytes.Buffer
