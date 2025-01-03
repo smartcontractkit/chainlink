@@ -2450,5 +2450,4 @@ func TestSelectLatestFinalizedBlock(t *testing.T) {
 		require.Equal(t, int64(5), result.BlockNumber)
 		require.Equal(t, common.HexToHash("0x1231"), result.BlockHash)
 	})
-
 }

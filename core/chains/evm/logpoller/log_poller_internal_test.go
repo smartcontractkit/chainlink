@@ -671,7 +671,7 @@ func Test_FetchBlocks(t *testing.T) {
 				}
 				require.NoError(t, err)
 				for _, blockRequested := range tc.blocksRequested {
-					assert.Equal(t, blockRequested, uint64(blocks[blockRequested].Number))
+					assert.Equal(t, blockRequested, uint64(blocks[blockRequested].Number)) //nolint:gosec // G115
 				}
 			})
 		}

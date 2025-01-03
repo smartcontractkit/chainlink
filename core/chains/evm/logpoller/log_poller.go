@@ -922,7 +922,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		if len(gethLogs) == 0 {
 			continue
 		}
-		blocks, err := lp.blocksFromFinalizedLogs(ctx, gethLogs, uint64(to))
+		blocks, err := lp.blocksFromFinalizedLogs(ctx, gethLogs, uint64(to)) //nolint:gosec // G115
 		if err != nil {
 			return err
 		}
@@ -1035,7 +1035,6 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		lp.lggr.Info("PollAndSaveLogs completed successfully - removing finality violation flag")
 		lp.finalityViolated.Store(false)
 	}
-
 }
 
 func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) (err error) {
@@ -1564,7 +1563,7 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []uin
 				FinalizedBlockNumber: head.Number, // always finalized; only matters if this block is returned by LatestBlock()
 				CreatedAt:            head.CreatedAt,
 			}
-			logPollerBlocks[uint64(head.Number)] = lpBlock
+			logPollerBlocks[uint64(head.Number)] = lpBlock //nolint:gosec // G115
 			if chainValidationHead == nil || chainValidationHead.BlockNumber < lpBlock.BlockNumber {
 				chainValidationHead = &lpBlock
 			}
