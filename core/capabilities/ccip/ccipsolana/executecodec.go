@@ -24,37 +24,24 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := agbinary.NewBorshEncoder(&buf)
-
 	if len(report.ChainReports) == 0 || len(report.ChainReports) > 1 {
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
 
+	var message ccip_router.Any2SolanaRampMessage
 	chainReport := report.ChainReports[0]
-	solanaProofs := make([][32]byte, 0, len(chainReport.Proofs))
-	for _, proof := range chainReport.Proofs {
-		solanaProofs = append(solanaProofs, proof)
-	}
-
-	var msg ccip_router.Any2SolanaRampMessage
 	if len(chainReport.Messages) > 0 {
 		// currently only allow commiting one message at a time
-		message := chainReport.Messages[0]
-		receiver, err := solana.PublicKeyFromBase58(string(message.Receiver))
-		if err != nil {
-			return nil, fmt.Errorf("invalid receiver address: %s, %w", string(message.Receiver), err)
-		}
-
-		tokenAmounts := make([]ccip_router.Any2SolanaTokenTransfer, 0, len(message.TokenAmounts))
-		for _, tokenAmount := range message.TokenAmounts {
+		msg := chainReport.Messages[0]
+		tokenAmounts := make([]ccip_router.Any2SolanaTokenTransfer, 0, len(msg.TokenAmounts))
+		for _, tokenAmount := range msg.TokenAmounts {
 			if tokenAmount.Amount.IsEmpty() {
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
 			DestTokenAddress, err := solana.PublicKeyFromBase58(string(tokenAmount.DestTokenAddress))
 			if err != nil {
-				return nil, fmt.Errorf("invalid receiver address: %s, %w", string(message.Receiver), err)
+				return nil, fmt.Errorf("invalid destTokenAddress address: %w", err)
 			}
 
 			tokenAmounts = append(tokenAmounts, ccip_router.Any2SolanaTokenTransfer{
@@ -67,22 +54,27 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		}
 
 		var extraArgs ccip_router.SolanaExtraArgs
-		decoder := agbinary.NewBorshDecoder(message.ExtraArgs)
-		err = extraArgs.UnmarshalWithDecoder(decoder)
+		decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
+		err := extraArgs.UnmarshalWithDecoder(decoder)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra arguments: %w", err)
 		}
 
-		msg = ccip_router.Any2SolanaRampMessage{
+		receiver, err := solana.PublicKeyFromBase58(string(msg.Receiver))
+		if err != nil {
+			return nil, fmt.Errorf("invalid receiver address: %s, %w", string(msg.Receiver), err)
+		}
+
+		message = ccip_router.Any2SolanaRampMessage{
 			Header: ccip_router.RampMessageHeader{
-				MessageId:           message.Header.MessageID,
-				SourceChainSelector: uint64(message.Header.SourceChainSelector),
-				DestChainSelector:   uint64(message.Header.DestChainSelector),
-				SequenceNumber:      uint64(message.Header.SequenceNumber),
-				Nonce:               message.Header.Nonce,
+				MessageId:           msg.Header.MessageID,
+				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
+				DestChainSelector:   uint64(msg.Header.DestChainSelector),
+				SequenceNumber:      uint64(msg.Header.SequenceNumber),
+				Nonce:               msg.Header.Nonce,
 			},
-			Sender:       message.Sender,
-			Data:         message.Data,
+			Sender:       msg.Sender,
+			Data:         msg.Data,
 			Receiver:     receiver,
 			TokenAmounts: tokenAmounts,
 			ExtraArgs:    extraArgs,
@@ -94,13 +86,20 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		offchainTokenData = chainReport.OffchainTokenData[0]
 	}
 
+	solanaProofs := make([][32]byte, 0, len(chainReport.Proofs))
+	for _, proof := range chainReport.Proofs {
+		solanaProofs = append(solanaProofs, proof)
+	}
+
 	solanaReport := ccip_router.ExecutionReportSingleChain{
 		SourceChainSelector: uint64(chainReport.SourceChainSelector),
-		Message:             msg,
+		Message:             message,
 		OffchainTokenData:   offchainTokenData,
 		Proofs:              solanaProofs,
 	}
 
+	var buf bytes.Buffer
+	encoder := agbinary.NewBorshEncoder(&buf)
 	err := solanaReport.MarshalWithEncoder(encoder)
 	if err != nil {
 		return nil, err
@@ -115,10 +114,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	err := executeReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
-	}
-
-	report := cciptypes.ExecutePluginReport{
-		ChainReports: make([]cciptypes.ExecutePluginReportSingleChain, 0, 1),
 	}
 
 	proofs := make([]cciptypes.Bytes32, 0, len(executeReport.Proofs))
@@ -180,7 +175,9 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		Proofs:              proofs,
 	}
 
-	report.ChainReports = append(report.ChainReports, chainReport)
+	report := cciptypes.ExecutePluginReport{
+		ChainReports: []cciptypes.ExecutePluginReportSingleChain{chainReport},
+	}
 
 	return report, nil
 }
