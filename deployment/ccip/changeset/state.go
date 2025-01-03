@@ -690,12 +690,14 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 			return errors.New("OffRamp contract does not exist")
 		}
 	case chain_selectors.FamilySolana:
-		_, exists := s.SolChains[chainSelector]
+		chainState, exists := s.SolChains[chainSelector]
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		// TODO: SOLANA_CCIP
-		// check for ccip router existing
+		if chainState.CcipRouter.IsZero() {
+			// should not be possible, but a defensive check.
+			return errors.New("CCIP router contract does not exist")
+		}
 	default:
 		return fmt.Errorf("unknown chain family %s", family)
 	}
