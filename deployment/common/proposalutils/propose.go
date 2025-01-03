@@ -40,7 +40,13 @@ func BuildProposalMetadata(
 }
 
 // BuildProposalFromBatches Given batches of operations, we build the metadata and timelock addresses of those opartions
-// We then return a proposal that can be executed and signed
+// We then return a proposal that can be executed and signed.
+// You can specify multiple batches for the same chain, but the only
+// usecase to do that would be you have a batch that can't fit in a single
+// transaction due to gas or calldata constraints of the chain.
+// The batches are specified separately because we eventually intend
+// to support user-specified cross chain ordering of batch execution by the tooling itself.
+// TODO: Can/should merge timelocks and proposers into a single map for the chain.
 func BuildProposalFromBatches(
 	timelocksPerChain map[uint64]common.Address,
 	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,

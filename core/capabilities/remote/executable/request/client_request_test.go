@@ -80,15 +80,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		Config: transmissionSchedule,
 	}
 
-	registerToWorkflowRequest := commoncap.RegisterToWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			WorkflowOwner: "0xaa",
-			ReferenceID:   "refID",
-		},
-		Config: transmissionSchedule,
-	}
-
 	m, err := values.NewMap(map[string]any{"response": "response1"})
 	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
@@ -167,7 +158,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		nonDonPeer := NewP2PPeerID(t)
 		msg.Sender = nonDonPeer[:]
 		err = request.OnMessage(ctx, msg)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		select {
 		case <-request.ResponseChan():
@@ -190,7 +181,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
 		err = request.OnMessage(ctx, msg)
-		require.NotNil(t, err)
+		require.Error(t, err)
 
 		select {
 		case <-request.ResponseChan():
@@ -211,7 +202,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -249,7 +240,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -299,7 +290,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
-		assert.Equal(t, 0, len(dispatcher.msgs))
+		assert.Empty(t, dispatcher.msgs)
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -316,160 +307,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		resp := capResponse.Value.Underlying["response"]
 
 		assert.Equal(t, resp, values.NewString("response1"))
-	})
-
-	t.Run("Register To Workflow Request", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := request.NewClientRegisterToWorkflowRequest(ctx, lggr, registerToWorkflowRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
-		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
-
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
-
-		msg := &types.MessageBody{
-			CapabilityId:    capInfo.ID,
-			CapabilityDonId: capDonInfo.ID,
-			CallerDonId:     workflowDonInfo.ID,
-			Method:          types.MethodRegisterToWorkflow,
-			Payload:         nil,
-			MessageId:       []byte("messageID"),
-		}
-
-		msg.Sender = capabilityPeers[0][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		msg.Sender = capabilityPeers[1][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		response := <-request.ResponseChan()
-		require.Nil(t, response.Result)
-		require.NoError(t, response.Err)
-	})
-
-	t.Run("Register To Workflow Request with error", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := request.NewClientRegisterToWorkflowRequest(ctx, lggr, registerToWorkflowRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute)
-		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
-
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
-
-		msg := &types.MessageBody{
-			CapabilityId:    capInfo.ID,
-			CapabilityDonId: capDonInfo.ID,
-			CallerDonId:     workflowDonInfo.ID,
-			Method:          types.MethodRegisterToWorkflow,
-			Payload:         nil,
-			MessageId:       []byte("messageID"),
-			Error:           types.Error_INTERNAL_ERROR,
-			ErrorMsg:        "an error",
-		}
-
-		msg.Sender = capabilityPeers[0][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		msg.Sender = capabilityPeers[1][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		response := <-request.ResponseChan()
-		require.Nil(t, response.Result)
-		assert.Equal(t, "an error", response.Err.Error())
-	})
-
-	t.Run("Unregister From Workflow Request", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := request.NewClientUnregisterFromWorkflowRequest(ctx, lggr, commoncap.UnregisterFromWorkflowRequest{
-			Metadata: commoncap.RegistrationMetadata{
-				WorkflowID: workflowID1,
-			},
-		}, capInfo, workflowDonInfo, dispatcher, 10*time.Minute)
-		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
-
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
-
-		msg := &types.MessageBody{
-			CapabilityId:    capInfo.ID,
-			CapabilityDonId: capDonInfo.ID,
-			CallerDonId:     workflowDonInfo.ID,
-			Method:          types.MethodUnregisterFromWorkflow,
-			Payload:         nil,
-			MessageId:       []byte("messageID"),
-		}
-
-		msg.Sender = capabilityPeers[0][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		msg.Sender = capabilityPeers[1][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		response := <-request.ResponseChan()
-		require.Nil(t, response.Result)
-		require.NoError(t, response.Err)
-	})
-
-	t.Run("Unregister From Workflow Request with error", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		request, err := request.NewClientUnregisterFromWorkflowRequest(ctx, lggr, commoncap.UnregisterFromWorkflowRequest{
-			Metadata: commoncap.RegistrationMetadata{
-				WorkflowID: workflowID1,
-			},
-		}, capInfo, workflowDonInfo, dispatcher, 10*time.Minute)
-		require.NoError(t, err)
-		defer request.Cancel(errors.New("test end"))
-
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
-
-		msg := &types.MessageBody{
-			CapabilityId:    capInfo.ID,
-			CapabilityDonId: capDonInfo.ID,
-			CallerDonId:     workflowDonInfo.ID,
-			Method:          types.MethodUnregisterFromWorkflow,
-			Payload:         nil,
-			MessageId:       []byte("messageID"),
-			Error:           types.Error_INTERNAL_ERROR,
-			ErrorMsg:        "an error",
-		}
-
-		msg.Sender = capabilityPeers[0][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		msg.Sender = capabilityPeers[1][:]
-		err = request.OnMessage(ctx, msg)
-		require.NoError(t, err)
-
-		response := <-request.ResponseChan()
-		require.Nil(t, response.Result)
-		assert.Equal(t, "an error", response.Err.Error())
 	})
 }
 
@@ -497,11 +334,11 @@ func (t *clientRequestTestDispatcher) HealthReport() map[string]error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
+func (t *clientRequestTestDispatcher) SetReceiver(capabilityID string, donID uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

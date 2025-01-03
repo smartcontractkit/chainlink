@@ -323,7 +323,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
 	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
-	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
+	changeset.AddLanesForAll(t, &envWithRMN, onChainState)
 	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(ctx, t, envWithRMN)
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)

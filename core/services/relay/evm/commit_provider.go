@@ -225,7 +225,7 @@ func (p *SrcCommitProvider) Start(ctx context.Context) error {
 		if p.startBlock > math.MaxInt64 {
 			return fmt.Errorf("start block overflows int64: %d", p.startBlock)
 		}
-		return p.lp.Replay(ctx, int64(p.startBlock)) //nolint:gosec // G115 false positive
+		return p.lp.Replay(ctx, int64(p.startBlock))
 	}
 	return nil
 }
@@ -236,7 +236,7 @@ func (p *DstCommitProvider) Start(ctx context.Context) error {
 		if p.startBlock > math.MaxInt64 {
 			return fmt.Errorf("start block overflows int64: %d", p.startBlock)
 		}
-		return p.lp.Replay(ctx, int64(p.startBlock)) //nolint:gosec // G115 false positive
+		return p.lp.Replay(ctx, int64(p.startBlock))
 	}
 	return nil
 }

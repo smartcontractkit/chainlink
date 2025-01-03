@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {RMNHomeTestSetup} from "./RMNHomeTestSetup.t.sol";
 
 contract RMNHome_getConfigDigests is RMNHomeTestSetup {
-  function test_getConfigDigests_success() public {
+  function test_getConfigDigests() public {
     (bytes32 activeDigest, bytes32 candidateDigest) = s_rmnHome.getConfigDigests();
     assertEq(activeDigest, ZERO_DIGEST);
     assertEq(candidateDigest, ZERO_DIGEST);

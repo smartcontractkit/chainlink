@@ -63,7 +63,7 @@ func Test_CCIPMessaging(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	require.NoError(t, changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(e.Env, state, sourceChain, destChain, false))
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		replayed bool

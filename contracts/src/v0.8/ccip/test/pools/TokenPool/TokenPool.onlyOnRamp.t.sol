@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Router} from "../../../Router.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {TokenPoolSetup} from "./TokenPoolSetup.t.sol";
 
 contract TokenPool_onlyOnRamp is TokenPoolSetup {
-  function test_onlyOnRamp_Success() public {
+  function test_onlyOnRamp() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address onRamp = makeAddr("onRamp");
 
@@ -19,7 +19,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
     s_tokenPool.onlyOnRampModifier(chainSelector);
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR + 1;
     address onRamp = makeAddr("onRamp");
 
@@ -60,7 +60,7 @@ contract TokenPool_onlyOnRamp is TokenPoolSetup {
     s_tokenPool.onlyOffRampModifier(chainSelector);
   }
 
-  function test_CallerIsNotARampOnRouter_Revert() public {
+  function test_RevertWhen_CallerIsNotARampOnRouter() public {
     uint64 chainSelector = DEST_CHAIN_SELECTOR;
     address onRamp = makeAddr("onRamp");
 

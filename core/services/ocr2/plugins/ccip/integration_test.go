@@ -29,6 +29,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
+	t.Parallel()
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
@@ -650,6 +651,7 @@ func TestIntegration_CCIP(t *testing.T) {
 
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
 func TestReorg(t *testing.T) {
+	t.Parallel()
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

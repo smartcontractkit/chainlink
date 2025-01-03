@@ -35,7 +35,7 @@ func TestAcceptAllOwnership(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployForwarder),
-			Config:    registrySel,
+			Config:    changeset.DeployForwarderRequest{},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployFeedsConsumer),
