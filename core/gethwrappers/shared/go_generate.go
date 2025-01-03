@@ -7,6 +7,7 @@ package gethwrappers
 //go:generate go run ../generation/wrap.go shared BurnMintERC20 burn_mint_erc20
 //go:generate go run ../generation/wrap.go shared WERC20Mock werc20_mock
 //go:generate go run ../generation/wrap.go shared ChainReaderTester chain_reader_tester
+//go:generate go run ../generation/wrap.go shared AggregatorV3Interface aggregator_v3_interface
 
 //go:generate go run ../generation/wrap.go vendor ERC20 erc20
 //go:generate go run ../generation/wrap.go vendor Multicall3 multicall3

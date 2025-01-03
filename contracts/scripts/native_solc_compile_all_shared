@@ -38,6 +38,7 @@ compileContract token/ERC677/LinkToken
 compileContract token/ERC20/BurnMintERC20
 compileContract test/helpers/ChainReaderTester
 compileContract mocks/WERC20Mock
+compileContract interfaces/AggregatorV3Interface
 
 compileContract openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20 vendor
 compileContract multicall/ebd8b64/src/Multicall3 vendor
