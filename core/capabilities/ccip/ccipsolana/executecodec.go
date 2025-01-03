@@ -96,6 +96,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		Message:             message,
 		OffchainTokenData:   offchainTokenData,
 		Proofs:              solanaProofs,
+		//TODO: add TokenIndexes in the cciptypes.ExecutePluginReport
 	}
 
 	var buf bytes.Buffer
@@ -114,11 +115,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	err := executeReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
-	}
-
-	proofs := make([]cciptypes.Bytes32, 0, len(executeReport.Proofs))
-	for _, proof := range executeReport.Proofs {
-		proofs = append(proofs, proof)
 	}
 
 	tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
@@ -142,30 +138,35 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
 	}
 
-	messages := make([]cciptypes.Message, 0, 1)
-	message := cciptypes.Message{
-		Header: cciptypes.RampMessageHeader{
-			MessageID:           executeReport.Message.Header.MessageId,
-			SourceChainSelector: cciptypes.ChainSelector(executeReport.Message.Header.SourceChainSelector),
-			DestChainSelector:   cciptypes.ChainSelector(executeReport.Message.Header.DestChainSelector),
-			SequenceNumber:      cciptypes.SeqNum(executeReport.Message.Header.SequenceNumber),
-			Nonce:               executeReport.Message.Header.Nonce,
-			MsgHash:             cciptypes.Bytes32{},        // todo: info not available, but not required atm
-			OnRamp:              cciptypes.UnknownAddress{}, // todo: info not available, but not required atm
+	messages := []cciptypes.Message{
+		{
+			Header: cciptypes.RampMessageHeader{
+				MessageID:           executeReport.Message.Header.MessageId,
+				SourceChainSelector: cciptypes.ChainSelector(executeReport.Message.Header.SourceChainSelector),
+				DestChainSelector:   cciptypes.ChainSelector(executeReport.Message.Header.DestChainSelector),
+				SequenceNumber:      cciptypes.SeqNum(executeReport.Message.Header.SequenceNumber),
+				Nonce:               executeReport.Message.Header.Nonce,
+				MsgHash:             cciptypes.Bytes32{},        // todo: info not available, but not required atm
+				OnRamp:              cciptypes.UnknownAddress{}, // todo: info not available, but not required atm
+			},
+			Sender:         executeReport.Message.Sender,
+			Data:           executeReport.Message.Data,
+			Receiver:       cciptypes.UnknownAddress(executeReport.Message.Receiver.String()),
+			ExtraArgs:      buf.Bytes(),
+			FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
+			FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
+			TokenAmounts:   tokenAmounts,
 		},
-		Sender:         executeReport.Message.Sender,
-		Data:           executeReport.Message.Data,
-		Receiver:       cciptypes.UnknownAddress(executeReport.Message.Receiver.String()),
-		ExtraArgs:      buf.Bytes(),
-		FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
-		FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
-		TokenAmounts:   tokenAmounts,
 	}
-	messages = append(messages, message)
 
 	offchainTokenData := make([][][]byte, 0, 1)
 	if executeReport.OffchainTokenData != nil {
 		offchainTokenData = append(offchainTokenData, executeReport.OffchainTokenData)
+	}
+
+	proofs := make([]cciptypes.Bytes32, 0, len(executeReport.Proofs))
+	for _, proof := range executeReport.Proofs {
+		proofs = append(proofs, proof)
 	}
 
 	chainReport := cciptypes.ExecutePluginReportSingleChain{
