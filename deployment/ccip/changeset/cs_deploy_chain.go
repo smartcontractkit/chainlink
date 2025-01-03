@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -81,7 +82,7 @@ func deployChainContractsForChains(
 	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
-		return fmt.Errorf("capability registry not found")
+		return errors.New("capability registry not found")
 	}
 	cr, err := capReg.GetHashedCapabilityId(
 		&bind.CallOpts{}, internal.CapabilityLabelledName, internal.CapabilityVersion)
@@ -105,12 +106,12 @@ func deployChainContractsForChains(
 		return err
 	}
 	if ccipHome.Address() != existingState.Chains[homeChainSel].CCIPHome.Address() {
-		return fmt.Errorf("ccip home address mismatch")
+		return errors.New("ccip home address mismatch")
 	}
 	rmnHome := existingState.Chains[homeChainSel].RMNHome
 	if rmnHome == nil {
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
-		return fmt.Errorf("rmn home not found")
+		return errors.New("rmn home not found")
 	}
 	deployGrp := errgroup.Group{}
 	for _, chainSel := range chainsToDeploy {
@@ -203,7 +204,7 @@ func deployChainContracts(
 					rmnLegacyAddr,
 				)
 				return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
-					rmnRemoteAddr, rmnRemote, tx, deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), err2,
+					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), Err: err2,
 				}
 			})
 		if err != nil {
@@ -243,7 +244,7 @@ func deployChainContracts(
 					RMNProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
-					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -264,7 +265,7 @@ func deployChainContracts(
 					[]common.Address{}, // Need to add onRamp after
 				)
 				return deployment.ContractDeploy[*nonce_manager.NonceManager]{
-					nonceManagerAddr, nonceManager, tx2, deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), err2,
+					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), Err: err2,
 				}
 			})
 		if err != nil {
@@ -304,7 +305,7 @@ func deployChainContracts(
 					[]fee_quoter.FeeQuoterDestChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*fee_quoter.FeeQuoter]{
-					prAddr, pr, tx2, deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), err2,
+					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), Err: err2,
 				}
 			})
 		if err != nil {
@@ -335,7 +336,7 @@ func deployChainContracts(
 					[]onramp.OnRampDestChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*onramp.OnRamp]{
-					onRampAddr, onRamp, tx2, deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), err2,
+					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), Err: err2,
 				}
 			})
 		if err != nil {

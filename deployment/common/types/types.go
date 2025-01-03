@@ -1,7 +1,7 @@
 package types
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
@@ -52,40 +52,40 @@ type OCRParameters struct {
 
 func (params OCRParameters) Validate() error {
 	if params.DeltaProgress <= 0 {
-		return fmt.Errorf("deltaProgress must be positive")
+		return errors.New("deltaProgress must be positive")
 	}
 	if params.DeltaResend <= 0 {
-		return fmt.Errorf("deltaResend must be positive")
+		return errors.New("deltaResend must be positive")
 	}
 	if params.DeltaInitial <= 0 {
-		return fmt.Errorf("deltaInitial must be positive")
+		return errors.New("deltaInitial must be positive")
 	}
 	if params.DeltaRound <= 0 {
-		return fmt.Errorf("deltaRound must be positive")
+		return errors.New("deltaRound must be positive")
 	}
 	if params.DeltaGrace <= 0 {
-		return fmt.Errorf("deltaGrace must be positive")
+		return errors.New("deltaGrace must be positive")
 	}
 	if params.DeltaCertifiedCommitRequest <= 0 {
-		return fmt.Errorf("deltaCertifiedCommitRequest must be positive")
+		return errors.New("deltaCertifiedCommitRequest must be positive")
 	}
 	if params.DeltaStage <= 0 {
-		return fmt.Errorf("deltaStage must be positive")
+		return errors.New("deltaStage must be positive")
 	}
 	if params.Rmax <= 0 {
-		return fmt.Errorf("rmax must be positive")
+		return errors.New("rmax must be positive")
 	}
 	if params.MaxDurationQuery <= 0 {
-		return fmt.Errorf("maxDurationQuery must be positive")
+		return errors.New("maxDurationQuery must be positive")
 	}
 	if params.MaxDurationObservation <= 0 {
-		return fmt.Errorf("maxDurationObservation must be positive")
+		return errors.New("maxDurationObservation must be positive")
 	}
 	if params.MaxDurationShouldAcceptAttestedReport <= 0 {
-		return fmt.Errorf("maxDurationShouldAcceptAttestedReport must be positive")
+		return errors.New("maxDurationShouldAcceptAttestedReport must be positive")
 	}
 	if params.MaxDurationShouldTransmitAcceptedReport <= 0 {
-		return fmt.Errorf("maxDurationShouldTransmitAcceptedReport must be positive")
+		return errors.New("maxDurationShouldTransmitAcceptedReport must be positive")
 	}
 	return nil
 }

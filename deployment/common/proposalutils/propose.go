@@ -1,6 +1,7 @@
 package proposalutils
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,7 +15,6 @@ import (
 const (
 	DefaultValidUntil = 72 * time.Hour
 )
-
 
 func BuildProposalMetadata(
 	chainSelectors []uint64,
@@ -55,7 +55,7 @@ func BuildProposalFromBatches(
 	minDelay time.Duration,
 ) (*timelock.MCMSWithTimelockProposal, error) {
 	if len(batches) == 0 {
-		return nil, fmt.Errorf("no operations in batch")
+		return nil, errors.New("no operations in batch")
 	}
 
 	chains := mapset.NewSet[uint64]()

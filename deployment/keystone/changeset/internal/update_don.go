@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -12,10 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"google.golang.org/protobuf/proto"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
@@ -56,10 +58,10 @@ func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 
 func (r *UpdateDonRequest) Validate() error {
 	if r.ContractSet.CapabilitiesRegistry == nil {
-		return fmt.Errorf("registry is required")
+		return errors.New("registry is required")
 	}
 	if len(r.P2PIDs) == 0 {
-		return fmt.Errorf("p2pIDs is required")
+		return errors.New("p2pIDs is required")
 	}
 	return nil
 }

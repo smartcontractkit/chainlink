@@ -1,6 +1,7 @@
 package workflowregistry
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -12,7 +13,7 @@ func Deploy(env deployment.Environment, registrySelector uint64) (deployment.Cha
 	lggr := env.Logger
 	chain, ok := env.Chains[registrySelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
 	ab := deployment.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)

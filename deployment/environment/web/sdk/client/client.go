@@ -3,12 +3,14 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/Khan/genqlient/graphql"
-	"github.com/sethvargo/go-retry"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Khan/genqlient/graphql"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
@@ -61,7 +63,7 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		endpoints:   ep,
 		credentials: creds,
 	}
-	
+
 	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
 		err := c.login()
 		if err != nil {
@@ -87,7 +89,7 @@ func (c *client) FetchCSAPublicKey(ctx context.Context) (*string, error) {
 		return nil, err
 	}
 	if keys == nil || len(keys.CsaKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no CSA keys found")
+		return nil, errors.New("no CSA keys found")
 	}
 	return &keys.CsaKeys.GetResults()[0].PublicKey, nil
 }
@@ -98,7 +100,7 @@ func (c *client) FetchP2PPeerID(ctx context.Context) (*string, error) {
 		return nil, err
 	}
 	if keys == nil || len(keys.P2pKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no P2P keys found")
+		return nil, errors.New("no P2P keys found")
 	}
 	return &keys.P2pKeys.GetResults()[0].PeerID, nil
 }
@@ -109,7 +111,7 @@ func (c *client) FetchOCR2KeyBundleID(ctx context.Context, chainType string) (st
 		return "", err
 	}
 	if keyBundles == nil || len(keyBundles.GetOcr2KeyBundles().Results) == 0 {
-		return "", fmt.Errorf("no ocr2 keybundle found, check if ocr2 is enabled")
+		return "", errors.New("no ocr2 keybundle found, check if ocr2 is enabled")
 	}
 	for _, keyBundle := range keyBundles.GetOcr2KeyBundles().Results {
 		if keyBundle.ChainType == generated.OCR2ChainType(chainType) {
@@ -125,7 +127,7 @@ func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*stri
 		return nil, err
 	}
 	if keys == nil || len(keys.EthKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no accounts found")
+		return nil, errors.New("no accounts found")
 	}
 	for _, keyDetail := range keys.EthKeys.GetResults() {
 		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
@@ -141,7 +143,7 @@ func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, err
 		return nil, err
 	}
 	if keys == nil {
-		return nil, fmt.Errorf("no accounts found")
+		return nil, errors.New("no accounts found")
 	}
 	switch generated.OCR2ChainType(chainType) {
 	case generated.OCR2ChainTypeAptos:
@@ -183,12 +185,12 @@ func (c *client) GetJobDistributor(ctx context.Context, id string) (generated.Fe
 		return generated.FeedsManagerParts{}, err
 	}
 	if res == nil {
-		return generated.FeedsManagerParts{}, fmt.Errorf("no feeds manager found")
+		return generated.FeedsManagerParts{}, errors.New("no feeds manager found")
 	}
 	if success, ok := res.GetFeedsManager().(*generated.GetFeedsManagerFeedsManager); ok {
 		return success.FeedsManagerParts, nil
 	}
-	return generated.FeedsManagerParts{}, fmt.Errorf("failed to get feeds manager")
+	return generated.FeedsManagerParts{}, errors.New("failed to get feeds manager")
 }
 
 func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error) {
@@ -238,12 +240,12 @@ func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDist
 		return "", err
 	}
 	if res == nil {
-		return "", fmt.Errorf("failed to create feeds manager chain config")
+		return "", errors.New("failed to create feeds manager chain config")
 	}
 	if success, ok := res.GetCreateFeedsManagerChainConfig().(*generated.CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess); ok {
 		return success.ChainConfig.Id, nil
 	}
-	return "", fmt.Errorf("failed to create feeds manager chain config")
+	return "", errors.New("failed to create feeds manager chain config")
 }
 
 func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string) error {
@@ -252,12 +254,12 @@ func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string)
 		return err
 	}
 	if res == nil {
-		return fmt.Errorf("failed to delete feeds manager chain config")
+		return errors.New("failed to delete feeds manager chain config")
 	}
 	if _, ok := res.GetDeleteFeedsManagerChainConfig().(*generated.DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess); ok {
 		return nil
 	}
-	return fmt.Errorf("failed to delete feeds manager chain config")
+	return errors.New("failed to delete feeds manager chain config")
 }
 
 func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error) {
@@ -266,12 +268,12 @@ func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJ
 		return nil, err
 	}
 	if proposal == nil {
-		return nil, fmt.Errorf("no job proposal found")
+		return nil, errors.New("no job proposal found")
 	}
 	if success, ok := proposal.GetJobProposal().(*generated.GetJobProposalJobProposal); ok {
 		return success, nil
 	}
-	return nil, fmt.Errorf("failed to get job proposal")
+	return nil, errors.New("failed to get job proposal")
 }
 
 func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error) {
@@ -289,7 +291,7 @@ func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bo
 			return &cmd, nil
 		}
 	}
-	return nil, fmt.Errorf("failed to approve job proposal spec")
+	return nil, errors.New("failed to approve job proposal spec")
 }
 
 func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error) {
@@ -327,7 +329,7 @@ func (c *client) login() error {
 
 	cookieHeader := res.Header.Get("Set-Cookie")
 	if cookieHeader == "" {
-		return fmt.Errorf("no cookie found in header")
+		return errors.New("no cookie found in header")
 	}
 
 	c.cookie = strings.Split(cookieHeader, ";")[0]
