@@ -204,13 +204,13 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	if rmnProxy == nil {
 		RMNProxy, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
-				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxy(
+				rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
 					chain.DeployerKey,
 					chain.Client,
 					rmnAddr,
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
-					Address: rmnProxyAddr, Contract: rmnProxy, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
+					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
