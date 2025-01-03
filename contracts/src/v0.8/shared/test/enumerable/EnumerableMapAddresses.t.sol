@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.21;
 
 import {BaseTest} from "../BaseTest.t.sol";
 import {EnumerableMapAddresses} from "../../enumerable/EnumerableMapAddresses.sol";

@@ -36,11 +36,6 @@ jobs:
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
-      - name: Extract Foundry version
-        id: extract-foundry-version
-        uses: ./.github/actions/detect-solidity-foundry-version
-        with:
-          working-directory: contracts
 
   tag-check:
     needs: [changes]
@@ -115,10 +110,16 @@ jobs:
         with:
           go-version-file: "chainlink/go.mod"
 
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          version: ${{ needs.changes.outputs.foundry-version }}
+          version: ${{ extract-foundry-version.outputs.foundry-version }}
 
       - name: Run native compile and generate wrappers
         working-directory: ./chainlink/contracts

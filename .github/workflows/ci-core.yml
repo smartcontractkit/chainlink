@@ -480,6 +480,15 @@ jobs:
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ extract-foundry-version.outputs.foundry-version }}
       - name: make generate
         run: |
           make rm-mocked
