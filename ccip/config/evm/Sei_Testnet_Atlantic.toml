@@ -1,5 +1,4 @@
 ChainID = '1328'
-ChainType = 'sei'
 # finality_depth: instant
 FinalityDepth = 10
 # block_time: ~0.4s, adding 1 second buffer
