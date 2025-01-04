@@ -11,6 +11,7 @@ RPCBlockQueryDelay = 5
 [GasEstimator]
 EIP1559DynamicFees = false
 Mode = 'BlockHistory'
+PriceMax = '3000 gwei' # recommended by ds&a
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 200
