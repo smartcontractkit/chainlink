@@ -42,7 +42,7 @@ type RMNHomeNode struct {
 
 type RMNHomeSourceChain struct {
 	ChainSelector       uint64
-	F                   uint64
+	FObserve            uint64
 	ObserverNodesBitmap *big.Int
 }
 
