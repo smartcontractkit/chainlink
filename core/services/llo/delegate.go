@@ -21,6 +21,7 @@ import (
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -59,6 +60,7 @@ type DelegateConfig struct {
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
 	DonID                  uint32
+	ChainID                string
 
 	// OCR3
 	TraceLogging                 bool
@@ -67,12 +69,12 @@ type DelegateConfig struct {
 	// One Oracle will be started for each ContractConfigTracker
 	ContractConfigTrackers []ocr2types.ContractConfigTracker
 	ContractTransmitter    ocr3types.ContractTransmitter[llotypes.ReportInfo]
-	Database               ocr3types.Database
 	OCR3MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	OffchainConfigDigester ocr2types.OffchainConfigDigester
 	OffchainKeyring        ocr2types.OffchainKeyring
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
 	LocalConfig            ocr2types.LocalConfig
+	NewOCR3DB              func(pluginID int32) ocr3types.Database
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
@@ -144,15 +146,28 @@ func (d *delegate) Start(ctx context.Context) error {
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
 				ContractTransmitter:          d.cfg.ContractTransmitter,
-				Database:                     d.cfg.Database,
+				Database:                     d.cfg.NewOCR3DB(int32(i)), // //nolint:gosec // G115 // impossible due to check on line 119
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
-				ReportingPluginFactory: datastreamsllo.NewPluginFactory(
-					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "ReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
+				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
+					datastreamsllo.NewPluginFactory(
+						d.cfg.ReportingPluginConfig,
+						psrrc,
+						d.src,
+						d.cfg.RetirementReportCodec,
+						d.cfg.ChannelDefinitionCache,
+						d.ds,
+						logger.Named(lggr, "ReportingPlugin"),
+						llo.EVMOnchainConfigCodec{},
+						d.reportCodecs,
+					),
+					lggr,
+					d.cfg.ChainID,
+					"llo",
 				),
 				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 			})

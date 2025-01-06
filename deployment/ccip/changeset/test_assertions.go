@@ -10,12 +10,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -220,8 +222,8 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 			return false
 		}
 	},
-		3*time.Minute,
-		1*time.Second,
+		tests.WaitTimeout(t),
+		2*time.Second,
 		"all commitments did not confirm",
 	)
 }
@@ -598,7 +600,7 @@ func RequireConsistently(t *testing.T, condition func() bool, duration time.Dura
 	}
 }
 
-func SeqNumberRageToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) map[SourceDestPair][]uint64 {
+func SeqNumberRangeToSlice(seqRanges map[SourceDestPair]ccipocr3.SeqNumRange) map[SourceDestPair][]uint64 {
 	flatten := make(map[SourceDestPair][]uint64)
 
 	for srcDst, seqRange := range seqRanges {
@@ -634,4 +636,20 @@ func executionStateToString(state uint8) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+func AssertEqualFeeConfig(t *testing.T, want, have fee_quoter.FeeQuoterDestChainConfig) {
+	assert.Equal(t, want.DestGasOverhead, have.DestGasOverhead)
+	assert.Equal(t, want.IsEnabled, have.IsEnabled)
+	assert.Equal(t, want.ChainFamilySelector, have.ChainFamilySelector)
+	assert.Equal(t, want.DefaultTokenDestGasOverhead, have.DefaultTokenDestGasOverhead)
+	assert.Equal(t, want.DefaultTokenFeeUSDCents, have.DefaultTokenFeeUSDCents)
+	assert.Equal(t, want.DefaultTxGasLimit, have.DefaultTxGasLimit)
+	assert.Equal(t, want.DestGasPerPayloadByte, have.DestGasPerPayloadByte)
+	assert.Equal(t, want.DestGasPerDataAvailabilityByte, have.DestGasPerDataAvailabilityByte)
+	assert.Equal(t, want.DestDataAvailabilityMultiplierBps, have.DestDataAvailabilityMultiplierBps)
+	assert.Equal(t, want.DestDataAvailabilityOverheadGas, have.DestDataAvailabilityOverheadGas)
+	assert.Equal(t, want.MaxDataBytes, have.MaxDataBytes)
+	assert.Equal(t, want.MaxNumberOfTokensPerMsg, have.MaxNumberOfTokensPerMsg)
+	assert.Equal(t, want.MaxPerMsgGasLimit, have.MaxPerMsgGasLimit)
 }

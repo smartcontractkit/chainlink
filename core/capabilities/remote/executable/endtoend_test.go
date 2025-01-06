@@ -78,7 +78,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: failed to execute capability: an error", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
@@ -102,12 +102,12 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: request expired", responseError.Error())
+			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
 		})
 	})
 
 	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Millisecond, 10, 9, 10*time.Minute,
+		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 1*time.Second, 10, 9, 10*time.Minute,
 			method)
 	}
 }
@@ -224,9 +224,9 @@ func (a *testAsyncMessageBroker) start(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case msg := <-a.sendCh:
-				receiverId := toPeerID(msg.Receiver)
+				receiverID := toPeerID(msg.Receiver)
 
-				receiver, ok := a.nodes[receiverId]
+				receiver, ok := a.nodes[receiverID]
 				if !ok {
 					panic("server not found for peer id")
 				}
@@ -299,10 +299,10 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 type abstractTestCapability struct {
 }
@@ -406,30 +406,4 @@ func executeCapability(ctx context.Context, t *testing.T, caller commoncap.Execu
 		})
 
 	responseTest(t, response, err)
-}
-
-func registerWorkflow(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, responseError error)) {
-	err := caller.RegisterToWorkflow(ctx, commoncap.RegisterToWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
-}
-
-func unregisterWorkflow(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, responseError error)) {
-	err := caller.UnregisterFromWorkflow(ctx, commoncap.UnregisterFromWorkflowRequest{
-		Metadata: commoncap.RegistrationMetadata{
-			WorkflowID:    workflowID1,
-			ReferenceID:   stepReferenceID1,
-			WorkflowOwner: workflowOwnerID,
-		},
-		Config: transmissionSchedule,
-	})
-
-	responseTest(t, err)
 }

@@ -17,17 +17,20 @@ import (
 )
 
 func Test_ReportsGeneratedGauge(t *testing.T) {
+	pluginObservationSize := 5
+	pluginOutcomeSize := 3
+
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
-		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10)},
-		"solana", "different_plugin", promOCR3ReportsGenerated, promOCR3Durations,
+		fakePlugin[bool]{reports: make([]ocr3types.ReportPlus[bool], 10), observationSize: pluginObservationSize, outcomeSize: pluginOutcomeSize},
+		"solana", "different_plugin", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[string]{err: errors.New("error")},
-		"1234", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"1234", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 
 	r1, err := plugin1.Reports(tests.Context(t), 1, nil)
@@ -57,20 +60,40 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("1234", "empty", "reports"))
 	require.Equal(t, 0, int(g4))
+
+	pluginHealth := testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues("123", "empty", "abc"))
+	require.Equal(t, 1, int(pluginHealth))
+
+	require.NoError(t, plugin1.Close())
+	pluginHealth = testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues("123", "empty", "abc"))
+	require.Equal(t, 0, int(pluginHealth))
+
+	iterations := 10
+	for i := 0; i < iterations; i++ {
+		_, err1 := plugin2.Outcome(tests.Context(t), ocr3types.OutcomeContext{}, nil, nil)
+		require.NoError(t, err1)
+	}
+	_, err1 := plugin2.Observation(tests.Context(t), ocr3types.OutcomeContext{}, nil)
+	require.NoError(t, err1)
+
+	outcomesLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "outcome"))
+	require.Equal(t, pluginOutcomeSize*iterations, int(outcomesLen))
+	observationLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "different_plugin", "observation"))
+	require.Equal(t, pluginObservationSize, int(observationLen))
 }
 
 func Test_DurationHistograms(t *testing.T) {
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin2 := newReportingPlugin(
 		fakePlugin[uint]{err: errors.New("error")},
-		"123", "empty", promOCR3ReportsGenerated, promOCR3Durations,
+		"123", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 	plugin3 := newReportingPlugin(
 		fakePlugin[uint]{},
-		"solana", "commit", promOCR3ReportsGenerated, promOCR3Durations,
+		"solana", "commit", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
 	)
 
 	for _, p := range []*reportingPlugin[uint]{plugin1, plugin2, plugin3} {
@@ -95,8 +118,10 @@ func Test_DurationHistograms(t *testing.T) {
 }
 
 type fakePlugin[RI any] struct {
-	reports []ocr3types.ReportPlus[RI]
-	err     error
+	reports         []ocr3types.ReportPlus[RI]
+	observationSize int
+	outcomeSize     int
+	err             error
 }
 
 func (f fakePlugin[RI]) Query(context.Context, ocr3types.OutcomeContext) (ocrtypes.Query, error) {
@@ -110,7 +135,7 @@ func (f fakePlugin[RI]) Observation(context.Context, ocr3types.OutcomeContext, o
 	if f.err != nil {
 		return nil, f.err
 	}
-	return ocrtypes.Observation{}, nil
+	return make([]byte, f.observationSize), nil
 }
 
 func (f fakePlugin[RI]) ValidateObservation(context.Context, ocr3types.OutcomeContext, ocrtypes.Query, ocrtypes.AttributedObservation) error {
@@ -125,7 +150,7 @@ func (f fakePlugin[RI]) Outcome(context.Context, ocr3types.OutcomeContext, ocrty
 	if f.err != nil {
 		return nil, f.err
 	}
-	return ocr3types.Outcome{}, nil
+	return make([]byte, f.outcomeSize), nil
 }
 
 func (f fakePlugin[RI]) Reports(context.Context, uint64, ocr3types.Outcome) ([]ocr3types.ReportPlus[RI], error) {

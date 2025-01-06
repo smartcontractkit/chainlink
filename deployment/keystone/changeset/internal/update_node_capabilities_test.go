@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -25,9 +25,9 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 				},
 			},
 		}
-		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*kslib.P2PSignerEnc{
-			testNop(t, "testNop"): []*kslib.P2PSignerEnc{
-				&kslib.P2PSignerEnc{
+		nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+			testNop(t, "testNop"): []*internal.P2PSignerEnc{
+				&internal.P2PSignerEnc{
 					Signer:              [32]byte{0: 1},
 					P2PKey:              testPeerID(t, "0x1"),
 					EncryptionPublicKey: [32]byte{3: 16, 4: 2},
@@ -40,7 +40,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 
 	type args struct {
 		lggr         logger.Logger
-		req          *kslib.UpdateNodeCapabilitiesImplRequest // chain and registry are set in the test setup
+		req          *internal.UpdateNodeCapabilitiesImplRequest // chain and registry are set in the test setup
 		initialState *kstest.SetupTestRegistryRequest
 	}
 	tests := []struct {
@@ -53,7 +53,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			name: "invalid request",
 			args: args{
 				lggr: lggr,
-				req: &kslib.UpdateNodeCapabilitiesImplRequest{
+				req: &internal.UpdateNodeCapabilitiesImplRequest{
 					Chain: deployment.Chain{},
 				},
 				initialState: &kstest.SetupTestRegistryRequest{},
@@ -68,7 +68,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 					P2pToCapabilities: initialp2pToCapabilities,
 					NopToNodes:        nopToNodes,
 				},
-				req: &kslib.UpdateNodeCapabilitiesImplRequest{
+				req: &internal.UpdateNodeCapabilitiesImplRequest{
 					P2pToCapabilities: map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 						testPeerID(t, "0x1"): []kcr.CapabilitiesRegistryCapability{
 							{
@@ -92,10 +92,10 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
-			tt.args.req.Registry = setupResp.Registry
 			tt.args.req.Chain = setupResp.Chain
+			tt.args.req.ContractSet = setupResp.ContractSet
 
-			got, err := kslib.UpdateNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
+			got, err := internal.UpdateNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UpdateNodeCapabilities() error = %v, wantErr %v", err, tt.wantErr)
 				return

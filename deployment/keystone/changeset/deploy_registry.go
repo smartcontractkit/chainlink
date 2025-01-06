@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ deployment.ChangeSet[uint64] = DeployCapabilityRegistry

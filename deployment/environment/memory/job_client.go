@@ -20,6 +20,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
 
 type JobClient struct {
@@ -295,7 +297,27 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 	// TODO: Use FMS
 	jb, err := validate.ValidatedCCIPSpec(in.Spec)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "the only supported type is currently 'ccip'") {
+			return nil, err
+		}
+		// check if it's offchainreporting2 job
+		jb, err = ocr2validate.ValidatedOracleSpecToml(
+			ctx,
+			n.App.GetConfig().OCR2(),
+			n.App.GetConfig().Insecure(),
+			in.Spec,
+			nil, // not required for validation
+		)
+		if err != nil {
+			if !strings.Contains(err.Error(), "the only supported type is currently 'offchainreporting2'") {
+				return nil, err
+			}
+			// check if it's bootstrap job
+			jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(in.Spec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate job spec only ccip, bootstrap and offchainreporting2 are supported: %w", err)
+			}
+		}
 	}
 	err = n.App.AddJobV2(ctx, &jb)
 	if err != nil {

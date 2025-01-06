@@ -307,17 +307,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
 
-				loader := syncer.NewWorkflowRegistryContractLoader(lggr, cfg.Capabilities().WorkflowRegistry().Address(), func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-					return relayer.NewContractReader(ctx, bytes)
-				}, eventHandler)
-
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
-				wfSyncer := syncer.NewWorkflowRegistry(lggr, func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-					return relayer.NewContractReader(ctx, bytes)
-				}, cfg.Capabilities().WorkflowRegistry().Address(),
+				wfSyncer := syncer.NewWorkflowRegistry(
+					lggr,
+					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+						return relayer.NewContractReader(ctx, bytes)
+					},
+					cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{
 						QueryCount: 100,
-					}, eventHandler, loader, workflowDonNotifier)
+					},
+					eventHandler,
+					workflowDonNotifier,
+				)
 
 				srvcs = append(srvcs, fetcher, wfSyncer)
 			}

@@ -683,9 +683,9 @@ func (d *Delegate) newServicesGenericPlugin(
 		providerClientConn = providerConn.ClientConn()
 	} else {
 		// We chose to deal with the difference between a LOOP provider and an embedded provider here rather than
-		//in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
-		//enable the medianpoc for EVM and not touch the other providers.
-		//TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
+		// in NewServerAdapter because this has a smaller blast radius, as the scope of this workaround is to
+		// enable the medianpoc for EVM and not touch the other providers.
+		// TODO: remove this workaround when the EVM relayer is running inside of an LOOPP
 		d.lggr.Info("provider is not a LOOPP provider, switching to provider server")
 
 		ps, err2 := loop.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
@@ -885,7 +885,8 @@ func (d *Delegate) newServicesMercury(
 
 	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
-	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+	// Disable OCR debug+info logging for legacy mercury jobs unless tracelogging is enabled, because its simply too verbose (150 jobs => ~50k logs per second)
+	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
@@ -1048,13 +1049,13 @@ func (d *Delegate) newServicesLLO(
 		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
 		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
 		DonID:                  pluginCfg.DonID,
+		ChainID:                rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          provider.ContractTransmitter(),
 		ContractConfigTrackers:       provider.ContractConfigTrackers(),
-		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		OCR3MonitoringEndpoint:       d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.OCR3Mercury),
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
@@ -1063,6 +1064,9 @@ func (d *Delegate) newServicesLLO(
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
 		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
+		NewOCR3DB: func(pluginID int32) ocr3types.Database {
+			return NewDB(d.ds, spec.ID, pluginID, lggr)
+		},
 	}
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {

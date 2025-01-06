@@ -74,6 +74,9 @@ func (c Chain) Name() string {
 		// we should never get here, if the selector is invalid it should not be in the environment
 		panic(err)
 	}
+	if chainInfo.ChainName == "" {
+		return fmt.Sprintf("%d", c.Selector)
+	}
 	return chainInfo.ChainName
 }
 
@@ -95,9 +98,11 @@ type Environment struct {
 	Logger            logger.Logger
 	ExistingAddresses AddressBook
 	Chains            map[uint64]Chain
+	SolChains         map[uint64]SolChain
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
+	OCRSecrets        OCRSecrets
 }
 
 func NewEnvironment(
@@ -108,6 +113,7 @@ func NewEnvironment(
 	nodeIDs []string,
 	offchain OffchainClient,
 	ctx func() context.Context,
+	secrets OCRSecrets,
 ) *Environment {
 	return &Environment{
 		Name:              name,
@@ -117,6 +123,7 @@ func NewEnvironment(
 		NodeIDs:           nodeIDs,
 		Offchain:          offchain,
 		GetContext:        ctx,
+		OCRSecrets:        secrets,
 	}
 }
 
@@ -177,7 +184,7 @@ func MaybeDataErr(err error) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)
 	if ok {
-		return d
+		return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
 	}
 	return err
 }
@@ -328,7 +335,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			Enabled: 1,
 			Ids:     nodeIDs,
 		}
-
 	}
 	nodesFromJD, err := oc.ListNodes(context.Background(), &nodev1.ListNodesRequest{
 		Filter: filter,

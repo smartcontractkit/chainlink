@@ -6,9 +6,10 @@ echo " ┌───────────────────────�
 echo " │          Compiling CCIP contracts...         │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.24"
-OPTIMIZE_RUNS=26000
-OPTIMIZE_RUNS_OFFRAMP=500
+SOLC_VERSION="0.8.26"
+OPTIMIZE_RUNS=80000
+# This has to match the value in the `ccip-viair` foundry profile.
+OPTIMIZE_RUNS_OFFRAMP=800
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -32,7 +33,7 @@ compileContract () {
       ;;
   esac
 
-  solc --overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
+  solc --overwrite --via-ir --optimize --optimize-runs $optimize_runs --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
       --bin-runtime --hashes --metadata --metadata-literal --combined-json abi,hashes,metadata,srcmap,srcmap-runtime \
@@ -40,9 +41,6 @@ compileContract () {
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-
-# Solc produces and overwrites intermediary contracts.
-# Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
 compileContract ccip/offRamp/OffRamp.sol
 compileContract ccip/FeeQuoter.sol
 compileContract ccip/onRamp/OnRamp.sol

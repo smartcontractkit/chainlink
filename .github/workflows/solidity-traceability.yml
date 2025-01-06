@@ -1,0 +1,203 @@
+# This workflow handles the enforcement of code Traceability via changesets and jira issue linking for our Solidity codebase.
+name: Solidity Traceability
+
+on:
+  merge_group:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  files-changed:
+    # The job skips on merge_group events, and any release branches, and forks
+    # Since we only want to enforce Jira issues on pull requests related to feature branches
+    if: ${{ github.event_name != 'merge_group' && !startsWith(github.head_ref, 'release/') && github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      source: ${{ steps.files-changed.outputs.source }}
+      changesets: ${{ steps.files-changed.outputs.changesets }}
+      changesets_files: ${{ steps.files-changed.outputs.changesets_files }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
+
+      - name: Filter paths
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: files-changed
+        with:
+          list-files: "csv"
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: "every"
+          filters: |
+            source:
+              - contracts/**/*.sol
+              - '!contracts/**/*.t.sol'
+            changesets:
+              - added|modified: 'contracts/.changeset/**'
+
+  enforce-traceability:
+    # Note: A job that is skipped will report its status as "Success".
+    # It will not prevent a pull request from merging, even if it is a required check.
+    needs: [files-changed]
+    # We only want to run this job if the source files have changed
+    if: ${{ needs.files-changed.outputs.source == 'true' }}
+    name: Enforce Traceability
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+      # https://github.com/planetscale/ghcommit-action/blob/c7915d6c18d5ce4eb42b0eff3f10a29fe0766e4c/README.md?plain=1#L41
+      #
+      # Include the pull request ref in the checkout action to prevent merge commit
+      # https://github.com/actions/checkout?tab=readme-ov-file#checkout-pull-request-head-commit-instead-of-merge-commit
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assume role capable of dispatching action
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
+        id: get-gh-token
+        with:
+          aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Make a comment
+        uses: thollander/actions-comment-pull-request@fabd468d3a1a0b97feee5f6b9e499eab0dd903f6 # v2.5.0
+        with:
+          message: |
+            I see you updated files related to `contracts`. Please run `pnpm changeset` in the `contracts` directory to add a changeset.
+          reactions: eyes
+          comment_tag: changeset-contracts
+          # If the changeset is added, then we delete the comment, otherwise we add it.
+          mode: ${{ needs.files-changed.outputs.changesets == 'true' && 'delete' || 'upsert' }}
+          # We only create the comment if the changeset is not added
+          create_if_not_exists: ${{ needs.files-changed.outputs.changesets == 'true' && 'false' || 'true' }}
+
+      - name: Check for new changeset for contracts
+        if: ${{ needs.files-changed.outputs.changesets == 'false' }}
+        shell: bash
+        run: |
+          echo "Please run pnpm changeset to add a changeset for contracts."
+          exit 1
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Checkout .Github repository
+        uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/.github
+          ref: 6781e048ecc1aadf7d605722c32e8068a5f829ce # jira-tracing@0.3.0
+          path: ./dot_github
+
+      # we need to set the top level directory for the jira-tracing action manually
+      # because now we are working with two repositories and automatic detection would
+      # select the repository with jira-tracing and not the chainlink repository
+      - name: Setup git top level directory
+        id: find-git-top-level-dir
+        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+
+      - name: Setup Jira
+        working-directory: ./dot_github
+        run: pnpm install --filter jira-tracing
+
+        # Because of our earlier checks, we know that both the source and changeset files have changed
+      - name: Enforce Traceability
+        working-directory: ./dot_github
+        run: |
+          echo "COMMIT_MESSAGE=$(git log -1 --pretty=format:'%s')" >> $GITHUB_ENV
+          pnpm --filter jira-tracing issue:enforce
+        env:
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          CHANGESET_KEY: "@chainlink/contracts"
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
+
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enforce Solidity Review Jira issue
+        id: enforce-solidity-review
+        working-directory: ./dot_github
+        shell: bash
+        run: |
+          # we do not want to fail the workflow if there are issues with the script
+          if ! pnpm --filter jira-tracing issue:enforce-solidity-review; then
+            echo "::warning::Failed to enforce Solidity Review Jira issue, this is not a blocking issue. You can safely ignore it."
+            echo "solidity_review_ticket_found=false" >> $GITHUB_OUTPUT
+          else
+            echo "solidity_review_ticket_found=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          CHANGESET_FILES: ${{ needs.files-changed.outputs.changesets_files }}
+          GIT_TOP_LEVEL_DIR: ${{ steps.find-git-top-level-dir.outputs.top_level_dir }}
+
+          SOLIDITY_REVIEW_TEMPLATE_KEY: 'TT-1756'
+          EXPORT_JIRA_ISSUE_KEYS: 'true'
+
+          JIRA_HOST: ${{ vars.JIRA_HOST }}
+          JIRA_USERNAME: ${{ secrets.JIRA_USERNAME }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+      # Commit appended changeset file back to repo
+      - uses: planetscale/ghcommit-action@13a844326508cdefc72235201bb0446d6d10a85f # v0.1.6
+        with:
+          commit_message: "[Bot] Update changeset file with jira issues"
+          repo: ${{ github.repository }}
+          branch: ${{ github.head_ref }}
+          file_pattern: "contracts/.changeset/*"
+        env:
+          GITHUB_TOKEN: ${{ steps.get-gh-token.outputs.access-token }}
+
+      - name: Read issue keys from env vars
+        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        shell: bash
+        id: read-issue-keys
+        run: |
+          # issue:enforce-solidity-review should have set two env vars with the issue keys
+          echo "Jira issue key related to pr: ${{ env.PR_JIRA_ISSUE_KEY }}"
+          echo "Jira issue key related to solidity review: ${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}"
+
+      - name: Find traceability comment in the PR
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.0.0
+        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: 'Solidity Review Jira issue'
+
+      - name: Create or update traceability comment in the PR
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        if: steps.enforce-solidity-review.outputs.solidity_review_ticket_found == 'true'
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Solidity Review Jira issue
+            Hey! We have taken the liberty to link this PR to a Jira issue for Solidity Review.
+            
+            This is a new feature, that's currently in the pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
+            Please reach out to the Test Tooling team and notify them about any issues you encounter.
+            
+            Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
+            
+            This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
+          edit-mode: replace

@@ -8,12 +8,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
 func TestDeployForwarder(t *testing.T) {
@@ -33,7 +34,7 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, registrySel)
+		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain
@@ -56,10 +57,10 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 				})
 
@@ -93,10 +94,10 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 					UseMCMS:         true,
 				})
@@ -110,19 +111,23 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
-					UseMCMS:          true,
+					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				}
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Len(t, csOut.Proposals, nChains)
 				require.Nil(t, csOut.AddressBook)
 
-				timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
+				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 				for selector, contractSet := range te.ContractSets() {
 					require.NotNil(t, contractSet.Timelock)
-					timelocks[selector] = contractSet.Timelock
+					require.NotNil(t, contractSet.CallProxy)
+					timelockContracts[selector] = &proposalutils.TimelockExecutionContracts{
+						Timelock:  contractSet.Timelock,
+						CallProxy: contractSet.CallProxy,
+					}
 				}
-				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelocks, []commonchangeset.ChangesetApplication{
+				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
 						Config:    cfg,

@@ -219,9 +219,20 @@ func TestChainScopedConfig(t *testing.T) {
 
 			assert.Equal(t, false, cfg3.EVM().LogBroadcasterEnabled())
 		})
+	})
 
-		t.Run("use Noop logBroadcaster when LogBroadcaster is disabled", func(t *testing.T) {
+	t.Run("EVM.Transactions.Enabled", func(t *testing.T) {
+		t.Run("turn on EVM.Transactions.Enabled by default", func(t *testing.T) {
+			assert.True(t, cfg.EVM().Transactions().Enabled())
+		})
 
+		t.Run("verify EVM.Transactions.Enabled is set correctly", func(t *testing.T) {
+			val := false
+			cfg3 := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+				c.Transactions.Enabled = ptr(val)
+			})
+
+			assert.False(t, cfg3.EVM().Transactions().Enabled())
 		})
 	})
 }
