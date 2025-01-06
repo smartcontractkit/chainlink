@@ -198,11 +198,9 @@ func calculateTokenIndexes(msg ccip_router.Any2SolanaRampMessage) []byte {
 
 	//  accounts_for_message = [users_receiver_program_id] + extraArgs.Accounts
 	counter := len(msg.ExtraArgs.Accounts) + 1
-	//  TODO: for now it's fixed amount (https://github.com/smartcontractkit/chainlink-ccip/blob/a5e767b178659e220175008ca34a22237fd85195/chains/solana/utils/tokens/tokenpool.go#L170), and there's going to be a sdn provided for calculating accounts per token transfer soon
-
 	for range msg.TokenAmounts {
+		// TODO: for now it's fixed amount (https://github.com/smartcontractkit/chainlink-ccip/blob/a5e767b178659e220175008ca34a22237fd85195/chains/solana/utils/tokens/tokenpool.go#L170), and there's going to be a sdn provided for calculating accounts per token transfer later
 		tokenIndexes = append(tokenIndexes, byte(counter))
-		// now fixed amount, later will be calculated using provided SDK
 		counter += 11
 	}
 	return tokenIndexes
