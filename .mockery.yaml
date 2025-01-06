@@ -21,6 +21,12 @@ packages:
       TxStrategy:
       TxAttemptBuilder:
       TxStore:
+  github.com/smartcontractkit/chainlink-framework/multinode:
+    config:
+      dir: common/types/mocks
+      outpkg: mocks
+    interfaces:
+      Subscription:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
