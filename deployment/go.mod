@@ -17,7 +17,7 @@ require (
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/aws/aws-sdk-go v1.54.19
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/ethereum/go-ethereum v1.14.12
+	github.com/ethereum/go-ethereum v1.14.11
 	github.com/go-resty/resty/v2 v2.15.3
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/sdk v0.16.1
