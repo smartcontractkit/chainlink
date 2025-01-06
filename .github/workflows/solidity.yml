@@ -110,6 +110,11 @@ jobs:
         with:
           go-version-file: "chainlink/go.mod"
 
+      - name: Install Foundry
+        uses: ./chainlink/.github/actions/install-solidity-foundry
+        with:
+          working-directory: chainlink/contracts
+
       - name: Run native compile and generate wrappers
         working-directory: ./chainlink/contracts
         run: make wrappers-all
