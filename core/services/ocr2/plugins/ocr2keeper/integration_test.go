@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -200,7 +202,7 @@ func getUpkeepIDFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 }
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
 	runKeeperPluginBasic(t)
 }
 

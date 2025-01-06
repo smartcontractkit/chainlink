@@ -6,12 +6,13 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
+	kslib "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 var _ deployment.ChangeSet[uint64] = DeployOCR3
@@ -37,6 +38,7 @@ var _ deployment.ChangeSet[ConfigureOCR3Config] = ConfigureOCR3Contract
 type ConfigureOCR3Config struct {
 	ChainSel             uint64
 	NodeIDs              []string
+	Address              *common.Address // address of the OCR3 contract to configure
 	OCR3Config           *kslib.OracleConfig
 	DryRun               bool
 	WriteGeneratedConfig io.Writer // if not nil, write the generated config to this writer as JSON [OCR2OracleConfig]
@@ -54,6 +56,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		ChainSel:   cfg.ChainSel,
 		NodeIDs:    cfg.NodeIDs,
 		OCR3Config: cfg.OCR3Config,
+		Address:    cfg.Address,
 		DryRun:     cfg.DryRun,
 		UseMCMS:    cfg.UseMCMS(),
 	})
@@ -99,7 +102,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 			timelocksPerChain,
 			proposerMCMSes,
 			[]timelock.BatchChainOperation{*resp.Ops},
-			"proposal to set update nodes",
+			"proposal to set OCR3 config",
 			cfg.MCMSConfig.MinDuration,
 		)
 		if err != nil {

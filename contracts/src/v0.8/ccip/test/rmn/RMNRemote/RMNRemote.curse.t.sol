@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_curse is RMNRemoteSetup {
-  function test_curse_success() public {
+  function test_curse() public {
     vm.expectEmit();
     emit RMNRemote.Cursed(s_curseSubjects);
 
@@ -19,14 +19,14 @@ contract RMNRemote_curse is RMNRemoteSetup {
     assertFalse(s_rmnRemote.isCursed(bytes16(keccak256("subject 3"))));
   }
 
-  function test_curse_AlreadyCursed_duplicateSubject_reverts() public {
+  function test_RevertWhen_curse_AlreadyCursed_duplicateSubject() public {
     s_curseSubjects.push(CURSE_SUBJ_1);
 
     vm.expectRevert(abi.encodeWithSelector(RMNRemote.AlreadyCursed.selector, CURSE_SUBJ_1));
     s_rmnRemote.curse(s_curseSubjects);
   }
 
-  function test_curse_calledByNonOwner_reverts() public {
+  function test_RevertWhen_curse_calledByNonOwner() public {
     vm.expectRevert(Ownable2Step.OnlyCallableByOwner.selector);
     vm.stopPrank();
     vm.prank(STRANGER);

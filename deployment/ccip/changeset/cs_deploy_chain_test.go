@@ -3,7 +3,6 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,12 +10,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
@@ -30,12 +31,13 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:        commonchangeset.SingleGroupMCMS(t),
-			Bypasser:         commonchangeset.SingleGroupMCMS(t),
-			Proposer:         commonchangeset.SingleGroupMCMS(t),
-			TimelockMinDelay: big.NewInt(0),
-		}
+		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range e.AllChainSelectors() {
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+		})
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -61,7 +63,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: selectors,
+				Configs: prereqCfg,
 			},
 		},
 		{
@@ -98,6 +100,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
+	t.Parallel()
 	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)

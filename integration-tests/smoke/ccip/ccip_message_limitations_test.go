@@ -29,7 +29,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	onChainState, err := changeset.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)
 
-	require.NoError(t, changeset.AddLanesForAll(testEnv.Env, onChainState))
+	changeset.AddLanesForAll(t, &testEnv, onChainState)
 
 	srcToken, _ := setupTokens(
 		t,

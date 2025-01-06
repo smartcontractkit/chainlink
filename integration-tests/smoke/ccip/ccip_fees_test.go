@@ -130,7 +130,7 @@ func Test_CCIPFees(t *testing.T) {
 	changeset.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Add all lanes
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	t.Run("Send programmable token transfer pay with Link token", func(t *testing.T) {
 		runFeeTokenTestCase(feeTokenTestCase{

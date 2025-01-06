@@ -28,7 +28,7 @@ contract TokenAdminRegistry_getAllConfiguredTokens is TokenAdminRegistrySetup {
     }
   }
 
-  function test_getAllConfiguredTokens_outOfBounds_Success() public view {
+  function test_getAllConfiguredTokens_outOfBounds() public view {
     address[] memory tokens = s_tokenAdminRegistry.getAllConfiguredTokens(type(uint64).max, 10);
     assertEq(tokens.length, 0);
   }

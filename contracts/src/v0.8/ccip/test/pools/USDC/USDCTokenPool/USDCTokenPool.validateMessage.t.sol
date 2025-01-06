@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
 import {USDCTokenPoolSetup} from "./USDCTokenPoolSetup.t.sol";
@@ -28,7 +28,7 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
 
   // Reverts
 
-  function test_ValidateInvalidMessage_Revert() public {
+  function test_RevertWhen_ValidateInvalidMessage() public {
     USDCMessage memory usdcMessage = USDCMessage({
       version: 0,
       sourceDomain: 1553252,

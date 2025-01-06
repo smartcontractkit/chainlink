@@ -2,7 +2,9 @@ package devenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"strconv"
 	"strings"
 	"time"
@@ -10,8 +12,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
@@ -185,7 +185,7 @@ type JDChainConfigInput struct {
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
-	for i, chain := range chains {
+	for _, chain := range chains {
 		chainId := strconv.FormatUint(chain.ChainID, 10)
 		var account string
 		switch chain.ChainType {
@@ -239,34 +239,50 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				break
 			}
 		}
-		// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
-		// if it's not updated , throw an error
-		_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-			JobDistributorID: n.JDId,
-			ChainID:          chainId,
-			ChainType:        chain.ChainType,
-			AccountAddr:      account,
-			AdminAddr:        n.adminAddr,
-			Ocr2Enabled:      true,
-			Ocr2IsBootstrap:  isBootstrap,
-			Ocr2Multiaddr:    n.multiAddr,
-			Ocr2P2PPeerID:    value(peerID),
-			Ocr2KeyBundleID:  ocr2BundleId,
-			Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+
+		// retry twice with 5 seconds interval to create JobDistributorChainConfig
+		err = retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
+			// check the node chain config to see if this chain already exists
+			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+					NodeIds: []string{n.NodeId},
+				}})
+			if err != nil {
+				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s, retrying..: %w", n.Name, err))
+			}
+			if nodeChainConfigs != nil {
+				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
+					if chainConfig.Chain.Id == chainId {
+						return nil
+					}
+				}
+			}
+
+			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
+			// if it's not updated , throw an error
+			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+				JobDistributorID: n.JDId,
+				ChainID:          chainId,
+				ChainType:        chain.ChainType,
+				AccountAddr:      account,
+				AdminAddr:        n.adminAddr,
+				Ocr2Enabled:      true,
+				Ocr2IsBootstrap:  isBootstrap,
+				Ocr2Multiaddr:    n.multiAddr,
+				Ocr2P2PPeerID:    value(peerID),
+				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
+			})
+			// todo: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
+			if err != nil {
+				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+			}
+
+			return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
 		})
+
 		if err != nil {
 			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
-		}
-		// query the node chain config to check if it's created
-		nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-			Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-				NodeIds: []string{n.NodeId},
-			}})
-		if err != nil {
-			return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
-		}
-		if nodeChainConfigs == nil || len(nodeChainConfigs.ChainConfigs) < i+1 {
-			return fmt.Errorf("failed to create chain config for node %s", n.Name)
 		}
 	}
 	return nil
@@ -377,6 +393,17 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 		return "", err
 	}
 	// create the job distributor in the node with the csa key
+	resp, err := n.gqlClient.ListJobDistributors(ctx)
+	if err != nil {
+		return "", fmt.Errorf("could not list job distrubutors: %w", err)
+	}
+	if len(resp.FeedsManagers.Results) > 0 {
+		for _, fm := range resp.FeedsManagers.Results {
+			if fm.GetPublicKey() == csaKey {
+				return fm.GetId(), nil
+			}
+		}
+	}
 	return n.gqlClient.CreateJobDistributor(ctx, client.JobDistributorInput{
 		Name:      "Job Distributor",
 		Uri:       jd.WSRPC,
@@ -394,8 +421,9 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	}
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
-	if err != nil && !strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
-		return err
+	if err != nil &&
+		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
+		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
 	// wait for the node to connect to the job distributor
 	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {

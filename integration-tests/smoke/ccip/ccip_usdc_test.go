@@ -71,7 +71,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add all lanes
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	changeset.MintAndAllow(
 		t,

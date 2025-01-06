@@ -146,21 +146,13 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.abi ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.bin VRFCoordinatorTestV2_5 vrf_coordinator_test_v2_5
 
 // Aggregators
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.bin AggregatorV3Interface aggregator_v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
-
-// Log tester
-
-// ChainReader test contract
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin ChainReaderTester chain_reader_tester
 
 //go:generate go generate ./functions
 //go:generate go generate ./keystone
 //go:generate go generate ./llo-feeds
 //go:generate go generate ./operatorforwarder
 //go:generate go generate ./shared
-//go:generate go generate ./transmission
 //go:generate go generate ./ccip
 //go:generate go generate ./liquiditymanager
 //go:generate go generate ./workflow

@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type peer struct {
@@ -294,7 +294,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 			panic(innerErr)
 		}
 
-		n.HashedCapabilityIds = [][32]byte{ocrid, ctid}
+		n.HashedCapabilityIds = [][32]byte{ocrid, ctid, aid}
 		nodes = append(nodes, n)
 	}
 
@@ -337,7 +337,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 			Config:       ccfgb,
 		},
 	}
-	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 1)
 	if err != nil {
 		log.Printf("workflowDON: failed to AddDON: %s", err)
 	}
