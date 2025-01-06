@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         if: needs.changes.outputs.src == 'true'

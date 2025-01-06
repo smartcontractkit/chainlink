@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Clean up integration environment
         uses: ./.github/actions/delete-deployments

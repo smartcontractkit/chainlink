@@ -15,7 +15,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
@@ -24,7 +23,7 @@ func TestUpdateAllowedDons(t *testing.T) {
 	lggr := logger.Test(t)
 
 	chainSel := chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
-	resp := kstest.SetupTestWorkflowRegistry(t, lggr, chainSel)
+	resp := workflowregistry.SetupTestWorkflowRegistry(t, lggr, chainSel)
 	registry := resp.Registry
 
 	dons, err := registry.GetAllAllowedDONs(&bind.CallOpts{})

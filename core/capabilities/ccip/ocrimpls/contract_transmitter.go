@@ -13,6 +13,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -69,12 +70,23 @@ func ToExecCalldata(
 	// WARNING: Be careful if you change the data types.
 	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
 	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
+	var info ccipocr3.ExecuteReportInfo
+	if len(report.Info) != 0 {
+		var err error
+		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return struct {
 		ReportContext [2][32]byte
 		Report        []byte
+		Info          ccipocr3.ExecuteReportInfo
 	}{
 		ReportContext: rawReportCtx,
 		Report:        report.Report,
+		Info:          info,
 	}, nil
 }
 

@@ -19,6 +19,7 @@ NoNewFinalizedHeadsThreshold = '0'
 LogBroadcasterEnabled = true
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250

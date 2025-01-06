@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Internal} from "../../../libraries/Internal.sol";
 import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";

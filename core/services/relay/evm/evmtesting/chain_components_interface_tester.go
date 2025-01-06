@@ -2,8 +2,8 @@ package evmtesting
 
 import (
 	"context"
-	"encoding/json"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,13 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -40,14 +39,13 @@ const (
 	triggerWithAllTopics           = "TriggeredWithFourTopics"
 	triggerWithAllTopicsWithHashed = "TriggeredWithFourTopicsWithHashed"
 	staticBytesEventName           = "StaticBytes"
-	finalityDepth                  = 4
 )
 
 type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
-	Init(t T)
 	Client(t T) client.Client
 	Commit()
 	Backend() bind.ContractBackend
+	Database() *sqlx.DB
 	ChainID() *big.Int
 	Context(t T) context.Context
 	NewSqlxDB(t T) *sqlx.DB
@@ -58,67 +56,21 @@ type EVMChainComponentsInterfaceTesterHelper[T TestingT[T]] interface {
 	// To enable the historical wrappers required for Simulated Backend tests.
 	ChainReaderEVMClient(ctx context.Context, t T, ht logpoller.HeadTracker, conf types.ChainReaderConfig) client.Client
 	WrappedChainWriter(cw clcommontypes.ContractWriter, client client.Client) clcommontypes.ContractWriter
+	LogPoller(t T) logpoller.LogPoller
+	HeadTracker(t T) logpoller.HeadTracker
 }
 
 type EVMChainComponentsInterfaceTester[T TestingT[T]] struct {
 	TestSelectionSupport
 	Helper                    EVMChainComponentsInterfaceTesterHelper[T]
+	DeployLock                *sync.Mutex
 	client                    client.Client
-	address                   string
-	address2                  string
-	contractTesters           map[string]*chain_reader_tester.ChainReaderTester
-	chainReaderConfig         types.ChainReaderConfig
-	chainWriterConfig         types.ChainWriterConfig
-	deployerAuth              *bind.TransactOpts
-	senderAuth                *bind.TransactOpts
-	cr                        evm.ChainReaderService
-	cw                        evm.ChainWriterService
-	dirtyContracts            bool
-	txm                       evmtxmgr.TxManager
-	gasEstimator              gas.EvmFeeEstimator
 	chainReaderConfigSupplier func(t T) types.ChainReaderConfig
 	chainWriterConfigSupplier func(t T) types.ChainWriterConfig
-	dirtyConfig               bool
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
-	t.Cleanup(func() {
-		// DB may be closed by the test already, ignore errors
-		if it.cr != nil {
-			_ = it.cr.Close()
-		}
-		it.cr = nil
-
-		if it.dirtyContracts {
-			it.contractTesters = nil
-		}
-
-		if it.cw != nil {
-			_ = it.cw.Close()
-		}
-		it.cw = nil
-	})
-
-	// can re-use the same chain for tests, just make new contract for each test
-	if it.client != nil && !it.dirtyConfig {
-		it.deployNewContracts(t)
-		return
-	}
-
-	// Need to separate accounts to ensure the nonce doesn't get misaligned after the
-	// contract deployments.
-	accounts := it.Helper.Accounts(t)
-	it.deployerAuth = accounts[0]
-	it.senderAuth = accounts[1]
-
-	it.chainReaderConfig = it.chainReaderConfigSupplier(t)
-	it.GetContractReader(t)
-
-	it.txm = it.Helper.TXM(t, it.client)
-	it.chainWriterConfig = it.chainWriterConfigSupplier(t)
-
-	it.deployNewContracts(t)
-	it.dirtyConfig = false
+func (it *EVMChainComponentsInterfaceTester[T]) GetBindings(t T) []clcommontypes.BoundContract {
+	return it.deployNewContracts(t)
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) types.ChainReaderConfig {
@@ -357,138 +309,94 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
-	if it.cr != nil {
-		return it.cr
-	}
-
 	lggr := logger.NullLogger
-	db := it.Helper.NewSqlxDB(t)
-	lpOpts := logpoller.Opts{
-		PollPeriod:               time.Millisecond,
-		FinalityDepth:            finalityDepth,
-		BackfillBatchSize:        1,
-		RpcBatchSize:             1,
-		KeepFinalizedBlocksDepth: 10000,
-	}
-	ht := headtracker.NewSimulatedHeadTracker(it.Helper.Client(t), lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.Helper.Client(t), lggr, ht, lpOpts)
-	require.NoError(t, lp.Start(ctx))
 
-	// encode and decode the config to ensure the test covers type issues
-	confBytes, err := json.Marshal(it.chainReaderConfig)
+	cr, err := evm.NewChainReaderService(ctx, lggr, it.Helper.LogPoller(t), it.Helper.HeadTracker(t), it.client, it.chainReaderConfigSupplier(t))
 	require.NoError(t, err)
+	servicetest.Run(t, cr)
 
-	conf, err := types.ChainReaderConfigFromBytes(confBytes)
-	require.NoError(t, err)
-
-	cwh := it.Helper.ChainReaderEVMClient(ctx, t, ht, conf)
-	it.client = cwh
-
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
-	require.NoError(t, err)
-	require.NoError(t, cr.Start(ctx))
-	it.cr = cr
 	return cr
+}
+
+func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
+	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t))
+	require.NoError(t, err)
+
+	cw = it.Helper.WrappedChainWriter(cw, it.client)
+
+	require.NoError(t, err)
+
+	servicetest.Run(t, cw)
+
+	return cw
 }
 
 // This function is no longer necessary for Simulated Backend or Testnet tests.
 func (it *EVMChainComponentsInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
-	ctx := it.Helper.Context(t)
-	if it.cw != nil {
-		return it.cw
-	}
-
-	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, it.chainWriterConfig)
-	require.NoError(t, err)
-	it.cw = it.Helper.WrappedChainWriter(cw, it.client)
-
-	require.NoError(t, err)
-	require.NoError(t, cw.Start(ctx))
-	return it.cw
-}
-
-func (it *EVMChainComponentsInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
-	return []clcommontypes.BoundContract{
-		{Name: AnyContractName, Address: it.address},
-		{Name: AnySecondContractName, Address: it.address2},
-	}
-}
-
 func (it *EVMChainComponentsInterfaceTester[T]) DirtyContracts() {
-	it.dirtyContracts = true
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {
-	gasPrice, err := it.client.SuggestGasPrice(it.Helper.Context(t))
+	auth := *it.Helper.Accounts(t)[0]
+	gasPrice, err := it.Helper.Client(t).SuggestGasPrice(it.Helper.Context(t))
 	require.NoError(t, err)
 	extra := new(big.Int).Mul(gasPrice, big.NewInt(it.Helper.GasPriceBufferPercent()))
 	extra = extra.Div(extra, big.NewInt(100))
-	it.deployerAuth.GasPrice = gasPrice.Add(gasPrice, extra)
-	return it.deployerAuth
-}
-
-func (it *EVMChainComponentsInterfaceTester[T]) IncNonce() {
-	if it.deployerAuth.Nonce == nil {
-		it.deployerAuth.Nonce = big.NewInt(1)
-	} else {
-		it.deployerAuth.Nonce = it.deployerAuth.Nonce.Add(it.deployerAuth.Nonce, big.NewInt(1))
-	}
+	auth.GasPrice = gasPrice.Add(gasPrice, extra)
+	auth.GasLimit = 10552800
+	nonce, err := it.client.PendingNonceAt(it.Helper.Context(t), auth.From)
+	require.NoError(t, err)
+	auth.Nonce = new(big.Int).SetUint64(nonce)
+	return &auth
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) AwaitTx(t T, tx *gethtypes.Transaction) {
 	ctx := it.Helper.Context(t)
-	receipt, err := bind.WaitMined(ctx, it.client, tx)
+	receipt, err := bind.WaitMined(ctx, it.Helper.Client(t), tx)
 	require.NoError(t, err)
 	require.Equal(t, gethtypes.ReceiptStatusSuccessful, receipt.Status)
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) deployNewContracts(t T) {
-	// First test deploy both contracts, otherwise only deploy contracts if cleanup decides that we need to.
-	if it.address == "" || it.contractTesters == nil {
-		it.contractTesters = make(map[string]*chain_reader_tester.ChainReaderTester, 2)
-		address, ts1 := it.deployNewContract(t)
-		address2, ts2 := it.deployNewContract(t)
-		it.address, it.address2 = address, address2
-		it.contractTesters[it.address] = ts1
-		it.contractTesters[it.address2] = ts2
-		it.dirtyContracts = false
+func (it *EVMChainComponentsInterfaceTester[T]) deployNewContracts(t T) []clcommontypes.BoundContract {
+	it.DeployLock.Lock()
+	defer it.DeployLock.Unlock()
+	address := it.deployNewContract(t)
+	address2 := it.deployNewContract(t)
+	return []clcommontypes.BoundContract{
+		{Name: AnyContractName, Address: address},
+		{Name: AnySecondContractName, Address: address2},
 	}
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) deployNewContract(t T) (string, *chain_reader_tester.ChainReaderTester) {
-	// 105528 was in the error: gas too low: have 0, want 105528
-	// Not sure if there's a better way to get it.
-	it.deployerAuth.GasLimit = 10552800
-
-	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.GetAuthWithGasSet(t), it.Helper.Backend())
+func (it *EVMChainComponentsInterfaceTester[T]) deployNewContract(t T) string {
+	address, tx, _, err := chain_reader_tester.DeployChainReaderTester(it.GetAuthWithGasSet(t), it.Helper.Backend())
 	require.NoError(t, err)
-	it.Helper.Commit()
 
-	it.IncNonce()
 	it.AwaitTx(t, tx)
-	return address.String(), ts
+	return address.String()
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration {
 	return it.Helper.MaxWaitTimeForEvents()
 }
 
-func (it *EVMChainComponentsInterfaceTester[T]) Init(t T) {
-	it.Helper.Init(t)
-	it.chainWriterConfigSupplier = func(t T) types.ChainWriterConfig { return it.getChainWriterConfig(t) }
-	it.chainReaderConfigSupplier = func(t T) types.ChainReaderConfig { return it.getChainReaderConfig(t) }
+func (it *EVMChainComponentsInterfaceTester[T]) Setup(t T) {
+	if it.chainReaderConfigSupplier == nil {
+		it.chainReaderConfigSupplier = func(t T) types.ChainReaderConfig { return it.getChainReaderConfig(t) }
+	}
+	if it.chainWriterConfigSupplier == nil {
+		it.chainWriterConfigSupplier = func(t T) types.ChainWriterConfig { return it.getChainWriterConfig(t) }
+	}
+	it.client = it.Helper.ChainReaderEVMClient(it.Helper.Context(t), t, it.Helper.HeadTracker(t), it.chainReaderConfigSupplier(t))
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(chainReaderConfigSupplier func(t T) types.ChainReaderConfig) {
-	it.dirtyConfig = true
 	it.chainReaderConfigSupplier = chainReaderConfigSupplier
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) types.ChainWriterConfig) {
-	it.dirtyConfig = true
 	it.chainWriterConfigSupplier = chainWriterConfigSupplier
 }
 

@@ -320,6 +320,7 @@ FinalizedBlockOffset = 12
 NoNewFinalizedHeadsThreshold = '9m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -430,6 +431,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -534,6 +536,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 5000
@@ -659,6 +662,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'confirmed'
@@ -704,6 +708,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'confirmed'

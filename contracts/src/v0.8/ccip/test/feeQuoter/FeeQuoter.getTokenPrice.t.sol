@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
@@ -8,7 +8,7 @@ import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
   function test_GetTokenPriceFromFeed() public {
-    uint256 originalTimestampValue = block.timestamp;
+    uint32 originalTimestampValue = uint32(block.timestamp);
 
     // Above staleness threshold
     vm.warp(originalTimestampValue + s_feeQuoter.getStaticConfig().tokenPriceStalenessThreshold + 1);
@@ -25,15 +25,15 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
   }
 
   function test_GetTokenPrice_LocalMoreRecent() public {
-    uint256 originalTimestampValue = block.timestamp;
+    uint32 originalTimestampValue = uint32(block.timestamp);
+    uint224 usdPerToken = 1e18;
 
     Internal.PriceUpdates memory update = Internal.PriceUpdates({
       tokenPriceUpdates: new Internal.TokenPriceUpdate[](1),
       gasPriceUpdates: new Internal.GasPriceUpdate[](0)
     });
 
-    update.tokenPriceUpdates[0] =
-      Internal.TokenPriceUpdate({sourceToken: s_sourceTokens[0], usdPerToken: uint32(originalTimestampValue + 5)});
+    update.tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: s_sourceTokens[0], usdPerToken: usdPerToken});
 
     vm.expectEmit();
     emit FeeQuoter.UsdPerTokenUpdated(
@@ -48,6 +48,6 @@ contract FeeQuoter_getTokenPrice is FeeQuoterSetup {
 
     //Assert that the returned price is the local price, not the oracle price
     assertEq(tokenPriceAnswer.value, update.tokenPriceUpdates[0].usdPerToken);
-    assertEq(tokenPriceAnswer.timestamp, uint32(originalTimestampValue));
+    assertEq(tokenPriceAnswer.timestamp, originalTimestampValue);
   }
 }

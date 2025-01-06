@@ -27,7 +27,6 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -225,7 +224,7 @@ updateInterval = "1m"
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), tests.WaitTimeout(t), 5*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
@@ -235,13 +234,11 @@ updateInterval = "1m"
 	wg.Wait()
 
 	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	if !gomega.NewGomegaWithT(t).Eventually(func() string {
+	gomega.NewGomegaWithT(t).Eventually(func() string {
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, tests.WaitTimeout(t), 200*time.Millisecond).Should(gomega.Equal("20")) {
-		t.Fatal()
-	}
+	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
 		jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
