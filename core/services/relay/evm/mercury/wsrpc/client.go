@@ -70,10 +70,13 @@ type Client interface {
 }
 
 type Conn interface {
+	wsrpc.ClientInterface
 	WaitForReady(ctx context.Context) bool
 	GetState() grpc_connectivity.State
 	Close() error
 }
+
+type DialWithContextFunc func(ctxCaller context.Context, target string, opts ...wsrpc.DialOption) (Conn, error)
 
 type client struct {
 	services.StateMachine
@@ -82,9 +85,12 @@ type client struct {
 	serverPubKey []byte
 	serverURL    string
 
+	dialWithContext DialWithContextFunc
+
 	logger    logger.Logger
 	conn      Conn
 	rawClient pb.MercuryClient
+	mu        sync.RWMutex
 
 	consecutiveTimeoutCnt atomic.Int32
 	wg                    sync.WaitGroup
@@ -101,25 +107,47 @@ type client struct {
 	connectionResetCountMetric prometheus.Counter
 }
 
-// Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
-func NewClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) Client {
-	return newClient(lggr, clientPrivKey, serverPubKey, serverURL, cacheSet)
+type ClientOpts struct {
+	Logger        logger.Logger
+	ClientPrivKey csakey.KeyV2
+	ServerPubKey  []byte
+	ServerURL     string
+	CacheSet      cache.CacheSet
+
+	// DialWithContext allows optional dependency injection for testing
+	DialWithContext DialWithContextFunc
 }
 
-func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string, cacheSet cache.CacheSet) *client {
+// Consumers of wsrpc package should not usually call NewClient directly, but instead use the Pool
+func NewClient(opts ClientOpts) Client {
+	return newClient(opts)
+}
+
+func newClient(opts ClientOpts) *client {
+	var dialWithContext DialWithContextFunc
+	if opts.DialWithContext != nil {
+		dialWithContext = opts.DialWithContext
+	} else {
+		// NOTE: Wrap here since wsrpc.DialWithContext returns a concrete *wsrpc.Conn, not an interface
+		dialWithContext = func(ctxCaller context.Context, target string, opts ...wsrpc.DialOption) (Conn, error) {
+			conn, err := wsrpc.DialWithContext(ctxCaller, target, opts...)
+			return conn, err
+		}
+	}
 	return &client{
-		csaKey:                     clientPrivKey,
-		serverPubKey:               serverPubKey,
-		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC").Named(serverURL).With("serverURL", serverURL),
+		dialWithContext:            dialWithContext,
+		csaKey:                     opts.ClientPrivKey,
+		serverPubKey:               opts.ServerPubKey,
+		serverURL:                  opts.ServerURL,
+		logger:                     opts.Logger.Named("WSRPC").Named(opts.ServerURL).With("serverURL", opts.ServerURL),
 		chResetTransport:           make(chan struct{}, 1),
-		cacheSet:                   cacheSet,
+		cacheSet:                   opts.CacheSet,
 		chStop:                     make(services.StopChan),
-		timeoutCountMetric:         timeoutCount.WithLabelValues(serverURL),
-		dialCountMetric:            dialCount.WithLabelValues(serverURL),
-		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(serverURL),
-		dialErrorCountMetric:       dialErrorCount.WithLabelValues(serverURL),
-		connectionResetCountMetric: connectionResetCount.WithLabelValues(serverURL),
+		timeoutCountMetric:         timeoutCount.WithLabelValues(opts.ServerURL),
+		dialCountMetric:            dialCount.WithLabelValues(opts.ServerURL),
+		dialSuccessCountMetric:     dialSuccessCount.WithLabelValues(opts.ServerURL),
+		dialErrorCountMetric:       dialErrorCount.WithLabelValues(opts.ServerURL),
+		connectionResetCountMetric: connectionResetCount.WithLabelValues(opts.ServerURL),
 	}
 }
 
@@ -148,7 +176,7 @@ func (w *client) Start(ctx context.Context) error {
 // with error.
 func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
-	conn, err := wsrpc.DialWithContext(ctx, w.serverURL,
+	conn, err := w.dialWithContext(ctx, w.serverURL,
 		append(opts,
 			wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
 			wsrpc.WithLogger(w.logger),
@@ -161,8 +189,10 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	}
 	w.dialSuccessCountMetric.Inc()
 	setLivenessMetric(true)
+	w.mu.Lock()
 	w.conn = conn
 	w.rawClient = pb.NewMercuryClient(conn)
+	w.mu.Unlock()
 	return nil
 }
 
@@ -184,6 +214,8 @@ func (w *client) runloop() {
 func (w *client) resetTransport() {
 	w.connectionResetCountMetric.Inc()
 	ok := w.IfStarted(func() {
+		w.mu.RLock()
+		defer w.mu.RUnlock()
 		w.conn.Close() // Close is safe to call multiple times
 	})
 	if !ok {
@@ -211,7 +243,9 @@ func (w *client) resetTransport() {
 func (w *client) Close() error {
 	return w.StopOnce("WSRPC Client", func() error {
 		close(w.chStop)
+		w.mu.RLock()
 		w.conn.Close()
+		w.mu.RUnlock()
 		w.wg.Wait()
 		return nil
 	})
@@ -251,22 +285,44 @@ func (w *client) waitForReady(ctx context.Context) (err error) {
 }
 
 func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
-	w.logger.Trace("Transmit")
-	start := time.Now()
-	if err = w.waitForReady(ctx); err != nil {
-		return nil, errors.Wrap(err, "Transmit call failed")
-	}
-	resp, err = w.rawClient.Transmit(ctx, req)
-	w.handleTimeout(err)
-	if err != nil {
-		w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
-		incRequestStatusMetric(statusFailed)
-	} else {
-		w.logger.Tracew("Transmit call succeeded", "resp", resp)
-		incRequestStatusMetric(statusSuccess)
-		setRequestLatencyMetric(float64(time.Since(start).Milliseconds()))
+	ok := w.IfStarted(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				w.handlePanic(r)
+				resp = nil
+				err = fmt.Errorf("Transmit: caught panic: %v", r)
+			}
+		}()
+		w.logger.Trace("Transmit")
+		start := time.Now()
+		if err = w.waitForReady(ctx); err != nil {
+			err = errors.Wrap(err, "Transmit call failed")
+			return
+		}
+		w.mu.RLock()
+		rc := w.rawClient
+		w.mu.RUnlock()
+		resp, err = rc.Transmit(ctx, req)
+		w.handleTimeout(err)
+		if err != nil {
+			w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
+			incRequestStatusMetric(statusFailed)
+		} else {
+			w.logger.Tracew("Transmit call succeeded", "resp", resp)
+			incRequestStatusMetric(statusSuccess)
+			setRequestLatencyMetric(float64(time.Since(start).Milliseconds()))
+		}
+	})
+	if !ok {
+		err = errors.New("client is not started")
 	}
 	return
+}
+
+// hacky workaround to trap panics from buggy underlying wsrpc lib and restart
+// the connection from a known good state
+func (w *client) handlePanic(r interface{}) {
+	w.chResetTransport <- struct{}{}
 }
 
 func (w *client) handleTimeout(err error) {
@@ -303,27 +359,44 @@ func (w *client) handleTimeout(err error) {
 }
 
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
-	lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
-	lggr.Trace("LatestReport")
-	if err = w.waitForReady(ctx); err != nil {
-		return nil, errors.Wrap(err, "LatestReport failed")
-	}
-	var cached bool
-	if w.cache == nil {
-		resp, err = w.rawClient.LatestReport(ctx, req)
-		w.handleTimeout(err)
-	} else {
-		cached = true
-		resp, err = w.cache.LatestReport(ctx, req)
-	}
-	if err != nil {
-		lggr.Errorw("LatestReport failed", "err", err, "resp", resp, "cached", cached)
-	} else if resp.Error != "" {
-		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "resp", resp, "cached", cached)
-	} else if !cached {
-		lggr.Debugw("LatestReport succeeded", "resp", resp, "cached", cached)
-	} else {
-		lggr.Tracew("LatestReport succeeded", "resp", resp, "cached", cached)
+	ok := w.IfStarted(func() {
+		defer func() {
+			if r := recover(); r != nil {
+				w.handlePanic(r)
+				resp = nil
+				err = fmt.Errorf("LatestReport: caught panic: %v", r)
+			}
+		}()
+		lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
+		lggr.Trace("LatestReport")
+		if err = w.waitForReady(ctx); err != nil {
+			err = errors.Wrap(err, "LatestReport failed")
+			return
+		}
+		var cached bool
+		if w.cache == nil {
+			w.mu.RLock()
+			rc := w.rawClient
+			w.mu.RUnlock()
+			resp, err = rc.LatestReport(ctx, req)
+			w.handleTimeout(err)
+		} else {
+			cached = true
+			resp, err = w.cache.LatestReport(ctx, req)
+		}
+		switch {
+		case err != nil:
+			lggr.Errorw("LatestReport failed", "err", err, "resp", resp, "cached", cached)
+		case resp.Error != "":
+			lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "resp", resp, "cached", cached)
+		case !cached:
+			lggr.Debugw("LatestReport succeeded", "resp", resp, "cached", cached)
+		default:
+			lggr.Tracew("LatestReport succeeded", "resp", resp, "cached", cached)
+		}
+	})
+	if !ok {
+		err = errors.New("client is not started")
 	}
 	return
 }
@@ -333,5 +406,7 @@ func (w *client) ServerURL() string {
 }
 
 func (w *client) RawClient() pb.MercuryClient {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.rawClient
 }
