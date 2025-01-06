@@ -183,7 +183,7 @@ modgraph:
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
-	go test -short ./... | grep -v "no test files" | grep -v "\(cached\)"
+	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
 help:
 	@echo ""
