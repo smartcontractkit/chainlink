@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
@@ -41,6 +43,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -49,6 +53,9 @@ jobs:
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Run native compile and generate wrappers
         run: make wrappers-all

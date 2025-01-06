@@ -100,5 +100,9 @@ func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) 
 		return nil, err
 	}
 
+	if payload.ExecutionError {
+		return nil, fmt.Errorf("execution error from gateway: %s", payload.ErrorMessage)
+	}
+
 	return payload.Body, nil
 }

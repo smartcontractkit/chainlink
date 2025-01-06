@@ -52,45 +52,56 @@ jobs:
     outputs:
       test_list: ${{ steps.set-tests.outputs.test_list }}
       require_chainlink_image_versions_in_qa_ecr: ${{ steps.determine-chainlink-image-check.outputs.require_chainlink_image_versions_in_qa_ecr }}
+    env:
+      GH_INPUTS_CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+      GH_INPUTS_CHAINLINK_IMAGE_UPDATE: ${{ inputs.chainlinkImageUpdate }}
+      GH_INPUTS_CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+      GH_INPUTS_CHAINLINK_VERSION_UPDATE: ${{ inputs.chainlinkVersionUpdate }}
     steps:
       - name: Determine build to use
         id: determine-build
         shell: bash
         run: |
-          if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+          if [[ "$GH_INPUTS_CHAINLINK_IMAGE" == "QA_ECR" ]]; then
             echo "image='{{ env.QA_CHAINLINK_IMAGE }}'" >> $GITHUB_ENV
           else 
-            echo "image=${{ inputs.chainlinkImage }}" >> $GITHUB_ENV
+            echo "image=$GH_INPUTS_CHAINLINK_IMAGE" >> $GITHUB_ENV
           fi
-          if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+          if [[ "$GH_INPUTS_CHAINLINK_IMAGE_UPDATE" == "QA_ECR" ]]; then
             echo "upgrade_image='{{ env.QA_CHAINLINK_IMAGE }}'" >> $GITHUB_ENV
           else
-            echo "upgrade_image=${{ inputs.chainlinkImageUpdate }}" >> $GITHUB_ENV
+            echo "upgrade_image=$GH_INPUTS_CHAINLINK_IMAGE_UPDATE" >> $GITHUB_ENV
           fi
-          if [[ -z "${{ inputs.chainlinkVersion }}" ]] && [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
+          if [[ -z "$GH_INPUTS_CHAINLINK_VERSION" ]] && [[ "$CHAINLINK_IMAGE" == "QA_ECR" ]]; then
             echo "version=${{ github.sha }}" >> $GITHUB_ENV
           else 
-            echo "version=${{ inputs.chainlinkVersion }}" >> $GITHUB_ENV
+            echo "version=$GH_INPUTS_CHAINLINK_VERSION" >> $GITHUB_ENV
           fi
-          if [[ -z "${{ inputs.chainlinkVersionUpdate }}" ]] && [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+          if [[ -z "$GH_INPUTS_CHAINLINK_VERSION_UPDATE" ]] && [[ "$GH_INPUTS_CHAINLINK_IMAGE_UPDATE" == "QA_ECR" ]]; then
             echo "upgrade_version=${{ github.sha }}" >> $GITHUB_ENV
           else
-            echo "upgrade_version=${{ inputs.chainlinkVersionUpdate }}" >> $GITHUB_ENV
+            echo "upgrade_version=$GH_INPUTS_CHAINLINK_VERSION_UPDATE" >> $GITHUB_ENV
           fi
       - name: Check if chainlink image check required
         id: determine-chainlink-image-check
         shell: bash
+        env:
+          CHAINLKINK_IMAGE: ${{ github.event.inputs.chainlinkImage }}
+          CHAINLINK_IMAGE_UPDATE: ${{ github.event.inputs.chainlinkImageUpdate }}
         run: |          
           chainlink_image_versions=""
-          if [ "${{ github.event.inputs.chainlinkImage }}" = "QA_ECR" ]; then
+          if [ "$CHAINLKINK_IMAGE" = "QA_ECR" ]; then
             chainlink_image_versions+="${{ env.version }},"
           fi
-          if [ "${{ github.event.inputs.chainlinkImageUpdate }}" = "QA_ECR" ]; then
+          if [ "$CHAINLINK_IMAGE_UPDATE" = "QA_ECR" ]; then
             chainlink_image_versions+="${{ env.upgrade_version }}"
           fi
           echo "require_chainlink_image_versions_in_qa_ecr=$chainlink_image_versions" >> $GITHUB_OUTPUT          
       - name: Set tests to run
         id: set-tests
+        env:
+          GH_EVENT_INPUTS_ENABLE_REORG: ${{ github.event.inputs.enableReorg }}
+          GH_EVENT_INPUTS_ENABLE_CHAOS: ${{ github.event.inputs.enableChaos }}
         run: |
 
           # Always run upgrade tests 
@@ -118,7 +129,7 @@ jobs:
           EOF
 
           # Run reorg tests if enabled
-          if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
+          if [[ "$GH_EVENT_INPUTS_ENABLE_REORG" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
           - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
             test_env_vars:
@@ -143,7 +154,7 @@ jobs:
           fi
 
           # Run chaos tests if enabled
-          if [[ "${{ github.event.inputs.enableChaos }}" == 'true' ]]; then
+          if [[ "$GH_EVENT_INPUTS_ENABLE_CHAOS" == 'true' ]]; then
           cat >> test_list.yaml <<EOF
           - id: chaos/automation_chaos_test.go
             test_env_vars:

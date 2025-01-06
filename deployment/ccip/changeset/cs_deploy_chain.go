@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -176,34 +175,19 @@ func deployChainContracts(
 	if chainState.Router == nil {
 		return fmt.Errorf("router not found for chain %s, deploy the prerequisites first", chain.String())
 	}
-	rmnProxyContract := chainState.RMNProxy
+	RMNProxy := chainState.RMNProxy
 	if chainState.RMNProxy == nil {
+		e.Logger.Errorw("RMNProxy not found", "chain", chain.String())
 		return fmt.Errorf("rmn proxy not found for chain %s, deploy the prerequisites first", chain.String())
-	}
-	if chainState.Receiver == nil {
-		_, err := deployment.DeployContract(e.Logger, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver] {
-				receiverAddr, tx, receiver, err2 := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
-					chain.DeployerKey,
-					chain.Client,
-					false,
-				)
-				return deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
-					receiverAddr, receiver, tx, deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), err2,
-				}
-			})
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy receiver", "err", err)
-			return err
-		}
-	} else {
-		e.Logger.Infow("receiver already deployed", "addr", chainState.Receiver.Address, "chain", chain.String())
 	}
 	var rmnLegacyAddr common.Address
 	if chainState.MockRMN != nil {
 		rmnLegacyAddr = chainState.MockRMN.Address()
 	}
-	// TODO add legacy RMN here when 1.5 contracts are available
+	// If RMN is deployed, set rmnLegacyAddr to the RMN address
+	if chainState.RMN != nil {
+		rmnLegacyAddr = chainState.RMN.Address()
+	}
 	if rmnLegacyAddr == (common.Address{}) {
 		e.Logger.Warnf("No legacy RMN contract found for chain %s, will not setRMN in RMNRemote", chain.String())
 	}
@@ -256,7 +240,7 @@ func deployChainContracts(
 					chain.DeployerKey,
 					chain.Client,
 					weth9Contract.Address(),
-					rmnProxyContract.Address(),
+					RMNProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
 					routerAddr, routerC, tx2, deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), err2,
@@ -340,7 +324,7 @@ func deployChainContracts(
 					chain.Client,
 					onramp.OnRampStaticConfig{
 						ChainSelector:      chain.Selector,
-						RmnRemote:          rmnProxyContract.Address(),
+						RmnRemote:          RMNProxy.Address(),
 						NonceManager:       nmContract.Address(),
 						TokenAdminRegistry: tokenAdminReg.Address(),
 					},
@@ -372,7 +356,7 @@ func deployChainContracts(
 					offramp.OffRampStaticConfig{
 						ChainSelector:        chain.Selector,
 						GasForCallExactCheck: 5_000,
-						RmnRemote:            rmnProxyContract.Address(),
+						RmnRemote:            RMNProxy.Address(),
 						NonceManager:         nmContract.Address(),
 						TokenAdminRegistry:   tokenAdminReg.Address(),
 					},

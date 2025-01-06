@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IEVM2AnyOnRamp} from "../../interfaces/IEVM2AnyOnRamp.sol";
 
