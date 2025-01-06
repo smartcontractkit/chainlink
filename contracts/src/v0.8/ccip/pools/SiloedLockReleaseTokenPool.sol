@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {TokenPool} from "./TokenPool.sol";
 
@@ -178,33 +177,5 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
     i_token.safeTransfer(msg.sender, amount);
     emit LiquidityRemoved(remoteChainSelector, msg.sender, amount);
-  }
-
-  /// @notice This function can be used to transfer liquidity from an older version of the pool to this pool. To do so
-  /// this pool will have to be set as the rebalancer in the older version of the pool. This allows it to transfer the
-  /// funds in the old pool to the new pool.
-  /// @dev When upgrading a LockRelease pool, this function can be called at the same time as the pool is changed in the
-  /// TokenAdminRegistry. This allows for a smooth transition of both liquidity and transactions to the new pool.
-  /// Alternatively, when no multicall is available, a portion of the funds can be transferred to the new pool before
-  /// changing which pool CCIP uses, to ensure both pools can operate. Then the pool should be changed in the
-  /// TokenAdminRegistry, which will activate the new pool. All new transactions will use the new pool and its
-  /// liquidity. Finally, the remaining liquidity can be transferred to the new pool using this function one more time.
-  /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, then no accounting will be updated,
-  /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
-  /// @param from The address of the old pool.
-  /// @param amount The amount of liquidity to transfer.
-  function transferLiquidity(uint64 remoteChainSelector, address from, uint256 amount) external onlyOwner {
-    // If The ownership has already been accepted, do not attempt to accept again as it would fail.
-    if (Ownable2StepMsgSender(from).owner() != address(this)) Ownable2StepMsgSender(from).acceptOwnership();
-
-    SiloedLockReleaseTokenPool(from).withdrawLiquidity(remoteChainSelector, amount);
-
-    // Since both siloed and non-siloed token liquidity can be transferred, allow transfers from both, but only
-    // update internal accounting for siloed chains.
-    if (s_siloedChainSelectors[remoteChainSelector]) {
-      s_lockedTokensByChainSelector[remoteChainSelector] += amount;
-    }
-
-    emit LiquidityTransferred(remoteChainSelector, from, amount);
   }
 }
