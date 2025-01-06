@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -100,7 +99,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	resp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

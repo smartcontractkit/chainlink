@@ -12,6 +12,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -126,9 +127,91 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Add all lanes
-	err = changeset.AddLanesForAll(*e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to add lanes: %w", err)
+	for from := range e.Chains {
+		for to := range e.Chains {
+			if from != to {
+				stateChain1 := state.Chains[from]
+				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
+						Config: changeset.UpdateOnRampDestsConfig{
+							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+								from: {
+									to: {
+										IsEnabled:        true,
+										TestRouter:       false,
+										AllowListEnabled: false,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+						Config: changeset.UpdateFeeQuoterPricesConfig{
+							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+								from: {
+									TokenPrices: map[common.Address]*big.Int{
+										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
+										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
+									},
+									GasPrices: map[uint64]*big.Int{
+										to: changeset.DefaultGasPrice,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDests),
+						Config: changeset.UpdateFeeQuoterDestsConfig{
+							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+								from: {
+									to: changeset.DefaultFeeQuoterDestChainConfig(),
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
+						Config: changeset.UpdateOffRampSourcesConfig{
+							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+								to: {
+									from: {
+										IsEnabled:  true,
+										TestRouter: true,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
+						Config: changeset.UpdateRouterRampsConfig{
+							TestRouter: true,
+							UpdatesByChain: map[uint64]changeset.RouterUpdates{
+								// onRamp update on source chain
+								from: {
+									OnRampUpdates: map[uint64]bool{
+										to: true,
+									},
+								},
+								// off
+								from: {
+									OffRampUpdates: map[uint64]bool{
+										to: true,
+									},
+								},
+							},
+						},
+					},
+				})
+				if err != nil {
+					return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
+				}
+				e = &newEnv
+			}
+		}
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()

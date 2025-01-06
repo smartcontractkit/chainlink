@@ -4,34 +4,219 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]    = UpdateOnRampsDests
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig] = UpdateOffRampSources
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]    = UpdateRouterRamps
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig] = UpdateFeeQuoterDests
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]       = SetOCR3OffRamp
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDests
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSources
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRamps
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDests
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRamp
+	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesCS
+	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersCS
 )
+
+type UpdateNonceManagerConfig struct {
+	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
+	MCMS           *MCMSConfig
+}
+
+type NonceManagerUpdate struct {
+	AddedAuthCallers   []common.Address
+	RemovedAuthCallers []common.Address
+	PreviousRampsArgs  []PreviousRampCfg
+}
+
+type PreviousRampCfg struct {
+	RemoteChainSelector uint64
+	OverrideExisting    bool
+	EnableOnRamp        bool
+	EnableOffRamp       bool
+}
+
+func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	for sourceSel, update := range cfg.UpdatesByChain {
+		sourceChainState, ok := state.Chains[sourceSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", sourceSel)
+		}
+		if sourceChainState.NonceManager == nil {
+			return fmt.Errorf("missing nonce manager for chain %d", sourceSel)
+		}
+		sourceChain, ok := e.Chains[sourceSel]
+		if !ok {
+			return fmt.Errorf("missing chain %d in environment", sourceSel)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.OnRamp); err != nil {
+			return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
+		}
+		for _, prevRamp := range update.PreviousRampsArgs {
+			if prevRamp.RemoteChainSelector == sourceSel {
+				return errors.New("source and dest chain cannot be the same")
+			}
+			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
+				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			}
+			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
+				return errors.New("must specify either onramp or offramp")
+			}
+			if prevRamp.EnableOnRamp {
+				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
+					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
+				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
+					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
+				}
+			}
+			if prevRamp.EnableOffRamp {
+				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
+					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
+				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
+					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	s, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for chainSel, updates := range cfg.UpdatesByChain {
+		txOpts := e.Chains[chainSel].DeployerKey
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		nm := s.Chains[chainSel].NonceManager
+		var authTx, prevRampsTx *types.Transaction
+		if len(updates.AddedAuthCallers) > 0 || len(updates.RemovedAuthCallers) > 0 {
+			authTx, err = nm.ApplyAuthorizedCallerUpdates(txOpts, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
+				AddedCallers:   updates.AddedAuthCallers,
+				RemovedCallers: updates.RemovedAuthCallers,
+			})
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error updating authorized callers for chain %s: %w", e.Chains[chainSel].String(), err)
+			}
+		}
+		if len(updates.PreviousRampsArgs) > 0 {
+			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
+			for _, prevRamp := range updates.PreviousRampsArgs {
+				var onRamp, offRamp common.Address
+				if prevRamp.EnableOnRamp {
+					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
+				}
+				if prevRamp.EnableOffRamp {
+					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
+				}
+				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
+					RemoteChainSelector:   prevRamp.RemoteChainSelector,
+					OverrideExistingRamps: prevRamp.OverrideExisting,
+					PrevRamps: nonce_manager.NonceManagerPreviousRamps{
+						PrevOnRamp:  onRamp,
+						PrevOffRamp: offRamp,
+					},
+				})
+			}
+			prevRampsTx, err = nm.ApplyPreviousRampsUpdates(txOpts, previousRampsArgs)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
+			}
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
+			}
+		}
+		if cfg.MCMS == nil {
+			if authTx != nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], authTx, err); err != nil {
+					return deployment.ChangesetOutput{}, err
+				}
+			}
+			if prevRampsTx != nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], prevRampsTx, err); err != nil {
+					return deployment.ChangesetOutput{}, err
+				}
+			}
+		} else {
+			ops := make([]mcms.Operation, 0)
+			if authTx != nil {
+				ops = append(ops, mcms.Operation{
+					To:    nm.Address(),
+					Data:  authTx.Data(),
+					Value: big.NewInt(0),
+				})
+			}
+			if prevRampsTx != nil {
+				ops = append(ops, mcms.Operation{
+					To:    nm.Address(),
+					Data:  prevRampsTx.Data(),
+					Value: big.NewInt(0),
+				})
+			}
+			if len(ops) == 0 {
+				return deployment.ChangesetOutput{}, errors.New("no operations to batch")
+			}
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch:           ops,
+			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update nonce manager for previous ramps and authorized callers",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
 
 type UpdateOnRampDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
@@ -167,6 +352,165 @@ func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (
 	}}, nil
 }
 
+type UpdateFeeQuoterPricesConfig struct {
+	PricesByChain map[uint64]FeeQuoterPriceUpdatePerSource // source -> PriceDetails
+	MCMS          *MCMSConfig
+}
+
+type FeeQuoterPriceUpdatePerSource struct {
+	TokenPrices map[common.Address]*big.Int // token address -> price
+	GasPrices   map[uint64]*big.Int         // dest chain -> gas price
+}
+
+func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	for chainSel, initialPrice := range cfg.PricesByChain {
+		if err := deployment.IsValidChainSelector(chainSel); err != nil {
+			return fmt.Errorf("invalid chain selector: %w", err)
+		}
+		chainState, ok := state.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		fq := chainState.FeeQuoter
+		if fq == nil {
+			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
+			return err
+		}
+		// check that whether price updaters are set
+		authCallers, err := fq.GetAllAuthorizedCallers(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get authorized callers for chain %d: %w", chainSel, err)
+		}
+		if len(authCallers) == 0 {
+			return fmt.Errorf("no authorized callers for chain %d", chainSel)
+		}
+		expectedAuthCaller := e.Chains[chainSel].DeployerKey.From
+		if cfg.MCMS != nil {
+			expectedAuthCaller = chainState.Timelock.Address()
+		}
+		foundCaller := false
+		for _, authCaller := range authCallers {
+			if authCaller.Cmp(expectedAuthCaller) == 0 {
+				foundCaller = true
+			}
+		}
+		if !foundCaller {
+			return fmt.Errorf("expected authorized caller %s not found for chain %d", expectedAuthCaller.String(), chainSel)
+		}
+		for token, price := range initialPrice.TokenPrices {
+			if price == nil {
+				return fmt.Errorf("token price for chain %d is nil", chainSel)
+			}
+			if token == (common.Address{}) {
+				return fmt.Errorf("token address for chain %d is empty", chainSel)
+			}
+			contains, err := deployment.AddressBookContains(e.ExistingAddresses, chainSel, token.String())
+			if err != nil {
+				return fmt.Errorf("error checking address book for token %s: %w", token.String(), err)
+			}
+			if !contains {
+				return fmt.Errorf("token %s not found in address book for chain %d", token.String(), chainSel)
+			}
+		}
+		for dest, price := range initialPrice.GasPrices {
+			if chainSel == dest {
+				return errors.New("source and dest chain cannot be the same")
+			}
+			if err := deployment.IsValidChainSelector(dest); err != nil {
+				return fmt.Errorf("invalid dest chain selector: %w", err)
+			}
+			if price == nil {
+				return fmt.Errorf("gas price for chain %d is nil", chainSel)
+			}
+			if _, ok := state.Chains[dest]; !ok {
+				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", dest, chainSel)
+			}
+		}
+	}
+
+	return nil
+}
+
+func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	s, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for chainSel, initialPrice := range cfg.PricesByChain {
+		txOpts := e.Chains[chainSel].DeployerKey
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		fq := s.Chains[chainSel].FeeQuoter
+		var tokenPricesArgs []fee_quoter.InternalTokenPriceUpdate
+		for token, price := range initialPrice.TokenPrices {
+			tokenPricesArgs = append(tokenPricesArgs, fee_quoter.InternalTokenPriceUpdate{
+				SourceToken: token,
+				UsdPerToken: price,
+			})
+		}
+		var gasPricesArgs []fee_quoter.InternalGasPriceUpdate
+		for dest, price := range initialPrice.GasPrices {
+			gasPricesArgs = append(gasPricesArgs, fee_quoter.InternalGasPriceUpdate{
+				DestChainSelector: dest,
+				UsdPerUnitGas:     price,
+			})
+		}
+		tx, err := fq.UpdatePrices(txOpts, fee_quoter.InternalPriceUpdates{
+			TokenPriceUpdates: tokenPricesArgs,
+			GasPriceUpdates:   gasPricesArgs,
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error updating prices for chain %s: %w", e.Chains[chainSel].String(), err)
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error confirming transaction for chain %s: %w", e.Chains[chainSel].String(), err)
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    fq.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update fq prices",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
+
 type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
@@ -208,7 +552,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
-				return fmt.Errorf("cannot update onramp destination to the same chain")
+				return fmt.Errorf("source and destination chain cannot be the same")
 			}
 		}
 	}
@@ -754,4 +1098,32 @@ func isOCR3ConfigSetOnOffRamp(
 		}
 	}
 	return true, nil
+}
+
+func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
+	/*
+		```Solidity
+			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+			bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+		```
+	*/
+	evmFamilySelector, _ := hex.DecodeString("2812d52c")
+	return fee_quoter.FeeQuoterDestChainConfig{
+		IsEnabled:                         true,
+		MaxNumberOfTokensPerMsg:           10,
+		MaxDataBytes:                      256,
+		MaxPerMsgGasLimit:                 3_000_000,
+		DestGasOverhead:                   ccipevm.DestGasOverhead,
+		DefaultTokenFeeUSDCents:           1,
+		DestGasPerPayloadByte:             ccipevm.CalldataGasPerByte,
+		DestDataAvailabilityOverheadGas:   100,
+		DestGasPerDataAvailabilityByte:    100,
+		DestDataAvailabilityMultiplierBps: 1,
+		DefaultTokenDestGasOverhead:       125_000,
+		DefaultTxGasLimit:                 200_000,
+		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
+		NetworkFeeUSDCents:                1,
+		ChainFamilySelector:               [4]byte(evmFamilySelector),
+	}
 }

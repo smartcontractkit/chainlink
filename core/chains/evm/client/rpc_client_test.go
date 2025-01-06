@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -399,7 +400,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	lggr := logger.Test(t)
 
 	type rpcServer struct {
-		Head *evmtypes.Head
+		Head atomic.Pointer[evmtypes.Head]
 		URL  *url.URL
 	}
 	createRPCServer := func() *rpcServer {
@@ -407,7 +408,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 		server.URL = testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			assert.Equal(t, "eth_getBlockByNumber", method)
 			if assert.True(t, params.IsArray()) && assert.Equal(t, "finalized", params.Array()[0].String()) {
-				head := server.Head
+				head := server.Head.Load()
 				jsonHead, err := json.Marshal(head)
 				if err != nil {
 					panic(fmt.Errorf("failed to marshal head: %w", err))
@@ -425,7 +426,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	rpc := client.NewRPCClient(nodePoolCfg, lggr, server.URL, nil, "rpc", 1, chainId, multinode.Primary, multinode.QueryTimeout, multinode.QueryTimeout, "")
 	require.NoError(t, rpc.Dial(ctx))
 	defer rpc.Close()
-	server.Head = &evmtypes.Head{Number: 128}
+	server.Head.Store(&evmtypes.Head{Number: 128})
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
@@ -438,7 +439,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(128), latest.FinalizedBlockNumber)
 
 	// lower block number does not update highestUserObservations
-	server.Head = &evmtypes.Head{Number: 127}
+	server.Head.Store(&evmtypes.Head{Number: 127})
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
 	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
@@ -450,7 +451,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(127), latest.FinalizedBlockNumber)
 
 	// health check flg prevents change in highestUserObservations
-	server.Head = &evmtypes.Head{Number: 256}
+	server.Head.Store(&evmtypes.Head{Number: 256})
 	_, err = rpc.LatestFinalizedBlock(multinode.CtxAddHealthCheckFlag(ctx))
 	require.NoError(t, err)
 	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
@@ -462,7 +463,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(256), latest.FinalizedBlockNumber)
 
 	// subscription updates chain info
-	server.Head = &evmtypes.Head{Number: 512}
+	server.Head.Store(&evmtypes.Head{Number: 512})
 	ch, sub, err := rpc.SubscribeToFinalizedHeads(ctx)
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
@@ -478,7 +479,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 
 	// health check subscription only updates latest
 	sub.Unsubscribe() // close previous one
-	server.Head = &evmtypes.Head{Number: 1024}
+	server.Head.Store(&evmtypes.Head{Number: 1024})
 	ch, sub, err = rpc.SubscribeToFinalizedHeads(multinode.CtxAddHealthCheckFlag(ctx))
 	require.NoError(t, err)
 	defer sub.Unsubscribe()

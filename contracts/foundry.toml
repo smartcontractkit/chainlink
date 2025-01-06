@@ -96,12 +96,6 @@ solc_version = '0.8.19'
 src = 'src/v0.8/operatorforwarder'
 test = 'src/v0.8/operatorforwarder/test'
 
-[profile.transmission]
-optimizer_runs = 1_000_000
-solc_version = '0.8.19'
-src = 'src/v0.8/transmission'
-test = 'src/v0.8/transmission/test'
-
 [profile.workflow]
 optimizer_runs = 1_000_000
 solc_version = '0.8.24'

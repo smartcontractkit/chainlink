@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 )
@@ -157,7 +157,7 @@ func deploy(
 
 func setOCR3Config(
 	env helpers.Environment,
-	ocrConfig ksdeploy.OCR2OracleConfig,
+	ocrConfig changeset.OCR3OnchainConfig,
 	artefacts string,
 ) {
 	loadedContracts, err := LoadDeployedContracts(artefacts)

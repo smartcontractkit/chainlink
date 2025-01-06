@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,11 +28,11 @@ import (
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -50,6 +51,7 @@ import (
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
+const finalityDepth = 4
 
 func TestContractReaderEventsInitValidation(t *testing.T) {
 	tests := []struct {
@@ -228,17 +230,51 @@ func TestChainReader_HealthReport(t *testing.T) {
 }
 
 func TestChainComponents(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/BCFR-1083")
 	t.Parallel()
-	it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: &helper{}}
-	// TODO, generated binding tests are broken
-	it.DisableTests([]string{interfacetests.ContractReaderGetLatestValue})
-	it.Init(t)
-
+	// shared helper so all tests can run efficiently in parallel
+	helper := &helper{}
+	helper.Init(t)
+	deployLock := sync.Mutex{}
 	// add new subtests here so that it can be run on real chains too
-	RunChainComponentsEvmTests(t, it)
-	RunChainComponentsInLoopEvmTests[*testing.T](t, commontestutils.WrapContractReaderTesterForLoop(it))
-	RunChainComponentsInLoopEvmTests(t, WrapContractReaderTesterWithBindings(t, it))
+	t.Run("RunChainComponentsEvmTests", func(t *testing.T) {
+		t.Parallel()
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper, DeployLock: &deployLock}
+		// These tests are broken in develop as well, so disable them for now
+		it.DisableTests([]string{
+			interfacetests.ContractReaderQueryKeysReturnsDataTwoEventTypes,
+			interfacetests.ContractReaderQueryKeysReturnsDataAsValuesDotValue,
+			interfacetests.ContractReaderQueryKeysCanFilterWithValueComparator,
+		})
+		it.Setup(t)
+
+		RunChainComponentsEvmTests(t, it)
+	})
+
+	t.Run("RunChainComponentsInLoopEvmTests", func(t *testing.T) {
+		t.Parallel()
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper, DeployLock: &deployLock}
+		wrapped := commontestutils.WrapContractReaderTesterForLoop(it)
+		// These tests are broken in develop as well, so disable them for now
+		wrapped.DisableTests([]string{
+			interfacetests.ContractReaderQueryKeysReturnsDataTwoEventTypes,
+			interfacetests.ContractReaderQueryKeysReturnsDataAsValuesDotValue,
+			interfacetests.ContractReaderQueryKeysCanFilterWithValueComparator,
+		})
+		wrapped.Setup(t)
+
+		RunChainComponentsInLoopEvmTests[*testing.T](t, wrapped, true)
+	})
+
+	t.Run("RunChainComponentsInLoopEvmTestsWithBindings", func(t *testing.T) {
+		t.Parallel()
+		it := &EVMChainComponentsInterfaceTester[*testing.T]{Helper: helper, DeployLock: &deployLock}
+		wrapped := WrapContractReaderTesterWithBindings(t, it)
+		// TODO, generated binding tests are broken
+		wrapped.DisableTests([]string{interfacetests.ContractReaderGetLatestValue})
+		wrapped.Setup(t)
+		// generated tests are not compatible with parallel running atm
+		RunChainComponentsInLoopEvmTests(t, wrapped, false)
+	})
 }
 
 type helper struct {
@@ -249,6 +285,40 @@ type helper struct {
 	txm         evmtxmgr.TxManager
 	client      client.Client
 	db          *sqlx.DB
+	lp          logpoller.LogPoller
+	ht          logpoller.HeadTracker
+}
+
+func getLPOpts() logpoller.Opts {
+	return logpoller.Opts{
+		PollPeriod:               time.Millisecond,
+		FinalityDepth:            finalityDepth,
+		BackfillBatchSize:        1,
+		RpcBatchSize:             1,
+		KeepFinalizedBlocksDepth: 10000,
+	}
+}
+
+func (h *helper) LogPoller(t *testing.T) logpoller.LogPoller {
+	if h.lp != nil {
+		return h.lp
+	}
+	ctx := testutils.Context(t)
+	lggr := logger.NullLogger
+	db := h.Database()
+
+	h.lp = logpoller.NewLogPoller(logpoller.NewORM(h.ChainID(), db, lggr), h.Client(t), lggr, h.HeadTracker(t), getLPOpts())
+	require.NoError(t, h.lp.Start(ctx))
+	return h.lp
+}
+
+func (h *helper) HeadTracker(t *testing.T) logpoller.HeadTracker {
+	if h.ht != nil {
+		return h.ht
+	}
+	lpOpts := getLPOpts()
+	h.ht = headtracker.NewSimulatedHeadTracker(h.Client(t), lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	return h.ht
 }
 
 func (h *helper) Init(t *testing.T) {
@@ -260,6 +330,7 @@ func (h *helper) Init(t *testing.T) {
 
 	h.Backend()
 	h.client = h.Client(t)
+	h.LogPoller(t)
 
 	h.txm = h.TXM(t, h.client)
 }
@@ -318,6 +389,10 @@ func (h *helper) Client(t *testing.T) client.Client {
 
 func (h *helper) ChainID() *big.Int {
 	return testutils.SimulatedChainID
+}
+
+func (h *helper) Database() *sqlx.DB {
+	return h.db
 }
 
 func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
