@@ -116,6 +116,8 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
+// TODO: SOLANA_CCIP
+// initialize nodes with OCR config for SolChains
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
@@ -197,7 +199,6 @@ func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
 	solChains := make(map[uint64]deployment.SolChain)
 	t.Logf("Spinning up devnet")
 	url, _ := solChain(t)
-	// url := "http://127.0.0.1:8899"
 	client := solRpc.New(url)
 	adminPrivateKey := deployment.GetSolanaDeployerKey()
 	newSolChain := deployment.SolChain{

@@ -233,7 +233,8 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	Chains map[uint64]deployment.Chain
+	Chains    map[uint64]deployment.Chain
+	SolChains map[uint64]deployment.SolChain
 }
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
@@ -244,7 +245,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	ctx := testcontext.Get(t)
 	var chains map[uint64]deployment.Chain
 	var users map[uint64][]*bind.TransactOpts
-	solChains := memory.NewMemoryChainsSol(t)
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
 		if tc.Chains > len(tc.ChainIDs) {
@@ -260,13 +260,14 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
 	}
 	m.Chains = chains
+	m.SolChains = memory.NewMemoryChainsSol(t)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
 		Env: deployment.Environment{
 			Chains:    m.Chains,
-			SolChains: solChains,
+			SolChains: m.SolChains,
 		},
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
@@ -287,8 +288,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig d
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	solChains := memory.NewMemoryChainsSol(t)
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, solChains, nodes)
+	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, nodes)
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -468,7 +468,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 
 	tokenConfig := NewTestTokenConfig(
 		state.Chains[e.FeedChainSel].USDFeeds[LinkSymbol].Address().String(),
-		state.Chains[e.FeedChainSel].USDFeeds[WethSymbol].Address().String())
+		state.Chains[e.FeedChainSel].USDFeeds[WethSymbol].Address().String(),
+		e.FeedChainSel)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)

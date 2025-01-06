@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -35,13 +36,18 @@ func NewTokenConfig() TokenConfig {
 	}
 }
 
-func NewTestTokenConfig(linkSymbolAddress, wethSymbolAddress string) TokenConfig {
+func NewTestTokenConfig(linkSymbolAddress, wethSymbolAddress string, chainSelector uint64) TokenConfig {
 	tc := NewTokenConfig()
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return tc
+	}
 	tc.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
 			AggregatorAddress: ccipocr3.UnknownEncodedAddress(linkSymbolAddress),
 			Decimals:          LinkDecimals,
 			DeviationPPB:      TestDeviationPPB,
+			ChainFamily:       family,
 		},
 	)
 	tc.UpsertTokenInfo(WethSymbol,
@@ -49,6 +55,7 @@ func NewTestTokenConfig(linkSymbolAddress, wethSymbolAddress string) TokenConfig
 			AggregatorAddress: ccipocr3.UnknownEncodedAddress(wethSymbolAddress),
 			Decimals:          WethDecimals,
 			DeviationPPB:      TestDeviationPPB,
+			ChainFamily:       family,
 		},
 	)
 	return tc

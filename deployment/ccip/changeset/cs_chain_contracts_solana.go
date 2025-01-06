@@ -71,13 +71,13 @@ func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsCon
 			IsEnabled: true,
 		}
 
-		ccipRouterId := s.SolChains[chainSel].CcipRouter
+		ccipRouterID := s.SolChains[chainSel].CcipRouter
 		// ccip_router.SetProgramID(ccipRouterId) //cannot set this again
 
 		for destination, update := range updates {
-			EvmSourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterId, destination)
+			EvmSourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
 			e.Logger.Infow("EvmSourceChainStatePDA", "EvmSourceChainStatePDA", EvmSourceChainStatePDA)
-			EvmDestChainStatePDA := GetEvmDestChainStatePDA(ccipRouterId, destination)
+			EvmDestChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
 			validDestChainConfig := ccip_router.DestChainConfig{
 				IsEnabled: update.IsEnabled,
 
@@ -96,7 +96,7 @@ func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsCon
 				validDestChainConfig,
 				EvmSourceChainStatePDA,
 				EvmDestChainStatePDA,
-				GetRouterConfigPDA(ccipRouterId),
+				GetRouterConfigPDA(ccipRouterID),
 				chain.DeployerKey.PublicKey(),
 				solana.SystemProgramID,
 			).ValidateAndBuild()

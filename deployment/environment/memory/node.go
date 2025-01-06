@@ -68,6 +68,8 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 // - Configured for OCR
 // - Configured for the chains specified
 // - Transmitter keys funded.
+// TODO: SOLANA_CCIP
+// initialize nodes with OCR config for SolChains
 func NewNode(
 	t *testing.T,
 	port int, // Port for the P2P V2 listener.
