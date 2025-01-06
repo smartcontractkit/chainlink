@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -124,7 +124,7 @@ func (o *SuggestedPriceEstimator) run() {
 
 func (o *SuggestedPriceEstimator) refreshPrice() {
 	var res hexutil.Big
-	ctx, cancel := o.chStop.CtxWithTimeout(multinode.QueryTimeout)
+	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
 	defer cancel()
 
 	if err := o.client.CallContext(ctx, &res, "eth_gasPrice"); err != nil {
