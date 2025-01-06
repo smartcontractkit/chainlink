@@ -186,6 +186,7 @@ type TestEnvironment interface {
 	StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig)
 	StartChains(t *testing.T, tc *TestConfigs)
 	DeployedEnvironment() DeployedEnv
+	UpdateDeployedEnvironment(env DeployedEnv)
 	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
 }
 
@@ -238,6 +239,10 @@ type MemoryEnvironment struct {
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 	return m.DeployedEnv
+}
+
+func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
+	m.DeployedEnv = env
 }
 
 func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
@@ -341,6 +346,7 @@ func NewLegacyEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) D
 				opts = append(opts, WithMultiCall3Enabled())
 			}
 		}
+		// no RMNConfig will ensure that mock RMN is deployed
 		opts = append(opts, WithLegacyDeploymentEnabled(LegacyDeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 		}))
@@ -381,20 +387,7 @@ func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) Deploye
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, tc, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
-	// TODO: Should use ApplyChangesets here.
-	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
-	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
-	_, err = deployHomeChain(lggr, dEnv.Env, dEnv.Env.ExistingAddresses, dEnv.Env.Chains[dEnv.HomeChainSel],
-		NewTestRMNStaticConfig(),
-		NewTestRMNDynamicConfig(),
-		NewTestNodeOperator(dEnv.Env.Chains[dEnv.HomeChainSel].DeployerKey.From),
-		map[string][][32]byte{
-			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
-		},
-	)
-	require.NoError(t, err)
-
 	return dEnv
 }
 
@@ -440,6 +433,33 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
+		},
+	})
+	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
+	return AddCCIPContractsToEnvironment(t, tc, tEnv)
+}
+
+func AddCCIPContractsToEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+	e := tEnv.DeployedEnvironment()
+	var err error
+	allChains := e.Env.AllChainSelectors()
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),

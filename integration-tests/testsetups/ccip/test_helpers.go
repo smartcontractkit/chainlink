@@ -63,6 +63,10 @@ func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEn
 	return l.DeployedEnv
 }
 
+func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env changeset.DeployedEnv) {
+	l.DeployedEnv = env
+}
+
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
