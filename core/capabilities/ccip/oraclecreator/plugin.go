@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -491,25 +492,27 @@ func createChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 ) (types.ContractWriter, error) {
-	var fromAddress common.Address
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
-	if ok {
-		// TODO: remove EVM-specific stuff
-		fromAddress = common.HexToAddress(transmitter[0])
-	}
+	chainWriterConfig := make([]byte, 0)
+	if chainFamily == relay.NetworkSolana {
 
-	chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
-		fromAddress,
-		defaultCommitGasLimit,
-		execBatchGasLimit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer config: %w", err)
-	}
-
-	chainWriterConfig, err := json.Marshal(chainWriterRawConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
+	} else {
+		var fromAddress common.Address
+		if ok {
+			fromAddress = common.HexToAddress(transmitter[0])
+		}
+		chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
+			fromAddress,
+			defaultCommitGasLimit,
+			execBatchGasLimit,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chain writer config: %w", err)
+		}
+		chainWriterConfig, err = json.Marshal(chainWriterRawConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
+		}
 	}
 
 	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
