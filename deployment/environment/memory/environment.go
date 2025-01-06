@@ -143,6 +143,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
+	solChains map[uint64]deployment.SolChain,
 	nodes map[string]Node,
 ) deployment.Environment {
 	var nodeIDs []string
@@ -154,7 +155,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
-		nil,
+		solChains,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,

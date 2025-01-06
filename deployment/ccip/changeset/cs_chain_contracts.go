@@ -17,6 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -238,6 +240,48 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
+		if err := cfg.validateRemoteChain(&e, &state, supportedChains, chainSel, updates); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, supportedChains map[uint64]struct{}, chainSel uint64, updates map[uint64]OnRampDestinationUpdate) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSel)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilySolana:
+		chainState, ok := state.SolChains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		if chainState.CcipRouter.IsZero() {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.CcipRouter); err != nil {
+			return err
+		}
+		for destination := range updates {
+			// Destination cannot be an unknown destination.
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.CcipRouter)
+			}
+			// TODO SOLANA_CCIP
+			// sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+			// if err != nil {
+			// 	return fmt.Errorf("failed to get onramp static config %s: %w", chainState.CcipRouter, err)
+			// }
+			// if destination == sc.ChainSelector {
+			// 	return fmt.Errorf("cannot update onramp destination to the same chain")
+			// }
+		}
+	case chain_selectors.FamilyEVM:
+		// EVM is the default case
+		fallthrough
+	default:
 		chainState, ok := state.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
@@ -254,7 +298,6 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
-
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
@@ -269,6 +312,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -948,11 +992,37 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
 	}
 	for _, remote := range c.RemoteChainSels {
-		chainState, ok := state.Chains[remote]
-		if !ok {
-			return fmt.Errorf("remote chain %d not found in onchain state", remote)
+		if err := c.validateRemoteChain(&e, &state, remote); err != nil {
+			return err
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[remote].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+	}
+	return nil
+}
+
+func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, chainSelector uint64) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilySolana:
+		chainState, ok := state.SolChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.CcipRouter); err != nil {
+			return err
+		}
+	case chain_selectors.FamilyEVM:
+		// EVM is the default case
+		fallthrough
+	default:
+		chainState, ok := state.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
 	}

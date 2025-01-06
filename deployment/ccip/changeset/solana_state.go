@@ -46,6 +46,7 @@ type SolCCIPChainState struct {
 	TokenPool    ag_solanago.PublicKey
 	LinkToken    ag_solanago.PublicKey
 	Weth9        ag_solanago.PublicKey
+	Timelock     ag_solanago.PublicKey
 }
 
 // TODO: Solana re-write

@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	ag_solanago "github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -37,5 +39,10 @@ func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock com
 	} else if !mcms && owner != deployerKey {
 		return fmt.Errorf("%s not owned by deployer key", contract.Address())
 	}
+	return nil
+}
+
+// TODO: SOLANA_CCIP
+func ValidateOwnershipSolana(ctx context.Context, mcms bool, deployerKey, timelock, ccipRouter ag_solanago.PublicKey) error {
 	return nil
 }

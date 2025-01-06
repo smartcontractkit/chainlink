@@ -55,7 +55,9 @@ import (
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
 func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
-
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	s, err := LoadOnchainStateSolana(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -130,18 +132,15 @@ func btoi(b bool) uint8 {
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	// if err := cfg.Validate(e); err != nil {
-	// 	return deployment.ChangesetOutput{}, err
-	// }
-
-	solState, err := LoadOnchainStateSolana(e)
-	if err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	solChains := state.SolChains
 
 	// cfg.RemoteChainSels will be a bunch of solana chains
 	// can add this in validate
@@ -166,7 +165,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 		// 	continue
 		// }
 		var instructions []solana.Instruction
-		ccipRouterId := solState.SolChains[remote].CcipRouter
+		ccipRouterId := solChains[remote].CcipRouter
 		for _, arg := range args {
 			instruction, err := ccip_router.NewSetOcrConfigInstruction(
 				uint8(arg.OcrPluginType),

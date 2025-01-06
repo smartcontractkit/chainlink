@@ -244,6 +244,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	ctx := testcontext.Get(t)
 	var chains map[uint64]deployment.Chain
 	var users map[uint64][]*bind.TransactOpts
+	solChains := memory.NewMemoryChainsSol(t)
 	if len(tc.ChainIDs) > 0 {
 		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
 		if tc.Chains > len(tc.ChainIDs) {
@@ -264,7 +265,8 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
 		Env: deployment.Environment{
-			Chains: m.Chains,
+			Chains:    m.Chains,
+			SolChains: solChains,
 		},
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
@@ -285,7 +287,8 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig d
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, nodes)
+	solChains := memory.NewMemoryChainsSol(t)
+	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, solChains, nodes)
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -463,7 +466,9 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := NewTestTokenConfig(
+		state.Chains[e.FeedChainSel].USDFeeds[LinkSymbol].Address().String(),
+		state.Chains[e.FeedChainSel].USDFeeds[WethSymbol].Address().String())
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -498,7 +503,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
-		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken.Address().String(), state.Chains[chain].Weth9.Address().String())
 		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)
