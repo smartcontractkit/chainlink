@@ -228,13 +228,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
     (newMessage.feeValueJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken) = IFeeQuoter(
       s_dynamicConfig.feeQuoter
     ).processMessageArgs(
-      newMessage.data,
-      destChainSelector,
-      message.feeToken,
-      feeTokenAmount,
-      message.extraArgs,
-      newMessage.tokenAmounts,
-      tokenAmounts
+      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
     );
 
     newMessage.header.nonce = isOutOfOrderExecution

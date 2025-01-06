@@ -17,7 +17,6 @@ interface IFeeQuoter is IPriceRegistry {
 
   /// @notice Converts the extraArgs to the latest version and returns the converted message fee in juels.
   /// @notice Validates pool return data.
-  /// @param message The message to process, necessary when sending messages to Solana to check against extraArgs validity.
   /// @param destChainSelector destination chain selector to process, must be a configured valid chain.
   /// @param feeToken token address used to pay for message fees, must be a configured valid fee token.
   /// @param feeTokenAmount Fee token amount.
@@ -29,7 +28,6 @@ interface IFeeQuoter is IPriceRegistry {
   /// @return convertedExtraArgs extra args converted to the latest family-specific args version.
   /// @return destExecDataPerToken Destination chain execution data.
   function processMessageArgs(
-    bytes calldata message,
     uint64 destChainSelector,
     address feeToken,
     uint256 feeTokenAmount,

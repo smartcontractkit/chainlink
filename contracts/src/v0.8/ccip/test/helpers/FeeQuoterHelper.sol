@@ -68,18 +68,16 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function parseSOLExtraArgsFromBytes(
     bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig,
-    uint256 messageDataLengthBytes
+    DestChainConfig memory destChainConfig
   ) external pure returns (Client.SolExtraArgsV1 memory) {
-    return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, messageDataLengthBytes);
+    return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig);
   }
 
   function parseSOLExtraArgsFromBytes(
     bytes calldata extraArgs,
-    uint64 destChainSelector,
-    uint256 messageDataLengthBytes
+    uint64 destChainSelector
   ) external view returns (Client.SolExtraArgsV1 memory) {
-    return _parseSolExtraArgsFromBytes(extraArgs, s_destChainConfigs[destChainSelector], messageDataLengthBytes);
+    return _parseSolExtraArgsFromBytes(extraArgs, s_destChainConfigs[destChainSelector]);
   }
 
   function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) external pure {

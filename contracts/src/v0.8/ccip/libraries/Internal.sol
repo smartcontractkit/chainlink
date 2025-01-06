@@ -174,13 +174,6 @@ library Internal {
     return address(uint160(encodedAddressUint));
   }
 
-  // TODO: Comments for why this single check is done here so that it is future thinking
-  function _validateSolAddress(
-    bytes memory solAddress
-  ) internal pure {
-    if (solAddress.length != 32) revert InvalidSolAddress(solAddress);
-  }
-
   /// @notice Enum listing the possible message execution states within the offRamp contract.
   /// UNTOUCHED never executed.
   /// IN_PROGRESS currently being executed, used a replay protection.

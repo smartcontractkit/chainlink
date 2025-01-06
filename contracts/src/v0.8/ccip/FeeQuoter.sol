@@ -45,8 +45,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
   error UnsupportedNumberOfTokens(uint256 numberOfTokens, uint256 maxNumberOfTokensPerMsg);
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
-  error FirstSolExtraArgsAddressCannotBeWritable();
-  error SolExtraArgsMustBeProvided();
+  error InvalidChainFamilySelector(bytes4 chainFamilySelector);
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -865,56 +864,30 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     DestChainConfig memory destChainConfig
   ) internal pure returns (uint256 gasLimit) {
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      gasLimit = _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
+      return gasLimit = _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
-      // If extra args are empty, generate default values.
-      gasLimit = _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, 0).computeUnits;
+      return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
     } else {
-      gasLimit = destChainConfig.defaultTxGasLimit;
+      return destChainConfig.defaultTxGasLimit;
     }
-
-    return gasLimit;
   }
 
   /// @notice Parse and validate the Solana specific Extra Args Bytes.
-  /// @param messageDataLengthBytes The length of the arbitrary message data. If this is non-zero, then an extraArgs
-  /// MUST be provided otherwise an error will be returned, due to requirements in how Solana accounts operate.
   function _parseSolExtraArgsFromBytes(
     bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig,
-    uint256 messageDataLengthBytes
-  ) internal pure returns (Client.SolExtraArgsV1 memory) {
-    Client.SolExtraArgsV1 memory SolExtraArgs =
-      _parseUnvalidatedSolExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
-
-    // If the message data length is non-zero, then accounts extra args must be provided.
-    if (messageDataLengthBytes != 0 && SolExtraArgs.accounts.length == 0) revert SolExtraArgsMustBeProvided();
-
-    // The Program name being invoked, which is the first account provided, cannot be writable on Solana.
-    if (SolExtraArgs.accounts.length != 0 && SolExtraArgs.accounts[0].isWritable) {
-      revert FirstSolExtraArgsAddressCannotBeWritable();
-    }
-
-    // Check that compute units is within the allowed range.
-    if (SolExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
-
-    return SolExtraArgs;
-  }
-
-  function _parseUnvalidatedSolExtraArgsFromBytes(
-    bytes calldata extraArgs,
-    uint64 defaultTxGasLimit
+    DestChainConfig memory destChainConfig
   ) internal pure returns (Client.SolExtraArgsV1 memory) {
     if (extraArgs.length == 0) {
       return Client.SolExtraArgsV1({
-        computeUnits: uint32(defaultTxGasLimit), //TODO: Fix Potentially unsafe cast
+        computeUnits: uint32(destChainConfig.defaultTxGasLimit), //TODO: Fix Potentially unsafe cast
         accounts: new Client.SolanaAccountMeta[](0)
       });
     }
 
-    bytes memory argsData = extraArgs[4:];
+    Client.SolExtraArgsV1 memory solExtraArgs = abi.decode(extraArgs[4:], (Client.SolExtraArgsV1));
 
-    Client.SolExtraArgsV1 memory solExtraArgs = abi.decode(argsData, (Client.SolExtraArgsV1));
+    // Check that compute units is within the allowed range.
+    if (solExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
 
     return solExtraArgs;
   }
@@ -993,10 +966,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @inheritdoc IFeeQuoter
   /// @dev precondition - onRampTokenTransfers and sourceTokenAmounts lengths must be equal.
-  /// @param messageData The arbitrary bytes to be processed. Solana address requirements require that if an arbitrary message
-  /// exists, then extraArgs must also be checked for a valid recipient account.
   function processMessageArgs(
-    bytes calldata messageData,
     uint64 destChainSelector,
     address feeToken,
     uint256 feeTokenAmount,
@@ -1013,12 +983,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       bytes[] memory destExecDataPerToken
     )
   {
-    // Prevents a stack too deep error on messageData
-    {
-      bytes memory data = messageData;
-      (convertedExtraArgs, isOutOfOrderExecution) = _processChainFamilySelector(destChainSelector, data, extraArgs);
-    }
-
     // Convert feeToken to link if not already in link.
     if (feeToken == i_linkToken) {
       msgFeeJuels = feeTokenAmount;
@@ -1027,6 +991,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
+
+    (convertedExtraArgs, isOutOfOrderExecution) = _processChainFamilySelector(destChainSelector, extraArgs);
 
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
 
@@ -1037,7 +1003,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
   function _processChainFamilySelector(
     uint64 destChainSelector,
-    bytes memory message,
     bytes calldata extraArgs
   ) internal view returns (bytes memory convertedExtraArgs, bool isOutOfOrderExecution) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
@@ -1046,20 +1011,15 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       Client.EVMExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
-      convertedExtraArgs = Client._argsToBytes(parsedExtraArgs);
-
-      isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
+      return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
-      Client.SolExtraArgsV1 memory parsedExtraArgs =
-        _parseSolExtraArgsFromBytes(extraArgs, destChainConfig, message.length);
-
-      convertedExtraArgs = Client._solArgsToBytes(parsedExtraArgs);
+      Client.SolExtraArgsV1 memory parsedExtraArgs = _parseSolExtraArgsFromBytes(extraArgs, destChainConfig);
 
       // On Solana OOO execution is enabled for all messages.
-      isOutOfOrderExecution = true;
+      return (Client._solArgsToBytes(parsedExtraArgs), true);
+    } else {
+      revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
     }
-
-    return (convertedExtraArgs, isOutOfOrderExecution);
   }
 
   /// @notice Validates pool return data.
