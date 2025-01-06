@@ -1,12 +1,12 @@
 package client
 
 import (
-	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"math/big"
 	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"

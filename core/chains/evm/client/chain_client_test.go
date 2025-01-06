@@ -491,7 +491,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, multinode.Fatal)
+		assert.Equal(t, multinode.Fatal, errType)
 	})
 
 	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
@@ -517,7 +517,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, multinode.TransactionAlreadyKnown)
+		assert.Equal(t, multinode.TransactionAlreadyKnown, errType)
 	})
 
 	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
@@ -542,7 +542,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.NoError(t, err)
-		assert.Equal(t, errType, multinode.Successful)
+		assert.Equal(t, multinode.Successful, errType)
 	})
 
 	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {

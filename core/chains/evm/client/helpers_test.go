@@ -156,7 +156,7 @@ func NewChainClientWithTestNode(
 		nodeCfg, mocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
 	primaries := []multinode.Node[*big.Int, *RPCClient]{n}
 
-	var sendonlys []multinode.SendOnlyNode[*big.Int, *RPCClient]
+	sendonlys := make([]multinode.SendOnlyNode[*big.Int, *RPCClient], len(sendonlyRPCURLs))
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
