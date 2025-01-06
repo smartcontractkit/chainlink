@@ -15,6 +15,8 @@ jobs:
     outputs:
       git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
       ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
+      is-release: ${{ steps.release-tag-check.outputs.is-release }}
+      is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
@@ -38,6 +40,9 @@ jobs:
             echo "git-tag-type=core" | tee -a "$GITHUB_OUTPUT"
             echo "ecr-image-name=chainlink/chainlink" | tee -a "$GITHUB_OUTPUT"
           fi
+      - name: Check release tag
+        id: release-tag-check
+        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
       - name: Fail if CCIP release has wrong version
         if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
         run: |
@@ -136,3 +141,38 @@ jobs:
               github.ref_type == 'tag' && 
               needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
             }}
+  crib:
+    needs: [checks, build-sign-publish-chainlink]
+    # Only spin up CRIB on pre-releases (beta, rc).
+    if: needs.checks.outputs.is-pre-release == 'true'
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
+
+      - name: Run Core CRIB Integration Tests
+        uses: ./.github/actions/crib
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          api-gw-host-crib: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
+          api-gw-host-k8s: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
+          k8s-api-endpoint: ${{ secrets.GAP_HOST_K8S_STAGE }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          aws-token-issuer-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-token-issuer-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
+          k8s-staging-ingress-suffix: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+          gap-url-integration-tests: ${{ secrets.GAP_URL }}
+          crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
+          crib-chainlink-docker-image-name: ${{ format('{0}/{1}', env.ECR_HOSTNAME, needs.checks.outputs.ecr-image-name) }}
+          crib-chainlink-docker-image-tag: ${{ needs.build-sign-publish-chainlink.outputs.docker-image-tag}}
+          crib-cleanup-ttl: "3d"

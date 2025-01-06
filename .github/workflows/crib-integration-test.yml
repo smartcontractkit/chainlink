@@ -6,9 +6,11 @@ on:
   schedule:
     - cron: "0 1 * * *"
   workflow_call:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,102 +25,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: cachix/install-nix-action@ba0dd844c9180cbf77aa72a116d6fbc515d0e87b # v27
+      - name: Run CRIB Integration Tests
+        uses: ./.github/actions/crib
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
-
-      - name: setup-gap crib
-        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
-        with:
-          aws-role-duration-seconds: 3600 # 1 hour
           aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
           aws-region: ${{ secrets.AWS_REGION }}
-          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          gap-name: crib
-          use-private-ecr-registry: true
-          use-tls: true
-          proxy-port: 8080
-          metrics-job-name: "test"
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
-      - name: setup-gap k8s
-        uses: smartcontractkit/.github/actions/setup-gap@00b58566e0ee2761e56d9db0ea72b783fdb89b8d # setup-gap@0.4.0
-        with:
-          aws-role-duration-seconds: 3600 # 1 hour
-          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          gap-name: k8s
-          use-private-ecr-registry: true
-          use-k8s: true
-          proxy-port: 8443
-          metrics-job-name: "test"
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-
-      - name: Setup GitHub token using GATI
-        id: token
-        uses: smartcontractkit/.github/actions/setup-github-token@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # main
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-duration-seconds: "1800"
-      - name: Debug workspace dir
-        shell: bash
-        run: |
-          echo ${{ github.workspace }}
-          echo $GITHUB_WORKSPACE
-
-      - name: Deploy and validate CRIB Environment for Core
-        uses: smartcontractkit/.github/actions/crib-deploy-environment@815e0d550527897746e889441407926d7e28169c # crib-deploy-environment@7.4.0
-        id: deploy-crib
-        with:
-          github-token: ${{ steps.token.outputs.access-token }}
-          aws-ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
-          ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          api-gw-host-crib: ${{ secrets.AWS_API_GW_HOST_CRIB_STAGE }}
+          api-gw-host-k8s: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
           k8s-api-endpoint: ${{ secrets.GAP_HOST_K8S_STAGE }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
-          chainlink-team: releng
-          chainlink-product: crib
-          command: "core-dev-simulated-core-ocr1"
+          aws-token-issuer-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-token-issuer-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
+          k8s-staging-ingress-suffix: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+          gap-url-integration-tests: ${{ secrets.GAP_URL }}
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
-          product-image: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
-          product-image-tag: develop
-      - uses: actions/checkout@v4.2.1
-        with:
-          persist-credentials: false
-      - name: Set up Go
-        uses: ./.github/actions/setup-go
-        with:
-          go-version-file: "go.mod"
-      - name: Run CRIB integration test
-        working-directory: integration-tests/crib
-        env:
-          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
-          CRIB_NAMESPACE: ${{ steps.deploy-crib.outputs.devspace-namespace }}
-          CRIB_NETWORK: geth
-          CRIB_NODES: 5
-          GAP_URL: ${{ secrets.GAP_URL }}
-          SETH_LOG_LEVEL: info
-          # RESTY_DEBUG: true
-          TEST_PERSISTENCE: true
-          E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
-          E2E_TEST_CHAINLINK_VERSION: latest
-        run: |-
-          go test -v -run TestCRIBChaos
-      - name: Destroy CRIB Environment
-        id: destroy
-        if: always() && steps.deploy-crib.outputs.devspace-namespace != ''
-        uses: smartcontractkit/.github/actions/crib-purge-environment@c0b38e6c40d72d01b8d2f24f92623a2538b3dedb # crib-purge-environment@0.1.0
-        with:
-          namespace: ${{ steps.deploy-crib.outputs.devspace-namespace }}
+          crib-chainlink-docker-image-name: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
+          crib-chainlink-docker-image-tag: develop
