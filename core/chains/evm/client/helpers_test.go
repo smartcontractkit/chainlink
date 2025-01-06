@@ -164,7 +164,7 @@ func NewChainClientWithTestNode(
 		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, multinode.Secondary, multinode.QueryTimeout, multinode.QueryTimeout, "")
 		s := multinode.NewSendOnlyNode[*big.Int, *RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
-		sendonlys = append(sendonlys, s)
+		sendonlys[i] = s
 	}
 
 	clientErrors := NewTestClientErrors()
