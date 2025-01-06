@@ -96,7 +96,6 @@ jobs:
           aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
-          set-git-config: "true"
 
       - name: Checkout capabilities repository
         uses: actions/checkout@v4.2.1
