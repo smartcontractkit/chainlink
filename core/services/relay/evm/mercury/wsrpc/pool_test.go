@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -64,10 +63,10 @@ func Test_Pool(t *testing.T) {
 			serverURL := "example.com:443/ws"
 
 			client := newMockClient(lggr)
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
-				assert.Equal(t, clientPrivKey, cprivk)
-				assert.Equal(t, serverPubKey, spubk)
-				assert.Equal(t, serverURL, surl)
+			p.newClient = func(opts ClientOpts) Client {
+				assert.Equal(t, clientPrivKey, opts.ClientPrivKey)
+				assert.Equal(t, serverPubKey, opts.ServerPubKey)
+				assert.Equal(t, serverURL, opts.ServerURL)
 				return client
 			}
 
@@ -110,8 +109,8 @@ func Test_Pool(t *testing.T) {
 				"example.invalid:8000/ws",
 			}
 
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
-				return newMockClient(lggr)
+			p.newClient = func(opts ClientOpts) Client {
+				return newMockClient(opts.Logger)
 			}
 
 			// conn 1
@@ -226,8 +225,8 @@ func Test_Pool(t *testing.T) {
 		}
 
 		var clients []*mockClient
-		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
-			c := newMockClient(lggr)
+		p.newClient = func(opts ClientOpts) Client {
+			c := newMockClient(opts.Logger)
 			clients = append(clients, c)
 			return c
 		}
