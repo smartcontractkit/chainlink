@@ -54,6 +54,9 @@ jobs:
         with:
           prod: "true"
 
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
+
       - name: Run native compile and generate wrappers
         run: make wrappers-all
         working-directory: ./contracts

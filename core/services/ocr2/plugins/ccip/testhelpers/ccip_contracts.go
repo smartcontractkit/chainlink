@@ -201,7 +201,7 @@ type Common struct {
 	WrappedNative      *weth9.WETH9
 	WrappedNativePool  *lock_release_token_pool.LockReleaseTokenPool
 	ARM                *mock_rmn_contract.MockRMNContract
-	ARMProxy           *rmn_proxy_contract.RMNProxyContract
+	ARMProxy           *rmn_proxy_contract.RMNProxy
 	PriceRegistry      *price_registry_1_2_0.PriceRegistry
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	FinalityDepth      uint32
@@ -698,14 +698,14 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain.Client())
 	require.NoError(t, err)
-	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		sourceUser,
 		sourceChain.Client(),
 		armSourceAddress,
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
-	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxySourceAddress, sourceChain.Client())
+	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxySourceAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	armDestAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
@@ -714,7 +714,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		destUser,
 		destChain.Client(),
 		armDestAddress,
@@ -723,7 +723,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 	destARM, err := mock_rmn_contract.NewMockRMNContract(armDestAddress, destChain.Client())
 	require.NoError(t, err)
-	destARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxyDestAddress, destChain.Client())
+	destARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxyDestAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// ================================================================

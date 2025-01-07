@@ -6,83 +6,79 @@ echo " ┌───────────────────────�
 echo " │          Compiling CCIP contracts...         │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.26"
-OPTIMIZE_RUNS=80000
-# This has to match the value in the `ccip-viair` foundry profile.
+# The offRamp uses a specific lower optimization runs value. All other contracts use the default value
+# as specified in the foundry.toml.
 OPTIMIZE_RUNS_OFFRAMP=800
+PROJECT="ccip"
+FOUNDRY_PROJECT_SUFFIX="-compile"
 
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
 
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
-
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-
-compileContract () {
+compileContract() {
   local contract
-  contract=$(basename "$1" ".sol")
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
 
-  local optimize_runs=$OPTIMIZE_RUNS
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   $(getOptimizations "$contract") \
+   --extra-output-files bin abi \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
 
-  case $1 in
-    "ccip/offRamp/OffRamp.sol")
-    echo "OffRamp uses $OPTIMIZE_RUNS_OFFRAMP optimizer runs."
-      optimize_runs=$OPTIMIZE_RUNS_OFFRAMP
-      ;;
-  esac
-
-  solc --overwrite --via-ir --optimize --optimize-runs $optimize_runs --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
-      --bin-runtime --hashes --metadata --metadata-literal --combined-json abi,hashes,metadata,srcmap,srcmap-runtime \
-      --evm-version paris \
-      "$ROOT"/contracts/src/v0.8/"$1"
+  $command
 }
 
-compileContract ccip/offRamp/OffRamp.sol
-compileContract ccip/FeeQuoter.sol
-compileContract ccip/onRamp/OnRamp.sol
-compileContract ccip/applications/PingPongDemo.sol
-compileContract ccip/applications/EtherSenderReceiver.sol
-compileContract ccip/rmn/RMNRemote.sol
-compileContract ccip/rmn/RMNHome.sol
-compileContract ccip/rmn/ARMProxy.sol
-compileContract ccip/MultiAggregateRateLimiter.sol
-compileContract ccip/Router.sol
-compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
-compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
-compileContract ccip/capability/CCIPHome.sol
-compileContract ccip/NonceManager.sol
-compileContract shared/token/ERC677/BurnMintERC677.sol
-compileContract shared/token/ERC20/BurnMintERC20.sol
+# Define optimization overrides in this function. Anything that is not an override will use the default value
+# as specified in the foundry.toml.
+function getOptimizations() {
+    local optimize_runs_override=""
 
+    case $1 in
+      "OffRamp")
+        optimize_runs_override="--optimizer-runs "$OPTIMIZE_RUNS_OFFRAMP
+        ;;
+    esac
+
+    echo "$optimize_runs_override"
+}
+
+compileContract offRamp/OffRamp
+compileContract FeeQuoter
+compileContract onRamp/OnRamp
+compileContract applications/PingPongDemo
+compileContract applications/EtherSenderReceiver
+compileContract MultiAggregateRateLimiter
+compileContract Router
+compileContract tokenAdminRegistry/TokenAdminRegistry
+compileContract tokenAdminRegistry/RegistryModuleOwnerCustom
+compileContract capability/CCIPHome
+compileContract NonceManager
+compileContract rmn/RMNRemote
+compileContract rmn/RMNHome
+compileContract rmn/RMNProxy
 
 # Pools
-compileContract ccip/pools/LockReleaseTokenPool.sol
-compileContract ccip/pools/BurnMintTokenPool.sol
-compileContract ccip/pools/BurnFromMintTokenPool.sol
-compileContract ccip/pools/BurnWithFromMintTokenPool.sol
-compileContract ccip/pools/TokenPool.sol
-
+compileContract pools/LockReleaseTokenPool
+compileContract pools/BurnMintTokenPool
+compileContract pools/BurnFromMintTokenPool
+compileContract pools/BurnWithFromMintTokenPool
+compileContract pools/TokenPool
+compileContract pools/USDC/USDCTokenPool
 
 # Test helpers
-compileContract ccip/test/helpers/BurnMintERC677Helper.sol
-compileContract ccip/test/helpers/MessageHasher.sol
-compileContract ccip/test/helpers/USDCReaderTester.sol
-compileContract ccip/test/helpers/ReportCodec.sol
-compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
-compileContract ccip/test/helpers/MultiOCR3Helper.sol
-compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
-compileContract ccip/test/mocks/MockE2EUSDCTransmitter.sol
-compileContract ccip/test/WETH9.sol
-compileContract ccip/test/helpers/CCIPReaderTester.sol
+compileContract test/helpers/BurnMintERC677Helper
+compileContract test/helpers/MessageHasher
+compileContract test/helpers/USDCReaderTester
+compileContract test/helpers/ReportCodec
+compileContract test/helpers/receivers/MaybeRevertMessageReceiver
+compileContract test/helpers/MultiOCR3Helper
+compileContract test/mocks/MockE2EUSDCTokenMessenger
+compileContract test/mocks/MockE2EUSDCTransmitter
+compileContract test/WETH9
+compileContract test/helpers/CCIPReaderTester
+# Offchain test encoding utils
+compileContract test/helpers/EncodingUtils
 
-# Encoding Utils
-compileContract ccip/interfaces/encodingutils/ICCIPEncodingUtils.sol
 
-# Customer contracts
-compileContract ccip/pools/USDC/USDCTokenPool.sol
-
-compileContract tests/MockV3Aggregator.sol
