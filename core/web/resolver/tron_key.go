@@ -15,7 +15,7 @@ func NewTronKey(key tronkey.Key) *TronKeyResolver {
 }
 
 func NewTronKeys(keys []tronkey.Key) []*TronKeyResolver {
-	var resolvers []*TronKeyResolver
+	resolvers := make([]*TronKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewTronKey(k))
