@@ -1441,6 +1441,7 @@ github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2Lp
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce h1:Mvpbr/Fi2IdU2EcmqCxhlCzs5ncnx+BwV80YweA4DZs=
 github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce/go.mod h1:qq+nW0JDnCCGMf2c38ZHjH8xgkAQnXKighjJr5JdDNE=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250103164418-319e58e52798/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 h1:tNS7U9lrxkFvEuyxQv11HHOiV9LPDGC9wYEy+yM/Jv4=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8/go.mod h1:EBrEgcdIbwepqguClkv8Ohy7CbyWSJaE4EC9aBJlQK0=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13 h1:T0kbw07Vb6xUyA9MIJZfErMgWseWi1zf7cYvRpoq7ug=
