@@ -34,6 +34,7 @@ compileContract() {
 }
 
 compileContract interfaces/AggregatorV3Interface
+compileContract interfaces/ITypeAndVersion
 compileContract token/ERC677/BurnMintERC677
 compileContract token/ERC677/LinkToken
 compileContract token/ERC20/BurnMintERC20

@@ -11,6 +11,7 @@ package gethwrappers
 //go:generate go run ../generation/wrap.go shared MockV3Aggregator mock_v3_aggregator_contract
 //go:generate go run ../generation/wrap.go shared LogEmitter log_emitter
 //go:generate go run ../generation/wrap.go shared VRFLogEmitter vrf_log_emitter
+//go:generate go run ../generation/wrap.go shared ITypeAndVersion type_and_version
 
 //go:generate go run ../generation/wrap.go vendor ERC20 erc20
 //go:generate go run ../generation/wrap.go vendor Multicall3 multicall3
