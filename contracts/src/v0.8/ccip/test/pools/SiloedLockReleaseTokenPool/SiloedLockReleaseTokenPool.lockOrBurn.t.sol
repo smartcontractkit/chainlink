@@ -30,7 +30,7 @@ contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetu
       })
     );
 
-    assertEq(s_siloedLockReleaseTokenPool.getLockedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
   }
 
   function testLockOrBurn_NonSiloedFunds_Success(
@@ -54,6 +54,6 @@ contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetu
       })
     );
 
-    assertEq(s_siloedLockReleaseTokenPool.getLockedTokensByChain(DEST_CHAIN_SELECTOR), 0);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(DEST_CHAIN_SELECTOR), amount);
   }
 }

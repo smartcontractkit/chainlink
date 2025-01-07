@@ -38,8 +38,8 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
     remotePoolAddresses[0] = abi.encode(s_destPoolAddress);
     remotePoolAddresses[1] = abi.encode(s_siloedDestPoolAddress);
 
-    TokenPool.ChainUpdate[] memory chainUpdate = new TokenPool.ChainUpdate[](2);
-    chainUpdate[0] = TokenPool.ChainUpdate({
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](3);
+    chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
@@ -47,7 +47,7 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    chainUpdate[1] = TokenPool.ChainUpdate({
+    chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: SILOED_CHAIN_SELECTOR,
       remotePoolAddresses: remotePoolAddresses,
       remoteTokenAddress: abi.encode(address(2)),
@@ -55,24 +55,34 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
       inboundRateLimiterConfig: _getInboundRateLimiterConfig()
     });
 
-    s_siloedLockReleaseTokenPool.applyChainUpdates(new uint64[](0), chainUpdate);
+    chainUpdates[2] = TokenPool.ChainUpdate({
+      remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+      remotePoolAddresses: remotePoolAddresses,
+      remoteTokenAddress: abi.encode(address(2)),
+      outboundRateLimiterConfig: _getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: _getInboundRateLimiterConfig()
+    });
+
+    s_siloedLockReleaseTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
     s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
 
-    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](2);
+    Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](3);
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
 
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: s_allowedOnRamp});
     offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SOURCE_CHAIN_SELECTOR, offRamp: s_allowedOffRamp});
 
     onRampUpdates[1] = Router.OnRamp({destChainSelector: SILOED_CHAIN_SELECTOR, onRamp: s_allowedOnRamp});
-    offRampUpdates[0] = Router.OffRamp({sourceChainSelector: SILOED_CHAIN_SELECTOR, offRamp: s_allowedOffRamp});
+    offRampUpdates[1] = Router.OffRamp({sourceChainSelector: SILOED_CHAIN_SELECTOR, offRamp: s_allowedOffRamp});
+
+    onRampUpdates[2] = Router.OnRamp({destChainSelector: SOURCE_CHAIN_SELECTOR, onRamp: s_allowedOnRamp});
 
     s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
 
     // Apply Siloeing Rules
     uint64[] memory adds = new uint64[](1);
     adds[0] = SILOED_CHAIN_SELECTOR;
-    s_siloedLockReleaseTokenPool.updateChainSelectorMechanisms(new uint64[](0), adds);
+    s_siloedLockReleaseTokenPool.updateSiloDesignationForChainSelectors(new uint64[](0), adds);
 
     assertTrue(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(SILOED_CHAIN_SELECTOR));
     assertFalse(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(DEST_CHAIN_SELECTOR));

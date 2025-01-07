@@ -44,27 +44,4 @@ contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetu
     assertEq(s_burnMintERC20.balanceOf(s_pool.getBurnAddress()), burnAmount);
     assertEq(s_burnMintERC20.balanceOf(address(s_pool)), 0);
   }
-
-  // Reverts
-
-  function test_LockOrBurn_RevertWhen_LockedTokensUnderflows() public {
-    uint256 burnAmount = s_initialTokenAmount + 1;
-
-    deal(address(s_burnMintERC20), address(s_pool), burnAmount);
-
-    vm.startPrank(s_burnMintOnRamp);
-
-    // Call should revert due to underflow error due to trying to burn more tokens than are locked via CCIP.
-    vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x11));
-
-    s_pool.lockOrBurn(
-      Pool.LockOrBurnInV1({
-        originalSender: OWNER,
-        receiver: bytes(""),
-        amount: burnAmount,
-        remoteChainSelector: DEST_CHAIN_SELECTOR,
-        localToken: address(s_burnMintERC20)
-      })
-    );
-  }
 }

@@ -11,25 +11,26 @@ import {TokenPool} from "./TokenPool.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @notice This pool mints and burns a 3rd-party token by sending tokens to an address which is unrecoverable
-/// @dev Pool whitelisting mode is set in the constructor and cannot be modified later.
-/// It either accepts any address as originalSender, or only accepts whitelisted originalSender.
-/// The only way to change whitelisting mode is to deploy a new pool.
-/// If that is expected, please make sure the token's burner/minter roles are adjustable.
-/// @dev This contract is a variant of BurnMintTokenPool that uses `burn(amount)`.
+/// @notice This pool mints and burns a 3rd-party token by sending tokens to an address which is unrecoverable.
+/// @dev The pool is designed to have an immutable burn address. If the tokens at the burn address become recoverable,
+/// for example, a quantum computer calculating a private key for the zero address, the pool will need to be replaced
+/// with a new pool with a different burn address.
 contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
   string public constant override typeAndVersion = "BurnToAddressTokenPool 1.5.1";
 
+  /// @notice The address where tokens are sent during a call to lockOrBurn, functionally burning but without decreasing
+  /// total supply. This address is expected to have no ability to recover the tokens sent to it, and will thus be locked forever.
+  /// This can be either an EOA without a corresponding private key, or a contract which does not have the ability to transfer the tokens.
   address public immutable i_burnAddress;
 
   /// @notice Locked Tokens is a safety mechanism to ensure that more tokens cannot be sent out of the bridge
   /// than were originally sent in via CCIP.
   uint256 internal s_lockedTokens;
 
-  /// @dev burnAddress is expected to be an address of which has no corresponding private key. Therefore the zero
-  /// address is a valid input, and no check for non-zero address is performed.
+  /// @dev Since burnAddress is expected to make the tokens unrecoverable, no check for the zero address needs to be
+  /// performed, as it is a valid input.
   constructor(
     IBurnMintERC20 token,
     uint8 localTokenDecimals,
@@ -43,28 +44,27 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
     s_lockedTokens = initialLockedTokens;
   }
 
-  /// @notice Mint tokens from the pool to the recipient
-  /// @dev The _validateReleaseOrMint check is an essential security check
+  /// @notice Mint tokens from the pool to the recipient, updating the internal accounting for an outflow of tokens.
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
-    s_lockedTokens += releaseOrMintIn.amount;
+    s_lockedTokens -= releaseOrMintIn.amount;
 
     return super.releaseOrMint(releaseOrMintIn);
   }
 
   /// @inheritdoc BurnMintTokenPoolAbstract
-  /// @notice Tokens are burned by sending to an address which is expected to have no corresponding private key,
-  /// which makes the tokens unrecoverable without reducing the total supply.
+  /// @notice Tokens are burned by sending to an address which can never transfer them,
+  /// making the tokens unrecoverable without reducing the total supply.
   function _burn(
     uint256 amount
   ) internal virtual override {
-    s_lockedTokens -= amount;
+    s_lockedTokens += amount;
 
     getToken().safeTransfer(i_burnAddress, amount);
   }
 
-  /// @notice returns the address where tokens are sent during a call to lockOrBurn
+  /// @notice Returns the address where tokens are sent during a call to lockOrBurn
   /// @return burnAddress the address which receives the tokens.
   function getBurnAddress() public view returns (address burnAddress) {
     return i_burnAddress;

@@ -27,7 +27,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
 
     // Since the funds for the destination chain are not siloed,
     // the locked token amount should not be increased
-    assertEq(s_siloedLockReleaseTokenPool.getLockedTokensByChain(DEST_CHAIN_SELECTOR), 0);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(DEST_CHAIN_SELECTOR), amount);
   }
 
   function test_ProvideLiquidity_ChainSiloed_Success() public {
@@ -42,7 +42,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
 
     // Since the funds for the destination chain are not siloed,
     // the locked token amount should not be increased
-    assertEq(s_siloedLockReleaseTokenPool.getLockedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
   }
 
   // Reverts
