@@ -379,7 +379,7 @@ func (r *RPCClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 		for _, el := range b {
 			if el.Method == "eth_getLogs" {
 				r.rpcLog.Critical("evmclient.BatchCallContext: eth_getLogs is not supported")
-				return fmt.Errorf("evmclient.BatchCallContext: eth_getLogs is not supported")
+				return errors.New("evmclient.BatchCallContext: eth_getLogs is not supported")
 			}
 			if !isRequestingFinalizedBlock(el) {
 				continue

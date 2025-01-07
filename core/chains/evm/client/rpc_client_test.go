@@ -457,7 +457,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 		NodeFinalizedBlockPollInterval: 1 * time.Second,
 	}
 
-	chainId := big.NewInt(123456)
+	chainID := big.NewInt(123456)
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
 	defer cancel()
@@ -483,7 +483,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 				ExpectedIndex: math.MaxUint32 + 1,
 			},
 		}
-		server := testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		server := testutils.NewWSServer(t, chainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			if method != "eth_getLogs" {
 				return
 			}
@@ -497,7 +497,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 			return
 		})
 		wsURL := server.WSURL()
-		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
 		defer seiRPC.Close()
 		require.NoError(t, seiRPC.Dial(ctx))
 		logs, err := seiRPC.FilterLogs(ctx, ethereum.FilterQuery{})
@@ -507,7 +507,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 		}
 
 		// non sei should return index as is
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		logs, err = rpc.FilterLogs(ctx, ethereum.FilterQuery{})
