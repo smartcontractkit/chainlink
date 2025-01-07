@@ -2,7 +2,10 @@ package memory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -196,17 +199,23 @@ func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
 	solChains := make(map[uint64]deployment.SolChain)
 	t.Logf("Spinning up devnet")
 	chain := solChain(t)
-	// url := "http://127.0.0.1:8899"
-	client := solRpc.New(chain.URL)
-	// TODO: move this up
-	adminPrivateKey := deployment.GetSolanaDeployerKey()
+	t.TempDir()
+	// store the generated keypair somewhere
+	bytes, err := json.Marshal([]byte(chain.DeployerKey))
+	require.NoError(t, err)
+	keypairPath := path.Join(t.TempDir(), "solana-keypair.json")
+	os.WriteFile(keypairPath, bytes, 0644)
+
 	newSolChain := deployment.SolChain{
 		Selector:    solChainSelector,
-		Client:      client,
-		DeployerKey: &adminPrivateKey,
+		Client:      chain.Backend,
+		URL:         chain.URL,
+		WSURL:       chain.WSURL,
+		DeployerKey: &chain.DeployerKey,
+		KeypairPath: keypairPath,
 		Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
 			_, err := solCommomUtil.SendAndConfirm(
-				context.Background(), client, instructions, adminPrivateKey, solRpc.CommitmentConfirmed, opts...,
+				context.Background(), chain.Backend, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
 			)
 			if err != nil {
 				return err

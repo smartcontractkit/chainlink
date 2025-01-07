@@ -83,9 +83,12 @@ func setDevNet(keypairPath string) error {
 
 // TestDeployProgram is a test for deploying the Solana program.
 func TestDeployProgram(t *testing.T) {
+	// TODO: spin up proper env remove setDevNet/spinUpDevNet
+
 	// Path to your .so file and keypair file
 	// programFile := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub.so"
 	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
+	// TODO:
 	// programKeyPair := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
 	// keypairPath := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
 
@@ -105,7 +108,7 @@ func TestDeployProgram(t *testing.T) {
 	} else {
 		fmt.Println("Program does not exist or is not executable.")
 		// Deploy the program
-		programID, err := deployment.DeploySolProgramCLI("external_program_cpi_stub")
+		programID, err := deployment.DeploySolProgramCLI(chain, "external_program_cpi_stub")
 		if err != nil {
 			t.Fatalf("Failed to deploy program: %v", err)
 		}
@@ -245,7 +248,7 @@ func TestCcipRouterDeploy(t *testing.T) {
 	// })
 	// require.ErrorAs(t, err, &rpc.ErrNotFound)
 	// Deploy the program
-	programID, err := deployment.DeploySolProgramCLI("ccip_router")
+	programID, err := deployment.DeploySolProgramCLI(chain, "ccip_router")
 	CcipRouterProgram := solana.MustPublicKeyFromBase58(programID)
 	if err != nil {
 		t.Fatalf("Failed to deploy program: %v", err)

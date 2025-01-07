@@ -516,7 +516,7 @@ func deployChainContractsSolana(
 	if chainState.CcipRouter.IsZero() {
 		// deploy and initialize router
 
-		programID, err := deployment.DeploySolProgramCLI("ccip_router")
+		programID, err := deployment.DeploySolProgramCLI(chain, "ccip_router")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %v", err)
 		}

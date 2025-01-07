@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"time"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -13,8 +15,7 @@ import (
 
 // TODO: hard coding these for test, need to figure out the dynamic way like evm
 var (
-	SolanaChainSelector uint64 = 16423721717087811551                        //devnet
-	keypairPath                = "/Users/yashvardhan/.config/solana/id.json" //wallet
+	SolanaChainSelector uint64 = chainsel.SOLANA_DEVNET.Selector //devnet
 	deployBinPath              = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
 )
 
@@ -24,8 +25,12 @@ type SolChain struct {
 	Selector uint64
 	// RPC cient
 	Client *rpc.Client
+	URL    string
+	WSURL  string
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
+	// deploy uses the solana CLI which needs a keyfile
+	KeypairPath string
 	Confirm     func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
 }
 
@@ -59,13 +64,13 @@ type ContractDeploySolana struct {
 	Err       error
 }
 
-func DeploySolProgramCLI(programName string) (string, error) {
+func DeploySolProgramCLI(chain SolChain, programName string) (string, error) {
 	programFile := fmt.Sprintf("%s/%s.so", deployBinPath, programName)
 	programKeyPair := fmt.Sprintf("%s/%s-keypair.json", deployBinPath, programName)
 
 	// Construct the CLI command: solana program deploy
 	// TODO: @terry doing this on the fly
-	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", keypairPath, "--program-id", programKeyPair)
+	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", chain.KeypairPath, "--program-id", programKeyPair)
 
 	// Capture the command output
 	var stdout, stderr bytes.Buffer
@@ -99,9 +104,4 @@ func parseProgramID(output string) (string, error) {
 		endIdx = len(output)
 	}
 	return output[startIdx : startIdx+endIdx], nil
-}
-
-func GetSolanaDeployerKey() solana.PrivateKey {
-	adminPrivateKey, _ := solana.PrivateKeyFromSolanaKeygenFile(keypairPath)
-	return adminPrivateKey
 }

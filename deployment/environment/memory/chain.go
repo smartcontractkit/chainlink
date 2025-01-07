@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
 
@@ -29,9 +30,10 @@ type EVMChain struct {
 }
 
 type SolChain struct {
-	URL   string
-	WSURL string
-	// TODO:
+	Backend     *solRpc.Client
+	URL         string
+	WSURL       string
+	DeployerKey solana.PrivateKey
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -103,12 +105,16 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 func solChain(t *testing.T) SolChain {
 	t.Helper()
 
+	deployerKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	// TODO: fund this key
+
 	bcInput := &blockchain.Input{
-		Type:      "solana",
-		Image:     "f4hrenh9it/solana",
-		Port:      "8545",
+		Type: "solana",
+		// TODO: randomize port
 		ChainID:   chainselectors.SOLANA_DEVNET.ChainID,
-		PublicKey: "9n1pyVGGo6V4mpiSDMVay5As9NurEkY283wwRk1Kto2C",
+		PublicKey: deployerKey.PublicKey().String(),
+		// TODO: ContractsDir & SolanaPrograms via env vars
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	url := output.Nodes[0].HostHTTPUrl
@@ -117,10 +123,10 @@ func solChain(t *testing.T) SolChain {
 	require.NoError(t, err)
 
 	// Wait for api server to boot
+	client := solRpc.New(url)
 	var ready bool
 	for i := 0; i < 30; i++ {
 		time.Sleep(time.Second)
-		client := solRpc.New(url)
 		out, err := client.GetHealth(tests.Context(t))
 		if err != nil || out != solRpc.HealthOk {
 			t.Logf("API server not ready yet (attempt %d)\n", i+1)
@@ -136,7 +142,9 @@ func solChain(t *testing.T) SolChain {
 	t.Logf("solana-test-validator is ready at %s", url)
 
 	return SolChain{
-		URL:   url,
-		WSURL: wsURL,
+		Backend:     client,
+		URL:         url,
+		WSURL:       wsURL,
+		DeployerKey: deployerKey,
 	}
 }

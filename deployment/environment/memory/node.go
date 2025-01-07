@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -74,39 +75,28 @@ func NewNode(
 	t *testing.T,
 	port int, // Port for the P2P V2 listener.
 	chains map[uint64]deployment.Chain,
+	solchains map[uint64]deployment.SolChain,
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
-	solchains := make(map[string]SolChain)
 	for _, chain := range chains {
-		// we're only mapping evm chains here
 		family, err := chainsel.GetSelectorFamily(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
 		}
-		switch family {
-		case chainsel.FamilyEVM:
-			evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-			if err != nil {
-				t.Fatal(err)
-			}
-			evmchains[evmChainID] = EVMChain{
-				Backend:     chain.Client.(*Backend).Sim,
-				DeployerKey: chain.DeployerKey,
-			}
-		case chainsel.FamilySolana:
-			solanaChainID, err := chainsel.GetChainIDFromSelector(chain.Selector)
-			if err != nil {
-				t.Fatal(err)
-			}
-			solchains[solanaChainID] = SolChain{
-				// TODO:
-				// Backend:     chain.Client.(*Backend).Sim,
-				// DeployerKey: chain.DeployerKey,
-			}
-		default:
+		// we're only mapping evm chains here, currently this list could also contain non-EVMs, e.g. Aptos
+		if family != chainsel.FamilyEVM {
+			continue
+		}
+		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
+		if err != nil {
+			t.Fatal(err)
+		}
+		evmchains[evmChainID] = EVMChain{
+			Backend:     chain.Client.(*Backend).Sim,
+			DeployerKey: chain.DeployerKey,
 		}
 	}
 
@@ -146,7 +136,11 @@ func NewNode(
 
 		var solConfigs solcfg.TOMLConfigs
 		for chainID, chain := range solchains {
-			solConfigs = append(solConfigs, createSolanaChainConfig(chainID, chain))
+			solanaChainID, err := chainsel.GetChainIDFromSelector(chainID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			solConfigs = append(solConfigs, createSolanaChainConfig(solanaChainID, chain))
 		}
 		c.Solana = solConfigs
 	})
@@ -235,11 +229,14 @@ func NewNode(
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
-	keys := CreateKeys(t, app, chains)
+	keys := CreateKeys(t, app, chains, solchains)
 
 	return &Node{
-		App:        app,
-		Chains:     maps.Keys(chains),
+		App: app,
+		Chains: slices.Concat(
+			maps.Keys(chains),
+			maps.Keys(solchains),
+		),
 		Keys:       keys,
 		Addr:       net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: port},
 		IsBoostrap: bootstrap,
@@ -254,7 +251,10 @@ type Keys struct {
 }
 
 func CreateKeys(t *testing.T,
-	app chainlink.Application, chains map[uint64]deployment.Chain) Keys {
+	app chainlink.Application,
+	chains map[uint64]deployment.Chain,
+	solchains map[uint64]deployment.SolChain,
+) Keys {
 	ctx := tests.Context(t)
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
@@ -328,18 +328,6 @@ func CreateKeys(t *testing.T,
 			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend)
 			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
 			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
-		case chainsel.FamilySolana:
-			err = app.GetKeyStore().Solana().EnsureKey(ctx)
-			require.NoError(t, err, "failed to create key for solana")
-
-			keys, err := app.GetKeyStore().Solana().GetAll()
-			require.NoError(t, err)
-			require.Len(t, keys, 1)
-
-			transmitter := keys[0]
-			transmitters[chain.Selector] = transmitter.ID()
-
-			// TODO: funding
 		case chainsel.FamilyAptos:
 			err = app.GetKeyStore().Aptos().EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for aptos")
@@ -369,6 +357,30 @@ func CreateKeys(t *testing.T,
 		}
 	}
 
+	for chain := range solchains {
+		ctype := chaintype.Solana
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().Solana().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for solana")
+
+		solkeys, err := app.GetKeyStore().Solana().GetAll()
+		require.NoError(t, err)
+		require.Len(t, solkeys, 1)
+
+		transmitter := solkeys[0]
+		transmitters[chain] = transmitter.ID()
+
+		// TODO: funding
+	}
+
 	return Keys{
 		PeerID:        peerID,
 		CSA:           csaKey,
@@ -392,9 +404,14 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain SolChain) *solcfg.TOMLConfig {
+func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.TOMLConfig {
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
+
+	url, err := config.ParseURL(chain.URL)
+	if err != nil {
+		panic(err)
+	}
 
 	return &solcfg.TOMLConfig{
 		ChainID:   &chainID,
@@ -403,7 +420,7 @@ func createSolanaChainConfig(chainID string, chain SolChain) *solcfg.TOMLConfig 
 		MultiNode: solcfg.MultiNodeConfig{},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
-			URL:      &config.URL{}, // TODO: read from chain
+			URL:      url,
 			SendOnly: false,
 		}},
 	}
