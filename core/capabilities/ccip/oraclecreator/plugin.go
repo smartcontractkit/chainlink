@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -492,12 +493,18 @@ func createChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 ) (types.ContractWriter, error) {
+	var err error
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
-	chainWriterConfig := make([]byte, 0)
-	if chainFamily == relay.NetworkSolana {
+	var chainWriterConfig []byte
 
+	if chainFamily == relay.NetworkSolana {
+		// TODO once onchain account lookup address are available, create construct function that initialize the config
+		solConfig := chainwriter.ChainWriterConfig{}
+		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
+			return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
+		}
 	} else {
-		var fromAddress common.Address
+		fromAddress := common.Address{}
 		if ok {
 			fromAddress = common.HexToAddress(transmitter[0])
 		}
@@ -507,11 +514,10 @@ func createChainWriter(
 			execBatchGasLimit,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create chain writer config: %w", err)
+			return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
 		}
-		chainWriterConfig, err = json.Marshal(chainWriterRawConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
+		if chainWriterConfig, err = json.Marshal(chainWriterRawConfig); err != nil {
+			return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
 		}
 	}
 
