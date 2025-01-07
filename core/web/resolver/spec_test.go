@@ -70,7 +70,7 @@ func TestResolver_CronSpec(t *testing.T) {
 						"spec": {
 							"__typename": "CronSpec",
 							"schedule": "CRON_TZ=UTC 0 0 1 1 *",
-							"evmChainID": "42",
+							"evmChainID": "45",
 							"createdAt": "2021-01-01T00:00:00Z"
 						}
 					}
