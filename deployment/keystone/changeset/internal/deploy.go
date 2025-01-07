@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -321,12 +322,14 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		if !ok {
 			return fmt.Errorf("failed to get contract set for chain %d", chainSel)
 		}
-		contract := contracts.OCR3
-		if contract == nil {
-			return fmt.Errorf("no ocr3 contract found for chain %d", chainSel)
+
+		contract, err := contracts.GetOCR3Contract(nil)
+		if err != nil {
+			env.Logger.Errorf("failed to get OCR3 contract: %s", err)
+			return fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
 
-		_, err := configureOCR3contract(configureOCR3Request{
+		_, err = configureOCR3contract(configureOCR3Request{
 			cfg:         cfg,
 			chain:       registryChain,
 			contract:    contract,
@@ -349,6 +352,7 @@ type ConfigureOCR3Resp struct {
 type ConfigureOCR3Config struct {
 	ChainSel   uint64
 	NodeIDs    []string
+	Address    *common.Address // address of the OCR3 contract to configure
 	OCR3Config *OracleConfig
 	DryRun     bool
 
@@ -377,10 +381,13 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if !ok {
 		return nil, fmt.Errorf("failed to get contract set for chain %d", cfg.ChainSel)
 	}
-	contract := contracts.OCR3
-	if contract == nil {
-		return nil, fmt.Errorf("no ocr3 contract found for chain %d", cfg.ChainSel)
+
+	contract, err := contracts.GetOCR3Contract(cfg.Address)
+	if err != nil {
+		env.Logger.Errorf("%sfailed to get OCR3 contract at %s : %s", prefix, cfg.Address, err)
+		return nil, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
+
 	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
 	if err != nil {
 		return nil, err
