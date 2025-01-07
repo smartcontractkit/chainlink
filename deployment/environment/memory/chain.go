@@ -31,7 +31,8 @@ type EVMChain struct {
 }
 
 type SolChain struct {
-	Backend any
+	URL   string
+	WSURL string
 	// TODO:
 }
 
@@ -101,7 +102,7 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 
 // TODO: make it random port to support multiple chains
 // TODO: add dynamic users and admin like done in evmChain
-func solChain(t *testing.T) (string, string) {
+func solChain(t *testing.T) SolChain {
 	t.Helper()
 	port := "8899"
 	portInt, _ := strconv.Atoi(port)
@@ -152,5 +153,8 @@ func solChain(t *testing.T) (string, string) {
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
 
-	return url, wsURL
+	return SolChain{
+		URL:   url,
+		WSURL: wsURL,
+	}
 }
