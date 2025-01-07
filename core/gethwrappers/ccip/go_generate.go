@@ -1,76 +1,38 @@
-// Package gethwrappers_ccip provides tools for wrapping solidity contracts with
-// golang packages, using abigen.
 package ccip
 
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.26/ARMProxy/ARMProxy.bin RMNProxyContract rmn_proxy_contract
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.26/TokenAdminRegistry/TokenAdminRegistry.bin TokenAdminRegistry token_admin_registry
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.abi ../../../contracts/solc/v0.8.26/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.bin RegistryModuleOwnerCustom registry_module_owner_custom
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/OnRamp/OnRamp.abi ../../../contracts/solc/v0.8.26/OnRamp/OnRamp.bin OnRamp onramp
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/OffRamp/OffRamp.abi ../../../contracts/solc/v0.8.26/OffRamp/OffRamp.bin OffRamp offramp
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/RMNRemote/RMNRemote.abi ../../../contracts/solc/v0.8.26/RMNRemote/RMNRemote.bin RMNRemote rmn_remote
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/RMNHome/RMNHome.abi ../../../contracts/solc/v0.8.26/RMNHome/RMNHome.bin RMNHome rmn_home
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MultiAggregateRateLimiter/MultiAggregateRateLimiter.abi ../../../contracts/solc/v0.8.26/MultiAggregateRateLimiter/MultiAggregateRateLimiter.bin MultiAggregateRateLimiter multi_aggregate_rate_limiter
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/Router/Router.abi ../../../contracts/solc/v0.8.26/Router/Router.bin Router router
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/FeeQuoter/FeeQuoter.abi ../../../contracts/solc/v0.8.26/FeeQuoter/FeeQuoter.bin FeeQuoter fee_quoter
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/CCIPHome/CCIPHome.abi ../../../contracts/solc/v0.8.26/CCIPHome/CCIPHome.bin CCIPHome ccip_home
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/NonceManager/NonceManager.abi ../../../contracts/solc/v0.8.26/NonceManager/NonceManager.bin NonceManager nonce_manager
+//go:generate go run ../generation/wrap.go ccip Router router
+//go:generate go run ../generation/wrap.go ccip CCIPHome ccip_home
+//go:generate go run ../generation/wrap.go ccip OnRamp onramp
+//go:generate go run ../generation/wrap.go ccip OffRamp offramp
+//go:generate go run ../generation/wrap.go ccip FeeQuoter fee_quoter
+//go:generate go run ../generation/wrap.go ccip NonceManager nonce_manager
+//go:generate go run ../generation/wrap.go ccip MultiAggregateRateLimiter multi_aggregate_rate_limiter
+//go:generate go run ../generation/wrap.go ccip TokenAdminRegistry token_admin_registry
+//go:generate go run ../generation/wrap.go ccip RegistryModuleOwnerCustom registry_module_owner_custom
+//go:generate go run ../generation/wrap.go ccip RMNProxy rmn_proxy_contract
+//go:generate go run ../generation/wrap.go ccip RMNRemote rmn_remote
+//go:generate go run ../generation/wrap.go ccip RMNHome rmn_home
 
 // Pools
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/BurnMintTokenPool/BurnMintTokenPool.abi ../../../contracts/solc/v0.8.26/BurnMintTokenPool/BurnMintTokenPool.bin BurnMintTokenPool burn_mint_token_pool
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/BurnFromMintTokenPool/BurnFromMintTokenPool.abi ../../../contracts/solc/v0.8.26/BurnFromMintTokenPool/BurnFromMintTokenPool.bin BurnFromMintTokenPool burn_from_mint_token_pool
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/BurnWithFromMintTokenPool/BurnWithFromMintTokenPool.abi ../../../contracts/solc/v0.8.26/BurnWithFromMintTokenPool/BurnWithFromMintTokenPool.bin BurnWithFromMintTokenPool burn_with_from_mint_token_pool
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/LockReleaseTokenPool/LockReleaseTokenPool.abi ../../../contracts/solc/v0.8.26/LockReleaseTokenPool/LockReleaseTokenPool.bin LockReleaseTokenPool lock_release_token_pool
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/TokenPool/TokenPool.abi ../../../contracts/solc/v0.8.26/TokenPool/TokenPool.bin TokenPool token_pool
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/USDCTokenPool/USDCTokenPool.abi ../../../contracts/solc/v0.8.26/USDCTokenPool/USDCTokenPool.bin USDCTokenPool usdc_token_pool
+//go:generate go run ../generation/wrap.go ccip BurnMintTokenPool burn_mint_token_pool
+//go:generate go run ../generation/wrap.go ccip BurnFromMintTokenPool burn_from_mint_token_pool
+//go:generate go run ../generation/wrap.go ccip BurnWithFromMintTokenPool burn_with_from_mint_token_pool
+//go:generate go run ../generation/wrap.go ccip LockReleaseTokenPool lock_release_token_pool
+//go:generate go run ../generation/wrap.go ccip TokenPool token_pool
+//go:generate go run ../generation/wrap.go ccip USDCTokenPool usdc_token_pool
 
 // Helpers
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.26/MockV3Aggregator/MockV3Aggregator.bin MockV3Aggregator mock_v3_aggregator_contract
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MaybeRevertMessageReceiver/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.26/MaybeRevertMessageReceiver/MaybeRevertMessageReceiver.bin MaybeRevertMessageReceiver maybe_revert_message_receiver
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/PingPongDemo/PingPongDemo.abi ../../../contracts/solc/v0.8.26/PingPongDemo/PingPongDemo.bin PingPongDemo ping_pong_demo
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MessageHasher/MessageHasher.abi ../../../contracts/solc/v0.8.26/MessageHasher/MessageHasher.bin MessageHasher message_hasher
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MultiOCR3Helper/MultiOCR3Helper.abi ../../../contracts/solc/v0.8.26/MultiOCR3Helper/MultiOCR3Helper.bin MultiOCR3Helper multi_ocr3_helper
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/USDCReaderTester/USDCReaderTester.abi ../../../contracts/solc/v0.8.26/USDCReaderTester/USDCReaderTester.bin USDCReaderTester usdc_reader_tester
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/ReportCodec/ReportCodec.abi ../../../contracts/solc/v0.8.26/ReportCodec/ReportCodec.bin ReportCodec report_codec
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/EtherSenderReceiver/EtherSenderReceiver.abi ../../../contracts/solc/v0.8.26/EtherSenderReceiver/EtherSenderReceiver.bin EtherSenderReceiver ether_sender_receiver
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/WETH9/WETH9.abi ../../../contracts/solc/v0.8.26/WETH9/WETH9.bin WETH9 weth9
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.26/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin MockE2EUSDCTokenMessenger mock_usdc_token_messenger
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.abi ../../../contracts/solc/v0.8.26/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.bin MockE2EUSDCTransmitter mock_usdc_token_transmitter
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/CCIPReaderTester/CCIPReaderTester.abi ../../../contracts/solc/v0.8.26/CCIPReaderTester/CCIPReaderTester.bin CCIPReaderTester ccip_reader_tester
+//go:generate go run ../generation/wrap.go ccip MaybeRevertMessageReceiver maybe_revert_message_receiver
+//go:generate go run ../generation/wrap.go ccip PingPongDemo ping_pong_demo
+//go:generate go run ../generation/wrap.go ccip MessageHasher message_hasher
+//go:generate go run ../generation/wrap.go ccip MultiOCR3Helper multi_ocr3_helper
+//go:generate go run ../generation/wrap.go ccip USDCReaderTester usdc_reader_tester
+//go:generate go run ../generation/wrap.go ccip ReportCodec report_codec
+//go:generate go run ../generation/wrap.go ccip EtherSenderReceiver ether_sender_receiver
+//go:generate go run ../generation/wrap.go ccip WETH9 weth9
+//go:generate go run ../generation/wrap.go ccip MockE2EUSDCTokenMessenger mock_usdc_token_messenger
+//go:generate go run ../generation/wrap.go ccip MockE2EUSDCTransmitter mock_usdc_token_transmitter
+//go:generate go run ../generation/wrap.go ccip CCIPReaderTester ccip_reader_tester
 
 // EncodingUtils
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.26/ICCIPEncodingUtils/ICCIPEncodingUtils.abi ../../../contracts/solc/v0.8.26/ICCIPEncodingUtils/ICCIPEncodingUtils.bin EncodingUtils ccip_encoding_utils
-
-// To run these commands, you must either install docker, or the correct version
-// of abigen. The latter can be installed with these commands, at least on linux:
-//
-//   git clone https://github.com/ethereum/go-ethereum
-//   cd go-ethereum/cmd/abigen
-//   git checkout v<version-needed>
-//   go install
-//
-// Here, <version-needed> is the version of go-ethereum specified in chainlink's
-// go.mod. This will install abigen in "$GOPATH/bin", which you should add to
-// your $PATH.
-//
-// To reduce explicit dependencies, and in case the system does not have the
-// correct version of abigen installed , the above commands spin up docker
-// containers. In my hands, total running time including compilation is about
-// 13s. If you're modifying solidity code and testing against go code a lot, it
-// might be worthwhile to generate the the wrappers using a static container
-// with abigen and solc, which will complete much faster. E.g.
-//
-//   abigen -sol ../../contracts/src/v0.6/VRFAll.sol -pkg vrf -out solidity_interfaces.go
-//
-// where VRFAll.sol simply contains `import "contract_path";` instructions for
-// all the contracts you wish to target. This runs in about 0.25 seconds in my
-// hands.
-//
-// If you're on linux, you can copy the correct version of solc out of the
-// appropriate docker container. At least, the following works on ubuntu:
-//
-//   $ docker run --name solc ethereum/solc:0.6.2
-//   $ sudo docker cp solc:/usr/bin/solc /usr/bin
-//   $ docker rm solc
-//
-// If you need to point abigen at your solc executable, you can specify the path
-// with the abigen --solc <path-to-executable> option.
+//go:generate go run ../generation/wrap.go ccip EncodingUtils ccip_encoding_utils
