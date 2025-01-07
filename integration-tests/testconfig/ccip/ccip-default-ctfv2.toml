@@ -23,19 +23,19 @@ private_keys = [
 chain_id = "1337"
 type = "anvil"
 port = "8545"
-#docker_cmd_params = ["-b", "1"]
+docker_cmd_params = ["-b", "1"]
 
 [[Networks]]
 chain_id = "2337"
 type = "anvil"
 port = "8546"
-#docker_cmd_params = ["-b", "1"]
+docker_cmd_params = ["-b", "1"]
 
 [[Networks]]
 chain_id = "3337"
 type = "anvil"
 port = "8547"
-#docker_cmd_params = ["-b", "1"]
+docker_cmd_params = ["-b", "1"]
 
 [jd_db]
 image = "postgres:13.0"
