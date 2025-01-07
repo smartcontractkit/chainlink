@@ -17,6 +17,7 @@ runs:
           read_only_sol:
             - 'contracts/src/v0.8/interfaces/**/*'
             - 'contracts/src/v0.8/automation/interfaces/**/*'
+            - 'contracts/src/v0.8/automation/upkeeps/**/*'
             - 'contracts/src/v0.8/automation/v1_2/**/*'
             - 'contracts/src/v0.8/automation/v1_3/**/*'
             - 'contracts/src/v0.8/automation/v2_0/**/*'
