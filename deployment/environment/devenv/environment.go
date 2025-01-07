@@ -3,7 +3,6 @@ package devenv
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -22,11 +21,11 @@ type EnvironmentConfig struct {
 func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*deployment.Environment, *DON, error) {
 	chains, err := NewChains(lggr, config.Chains)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create chains")
+		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}
 	offChain, err := NewJDClient(ctx(), config.JDConfig)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create JD client")
+		return nil, nil, fmt.Errorf("failed to create JD client: %w", err)
 	}
 
 	jd, ok := offChain.(*JobDistributor)

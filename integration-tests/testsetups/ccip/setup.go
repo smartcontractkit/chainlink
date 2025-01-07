@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -139,7 +137,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
 		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse p2p url")
+			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
 		}
 		if i <= bootstrapNodeCount {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
@@ -185,7 +183,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
 		}, 200,
 	)
-	require.NoError(t, err, "failed to set up mock usdc attestation server")
+	require.NoError(t, err, "failed to set up mock USDC attestation server")
 	if isFaulty {
 		err = fake.JSON(
 			"GET",
@@ -195,7 +193,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 				"error":  "internal error",
 			}, 200,
 		)
-		require.NoError(t, err, "failed to set up mock faulty usdc attestation server")
+		require.NoError(t, err, "failed to set up mock faulty USDC attestation server")
 	}
 	return fakeOut.BaseURLDocker
 }
