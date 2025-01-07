@@ -173,13 +173,13 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.T, isFaulty bool) string {
 	// SetMockServerWithUSDCAttestation responds with a mock attestation for any msgHash
 	// The path is set with regex to match any path that starts with /v1/attestations
-	path := "/v1/attestations"
+	path := "/v1/attestations/:hash"
 	fakeOut, err := fake.NewFakeDataProvider(l.in.Fake)
 	require.NoError(t, err, "failed to create mock data provider")
 	l.MockAdapter = fakeOut
 	err = fake.JSON(
 		"GET",
-		fmt.Sprintf("%s/:hash", path),
+		path,
 		map[string]any{
 			"status":      "complete",
 			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
@@ -189,7 +189,7 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 	if isFaulty {
 		err = fake.JSON(
 			"GET",
-			fmt.Sprintf("%s/:hash", path),
+			path,
 			map[string]any{
 				"status": "pending",
 				"error":  "internal error",
