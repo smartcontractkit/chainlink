@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 
 // Broken is a contract to aid debugging and testing reverting calls during development.
+// solhint-disable
 contract Broken {
   error Unauthorized(string reason, int256 reason2);
 

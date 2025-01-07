@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable
 contract LogEmitter {
   event Log1(uint256);
   event Log2(uint256 indexed);

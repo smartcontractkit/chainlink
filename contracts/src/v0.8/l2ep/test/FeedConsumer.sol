@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {AggregatorV2V3Interface} from "../../shared/interfaces/AggregatorV2V3Interface.sol";
 
 contract FeedConsumer {
+  // solhint-disable-next-line
   AggregatorV2V3Interface public immutable AGGREGATOR;
 
   constructor(address feedAddress) {

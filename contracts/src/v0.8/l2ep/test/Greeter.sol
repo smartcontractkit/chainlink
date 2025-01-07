@@ -1,7 +1,8 @@
 pragma solidity ^0.8.0;
 
-import "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
+// solhint-disable
 contract Greeter is ConfirmedOwner {
   string public greeting;
 
