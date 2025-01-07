@@ -350,7 +350,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
       tokenAmounts: new Client.EVMTokenAmount[](0),
       feeToken: s_sourceFeeToken,
       extraArgs: Client._solArgsToBytes(
-        Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accounts: new Client.SolanaAccountMeta[](0)})
+        Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: new bytes32[](0)})
       )
     });
   }

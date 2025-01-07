@@ -26,15 +26,15 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
   }
 
   function test_SolExtraArgsV1() public view {
-    Client.SolanaAccountMeta[] memory solAccounts = new Client.SolanaAccountMeta[](1);
-    solAccounts[0] = Client.SolanaAccountMeta({pubKey: VALID_SOL_PUBKEY, isWritable: false});
+    bytes32[] memory solAccounts = new bytes32[](1);
+    solAccounts[0] = VALID_SOL_PUBKEY;
 
-    Client.SolExtraArgsV1 memory inputArgs = Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accounts: solAccounts});
+    Client.SolExtraArgsV1 memory inputArgs = Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap:0, accounts: solAccounts});
 
     bytes memory inputExtraArgs = Client._solArgsToBytes(inputArgs);
 
     Client.SolExtraArgsV1 memory expectedOutputArgs =
-      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accounts: solAccounts});
+      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap:0, accounts: solAccounts});
 
     vm.assertEq(
       abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
@@ -45,7 +45,8 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
   function test_SolExtraArgsDefault() public view {
     Client.SolExtraArgsV1 memory expectedOutputArgs = Client.SolExtraArgsV1({
       computeUnits: s_destChainConfig.defaultTxGasLimit,
-      accounts: new Client.SolanaAccountMeta[](0)
+      accountIsWritableBitmap: 0,
+      accounts: new bytes32[](0)
     });
 
     vm.assertEq(
@@ -72,7 +73,8 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
   function test_SolExtraArgsV1_RevertWhen_MessageGasLimitTooHigh() public {
     Client.SolExtraArgsV1 memory inputArgs = Client.SolExtraArgsV1({
       computeUnits: s_destChainConfig.maxPerMsgGasLimit + 1,
-      accounts: new Client.SolanaAccountMeta[](0)
+      accountIsWritableBitmap: 0,
+      accounts: new bytes32[](0)
     });
 
     bytes memory inputExtraArgs = Client._solArgsToBytes(inputArgs);

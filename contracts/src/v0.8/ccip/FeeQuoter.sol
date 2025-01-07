@@ -877,14 +877,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
   ) internal pure returns (Client.SolExtraArgsV1 memory) {
+    Client.SolExtraArgsV1 memory solExtraArgs;
     if (extraArgs.length == 0) {
-      return Client.SolExtraArgsV1({
-        computeUnits: uint32(destChainConfig.defaultTxGasLimit), //TODO: Fix Potentially unsafe cast
-        accounts: new Client.SolanaAccountMeta[](0)
-      });
+      solExtraArgs.computeUnits = destChainConfig.defaultTxGasLimit;
+      return solExtraArgs;
     }
 
-    Client.SolExtraArgsV1 memory solExtraArgs = abi.decode(extraArgs[4:], (Client.SolExtraArgsV1));
+    solExtraArgs = abi.decode(extraArgs[4:], (Client.SolExtraArgsV1));
 
     // Check that compute units is within the allowed range.
     if (solExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();

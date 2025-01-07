@@ -139,7 +139,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
 
     bytes memory extraArgs =
-      Client._solArgsToBytes(Client.SolExtraArgsV1({computeUnits: 0, accounts: new Client.SolanaAccountMeta[](0)}));
+      Client._solArgsToBytes(Client.SolExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)}));
 
     (
       /* uint256 msgFeeJuels */

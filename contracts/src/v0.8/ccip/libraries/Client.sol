@@ -56,12 +56,8 @@ library Client {
 
   struct SolExtraArgsV1 {
     uint32 computeUnits;
-    SolanaAccountMeta[] accounts;
-  }
-
-  struct SolanaAccountMeta {
-    bytes32 pubKey;
-    bool isWritable;
+    uint64 accountIsWritableBitmap;
+    bytes32[] accounts;
   }
 
   function _argsToBytes(
