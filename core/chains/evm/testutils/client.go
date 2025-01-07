@@ -107,6 +107,7 @@ func (ts *testWSServer) MustWriteBinaryMessageSync(t *testing.T, msg string) {
 		t.Fatalf("expected 1 conn, got %d", len(conns))
 	}
 	conn := conns[0]
+	println(fmt.Sprintf("Sending message: %s", msg))
 	err := conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
 	require.NoError(t, err)
 }
