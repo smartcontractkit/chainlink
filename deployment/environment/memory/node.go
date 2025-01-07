@@ -212,10 +212,10 @@ func NewNode(
 }
 
 type Keys struct {
-	PeerID                   p2pkey.PeerID
-	CSA                      csakey.KeyV2
-	TransmittersByEVMChainID map[uint64]common.Address
-	OCRKeyBundles            map[chaintype.ChainType]ocr2key.KeyBundle
+	PeerID        p2pkey.PeerID
+	CSA           csakey.KeyV2
+	Transmitters  map[uint64]string // chainSelector => address
+	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
 
 func CreateKeys(t *testing.T,
@@ -235,7 +235,7 @@ func CreateKeys(t *testing.T,
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 	// create a transmitter for each chain
-	transmitters := make(map[uint64]common.Address)
+	transmitters := make(map[uint64]string)
 	keybundles := make(map[chaintype.ChainType]ocr2key.KeyBundle)
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain.Selector)
@@ -257,44 +257,88 @@ func CreateKeys(t *testing.T,
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
 
-		keybundle, err := app.GetKeyStore().OCR2().Create(ctx, ctype)
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+
 		keybundles[ctype] = keybundle
 
-		if family != chainsel.FamilyEVM {
-			// TODO: only support EVM transmission keys for now
-			continue
-		}
+		switch family {
+		case chainsel.FamilyEVM:
+			evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
+			require.NoError(t, err)
 
-		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
-		require.NoError(t, err)
+			cid := big.NewInt(int64(evmChainID))
+			addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
+			require.NoError(t, err2)
+			var transmitter common.Address
+			if len(addrs) == 1 {
+				// just fund the address
+				transmitter = addrs[0]
+			} else {
+				// create key and fund it
+				_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
+				require.NoError(t, err3, "failed to create key for chain", evmChainID)
+				sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
+				require.NoError(t, err3)
+				require.Len(t, sendingKeys, 1)
+				transmitter = sendingKeys[0]
+			}
+			transmitters[chain.Selector] = transmitter.String()
 
-		cid := big.NewInt(int64(evmChainID))
-		addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
-		require.NoError(t, err2)
-		if len(addrs) == 1 {
-			// just fund the address
-			transmitters[evmChainID] = addrs[0]
-		} else {
-			// create key and fund it
-			_, err3 := app.GetKeyStore().Eth().Create(ctx, cid)
-			require.NoError(t, err3, "failed to create key for chain", evmChainID)
-			sendingKeys, err3 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
-			require.NoError(t, err3)
-			require.Len(t, sendingKeys, 1)
-			transmitters[evmChainID] = sendingKeys[0]
+			backend := chain.Client.(*Backend).Sim
+			fundAddress(t, chain.DeployerKey, transmitter, assets.Ether(1000).ToInt(), backend)
+			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
+			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
+		case chainsel.FamilySolana:
+			err = app.GetKeyStore().Solana().EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for solana")
+
+			keys, err := app.GetKeyStore().Solana().GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
+
+			// TODO: funding
+		case chainsel.FamilyAptos:
+			err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for aptos")
+
+			keys, err := app.GetKeyStore().Aptos().GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
+
+			// TODO: funding
+		case chainsel.FamilyStarknet:
+			err = app.GetKeyStore().StarkNet().EnsureKey(ctx)
+			require.NoError(t, err, "failed to create key for starknet")
+
+			keys, err := app.GetKeyStore().StarkNet().GetAll()
+			require.NoError(t, err)
+			require.Len(t, keys, 1)
+
+			transmitter := keys[0]
+			transmitters[chain.Selector] = transmitter.ID()
+
+			// TODO: funding
+		default:
+			// TODO: other transmission keys unsupported for now
 		}
-		backend := chain.Client.(*Backend).Sim
-		fundAddress(t, chain.DeployerKey, transmitters[evmChainID], assets.Ether(1000).ToInt(), backend)
-		// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
-		fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 	}
 
 	return Keys{
-		PeerID:                   peerID,
-		CSA:                      csaKey,
-		TransmittersByEVMChainID: transmitters,
-		OCRKeyBundles:            keybundles,
+		PeerID:        peerID,
+		CSA:           csaKey,
+		Transmitters:  transmitters,
+		OCRKeyBundles: keybundles,
 	}
 }
 
