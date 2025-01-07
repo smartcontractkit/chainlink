@@ -3,8 +3,8 @@ package toml
 import (
 	"bytes"
 	"embed"
-	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -32,68 +32,24 @@ var (
 )
 
 func init() {
+	var (
+		fb  *Chain
+		err error
+	)
+
 	// read all default configs
-	initReadDefaults()
+	DefaultIDs, defaultNames, defaults, fb, err = initDefaults(defaultsFS.ReadDir, defaultsFS.ReadFile, "defaults")
+	if err != nil {
+		log.Fatalf("failed to read defaults: %s", err)
+	}
+
+	if fb == nil {
+		log.Fatal("failed to set fallback chain config")
+	}
+
+	fallback = *fb
 
 	// check for and apply any overrides
-	initApplyEVMOverrides()
-}
-
-var (
-	errRead           = errors.New("error reading file")
-	errDecode         = errors.New("error in TOML decoding")
-	errMissingChainID = errors.New("missing ChainID")
-	errNonNilChainID  = errors.New("fallback ChainID must be nil")
-	errFallbackConfig = errors.New("fallback config")
-)
-
-func initReadDefaults() {
-	// read the defaults first
-	fes, err := defaultsFS.ReadDir("defaults")
-	if err != nil {
-		log.Fatalf("failed to read defaults: %v", err)
-	}
-
-	for _, fe := range fes {
-		if fe.IsDir() {
-			// Skip directories
-			continue
-		}
-
-		// read the file to bytes
-		path := filepath.Join("defaults", fe.Name())
-		chainID, chain, err := readConfig(path, defaultsFS.ReadFile, fe.Name() == "fallback.toml")
-		if err != nil {
-			if errors.Is(err, errFallbackConfig) {
-				fallback = chain
-
-				continue
-			}
-
-			log.Fatal(err.Error())
-		}
-
-		// add ChainID to set of default IDs
-		DefaultIDs = append(DefaultIDs, chainID)
-
-		// ChainID as a default should not be duplicated
-		id := chainID.String()
-		if _, ok := defaults[id]; ok {
-			log.Fatalf("%q contains duplicate ChainID: %s", path, id)
-		}
-
-		// set default lookups
-		defaults[id] = chain
-		defaultNames[id] = strings.ReplaceAll(strings.TrimSuffix(fe.Name(), ".toml"), "_", " ")
-	}
-
-	// sort default IDs in numeric order
-	slices.SortFunc(DefaultIDs, func(a, b *big.Big) int {
-		return a.Cmp(b)
-	})
-}
-
-func initApplyEVMOverrides() {
 	// read the custom defaults overrides
 	dir := env.CustomDefaults.Get()
 	if dir == "" {
@@ -102,14 +58,31 @@ func initApplyEVMOverrides() {
 	}
 
 	// use evm overrides specifically
-	evmDir := fmt.Sprintf("%s/evm", dir)
-
-	// Read directory contents for evm only
-	entries, err := os.ReadDir(evmDir)
+	_, _, customDefaults, fb, err = initDefaults(os.ReadDir, os.ReadFile, dir+"/evm")
 	if err != nil {
-		log.Fatalf("error reading evm custom defaults override directory: %v", err)
-		return
+		log.Fatalf("failed to read custom overrides: %s", err)
 	}
+
+	if fb != nil {
+		fallback = *fb
+	}
+}
+
+func initDefaults(
+	dirReader func(name string) ([]fs.DirEntry, error),
+	fileReader func(name string) ([]byte, error),
+	root string,
+) ([]*big.Big, map[string]string, map[string]Chain, *Chain, error) {
+	entries, err := dirReader(root)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var fb *Chain
+
+	ids := make([]*big.Big, 0)
+	configs := make(map[string]Chain)
+	names := make(map[string]string)
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -118,33 +91,53 @@ func initApplyEVMOverrides() {
 		}
 
 		// read the file to bytes
-		path := evmDir + "/" + entry.Name()
-		chainID, chain, err := readConfig(path, os.ReadFile, entry.Name() == "fallback.toml")
-		if err != nil {
-			if errors.Is(err, errFallbackConfig) {
-				fallback = chain
+		path := filepath.Join(root, entry.Name())
 
-				continue
+		chainID, chain, err := readConfig(path, fileReader)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		if entry.Name() == "fallback.toml" {
+			if chainID != nil {
+				return nil, nil, nil, nil, fmt.Errorf("fallback ChainID must be nil: found: %s", chainID)
 			}
 
-			log.Fatalf("custom defaults override failure (%s): %s", entry.Name(), err.Error())
+			fb = &chain
+
+			continue
 		}
+
+		// ensure ChainID is set
+		if chainID == nil {
+			return nil, nil, nil, nil, fmt.Errorf("missing ChainID: %s", path)
+		}
+
+		ids = append(ids, chainID)
 
 		// ChainID as a default should not be duplicated
 		id := chainID.String()
-		if _, ok := customDefaults[id]; ok {
+		if _, ok := configs[id]; ok {
 			log.Fatalf("%q contains duplicate ChainID: %s", path, id)
 		}
 
-		// set default lookups
-		customDefaults[id] = chain
+		// set lookups
+		configs[id] = chain
+		names[id] = strings.ReplaceAll(strings.TrimSuffix(entry.Name(), ".toml"), "_", " ")
 	}
+
+	// sort IDs in numeric order
+	slices.SortFunc(ids, func(a, b *big.Big) int {
+		return a.Cmp(b)
+	})
+
+	return ids, names, configs, fb, nil
 }
 
-func readConfig(path string, reader func(name string) ([]byte, error), fallback bool) (*big.Big, Chain, error) {
+func readConfig(path string, reader func(name string) ([]byte, error)) (*big.Big, Chain, error) {
 	bts, err := reader(path)
 	if err != nil {
-		return nil, Chain{}, fmt.Errorf("%w: %s", errRead, err.Error())
+		return nil, Chain{}, fmt.Errorf("error reading file: %w", err)
 	}
 
 	var config = struct {
@@ -154,20 +147,7 @@ func readConfig(path string, reader func(name string) ([]byte, error), fallback 
 
 	// decode from toml to a chain config
 	if err := cconfig.DecodeTOML(bytes.NewReader(bts), &config); err != nil {
-		return nil, Chain{}, fmt.Errorf("%w %s: %s", errDecode, path, err.Error())
-	}
-
-	if fallback {
-		if config.ChainID != nil {
-			return nil, Chain{}, fmt.Errorf("%w: found: %s", errNonNilChainID, config.ChainID)
-		}
-
-		return nil, config.Chain, errFallbackConfig
-	}
-
-	// ensure ChainID is set
-	if config.ChainID == nil {
-		return nil, Chain{}, fmt.Errorf("%w: %s", errMissingChainID, path)
+		return nil, Chain{}, fmt.Errorf("error in TOML decoding %s: %w", path, err)
 	}
 
 	return config.ChainID, config.Chain, nil
