@@ -30,6 +30,11 @@ type EVMChain struct {
 	Users       []*bind.TransactOpts
 }
 
+type SolChain struct {
+	Backend any
+	// TODO:
+}
+
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
 	ctx := tests.Context(t)
 	nonce, err := backend.Client().PendingNonceAt(ctx, from.From)

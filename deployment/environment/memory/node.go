@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -77,18 +79,34 @@ func NewNode(
 	registryConfig deployment.CapabilityRegistryConfig,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
+	solchains := make(map[string]SolChain)
 	for _, chain := range chains {
 		// we're only mapping evm chains here
-		if family, err := chainsel.GetSelectorFamily(chain.Selector); err != nil || family != chainsel.FamilyEVM {
-			continue
-		}
-		evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
+		family, err := chainsel.GetSelectorFamily(chain.Selector)
 		if err != nil {
 			t.Fatal(err)
 		}
-		evmchains[evmChainID] = EVMChain{
-			Backend:     chain.Client.(*Backend).Sim,
-			DeployerKey: chain.DeployerKey,
+		switch family {
+		case chainsel.FamilyEVM:
+			evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
+			if err != nil {
+				t.Fatal(err)
+			}
+			evmchains[evmChainID] = EVMChain{
+				Backend:     chain.Client.(*Backend).Sim,
+				DeployerKey: chain.DeployerKey,
+			}
+		case chainsel.FamilySolana:
+			solanaChainID, err := chainsel.GetChainIDFromSelector(chain.Selector)
+			if err != nil {
+				t.Fatal(err)
+			}
+			solchains[solanaChainID] = SolChain{
+				// TODO:
+				// Backend:     chain.Client.(*Backend).Sim,
+				// DeployerKey: chain.DeployerKey,
+			}
+		default:
 		}
 	}
 
@@ -120,11 +138,17 @@ func NewNode(
 
 		c.Log.Level = ptr(configv2.LogLevel(logLevel))
 
-		var chainConfigs v2toml.EVMConfigs
+		var evmConfigs v2toml.EVMConfigs
 		for chainID := range evmchains {
-			chainConfigs = append(chainConfigs, createConfigV2Chain(chainID))
+			evmConfigs = append(evmConfigs, createConfigV2Chain(chainID))
 		}
-		c.EVM = chainConfigs
+		c.EVM = evmConfigs
+
+		var solConfigs solcfg.TOMLConfigs
+		for chainID, chain := range solchains {
+			solConfigs = append(solConfigs, createSolanaChainConfig(chainID, chain))
+		}
+		c.Solana = solConfigs
 	})
 
 	// Set logging.
@@ -164,6 +188,12 @@ func NewNode(
 		CSAETHKeystore: kStore,
 	}
 
+	solanaOpts := chainlink.SolanaFactoryConfig{
+		Keystore:    master.Solana(),
+		TOMLConfigs: cfg.SolanaConfigs(),
+		DS:          db,
+	}
+
 	// Build Beholder auth
 	ctx := tests.Context(t)
 	require.NoError(t, master.Unlock(ctx, "password"))
@@ -171,14 +201,19 @@ func NewNode(
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
-	// Build relayer factory with EVM.
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+
+	// Build relayer factory
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
+		LoopRegistry:         loopRegistry,
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(context.Background(), relayerFactory, evmOpts)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{
+		chainlink.InitEVM(context.Background(), relayerFactory, evmOpts),
+		chainlink.InitSolana(context.Background(), relayerFactory, solanaOpts),
+	}
 	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	require.NoError(t, err)
 
@@ -194,7 +229,7 @@ func NewNode(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
+		LoopRegistry:               loopRegistry,
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -354,6 +389,23 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 		Enabled: ptr(true),
 		Chain:   chain,
 		Nodes:   v2toml.EVMNodes{&v2toml.Node{}},
+	}
+}
+
+func createSolanaChainConfig(chainID string, chain SolChain) *solcfg.TOMLConfig {
+	chainConfig := solcfg.Chain{}
+	chainConfig.SetDefaults()
+
+	return &solcfg.TOMLConfig{
+		ChainID:   &chainID,
+		Enabled:   ptr(true),
+		Chain:     chainConfig,
+		MultiNode: solcfg.MultiNodeConfig{},
+		Nodes: []*solcfg.Node{{
+			Name:     ptr("primary"),
+			URL:      &config.URL{}, // TODO: read from chain
+			SendOnly: false,
+		}},
 	}
 }
 
