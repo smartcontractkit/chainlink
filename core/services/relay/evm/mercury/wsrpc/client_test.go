@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -131,26 +130,26 @@ func Test_Client_Transmit(t *testing.T) {
 	})
 
 	t.Run("recovers panics in underlying client and attempts redial", func(t *testing.T) {
-		conn := &mocks.MockConn{
-			Ready: true,
-			State: grpc_connectivity.Ready,
-			InvokeF: func(ctx context.Context, method string, args interface{}, reply interface{}) error {
-				panic("TESTING CONN INVOKE PANIC")
-			},
+		makeConn := func() *mocks.MockConn {
+			return &mocks.MockConn{
+				Ready: true,
+				State: grpc_connectivity.Ready,
+				InvokeF: func(ctx context.Context, method string, args interface{}, reply interface{}) error {
+					panic("TESTING CONN INVOKE PANIC")
+				},
+			}
 		}
 
-		ch := make(chan struct{}, 100)
+		ch := make(chan *mocks.MockConn, 100)
 		cnt := 0
 
 		f := func(ctxCaller context.Context, target string, opts ...wsrpc.DialOption) (Conn, error) {
 			cnt++
 			switch cnt {
-			case 1:
-				ch <- struct{}{}
+			case 1, 2:
+				conn := makeConn()
+				ch <- conn
 				return conn, nil
-			case 2:
-				ch <- struct{}{}
-				return nil, nil
 			default:
 				t.Fatalf("too many dials, got: %d", cnt)
 				return nil, nil
@@ -169,11 +168,12 @@ func Test_Client_Transmit(t *testing.T) {
 		}
 		c := newClient(opts)
 
-		require.NoError(t, c.Start(tests.Context(t)))
+		servicetest.Run(t, c)
 
 		// drain the channel
+		var conn *mocks.MockConn
 		select {
-		case <-ch:
+		case conn = <-ch:
 			assert.Equal(t, 1, cnt)
 		default:
 			t.Fatalf("expected dial to be called")
@@ -183,10 +183,11 @@ func Test_Client_Transmit(t *testing.T) {
 		require.EqualError(t, err, "Transmit: caught panic: TESTING CONN INVOKE PANIC")
 
 		// expect conn to be closed and re-dialed
-		<-ch
+		conn2 := <-ch
 		assert.Equal(t, 2, cnt)
 
 		assert.True(t, conn.Closed)
+		assert.False(t, conn2.Closed)
 	})
 }
 
