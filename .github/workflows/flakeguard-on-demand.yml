@@ -48,7 +48,7 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{ "skipped_tests": "TestChainComponents", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
+        default: '{ "skipped_tests": "", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
         description: 'JSON of extra arguments for the workflow.'    
 
 jobs:
