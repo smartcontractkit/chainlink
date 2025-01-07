@@ -498,7 +498,7 @@ func createChainWriter(
 	var chainWriterConfig []byte
 
 	if chainFamily == relay.NetworkSolana {
-		// TODO once onchain account lookup address are available, create construct function that initialize the config
+		// TODO once on-chain account lookup address are available, create construct function that initialize the config
 		solConfig := chainwriter.ChainWriterConfig{}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
 			return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
