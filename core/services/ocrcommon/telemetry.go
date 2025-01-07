@@ -164,7 +164,6 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, id=%s, name=%q, expected string got %T", trr.Task.DotID(), bridgeName, trr.Result.Value), "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
@@ -262,13 +261,11 @@ func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
 func (e *EnhancedTelemetryService[T]) getObservation(finalResult *pipeline.FinalResult) int64 {
 	singularResult, err := finalResult.SingularResult()
 	if err != nil {
-		e.lggr.Warnf("cannot get singular result, job %d", e.job.ID)
 		return 0
 	}
 
 	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
 	if err != nil {
-		e.lggr.Warnf("cannot parse singular result from bridge task, job %d", e.job.ID)
 		return 0
 	}
 
@@ -278,7 +275,6 @@ func (e *EnhancedTelemetryService[T]) getObservation(finalResult *pipeline.Final
 func (e *EnhancedTelemetryService[T]) getParsedValue(trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
 	parsedValue := getJsonParsedValue(trr, trrs)
 	if parsedValue == nil {
-		e.lggr.Warnf("cannot get json parse value, job %d, id %s", e.job.ID, trr.Task.DotID())
 		return 0
 	}
 	return *parsedValue
@@ -303,23 +299,16 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
 		}
-		var bridgeName string
-		if b, is := trr.Task.(*pipeline.BridgeTask); is {
-			bridgeName = b.Name
-		}
 
 		if trr.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", trr.Result.Error, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			e.lggr.Warnw(fmt.Sprintf("cannot parse bridge response from bridge task, job=%d, id=%s, name=%q: expected string, got: %v (type %T)", e.job.ID, trr.Task.DotID(), bridgeName, trr.Result.Value, trr.Result.Value), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		value := e.getParsedValue(trrs, trr)
@@ -636,12 +625,11 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 func parsePriceFromTask(lggr logger.Logger, trr pipeline.TaskRunResult) float64 {
 	var val float64
 	if trr.Result.Error != nil {
-		lggr.Warnw(fmt.Sprintf("got error on EA telemetry price task, id %s: %s", trr.Task.DotID(), trr.Result.Error), "err", trr.Result.Error)
 		return 0
 	}
 	val, err := getResultFloat64(&trr)
 	if err != nil {
-		lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price to float64, DOT id %s", trr.Task.DotID()), "task_type", trr.Task.Type(), "task_tags", trr.Task.TaskTags(), "err", err)
+		return 0
 	}
 	return val
 }
@@ -654,7 +642,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
-		lggr.Warn("cannot parse enhanced EA telemetry benchmark price, task is nil")
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
@@ -668,7 +655,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 
 	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
 	if bidTask == nil {
-		lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, 0, 0
 	}
 
@@ -678,7 +664,6 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
 	if askTask == nil {
-		lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, id %s", benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, bidPrice, 0
 	}
 	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {

@@ -6,19 +6,26 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
+const (
+	defaultFetchTimeoutMs = 20_000
+)
+
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
+	services.StateMachine
 	gc            connector.GatewayConnector
 	method        string
 	lggr          logger.Logger
@@ -49,8 +56,24 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 }
 
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
-// TODO: handle retries and timeouts
-func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, payload []byte) (*api.Message, error) {
+// TODO: handle retries
+func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
+	// set default timeout if not provided for all outgoing requests
+	if req.TimeoutMs == 0 {
+		req.TimeoutMs = defaultFetchTimeoutMs
+	}
+
+	// Create a subcontext with the timeout plus some margin for the gateway to process the request
+	timeoutDuration := time.Duration(req.TimeoutMs) * time.Millisecond
+	margin := 100 * time.Millisecond
+	ctx, cancel := context.WithTimeout(ctx, timeoutDuration+margin)
+	defer cancel()
+
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
+	}
+
 	ch := make(chan *api.Message, 1)
 	c.responseChsMu.Lock()
 	c.responseChs[messageID] = ch
@@ -73,8 +96,15 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 	sort.Strings(gatewayIDs)
 
-	err := c.gc.SignAndSendToGateway(ctx, gatewayIDs[0], body)
-	if err != nil {
+	selectedGateway := gatewayIDs[0]
+
+	l.Infow("selected gateway, awaiting connection", "gatewayID", selectedGateway)
+
+	if err := c.gc.AwaitConnection(ctx, selectedGateway); err != nil {
+		return nil, errors.Wrap(err, "await connection canceled")
+	}
+
+	if err := c.gc.SignAndSendToGateway(ctx, selectedGateway, body); err != nil {
 		return nil, errors.Wrap(err, "failed to send request to gateway")
 	}
 
@@ -98,7 +128,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 	l.Debugw("handling gateway request")
 	switch body.Method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
 		body := &msg.Body
 		var payload capabilities.Response
 		err := json.Unmarshal(body.Payload, &payload)
@@ -125,16 +155,28 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 }
 
 func (c *OutgoingConnectorHandler) Start(ctx context.Context) error {
-	return c.gc.AddHandler([]string{c.method}, c)
+	return c.StartOnce("OutgoingConnectorHandler", func() error {
+		return c.gc.AddHandler([]string{c.method}, c)
+	})
 }
 
 func (c *OutgoingConnectorHandler) Close() error {
-	return nil
+	return c.StopOnce("OutgoingConnectorHandler", func() error {
+		return nil
+	})
+}
+
+func (c *OutgoingConnectorHandler) HealthReport() map[string]error {
+	return map[string]error{c.Name(): c.Healthy()}
+}
+
+func (c *OutgoingConnectorHandler) Name() string {
+	return c.lggr.Name()
 }
 
 func validMethod(method string) bool {
 	switch method {
-	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction:
+	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
 		return true
 	default:
 		return false

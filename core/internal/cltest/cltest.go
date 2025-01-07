@@ -29,6 +29,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -46,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
@@ -406,6 +408,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Logger:                lggr,
 		LoopRegistry:          loopRegistry,
 		GRPCOpts:              loop.GRPCOpts{},
+		Registerer:            prometheus.NewRegistry(), // Don't use global registry here since otherwise multiple apps can create name conflicts. Could also potentially give a mock registry to test prometheus.
 		MercuryPool:           mercuryPool,
 		CapabilitiesRegistry:  capabilitiesRegistry,
 		HTTPClient:            c,
@@ -418,8 +421,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			MailMon:   mailMon,
 			DS:        ds,
 		},
-		CSAETHKeystore:     keyStore,
-		MercuryTransmitter: cfg.Mercury().Transmitter(),
+		CSAETHKeystore: keyStore,
+		MercuryConfig:  cfg.Mercury(),
 	}
 
 	if cfg.EVMEnabled() {
@@ -450,6 +453,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		solanaCfg := chainlink.SolanaFactoryConfig{
 			Keystore:    keyStore.Solana(),
 			TOMLConfigs: cfg.SolanaConfigs(),
+			DS:          ds,
 		}
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
@@ -528,7 +532,7 @@ func NewEthMocks(t testing.TB) *evmclimocks.Client {
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
@@ -551,7 +555,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
-	testutils.SkipShort(t, "long test")
+	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)

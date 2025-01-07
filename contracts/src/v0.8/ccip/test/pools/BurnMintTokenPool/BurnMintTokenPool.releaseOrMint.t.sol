@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Pool} from "../../../libraries/Pool.sol";
 import {BurnMintTokenPool} from "../../../pools/BurnMintTokenPool.sol";
@@ -14,15 +14,17 @@ contract BurnMintTokenPoolSetup is BurnMintSetup {
   function setUp() public virtual override {
     BurnMintSetup.setUp();
 
-    s_pool = new BurnMintTokenPool(s_burnMintERC677, new address[](0), address(s_mockRMN), address(s_sourceRouter));
-    s_burnMintERC677.grantMintAndBurnRoles(address(s_pool));
+    s_pool = new BurnMintTokenPool(
+      s_burnMintERC20, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
+    );
+    s_burnMintERC20.grantMintAndBurnRoles(address(s_pool));
 
     _applyChainUpdates(address(s_pool));
   }
 }
 
 contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
-  function test_PoolMint_Success() public {
+  function test_PoolMint() public {
     uint256 amount = 1e19;
     address receiver = makeAddr("receiver_address");
 
@@ -36,7 +38,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         originalSender: bytes(""),
         receiver: receiver,
         amount: amount,
-        localToken: address(s_burnMintERC677),
+        localToken: address(s_burnMintERC20),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         sourcePoolAddress: abi.encode(s_remoteBurnMintPool),
         sourcePoolData: "",
@@ -44,13 +46,13 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
       })
     );
 
-    assertEq(s_burnMintERC677.balanceOf(receiver), amount);
+    assertEq(s_burnMintERC20.balanceOf(receiver), amount);
   }
 
-  function test_PoolMintNotHealthy_Revert() public {
+  function test_RevertWhen_PoolMintNotHealthy() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.setGlobalCursed(true);
-    uint256 before = s_burnMintERC677.balanceOf(OWNER);
+    vm.mockCall(address(s_mockRMNRemote), abi.encodeWithSignature("isCursed(bytes16)"), abi.encode(true));
+    uint256 before = s_burnMintERC20.balanceOf(OWNER);
     vm.startPrank(s_burnMintOffRamp);
 
     vm.expectRevert(TokenPool.CursedByRMN.selector);
@@ -59,7 +61,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         originalSender: bytes(""),
         receiver: OWNER,
         amount: 1e5,
-        localToken: address(s_burnMintERC677),
+        localToken: address(s_burnMintERC20),
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
         sourcePoolData: _generateSourceTokenData().extraData,
@@ -67,10 +69,10 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
       })
     );
 
-    assertEq(s_burnMintERC677.balanceOf(OWNER), before);
+    assertEq(s_burnMintERC20.balanceOf(OWNER), before);
   }
 
-  function test_ChainNotAllowed_Revert() public {
+  function test_RevertWhen_ChainNotAllowed() public {
     uint64 wrongChainSelector = 8838833;
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.ChainNotAllowed.selector, wrongChainSelector));
@@ -79,7 +81,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
         originalSender: bytes(""),
         receiver: OWNER,
         amount: 1,
-        localToken: address(s_burnMintERC677),
+        localToken: address(s_burnMintERC20),
         remoteChainSelector: wrongChainSelector,
         sourcePoolAddress: _generateSourceTokenData().sourcePoolAddress,
         sourcePoolData: _generateSourceTokenData().extraData,

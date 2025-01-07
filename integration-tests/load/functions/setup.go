@@ -123,14 +123,22 @@ func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsCo
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate tdh2 secrets: %w", err)
 		}
+		randInt := mrand.Intn(5)
+		if randInt < 0 {
+			return nil, fmt.Errorf("negative random int: %d", randInt)
+		}
+		now := time.Now().UnixNano()
+		if now < 0 {
+			return nil, fmt.Errorf("negative timestamp: %d", now)
+		}
 		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
 			GatewayURL:            *cfg.Common.GatewayURL,
 			PrivateKey:            selectedNetwork.PrivateKeys[0],
 			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 			Method:                "secrets_set",
 			DonID:                 *cfg.Common.DONID,
-			S4SetSlotID:           uint(mrand.Intn(5)),
-			S4SetVersion:          uint64(time.Now().UnixNano()),
+			S4SetSlotID:           uint(randInt),
+			S4SetVersion:          uint64(now),
 			S4SetExpirationPeriod: 60 * 60 * 1000,
 			S4SetPayload:          encryptedSecrets,
 		})

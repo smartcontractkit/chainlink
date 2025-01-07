@@ -110,6 +110,7 @@ type TxmV2 interface {
 }
 
 type Transactions interface {
+	Enabled() bool
 	ForwardersEnabled() bool
 	ReaperInterval() time.Duration
 	ResendAfterThreshold() time.Duration

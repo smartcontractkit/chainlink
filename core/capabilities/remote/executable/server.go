@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -87,7 +88,11 @@ func (r *server) Start(ctx context.Context) error {
 		r.wg.Add(1)
 		go func() {
 			defer r.wg.Done()
-			ticker := time.NewTicker(r.requestTimeout)
+			tickerInterval := expiryCheckInterval
+			if r.requestTimeout < tickerInterval {
+				tickerInterval = r.requestTimeout
+			}
+			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
 			r.lggr.Info("executable capability server started")
 			for {
@@ -118,7 +123,7 @@ func (r *server) expireRequests() {
 
 	for requestID, executeReq := range r.requestIDToRequest {
 		if executeReq.request.Expired() {
-			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired")
+			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired by executable server")
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
@@ -133,12 +138,13 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	defer r.receiveLock.Unlock()
 
 	switch msg.Method {
-	case types.MethodExecute, types.MethodRegisterToWorkflow, types.MethodUnregisterFromWorkflow:
+	case types.MethodExecute:
 	default:
 		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
+		return
 	}
 
-	messageId, err := GetMessageID(msg)
+	messageID, err := GetMessageID(msg)
 	if err != nil {
 		r.lggr.Errorw("invalid message id", "err", err, "id", remote.SanitizeLogString(string(msg.MessageId)))
 		return
@@ -152,21 +158,21 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	// A request is uniquely identified by the message id and the hash of the payload to prevent a malicious
 	// actor from sending a different payload with the same message id
-	requestID := messageId + hex.EncodeToString(msgHash[:])
+	requestID := messageID + hex.EncodeToString(msgHash[:])
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageId]; ok {
-		requestIDs[requestID] = requestIDs[requestID] + 1
+	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
+		requestIDs[requestID]++
 	} else {
-		r.messageIDToRequestIDsCount[messageId] = map[string]int{requestID: 1}
+		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
 
-	requestIDs := r.messageIDToRequestIDsCount[messageId]
+	requestIDs := r.messageIDToRequestIDsCount[messageID]
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageId, "lenRequestIDs", len(requestIDs))
+		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -178,8 +184,8 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 		r.requestIDToRequest[requestID] = requestAndMsgID{
 			request: request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-				callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr),
-			messageID: messageId,
+				callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr),
+			messageID: messageID,
 		}
 	}
 
@@ -214,7 +220,7 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 func GetMessageID(msg *types.MessageBody) (string, error) {
 	idStr := string(msg.MessageId)
 	if !validation.IsValidID(idStr) {
-		return "", fmt.Errorf("invalid message id")
+		return "", errors.New("invalid message id")
 	}
 	return idStr, nil
 }

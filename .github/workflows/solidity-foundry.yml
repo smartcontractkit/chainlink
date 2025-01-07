@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
-      foundry-version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
     steps:
       - name: Define test matrix
         id: define-matrix
@@ -30,17 +29,16 @@ jobs:
           cat <<EOF > matrix.json
           [
             { "name": "automation", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "ccip", "setup": { "run-coverage": true, "min-coverage": 98.8, "extra-coverage-params": "--no-match-path='*End2End*'", "run-gas-snapshot": true, "run-forge-fmt": true }},
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 61.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 46.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 65.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
+            { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 40, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "transmission", "setup": { "run-coverage": true, "min-coverage": 61.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 65.0, "run-gas-snapshot": false, "run-forge-fmt": true }}
+            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 96.0, "run-gas-snapshot": true, "run-forge-fmt": true }}
           ]
           EOF
 
@@ -49,12 +47,8 @@ jobs:
 
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
-
-      - name: Extract Foundry version
-        id: extract-foundry-version
-        uses: ./.github/actions/detect-solidity-foundry-version
         with:
-          working-directory: contracts
+          persist-credentials: false
 
   changes:
     name: Detect changes
@@ -70,6 +64,8 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
       - name: Detect changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
@@ -112,8 +108,6 @@ jobs:
               - 'contracts/src/v0.8/mocks/**/*.sol'
               - 'contracts/src/v0.8/tests/**/*.sol'
               - 'contracts/src/v0.8/vendor/**/*.sol'
-            transmission:
-              - 'contracts/src/v0.8/transmission/**/*.sol'
             workflow:
               - 'contracts/src/v0.8/workflow/**/*.sol'
 
@@ -157,6 +151,7 @@ jobs:
           || needs.changes.outputs.non_src_changes == 'true' }}
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           submodules: recursive
 
       # Only needed because we use the NPM versions of packages
@@ -176,9 +171,7 @@ jobs:
           ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       # If Solc version is not set in foundry.toml, then what `forge build` does is that it lazily-installs required solc versions
       # using SVM. This is done in parallel, but SVM has a bug and is not thread-safe, which sometimes leads to `Text file busy` error.
@@ -330,10 +323,13 @@ jobs:
     steps:
       - name: Checkout this repository
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Checkout .github repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/.github
           ref: b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
           path: ./dot_github
@@ -342,9 +338,7 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Set up Python
         uses: actions/setup-python@v5.2.0
@@ -418,6 +412,7 @@ jobs:
         if: needs.changes.outputs.sol_mod_only == 'true'
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ github.base_ref }}
 
       - name: Download Slither scripts
@@ -611,6 +606,7 @@ jobs:
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Setup NodeJS
@@ -619,9 +615,7 @@ jobs:
 
       - name: Install Foundry
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Run Forge fmt
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}

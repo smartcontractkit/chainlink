@@ -48,54 +48,6 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
-func NewClientRegisterToWorkflowRequest(ctx context.Context, lggr logger.Logger, req commoncap.RegisterToWorkflowRequest,
-	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) (*ClientRequest, error) {
-	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.RegisterToWorkflowRequestToProto(req))
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal register to workflow request: %w", err)
-	}
-
-	workflowID := req.Metadata.WorkflowID
-	if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
-		return nil, fmt.Errorf("workflow ID is invalid: %w", err)
-	}
-
-	requestID := types.MethodRegisterToWorkflow + ":" + workflowID
-
-	tc := transmission.TransmissionConfig{
-		Schedule:   transmission.Schedule_AllAtOnce,
-		DeltaStage: 0,
-	}
-
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout,
-		tc, types.MethodRegisterToWorkflow, rawRequest)
-}
-
-func NewClientUnregisterFromWorkflowRequest(ctx context.Context, lggr logger.Logger, req commoncap.UnregisterFromWorkflowRequest,
-	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) (*ClientRequest, error) {
-	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.UnregisterFromWorkflowRequestToProto(req))
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal unregister from workflow request: %w", err)
-	}
-
-	workflowID := req.Metadata.WorkflowID
-	if err := validation.ValidateWorkflowOrExecutionID(workflowID); err != nil {
-		return nil, fmt.Errorf("workflow ID is invalid: %w", err)
-	}
-
-	requestID := types.MethodUnregisterFromWorkflow + ":" + workflowID
-
-	tc := transmission.TransmissionConfig{
-		Schedule:   transmission.Schedule_AllAtOnce,
-		DeltaStage: 0,
-	}
-
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout,
-		tc, types.MethodUnregisterFromWorkflow, rawRequest)
-}
-
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration) (*ClientRequest, error) {
@@ -212,7 +164,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	}
 
 	if msg.Sender == nil {
-		return fmt.Errorf("sender missing from message")
+		return errors.New("sender missing from message")
 	}
 
 	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)

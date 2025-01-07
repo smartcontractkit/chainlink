@@ -16,8 +16,8 @@ func NewJAID(id string) JAID {
 }
 
 // NewPrefixedJAID prefixes JAID with chain id in %s/%s format.
-func NewPrefixedJAID(id string, chainID string) JAID {
-	return JAID{ID: fmt.Sprintf("%s/%s", chainID, id)}
+func NewPrefixedJAID(id string, prefix string) JAID {
+	return JAID{ID: fmt.Sprintf("%s/%s", prefix, id)}
 }
 
 // NewJAIDInt32 converts an int32 into a JAID

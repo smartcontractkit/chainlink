@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -87,7 +88,7 @@ type InstanceAppFactoryWithKeystoreMock struct {
 }
 
 // NewApplication creates a new application with specified config and calls the authenticate function of the keystore
-func (f InstanceAppFactoryWithKeystoreMock) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, lggr logger.Logger, db *sqlx.DB, ks cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+func (f InstanceAppFactoryWithKeystoreMock) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, lggr logger.Logger, registerer prometheus.Registerer, db *sqlx.DB, ks cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
 	keyStore := f.App.GetKeyStore()
 	err := ks.Authenticate(ctx, keyStore, cfg.Password())
 	if err != nil {
@@ -102,7 +103,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -110,7 +111,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, *sqlx.DB, cmd.TerminalKeyStoreAuthenticator) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 

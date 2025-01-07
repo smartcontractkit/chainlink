@@ -20,6 +20,7 @@ type MercuryTLS interface {
 type MercuryTransmitter interface {
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
+	TransmitConcurrency() uint32
 }
 
 type Mercury interface {

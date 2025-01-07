@@ -2,12 +2,11 @@ package ccip
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/AlekSi/pointer"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
@@ -146,48 +145,68 @@ func (o *JDConfig) GetJDDBVersion() string {
 }
 
 func (o *Config) Validate() error {
+	var chainIds []int64
+	for _, net := range o.PrivateEthereumNetworks {
+		if net.EthereumChainConfig.ChainID < 0 {
+			return fmt.Errorf("negative chain ID found for network %d", net.EthereumChainConfig.ChainID)
+		}
+		chainIds = append(chainIds, int64(net.EthereumChainConfig.ChainID))
+	}
+	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
+	if err != nil {
+		return err
+	}
+	isValid, err := IsSelectorValid(homeChainSelector, chainIds)
+	if err != nil {
+		return err
+	}
+	if !isValid {
+		return ErrInvalidHomeChainSelector
+	}
+	feedChainSelector, err := strconv.ParseUint(pointer.GetString(o.FeedChainSelector), 10, 64)
+	if err != nil {
+		return err
+	}
+	isValid, err = IsSelectorValid(feedChainSelector, chainIds)
+	if err != nil {
+		return err
+	}
+	if !isValid {
+		return ErrInvalidFeedChainSelector
+	}
 	return nil
 }
 
-func (o *Config) GetHomeChainSelector(evmNetworks []blockchain.EVMNetwork) (uint64, error) {
-	homeChainSelector, err := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	isValid, err := IsSelectorValid(homeChainSelector, evmNetworks)
-	if err != nil {
-		return 0, err
-	}
-	if !isValid {
-		return 0, ErrInvalidHomeChainSelector
-	}
-	return homeChainSelector, nil
+func (o *Config) GetHomeChainSelector() uint64 {
+	selector, _ := strconv.ParseUint(pointer.GetString(o.HomeChainSelector), 10, 64)
+	return selector
 }
 
-func (o *Config) GetFeedChainSelector(evmNetworks []blockchain.EVMNetwork) (uint64, error) {
-	feedChainSelector, err := strconv.ParseUint(pointer.GetString(o.FeedChainSelector), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	isValid, err := IsSelectorValid(feedChainSelector, evmNetworks)
-	if err != nil {
-		return 0, err
-	}
-	if !isValid {
-		return 0, ErrInvalidFeedChainSelector
-	}
-	return feedChainSelector, nil
+func (o *Config) GetFeedChainSelector() uint64 {
+	selector, _ := strconv.ParseUint(pointer.GetString(o.FeedChainSelector), 10, 64)
+	return selector
 }
 
-func IsSelectorValid(selector uint64, evmNetworks []blockchain.EVMNetwork) (bool, error) {
+func IsSelectorValid(selector uint64, chainIds []int64) (bool, error) {
 	chainId, err := chainselectors.ChainIdFromSelector(selector)
 	if err != nil {
 		return false, err
 	}
-	for _, net := range evmNetworks {
-		if net.ChainID == int64(chainId) {
+
+	for _, cID := range chainIds {
+		if isEqualUint64AndInt64(chainId, cID) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func isEqualUint64AndInt64(u uint64, i int64) bool {
+	if i < 0 {
+		return false // uint64 cannot be equal to a negative int64
+	}
+	if u > math.MaxInt64 {
+		return false // uint64 cannot be equal to an int64 if it exceeds the maximum int64 value
+	}
+	return u == uint64(i)
 }

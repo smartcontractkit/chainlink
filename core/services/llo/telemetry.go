@@ -39,7 +39,11 @@ func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.Moni
 }
 
 func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) *telemeter {
-	chTelemetryObservation := make(chan TelemetryObservation, 100)
+	// NOTE: This channel must take multiple telemetry packets per round (1 per
+	// feed) so we need to make sure the buffer is large enough.
+	//
+	// 2000 feeds * 5s/250ms = 40_000 should hold ~5s of buffer in the worst case.
+	chTelemetryObservation := make(chan TelemetryObservation, 40_000)
 	t := &telemeter{
 		chTelemetryObservation: chTelemetryObservation,
 		monitoringEndpoint:     monitoringEndpoint,
@@ -115,7 +119,6 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			askPrice = v.Ask.IntPart()
 			ask = v.Ask.String()
 		}
-		epoch, round := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
 		tea := &telem.EnhancedEAMercury{
 			DataSource:                      eaTelem.DataSource,
 			DpBenchmarkPrice:                eaTelem.DpBenchmarkPrice,
@@ -138,11 +141,16 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d TelemetryObservation) {
 			IsLinkFeed:                      false,
 			IsNativeFeed:                    false,
 			ConfigDigest:                    d.opts.ConfigDigest().Hex(),
-			Round:                           int64(round),
-			Epoch:                           int64(epoch),
 			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
 			DonId:                           t.donID,
+		}
+		epoch, round, err := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
+		if err != nil {
+			t.eng.SugaredLogger.Warnw("Failed to convert sequence number to epoch and round", "err", err)
+		} else {
+			tea.Round = int64(round)
+			tea.Epoch = int64(epoch)
 		}
 
 		bytes, err := proto.Marshal(tea)
