@@ -494,21 +494,23 @@ func createChainWriter(
 	chainFamily string,
 ) (types.ContractWriter, error) {
 	var err error
-	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
 	var chainWriterConfig []byte
+	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
 
-	if chainFamily == relay.NetworkSolana {
+	switch chainFamily {
+	case relay.NetworkSolana:
 		// TODO once on-chain account lookup address are available, create construct function that initialize the config
 		solConfig := chainwriter.ChainWriterConfig{}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
 			return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
 		}
-	} else {
+	case relay.NetworkEVM:
+		var evmConfig evmrelaytypes.ChainWriterConfig
 		fromAddress := common.Address{}
 		if ok {
 			fromAddress = common.HexToAddress(transmitter[0])
 		}
-		chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
+		evmConfig, err = evmconfig.ChainWriterConfigRaw(
 			fromAddress,
 			defaultCommitGasLimit,
 			execBatchGasLimit,
@@ -516,9 +518,11 @@ func createChainWriter(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
 		}
-		if chainWriterConfig, err = json.Marshal(chainWriterRawConfig); err != nil {
+		if chainWriterConfig, err = json.Marshal(evmConfig); err != nil {
 			return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
 		}
+	default:
+		return nil, fmt.Errorf("unknown chain family %s", chainFamily)
 	}
 
 	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
