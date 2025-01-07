@@ -65,7 +65,7 @@ func TestUpdateRMNConfig(t *testing.T) {
 }
 
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainSt
 
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
-	e := NewMemoryEnvironment(t, WithNoJobsAndContracts())
+	e, _ := NewMemoryEnvironment(t, WithNoJobsAndContracts())
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error

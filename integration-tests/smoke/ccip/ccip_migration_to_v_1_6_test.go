@@ -6,38 +6,49 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools and real RMN, use MockRMN to start, but including MCMS) .
-	e := changeset.NewMemoryEnvironment(
+	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithLegacyDeployment(),
 		changeset.WithChains(3),
-		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		changeset.WithUsersPerChain(2),
+		// for in-memory test it is important to set the dest chain id as 1337 otherwise the config digest will not match
+		// between nodes' calculated digest and the digest set on the contract
+		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}),
+	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
 	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
 	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChainsExcept1337, 2)
 	src1, src2, dest := allChainsExcept1337[0], allChainsExcept1337[1], chainselectors.GETH_TESTNET.Selector
 	destChain := e.Env.Chains[dest]
 	pairs := []changeset.SourceDestPair{
+		// as mentioned in the comment above, the dest chain id should be 1337
 		{SourceChainSelector: src1, DestChainSelector: dest},
 		{SourceChainSelector: src2, DestChainSelector: dest},
 	}
 	// wire up all lanes
 	// deploy onRamp, commit store, offramp , set ocr2config and send corresponding jobs
 	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
+
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
 	// ensure that all lanes are functional
 	for _, pair := range pairs {
 		sentEvent, err := v1_5.SendRequest(t, e.Env, state,
@@ -60,5 +71,99 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		v1_5.WaitForExecute(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].EVM2EVMOffRamp[src1], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 	}
 	// now that all lanes work transfer ownership of the contracts to MCMS
+
 	// add 1.6 contracts to the environment and send 1.6 jobs
+	// First you need to deployHome chain contracts and restart the nodes with updated cap registry
+	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry
+	e = changeset.AddCCIPContractsToEnvironment(t, tEnv)
+	state, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	// Set RMNProxy to point to RMNRemote.
+	// nonce manager should point to 1.5 ramps
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
+			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: allChains,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersCS),
+			Config: changeset.UpdateNonceManagerConfig{
+				// we only have lanes between src1 --> dest and src2 --> dest
+				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
+					src1: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: dest,
+								EnableOnRamp:        true,
+							},
+						},
+					},
+					src2: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: dest,
+								EnableOnRamp:        true,
+							},
+						},
+					},
+					dest: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: src1,
+								EnableOffRamp:       true,
+							},
+							{
+								RemoteChainSelector: src2,
+								EnableOffRamp:       true,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Enable a single 1.6 lane with test router
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, src1, dest, true)
+	changeset.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
+	startBlocks := make(map[uint64]*uint64)
+	latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+	require.NoError(t, err)
+	block := latesthdr.Number.Uint64()
+	startBlocks[dest] = &block
+	msgSentEvent, err := changeset.DoSendRequest(
+		t, e.Env, state,
+		changeset.WithSourceChain(src1),
+		changeset.WithDestChain(dest),
+		changeset.WithTestRouter(true),
+		// Send traffic across single 1.6 lane with a DIFFERENT ( very important to not mess with real sender nonce) sender
+		// from test router to ensure 1.6 is working.
+		changeset.WithSender(e.Users[src1][1]),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}))
+	require.NoError(t, err)
+	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	expectedSeqNum[changeset.SourceDestPair{
+		SourceChainSelector: src1,
+		DestChainSelector:   dest,
+	}] = msgSentEvent.SequenceNumber
+
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: src1,
+		DestChainSelector:   dest,
+	}] = []uint64{msgSentEvent.SequenceNumber}
+	// Wait for all commit reports to land.
+	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+	// Wait for all exec reports to land
+	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }

@@ -590,7 +590,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
-	env := changeset.NewMemoryEnvironment(t)
+	env, _ := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -700,7 +700,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironment(t)
+	env, _ := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -756,7 +756,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 func Test_LinkPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironment(t)
+	env, _ := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -791,7 +791,7 @@ func Test_LinkPriceUSD(t *testing.T) {
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironment(t, changeset.WithChains(4))
+	env, _ := changeset.NewMemoryEnvironment(t, changeset.WithChains(4))
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
@@ -850,7 +850,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env := changeset.NewMemoryEnvironment(t)
+	env, _ := changeset.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 

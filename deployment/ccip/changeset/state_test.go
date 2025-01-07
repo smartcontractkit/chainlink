@@ -7,7 +7,7 @@ import (
 )
 
 func TestSmokeState(t *testing.T) {
-	tenv := NewMemoryEnvironment(t, WithChains(3))
+	tenv, _ := NewMemoryEnvironment(t, WithChains(3))
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	_, err = state.View(tenv.Env.AllChainSelectors())

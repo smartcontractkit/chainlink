@@ -183,8 +183,9 @@ func WithBootstraps(numBootstraps int) TestOps {
 
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
-	StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig)
-	StartChains(t *testing.T, tc *TestConfigs)
+	StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig)
+	StartChains(t *testing.T)
+	TestConfigs() *TestConfigs
 	DeployedEnvironment() DeployedEnv
 	UpdateDeployedEnvironment(env DeployedEnv)
 	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
@@ -234,7 +235,12 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	Chains map[uint64]deployment.Chain
+	TCConfig *TestConfigs
+	Chains   map[uint64]deployment.Chain
+}
+
+func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
+	return m.TCConfig
 }
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
@@ -245,8 +251,9 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 	m.DeployedEnv = env
 }
 
-func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
+func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
+	tc := m.TCConfig
 	var chains map[uint64]deployment.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
@@ -278,9 +285,10 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	}
 }
 
-func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
+	tc := m.TCConfig
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, tc.Nodes, tc.Bootstraps, crConfig)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
@@ -303,32 +311,40 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 }
 
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
-func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvironment) {
 	testCfg := DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
 	}
-	require.NoError(t, testCfg.Validate(), "invalid test config")
-	env := &MemoryEnvironment{}
+	require.NoError(t, testCfg.Validate(), "invalid test con"+
+		"fig")
+	env := &MemoryEnvironment{
+		TCConfig: testCfg,
+	}
 	if testCfg.LegacyDeployment {
-		return NewLegacyEnvironment(t, testCfg, env)
+		dEnv := NewLegacyEnvironment(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
 	}
 	if testCfg.CreateJobAndContracts {
-		return NewEnvironmentWithJobsAndContracts(t, testCfg, env)
+		dEnv := NewEnvironmentWithJobsAndContracts(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
 	}
 	if testCfg.CreateJob {
-		return NewEnvironmentWithJobs(t, testCfg, env)
+		dEnv := NewEnvironmentWithJobs(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
 	}
-	return NewEnvironment(t, testCfg, env)
+	dEnv := NewEnvironment(t, env)
+	env.UpdateDeployedEnvironment(dEnv)
+	return dEnv, env
 }
 
-func NewLegacyEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func NewLegacyEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
-	tEnv.StartChains(t, tc)
-	e := tEnv.DeployedEnvironment()
-	require.NotEmpty(t, e.Env.Chains)
-	tEnv.StartNodes(t, tc, deployment.CapabilityRegistryConfig{})
-	e = tEnv.DeployedEnvironment()
+	tc := tEnv.TestConfigs()
+	e := NewEnvironment(t, tEnv)
 	allChains := e.Env.AllChainSelectors()
 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
@@ -376,24 +392,26 @@ func NewLegacyEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) D
 	return e
 }
 
-func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	lggr := logger.Test(t)
-	tEnv.StartChains(t, tc)
+	tc := tEnv.TestConfigs()
+	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.Chains)
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
-	tEnv.StartNodes(t, tc, crConfig)
+	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
 	return dEnv
 }
 
-func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
-	e := NewEnvironment(t, tc, tEnv)
+	tc := tEnv.TestConfigs()
+	e := NewEnvironment(t, tEnv)
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
@@ -437,10 +455,22 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	})
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
-	return AddCCIPContractsToEnvironment(t, tc, tEnv)
+	e = AddCCIPContractsToEnvironment(t, tEnv)
+	// now we update RMNProxy to point to RMNRemote
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: allChains,
+			},
+		},
+	})
+	require.NoError(t, err)
+	return e
 }
 
-func AddCCIPContractsToEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func AddCCIPContractsToEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
 	var err error
 	allChains := e.Env.AllChainSelectors()
@@ -466,12 +496,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvir
 			Config: DeployChainContractsConfig{
 				ChainSelectors:    allChains,
 				HomeChainSelector: e.HomeChainSel,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
-			Config: SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: allChains,
 			},
 		},
 	})
@@ -620,13 +644,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvir
 		require.NotNil(t, state.Chains[chain].OffRamp)
 		require.NotNil(t, state.Chains[chain].OnRamp)
 	}
+	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }
 
 // NewEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
-func NewEnvironmentWithJobs(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
-	e := NewEnvironment(t, tc, tEnv)
+func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+	e := NewEnvironment(t, tEnv)
 	e.SetupJobs(t)
 	return e
 }
