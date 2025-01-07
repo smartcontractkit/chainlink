@@ -261,13 +261,11 @@ func hexStringToDecimal(hexString string) (decimal.Decimal, bool) {
 func (e *EnhancedTelemetryService[T]) getObservation(finalResult *pipeline.FinalResult) int64 {
 	singularResult, err := finalResult.SingularResult()
 	if err != nil {
-		e.lggr.Warnf("cannot get singular result, job %d", e.job.ID)
 		return 0
 	}
 
 	finalResultDecimal, err := utils.ToDecimal(singularResult.Value)
 	if err != nil {
-		e.lggr.Warnf("cannot parse singular result from bridge task, job %d", e.job.ID)
 		return 0
 	}
 
@@ -277,7 +275,6 @@ func (e *EnhancedTelemetryService[T]) getObservation(finalResult *pipeline.Final
 func (e *EnhancedTelemetryService[T]) getParsedValue(trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
 	parsedValue := getJsonParsedValue(trr, trrs)
 	if parsedValue == nil {
-		e.lggr.Warnf("cannot get json parse value, job %d, id %s", e.job.ID, trr.Task.DotID())
 		return 0
 	}
 	return *parsedValue
@@ -302,23 +299,16 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
 		}
-		var bridgeName string
-		if b, is := trr.Task.(*pipeline.BridgeTask); is {
-			bridgeName = b.Name
-		}
 
 		if trr.Result.Error != nil {
-			e.lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", trr.Result.Error, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			e.lggr.Warnw(fmt.Sprintf("cannot parse bridge response from bridge task, job=%d, id=%s, name=%q: expected string, got: %v (type %T)", e.job.ID, trr.Task.DotID(), bridgeName, trr.Result.Value, trr.Result.Value), "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job=%d, id=%s, name=%q", e.job.ID, trr.Task.DotID(), bridgeName), "err", err, "jobID", e.job.ID, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 			continue
 		}
 		value := e.getParsedValue(trrs, trr)
@@ -635,12 +625,11 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 func parsePriceFromTask(lggr logger.Logger, trr pipeline.TaskRunResult) float64 {
 	var val float64
 	if trr.Result.Error != nil {
-		lggr.Warnw(fmt.Sprintf("got error on EA telemetry price task, id %s: %s", trr.Task.DotID(), trr.Result.Error), "err", trr.Result.Error)
 		return 0
 	}
 	val, err := getResultFloat64(&trr)
 	if err != nil {
-		lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry price to float64, DOT id %s", trr.Task.DotID()), "task_type", trr.Task.Type(), "task_tags", trr.Task.TaskTags(), "err", err)
+		return 0
 	}
 	return val
 }

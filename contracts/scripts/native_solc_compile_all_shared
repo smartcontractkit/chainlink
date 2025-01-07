@@ -6,32 +6,40 @@ echo " ┌───────────────────────�
 echo " │          Compiling shared contracts...       │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.19"
-OPTIMIZE_RUNS=1000000
+PROJECT="shared"
+FOUNDRY_PROJECT_SUFFIX=""
 
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
 
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
-
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-
-compileContract () {
+compileContract() {
   local contract
-  contract=$(basename "$1" ".sol")
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
 
-  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
-      "$ROOT"/contracts/src/v0.8/"$1"
+  if [ -n "$2" ]; then
+    echo "Compiling from another project: ""$2"
+    PROJECT=$2
+  fi
+
+  # We override the foundry.toml Solidity version to not change the bytecode.
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+   --root $CONTRACTS_DIR \
+   --extra-output-files bin abi \
+   --use 0.8.19 \
+   -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+
+  $command
 }
 
-compileContract shared/token/ERC677/BurnMintERC677.sol
-compileContract shared/token/ERC677/LinkToken.sol
-compileContract shared/token/ERC20/BurnMintERC20.sol
-compileContract shared/mocks/WERC20Mock.sol
-compileContract vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol
-compileContract shared/test/helpers/ChainReaderTester.sol
-compileContract vendor/multicall/ebd8b64/src/Multicall3.sol
+compileContract token/ERC677/BurnMintERC677
+compileContract token/ERC677/LinkToken
+compileContract token/ERC20/BurnMintERC20
+compileContract test/helpers/ChainReaderTester
+compileContract mocks/WERC20Mock
+compileContract interfaces/AggregatorV3Interface
+
+compileContract openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20 vendor
+compileContract multicall/ebd8b64/src/Multicall3 vendor
+compileContract MockV3Aggregator tests
