@@ -2,60 +2,167 @@ package changeset
 
 import (
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/stretchr/testify/require"
 )
 
 type curseAssertion struct {
-	chainSelector uint64
-	subject       uint64
+	chainId      uint64
+	subject      uint64
+	global_curse bool
+	cursed       bool
 }
 
 type CurseTestCase struct {
 	useMCMS             bool
 	name                string
-	curseActionsBuilder []CurseAction
+	curseActionsBuilder func(mapIdToSelectorFunc) []CurseAction
 	curseAssertions     []curseAssertion
 }
 
+type mapIdToSelectorFunc func(uint64) uint64
+
 func TestRMNCurse(t *testing.T) {
-	t.Parallel()
 	testCases := []CurseTestCase{
-		// {
-		// 	useMCMS: true,
-		// 	name:    "with MCMS",
-		// },
 		{
-			useMCMS:             false,
-			name:                "without MCMS",
-			curseActionsBuilder: []CurseAction{CurseLane(0, 1)},
+			useMCMS: false,
+			name:    "lane",
+			curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
+				return []CurseAction{CurseLane(mapIdToSelector(0), mapIdToSelector(1))}
+			},
 			curseAssertions: []curseAssertion{
-				{chainSelector: 0, subject: 1},
-				{chainSelector: 1, subject: 0},
+				{chainId: 0, subject: 1, cursed: true},
+				{chainId: 0, subject: 2, cursed: false},
+				{chainId: 1, subject: 0, cursed: true},
+				{chainId: 1, subject: 2, cursed: false},
+				{chainId: 2, subject: 0, cursed: false},
+				{chainId: 2, subject: 1, cursed: false},
+			},
+		},
+		{
+			useMCMS: false,
+			name:    "chain",
+			curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
+				return []CurseAction{CurseChain(mapIdToSelector(0))}
+			},
+			curseAssertions: []curseAssertion{
+				{chainId: 0, global_curse: true, cursed: true},
+				{chainId: 1, subject: 0, cursed: true},
+				{chainId: 1, subject: 2, cursed: false},
+				{chainId: 2, subject: 0, cursed: true},
+				{chainId: 2, subject: 1, cursed: false},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
 			testRmnCurse(t, tc)
+		})
+		t.Run(tc.name+"_MCMS", func(t *testing.T) {
+			testRmnCurseMCMS(t, tc)
 		})
 	}
 }
 
 func testRmnCurse(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(2))
+	e := NewMemoryEnvironment(t, WithChains(3))
+
+	mapIdToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
+	}
+
+	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := RMNCurseConfig{
 		HomeChainSelector: e.HomeChainSel,
-		CurseActions:      tc.curseActionsBuilder,
+		CurseActions:      tc.curseActionsBuilder(mapIdToSelector),
 		CurseReason:       "test curse",
 	}
 
-	if tc.useMCMS {
-		config.MCMS = &MCMSConfig{
-			MinDelay: 0,
-		}
+	_, err := NewRMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+}
+
+func testRmnCurseMCMS(t *testing.T, tc CurseTestCase) {
+	e := NewMemoryEnvironment(t, WithChains(3))
+
+	mapIdToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
 	}
 
-	NewRMNCurseChangeset(e.Env, config)
+	config := RMNCurseConfig{
+		HomeChainSelector: e.HomeChainSel,
+		CurseActions:      tc.curseActionsBuilder(mapIdToSelector),
+		CurseReason:       "test curse",
+		MCMS:              &MCMSConfig{MinDelay: 0},
+	}
+
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	timelocksPerChain := buildTimelockPerChain(e.Env, state)
+
+	contractsByChain := make(map[uint64][]common.Address)
+	rmnRemoteAddressesByChain := buildRMNRemoteAddressPerChain(e.Env, state)
+	for chainSelector, rmnRemoteAddress := range rmnRemoteAddressesByChain {
+		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
+	}
+
+	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
+
+	// This is required because RMN Contracts is initially owned by the deployer
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: contractsByChain,
+				MinDelay:         0,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(NewRMNCurseChangeset),
+			Config:    config,
+		},
+	})
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+}
+
+func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, mapIdToSelector mapIdToSelectorFunc) {
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	for _, assertion := range tc.curseAssertions {
+		cursedSubject := subjectToByte16(mapIdToSelector(assertion.subject))
+		if assertion.global_curse {
+			cursedSubject = subjectToByte16(GLOBAL_CURSE_SUBJECT)
+		}
+
+		isCursed, err := state.Chains[mapIdToSelector(assertion.chainId)].RMNRemote.IsCursed(nil, cursedSubject)
+		require.NoError(t, err)
+		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainId, assertion.subject)
+	}
+}
+
+func verifyNoActiveCurseOnAllChains(t *testing.T, e *DeployedEnv) {
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	for _, chain := range e.Env.Chains {
+		isCursed, err := state.Chains[chain.Selector].RMNRemote.IsCursed0(nil)
+		require.NoError(t, err)
+		require.False(t, isCursed, "chain %d", chain.Selector)
+	}
 }

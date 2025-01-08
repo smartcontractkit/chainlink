@@ -21,6 +21,20 @@ type DeployerGroup struct {
 	transactions map[uint64][]*types.Transaction
 }
 
+/*
+DeployerGroup is an abstraction that lets developers write their changeset
+without needing to know if it's executed using a DeployerKey or an MCMS proposal.
+
+Example usage:
+
+	deployerGroup := NewDeployerGroup(e, state, mcmConfig)
+	selector := 0
+	# Get the right deployer key for the chain
+	deployer := deployerGroup.getDeployer(selector)
+	state.Chains[selector].RMNRemote.Curse()
+	# Execute the transaction or create the proposal
+	deployerGroup.enact("Curse RMNRemote")
+*/
 func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) *DeployerGroup {
 	return &DeployerGroup{
 		e:            e,
@@ -31,7 +45,23 @@ func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfi
 }
 
 func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
-	sim := deployment.SimTransactOpts()
+	txOpts := d.e.Chains[chain].DeployerKey
+	if d.mcmConfig != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+	sim := &bind.TransactOpts{
+		From:       txOpts.From,
+		Signer:     txOpts.Signer,
+		GasLimit:   txOpts.GasLimit,
+		GasPrice:   txOpts.GasPrice,
+		Nonce:      txOpts.Nonce,
+		Value:      txOpts.Value,
+		GasFeeCap:  txOpts.GasFeeCap,
+		GasTipCap:  txOpts.GasTipCap,
+		Context:    txOpts.Context,
+		AccessList: txOpts.AccessList,
+		NoSend:     true,
+	}
 	oldSigner := sim.Signer
 	sim.Signer = func(a common.Address, t *types.Transaction) (*types.Transaction, error) {
 		tx, err := oldSigner(a, t)
@@ -96,6 +126,11 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 			err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to send transaction: %w", err)
+			}
+
+			_, err = d.e.Chains[selector].Confirm(tx)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("waiting for tx to be mined failed: %w", err)
 			}
 		}
 	}
