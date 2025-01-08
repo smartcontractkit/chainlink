@@ -227,6 +227,8 @@ func encodeOffRampAddr(addr []byte, chainFamily string) string {
 		offRampAddr = hexutil.Encode(addr)
 	case relay.NetworkSolana:
 		offRampAddr = solana.PublicKeyFromBytes(addr).String()
+	default:
+		panic(fmt.Errorf("unsupported chain family: %s", chainFamily))
 	}
 
 	return offRampAddr
