@@ -105,7 +105,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	for _, chain := range chainSelectors {
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain:  1,
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
