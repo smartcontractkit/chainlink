@@ -61,14 +61,14 @@ type RegistryWrapper struct {
 }
 
 func NewRegistryWrapper(address evmtypes.EIP55Address, evmClient evmclient.Client) (*RegistryWrapper, error) {
-	interface_wrapper, err := type_and_version.NewITypeAndVersion(
+	interfaceWrapper, err := type_and_version.NewITypeAndVersion(
 		address.Address(),
 		evmClient,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create type and interface wrapper")
 	}
-	version, err := getRegistryVersion(interface_wrapper)
+	version, err := getRegistryVersion(interfaceWrapper)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
 	}
