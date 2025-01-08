@@ -124,10 +124,6 @@ type Logger interface {
 
 	// Name returns the fully qualified name of the logger.
 	Name() string
-
-	// Recover reports recovered panics; this is useful because it avoids
-	// double-reporting to sentry
-	Recover(panicErr interface{})
 }
 
 // newZapConfigProd returns a new production zap.Config.

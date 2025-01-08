@@ -212,8 +212,3 @@ func (s *prometheusLogger) Helper(add int) Logger {
 		s.fatalCnt,
 	}
 }
-
-func (s *prometheusLogger) Recover(panicErr interface{}) {
-	s.panicCnt.Inc()
-	s.h.Recover(panicErr)
-}

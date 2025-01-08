@@ -78,8 +78,7 @@ func TestPrometheusLogger_Counters(t *testing.T) {
 
 	l.Panicf("msg")
 	l.Panicw("msg")
-	l.Recover(nil)
-	assertCounterValue(t, panicCounter, 9)
+	assertCounterValue(t, panicCounter, 8)
 
 	l.Fatalf("msg")
 	l.Fatalw("msg")

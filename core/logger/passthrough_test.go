@@ -67,8 +67,6 @@ func TestLogger_Passthrough(t *testing.T) {
 
 			err := l.Sync()
 			assert.ErrorIs(t, err, errTest)
-
-			l.Recover(errTest)
 		})
 	}
 }
@@ -110,7 +108,6 @@ func setupMockLogger(t *testing.T) *MockLogger {
 
 	ml.On("Sync").Return(errTest).Once()
 	ml.On("Name").Return("mockLogger").Once()
-	ml.On("Recover", errTest).Once()
 
 	return ml
 }
