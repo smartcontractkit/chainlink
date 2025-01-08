@@ -24,7 +24,6 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/gagliardetto/solana-go v1.8.4
-	github.com/getsentry/sentry-go v0.27.0
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-contrib/sessions v0.0.5
@@ -208,6 +207,7 @@ require (
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
+	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.5 // indirect
 	github.com/go-json-experiment/json v0.0.0-20231102232822-2e55bd4e08b0 // indirect
