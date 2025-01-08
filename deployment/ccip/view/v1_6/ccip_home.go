@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -33,7 +34,7 @@ type CCIPHomeView struct {
 
 func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *ccip_home.CCIPHome) (CCIPHomeView, error) {
 	if ch == nil {
-		return CCIPHomeView{}, fmt.Errorf("cannot generate view for nil CCIPHome")
+		return CCIPHomeView{}, errors.New("cannot generate view for nil CCIPHome")
 	}
 	meta, err := types.NewContractMetaData(ch, ch.Address())
 	if err != nil {

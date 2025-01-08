@@ -115,3 +115,4 @@ vendor/*
 
 *.wasm
 contracts/lcov.info
+/cache

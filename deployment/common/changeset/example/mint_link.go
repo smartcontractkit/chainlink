@@ -19,7 +19,6 @@ var _ deployment.ChangeSet[*MintLinkConfig] = MintLink
 
 // MintLink mints LINK to the provided contract.
 func MintLink(e deployment.Environment, cfg *MintLinkConfig) (deployment.ChangesetOutput, error) {
-
 	chain := e.Chains[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
@@ -39,5 +38,4 @@ func MintLink(e deployment.Environment, cfg *MintLinkConfig) (deployment.Changes
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{}, nil
-
 }

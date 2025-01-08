@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net/url"
 	"strconv"
@@ -376,6 +377,10 @@ func (r *RPCClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 	var requestedFinalizedBlock bool
 	if r.chainType == chaintype.ChainAstar {
 		for _, el := range b {
+			if el.Method == "eth_getLogs" {
+				r.rpcLog.Critical("evmclient.BatchCallContext: eth_getLogs is not supported")
+				return errors.New("evmclient.BatchCallContext: eth_getLogs is not supported")
+			}
 			if !isRequestingFinalizedBlock(el) {
 				continue
 			}
@@ -490,10 +495,10 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	}()
 
 	channel := make(chan *evmtypes.Head)
-	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) (*evmtypes.Head, error) {
 		head.EVMChainID = ubig.New(r.chainID)
 		r.onNewHead(ctx, chStopInFlight, head)
-		return head
+		return head, nil
 	}, r.wrapRPCClientError)
 
 	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
@@ -1199,8 +1204,11 @@ func (r *RPCClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l [
 		l, err = ws.geth.FilterLogs(ctx, q)
 		err = r.wrapWS(err)
 	}
-	duration := time.Since(start)
 
+	if err == nil {
+		err = r.makeLogsValid(l)
+	}
+	duration := time.Since(start)
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "FilterLogs",
 		"log", l,
 	)
@@ -1228,7 +1236,7 @@ func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 		r.logResult(lggr, err, duration, r.getRPCDomain(), "SubscribeFilterLogs")
 		err = r.wrapWS(err)
 	}()
-	sub := newSubForwarder(ch, nil, r.wrapRPCClientError)
+	sub := newSubForwarder(ch, r.makeLogValid, r.wrapRPCClientError)
 	err = sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
 	if err != nil {
 		return
@@ -1451,4 +1459,39 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func (r *RPCClient) makeLogsValid(logs []types.Log) error {
+	if r.chainType != chaintype.ChainSei {
+		return nil
+	}
+
+	for i := range logs {
+		var err error
+		logs[i], err = r.makeLogValid(logs[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *RPCClient) makeLogValid(log types.Log) (types.Log, error) {
+	if r.chainType != chaintype.ChainSei {
+		return log, nil
+	}
+
+	if log.TxIndex > math.MaxUint32 {
+		return types.Log{}, fmt.Errorf("TxIndex of tx %s exceeds max supported value of %d", log.TxHash, math.MaxUint32)
+	}
+
+	if log.Index > math.MaxUint32 {
+		return types.Log{}, fmt.Errorf("log's index %d of tx %s exceeds max supported value of %d", log.Index, log.TxHash, math.MaxUint32)
+	}
+
+	// it's safe as we have a build guard to guarantee 64-bit system
+	newIndex := uint64(log.TxIndex<<32) | uint64(log.Index)
+	log.Index = uint(newIndex)
+	return log, nil
 }

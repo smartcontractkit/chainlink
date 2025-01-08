@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
@@ -50,7 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 )
 
 var (
@@ -99,7 +100,7 @@ type CCIPChainState struct {
 	OnRamp             *onramp.OnRamp
 	OffRamp            *offramp.OffRamp
 	FeeQuoter          *fee_quoter.FeeQuoter
-	RMNProxy           *rmn_proxy_contract.RMNProxyContract
+	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
@@ -366,7 +367,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		}
 		name := chainInfo.ChainName
 		if chainInfo.ChainName == "" {
-			name = fmt.Sprintf("%d", chainSelector)
+			name = strconv.FormatUint(chainSelector, 10)
 		}
 		m[name] = chainView
 	}
@@ -445,7 +446,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.OffRamp = offRamp
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxyContract(common.HexToAddress(address), chain.Client)
+			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}

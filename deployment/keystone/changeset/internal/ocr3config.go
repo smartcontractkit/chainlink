@@ -222,7 +222,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 	for index := range nca {
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainPubKeys[index][:],
+				OnchainPublicKey:  onchainPubKeys[index],
 				OffchainPublicKey: offchainPubKeysBytes[index],
 				PeerID:            nca[index].P2PPeerID,
 				TransmitAccount:   types.Account(nca[index].EthAddress),
@@ -303,7 +303,7 @@ type configureOCR3Response struct {
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
 	if req.contract == nil {
-		return nil, fmt.Errorf("OCR3 contract is nil")
+		return nil, errors.New("OCR3 contract is nil")
 	}
 	ocrConfig, err := req.generateOCR3Config()
 	if err != nil {
