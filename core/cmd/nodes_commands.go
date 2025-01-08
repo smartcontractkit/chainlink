@@ -6,9 +6,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/urfave/cli"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/urfave/cli"
 )
 
 func initNodeSubCmds(s *Shell) []cli.Command {

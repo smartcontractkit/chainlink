@@ -23,6 +23,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Setup Other Tags If Not Workflow Dispatch
         id: tags
@@ -68,6 +69,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image

@@ -41,13 +41,17 @@ jobs:
     steps:
       - name: Generate Test List JSON
         id: set-tests
+        env:
+          GH_INPUTS_TEST_SUITE: ${{ inputs.test_suite }}
+          GH_INPUTS_TEST_LIST_REGEX: ${{ inputs.test_list_regex }}
+          GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH: ${{ inputs.test_config_override_path }}
         run: |
-          if [[ "${{ inputs.test_suite }}" == "All Tests" ]]; then
+          if [[ "$GH_INPUTS_TEST_SUITE" == "All Tests" ]]; then
             TEST_CMD="cd integration-tests/smoke && go test vrfv2_test.go -test.parallel=1 -timeout 3h -count=1 -json -v"
           else
-            TEST_CMD='cd integration-tests/smoke && go test -test.run "${{ inputs.test_list_regex }}" -test.parallel=1 -timeout 2h -count=1 -json -v'
+            TEST_CMD='cd integration-tests/smoke && go test -test.run "$GH_INPUTS_TEST_LIST_REGEX" -test.parallel=1 -timeout 2h -count=1 -json -v'
           fi
-          TEST_CONFIG_OVERRIDE_PATH=${{ inputs.test_config_override_path }}
+          TEST_CONFIG_OVERRIDE_PATH=$GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH
 
           TEST_LIST=$(jq -n -c \
             --arg test_cmd "$TEST_CMD" \

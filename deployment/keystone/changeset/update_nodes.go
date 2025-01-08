@@ -1,16 +1,17 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -31,7 +32,7 @@ type UpdateNodesRequest struct {
 
 func (r *UpdateNodesRequest) Validate() error {
 	if r.P2pToUpdates == nil {
-		return fmt.Errorf("P2pToUpdates must be non-nil")
+		return errors.New("P2pToUpdates must be non-nil")
 	}
 	return nil
 }
@@ -50,7 +51,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -75,7 +76,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
 			req.RegistryChainSel: contracts.Timelock.Address(),

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -73,6 +74,9 @@ func (c Chain) Name() string {
 	if err != nil {
 		// we should never get here, if the selector is invalid it should not be in the environment
 		panic(err)
+	}
+	if chainInfo.ChainName == "" {
+		return strconv.FormatUint(c.Selector, 10)
 	}
 	return chainInfo.ChainName
 }

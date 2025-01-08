@@ -86,7 +86,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 			},
 		},
 	)
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	tokenTransfer := []router.ClientEVMTokenAmount{
 		{

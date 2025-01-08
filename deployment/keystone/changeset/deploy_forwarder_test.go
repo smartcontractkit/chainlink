@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
 func TestDeployForwarder(t *testing.T) {
@@ -33,7 +33,7 @@ func TestDeployForwarder(t *testing.T) {
 
 		// deploy forwarder
 		env.ExistingAddresses = ab
-		resp, err := changeset.DeployForwarder(env, registrySel)
+		resp, err := changeset.DeployForwarder(env, changeset.DeployForwarderRequest{})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		// registry, ocr3, forwarder should be deployed on registry chain
@@ -56,15 +56,15 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 				})
 
 				var wfNodes []string
-				for id, _ := range te.WFNodes {
+				for id := range te.WFNodes {
 					wfNodes = append(wfNodes, id)
 				}
 
@@ -76,7 +76,7 @@ func TestConfigureForwarders(t *testing.T) {
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
-				require.Len(t, csOut.Proposals, 0)
+				require.Empty(t, csOut.Proposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				contractSet := te.ContractSets()
@@ -93,16 +93,16 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := SetupTestEnv(t, TestConfig{
-					WFDonConfig:     DonConfig{N: 4},
-					AssetDonConfig:  DonConfig{N: 4},
-					WriterDonConfig: DonConfig{N: 4},
+				te := test.SetupTestEnv(t, test.TestConfig{
+					WFDonConfig:     test.DonConfig{N: 4},
+					AssetDonConfig:  test.DonConfig{N: 4},
+					WriterDonConfig: test.DonConfig{N: 4},
 					NumChains:       nChains,
 					UseMCMS:         true,
 				})
 
 				var wfNodes []string
-				for id, _ := range te.WFNodes {
+				for id := range te.WFNodes {
 					wfNodes = append(wfNodes, id)
 				}
 
@@ -133,9 +133,7 @@ func TestConfigureForwarders(t *testing.T) {
 					},
 				})
 				require.NoError(t, err)
-
 			})
 		}
 	})
-
 }

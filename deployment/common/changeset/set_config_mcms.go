@@ -192,7 +192,6 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 			batch := addTxsToProposalBatch(setConfigTxsChain, chainSelector, *state)
 			batches = append(batches, batch)
 		}
-
 	}
 
 	if useMCMS {

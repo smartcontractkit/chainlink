@@ -18,9 +18,9 @@ import (
 
 func TestDeployMCMSWithConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	chains := memory.NewMemoryChainsWithChainIDs(t, []uint64{
+	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
-	})
+	}, 1)
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
 		lggr, chains[chainsel.TEST_90000001.Selector], ab, proposalutils.SingleGroupMCMS(t))
@@ -29,9 +29,9 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 
 func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	chains := memory.NewMemoryChainsWithChainIDs(t, []uint64{
+	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
-	})
+	}, 1)
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],

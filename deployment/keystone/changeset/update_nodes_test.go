@@ -11,6 +11,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -18,16 +19,16 @@ func TestUpdateNodes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 		})
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			pubKey := [32]byte{31: i + 1}
@@ -47,24 +48,24 @@ func TestUpdateNodes(t *testing.T) {
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
-		require.Len(t, csOut.Proposals, 0)
+		require.Empty(t, csOut.Proposals)
 		require.Nil(t, csOut.AddressBook)
 
 		validateUpdate(t, te, updates)
 	})
 
 	t.Run("with mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			pubKey := [32]byte{31: i + 1}
@@ -110,11 +111,10 @@ func TestUpdateNodes(t *testing.T) {
 
 		validateUpdate(t, te, updates)
 	})
-
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateUpdate(t *testing.T, te TestEnv, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
+func validateUpdate(t *testing.T, te test.TestEnv, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
 	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
@@ -125,4 +125,14 @@ func validateUpdate(t *testing.T, te TestEnv, expected map[p2pkey.PeerID]changes
 		assert.Equal(t, expected[node.P2pId].EncryptionPublicKey, hex.EncodeToString(node.EncryptionPublicKey[:]))
 		assert.Equal(t, expected[node.P2pId].Signer, node.Signer)
 	}
+}
+
+func p2pIDs(t *testing.T, vals []string) [][32]byte {
+	var out [][32]byte
+	for _, v := range vals {
+		id, err := p2pkey.MakePeerID(v)
+		require.NoError(t, err)
+		out = append(out, id)
+	}
+	return out
 }

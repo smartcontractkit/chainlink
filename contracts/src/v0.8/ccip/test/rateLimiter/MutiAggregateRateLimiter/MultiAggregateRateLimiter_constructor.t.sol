@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {MultiAggregateRateLimiter} from "../../../MultiAggregateRateLimiter.sol";
 import {MultiAggregateRateLimiterHelper} from "../../helpers/MultiAggregateRateLimiterHelper.sol";
@@ -7,7 +7,7 @@ import {MultiAggregateRateLimiterSetup} from "./MultiAggregateRateLimiterSetup.t
 import {Vm} from "forge-std/Vm.sol";
 
 contract MultiAggregateRateLimiter_constructor is MultiAggregateRateLimiterSetup {
-  function test_ConstructorNoAuthorizedCallers_Success() public {
+  function test_ConstructorNoAuthorizedCallers() public {
     address[] memory authorizedCallers = new address[](0);
 
     vm.recordLogs();
@@ -21,7 +21,7 @@ contract MultiAggregateRateLimiter_constructor is MultiAggregateRateLimiterSetup
     assertEq(address(s_feeQuoter), s_rateLimiter.getFeeQuoter());
   }
 
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     address[] memory authorizedCallers = new address[](2);
     authorizedCallers[0] = MOCK_OFFRAMP;
     authorizedCallers[1] = MOCK_ONRAMP;

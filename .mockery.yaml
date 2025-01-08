@@ -127,7 +127,7 @@ packages:
       FlagsInterface:
         config:
           mockname: Flags
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface:
     config:
       dir: core/services/vrf/mocks
       filename: aggregator_v3_interface.go

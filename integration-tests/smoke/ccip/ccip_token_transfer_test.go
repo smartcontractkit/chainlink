@@ -69,7 +69,7 @@ func TestTokenTransfer(t *testing.T) {
 		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	changeset.MintAndAllow(
 		t,

@@ -69,12 +69,12 @@ type DelegateConfig struct {
 	// One Oracle will be started for each ContractConfigTracker
 	ContractConfigTrackers []ocr2types.ContractConfigTracker
 	ContractTransmitter    ocr3types.ContractTransmitter[llotypes.ReportInfo]
-	Database               ocr3types.Database
 	OCR3MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	OffchainConfigDigester ocr2types.OffchainConfigDigester
 	OffchainKeyring        ocr2types.OffchainKeyring
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
 	LocalConfig            ocr2types.LocalConfig
+	NewOCR3DB              func(pluginID int32) ocr3types.Database
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
@@ -146,7 +146,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
 				ContractTransmitter:          d.cfg.ContractTransmitter,
-				Database:                     d.cfg.Database,
+				Database:                     d.cfg.NewOCR3DB(int32(i)), // //nolint:gosec // G115 // impossible due to check on line 119
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,

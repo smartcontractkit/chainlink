@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Internal} from "../../../../libraries/Internal.sol";
 import {Pool} from "../../../../libraries/Pool.sol";
@@ -12,7 +12,7 @@ import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol"
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTokenPoolSetup {
-  function test_OnLockReleaseMechanism_Success() public {
+  function test_OnLockReleaseMechanism() public {
     address recipient = address(1234);
 
     // Designate the SOURCE_CHAIN as not using native-USDC, and so the L/R mechanism must be used instead
@@ -120,7 +120,7 @@ contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTo
     );
   }
 
-  function test_WhileMigrationPause_Revert() public {
+  function test_RevertWhen_WhileMigrationPause() public {
     address recipient = address(1234);
 
     // Designate the SOURCE_CHAIN as not using native-USDC, and so the L/R mechanism must be used instead

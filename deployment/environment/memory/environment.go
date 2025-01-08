@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -58,9 +59,15 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
-	mchains := GenerateChainsWithIds(t, chainIDs)
-	return generateMemoryChain(t, mchains)
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
+	users := make(map[uint64][]*bind.TransactOpts)
+	for id, chain := range mchains {
+		sel, err := chainsel.SelectorFromChainId(id)
+		require.NoError(t, err)
+		users[sel] = chain.Users
+	}
+	return generateMemoryChain(t, mchains), users
 }
 
 func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
@@ -80,10 +87,13 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 				}
 				for {
 					backend.Commit()
-					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
+					receipt, err := func() (*types.Receipt, error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+						defer cancel()
+						return bind.WaitMined(ctx, backend, tx)
+					}()
 					if err != nil {
-						t.Log("failed to get receipt", "chain", chainInfo.ChainName, err)
-						continue
+						return 0, fmt.Errorf("tx %s failed to confirm: %w, chain %d", tx.Hash().Hex(), err, chainInfo.ChainSelector)
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
