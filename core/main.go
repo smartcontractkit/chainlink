@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -26,13 +25,11 @@ func init() {
 }
 
 func Main() (code int) {
-	recovery.ReportPanics(func() {
-		app := cmd.NewApp(newProductionClient())
-		if err := app.Run(os.Args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
-			code = 1
-		}
-	})
+	app := cmd.NewApp(newProductionClient())
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
+		code = 1
+	}
 	return
 }
 
