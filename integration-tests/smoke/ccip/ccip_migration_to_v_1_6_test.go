@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
@@ -30,7 +31,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	//allChains := e.Env.AllChainSelectors()
 	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
 	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChainsExcept1337, 2)
@@ -116,7 +116,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	//changeset.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
+
 	// Enable a single 1.6 lane with test router
 	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, src1, dest, true)
 	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
@@ -125,6 +125,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
 	startBlocks[dest] = &block
+	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
 	msgSentEvent, err := changeset.DoSendRequest(
 		t, e.Env, state,
 		changeset.WithSourceChain(src1),
@@ -141,19 +142,12 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			ExtraArgs:    nil,
 		}))
 	require.NoError(t, err)
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
-	expectedSeqNum[changeset.SourceDestPair{
-		SourceChainSelector: src1,
-		DestChainSelector:   dest,
-	}] = msgSentEvent.SequenceNumber
 
 	expectedSeqNumExec[changeset.SourceDestPair{
 		SourceChainSelector: src1,
 		DestChainSelector:   dest,
 	}] = []uint64{msgSentEvent.SequenceNumber}
-	// Wait for all commit reports to land.
-	//changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+
 	// Wait for all exec reports to land
 	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
