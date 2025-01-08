@@ -64,7 +64,6 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
     });
 
     s_siloedLockReleaseTokenPool.applyChainUpdates(new uint64[](0), chainUpdates);
-    s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
 
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](3);
     Router.OffRamp[] memory offRampUpdates = new Router.OffRamp[](2);
@@ -86,5 +85,7 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
 
     assertTrue(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(SILOED_CHAIN_SELECTOR));
     assertFalse(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(DEST_CHAIN_SELECTOR));
+
+    s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 }
