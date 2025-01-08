@@ -403,7 +403,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			return
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch := make(chan types.Log)
@@ -498,7 +498,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 			return
 		})
 		wsURL := server.WSURL()
-		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
 		defer seiRPC.Close()
 		require.NoError(t, seiRPC.Dial(ctx))
 		logs, err := seiRPC.FilterLogs(ctx, ethereum.FilterQuery{})
@@ -508,7 +508,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 		}
 
 		// non sei should return index as is
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		logs, err = rpc.FilterLogs(ctx, ethereum.FilterQuery{})
