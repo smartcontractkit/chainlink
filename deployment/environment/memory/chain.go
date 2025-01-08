@@ -1,9 +1,7 @@
 package memory
 
 import (
-	"bytes"
 	"math/big"
-	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -13,14 +11,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
@@ -28,6 +31,13 @@ type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts
 	Users       []*bind.TransactOpts
+}
+
+type SolChain struct {
+	Backend     *solRpc.Client
+	URL         string
+	WSURL       string
+	DeployerKey solana.PrivateKey
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -96,43 +106,38 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 
 // TODO: make it random port to support multiple chains
 // TODO: add dynamic users and admin like done in evmChain
-func solChain(t *testing.T) (string, string) {
+func solChain(t *testing.T) SolChain {
 	t.Helper()
-	port := "8899"
-	portInt, _ := strconv.Atoi(port)
 
-	faucetPort := "8877"
-	url := "http://127.0.0.1:" + port
-	wsURL := "ws://127.0.0.1:" + strconv.Itoa(portInt+1)
+	// initialize the docker network used by CTF
+	// TODO: framework.DefaultNetwork(once) is broken for me, use a static name for now
+	framework.DefaultNetworkName = "chainlink"
 
-	args := []string{
-		"--reset",
-		"--rpc-port", port,
-		"--faucet-port", faucetPort,
-		"--ledger", t.TempDir(),
+	deployerKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	// TODO: fund this key
+
+	port := freeport.GetOne(t)
+
+	bcInput := &blockchain.Input{
+		Type: "solana",
+		// TODO: randomize port
+		ChainID:   chainselectors.SOLANA_DEVNET.ChainID,
+		PublicKey: deployerKey.PublicKey().String(),
+		Port:      strconv.Itoa(port),
+		// TODO: ContractsDir & SolanaPrograms via env vars
 	}
+	output, err := blockchain.NewBlockchainNetwork(bcInput)
+	require.NoError(t, err)
 
-	cmd := exec.Command("solana-test-validator", args...)
-
-	var stdErr bytes.Buffer
-	cmd.Stderr = &stdErr
-	var stdOut bytes.Buffer
-	cmd.Stdout = &stdOut
-	require.NoError(t, cmd.Start())
-	t.Cleanup(func() {
-		assert.NoError(t, cmd.Process.Kill())
-		if err2 := cmd.Wait(); assert.Error(t, err2) {
-			if !assert.Contains(t, err2.Error(), "signal: killed", cmd.ProcessState.String()) {
-				t.Logf("solana-test-validator\n stdout: %s\n stderr: %s", stdOut.String(), stdErr.String())
-			}
-		}
-	})
+	url := output.Nodes[0].HostHTTPUrl
+	wsURL := output.Nodes[0].HostWSUrl
 
 	// Wait for api server to boot
+	client := solRpc.New(url)
 	var ready bool
 	for i := 0; i < 30; i++ {
 		time.Sleep(time.Second)
-		client := solRpc.New(url)
 		out, err := client.GetHealth(tests.Context(t))
 		if err != nil || out != solRpc.HealthOk {
 			t.Logf("API server not ready yet (attempt %d)\n", i+1)
@@ -142,10 +147,15 @@ func solChain(t *testing.T) (string, string) {
 		break
 	}
 	if !ready {
-		t.Logf("Cmd output: %s\nCmd error: %s\n", stdOut.String(), stdErr.String())
+		t.Logf("solana-test-validator is not ready after 30 attempts")
 	}
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
 
-	return url, wsURL
+	return SolChain{
+		Backend:     client,
+		URL:         url,
+		WSURL:       wsURL,
+		DeployerKey: deployerKey,
+	}
 }

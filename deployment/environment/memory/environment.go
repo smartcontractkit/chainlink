@@ -2,7 +2,10 @@ package memory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -21,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -128,13 +132,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -198,16 +202,25 @@ func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
 	solChainSelector := deployment.SolanaChainSelector
 	solChains := make(map[uint64]deployment.SolChain)
 	t.Logf("Spinning up devnet")
-	url, _ := solChain(t)
-	client := solRpc.New(url)
-	adminPrivateKey := deployment.GetSolanaDeployerKey()
+	chain := solChain(t)
+	t.TempDir()
+	// store the generated keypair somewhere
+	bytes, err := json.Marshal([]byte(chain.DeployerKey))
+	require.NoError(t, err)
+	keypairPath := path.Join(t.TempDir(), "solana-keypair.json")
+	err = os.WriteFile(keypairPath, bytes, 0600)
+	require.NoError(t, err)
+
 	newSolChain := deployment.SolChain{
 		Selector:    solChainSelector,
-		Client:      client,
-		DeployerKey: &adminPrivateKey,
+		Client:      chain.Backend,
+		URL:         chain.URL,
+		WSURL:       chain.WSURL,
+		DeployerKey: &chain.DeployerKey,
+		KeypairPath: keypairPath,
 		Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
 			_, err := solCommomUtil.SendAndConfirm(
-				context.Background(), client, instructions, adminPrivateKey, solRpc.CommitmentConfirmed, opts...,
+				context.Background(), chain.Backend, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
 			)
 			if err != nil {
 				return err

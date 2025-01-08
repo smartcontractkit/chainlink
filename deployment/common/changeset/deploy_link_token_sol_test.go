@@ -2,31 +2,22 @@ package changeset_test
 
 import (
 	"context"
-	"strconv"
 	"testing"
-	"time"
 
 	"bytes"
 	"fmt"
 	"os/exec"
 
-	// "github.com/stretchr/testify/require"
-	// "go.uber.org/zap/zapcore"
-	// "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	// "github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	// "github.com/smartcontractkit/chainlink/v2/core/logger"
 	bin "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/external_program_cpi_stub"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 )
 
 var (
@@ -83,11 +74,8 @@ func setDevNet(keypairPath string) error {
 
 // TestDeployProgram is a test for deploying the Solana program.
 func TestDeployProgram(t *testing.T) {
-	// Path to your .so file and keypair file
-	// programFile := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub.so"
-	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
-	// programKeyPair := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
-	// keypairPath := "/Users/yashvardhan/chainlink-internal-integrations/solana/contracts/target/deploy/external_program_cpi_stub-keypair.json"
+	chains := memory.NewMemoryChainsSol(t)
+	chain := chains[deployment.SolanaChainSelector]
 
 	ExternalCpiStubProgram := solana.MustPublicKeyFromBase58("EQPCTRibpsPcQNb464QVBkS1PkFfuK8kYdpd5Y17HaGh")
 	solanaGoClient := rpc.New("http://127.0.0.1:8899")
@@ -105,7 +93,7 @@ func TestDeployProgram(t *testing.T) {
 	} else {
 		fmt.Println("Program does not exist or is not executable.")
 		// Deploy the program
-		programID, err := deployment.DeploySolProgramCLI("external_program_cpi_stub")
+		programID, err := chain.DeployProgram("external_program_cpi_stub")
 		if err != nil {
 			t.Fatalf("Failed to deploy program: %v", err)
 		}
@@ -119,10 +107,6 @@ func TestDeployProgram(t *testing.T) {
 
 	// program should exist by now (either already deployed, or deployed and waited for confirmation)
 	external_program_cpi_stub.SetProgramID(ExternalCpiStubProgram)
-
-	// wallet keys
-	privateKey, _ := solana.PrivateKeyFromSolanaKeygenFile(keypairPath)
-	publicKey := privateKey.PublicKey()
 
 	// this is a PDA that gets initialised when you call init on the programID
 	StubAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("u8_value")}, ExternalCpiStubProgram)
@@ -142,74 +126,14 @@ func TestDeployProgram(t *testing.T) {
 		fmt.Println("Account does not exist or has no data.")
 		ix, err = external_program_cpi_stub.NewInitializeInstruction(
 			StubAccountPDA,
-			publicKey,
+			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID, // 1111111
 		).ValidateAndBuild()
 	}
 
-	_, err = common.SendAndConfirm(context.Background(), solanaGoClient, []solana.Instruction{ix}, privateKey, config.DefaultCommitment)
+	_, err = common.SendAndConfirm(context.Background(), solanaGoClient, []solana.Instruction{ix}, *chain.DeployerKey, config.DefaultCommitment)
 
 	require.NoError(t, err)
-}
-
-func spinUpDevNet(t *testing.T) (string, string) {
-	t.Helper()
-	port := "8899"
-	portInt, _ := strconv.Atoi(port)
-
-	faucetPort := "8877"
-	url := "http://127.0.0.1:" + port
-	wsURL := "ws://127.0.0.1:" + strconv.Itoa(portInt+1)
-
-	args := []string{
-		"--reset",
-		"--rpc-port", port,
-		"--faucet-port", faucetPort,
-		"--ledger", t.TempDir(),
-	}
-
-	cmd := exec.Command("solana-test-validator", args...)
-
-	var stdErr bytes.Buffer
-	cmd.Stderr = &stdErr
-	var stdOut bytes.Buffer
-	cmd.Stdout = &stdOut
-	require.NoError(t, cmd.Start())
-	t.Cleanup(func() {
-		assert.NoError(t, cmd.Process.Kill())
-		if err2 := cmd.Wait(); assert.Error(t, err2) {
-			if !assert.Contains(t, err2.Error(), "signal: killed", cmd.ProcessState.String()) {
-				t.Logf("solana-test-validator\n stdout: %s\n stderr: %s", stdOut.String(), stdErr.String())
-			}
-		}
-	})
-
-	// Wait for api server to boot
-	var ready bool
-	for i := 0; i < 30; i++ {
-		time.Sleep(time.Second)
-		client := rpc.New(url)
-		out, err := client.GetHealth(tests.Context(t))
-		if err != nil || out != rpc.HealthOk {
-			t.Logf("API server not ready yet (attempt %d)\n", i+1)
-			continue
-		}
-		ready = true
-		break
-	}
-	if !ready {
-		t.Logf("Cmd output: %s\nCmd error: %s\n", stdOut.String(), stdErr.String())
-	}
-	require.True(t, ready)
-	t.Logf("Solana Devnet spun up successfully")
-
-	return url, wsURL
-}
-
-func getRpcClient(t *testing.T) *rpc.Client {
-	url, _ := spinUpDevNet(t)
-	// url, _ := memory.solChain(t)
-	return rpc.New(url)
 }
 
 // Added TestDeployLinkTokenSol -> so this is not required anymore
@@ -226,18 +150,11 @@ func getRpcClient(t *testing.T) *rpc.Client {
 // }
 
 func TestCcipRouterDeploy(t *testing.T) {
-	// Path to your .so file and keypair file
-	// programFile := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router.so"
-	keypairPath := "/Users/yashvardhan/.config/solana/id.json" //wallet
-	// programKeyPair := "/Users/ttata/dev/chainlink-ccip/chains/solana/contracts/target/deploy/ccip_router-keypair.json"
+	chains := memory.NewMemoryChainsSol(t)
+	chain := chains[deployment.SolanaChainSelector]
 
-	adminPrivateKey, _ := solana.PrivateKeyFromSolanaKeygenFile(keypairPath)
-	adminPublicKey := adminPrivateKey.PublicKey()
-	solanaGoClient := getRpcClient(t)
-	err := setDevNet(keypairPath)
-	require.NoError(t, err)
 	ctx := context.Background()
-	testutils.FundAccounts(ctx, []solana.PrivateKey{adminPrivateKey}, solanaGoClient, t)
+	// testutils.FundAccounts(ctx, []solana.PrivateKey{adminPrivateKey}, solanaGoClient, t)
 
 	// get program data account before deploying, hitting NotFound error
 	// data, err := solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
@@ -245,13 +162,13 @@ func TestCcipRouterDeploy(t *testing.T) {
 	// })
 	// require.ErrorAs(t, err, &rpc.ErrNotFound)
 	// Deploy the program
-	programID, err := deployment.DeploySolProgramCLI("ccip_router")
+	programID, err := chain.DeployProgram("ccip_router")
 	CcipRouterProgram := solana.MustPublicKeyFromBase58(programID)
 	if err != nil {
 		t.Fatalf("Failed to deploy program: %v", err)
 	}
 	// get program data account
-	data, err := solanaGoClient.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
+	data, err := chain.Client.GetAccountInfoWithOpts(ctx, CcipRouterProgram, &rpc.GetAccountInfoOpts{
 		Commitment: DefaultCommitment,
 	})
 	require.NoError(t, err)
@@ -272,7 +189,7 @@ func TestCcipRouterDeploy(t *testing.T) {
 		EnableExecutionAfter, // period to wait before allowing manual execution
 		RouterConfigPDA,
 		RouterStatePDA,
-		adminPublicKey,
+		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		CcipRouterProgram,
 		programData.Address,
@@ -282,7 +199,7 @@ func TestCcipRouterDeploy(t *testing.T) {
 	require.NoError(t, err)
 
 	// skip preflight, txs with init PDAs will fail preflight
-	_, err = common.SendAndConfirm(ctx, solanaGoClient, []solana.Instruction{instruction}, adminPrivateKey, DefaultCommitment)
+	_, err = common.SendAndConfirm(ctx, chain.Client, []solana.Instruction{instruction}, *chain.DeployerKey, DefaultCommitment)
 	require.NoError(t, err)
 	t.Logf("Program deployed successfully with ID: %s", programID)
 }

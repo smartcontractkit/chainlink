@@ -16,6 +16,15 @@ with pkgs; let
     pkgs.stdenv.mkDerivation rec {
       inherit name;
       url = "https://github.com/anza-xyz/agave/releases/download/${version}/${filename}";
+
+      nativeBuildInputs = [
+        autoPatchelfHook
+      ];
+
+      autoPatchelfIgnoreMissingDeps = true;
+
+      buildInputs = with pkgs; [stdenv.cc.cc.libgcc stdenv.cc.cc.lib] ++ lib.optionals stdenv.isLinux [ libudev-zero ];
+
       src = pkgs.fetchzip {
         inherit url sha256;
       };
