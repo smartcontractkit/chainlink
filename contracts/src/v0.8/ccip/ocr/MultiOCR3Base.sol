@@ -114,19 +114,15 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     + 32 // word containing length rs.
     + 32; // word containing length of ss.
 
-  uint256 internal immutable i_chainID;
-
   /// @dev The address used to send calls for gas estimation.
   /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
   /// given message and you're attempting to estimate the actual necessary gas limit
-  address internal immutable i_gasEstimationSender;
+  address internal constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
+
+  uint256 internal immutable i_chainID;
 
   constructor() {
     i_chainID = block.chainid;
-
-    /// We use address(1) because it's the ecrecover precompile and therefore guaranteed to
-    /// never have any code on any EVM chain.
-    i_gasEstimationSender = address(1);
   }
 
   /// @notice Sets offchain reporting protocol configuration incl. participating oracles.
@@ -284,7 +280,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
             && msg.sender == s_ocrConfigs[ocrPluginType].transmitters[transmitter.index]
         )
       ) {
-        if (msg.sender != i_gasEstimationSender) {
+        if (msg.sender != GAS_ESTIMATION_SENDER) {
           revert UnauthorizedTransmitter();
         }
       }

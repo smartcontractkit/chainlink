@@ -12,6 +12,9 @@ import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract OffRamp_trialExecute is OffRampSetup {
+
+  address private constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
+
   function setUp() public virtual override {
     super.setUp();
     _setupMultipleOffRamps();
@@ -160,7 +163,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     );
 
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    changePrank(address(1));
+    changePrank(GAS_ESTIMATION_SENDER);
     s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 
@@ -181,7 +184,7 @@ contract OffRamp_trialExecute is OffRampSetup {
     );
 
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    changePrank(address(1));
+    changePrank(GAS_ESTIMATION_SENDER);
     s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 }

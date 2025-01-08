@@ -544,7 +544,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal returns (Internal.MessageExecutionState executionState, bytes memory) {
     try this.executeSingleMessage(message, offchainTokenData, tokenGasOverrides) {}
     catch (bytes memory err) {
-      if (msg.sender == i_gasEstimationSender) {
+      if (msg.sender == GAS_ESTIMATION_SENDER) {
         if (
           CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG == bytes4(err)
             || CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG == bytes4(err)
