@@ -4,22 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
@@ -112,6 +111,16 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				OptimisticConfirmations: 1,
 			},
 		}
+	}
+
+	for range chainSelectors {
+		addChainChangesets = append(addChainChangesets, commonchangeset.ChangesetApplication{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfig),
+			Config: changeset.UpdateChainConfigConfig{
+				HomeChainSelector: homeChainSel,
+				RemoteChainAdds:   chainConfigs,
+			},
+		})
 	}
 
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, addChainChangesets)
