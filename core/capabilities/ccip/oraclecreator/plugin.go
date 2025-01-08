@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,8 +20,6 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -485,6 +482,23 @@ func isUSDCEnabled(ofc offChainConfig) bool {
 	return ofc.exec().IsUSDCEnabled()
 }
 
+// TODO once on-chain account lookup address are available, create construct function that initialize the config
+func getSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConfig, error) {
+	solConfig := chainwriter.ChainWriterConfig{
+		Programs: map[string]chainwriter.ProgramConfig{
+			"ccip-router": {
+				Methods: map[string]chainwriter.MethodConfig{
+					//"execute": executeConfig,
+					//"commit":  commitConfig,
+				},
+				//IDL: executionReportSingleChainIDL,
+			},
+		},
+	}
+
+	return solConfig, nil
+}
+
 func createChainWriter(
 	ctx context.Context,
 	chainID string,
@@ -499,8 +513,10 @@ func createChainWriter(
 
 	switch chainFamily {
 	case relay.NetworkSolana:
-		// TODO once on-chain account lookup address are available, create construct function that initialize the config
 		solConfig := chainwriter.ChainWriterConfig{}
+		if solConfig, err = getSolanaChainWriterConfig(transmitter[0]); err == nil {
+			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
+		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
 			return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
 		}
@@ -510,12 +526,10 @@ func createChainWriter(
 		if ok {
 			fromAddress = common.HexToAddress(transmitter[0])
 		}
-		evmConfig, err = evmconfig.ChainWriterConfigRaw(
+		if evmConfig, err = evmconfig.ChainWriterConfigRaw(
 			fromAddress,
 			defaultCommitGasLimit,
-			execBatchGasLimit,
-		)
-		if err != nil {
+			execBatchGasLimit); err != nil {
 			return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(evmConfig); err != nil {
@@ -531,33 +545,6 @@ func createChainWriter(
 	}
 
 	return cw, nil
-}
-
-func getKeySpecificMaxGasPrice(evmConfigs toml.EVMConfigs, chainID *big.Int, fromAddress common.Address) *assets.Wei {
-	var maxGasPrice *assets.Wei
-
-	// If a chain is enabled it should have some configuration in the TOML config
-	// of the chainlink node.
-	for _, config := range evmConfigs {
-		if config.ChainID.ToInt().Cmp(chainID) != 0 {
-			continue
-		}
-
-		// find the key-specific max gas price for the given fromAddress.
-		for _, keySpecific := range config.KeySpecific {
-			if keySpecific.Key.Address() == fromAddress {
-				maxGasPrice = keySpecific.GasEstimator.PriceMax
-			}
-		}
-
-		// if we didn't find a key-specific max gas price, use the one specified
-		// in the gas estimator config, which should have a default value.
-		if maxGasPrice == nil {
-			maxGasPrice = config.GasEstimator.PriceMax
-		}
-	}
-
-	return maxGasPrice
 }
 
 type offChainConfig struct {
