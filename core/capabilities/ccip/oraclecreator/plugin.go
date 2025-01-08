@@ -520,7 +520,7 @@ func createChainWriter(
 
 	switch chainFamily {
 	case relay.NetworkSolana:
-		solConfig := chainwriter.ChainWriterConfig{}
+		var solConfig chainwriter.ChainWriterConfig
 		if solConfig, err = getSolanaChainWriterConfig(transmitter[0]); err == nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
