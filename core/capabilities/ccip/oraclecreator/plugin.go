@@ -190,7 +190,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 			i.lggr.
 				Named(fmt.Sprintf("CCIP%sOCR3", pluginType.String())).
 				Named(destRelayID.String()).
-				Named(hexutil.Encode(config.Config.OfframpAddress)),
+				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily)),
 			false,
 			func(ctx context.Context, msg string) {}),
 		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"name": fmt.Sprintf("commit-%d", config.Config.ChainSelector)}, prometheus.DefaultRegisterer),
