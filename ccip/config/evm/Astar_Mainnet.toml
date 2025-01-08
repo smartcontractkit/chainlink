@@ -1,4 +1,5 @@
 ChainID = '592'
+ChainType = 'astar'
 FinalityTagEnabled = true
 FinalityDepth = 100
 LogPollInterval = '6s'
@@ -7,3 +8,8 @@ LogPollInterval = '6s'
 EIP1559DynamicFees = false
 PriceMax = '100000 gwei'
 LimitDefault = 8000000
+
+[HeadTracker]
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false
