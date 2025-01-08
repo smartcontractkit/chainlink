@@ -26,7 +26,7 @@ func Test_Deploy(t *testing.T) {
 	resp, err := Deploy(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	// OCR3 should be deployed on chain 0
+	// workflow registry should be deployed on chain 0
 	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)

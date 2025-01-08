@@ -18,7 +18,7 @@ func Deploy(env deployment.Environment, registrySelector uint64) (deployment.Cha
 	ab := deployment.NewMemoryAddressBook()
 	wrResp, err := deployWorkflowRegistry(chain, ab)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy CapabilitiesRegistry: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)
 	}
 	lggr.Infof("Deployed %s chain selector %d addr %s", wrResp.Tv.String(), chain.Selector, wrResp.Address.String())
 
