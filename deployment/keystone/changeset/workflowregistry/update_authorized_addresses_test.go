@@ -30,7 +30,7 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	dons, err := registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, dons)
 
 	env := deployment.Environment{
 		Logger: lggr,
@@ -70,7 +70,7 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	dons, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, dons)
 }
 
 func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {

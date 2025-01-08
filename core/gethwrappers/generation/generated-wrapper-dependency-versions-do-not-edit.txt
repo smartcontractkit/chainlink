@@ -1,6 +1,4 @@
 GETH_VERSION: 1.14.11
-aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
-aggregator_v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 arbitrum_module: ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin 12a7bad1f887d832d101a73ae279a91a90c93fd72befea9983e85eff493f62f4
 authorized_forwarder: ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin 8ea76c883d460f8353a45a493f2aebeb5a2d9a7b4619d1bc4fff5fb590bb3e10
 authorized_receiver: ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.abi ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
@@ -24,7 +22,6 @@ batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2/Batc
 batch_vrf_coordinator_v2plus: ../../contracts/solc/v0.8.19/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.19/BatchVRFCoordinatorV2Plus/BatchVRFCoordinatorV2Plus.bin f13715b38b5b9084b08bffa571fb1c8ef686001535902e1255052f074b31ad4e
 blockhash_store: ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.abi ../../contracts/solc/v0.8.19/BlockhashStore/BlockhashStore.bin 31b118f9577240c8834c35f8b5a1440e82a6ca8aea702970de2601824b6ab0e1
 chain_module_base: ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.abi ../../contracts/solc/v0.8.19/ChainModuleBase/ChainModuleBase.bin 7a82cc28014761090185c2650239ad01a0901181f1b2b899b42ca293bcda3741
-chain_reader_tester: ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin ee9839cc26b615d168d5dbc8ef4f31d8d8b1ef8d276d8ee50625476f87ef1508
 chain_specific_util_helper: ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.abi ../../contracts/solc/v0.8.6/ChainSpecificUtilHelper/ChainSpecificUtilHelper.bin 66eb30b0717fefe05672df5ec863c0b9a5a654623c4757307a2726d8f31e26b1
 counter: ../../contracts/solc/v0.8.6/Counter/Counter.abi ../../contracts/solc/v0.8.6/Counter/Counter.bin 6ca06e000e8423573ffa0bdfda749d88236ab3da2a4cbb4a868c706da90488c9
 cron_upkeep_factory_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory/CronUpkeepFactory.abi - dacb0f8cdf54ae9d2781c5e720fc314b32ed5e58eddccff512c75d6067292cd7

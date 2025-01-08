@@ -28,8 +28,8 @@ func GenerateStaticLinkTokenView(lt *link_token_interface.LinkToken) (StaticLink
 	return StaticLinkTokenView{
 		ContractMetaData: types.ContractMetaData{
 			TypeAndVersion: deployment.TypeAndVersion{
-				commontypes.StaticLinkToken,
-				deployment.Version1_0_0,
+				Type:    commontypes.StaticLinkToken,
+				Version: deployment.Version1_0_0,
 			}.String(),
 			Address: lt.Address(),
 			// No owner.

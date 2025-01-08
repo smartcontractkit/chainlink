@@ -26,7 +26,7 @@ func TestStaticLinkTokenView(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, v.Owner, common.HexToAddress("0x0")) // Ownerless
-	assert.Equal(t, v.TypeAndVersion, "StaticLinkToken 1.0.0")
-	assert.Equal(t, v.Decimals, uint8(18))
-	assert.Equal(t, v.Supply.String(), "1000000000000000000000000000")
+	assert.Equal(t, "StaticLinkToken 1.0.0", v.TypeAndVersion)
+	assert.Equal(t, uint8(18), v.Decimals)
+	assert.Equal(t, "1000000000000000000000000000", v.Supply.String())
 }

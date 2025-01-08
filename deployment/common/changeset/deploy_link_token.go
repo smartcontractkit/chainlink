@@ -1,7 +1,7 @@
 package changeset
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -17,7 +17,7 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 	for _, chain := range chains {
 		_, ok := e.Chains[chain]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+			return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 		}
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
