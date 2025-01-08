@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -153,48 +152,11 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if !ok {
 		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}
-	evmBundle := n.Keys.OCRKeyBundles[chaintype.EVM]
-	offpk := evmBundle.OffchainPublicKey()
-	cpk := evmBundle.ConfigEncryptionPublicKey()
-
-	evmKeyBundle := &nodev1.OCR2Config_OCRKeyBundle{
-		BundleId:              evmBundle.ID(),
-		ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
-		OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
-		OnchainSigningAddress: evmBundle.OnChainPublicKey(),
-	}
-
 	var chainConfigs []*nodev1.ChainConfig
-	for evmChainID, transmitter := range n.Keys.TransmittersByEVMChainID {
-		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
-			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(evmChainID)),
-				Type: nodev1.ChainType_CHAIN_TYPE_EVM,
-			},
-			AccountAddress: transmitter.String(),
-			AdminAddress:   transmitter.String(), // TODO: custom address
-			Ocr1Config:     nil,
-			Ocr2Config: &nodev1.OCR2Config{
-				Enabled:     true,
-				IsBootstrap: n.IsBoostrap,
-				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-					PeerId: n.Keys.PeerID.String(),
-				},
-				OcrKeyBundle:     evmKeyBundle,
-				Multiaddr:        n.Addr.String(),
-				Plugins:          nil,
-				ForwarderAddress: ptr(""),
-			},
-		})
-	}
 	for _, selector := range n.Chains {
 		family, err := chainsel.GetSelectorFamily(selector)
 		if err != nil {
 			return nil, err
-		}
-		if family == chainsel.FamilyEVM {
-			// already handled above
-			continue
 		}
 
 		// NOTE: this supports non-EVM too
@@ -220,7 +182,6 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
-
 		offpk := bundle.OffchainPublicKey()
 		cpk := bundle.ConfigEncryptionPublicKey()
 
@@ -245,13 +206,15 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
 
+		transmitter := n.Keys.Transmitters[selector]
+
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{
 				Id:   chainID,
 				Type: ctype,
 			},
-			AccountAddress: "", // TODO: support AccountAddress
-			AdminAddress:   "",
+			AccountAddress: transmitter,
+			AdminAddress:   transmitter,
 			Ocr1Config:     nil,
 			Ocr2Config: &nodev1.OCR2Config{
 				Enabled:     true,
@@ -266,7 +229,6 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			},
 		})
 	}
-	// TODO: I think we can pull it from the feeds manager.
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
 	}, nil
