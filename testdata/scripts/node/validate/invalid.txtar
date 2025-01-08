@@ -249,12 +249,6 @@ GoroutineThreshold = 5000
 ServerAddress = ''
 Environment = 'mainnet'
 
-[Sentry]
-Debug = false
-DSN = ''
-Environment = ''
-Release = ''
-
 [Insecure]
 DevWebServer = false
 OCRDevelopmentMode = false
