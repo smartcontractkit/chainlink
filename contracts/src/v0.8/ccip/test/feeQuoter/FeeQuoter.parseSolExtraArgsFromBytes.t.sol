@@ -29,12 +29,13 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
     bytes32[] memory solAccounts = new bytes32[](1);
     solAccounts[0] = VALID_SOL_PUBKEY;
 
-    Client.SolExtraArgsV1 memory inputArgs = Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap:0, accounts: solAccounts});
+    Client.SolExtraArgsV1 memory inputArgs =
+      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
 
     bytes memory inputExtraArgs = Client._solArgsToBytes(inputArgs);
 
     Client.SolExtraArgsV1 memory expectedOutputArgs =
-      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap:0, accounts: solAccounts});
+      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
 
     vm.assertEq(
       abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),

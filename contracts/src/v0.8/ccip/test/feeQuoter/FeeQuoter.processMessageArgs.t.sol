@@ -138,8 +138,9 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_destChainConfig});
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
 
-    bytes memory extraArgs =
-      Client._solArgsToBytes(Client.SolExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)}));
+    bytes memory extraArgs = Client._solArgsToBytes(
+      Client.SolExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)})
+    );
 
     (
       /* uint256 msgFeeJuels */
@@ -158,8 +159,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     assertTrue(isOutOfOrderExecution);
     assertEq(
-      convertedExtraArgs,
-      Client._solArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig))
+      convertedExtraArgs, Client._solArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig))
     );
   }
 
