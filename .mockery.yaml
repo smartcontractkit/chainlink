@@ -3,20 +3,6 @@ mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
 packages:
-  github.com/smartcontractkit/chainlink/v2/common/client:
-    config:
-      dir: "{{ .InterfaceDir }}"
-      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
-      inpackage: true
-      mockname: "mock{{ .InterfaceName | camelcase }}"
-    interfaces:
-      Node:
-      NodeSelector:
-      sendOnlyClient:
-      SendOnlyNode:
-      RPCClient:
-      Head:
-      PoolChainInfoProvider:
   github.com/smartcontractkit/chainlink/v2/common/headtracker:
     interfaces:
       HeadTrackable:
@@ -35,9 +21,11 @@ packages:
       TxStrategy:
       TxAttemptBuilder:
       TxStore:
-  github.com/smartcontractkit/chainlink/v2/common/types:
+  github.com/smartcontractkit/chainlink-framework/multinode:
+    config:
+      dir: common/types/mocks
+      outpkg: mocks
     interfaces:
-      Head:
       Subscription:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:

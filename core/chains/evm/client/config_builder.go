@@ -8,8 +8,8 @@ import (
 	"go.uber.org/multierr"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -44,7 +44,7 @@ func NewClientConfigs(
 	noNewFinalizedHeadsThreshold time.Duration,
 	finalizedBlockPollInterval time.Duration,
 	newHeadsPollInterval time.Duration,
-) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
+) (multinode.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
 		return nil, nil, nil, err
