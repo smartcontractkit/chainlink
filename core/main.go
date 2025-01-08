@@ -24,13 +24,13 @@ func init() {
 	}
 }
 
-func Main() (code int) {
+func Main() int {
 	app := cmd.NewApp(newProductionClient())
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
-		code = 1
+		return 1
 	}
-	return
+	return 0
 }
 
 // newProductionClient configures an instance of the CLI to be used in production.
