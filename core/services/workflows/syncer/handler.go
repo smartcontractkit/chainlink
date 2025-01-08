@@ -224,7 +224,7 @@ func (h *eventHandler) refreshSecrets(ctx context.Context, workflowOwner, workfl
 	return updatedSecrets, nil
 }
 
-func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, workflowID string) (map[string]string, error) {
+func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	secretsURLHash, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
 	if err != nil {
 		// The workflow record was found, but secrets_id was empty.
@@ -243,21 +243,11 @@ func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, hexWorkflo
 			msg := fmt.Sprintf("could not refresh secrets: proceeding with stale secrets for workflowID %s: %s", workflowID, innerErr)
 			h.lggr.Error(msg)
 
-			// best effort to decode the workflow name
-			var workflowName string
-			decodedWorkflowName, innerErr2 := hex.DecodeString(hexWorkflowName)
-			if innerErr2 != nil {
-				h.lggr.Errorf("failed to decode WorkflowName %q: %v", hexWorkflowName, innerErr2)
-				workflowName = hexWorkflowName
-			} else {
-				workflowName = string(decodedWorkflowName)
-			}
-
 			logCustMsg(
 				ctx,
 				h.emitter.With(
 					platform.KeyWorkflowID, workflowID,
-					platform.KeyWorkflowName, workflowName,
+					platform.KeyWorkflowName, decodedWorkflowName,
 					platform.KeyWorkflowOwner, workflowOwner,
 				),
 				msg,

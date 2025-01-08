@@ -3,7 +3,6 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -299,19 +298,9 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
 		}
 
-		// best effort to decode the workflow name
-		var workflowName string
-		decodedWorkflowName, err := hex.DecodeString(req.Metadata.WorkflowName)
-		if err != nil {
-			c.log.Errorf("failed to decode WorkflowName %q: %v", req.Metadata.WorkflowName, err)
-			workflowName = req.Metadata.WorkflowName
-		} else {
-			workflowName = string(decodedWorkflowName)
-		}
-
 		cma := c.emitter.With(
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
-			platform.KeyWorkflowName, workflowName,
+			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
 			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
