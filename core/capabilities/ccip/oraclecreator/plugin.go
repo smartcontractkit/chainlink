@@ -482,16 +482,23 @@ func isUSDCEnabled(ofc offChainConfig) bool {
 	return ofc.exec().IsUSDCEnabled()
 }
 
-// TODO once on-chain account lookup address are available, create construct function that initialize the config
+// TODO once on-chain account lookup address are available, the config will be updated
 func getSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConfig, error) {
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			"ccip-router": {
 				Methods: map[string]chainwriter.MethodConfig{
-					//"execute": executeConfig,
-					//"commit":  commitConfig,
+					"execute": {
+						FromAddress:        fromAddress,
+						InputModifications: nil,
+						ChainSpecificName:  "execute"},
+					"commit": {
+						FromAddress:        fromAddress,
+						InputModifications: nil,
+						ChainSpecificName:  "commit"},
 				},
-				//IDL: executionReportSingleChainIDL,
+				// TODO this IDL definition configured statically somewhere or passed in as parameter
+				IDL: `{"name":"ExecutionReportSingleChain","type":{"kind":"struct","fields":[{"name":"source_chain_selector","type":"u64"},{"name":"message","type":{"defined":"Any2SolanaRampMessage"}},{"name":"root","type":{"array":["u8",32]}},{"name":"proofs","type":{"vec":{"array":["u8",32]}}}]}},{"name":"Any2SolanaRampMessage","type":{"kind":"struct","fields":[{"name":"header","type":{"defined":"RampMessageHeader"}},{"name":"sender","type":{"vec":"u8"}},{"name":"data","type":{"vec":"u8"}},{"name":"receiver","type":{"array":["u8",32]}},{"name":"extra_args","type":{"defined":"SolanaExtraArgs"}}]}},{"name":"RampMessageHeader","type":{"kind":"struct","fields":[{"name":"message_id","type":{"array":["u8",32]}},{"name":"source_chain_selector","type":"u64"},{"name":"dest_chain_selector","type":"u64"},{"name":"sequence_number","type":"u64"},{"name":"nonce","type":"u64"}]}},{"name":"SolanaExtraArgs","type":{"kind":"struct","fields":[{"name":"compute_units","type":"u32"},{"name":"allow_out_of_order_execution","type":"bool"}]}}`,
 			},
 		},
 	}
