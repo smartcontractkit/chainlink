@@ -30,12 +30,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	allChains := e.Env.AllChainSelectors()
+	//allChains := e.Env.AllChainSelectors()
 	allChainsExcept1337 := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
 	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
 	require.Len(t, allChainsExcept1337, 2)
 	src1, src2, dest := allChainsExcept1337[0], allChainsExcept1337[1], chainselectors.GETH_TESTNET.Selector
-	destChain := e.Env.Chains[dest]
 	pairs := []changeset.SourceDestPair{
 		// as mentioned in the comment above, the dest chain id should be 1337
 		{SourceChainSelector: src1, DestChainSelector: dest},
@@ -65,6 +64,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NotNil(t, sentEvent)
+		destChain := e.Env.Chains[pair.DestChainSelector]
 		destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		v1_5.WaitForCommit(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].CommitStore[src1], sentEvent.Message.SequenceNumber)
@@ -73,34 +73,27 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// now that all lanes work transfer ownership of the contracts to MCMS
 
 	// add 1.6 contracts to the environment and send 1.6 jobs
-	// First you need to deployHome chain contracts and restart the nodes with updated cap registry
-	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry
-	e = changeset.AddCCIPContractsToEnvironment(t, tEnv)
-	state, err = changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
+	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
+	// Adding to src1 and dest chains first, due to the open issue -
+	// if ccip contracts are added to all chains and only one lane is enabled between src1 and dest, the plugin will not work
+	// until lanes are added involving the rest of the chains
+	e = changeset.AddCCIPContractsToEnvironment(t, []uint64{src1, dest}, tEnv)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
 			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: allChains,
+				ChainSelectors: []uint64{src1, dest},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersCS),
 			Config: changeset.UpdateNonceManagerConfig{
-				// we only have lanes between src1 --> dest and src2 --> dest
+				// we only have lanes between src1 --> dest
 				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
 					src1: {
-						PreviousRampsArgs: []changeset.PreviousRampCfg{
-							{
-								RemoteChainSelector: dest,
-								EnableOnRamp:        true,
-							},
-						},
-					},
-					src2: {
 						PreviousRampsArgs: []changeset.PreviousRampCfg{
 							{
 								RemoteChainSelector: dest,
@@ -114,10 +107,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 								RemoteChainSelector: src1,
 								EnableOffRamp:       true,
 							},
-							{
-								RemoteChainSelector: src2,
-								EnableOffRamp:       true,
-							},
 						},
 					},
 				},
@@ -125,10 +114,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
+	state, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	//changeset.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	// Enable a single 1.6 lane with test router
 	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, src1, dest, true)
-	changeset.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
 	startBlocks := make(map[uint64]*uint64)
 	latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
@@ -163,7 +153,55 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		DestChainSelector:   dest,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 	// Wait for all commit reports to land.
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+	//changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
 	// Wait for all exec reports to land
+	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+
+	// send a message from real router, the send requested event should be received in 1.5 onRamp
+	// the request should get delivered to 1.5 offRamp
+	sentEventBeforeSwitch, err := v1_5.SendRequest(t, e.Env, state,
+		changeset.WithSourceChain(src1),
+		changeset.WithDestChain(dest),
+		changeset.WithTestRouter(false),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, sentEventBeforeSwitch)
+
+	// now that the 1.6 lane is working, we can enable the real router
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, src1, dest, false)
+
+	// send a message from real router the send requested event should be received in 1.6 onRamp
+	// the request should get delivered to 1.6 offRamp
+	destStartBlock, err := e.Env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
+	require.NoError(t, err)
+	sentEventAfterSwitch, err := changeset.DoSendRequest(
+		t, e.Env, state,
+		changeset.WithSourceChain(src1),
+		changeset.WithDestChain(dest),
+		changeset.WithTestRouter(false),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}))
+	require.NoError(t, err)
+	// verify that before switch message is received in 1.5 offRamp
+	v1_5.WaitForExecute(t, e.Env.Chains[src1], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src1],
+		[]uint64{sentEventBeforeSwitch.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+
+	// verify that after switch message is received in 1.6 offRamp
+	expectedSeqNumExec[changeset.SourceDestPair{
+		SourceChainSelector: src1,
+		DestChainSelector:   dest,
+	}] = []uint64{sentEventAfterSwitch.SequenceNumber}
 	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }

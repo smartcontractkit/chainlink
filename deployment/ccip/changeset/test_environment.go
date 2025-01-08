@@ -389,6 +389,7 @@ func NewLegacyEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 		},
 	})
 	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }
 
@@ -455,7 +456,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	})
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
-	e = AddCCIPContractsToEnvironment(t, tEnv)
+	e = AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv)
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -469,11 +470,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func AddCCIPContractsToEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
 	var err error
-	allChains := e.Env.AllChainSelectors()
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config
