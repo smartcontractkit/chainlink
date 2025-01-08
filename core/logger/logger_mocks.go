@@ -941,39 +941,6 @@ func (_c *MockLogger_Panicw_Call) RunAndReturn(run func(string, ...interface{}))
 	return _c
 }
 
-// Recover provides a mock function with given fields: panicErr
-func (_m *MockLogger) Recover(panicErr interface{}) {
-	_m.Called(panicErr)
-}
-
-// MockLogger_Recover_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Recover'
-type MockLogger_Recover_Call struct {
-	*mock.Call
-}
-
-// Recover is a helper method to define mock.On call
-//   - panicErr interface{}
-func (_e *MockLogger_Expecter) Recover(panicErr interface{}) *MockLogger_Recover_Call {
-	return &MockLogger_Recover_Call{Call: _e.mock.On("Recover", panicErr)}
-}
-
-func (_c *MockLogger_Recover_Call) Run(run func(panicErr interface{})) *MockLogger_Recover_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(interface{}))
-	})
-	return _c
-}
-
-func (_c *MockLogger_Recover_Call) Return() *MockLogger_Recover_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockLogger_Recover_Call) RunAndReturn(run func(interface{})) *MockLogger_Recover_Call {
-	_c.Run(run)
-	return _c
-}
-
 // SetLogLevel provides a mock function with given fields: _a0
 func (_m *MockLogger) SetLogLevel(_a0 zapcore.Level) {
 	_m.Called(_a0)
