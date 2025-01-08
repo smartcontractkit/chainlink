@@ -77,9 +77,8 @@ func testRmnCurse(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := RMNCurseConfig{
-		HomeChainSelector: e.HomeChainSel,
-		CurseActions:      tc.curseActionsBuilder(mapIdToSelector),
-		CurseReason:       "test curse",
+		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseReason:  "test curse",
 	}
 
 	_, err := NewRMNCurseChangeset(e.Env, config)
@@ -96,10 +95,9 @@ func testRmnCurseMCMS(t *testing.T, tc CurseTestCase) {
 	}
 
 	config := RMNCurseConfig{
-		HomeChainSelector: e.HomeChainSel,
-		CurseActions:      tc.curseActionsBuilder(mapIdToSelector),
-		CurseReason:       "test curse",
-		MCMS:              &MCMSConfig{MinDelay: 0},
+		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseReason:  "test curse",
+		MCMS:         &MCMSConfig{MinDelay: 0},
 	}
 
 	state, err := LoadOnchainState(e.Env)
@@ -145,9 +143,9 @@ func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, ma
 	require.NoError(t, err)
 
 	for _, assertion := range tc.curseAssertions {
-		cursedSubject := subjectToByte16(mapIdToSelector(assertion.subject))
+		cursedSubject := SelectorToSubject(mapIdToSelector(assertion.subject))
 		if assertion.global_curse {
-			cursedSubject = subjectToByte16(GLOBAL_CURSE_SUBJECT)
+			cursedSubject = GlobalCurseSubject()
 		}
 
 		isCursed, err := state.Chains[mapIdToSelector(assertion.chainId)].RMNRemote.IsCursed(nil, cursedSubject)
