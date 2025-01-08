@@ -1382,53 +1382,6 @@ func (_c *GeneralConfig_RootDir_Call) RunAndReturn(run func() string) *GeneralCo
 	return _c
 }
 
-// Sentry provides a mock function with no fields
-func (_m *GeneralConfig) Sentry() config.Sentry {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for Sentry")
-	}
-
-	var r0 config.Sentry
-	if rf, ok := ret.Get(0).(func() config.Sentry); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Sentry)
-		}
-	}
-
-	return r0
-}
-
-// GeneralConfig_Sentry_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Sentry'
-type GeneralConfig_Sentry_Call struct {
-	*mock.Call
-}
-
-// Sentry is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) Sentry() *GeneralConfig_Sentry_Call {
-	return &GeneralConfig_Sentry_Call{Call: _e.mock.On("Sentry")}
-}
-
-func (_c *GeneralConfig_Sentry_Call) Run(run func()) *GeneralConfig_Sentry_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_Sentry_Call) Return(_a0 config.Sentry) *GeneralConfig_Sentry_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_Sentry_Call) RunAndReturn(run func() config.Sentry) *GeneralConfig_Sentry_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // SetLogLevel provides a mock function with given fields: lvl
 func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 	ret := _m.Called(lvl)

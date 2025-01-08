@@ -169,7 +169,7 @@ type Config struct {
 	testDiskLogLvlChan chan zapcore.Level
 }
 
-// New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
+// New returns a new Logger with pretty printing to stdout and prometheus counters.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
 	if c.diskSpaceAvailableFn == nil {
@@ -195,7 +195,6 @@ func (c *Config) New() (Logger, func() error) {
 		log.Fatal(err)
 	}
 
-	l = newSentryLogger(l)
 	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
 	return l, closeLogger

@@ -21,7 +21,6 @@ import (
 
 	"github.com/Depado/ginprom"
 	"github.com/Masterminds/semver/v3"
-	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -426,10 +425,6 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 
-	if err := sentryInit(config.Sentry()); err != nil {
-		return errors.Wrap(err, "failed to initialize sentry")
-	}
-
 	ws := config.WebServer()
 	if ws.HTTPPort() == 0 && ws.TLS().HTTPSPort() == 0 {
 		return errors.New("You must specify at least one port to listen on")
@@ -474,39 +469,6 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	})
 
 	return errors.WithStack(g.Wait())
-}
-
-func sentryInit(cfg config.Sentry) error {
-	sentrydsn := cfg.DSN()
-	if sentrydsn == "" {
-		// Do not initialize sentry at all if the DSN is missing
-		return nil
-	}
-
-	var sentryenv string
-	if env := cfg.Environment(); env != "" {
-		sentryenv = env
-	} else if !build.IsProd() {
-		sentryenv = "dev"
-	} else {
-		sentryenv = "prod"
-	}
-
-	var sentryrelease string
-	if release := cfg.Release(); release != "" {
-		sentryrelease = release
-	} else {
-		sentryrelease = static.Version
-	}
-
-	return sentry.Init(sentry.ClientOptions{
-		// AttachStacktrace is needed to send stacktrace alongside panics
-		AttachStacktrace: true,
-		Dsn:              sentrydsn,
-		Environment:      sentryenv,
-		Release:          sentryrelease,
-		Debug:            cfg.Debug(),
-	})
 }
 
 func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {

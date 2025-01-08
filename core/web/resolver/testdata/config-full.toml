@@ -209,12 +209,6 @@ GoroutineThreshold = 999
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 
-[Sentry]
-Debug = true
-DSN = 'sentry-dsn'
-Environment = 'dev'
-Release = 'v1.2.3'
-
 [Insecure]
 DevWebServer = false
 OCRDevelopmentMode = false

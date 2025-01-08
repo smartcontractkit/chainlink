@@ -50,7 +50,6 @@ type AppConfig interface {
 	Password() Password
 	Prometheus() Prometheus
 	Pyroscope() Pyroscope
-	Sentry() Sentry
 	TelemetryIngress() TelemetryIngress
 	Threshold() Threshold
 	WebServer() WebServer

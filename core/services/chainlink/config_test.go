@@ -554,12 +554,6 @@ func TestConfig_Marshal(t *testing.T) {
 		ServerAddress: ptr("http://localhost:4040"),
 		Environment:   ptr("tests"),
 	}
-	full.Sentry = toml.Sentry{
-		Debug:       ptr(true),
-		DSN:         ptr("sentry-dsn"),
-		Environment: ptr("dev"),
-		Release:     ptr("v1.2.3"),
-	}
 	full.Telemetry = toml.Telemetry{
 		Enabled:               ptr(true),
 		CACertFile:            ptr("cert-file"),
@@ -1085,12 +1079,6 @@ GoroutineThreshold = 999
 		{"Pyroscope", Config{Core: toml.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
-`},
-		{"Sentry", Config{Core: toml.Core{Sentry: full.Sentry}}, `[Sentry]
-Debug = true
-DSN = 'sentry-dsn'
-Environment = 'dev'
-Release = 'v1.2.3'
 `},
 		{"EVM", Config{EVM: full.EVM}, `[[EVM]]
 ChainID = '1'

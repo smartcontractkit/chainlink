@@ -20,7 +20,6 @@ func TestLogger_Passthrough(t *testing.T) {
 		create func(passthrough Logger) Logger
 	}{
 		{"prometheus", newPrometheusLogger},
-		{"sentry", newSentryLogger},
 	}
 
 	for _, test := range tests {

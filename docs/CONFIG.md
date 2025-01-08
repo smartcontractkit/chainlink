@@ -1699,41 +1699,6 @@ Environment = 'mainnet' # Default
 ```
 Environment sets the target environment tag in which profiles will be added to.
 
-## Sentry
-```toml
-[Sentry]
-Debug = false # Default
-DSN = 'sentry-dsn' # Example
-Environment = 'my-custom-env' # Example
-Release = 'v1.2.3' # Example
-```
-
-
-### Debug
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
-```toml
-Debug = false # Default
-```
-Debug enables printing of Sentry SDK debug messages.
-
-### DSN
-```toml
-DSN = 'sentry-dsn' # Example
-```
-DSN is the data source name where events will be sent. Sentry is completely disabled if this is left blank.
-
-### Environment
-```toml
-Environment = 'my-custom-env' # Example
-```
-Environment overrides the Sentry environment to the given value. Otherwise autodetects between dev/prod.
-
-### Release
-```toml
-Release = 'v1.2.3' # Example
-```
-Release overrides the Sentry release to the given value. Otherwise uses the compiled-in version number.
-
 ## Insecure
 ```toml
 [Insecure]

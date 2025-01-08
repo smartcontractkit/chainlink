@@ -501,10 +501,6 @@ func (g *generalConfig) Insecure() config.Insecure {
 	return &insecureConfig{c: g.c.Insecure}
 }
 
-func (g *generalConfig) Sentry() coreconfig.Sentry {
-	return sentryConfig{g.c.Sentry}
-}
-
 func (g *generalConfig) Password() coreconfig.Password {
 	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
 }

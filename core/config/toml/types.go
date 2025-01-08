@@ -53,7 +53,6 @@ type Core struct {
 	Keeper           Keeper           `toml:",omitempty"`
 	AutoPprof        AutoPprof        `toml:",omitempty"`
 	Pyroscope        Pyroscope        `toml:",omitempty"`
-	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
@@ -92,7 +91,6 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
-	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
@@ -1218,28 +1216,6 @@ func (p *Pyroscope) setFrom(f *Pyroscope) {
 	}
 	if v := f.Environment; v != nil {
 		p.Environment = v
-	}
-}
-
-type Sentry struct {
-	Debug       *bool
-	DSN         *string
-	Environment *string
-	Release     *string
-}
-
-func (s *Sentry) setFrom(f *Sentry) {
-	if v := f.Debug; v != nil {
-		s.Debug = f.Debug
-	}
-	if v := f.DSN; v != nil {
-		s.DSN = f.DSN
-	}
-	if v := f.Environment; v != nil {
-		s.Environment = f.Environment
-	}
-	if v := f.Release; v != nil {
-		s.Release = f.Release
 	}
 }
 
