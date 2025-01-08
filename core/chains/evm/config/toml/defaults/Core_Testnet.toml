@@ -1,0 +1,15 @@
+ChainID = '1114'
+FinalityTagEnabled = false
+LogBroadcasterEnabled = false
+
+[GasEstimator]
+EIP1559DynamicFees = false
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 4
+
+[HeadTracker]
+FinalityTagBypass = false
+
+[NodePool]
+NewHeadsPollInterval = '3s'
