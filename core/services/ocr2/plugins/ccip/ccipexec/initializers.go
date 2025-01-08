@@ -43,7 +43,9 @@ var (
 	// 5s for token data worker timeout is a reasonable default.
 	tokenDataWorkerTimeout = 5 * time.Second
 	// tokenDataWorkerNumWorkers is the number of workers that will be processing token data in parallel.
-	tokenDataWorkerNumWorkers = 5
+	tokenDataWorkerNumWorkers = 10
+	// expirationDur is the duration for which the token data will be cached.
+	expirationDurTokenData = 10 * time.Minute
 )
 
 var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
@@ -169,7 +171,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		tokenDataProviders,
 		tokenDataWorkerNumWorkers,
 		tokenDataWorkerTimeout,
-		2*tokenDataWorkerTimeout,
+		expirationDurTokenData,
 	)
 
 	wrappedPluginFactory := NewExecutionReportingPluginFactory(ExecutionPluginStaticConfig{
