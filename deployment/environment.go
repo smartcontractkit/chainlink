@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -75,7 +76,7 @@ func (c Chain) Name() string {
 		panic(err)
 	}
 	if chainInfo.ChainName == "" {
-		return fmt.Sprintf("%d", c.Selector)
+		return strconv.FormatUint(c.Selector, 10)
 	}
 	return chainInfo.ChainName
 }

@@ -459,7 +459,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
 			otherChainConfig, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, otherChainConfig.FChain != 0)
+			assert.NotZero(t, otherChainConfig.FChain)
 
 			var mcmsConfig *MCMSConfig
 			if tc.mcmsEnabled {
@@ -488,7 +488,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			// other chain should be gone
 			chainConfigAfter, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, chainConfigAfter.FChain == 0)
+			assert.Zero(t, chainConfigAfter.FChain)
 
 			// Lets add it back now.
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{

@@ -1,5 +1,5 @@
 ChainID = '59141'
-FinalityDepth = 900
+FinalityDepth = 200
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]
@@ -11,6 +11,9 @@ ResendAfterThreshold = '3m'
 
 [HeadTracker]
 HistoryDepth = 1000
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false
 
 [Transactions.AutoPurge]
 Enabled = true
