@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,9 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can be started with the CR address in Capabilities.ExternalRegistry
-// DeployHomeChainContracts is to 1. Set up crib with chains and chainlink nodes ( cap reg is not known yet so not setting the config with capreg address)
-// Call DeployHomeChain changeset with nodeinfo ( the peer id and all)
+// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
+// Afterwards, we call DeployHomeChain changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -68,6 +69,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	return capRegConfig, e.ExistingAddresses, nil
 }
 
+// DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -93,8 +95,31 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		})
 	}
 
-	// This will not apply any proposals because we pass nil to testing.
-	// However, setup is ok because we only need to deploy the contracts and distribute job specs
+	// set up chains
+	var addChainChangesets []commonchangeset.ChangesetApplication
+	chainConfigs := make(map[uint64]changeset.ChainConfig)
+	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get node info from env: %w", err)
+	}
+	for _, chain := range chainSelectors {
+		chainConfigs[chain] = changeset.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+				OptimisticConfirmations: 1,
+			},
+		}
+	}
+
+	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, addChainChangesets)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to add chains: %w", err)
+	}
+
+	// Setup because we only need to deploy the contracts and distribute job specs
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
