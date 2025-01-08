@@ -20,10 +20,15 @@ type ChainSelectorPair struct {
 	dst uint64
 }
 
+type SeqNumRange struct {
+	Start *atomic.Uint64
+	End   *atomic.Uint64
+}
+
 type DestinationGun struct {
 	l             logger.Logger
 	env           deployment.Environment
-	seqNums       map[ChainSelectorPair]*atomic.Uint64
+	seqNums       map[ChainSelectorPair]SeqNumRange
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
@@ -31,13 +36,17 @@ type DestinationGun struct {
 }
 
 func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, loki *wasp.LokiClient) *DestinationGun {
-	seqNums := make(map[ChainSelectorPair]*atomic.Uint64)
+	seqNums := make(map[ChainSelectorPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 
+		// query for the actual sequence number
 		seqNums[ChainSelectorPair{
 			src: cs,
 			dst: chainSelector,
-		}] = atomic.NewUint64(1)
+		}] = SeqNumRange{
+			Start: atomic.NewUint64(0),
+			End:   atomic.NewUint64(0),
+		}
 	}
 	return &DestinationGun{
 		l:             l,
@@ -66,12 +75,16 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
+	lokiLabels, err := setLokiLabels(src, m.chainSelector)
+	if err != nil {
+		m.l.Errorw("Failed setting loki labels", "error", err)
+	}
+
 	csPair := ChainSelectorPair{
 		src: src,
 		dst: m.chainSelector,
 	}
-	m.seqNums[csPair].Add(1)
-	m.l.Infow("Starting transmit with ", "RoundNum", requestedRound, "Destination ChainSelector", m.chainSelector, "Source ChainSelector", src, "SequenceNumber", m.seqNums[csPair].Load())
+	m.l.Infow("Starting transmit with ", "RoundNum", requestedRound, "Destination ChainSelector", m.chainSelector, "Source ChainSelector", src, "SequenceNumber", m.seqNums[csPair].End.Load())
 
 	r := state.Chains[src].Router
 
@@ -100,15 +113,37 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
-	lokiLabels, err := setLokiLabels(src, m.chainSelector)
+	blockNum, err := m.env.Chains[src].Confirm(tx)
 	if err != nil {
-		m.l.Errorw("Failed setting loki labels", "error", err)
+		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", err)
+		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
+
+	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+		Start:   blockNum,
+		End:     &blockNum,
+		Context: context.Background(),
+	}, []uint64{m.chainSelector}, []uint64{})
+	if err != nil {
+		m.l.Errorw("could not find sent message event on src chain", "src", src, "dst", m.chainSelector, "err", err)
+		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
+	}
+	if !it.Next() {
+		m.l.Errorw("Could not find event")
+		return &wasp.Response{Error: "Could not iterate", Group: waspGroup, Failed: true}
+	}
+
 	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
 		EventType:      transmitted,
 		Timestamp:      time.Now(),
-		SequenceNumber: m.seqNums[csPair].Load(),
+		SequenceNumber: m.seqNums[csPair].End.Load(),
 	})
+
+	if m.seqNums[csPair].End.Load() == 0 {
+		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
+	}
+
+	m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
 
 	return &wasp.Response{Failed: false, Group: waspGroup}
 }
@@ -141,4 +176,12 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	}, nil
+}
+
+func (m *DestinationGun) GetSequenceNumberRange(csPair ChainSelectorPair) (uint64, uint64, error) {
+	if r, ok := m.seqNums[csPair]; !ok {
+		return 0, 0, fmt.Errorf("no sequence number found for chain pair %v", csPair)
+	} else {
+		return r.Start.Load(), r.End.Load(), nil
+	}
 }

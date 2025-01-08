@@ -3,6 +3,7 @@ package ccip
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -64,6 +65,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 	defer loki.StopNow()
 
+	gunMap := make(map[uint64]*DestinationGun)
+
 	// Based on the config, initialize DestinationGun
 	p := wasp.NewProfile()
 	for selector, chain := range env.Chains {
@@ -72,6 +75,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		block := latesthdr.Number.Uint64()
 		startBlocks[selector] = &block
 
+		gunMap[selector] = NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), loki)
+
+	}
+
+	for _, gun := range gunMap {
 		p.Add(wasp.NewGenerator(&wasp.Config{
 			T:           t,
 			GenName:     "ccipLoad",
@@ -82,7 +90,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			// this schedule is per generator
 			// in this example, it would be 1 request per 10seconds per generator (dest chain)
 			// so if there are 3 generators, it would be 3 requests per 10 seconds over the network
-			Gun:        NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), loki),
+			Gun:        gun,
 			Labels:     CommonTestLabels,
 			LokiConfig: wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
@@ -90,6 +98,18 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}
 
 	_, err = p.Run(true)
+	csPair := ChainSelectorPair{
+		src: 12922642891491394802,
+		dst: 3379446385462418246,
+	}
+	src, dst := env.Chains[csPair.src], env.Chains[csPair.dst]
+	startblk := uint64(11654)
+
+	seqNum := gunMap[csPair.dst].seqNums[csPair].End.Load()
+	_, err = ccipchangeset.ConfirmCommitWithExpectedSeqNumRange(t, src, dst, state.Chains[3379446385462418246].OffRamp, &startblk, cciptypes.SeqNumRange{
+		cciptypes.SeqNum(seqNum),
+		cciptypes.SeqNum(seqNum),
+	}, false)
 
 	lokiLabels := map[string]string{}
 	for chainSelector, startBlock := range startBlocks {
@@ -97,6 +117,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go func(chainSelector uint64, startBlock *uint64) {
 			defer wg.Done()
 			lggr.Infow("Starting to query for events on ", "chainSelector", chainSelector, "startblock", startBlock)
+			latesthdr, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, nil)
+			require.NoError(t, err)
+			lggr.Infow("Current block number", "chainSelector", chainSelector, "block", latesthdr.Number.Uint64())
 
 			filterOpts := &bind.FilterOpts{
 				Start:   *startBlock,
@@ -112,6 +135,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			fmt.Printf("Events on commitIterator %+v", commitIterator)
 
 			for commitIterator.Next() {
+				fmt.Printf("Events on commitIterator inside %+v", commitIterator)
+
 				event := commitIterator.Event
 				fmt.Printf("CommitReportAccepted event: %+v\n", event)
 
@@ -126,6 +151,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 					for i := root.MinSeqNr; i <= root.MaxSeqNr; i++ {
 						// todo: push loki calls to channel?
+						fmt.Printf("Pushed loki for seqNumber %d\n", i)
+
 						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
 							Timestamp:      timestamp,
@@ -150,6 +177,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				// todo: push loki calls to channel?
 				lokiLabels, err = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
 				require.NoError(t, err)
+
+				fmt.Printf("Pushed loki exec for seqNumber %d\n", execIterator.Event.SequenceNumber)
 				SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 					EventType:      executed,
 					Timestamp:      timestamp,

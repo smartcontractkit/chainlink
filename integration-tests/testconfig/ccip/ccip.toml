@@ -243,5 +243,5 @@ ephemeral_addresses_number = 0
 
 
 [Load.CCIP.Load]
-LokiEndpoint = "http://localhost:3030/loki/api/v1/push"
+LokiEndpoint = "http://loki.localhost/loki/api/v1/push"
 NoOfNodes = 4
