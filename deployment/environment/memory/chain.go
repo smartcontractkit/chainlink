@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
@@ -105,6 +107,10 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 func solChain(t *testing.T) SolChain {
 	t.Helper()
 
+	// initialize the docker network used by CTF
+	// TODO: framework.DefaultNetwork(once) is broken for me, use a static name for now
+	framework.DefaultNetworkName = "chainlink"
+
 	deployerKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	// TODO: fund this key
@@ -117,10 +123,10 @@ func solChain(t *testing.T) SolChain {
 		// TODO: ContractsDir & SolanaPrograms via env vars
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
+	require.NoError(t, err)
+
 	url := output.Nodes[0].HostHTTPUrl
 	wsURL := output.Nodes[0].HostWSUrl
-
-	require.NoError(t, err)
 
 	// Wait for api server to boot
 	client := solRpc.New(url)

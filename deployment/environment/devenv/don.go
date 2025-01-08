@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"strconv"
 	"strings"
 	"time"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
+
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"

@@ -16,6 +16,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -168,7 +169,10 @@ func NewSolChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deplo
 			return nil, fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
 		}
 		// TODO: fetch this from chainConfig, together with KeypairPath
-		adminPrivateKey := deployment.GetSolanaDeployerKey()
+		adminPrivateKey, err := solana.NewRandomPrivateKey()
+		if err != nil {
+			return nil, err
+		}
 		chains[selector] = deployment.SolChain{
 			Selector:    selector,
 			Client:      ec,

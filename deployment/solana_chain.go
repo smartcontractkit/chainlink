@@ -15,7 +15,7 @@ import (
 
 // TODO: hard coding these for test, need to figure out the dynamic way like evm
 var (
-	SolanaChainSelector uint64 = chainsel.SOLANA_DEVNET.Selector //devnet
+	SolanaChainSelector uint64 = chainsel.SOLANA_DEVNET.Selector // devnet
 	deployBinPath              = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
 )
 
@@ -55,22 +55,13 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-type SolClient interface {
-}
-
-type ContractDeploySolana struct {
-	ProgramID *solana.PublicKey // We leave this incase a Go binding doesn't have Address()
-	Tv        TypeAndVersion
-	Err       error
-}
-
-func DeploySolProgramCLI(chain SolChain, programName string) (string, error) {
+func (c SolChain) DeployProgram(programName string) (string, error) {
 	programFile := fmt.Sprintf("%s/%s.so", deployBinPath, programName)
 	programKeyPair := fmt.Sprintf("%s/%s-keypair.json", deployBinPath, programName)
 
 	// Construct the CLI command: solana program deploy
 	// TODO: @terry doing this on the fly
-	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", chain.KeypairPath, "--program-id", programKeyPair)
+	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", c.KeypairPath, "--program-id", programKeyPair)
 
 	// Capture the command output
 	var stdout, stderr bytes.Buffer

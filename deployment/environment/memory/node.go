@@ -306,7 +306,7 @@ func CreateKeys(t *testing.T,
 			evmChainID, err := chainsel.ChainIdFromSelector(chain.Selector)
 			require.NoError(t, err)
 
-			cid := big.NewInt(int64(evmChainID))
+			cid := new(big.Int).SetUint64(evmChainID)
 			addrs, err2 := app.GetKeyStore().Eth().EnabledAddressesForChain(ctx, cid)
 			require.NoError(t, err2)
 			var transmitter common.Address

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -129,13 +130,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -204,7 +205,8 @@ func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
 	bytes, err := json.Marshal([]byte(chain.DeployerKey))
 	require.NoError(t, err)
 	keypairPath := path.Join(t.TempDir(), "solana-keypair.json")
-	os.WriteFile(keypairPath, bytes, 0644)
+	err = os.WriteFile(keypairPath, bytes, 0600)
+	require.NoError(t, err)
 
 	newSolChain := deployment.SolChain{
 		Selector:    solChainSelector,
