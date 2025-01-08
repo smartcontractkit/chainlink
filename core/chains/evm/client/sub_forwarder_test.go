@@ -21,9 +21,9 @@ func TestChainIDSubForwarder(t *testing.T) {
 	t.Parallel()
 
 	newChainIDSubForwarder := func(chainID *big.Int, ch chan<- *evmtypes.Head) *subForwarder[*evmtypes.Head] {
-		return newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
+		return newSubForwarder(ch, func(head *evmtypes.Head) (*evmtypes.Head, error) {
 			head.EVMChainID = ubig.New(chainID)
-			return head
+			return head, nil
 		}, nil)
 	}
 
@@ -54,12 +54,14 @@ func TestChainIDSubForwarder(t *testing.T) {
 		sub := NewMockSubscription()
 		err := forwarder.start(sub, nil)
 		assert.NoError(t, err)
-		sub.Errors <- errors.New("boo")
+		expectedError := errors.New("boo")
+		sub.Errors <- expectedError
 		forwarder.Unsubscribe()
 
 		assert.True(t, sub.unsubscribed)
-		_, ok := <-sub.Err()
-		assert.False(t, ok)
+		err, ok := <-forwarder.Err()
+		assert.True(t, ok)
+		require.ErrorIs(t, err, expectedError)
 		_, ok = <-forwarder.Err()
 		assert.False(t, ok)
 	})
@@ -117,6 +119,31 @@ func TestChainIDSubForwarder(t *testing.T) {
 	})
 }
 
+func TestSubscriptionForwarder(t *testing.T) {
+	t.Run("Error returned by interceptResult is forwarded to err channel", func(t *testing.T) {
+		t.Parallel()
+
+		ch := make(chan *evmtypes.Head)
+		expectedErr := errors.New("something went wrong during result interception")
+		forwarder := newSubForwarder(ch, func(head *evmtypes.Head) (*evmtypes.Head, error) {
+			return nil, expectedErr
+		}, nil)
+		mockedSub := NewMockSubscription()
+		require.NoError(t, forwarder.start(mockedSub, nil))
+
+		head := &evmtypes.Head{
+			ID: 1,
+		}
+		forwarder.srcCh <- head
+		err := <-forwarder.Err()
+		require.ErrorIs(t, err, expectedErr)
+		// ensure forwarder is closed
+		_, ok := <-forwarder.Err()
+		assert.False(t, ok)
+		assert.True(t, mockedSub.unsubscribed)
+	})
+}
+
 func TestSubscriptionErrorWrapper(t *testing.T) {
 	t.Parallel()
 	newSubscriptionErrorWrapper := func(t *testing.T, sub commontypes.Subscription, errorPrefix string) ethereum.Subscription {
@@ -144,17 +171,6 @@ func TestSubscriptionErrorWrapper(t *testing.T) {
 		assert.False(t, ok)
 		//  subsequence unsubscribe does not causes panic
 		wrapper.Unsubscribe()
-	})
-	t.Run("Unsubscribe interrupts error delivery", func(t *testing.T) {
-		t.Parallel()
-		sub := NewMockSubscription()
-		const prefix = "RPC returned error"
-		wrapper := newSubscriptionErrorWrapper(t, sub, prefix)
-		sub.Errors <- fmt.Errorf("error")
-
-		wrapper.Unsubscribe()
-		_, ok := <-wrapper.Err()
-		assert.False(t, ok)
 	})
 	t.Run("Successfully wraps error", func(t *testing.T) {
 		t.Parallel()

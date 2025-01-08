@@ -36,11 +36,11 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 	// Just using the ownership interface from here.
 	c, err := burn_mint_erc677.NewBurnMintERC677(addr, client)
 	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to create contract: %v", err)
+		return common.Address{}, nil, fmt.Errorf("failed to create contract: %w", err)
 	}
 	owner, err := c.Owner(nil)
 	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract: %v", err)
+		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract: %w", err)
 	}
 	return owner, c, nil
 }
@@ -52,13 +52,13 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 			// Note this also assures non-zero addresses.
 			if exists, err := deployment.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
-					return fmt.Errorf("failed to check address book: %v", err)
+					return fmt.Errorf("failed to check address book: %w", err)
 				}
 				return fmt.Errorf("contract %s not found in address book", contract)
 			}
 			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
 			if err != nil {
-				return fmt.Errorf("failed to load ownable: %v", err)
+				return fmt.Errorf("failed to load ownable: %w", err)
 			}
 			if owner != e.Chains[chainSelector].DeployerKey.From {
 				return fmt.Errorf("contract %s is not owned by the deployer key", contract)
@@ -66,10 +66,10 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock); err != nil {
-			return fmt.Errorf("timelock not present on the chain %v", err)
+			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
 		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig); err != nil {
-			return fmt.Errorf("mcms proposer not present on the chain %v", err)
+			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
 
@@ -101,7 +101,7 @@ func TransferToMCMSWithTimelock(
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
 		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %v", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
 		}
 		proposersByChain[chainSelector] = proposer
 
@@ -118,7 +118,7 @@ func TransferToMCMSWithTimelock(
 			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
 			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %v", contract, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
 			}
 			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
 			if err != nil {

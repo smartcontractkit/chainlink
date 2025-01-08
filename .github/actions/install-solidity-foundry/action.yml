@@ -1,5 +1,5 @@
-name: 'Detect Foundry version in GNUmakefile'
-description: 'Detects Foundry version in GNUmakefile'
+name: 'Install Foundry version in GNUmakefile'
+description: 'Install Foundry version in GNUmakefile'
 inputs:
   working-directory:
     description: 'The GNUmakefile directory'
@@ -24,3 +24,8 @@ runs:
         fi
         echo "Foundry version found: $foundry_version"
         echo "foundry-version=$foundry_version" >> $GITHUB_OUTPUT
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+      with:
+        version: ${{ steps.extract-foundry-version.outputs.foundry-version }}

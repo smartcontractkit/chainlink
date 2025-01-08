@@ -13,6 +13,7 @@ before_hook() {
   install_local_plugins
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
+  build_standard_capabilities
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
@@ -69,6 +70,15 @@ get_remote_plugin_paths() {
     full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
     echo "$full_plugin_path"
   done
+}
+
+build_standard_capabilities() {
+  cd ./capabilities
+  npx nx@19.8.2 init
+  ./nx run-many -t build
+  # binaries get put into /bin under /bin/amd64/ and /bin/arm64/
+  cp "./bin/$(go env GOARCH)"/* "../$lib_path/plugins" 
+  cd ../
 }
 
 install_remote_plugins() {

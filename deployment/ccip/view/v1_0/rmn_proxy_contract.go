@@ -1,6 +1,7 @@
 package v1_0
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,9 +15,9 @@ type RMNProxyView struct {
 	RMN common.Address `json:"rmn"`
 }
 
-func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxyContract) (RMNProxyView, error) {
+func GenerateRMNProxyView(r *rmn_proxy_contract.RMNProxy) (RMNProxyView, error) {
 	if r == nil {
-		return RMNProxyView{}, fmt.Errorf("cannot generate view for nil RMNProxy")
+		return RMNProxyView{}, errors.New("cannot generate view for nil RMNProxy")
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
