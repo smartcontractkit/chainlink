@@ -51,7 +51,7 @@ type InternalMerkleRoot struct {
 type RMNRemoteConfig struct {
 	RmnHomeContractConfigDigest [32]byte
 	Signers                     []RMNRemoteSigner
-	F                           uint64
+	FSign                       uint64
 }
 
 type RMNRemoteSigner struct {
