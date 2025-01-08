@@ -2,6 +2,7 @@ package memory
 
 import (
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -115,11 +117,14 @@ func solChain(t *testing.T) SolChain {
 	require.NoError(t, err)
 	// TODO: fund this key
 
+	port := freeport.GetOne(t)
+
 	bcInput := &blockchain.Input{
 		Type: "solana",
 		// TODO: randomize port
 		ChainID:   chainselectors.SOLANA_DEVNET.ChainID,
 		PublicKey: deployerKey.PublicKey().String(),
+		Port:      strconv.Itoa(port),
 		// TODO: ContractsDir & SolanaPrograms via env vars
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
