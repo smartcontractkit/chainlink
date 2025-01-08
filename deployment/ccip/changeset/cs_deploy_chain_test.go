@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -189,59 +190,56 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 		},
 		// For everything below, we need node spinup to support Solana OCR
-		// {
-		// 	// Add the DONs and candidate commit OCR instances for the chain.
-		// 	Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
-		// 	Config: AddDonAndSetCandidateChangesetConfig{
-		// 		SetCandidateConfigBase{
-		// 			HomeChainSelector:               homeChainSel,
-		// 			FeedChainSelector:               deployment.SolanaChainSelector,
-		// 			OCRConfigPerRemoteChainSelector: ocrConfigs,
-		// 			PluginType:                      types.PluginTypeCCIPCommit,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	// Add the exec OCR instances for the new chains.
-		// 	Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-		// 	Config: SetCandidateChangesetConfig{
-		// 		SetCandidateConfigBase{
-		// 			HomeChainSelector:               homeChainSel,
-		// 			FeedChainSelector:               deployment.SolanaChainSelector,
-		// 			OCRConfigPerRemoteChainSelector: ocrConfigs,
-		// 			PluginType:                      types.PluginTypeCCIPExec,
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	// Promote everything
-		// 	Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-		// 	Config: PromoteCandidatesChangesetConfig{
-		// 		HomeChainSelector:    homeChainSel,
-		// 		RemoteChainSelectors: allChains,
-		// 		PluginType:           types.PluginTypeCCIPCommit,
-		// 	},
-		// },
-		// {
-		// 	// Promote everything
-		// 	Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-		// 	Config: PromoteCandidatesChangesetConfig{
-		// 		HomeChainSelector:    homeChainSel,
-		// 		RemoteChainSelectors: allChains,
-		// 		PluginType:           types.PluginTypeCCIPExec,
-		// 	},
-		// },
-		// {
-		// 	// Enable the OCR config on the remote chains.
-		// 	Changeset: commonchangeset.WrapChangeSet(SetOCR3ConfigSolana),
-		// 	Config: SetOCR3OffRampConfig{
-		// 		HomeChainSel:    homeChainSel,
-		// 		RemoteChainSels: allChains,
-		// 	},
-		// },
-		// {
-		// 	Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
-		// },
+		{
+			// Add the DONs and candidate commit OCR instances for the chain.
+			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
+			Config: AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector:               homeChainSel,
+					FeedChainSelector:               deployment.SolanaChainSelector,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Add the exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase{
+					HomeChainSelector:               homeChainSel,
+					FeedChainSelector:               deployment.SolanaChainSelector,
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPExec,
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteCandidatesChangesetConfig{
+				HomeChainSelector:    homeChainSel,
+				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPCommit,
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteCandidatesChangesetConfig{
+				HomeChainSelector:    homeChainSel,
+				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPExec,
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(SetOCR3ConfigSolana),
+			Config: SetOCR3OffRampConfig{
+				HomeChainSel:    homeChainSel,
+				RemoteChainSels: allChains,
+			},
+		},
 	})
 	require.NoError(t, err)
 

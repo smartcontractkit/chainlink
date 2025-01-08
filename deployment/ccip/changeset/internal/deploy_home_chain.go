@@ -236,7 +236,7 @@ func BuildSetOCR3ConfigArgsSolana(
 			var signer [20]uint8
 			copy(signer[:], node.SignerKey[:20])
 			signerAddresses = append(signerAddresses, signer)
-			transmitterAddresses = append(transmitterAddresses, solana.PublicKeyFromBytes(node.TransmitterKey))
+			transmitterAddresses = append(transmitterAddresses, solana.MustPublicKeyFromBase58(string(node.TransmitterKey)))
 		}
 
 		ocr3Configs = append(ocr3Configs, MultiOCR3BaseOCRConfigArgsSolana{

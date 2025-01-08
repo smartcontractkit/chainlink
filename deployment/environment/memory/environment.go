@@ -120,9 +120,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
-// TODO: SOLANA_CCIP
-// initialize nodes with OCR config for SolChains
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
+func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, solChains map[uint64]deployment.SolChain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
 		return nodesByPeerID
@@ -132,13 +130,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -176,7 +174,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 	solChains := NewMemoryChainsSol(t)
 	t.Log(solChains)
 	// TODO: add solana node support
-	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	fmt.Println("Created nodes")
 	var nodeIDs []string
 	for id := range nodes {

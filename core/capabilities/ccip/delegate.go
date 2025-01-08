@@ -251,10 +251,6 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
 func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2key.KeyBundle, error) {
 	ocrKeys := make(map[string]ocr2key.KeyBundle)
 	for networkType, bundleIDRaw := range ocrKeyBundleIDs {
-		if networkType != relay.NetworkEVM {
-			return nil, fmt.Errorf("unsupported chain type: %s", networkType)
-		}
-
 		bundleID, ok := bundleIDRaw.(string)
 		if !ok {
 			return nil, fmt.Errorf("OCRKeyBundleIDs must be a map of chain types to OCR key bundle IDs, got: %T", bundleIDRaw)
@@ -273,22 +269,39 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
-		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
-		if !ok {
-			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
-		}
-
-		ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
-		}
-
-		transmitterKeys[relayID] = func() (r []string) {
-			for _, key := range ethKeys {
-				r = append(r, key.Hex())
+		switch relayID.Network {
+		case relay.NetworkSolana:
+			solKeys, err := d.keystore.Solana().GetAll()
+			if err != nil {
+				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", relayID.ChainID, err)
 			}
-			return
-		}()
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range solKeys {
+					r = append(r, key.PublicKey().String())
+				}
+				return
+			}()
+		case relay.NetworkEVM:
+			fallthrough
+		default:
+			chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+			if !ok {
+				return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
+			}
+
+			ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+			}
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range ethKeys {
+					r = append(r, key.Hex())
+				}
+				return
+			}()
+		}
 	}
 	return transmitterKeys, nil
 }
