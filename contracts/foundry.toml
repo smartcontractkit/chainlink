@@ -32,12 +32,12 @@ optimizer_runs = 500
 
 # This profile should be used prior to any release to ensure the tests are passing with via-ir enabled. Enabling via-ir
 # locally or in CI will slow down the compilation process, so it is not recommended to use it for everyday development.
-[profile.ccip-viair]
+[profile.ccip-compile]
 solc_version = '0.8.26'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
 evm_version = 'paris'
-optimizer_runs = 800
+optimizer_runs = 80_000
 via_ir = true
 
 [profile.functions]
@@ -109,5 +109,6 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
 solc_version = '0.8.24'
+evm_version = 'paris'
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
