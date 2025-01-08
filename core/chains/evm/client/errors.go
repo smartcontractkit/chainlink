@@ -284,6 +284,16 @@ var gnosis = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(alreadyknown)`),
 }
 
+var sei = ClientErrors{
+	// https://github.com/sei-protocol/sei-tendermint/blob/e9a22c961e83579d8a68cd045c532980d82fb2a0/types/mempool.go#L12
+	TransactionAlreadyInMempool: regexp.MustCompile("tx already exists in cache"),
+	// https://github.com/sei-protocol/sei-cosmos/blob/a4eb451c957b1ca7ca9118406682f93fe83d1f61/types/errors/errors.go#L50
+	// https://github.com/sei-protocol/sei-cosmos/blob/a4eb451c957b1ca7ca9118406682f93fe83d1f61/types/errors/errors.go#L56
+	// https://github.com/sei-protocol/sei-cosmos/blob/a4eb451c957b1ca7ca9118406682f93fe83d1f61/client/broadcast.go#L27
+	// https://github.com/sei-protocol/sei-cosmos/blob/a4eb451c957b1ca7ca9118406682f93fe83d1f61/types/errors/errors.go#L32
+	Fatal: regexp.MustCompile(`(: |^)'*out of gas|insufficient fee|Tx too large. Max size is \d+, but got \d+|: insufficient funds`),
+}
+
 const TerminallyStuckMsg = "transaction terminally stuck"
 
 // Tx.Error messages that are set internally so they are not chain or client specific
@@ -291,7 +301,7 @@ var internal = ClientErrors{
 	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, internal}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, treasure, mantle, aStar, hedera, gnosis, sei, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {

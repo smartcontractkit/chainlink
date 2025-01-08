@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -219,6 +220,7 @@ const HeadResult = `{"difficulty":"0xf3a00","extraData":"0xd88301050384676574688
 type mockSubscription struct {
 	unsubscribed bool
 	Errors       chan error
+	unsub        sync.Once
 }
 
 func NewMockSubscription() *mockSubscription {
@@ -228,8 +230,10 @@ func NewMockSubscription() *mockSubscription {
 func (mes *mockSubscription) Err() <-chan error { return mes.Errors }
 
 func (mes *mockSubscription) Unsubscribe() {
-	mes.unsubscribed = true
-	close(mes.Errors)
+	mes.unsub.Do(func() {
+		mes.unsubscribed = true
+		close(mes.Errors)
+	})
 }
 
 func ParseTestNodeConfigs(nodes []NodeConfig) ([]*toml.Node, error) {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net/url"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
@@ -32,13 +34,15 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-func makeNewHeadWSMessage(head *evmtypes.Head) string {
-	asJSON, err := json.Marshal(head)
+func makeNewWSMessage[T any](v T) string {
+	asJSON, err := json.Marshal(v)
 	if err != nil {
 		panic(fmt.Errorf("failed to marshal head: %w", err))
 	}
 	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, string(asJSON))
 }
+
+var makeNewHeadWSMessage = makeNewWSMessage[*evmtypes.Head]
 
 func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
@@ -388,6 +392,130 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			require.ErrorContains(t, err, "RPCClient returned error (rpc): invalid character")
 		case <-errorCtx.Done():
 			t.Errorf("Expected subscription to return an error, but test timeout instead")
+		}
+	})
+	t.Run("Log's index is properly set for Sei chain type", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			if method == "eth_unsubscribe" {
+				resp.Result = "true"
+				return
+			} else if method == "eth_subscribe" {
+				if assert.True(t, params.IsArray()) && assert.Equal(t, "logs", params.Array()[0].String()) {
+					resp.Result = `"0x00"`
+				}
+				return
+			}
+			return
+		})
+		wsURL := server.WSURL()
+		rpc := client.NewRPCClient(lggr, wsURL, nil, "rpc", 1, chainId, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+		ch := make(chan types.Log)
+		sub, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, ch)
+		require.NoError(t, err)
+		testCases := []struct {
+			TxIndex       uint
+			Index         uint
+			ExpectedIndex uint
+		}{
+			{
+				TxIndex:       0,
+				Index:         0,
+				ExpectedIndex: 0,
+			},
+			{
+				TxIndex:       0,
+				Index:         1,
+				ExpectedIndex: 1,
+			},
+			{
+				TxIndex:       1,
+				Index:         0,
+				ExpectedIndex: math.MaxUint32 + 1,
+			},
+		}
+		go func() {
+			for _, testCase := range testCases {
+				server.MustWriteBinaryMessageSync(t, makeNewWSMessage(types.Log{TxIndex: testCase.TxIndex, Index: testCase.Index, Topics: []common.Hash{{}}}))
+			}
+		}()
+		defer sub.Unsubscribe()
+		for _, testCase := range testCases {
+			select {
+			case <-tests.Context(t).Done():
+				require.Fail(t, "context timed out")
+			case err := <-sub.Err():
+				require.NoError(t, err)
+				require.Fail(t, "Did not expect error channel to be closed or return error before all testcases were consumed")
+			case log := <-ch:
+				require.Equal(t, testCase.ExpectedIndex, log.Index, "Unexpected log index %d for test case %v", log.Index, testCase)
+			}
+		}
+	})
+}
+
+func TestRPCClientFilterLogs(t *testing.T) {
+	t.Parallel()
+
+	chainID := big.NewInt(123456)
+	lggr := logger.Test(t)
+	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
+	defer cancel()
+	t.Run("Log's index is properly set for Sei chain type", func(t *testing.T) {
+		testCases := []struct {
+			TxIndex       uint
+			Index         uint
+			ExpectedIndex uint
+		}{
+			{
+				TxIndex:       0,
+				Index:         0,
+				ExpectedIndex: 0,
+			},
+			{
+				TxIndex:       0,
+				Index:         1,
+				ExpectedIndex: 1,
+			},
+			{
+				TxIndex:       1,
+				Index:         0,
+				ExpectedIndex: math.MaxUint32 + 1,
+			},
+		}
+		server := testutils.NewWSServer(t, chainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			if method != "eth_getLogs" {
+				return
+			}
+			var logs []types.Log
+			for _, testCase := range testCases {
+				logs = append(logs, types.Log{TxIndex: testCase.TxIndex, Index: testCase.Index, Topics: []common.Hash{{}}})
+			}
+			raw, err := json.Marshal(logs)
+			require.NoError(t, err)
+			resp.Result = string(raw)
+			return
+		})
+		wsURL := server.WSURL()
+		seiRPC := client.NewRPCClient(lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		defer seiRPC.Close()
+		require.NoError(t, seiRPC.Dial(ctx))
+		logs, err := seiRPC.FilterEvents(ctx, ethereum.FilterQuery{})
+		require.NoError(t, err)
+		for i, testCase := range testCases {
+			require.Equal(t, testCase.ExpectedIndex, logs[i].Index, "Unexpected log index %d for test case %v", logs[i].Index, testCase)
+		}
+
+		// non sei should return index as is
+		rpc := client.NewRPCClient(lggr, wsURL, nil, "rpc", 1, chainID, commonclient.Primary, 0, 0, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+		logs, err = rpc.FilterEvents(ctx, ethereum.FilterQuery{})
+		require.NoError(t, err)
+		for i, testCase := range testCases {
+			require.Equal(t, testCase.Index, logs[i].Index, "Expected non sei log to be returned as is")
+			require.Equal(t, testCase.TxIndex, logs[i].TxIndex, "Expected non sei log to be returned as is")
 		}
 	})
 }
