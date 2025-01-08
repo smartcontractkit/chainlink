@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -76,21 +77,21 @@ type RunTimelockExecutorConfig struct {
 
 func (cfg RunTimelockExecutorConfig) Validate() error {
 	if cfg.Executor == nil {
-		return fmt.Errorf("executor is nil")
+		return errors.New("executor is nil")
 	}
 	if cfg.TimelockContracts == nil {
-		return fmt.Errorf("timelock contracts is nil")
+		return errors.New("timelock contracts is nil")
 	}
 	if cfg.ChainSelector == 0 {
-		return fmt.Errorf("chain selector is 0")
+		return errors.New("chain selector is 0")
 	}
 	if cfg.BlockStart != nil && cfg.BlockEnd == nil {
 		if *cfg.BlockStart > *cfg.BlockEnd {
-			return fmt.Errorf("block start is greater than block end")
+			return errors.New("block start is greater than block end")
 		}
 	}
 	if cfg.BlockStart == nil && cfg.BlockEnd != nil {
-		return fmt.Errorf("block start must not be nil when block end is not nil")
+		return errors.New("block start must not be nil when block end is not nil")
 	}
 
 	if len(cfg.Executor.Operations[mcms.ChainIdentifier(cfg.ChainSelector)]) == 0 {

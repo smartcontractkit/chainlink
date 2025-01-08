@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
-      foundry-version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
     steps:
       - name: Define test matrix
         id: define-matrix
@@ -50,12 +49,6 @@ jobs:
         uses: actions/checkout@v4.2.1
         with:
           persist-credentials: false
-
-      - name: Extract Foundry version
-        id: extract-foundry-version
-        uses: ./.github/actions/detect-solidity-foundry-version
-        with:
-          working-directory: contracts
 
   changes:
     name: Detect changes
@@ -178,9 +171,7 @@ jobs:
           ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       # If Solc version is not set in foundry.toml, then what `forge build` does is that it lazily-installs required solc versions
       # using SVM. This is done in parallel, but SVM has a bug and is not thread-safe, which sometimes leads to `Text file busy` error.
@@ -347,9 +338,7 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Set up Python
         uses: actions/setup-python@v5.2.0
@@ -626,9 +615,7 @@ jobs:
 
       - name: Install Foundry
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-        with:
-          version: ${{ needs.define-matrix.outputs.foundry-version }}
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Run Forge fmt
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}

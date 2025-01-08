@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -492,7 +493,7 @@ func (c *ChainlinkClient) DeleteP2PKey(id int) (*http.Response, error) {
 	c.l.Info().Str(NodeURL, c.Config.URL).Int("ID", id).Msg("Deleting P2P Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
-			"id": fmt.Sprint(id),
+			"id": strconv.Itoa(id),
 		}).
 		Delete("/v2/keys/p2p/{id}")
 	if err != nil {
@@ -528,7 +529,7 @@ func (c *ChainlinkClient) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*
 			"keyId": keyId,
 		}).
 		SetQueryParams(map[string]string{
-			"maxGasPriceGWei": fmt.Sprint(gWei),
+			"maxGasPriceGWei": strconv.Itoa(gWei),
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")
@@ -1031,7 +1032,7 @@ func (c *ChainlinkClient) Profile(profileTime time.Duration, profileFunction fun
 					"reportType": profileReport.Type,
 				}).
 				SetQueryParams(map[string]string{
-					"seconds": fmt.Sprint(profileSeconds),
+					"seconds": strconv.Itoa(profileSeconds),
 				}).
 				Get("/v2/debug/pprof/{reportType}")
 			if err != nil {
@@ -1222,10 +1223,10 @@ func (c *ChainlinkClient) ReplayLogPollerFromBlock(fromBlock, evmChainID int64) 
 	resp, err := c.APIClient.R().
 		SetResult(&specObj).
 		SetQueryParams(map[string]string{
-			"evmChainID": fmt.Sprint(evmChainID),
+			"evmChainID": strconv.FormatInt(evmChainID, 10),
 		}).
 		SetPathParams(map[string]string{
-			"fromBlock": fmt.Sprint(fromBlock),
+			"fromBlock": strconv.FormatInt(fromBlock, 10),
 		}).
 		Post("/v2/replay_from_block/{fromBlock}")
 	if err != nil {

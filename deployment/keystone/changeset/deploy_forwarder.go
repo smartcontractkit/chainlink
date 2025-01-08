@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -59,7 +61,7 @@ type ConfigureForwardContractsRequest struct {
 
 func (r ConfigureForwardContractsRequest) Validate() error {
 	if len(r.WFNodeIDs) == 0 {
-		return fmt.Errorf("WFNodeIDs must not be empty")
+		return errors.New("WFNodeIDs must not be empty")
 	}
 	return nil
 }
@@ -96,7 +98,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	var out deployment.ChangesetOutput
 	if req.UseMCMS() {
 		if len(r.OpsPerChain) == 0 {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		for chainSelector, op := range r.OpsPerChain {
 			contracts := cresp.ContractSets[chainSelector]

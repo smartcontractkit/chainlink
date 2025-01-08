@@ -37,7 +37,6 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 			return nil, fmt.Errorf("failed to view contract set: %w", err)
 		}
 		chainViews[chainName] = v
-
 	}
 	nopsView, err := commonview.GenerateNopsView(e.NodeIDs, e.Offchain)
 	if err != nil {

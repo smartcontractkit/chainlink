@@ -42,13 +42,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -582,7 +582,7 @@ func deploySingleFeed(
 	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol TokenSymbol,
 ) (common.Address, string, error) {
-	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
@@ -736,7 +736,7 @@ func deployTokenPoolsInParallel(
 		return nil, nil, nil, nil, err
 	}
 	if srcToken == nil || srcPool == nil || dstToken == nil || dstPool == nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to deploy token and pool")
+		return nil, nil, nil, nil, errors.New("failed to deploy token and pool")
 	}
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
@@ -763,7 +763,7 @@ func setUSDCTokenPoolCounterPart(
 	var fixedAddr [32]byte
 	copy(fixedAddr[:], allowedCaller[:32])
 
-	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+	domain := reader.AllAvailableDomains()[destChainSelector]
 
 	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
@@ -917,7 +917,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				tokenAddress, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
+				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
 	if err != nil {
@@ -946,7 +946,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), err2,
+				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})
 	if err != nil {

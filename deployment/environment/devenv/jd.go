@@ -2,6 +2,7 @@ package devenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"golang.org/x/oauth2"
@@ -121,7 +122,7 @@ func (jd JobDistributor) GetCSAPublicKey(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if keypairs == nil || len(keypairs.Keypairs) == 0 {
-		return "", fmt.Errorf("no keypairs found")
+		return "", errors.New("no keypairs found")
 	}
 	csakey := keypairs.Keypairs[0].PublicKey
 	return csakey, nil
@@ -138,7 +139,7 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 		return nil, fmt.Errorf("failed to propose job. err: %w", err)
 	}
 	if res.Proposal == nil {
-		return nil, fmt.Errorf("failed to propose job. err: proposal is nil")
+		return nil, errors.New("failed to propose job. err: proposal is nil")
 	}
 	if jd.don == nil || len(jd.don.Nodes) == 0 {
 		return res, nil

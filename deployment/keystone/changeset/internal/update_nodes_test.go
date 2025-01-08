@@ -597,7 +597,6 @@ func TestUpdateNodes(t *testing.T) {
 }
 
 func TestAppendCapabilities(t *testing.T) {
-
 	var (
 		capMap = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
 			testPeerID(t, "peerID_1"): []kcr.CapabilitiesRegistryCapability{
@@ -663,7 +662,6 @@ func TestAppendCapabilities(t *testing.T) {
 	gotCaps2 := appendedResp2[testPeerID(t, "peerID_1")]
 	require.Len(t, gotCaps2, 3)
 	require.EqualValues(t, gotCaps, gotCaps2)
-
 }
 
 func testPeerID(t *testing.T, s string) p2pkey.PeerID {

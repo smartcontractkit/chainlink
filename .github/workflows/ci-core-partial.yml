@@ -68,6 +68,9 @@ jobs:
         with:
           prod: "true"
 
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
+
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:

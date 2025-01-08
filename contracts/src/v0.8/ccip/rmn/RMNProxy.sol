@@ -5,12 +5,12 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
-/// @notice The ARMProxy serves to allow CCIP contracts
+/// @notice The RMNProxy serves to allow CCIP contracts
 /// to point to a static address for ARM queries, which saves gas
 /// since each contract need not store an ARM address in storage. That way
 /// we can add ARM queries along many code paths for increased defense in depth
 /// with minimal additional cost.
-contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
+contract RMNProxy is OwnerIsCreator, ITypeAndVersion {
   error ZeroAddressNotAllowed();
 
   event ARMSet(address arm);
@@ -45,7 +45,7 @@ contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
 
   // We use a fallback function instead of explicit implementations of the functions
   // defined in IRMN.sol to preserve compatibility with future additions to the IRMN
-  // interface. Calling IRMN interface methods in ARMProxy should be transparent, i.e.
+  // interface. Calling IRMN interface methods in RMNProxy should be transparent, i.e.
   // their input/output behaviour should be identical to calling the proxied s_arm
   // contract directly. (If s_arm doesn't point to a contract, we always revert.)
   // solhint-disable-next-line payable-fallback, no-complex-fallback

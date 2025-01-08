@@ -29,7 +29,7 @@ func TestUpdateAllowedDons(t *testing.T) {
 	dons, err := registry.GetAllAllowedDONs(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, dons)
 
 	env := deployment.Environment{
 		Logger: lggr,
@@ -53,7 +53,7 @@ func TestUpdateAllowedDons(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, dons, 1)
-	assert.Equal(t, dons[0], uint32(1))
+	assert.Equal(t, uint32(1), dons[0])
 
 	_, err = workflowregistry.UpdateAllowedDons(
 		env,
@@ -68,7 +68,7 @@ func TestUpdateAllowedDons(t *testing.T) {
 	dons, err = registry.GetAllAllowedDONs(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, dons)
 }
 
 func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {

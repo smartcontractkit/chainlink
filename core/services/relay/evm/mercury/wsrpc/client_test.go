@@ -2,11 +2,16 @@ package wsrpc
 
 import (
 	"context"
+	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	grpc_connectivity "google.golang.org/grpc/connectivity"
+
+	"github.com/smartcontractkit/wsrpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -74,7 +79,15 @@ func Test_Client_Transmit(t *testing.T) {
 		conn := &mocks.MockConn{
 			Ready: true,
 		}
-		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet)
+		opts := ClientOpts{
+			lggr,
+			csakey.KeyV2{},
+			nil,
+			"",
+			noopCacheSet,
+			nil,
+		}
+		c := newClient(opts)
 		c.conn = conn
 		c.rawClient = wsrpcClient
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
@@ -114,6 +127,67 @@ func Test_Client_Transmit(t *testing.T) {
 				require.EqualError(t, err, "context deadline exceeded")
 			}
 		})
+	})
+
+	t.Run("recovers panics in underlying client and attempts redial", func(t *testing.T) {
+		makeConn := func() *mocks.MockConn {
+			return &mocks.MockConn{
+				Ready: true,
+				State: grpc_connectivity.Ready,
+				InvokeF: func(ctx context.Context, method string, args interface{}, reply interface{}) error {
+					panic("TESTING CONN INVOKE PANIC")
+				},
+			}
+		}
+
+		ch := make(chan *mocks.MockConn, 100)
+		cnt := 0
+
+		f := func(ctxCaller context.Context, target string, opts ...wsrpc.DialOption) (Conn, error) {
+			cnt++
+			switch cnt {
+			case 1, 2:
+				conn := makeConn()
+				ch <- conn
+				return conn, nil
+			default:
+				t.Fatalf("too many dials, got: %d", cnt)
+				return nil, nil
+			}
+		}
+
+		clientKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int63()))
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int63()))
+		opts := ClientOpts{
+			lggr,
+			clientKey,
+			serverKey.PublicKey,
+			"",
+			noopCacheSet,
+			f,
+		}
+		c := newClient(opts)
+
+		servicetest.Run(t, c)
+
+		// drain the channel
+		var conn *mocks.MockConn
+		select {
+		case conn = <-ch:
+			assert.Equal(t, 1, cnt)
+		default:
+			t.Fatalf("expected dial to be called")
+		}
+
+		_, err := c.Transmit(ctx, req)
+		require.EqualError(t, err, "Transmit: caught panic: TESTING CONN INVOKE PANIC")
+
+		// expect conn to be closed and re-dialed
+		conn2 := <-ch
+		assert.Equal(t, 2, cnt)
+
+		assert.True(t, conn.Closed)
+		assert.False(t, conn2.Closed)
 	})
 }
 
@@ -159,7 +233,7 @@ func Test_Client_LatestReport(t *testing.T) {
 			conn := &mocks.MockConn{
 				Ready: true,
 			}
-			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet)
+			c := newClient(ClientOpts{lggr, csakey.KeyV2{}, nil, "", cacheSet, nil})
 			c.conn = conn
 			c.rawClient = wsrpcClient
 
