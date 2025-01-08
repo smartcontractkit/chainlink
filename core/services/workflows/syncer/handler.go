@@ -532,12 +532,14 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 		return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
 	}
 
+	truncName := pkgworkflows.HashTruncateName(name)
+
 	cfg := workflows.Config{
 		Lggr:           h.lggr,
 		Workflow:       *sdkSpec,
 		WorkflowID:     id,
 		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
+		WorkflowName:   string(truncName[:]),
 		Registry:       h.capRegistry,
 		Store:          h.workflowStore,
 		Config:         config,
