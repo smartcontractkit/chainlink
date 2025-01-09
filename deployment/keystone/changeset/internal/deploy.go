@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"google.golang.org/protobuf/proto"
@@ -424,7 +425,36 @@ type RegisterCapabilitiesResponse struct {
 
 type RegisteredCapability struct {
 	capabilities_registry.CapabilitiesRegistryCapability
-	ID [32]byte
+	ID     [32]byte
+	config RegisteredCapabilityConfig
+}
+
+type RegisteredCapabilityConfig struct {
+	DefaultConfig map[string]any
+	RemoteConfig  RegisteredCapabilityRemoteConfig
+}
+
+type RegisteredCapabilityRemoteConfig struct {
+	TargetConfig     *RegisteredCapabilityRemoteTargetConfig
+	TriggerConfig    *RegisteredCapabilityRemoteTriggerConfig
+	ExecutableConfig *RegisteredCapabilityRemoteExecutableConfig
+}
+
+type RegisteredCapabilityRemoteTriggerConfig struct {
+	RegistrationRefresh     time.Duration
+	RegistrationExpiry      time.Duration
+	MinResponsesToAggregate uint32
+	MessageExpiry           time.Duration
+	MaxBatchSize            uint32
+	BatchCollectionPeriod   time.Duration
+}
+
+type RegisteredCapabilityRemoteTargetConfig struct {
+	RequestHashExcludedAttributes []string
+}
+
+type RegisteredCapabilityRemoteExecutableConfig struct {
+	RequestHashExcludedAttributes []string
 }
 
 func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
@@ -575,39 +605,46 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
-	switch capType {
-	// TODO: use the enum defined in ??
-	case uint8(0): // trigger
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-				RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-					RegistrationRefresh: durationpb.New(20 * time.Second),
-					RegistrationExpiry:  durationpb.New(60 * time.Second),
-					// F + 1; assuming n = 3f+1
-					MinResponsesToAggregate: uint32(nNodes/3) + 1,
-				},
-			},
-		}
-	case uint8(2): // consensus
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
-	case uint8(3): // target
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-				RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-					RequestHashExcludedAttributes: []string{"signed_report.Signatures"}, // TODO: const defn in a common place
-				},
-			},
-		}
-	default:
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
+func GetTriggerCapConfig(refresh time.Duration, expiry time.Duration, minResponsesToAggregate uint32, defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
+	dCfg, err := values.WrapMap(defaultCfg)
+	if err != nil {
+		return nil, err
 	}
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(dCfg).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(refresh),
+				RegistrationExpiry:      durationpb.New(expiry),
+				MinResponsesToAggregate: minResponsesToAggregate,
+			},
+		},
+	}, nil
+}
+
+func GetConsensusCapConfig(defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
+	dCfg, err := values.WrapMap(defaultCfg)
+	if err != nil {
+		return nil, err
+	}
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(dCfg).GetMapValue(),
+	}, nil
+}
+
+func GetTargetCapConfig(defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
+	dCfg, err := values.WrapMap(defaultCfg)
+	if err != nil {
+		return nil, err
+	}
+	return &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(dCfg).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+				RequestHashExcludedAttributes: []string{"signed_report.Signatures"}, // TODO: const defn in a common place
+			},
+		},
+	}, nil
 }
 
 // register nodes
@@ -836,24 +873,39 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			continue
 		}
 
-		caps, ok := req.DonToCapabilities[don.Name]
+		regCaps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for DON %s", don.Name)
 		}
 		wfSupported := false
 		var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
-		for _, cap := range caps {
-			if cap.CapabilityType == 2 { // OCR3 capability => WF supported
-				wfSupported = true
+		for _, regCap := range regCaps {
+			var capErr error
+			var capCfg *capabilitiespb.CapabilityConfig
+			switch regCap.CapabilityType {
+			case uint8(0): // trigger
+				cfg := regCap.config.RemoteConfig.TriggerConfig
+				if cfg == nil {
+					return nil, fmt.Errorf("no trigger config found for %v", regCap)
+				}
+				capCfg, capErr = GetTriggerCapConfig(cfg.RegistrationRefresh, cfg.RegistrationExpiry, cfg.MinResponsesToAggregate, regCap.config.DefaultConfig)
+			case uint8(2): // consensus
+				wfSupported = true // OCR3 capability => WF supported
+				capCfg, capErr = GetConsensusCapConfig(regCap.config.DefaultConfig)
+			case uint8(3): // target
+				capCfg, capErr = GetTargetCapConfig(regCap.config.DefaultConfig)
+			default:
+				return nil, fmt.Errorf("unsupported capability type %d for %v", regCap.CapabilityType, regCap)
 			}
-			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := DefaultCapConfig(cap.CapabilityType, len(p2pIds))
-			cfgb, err := proto.Marshal(capCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)
+			if capErr != nil {
+				return nil, fmt.Errorf("failed to get capability config for %v: %w", regCap, capErr)
+			}
+			cfgb, capErr := proto.Marshal(capCfg)
+			if capErr != nil {
+				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", regCap, capErr)
 			}
 			cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-				CapabilityId: cap.ID,
+				CapabilityId: regCap.ID,
 				Config:       cfgb,
 			})
 		}
