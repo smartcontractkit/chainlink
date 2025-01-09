@@ -14,7 +14,7 @@ import (
 var ccipRouter string
 
 func GetSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConfig, error) {
-	//TODO once on-chain account lookup address are available, the config will be updated
+	// TODO once on-chain account lookup address are available, the config will be updated
 
 	// check fromAddress
 	_, err := solana.PublicKeyFromBase58(fromAddress)
