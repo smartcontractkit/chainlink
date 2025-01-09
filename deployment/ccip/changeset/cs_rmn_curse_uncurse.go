@@ -169,7 +169,21 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 	for selector, chain := range state.Chains {
 		deployer := deployerGroup.getDeployer(selector)
 		if curseSubjects, ok := grouped[selector]; ok {
-			_, err := chain.RMNRemote.Curse0(deployer, curseSubjects)
+			// Only curse the subject that are not actually cursed
+			notAlreadyCursedSubjects := make([]Subject, 0)
+			for _, subject := range curseSubjects {
+				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
+				if err != nil {
+					return deployment.ChangesetOutput{}, errors.Errorf("failed to check if chain %d is cursed: %v", selector, err)
+				}
+
+				if !cursed {
+					notAlreadyCursedSubjects = append(notAlreadyCursedSubjects, subject)
+				} else {
+					e.Logger.Warnf("chain %s subject %x is already cursed, ignoring it while cursing", e.Chains[selector].Name(), subject)
+				}
+			}
+			_, err := chain.RMNRemote.Curse0(deployer, notAlreadyCursedSubjects)
 			if err != nil {
 				return deployment.ChangesetOutput{}, errors.Errorf("failed to curse chain %d: %v", selector, err)
 			}

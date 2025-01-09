@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"math/big"
 	"os"
@@ -22,12 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -614,7 +610,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
 		require.True(t, ok)
-		chain, ok := envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects, ok := tc.cursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -623,14 +619,19 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		}
 
 		for _, subjectDescription := range cursedSubjects {
-			subj := reader.GlobalCurseSubject
-			if subjectDescription != globalCurse {
-				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
+			curseActions := make([]changeset.CurseAction, 0)
+
+			if subjectDescription == globalCurse {
+				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
+			} else {
+				curseActions = append(curseActions, changeset.CurseLane(remoteSel, uint64((tc.pf.chainSelectors[subjectDescription]))))
 			}
-			t.Logf("cursing subject %d (%d)", subj, subjectDescription)
-			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, subj)
-			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
-			require.NoError(t, errConfirm)
+
+			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+				CurseActions: curseActions,
+				Reason:       "test curse",
+			})
+			require.NoError(t, err)
 		}
 
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
@@ -644,7 +645,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
 		require.True(t, ok)
-		chain, ok := envWithRMN.Env.Chains[remoteSel]
+		_, ok = envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
 
 		cursedSubjects, ok := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
@@ -653,21 +654,32 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 		}
 
 		for subjectDescription, revokeAfter := range cursedSubjects {
-			subj := reader.GlobalCurseSubject
-			if subjectDescription != globalCurse {
-				subj = chainSelectorToBytes16(tc.pf.chainSelectors[subjectDescription])
+			curseActions := make([]changeset.CurseAction, 0)
+
+			if subjectDescription == globalCurse {
+				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
+			} else {
+				curseActions = append(curseActions, changeset.CurseLane(remoteSel, uint64((tc.pf.chainSelectors[subjectDescription]))))
 			}
-			t.Logf("cursing subject %d (%d)", subj, subjectDescription)
-			txCurse, errCurse := chState.RMNRemote.Curse(chain.DeployerKey, subj)
-			_, errConfirm := deployment.ConfirmIfNoError(chain, txCurse, errCurse)
-			require.NoError(t, errConfirm)
+
+			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+				CurseActions: curseActions,
+				Reason:       "test curse",
+			})
+			require.NoError(t, err)
 
 			go func() {
 				<-time.NewTimer(revokeAfter).C
-				t.Logf("revoking curse on subject %d (%d)", subj, subjectDescription)
-				txUncurse, errUncurse := chState.RMNRemote.Uncurse(chain.DeployerKey, subj)
-				_, errConfirm = deployment.ConfirmIfNoError(chain, txUncurse, errUncurse)
-				require.NoError(t, errConfirm)
+				t.Logf("revoking curse on subject %d (%d)", subjectDescription, subjectDescription)
+
+				_, err := changeset.NewRMNUncurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+					CurseActions: curseActions,
+					Reason:       "test uncurse",
+				})
+				require.NoError(t, err)
+				cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
+				require.NoError(t, err)
+				t.Logf("Cursed subjects after revoking: %v", cs)
 			}()
 		}
 
@@ -683,11 +695,4 @@ func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRM
 		require.NoError(t, err)
 		t.Logf("node %s enabled", n)
 	}
-}
-
-func chainSelectorToBytes16(chainSel uint64) [16]byte {
-	var result [16]byte
-	// Convert the uint64 to bytes and place it in the last 8 bytes of the array
-	binary.BigEndian.PutUint64(result[8:], chainSel)
-	return result
 }
