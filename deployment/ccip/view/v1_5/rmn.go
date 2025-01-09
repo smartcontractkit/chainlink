@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -14,7 +15,7 @@ type RMNView struct {
 
 func GenerateRMNView(r *rmn_contract.RMNContract) (RMNView, error) {
 	if r == nil {
-		return RMNView{}, fmt.Errorf("cannot generate view for nil RMN")
+		return RMNView{}, errors.New("cannot generate view for nil RMN")
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {

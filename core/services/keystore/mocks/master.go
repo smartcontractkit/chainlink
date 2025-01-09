@@ -501,6 +501,53 @@ func (_c *Master_StarkNet_Call) RunAndReturn(run func() keystore.StarkNet) *Mast
 	return _c
 }
 
+// Tron provides a mock function with no fields
+func (_m *Master) Tron() keystore.Tron {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Tron")
+	}
+
+	var r0 keystore.Tron
+	if rf, ok := ret.Get(0).(func() keystore.Tron); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Tron)
+		}
+	}
+
+	return r0
+}
+
+// Master_Tron_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Tron'
+type Master_Tron_Call struct {
+	*mock.Call
+}
+
+// Tron is a helper method to define mock.On call
+func (_e *Master_Expecter) Tron() *Master_Tron_Call {
+	return &Master_Tron_Call{Call: _e.mock.On("Tron")}
+}
+
+func (_c *Master_Tron_Call) Run(run func()) *Master_Tron_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_Tron_Call) Return(_a0 keystore.Tron) *Master_Tron_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_Tron_Call) RunAndReturn(run func() keystore.Tron) *Master_Tron_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Unlock provides a mock function with given fields: ctx, password
 func (_m *Master) Unlock(ctx context.Context, password string) error {
 	ret := _m.Called(ctx, password)

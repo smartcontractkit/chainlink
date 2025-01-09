@@ -625,6 +625,19 @@ func (r *Resolver) StarkNetKeys(ctx context.Context) (*StarkNetKeysPayloadResolv
 	return NewStarkNetKeysPayload(keys), nil
 }
 
+func (r *Resolver) TronKeys(ctx context.Context) (*TronKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Tron().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTronKeysPayload(keys), nil
+}
+
 func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

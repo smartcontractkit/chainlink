@@ -14,7 +14,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -60,7 +60,7 @@ type Client interface {
 	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
-	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	// blockNumber can be specified as `nil` to imply latest block
@@ -97,11 +97,11 @@ type Client interface {
 }
 
 type chainClient struct {
-	multiNode *commonclient.MultiNode[
+	multiNode *multinode.MultiNode[
 		*big.Int,
 		*RPCClient,
 	]
-	txSender     *commonclient.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
+	txSender     *multinode.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -111,15 +111,15 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, *RPCClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient],
+	nodes []multinode.Node[*big.Int, *RPCClient],
+	sendonlys []multinode.SendOnlyNode[*big.Int, *RPCClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 	deathDeclarationDelay time.Duration,
 	chainType chaintype.ChainType,
 ) Client {
 	chainFamily := "EVM"
-	multiNode := commonclient.NewMultiNode[*big.Int, *RPCClient](
+	multiNode := multinode.NewMultiNode[*big.Int, *RPCClient](
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -130,7 +130,7 @@ func NewChainClient(
 		deathDeclarationDelay,
 	)
 
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
+	txSender := multinode.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
@@ -389,7 +389,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	return result.Error()
 }
 
-func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	returnCode := ClassifySendError(err, c.clientErrors, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err
