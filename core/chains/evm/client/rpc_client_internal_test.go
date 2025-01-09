@@ -8,6 +8,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -73,13 +74,13 @@ func TestRPCClient_MakeLogsValid(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			rpc := NewRPCClient(TestNodePoolConfig{}, logger.TestLogger(t), nil, nil, "eth-primary-rpc-0", 0, nil, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+			rpc := NewRPCClient(TestNodePoolConfig{}, logger.TestLogger(t), nil, nil, "eth-primary-rpc-0", 0, nil, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 			log, err := rpc.makeLogValid(ethtypes.Log{TxIndex: tc.TxIndex, Index: tc.LogIndex})
 			// non sei should return as is
 			require.NoError(t, err)
 			require.Equal(t, tc.TxIndex, log.TxIndex)
 			require.Equal(t, tc.LogIndex, log.Index)
-			seiRPC := NewRPCClient(TestNodePoolConfig{}, logger.TestLogger(t), nil, nil, "eth-primary-rpc-0", 0, nil, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+			seiRPC := NewRPCClient(TestNodePoolConfig{}, logger.TestLogger(t), nil, nil, "eth-primary-rpc-0", 0, nil, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
 			log, err = seiRPC.makeLogValid(ethtypes.Log{TxIndex: tc.TxIndex, Index: tc.LogIndex})
 			if tc.ExpectedError != nil {
 				require.EqualError(t, err, tc.ExpectedError.Error())

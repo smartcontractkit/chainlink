@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -498,7 +498,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		errType, err = eb.validateOnChainSequence(ctx, lgr, errType, err, etx, retryCount)
 	}
 
-	if errType == client.Fatal || errType == client.TerminallyStuck {
+	if errType == multinode.Fatal || errType == multinode.TerminallyStuck {
 		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
@@ -508,9 +508,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	etx.BroadcastAt = &initialBroadcastAt
 
 	switch errType {
-	case client.TransactionAlreadyKnown:
+	case multinode.TransactionAlreadyKnown:
 		fallthrough
-	case client.Successful:
+	case multinode.Successful:
 		// Either the transaction was successful or one of the following four scenarios happened:
 		//
 		// SCENARIO 1
@@ -557,14 +557,14 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// Increment sequence if successfully broadcasted
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
-	case client.Underpriced:
+	case multinode.Underpriced:
 		bumpedAttempt, retryable, replaceErr := eb.replaceAttemptWithBumpedGas(ctx, lgr, err, etx, attempt)
 		if replaceErr != nil {
 			return replaceErr, retryable
 		}
 
 		return eb.handleInProgressTx(ctx, etx, bumpedAttempt, initialBroadcastAt, retryCount+1)
-	case client.InsufficientFunds:
+	case multinode.InsufficientFunds:
 		// NOTE: This can occur due to either insufficient funds or a gas spike
 		// combined with a high gas limit. Regardless of the cause, we need to obtain a new estimate,
 		// replace the current attempt, and retry after the backoff duration.
@@ -574,9 +574,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 			return replaceErr, true
 		}
 		return err, true
-	case client.Retryable:
+	case multinode.Retryable:
 		return err, true
-	case client.FeeOutOfValidRange:
+	case multinode.FeeOutOfValidRange:
 		replacementAttempt, retryable, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt)
 		if replaceErr != nil {
 			return replaceErr, retryable
@@ -585,9 +585,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		lgr.Warnw("L2 rejected transaction due to incorrect fee, re-estimated and will try again",
 			"etxID", etx.ID, "err", err, "newGasPrice", replacementAttempt.TxFee, "newGasLimit", replacementAttempt.ChainSpecificFeeLimit)
 		return eb.handleInProgressTx(ctx, etx, *replacementAttempt, initialBroadcastAt, 0)
-	case client.Unsupported:
+	case multinode.Unsupported:
 		return err, false
-	case client.ExceedsMaxFee:
+	case multinode.ExceedsMaxFee:
 		// Broadcaster: Note that we may have broadcast to multiple nodes and had it
 		// accepted by one of them! It is not guaranteed that all nodes share
 		// the same tx fee cap. That is why we must treat this as an unknown
@@ -600,7 +600,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	default:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
 		fallthrough
-	case client.Unknown:
+	case multinode.Unknown:
 		eb.SvcErrBuffer.Append(err)
 		lgr.Criticalw(`Unknown error occurred while handling tx queue in ProcessUnstartedTxs. This chain/RPC client may not be supported. `+
 			`Urgent resolution required, Chainlink is currently operating in a degraded state and may miss transactions`, "attempt", attempt, "err", err)
@@ -632,9 +632,9 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType client.SendTxReturnCode, err error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (client.SendTxReturnCode, error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
 	// Only check if sequence was incremented if broadcast was successful, otherwise return the existing err type
-	if errType != client.Successful {
+	if errType != multinode.Successful {
 		return errType, err
 	}
 	// Transaction sequence cannot be nil here since a sequence is required to broadcast
@@ -649,7 +649,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 	// Insufficient transaction fee is a common scenario in which the sequence is not incremented by the chain even though we got a successful response
 	// If the sequence failed to increment and hasn't reached the max retries, return the Underpriced error to try again with a bumped attempt
 	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount < maxHederaBroadcastRetries {
-		return client.Underpriced, nil
+		return multinode.Underpriced, nil
 	}
 
 	// If the transaction reaches the retry limit and fails to get included, mark it as fatally errored
@@ -657,17 +657,17 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 	if nextSeqOnChain.Int64() == txSeq.Int64() && retryCount >= maxHederaBroadcastRetries {
 		err := fmt.Errorf("failed to broadcast transaction on %s after %d retries", hederaChainType, retryCount)
 		lgr.Error(err.Error())
-		return client.Fatal, err
+		return multinode.Fatal, err
 	}
 
 	// Belts and braces approach to detect and handle sqeuence gaps if the broadcast is considered successful
 	if nextSeqOnChain.Int64() < txSeq.Int64() {
 		err := fmt.Errorf("next expected sequence on-chain (%s) is less than the broadcasted transaction's sequence (%s)", nextSeqOnChain.String(), txSeq.String())
 		lgr.Criticalw("Sequence gap has been detected and needs to be filled", "error", err)
-		return client.Fatal, err
+		return multinode.Fatal, err
 	}
 
-	return client.Successful, nil
+	return multinode.Successful, nil
 }
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.

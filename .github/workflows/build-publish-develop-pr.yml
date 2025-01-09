@@ -83,11 +83,11 @@ jobs:
         include:
           - runner: ubuntu-latest
             goarch: amd64
-            dist_name: linux_amd64_v1
+            dist_name: linux_amd64
 
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
-            dist_name: linux_arm64_v8.0
+            dist_name: linux_arm64
     steps:
       - name: Checkout chainlink repository
         uses: actions/checkout@v4.2.1
@@ -122,7 +122,7 @@ jobs:
       - id: cache
         uses: actions/cache@v4
         with:
-          path: dist/${{ matrix.dist_name }}
+          path: ./dist/${{ matrix.dist_name }}
           key: chainlink-${{ matrix.goarch }}-${{ github.sha }}
 
       - name: Build images for ${{ matrix.goarch }}
@@ -159,13 +159,13 @@ jobs:
 
       - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_amd64_v1
+          path: ./dist/linux_amd64
           key: chainlink-amd64-${{ github.sha }}
           fail-on-cache-miss: true
 
       - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_arm64_v8.0
+          path: ./dist/linux_arm64
           key: chainlink-arm64-${{ github.sha }}
           fail-on-cache-miss: true
 
