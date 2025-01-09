@@ -287,4 +287,22 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		DestChainSelector:   dest,
 	}] = []uint64{sentEventAfterSwitch.SequenceNumber}
 	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+
+	// confirm that the other lane src2->dest is still working with v1.5
+	sentEventOnOtherLane, err := v1_5.SendRequest(t, e.Env, state,
+		changeset.WithSourceChain(src2),
+		changeset.WithDestChain(dest),
+		changeset.WithTestRouter(false),
+		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, sentEventOnOtherLane)
+	v1_5.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
+		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 }
