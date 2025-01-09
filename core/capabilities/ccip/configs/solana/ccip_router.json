@@ -1,0 +1,3383 @@
+{
+  "version": "0.1.0-dev",
+  "name": "ccip_router",
+  "docs": [
+    "The `ccip_router` module contains the implementation of the Cross-Chain Interoperability Protocol (CCIP) Router.",
+    "",
+    "This is the Collapsed Router Program for CCIP.",
+    "As it's upgradable persisting the same program id, there is no need to have an indirection of a Proxy Program.",
+    "This Router handles both the OnRamp and OffRamp flow of the CCIP Messages."
+  ],
+  "constants": [
+    {
+      "name": "MAX_ORACLES",
+      "type": {
+        "defined": "usize"
+      },
+      "value": "16"
+    }
+  ],
+  "instructions": [
+    {
+      "name": "initialize",
+      "docs": [
+        "Initializes the CCIP Router.",
+        "",
+        "The initialization of the Router is responsibility of Admin, nothing more than calling this method should be done first.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for initialization.",
+        "* `solana_chain_selector` - The chain selector for Solana.",
+        "* `default_gas_limit` - The default gas limit for other destination chains.",
+        "* `default_allow_out_of_order_execution` - Whether out-of-order execution is allowed by default for other destination chains.",
+        "* `enable_execution_after` - The minimum amount of time required between a message has been committed and can be manually executed."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "program",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "programData",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "externalExecutionConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenPoolsSigner",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "solanaChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "defaultGasLimit",
+          "type": "u128"
+        },
+        {
+          "name": "defaultAllowOutOfOrderExecution",
+          "type": "bool"
+        },
+        {
+          "name": "enableExecutionAfter",
+          "type": "i64"
+        },
+        {
+          "name": "feeAggregator",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "transferOwnership",
+      "docs": [
+        "Transfers the ownership of the router to a new proposed owner.",
+        "",
+        "Shared func signature with other programs",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the transfer.",
+        "* `proposed_owner` - The public key of the new proposed owner."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "proposedOwner",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "acceptOwnership",
+      "docs": [
+        "Accepts the ownership of the router by the proposed owner.",
+        "",
+        "Shared func signature with other programs",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for accepting ownership.",
+        "The new owner must be a signer of the transaction."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateFeeAggregator",
+      "docs": [
+        "Updates the fee aggregator in the router configuration.",
+        "The Admin is the only one able to update the fee aggregator.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the configuration.",
+        "* `fee_aggregator` - The new fee aggregator address (ATAs will be derived for it for each token)."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "feeAggregator",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "addChainSelector",
+      "docs": [
+        "Adds a new chain selector to the router.",
+        "",
+        "The Admin needs to add any new chain supported (this means both OnRamp and OffRamp).",
+        "When adding a new chain, the Admin needs to specify if it's enabled or not.",
+        "They may enable only source, or only destination, or neither, or both.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for adding the chain selector.",
+        "* `new_chain_selector` - The new chain selector to be added.",
+        "* `source_chain_config` - The configuration for the chain as source.",
+        "* `dest_chain_config` - The configuration for the chain as destination."
+      ],
+      "accounts": [
+        {
+          "name": "sourceChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "destChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "sourceChainConfig",
+          "type": {
+            "defined": "SourceChainConfig"
+          }
+        },
+        {
+          "name": "destChainConfig",
+          "type": {
+            "defined": "DestChainConfig"
+          }
+        }
+      ]
+    },
+    {
+      "name": "disableSourceChainSelector",
+      "docs": [
+        "Disables the source chain selector.",
+        "",
+        "The Admin is the only one able to disable the chain selector as source. This method is thought of as an emergency kill-switch.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for disabling the chain selector.",
+        "* `source_chain_selector` - The source chain selector to be disabled."
+      ],
+      "accounts": [
+        {
+          "name": "sourceChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "disableDestChainSelector",
+      "docs": [
+        "Disables the destination chain selector.",
+        "",
+        "The Admin is the only one able to disable the chain selector as destination. This method is thought of as an emergency kill-switch.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for disabling the chain selector.",
+        "* `dest_chain_selector` - The destination chain selector to be disabled."
+      ],
+      "accounts": [
+        {
+          "name": "destChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "destChainSelector",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateSourceChainConfig",
+      "docs": [
+        "Updates the configuration of the source chain selector.",
+        "",
+        "The Admin is the only one able to update the source chain config.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the chain selector.",
+        "* `source_chain_selector` - The source chain selector to be updated.",
+        "* `source_chain_config` - The new configuration for the source chain."
+      ],
+      "accounts": [
+        {
+          "name": "sourceChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "sourceChainConfig",
+          "type": {
+            "defined": "SourceChainConfig"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateDestChainConfig",
+      "docs": [
+        "Updates the configuration of the destination chain selector.",
+        "",
+        "The Admin is the only one able to update the destination chain config.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the chain selector.",
+        "* `dest_chain_selector` - The destination chain selector to be updated.",
+        "* `dest_chain_config` - The new configuration for the destination chain."
+      ],
+      "accounts": [
+        {
+          "name": "destChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "destChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "destChainConfig",
+          "type": {
+            "defined": "DestChainConfig"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateSolanaChainSelector",
+      "docs": [
+        "Updates the Solana chain selector in the router configuration.",
+        "",
+        "This method should only be used if there was an error with the initial configuration or if the solana chain selector changes.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the configuration.",
+        "* `new_chain_selector` - The new chain selector for Solana."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newChainSelector",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "updateDefaultGasLimit",
+      "docs": [
+        "Updates the default gas limit in the router configuration.",
+        "",
+        "This change affects the default value for gas limit on every other destination chain.",
+        "The Admin is the only one able to update the default gas limit.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the configuration.",
+        "* `new_gas_limit` - The new default gas limit."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newGasLimit",
+          "type": "u128"
+        }
+      ]
+    },
+    {
+      "name": "updateDefaultAllowOutOfOrderExecution",
+      "docs": [
+        "Updates the default setting for allowing out-of-order execution for other destination chains.",
+        "The Admin is the only one able to update this config.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the configuration.",
+        "* `new_allow_out_of_order_execution` - The new setting for allowing out-of-order execution."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newAllowOutOfOrderExecution",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "updateEnableManualExecutionAfter",
+      "docs": [
+        "Updates the minimum amount of time required between a message being committed and when it can be manually executed.",
+        "",
+        "This is part of the OffRamp Configuration for Solana.",
+        "The Admin is the only one able to update this config.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the configuration.",
+        "* `new_enable_manual_execution_after` - The new minimum amount of time required."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "newEnableManualExecutionAfter",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "registerTokenAdminRegistryViaGetCcipAdmin",
+      "docs": [
+        "Registers the Token Admin Registry via the CCIP Admin",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for registration.",
+        "* `mint` - The public key of the token mint.",
+        "* `token_admin_registry_admin` - The public key of the token admin registry admin."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenAdminRegistry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "publicKey"
+        },
+        {
+          "name": "tokenAdminRegistryAdmin",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "registerTokenAdminRegistryViaOwner",
+      "docs": [
+        "Registers the Token Admin Registry via the token owner.",
+        "",
+        "The Authority of the Mint Token can claim the registry of the token.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for registration."
+      ],
+      "accounts": [
+        {
+          "name": "tokenAdminRegistry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "mint",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "setPool",
+      "docs": [
+        "Sets the pool lookup table for a given token mint.",
+        "",
+        "The administrator of the token admin registry can set the pool lookup table for a given token mint.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for setting the pool.",
+        "* `mint` - The public key of the token mint.",
+        "* `pool_lookup_table` - The public key of the pool lookup table, this address will be used for validations when interacting with the pool."
+      ],
+      "accounts": [
+        {
+          "name": "tokenAdminRegistry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "publicKey"
+        },
+        {
+          "name": "poolLookupTable",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "transferAdminRoleTokenAdminRegistry",
+      "docs": [
+        "Transfers the admin role of the token admin registry to a new admin.",
+        "",
+        "Only the Admin can transfer the Admin Role of the Token Admin Registry, this setups the Pending Admin and then it's their responsibility to accept the role.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the transfer.",
+        "* `mint` - The public key of the token mint.",
+        "* `new_admin` - The public key of the new admin."
+      ],
+      "accounts": [
+        {
+          "name": "tokenAdminRegistry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "publicKey"
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "acceptAdminRoleTokenAdminRegistry",
+      "docs": [
+        "Accepts the admin role of the token admin registry.",
+        "",
+        "The Pending Admin must call this function to accept the admin role of the Token Admin Registry.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for accepting the admin role.",
+        "* `mint` - The public key of the token mint."
+      ],
+      "accounts": [
+        {
+          "name": "tokenAdminRegistry",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "mint",
+          "type": "publicKey"
+        }
+      ]
+    },
+    {
+      "name": "setTokenBilling",
+      "docs": [
+        "Sets the token billing configuration.",
+        "",
+        "Only CCIP Admin can set the token billing configuration.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for setting the token billing configuration.",
+        "* `_chain_selector` - The chain selector.",
+        "* `_mint` - The public key of the token mint.",
+        "* `cfg` - The token billing configuration."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "perChainPerTokenConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "chainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "mint",
+          "type": "publicKey"
+        },
+        {
+          "name": "cfg",
+          "type": {
+            "defined": "TokenBilling"
+          }
+        }
+      ]
+    },
+    {
+      "name": "setOcrConfig",
+      "docs": [
+        "Sets the OCR configuration.",
+        "Only CCIP Admin can set the OCR configuration.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for setting the OCR configuration.",
+        "* `plugin_type` - The type of OCR plugin [0: Commit, 1: Execution].",
+        "* `config_info` - The OCR configuration information.",
+        "* `signers` - The list of signers.",
+        "* `transmitters` - The list of transmitters."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "state",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "pluginType",
+          "type": "u8"
+        },
+        {
+          "name": "configInfo",
+          "type": {
+            "defined": "Ocr3ConfigInfo"
+          }
+        },
+        {
+          "name": "signers",
+          "type": {
+            "vec": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          }
+        },
+        {
+          "name": "transmitters",
+          "type": {
+            "vec": "publicKey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "addBillingTokenConfig",
+      "docs": [
+        "Adds a billing token configuration.",
+        "Only CCIP Admin can add a billing token configuration.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for adding the billing token configuration.",
+        "* `config` - The billing token configuration to be added."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "billingTokenConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "feeBillingSigner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "associatedTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "config",
+          "type": {
+            "defined": "BillingTokenConfig"
+          }
+        }
+      ]
+    },
+    {
+      "name": "updateBillingTokenConfig",
+      "docs": [
+        "Updates the billing token configuration.",
+        "Only CCIP Admin can update a billing token configuration.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for updating the billing token configuration.",
+        "* `config` - The new billing token configuration."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "billingTokenConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "config",
+          "type": {
+            "defined": "BillingTokenConfig"
+          }
+        }
+      ]
+    },
+    {
+      "name": "removeBillingTokenConfig",
+      "docs": [
+        "Removes the billing token configuration.",
+        "Only CCIP Admin can remove a billing token configuration.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for removing the billing token configuration."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "billingTokenConfig",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "feeBillingSigner",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "getFee",
+      "docs": [
+        "Calculates the fee for sending a message to the destination chain.",
+        "",
+        "# Arguments",
+        "",
+        "* `_ctx` - The context containing the accounts required for the fee calculation.",
+        "* `dest_chain_selector` - The chain selector for the destination chain.",
+        "* `message` - The message to be sent.",
+        "",
+        "# Returns",
+        "",
+        "The fee amount in u64."
+      ],
+      "accounts": [
+        {
+          "name": "destChainState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "billingTokenConfig",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "destChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "message",
+          "type": {
+            "defined": "Solana2AnyMessage"
+          }
+        }
+      ],
+      "returns": "u64"
+    },
+    {
+      "name": "withdrawBilledFunds",
+      "docs": [
+        "Transfers the accumulated billed fees in a particular token to an arbitrary token account.",
+        "Only the CCIP Admin can withdraw billed funds.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the transfer of billed fees.",
+        "* `transfer_all` - A flag indicating whether to transfer all the accumulated fees in that token or not.",
+        "* `desired_amount` - The amount to transfer. If `transfer_all` is true, this value must be 0."
+      ],
+      "accounts": [
+        {
+          "name": "feeTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenAccum",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "recipient",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeBillingSigner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        }
+      ],
+      "args": [
+        {
+          "name": "transferAll",
+          "type": "bool"
+        },
+        {
+          "name": "desiredAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "ccipSend",
+      "docs": [
+        "ON RAMP FLOW",
+        "Sends a message to the destination chain.",
+        "",
+        "Request a message to be sent to the destination chain.",
+        "The method name needs to be ccip_send with Anchor encoding.",
+        "This function is called by the CCIP Sender Contract (or final user) to send a message to the CCIP Router.",
+        "The message will be sent to the receiver on the destination chain selector.",
+        "This message emits the event CCIPSendRequested with all the necessary data to be retrieved by the OffChain Code",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for sending the message.",
+        "* `dest_chain_selector` - The chain selector for the destination chain.",
+        "* `message` - The message to be sent. The size limit of data is 256 bytes."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "destChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "nonce",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "feeTokenUserAssociatedAccount",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "CHECK this is the associated token account for the user paying the fee.",
+            "If paying with native SOL, this must be the zero address."
+          ]
+        },
+        {
+          "name": "feeTokenReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "feeBillingSigner",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenPoolsSigner",
+          "isMut": true,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "destChainSelector",
+          "type": "u64"
+        },
+        {
+          "name": "message",
+          "type": {
+            "defined": "Solana2AnyMessage"
+          }
+        }
+      ]
+    },
+    {
+      "name": "commit",
+      "docs": [
+        "OFF RAMP FLOW",
+        "Commits a report to the router.",
+        "",
+        "The method name needs to be commit with Anchor encoding.",
+        "",
+        "This function is called by the OffChain when committing one Report to the Solana Router.",
+        "In this Flow only one report is sent, the Commit Report. This is different as EVM does,",
+        "this is because here all the chain state is stored in one account per Merkle Tree Root.",
+        "So, to avoid having to send a dynamic size array of accounts, in this message only one Commit Report Account is sent.",
+        "This message validates the signatures of the report and stores the Merkle Root in the Commit Report Account.",
+        "The Report must contain an interval of messages, and the min of them must be the next sequence number expected.",
+        "The max size of the interval is 64.",
+        "This message emits two events: CommitReportAccepted and Transmitted.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the commit.",
+        "* `report_context_byte_words` - consists of:",
+        "* report_context_byte_words[0]: ConfigDigest",
+        "* report_context_byte_words[1]: 24 byte padding, 8 byte sequence number",
+        "* report_context_byte_words[2]: ExtraHash",
+        "* `report` - The commit input report, single merkle root with RMN signatures and price updates",
+        "* `signatures` - The list of signatures. v0.29.0 - anchor idl does not build with ocr3base::SIGNATURE_LENGTH"
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sourceChainState",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "commitReport",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sysvarInstructions",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "reportContextByteWords",
+          "type": {
+            "array": [
+              {
+                "array": [
+                  "u8",
+                  32
+                ]
+              },
+              3
+            ]
+          }
+        },
+        {
+          "name": "report",
+          "type": {
+            "defined": "CommitInput"
+          }
+        },
+        {
+          "name": "signatures",
+          "type": {
+            "vec": {
+              "array": [
+                "u8",
+                65
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "execute",
+      "docs": [
+        "OFF RAMP FLOW",
+        "Executes a message on the destination chain.",
+        "",
+        "The method name needs to be execute with Anchor encoding.",
+        "",
+        "This function is called by the OffChain when executing one Report to the Solana Router.",
+        "In this Flow only one message is sent, the Execution Report. This is different as EVM does,",
+        "this is because there is no try/catch mechanism to allow batch execution.",
+        "This message validates that the Merkle Tree Proof of the given message is correct and is stored in the Commit Report Account.",
+        "The message must be untouched to be executed.",
+        "This message emits the event ExecutionStateChanged with the new state of the message.",
+        "Finally, executes the CPI instruction to the receiver program in the ccip_receive message.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the execute.",
+        "* `execution_report` - the execution report containing only one message and proofs",
+        "* `report_context_byte_words` - report_context after execution_report to match context for manually execute (proper decoding order)",
+        "*  consists of:",
+        "* report_context_byte_words[0]: ConfigDigest",
+        "* report_context_byte_words[1]: 24 byte padding, 8 byte sequence number",
+        "* report_context_byte_words[2]: ExtraHash"
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sourceChainState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "commitReport",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "externalExecutionConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sysvarInstructions",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenPoolsSigner",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "executionReport",
+          "type": {
+            "defined": "ExecutionReportSingleChain"
+          }
+        },
+        {
+          "name": "reportContextByteWords",
+          "type": {
+            "array": [
+              {
+                "array": [
+                  "u8",
+                  32
+                ]
+              },
+              3
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "manuallyExecute",
+      "docs": [
+        "Manually executes a report to the router.",
+        "",
+        "When a message is not being executed, then the user can trigger the execution manually.",
+        "No verification over the transmitter, but the message needs to be in some commit report.",
+        "It validates that the required time has passed since the commit and then executes the report.",
+        "",
+        "# Arguments",
+        "",
+        "* `ctx` - The context containing the accounts required for the execution.",
+        "* `execution_report` - The execution report containing the message and proofs."
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sourceChainState",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "commitReport",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "externalExecutionConfig",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "authority",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "sysvarInstructions",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenPoolsSigner",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "executionReport",
+          "type": {
+            "defined": "ExecutionReportSingleChain"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "defaultAllowOutOfOrderExecution",
+            "type": "u8"
+          },
+          {
+            "name": "padding0",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          },
+          {
+            "name": "solanaChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "defaultGasLimit",
+            "type": "u128"
+          },
+          {
+            "name": "padding1",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": "publicKey"
+          },
+          {
+            "name": "proposedOwner",
+            "type": "publicKey"
+          },
+          {
+            "name": "enableManualExecutionAfter",
+            "type": "i64"
+          },
+          {
+            "name": "padding2",
+            "type": {
+              "array": [
+                "u8",
+                8
+              ]
+            }
+          },
+          {
+            "name": "ocr3",
+            "type": {
+              "array": [
+                {
+                  "defined": "Ocr3Config"
+                },
+                2
+              ]
+            }
+          },
+          {
+            "name": "feeAggregator",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GlobalState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "latestPriceSequenceNumber",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SourceChain",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "chainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "SourceChainState"
+            }
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "SourceChainConfig"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DestChain",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "chainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": "DestChainState"
+            }
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "DestChainConfig"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Nonce",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "counter",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ExternalExecutionConfig",
+      "type": {
+        "kind": "struct",
+        "fields": []
+      }
+    },
+    {
+      "name": "CommitReport",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "chainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "merkleRoot",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          },
+          {
+            "name": "minMsgNr",
+            "type": "u64"
+          },
+          {
+            "name": "maxMsgNr",
+            "type": "u64"
+          },
+          {
+            "name": "executionStates",
+            "type": "u128"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PerChainPerTokenConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "chainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "billing",
+            "type": {
+              "defined": "TokenBilling"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "BillingTokenConfigWrapper",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "config",
+            "type": {
+              "defined": "BillingTokenConfig"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenAdminRegistry",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "version",
+            "type": "u8"
+          },
+          {
+            "name": "administrator",
+            "type": "publicKey"
+          },
+          {
+            "name": "pendingAdministrator",
+            "type": "publicKey"
+          },
+          {
+            "name": "lookupTable",
+            "type": "publicKey"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "CommitInput",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "priceUpdates",
+            "type": {
+              "defined": "PriceUpdates"
+            }
+          },
+          {
+            "name": "merkleRoot",
+            "type": {
+              "defined": "MerkleRoot"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceUpdates",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokenPriceUpdates",
+            "type": {
+              "vec": {
+                "defined": "TokenPriceUpdate"
+              }
+            }
+          },
+          {
+            "name": "gasPriceUpdates",
+            "type": {
+              "vec": {
+                "defined": "GasPriceUpdate"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenPriceUpdate",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourceToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdPerToken",
+            "type": {
+              "array": [
+                "u8",
+                28
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "GasPriceUpdate",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "usdPerUnitGas",
+            "type": {
+              "array": [
+                "u8",
+                28
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "MerkleRoot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourceChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "onRampAddress",
+            "type": "bytes"
+          },
+          {
+            "name": "minSeqNr",
+            "type": "u64"
+          },
+          {
+            "name": "maxSeqNr",
+            "type": "u64"
+          },
+          {
+            "name": "merkleRoot",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RampMessageHeader",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "messageId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "sourceChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "destChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "sequenceNumber",
+            "type": "u64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ExecutionReportSingleChain",
+      "docs": [
+        "Report that is submitted by the execution DON at the execution phase. (including chain selector data)"
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourceChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "message",
+            "type": {
+              "defined": "Any2SolanaRampMessage"
+            }
+          },
+          {
+            "name": "offchainTokenData",
+            "type": {
+              "vec": "bytes"
+            }
+          },
+          {
+            "name": "root",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "proofs",
+            "type": {
+              "vec": {
+                "array": [
+                  "u8",
+                  32
+                ]
+              }
+            }
+          },
+          {
+            "name": "tokenIndexes",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SolanaAccountMeta",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pubkey",
+            "type": "publicKey"
+          },
+          {
+            "name": "isWritable",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SolanaExtraArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "computeUnits",
+            "type": "u32"
+          },
+          {
+            "name": "accounts",
+            "type": {
+              "vec": {
+                "defined": "SolanaAccountMeta"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "AnyExtraArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "gasLimit",
+            "type": "u128"
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Any2SolanaRampMessage",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "header",
+            "type": {
+              "defined": "RampMessageHeader"
+            }
+          },
+          {
+            "name": "sender",
+            "type": "bytes"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "receiver",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAmounts",
+            "type": {
+              "vec": {
+                "defined": "Any2SolanaTokenTransfer"
+              }
+            }
+          },
+          {
+            "name": "extraArgs",
+            "type": {
+              "defined": "SolanaExtraArgs"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Solana2AnyRampMessage",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "header",
+            "type": {
+              "defined": "RampMessageHeader"
+            }
+          },
+          {
+            "name": "sender",
+            "type": "publicKey"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "receiver",
+            "type": "bytes"
+          },
+          {
+            "name": "extraArgs",
+            "type": {
+              "defined": "AnyExtraArgs"
+            }
+          },
+          {
+            "name": "feeToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "tokenAmounts",
+            "type": {
+              "vec": {
+                "defined": "Solana2AnyTokenTransfer"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Solana2AnyTokenTransfer",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourcePoolAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "destTokenAddress",
+            "type": "bytes"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "destExecData",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Any2SolanaTokenTransfer",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sourcePoolAddress",
+            "type": "bytes"
+          },
+          {
+            "name": "destTokenAddress",
+            "type": "publicKey"
+          },
+          {
+            "name": "destGasAmount",
+            "type": "u32"
+          },
+          {
+            "name": "extraData",
+            "type": "bytes"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "LockOrBurnInV1",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receiver",
+            "type": "bytes"
+          },
+          {
+            "name": "remoteChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "originalSender",
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "localToken",
+            "type": "publicKey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReleaseOrMintInV1",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "originalSender",
+            "type": "bytes"
+          },
+          {
+            "name": "remoteChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "receiver",
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "localToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "sourcePoolAddress",
+            "docs": [
+              "@dev WARNING: sourcePoolAddress should be checked prior to any processing of funds. Make sure it matches the",
+              "expected pool address for the given remoteChainSelector."
+            ],
+            "type": "bytes"
+          },
+          {
+            "name": "sourcePoolData",
+            "type": "bytes"
+          },
+          {
+            "name": "offchainTokenData",
+            "docs": [
+              "@dev WARNING: offchainTokenData is untrusted data."
+            ],
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LockOrBurnOutV1",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destTokenAddress",
+            "type": "bytes"
+          },
+          {
+            "name": "destPoolData",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReleaseOrMintOutV1",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "destinationAmount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Solana2AnyMessage",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "receiver",
+            "type": "bytes"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "tokenAmounts",
+            "type": {
+              "vec": {
+                "defined": "SolanaTokenAmount"
+              }
+            }
+          },
+          {
+            "name": "feeToken",
+            "type": "publicKey"
+          },
+          {
+            "name": "extraArgs",
+            "type": {
+              "defined": "ExtraArgsInput"
+            }
+          },
+          {
+            "name": "tokenIndexes",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SolanaTokenAmount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "token",
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ExtraArgsInput",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "gasLimit",
+            "type": {
+              "option": "u128"
+            }
+          },
+          {
+            "name": "allowOutOfOrderExecution",
+            "type": {
+              "option": "bool"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Any2SolanaMessage",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "messageId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "sourceChainSelector",
+            "type": "u64"
+          },
+          {
+            "name": "sender",
+            "type": "bytes"
+          },
+          {
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "name": "tokenAmounts",
+            "type": {
+              "vec": {
+                "defined": "SolanaTokenAmount"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ReportContext",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "byteWords",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                3
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ocr3Config",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pluginType",
+            "type": "u8"
+          },
+          {
+            "name": "configInfo",
+            "type": {
+              "defined": "Ocr3ConfigInfo"
+            }
+          },
+          {
+            "name": "signers",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    20
+                  ]
+                },
+                16
+              ]
+            }
+          },
+          {
+            "name": "transmitters",
+            "type": {
+              "array": [
+                {
+                  "array": [
+                    "u8",
+                    32
+                  ]
+                },
+                16
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ocr3ConfigInfo",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "configDigest",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "f",
+            "type": "u8"
+          },
+          {
+            "name": "n",
+            "type": "u8"
+          },
+          {
+            "name": "isSignatureVerificationEnabled",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SourceChainConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "isEnabled",
+            "type": "bool"
+          },
+          {
+            "name": "onRamp",
+            "type": "bytes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SourceChainState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "minSeqNr",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DestChainState",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sequenceNumber",
+            "type": "u64"
+          },
+          {
+            "name": "usdPerUnitGas",
+            "type": {
+              "defined": "TimestampedPackedU224"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "DestChainConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "isEnabled",
+            "type": "bool"
+          },
+          {
+            "name": "maxNumberOfTokensPerMsg",
+            "type": "u16"
+          },
+          {
+            "name": "maxDataBytes",
+            "type": "u32"
+          },
+          {
+            "name": "maxPerMsgGasLimit",
+            "type": "u32"
+          },
+          {
+            "name": "destGasOverhead",
+            "type": "u32"
+          },
+          {
+            "name": "destGasPerPayloadByte",
+            "type": "u16"
+          },
+          {
+            "name": "destDataAvailabilityOverheadGas",
+            "type": "u32"
+          },
+          {
+            "name": "destGasPerDataAvailabilityByte",
+            "type": "u16"
+          },
+          {
+            "name": "destDataAvailabilityMultiplierBps",
+            "type": "u16"
+          },
+          {
+            "name": "defaultTokenFeeUsdcents",
+            "type": "u16"
+          },
+          {
+            "name": "defaultTokenDestGasOverhead",
+            "type": "u32"
+          },
+          {
+            "name": "defaultTxGasLimit",
+            "type": "u32"
+          },
+          {
+            "name": "gasMultiplierWeiPerEth",
+            "type": "u64"
+          },
+          {
+            "name": "networkFeeUsdcents",
+            "type": "u32"
+          },
+          {
+            "name": "gasPriceStalenessThreshold",
+            "type": "u32"
+          },
+          {
+            "name": "enforceOutOfOrder",
+            "type": "bool"
+          },
+          {
+            "name": "chainFamilySelector",
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenBilling",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "minFeeUsdcents",
+            "type": "u32"
+          },
+          {
+            "name": "maxFeeUsdcents",
+            "type": "u32"
+          },
+          {
+            "name": "deciBps",
+            "type": "u16"
+          },
+          {
+            "name": "destGasOverhead",
+            "type": "u32"
+          },
+          {
+            "name": "destBytesOverhead",
+            "type": "u32"
+          },
+          {
+            "name": "isEnabled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RateLimitTokenBucket",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "tokens",
+            "type": "u128"
+          },
+          {
+            "name": "lastUpdated",
+            "type": "u32"
+          },
+          {
+            "name": "isEnabled",
+            "type": "bool"
+          },
+          {
+            "name": "capacity",
+            "type": "u128"
+          },
+          {
+            "name": "rate",
+            "type": "u128"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BillingTokenConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "mint",
+            "type": "publicKey"
+          },
+          {
+            "name": "usdPerToken",
+            "type": {
+              "defined": "TimestampedPackedU224"
+            }
+          },
+          {
+            "name": "premiumMultiplierWeiPerEth",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TimestampedPackedU224",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "value",
+            "type": {
+              "array": [
+                "u8",
+                28
+              ]
+            }
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OcrPluginType",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Commit"
+          },
+          {
+            "name": "Execution"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MerkleError",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "InvalidProof"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MessageExecutionState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Untouched"
+          },
+          {
+            "name": "InProgress"
+          },
+          {
+            "name": "Success"
+          },
+          {
+            "name": "Failure"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CcipRouterError",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "InvalidSequenceInterval"
+          },
+          {
+            "name": "RootNotCommitted"
+          },
+          {
+            "name": "ExistingMerkleRoot"
+          },
+          {
+            "name": "Unauthorized"
+          },
+          {
+            "name": "InvalidInputs"
+          },
+          {
+            "name": "UnsupportedSourceChainSelector"
+          },
+          {
+            "name": "UnsupportedDestinationChainSelector"
+          },
+          {
+            "name": "InvalidProof"
+          },
+          {
+            "name": "InvalidMessage"
+          },
+          {
+            "name": "ReachedMaxSequenceNumber"
+          },
+          {
+            "name": "ManualExecutionNotAllowed"
+          },
+          {
+            "name": "InvalidInputsTokenIndices"
+          },
+          {
+            "name": "InvalidInputsPoolAccounts"
+          },
+          {
+            "name": "InvalidInputsTokenAccounts"
+          },
+          {
+            "name": "InvalidInputsConfigAccounts"
+          },
+          {
+            "name": "InvalidInputsTokenAdminRegistryAccounts"
+          },
+          {
+            "name": "InvalidInputsLookupTableAccounts"
+          },
+          {
+            "name": "InvalidInputsTokenAmount"
+          },
+          {
+            "name": "OfframpReleaseMintBalanceMismatch"
+          },
+          {
+            "name": "OfframpInvalidDataLength"
+          },
+          {
+            "name": "StaleCommitReport"
+          },
+          {
+            "name": "DestinationChainDisabled"
+          },
+          {
+            "name": "FeeTokenDisabled"
+          },
+          {
+            "name": "MessageTooLarge"
+          },
+          {
+            "name": "UnsupportedNumberOfTokens"
+          },
+          {
+            "name": "UnsupportedChainFamilySelector"
+          },
+          {
+            "name": "InvalidEVMAddress"
+          },
+          {
+            "name": "InvalidEncoding"
+          },
+          {
+            "name": "InvalidInputsAtaAddress"
+          },
+          {
+            "name": "InvalidInputsAtaWritable"
+          },
+          {
+            "name": "InvalidTokenPrice"
+          },
+          {
+            "name": "StaleGasPrice"
+          },
+          {
+            "name": "InsufficientLamports"
+          },
+          {
+            "name": "InsufficientFunds"
+          }
+        ]
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "CCIPMessageSent",
+      "fields": [
+        {
+          "name": "destChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sequenceNumber",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "message",
+          "type": {
+            "defined": "Solana2AnyRampMessage"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "CommitReportAccepted",
+      "fields": [
+        {
+          "name": "merkleRoot",
+          "type": {
+            "defined": "MerkleRoot"
+          },
+          "index": false
+        },
+        {
+          "name": "priceUpdates",
+          "type": {
+            "defined": "PriceUpdates"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SkippedAlreadyExecutedMessage",
+      "fields": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sequenceNumber",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AlreadyAttempted",
+      "fields": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sequenceNumber",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ExecutionStateChanged",
+      "fields": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sequenceNumber",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "messageId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "messageHash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "state",
+          "type": {
+            "defined": "MessageExecutionState"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PoolSet",
+      "fields": [
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "previousPoolLookupTable",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newPoolLookupTable",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AdministratorTransferRequested",
+      "fields": [
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "currentAdmin",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AdministratorTransferred",
+      "fields": [
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "newAdmin",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "FeeTokenAdded",
+      "fields": [
+        {
+          "name": "feeToken",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "enabled",
+          "type": "bool",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "FeeTokenEnabled",
+      "fields": [
+        {
+          "name": "feeToken",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "FeeTokenDisabled",
+      "fields": [
+        {
+          "name": "feeToken",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "FeeTokenRemoved",
+      "fields": [
+        {
+          "name": "feeToken",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UsdPerUnitGasUpdated",
+      "fields": [
+        {
+          "name": "destChain",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "value",
+          "type": {
+            "array": [
+              "u8",
+              28
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "UsdPerTokenUpdated",
+      "fields": [
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "value",
+          "type": {
+            "array": [
+              "u8",
+              28
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "timestamp",
+          "type": "i64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "TokenTransferFeeConfigUpdated",
+      "fields": [
+        {
+          "name": "destChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "tokenTransferFeeConfig",
+          "type": {
+            "defined": "TokenBilling"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "PremiumMultiplierWeiPerEthUpdated",
+      "fields": [
+        {
+          "name": "token",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "premiumMultiplierWeiPerEth",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SourceChainConfigUpdated",
+      "fields": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sourceChainConfig",
+          "type": {
+            "defined": "SourceChainConfig"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "SourceChainAdded",
+      "fields": [
+        {
+          "name": "sourceChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "sourceChainConfig",
+          "type": {
+            "defined": "SourceChainConfig"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "DestChainConfigUpdated",
+      "fields": [
+        {
+          "name": "destChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "destChainConfig",
+          "type": {
+            "defined": "DestChainConfig"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "DestChainAdded",
+      "fields": [
+        {
+          "name": "destChainSelector",
+          "type": "u64",
+          "index": false
+        },
+        {
+          "name": "destChainConfig",
+          "type": {
+            "defined": "DestChainConfig"
+          },
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "AdministratorRegistered",
+      "fields": [
+        {
+          "name": "tokenMint",
+          "type": "publicKey",
+          "index": false
+        },
+        {
+          "name": "administrator",
+          "type": "publicKey",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "ConfigSet",
+      "fields": [
+        {
+          "name": "ocrPluginType",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "configDigest",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "signers",
+          "type": {
+            "vec": {
+              "array": [
+                "u8",
+                20
+              ]
+            }
+          },
+          "index": false
+        },
+        {
+          "name": "transmitters",
+          "type": {
+            "vec": "publicKey"
+          },
+          "index": false
+        },
+        {
+          "name": "f",
+          "type": "u8",
+          "index": false
+        }
+      ]
+    },
+    {
+      "name": "Transmitted",
+      "fields": [
+        {
+          "name": "ocrPluginType",
+          "type": "u8",
+          "index": false
+        },
+        {
+          "name": "configDigest",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          },
+          "index": false
+        },
+        {
+          "name": "sequenceNumber",
+          "type": "u64",
+          "index": false
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidConfigFMustBePositive",
+      "msg": "Invalid config: F must be positive"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidConfigTooManyTransmitters",
+      "msg": "Invalid config: Too many transmitters"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidConfigTooManySigners",
+      "msg": "Invalid config: Too many signers"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidConfigFIsTooHigh",
+      "msg": "Invalid config: F is too high"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidConfigRepeatedOracle",
+      "msg": "Invalid config: Repeated oracle address"
+    },
+    {
+      "code": 6005,
+      "name": "WrongMessageLength",
+      "msg": "Wrong message length"
+    },
+    {
+      "code": 6006,
+      "name": "ConfigDigestMismatch",
+      "msg": "Config digest mismatch"
+    },
+    {
+      "code": 6007,
+      "name": "WrongNumberOfSignatures",
+      "msg": "Wrong number signatures"
+    },
+    {
+      "code": 6008,
+      "name": "UnauthorizedTransmitter",
+      "msg": "Unauthorized transmitter"
+    },
+    {
+      "code": 6009,
+      "name": "UnauthorizedSigner",
+      "msg": "Unauthorized signer"
+    },
+    {
+      "code": 6010,
+      "name": "NonUniqueSignatures",
+      "msg": "Non unique signatures"
+    },
+    {
+      "code": 6011,
+      "name": "OracleCannotBeZeroAddress",
+      "msg": "Oracle cannot be zero address"
+    },
+    {
+      "code": 6012,
+      "name": "StaticConfigCannotBeChanged",
+      "msg": "Static config cannot be changed"
+    },
+    {
+      "code": 6013,
+      "name": "InvalidPluginType",
+      "msg": "Incorrect plugin type"
+    },
+    {
+      "code": 6014,
+      "name": "InvalidSignature",
+      "msg": "Invalid signature"
+    }
+  ]
+}
