@@ -235,12 +235,12 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	TCConfig *TestConfigs
-	Chains   map[uint64]deployment.Chain
+	TestConfig *TestConfigs
+	Chains     map[uint64]deployment.Chain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
-	return m.TCConfig
+	return m.TestConfig
 }
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
@@ -253,7 +253,7 @@ func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
 
 func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
-	tc := m.TCConfig
+	tc := m.TestConfig
 	var chains map[uint64]deployment.Chain
 	var users map[uint64][]*bind.TransactOpts
 	if len(tc.ChainIDs) > 0 {
@@ -288,7 +288,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
-	tc := m.TCConfig
+	tc := m.TestConfig
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, tc.Nodes, tc.Bootstraps, crConfig)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
@@ -319,7 +319,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	require.NoError(t, testCfg.Validate(), "invalid test con"+
 		"fig")
 	env := &MemoryEnvironment{
-		TCConfig: testCfg,
+		TestConfig: testCfg,
 	}
 	if testCfg.PrerequisiteDeploymentOnly {
 		dEnv := NewEnvironmentWithPrerequisitesContracts(t, env)
@@ -473,7 +473,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
-	var err error
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config
