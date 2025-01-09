@@ -3,6 +3,7 @@ package changeset
 import (
 	"encoding/binary"
 	"fmt"
+	"slices"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -21,7 +22,39 @@ type CurseAction func(e deployment.Environment) []RMNCurseAction
 type RMNCurseConfig struct {
 	MCMS         *MCMSConfig
 	CurseActions []CurseAction
-	CurseReason  string
+	Reason       string
+}
+
+func (c RMNCurseConfig) Validate(e deployment.Environment) error {
+	if len(c.CurseActions) == 0 {
+		return fmt.Errorf("curse actions are required")
+	}
+
+	if c.Reason == "" {
+		return fmt.Errorf("reason is required")
+	}
+
+	validSelectors := e.AllChainSelectors()
+	validSubjects := make([]Subject, 0, len(validSelectors)+1)
+	for _, selector := range validSelectors {
+		validSubjects = append(validSubjects, SelectorToSubject(selector))
+	}
+	validSubjects = append(validSubjects, GlobalCurseSubject())
+
+	for _, curseAction := range c.CurseActions {
+		result := curseAction(e)
+		for _, action := range result {
+			if !slices.Contains(validSelectors, action.ChainSelector) {
+				return fmt.Errorf("invalid chain selector %d", action.ChainSelector)
+			}
+
+			if !slices.Contains(validSubjects, action.SubjectToCurse) {
+				return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+			}
+		}
+	}
+
+	return nil
 }
 
 type Subject = [16]byte
@@ -73,23 +106,24 @@ func CurseChain(chainSelector uint64) CurseAction {
 	}
 }
 
-func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction) map[uint64][]Subject {
+func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, filter bool) map[uint64][]Subject {
 	grouped := make(map[uint64][]Subject)
 	for _, subject := range rmnSubjects {
 		grouped[subject.ChainSelector] = append(grouped[subject.ChainSelector], subject.SubjectToCurse)
 	}
 
 	// Only keep unique subjects, preserve only global curse if present and eliminate any curse where the selector is the same as the subject
+	// If filter is false then only make sure that there is no duplicate subject
 	for chainSelector, subjects := range grouped {
 		uniqueSubjects := make(map[Subject]struct{})
 		for _, subject := range subjects {
-			if subject == SelectorToSubject(chainSelector) {
+			if subject == SelectorToSubject(chainSelector) && filter {
 				continue
 			}
 			uniqueSubjects[subject] = struct{}{}
 		}
 
-		if _, ok := uniqueSubjects[GlobalCurseSubject()]; ok {
+		if _, ok := uniqueSubjects[GlobalCurseSubject()]; ok && filter {
 			grouped[chainSelector] = []Subject{GlobalCurseSubject()}
 		} else {
 			var uniqueSubjectsSlice []Subject
@@ -128,7 +162,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 		curseActions = append(curseActions, curseAction(e)...)
 	}
 	// Group curse actions by chain selector
-	grouped := groupRMNSubjectBySelector(curseActions)
+	grouped := groupRMNSubjectBySelector(curseActions, true)
 
 	// For each chain in the environement get the RMNRemote contract and call curse
 	for selector, chain := range state.Chains {
@@ -141,5 +175,62 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 		}
 	}
 
-	return deployerGroup.enact(fmt.Sprintf("proposal to curse RMNs: %s", cfg.CurseReason))
+	return deployerGroup.enact(fmt.Sprintf("proposal to curse RMNs: %s", cfg.Reason))
+}
+
+// NewRMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
+// Example usage:
+//
+//	cfg := RMNCurseConfig{
+//	    CurseActions: []func(deployment.Environment) []RMNCurseAction{
+//	        CurseChain(SEPOLIA_CHAIN_SELECTOR),
+//	        CurseLane(SEPOLIA_CHAIN_SELECTOR, AVAX_FUJI_CHAIN_SELECTOR),
+//	    },
+//	    MCMS: &MCMSConfig{MinDelay: 0},
+//	}
+//	output, err := NewRMNUncurseChangeset(env, cfg)
+//
+// Curse actions are reused and reverted instead of applied in this changeset
+func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+
+	// Generate curse actions
+	var curseActions []RMNCurseAction
+	for _, curseAction := range cfg.CurseActions {
+		curseActions = append(curseActions, curseAction(e)...)
+	}
+	// Group curse actions by chain selector
+	grouped := groupRMNSubjectBySelector(curseActions, false)
+
+	// For each chain in the environement get the RMNRemote contract and call uncurse
+	for selector, chain := range state.Chains {
+		deployer := deployerGroup.getDeployer(selector)
+		if curseSubjects, ok := grouped[selector]; ok {
+			// Only keep the subject that are actually cursed
+			actuallyCursedSubjects := make([]Subject, 0)
+			for _, subject := range curseSubjects {
+				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
+				}
+
+				if cursed {
+					actuallyCursedSubjects = append(actuallyCursedSubjects, subject)
+				} else {
+					e.Logger.Warnf("chain %d subject %x is not cursed, ignoring it while uncursing", e.Chains[selector].Name(), subject)
+				}
+			}
+
+			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
+			}
+		}
+	}
+
+	return deployerGroup.enact(fmt.Sprintf("proposal to uncurse RMNs: %s", cfg.Reason))
 }
