@@ -4,24 +4,21 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"errors"
+
 	ag_binary "github.com/gagliardetto/binary"
-	"github.com/gagliardetto/solana-go"
-	ag_solanago "github.com/gagliardetto/solana-go"
-	"github.com/pkg/errors"
+	solana "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-// SolChainState holds a Go binding for all the currently deployed CCIP programs
-// on a chain. If a binding is nil, it means here is no such contract on the chain.
-
 var (
-	SolRouter    deployment.ContractType = "SolCcipRouter"
-	SolReceiver  deployment.ContractType = "SolCcipReceiver"
-	SolTokenPool deployment.ContractType = "SolTokenPool"
-	LinkToken    deployment.ContractType = "LinkToken"
+	LinkToken     deployment.ContractType = "LinkToken"
+	SolCcipRouter deployment.ContractType = "SolCcipRouter"
+	SolReceiver   deployment.ContractType = "SolCcipReceiver"
+	SolTokenPool  deployment.ContractType = "SolTokenPool"
 )
 
 type SolCCIPRouter struct {
@@ -30,29 +27,27 @@ type SolCCIPRouter struct {
 	DefaultAllowOutOfOrderExecution bool
 	EnableExecutionAfter            int64
 	// Accounts:
-	Config                  ag_solanago.PublicKey
-	State                   ag_solanago.PublicKey
-	Authority               ag_solanago.PublicKey
-	SystemProgram           ag_solanago.PublicKey
-	Program                 ag_solanago.PublicKey
-	ProgramData             ag_solanago.PublicKey
-	ExternalExecutionConfig ag_solanago.PublicKey
-	TokenPoolsSigner        ag_solanago.PublicKey
+	Config                  solana.PublicKey
+	State                   solana.PublicKey
+	Authority               solana.PublicKey
+	SystemProgram           solana.PublicKey
+	Program                 solana.PublicKey
+	ProgramData             solana.PublicKey
+	ExternalExecutionConfig solana.PublicKey
+	TokenPoolsSigner        solana.PublicKey
 }
 
+// SolChainState holds a Go binding for all the currently deployed CCIP programs
+// on a chain. If a binding is nil, it means here is no such contract on the chain.
 type SolCCIPChainState struct {
-	CcipRouter   ag_solanago.PublicKey
-	CcipReceiver ag_solanago.PublicKey
-	TokenPool    ag_solanago.PublicKey
-	LinkToken    ag_solanago.PublicKey
-	Weth9        ag_solanago.PublicKey
-	Timelock     ag_solanago.PublicKey
+	LinkToken       solana.PublicKey
+	SolCcipRouter   solana.PublicKey
+	SolCcipReceiver solana.PublicKey
+	TokenPool       solana.PublicKey
+	Weth9           solana.PublicKey
+	Timelock        solana.PublicKey
 }
 
-// TODO: Solana re-write
-// we can add logic here but cleaner just to call LoadOnchainState_Sol for now ?
-// the state will need to be defined separately for solana
-// and LoadChainState() is completely different
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
 	state := CCIPOnChainState{
 		SolChains: make(map[uint64]SolCCIPChainState),
@@ -82,20 +77,20 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 	var state SolCCIPChainState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(SolRouter, deployment.Version1_0_0).String():
-			pub := ag_solanago.MustPublicKeyFromBase58(address)
+		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0).String():
+			pub := solana.MustPublicKeyFromBase58(address)
 			ccip_router.SetProgramID(pub)
-			state.CcipRouter = pub
+			state.SolCcipRouter = pub
 		case deployment.NewTypeAndVersion(SolReceiver, deployment.Version1_0_0).String():
-			pub := ag_solanago.MustPublicKeyFromBase58(address)
+			pub := solana.MustPublicKeyFromBase58(address)
 			ccip_receiver.SetProgramID(pub)
-			state.CcipReceiver = pub
+			state.SolCcipReceiver = pub
 		case deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0).String():
-			pub := ag_solanago.MustPublicKeyFromBase58(address)
+			pub := solana.MustPublicKeyFromBase58(address)
 			token_pool.SetProgramID(pub)
 			state.TokenPool = pub
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
-			pub := ag_solanago.MustPublicKeyFromBase58(address)
+			pub := solana.MustPublicKeyFromBase58(address)
 			// token_pool.SetProgramID(pub)
 			state.LinkToken = pub
 		default:

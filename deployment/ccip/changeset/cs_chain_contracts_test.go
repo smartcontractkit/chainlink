@@ -378,15 +378,18 @@ func TestUpdateOnRampsDestsSolana(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
+		SolChains:  1,
 		Nodes:      4,
 	})
-	selectors := e.AllChainSelectors()
-	homeChainSel := selectors[0]
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := e.AllChainSelectorsSolana()
+	selectors := append(evmSelectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	evmChainSel := selectors[0]
-	solChainSelector := deployment.SolanaChainSelector
+	solChainSelector := solChainSelectors[0]
 	lggr.Info(fmt.Sprintf("EVM: %v", evmChainSel))
 	lggr.Info(fmt.Sprintf("Solana: %v", solChainSelector))
 
@@ -404,13 +407,13 @@ func TestUpdateOnRampsDestsSolana(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkTokenSolana),
-			Config:    []uint64{deployment.SolanaChainSelector},
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    solChainSelectors,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsSolana),
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
 			Config: DeployChainContractsConfig{
-				ChainSelectors:    []uint64{deployment.SolanaChainSelector},
+				ChainSelectors:    solChainSelectors,
 				HomeChainSelector: homeChainSel,
 			},
 		},
@@ -440,14 +443,15 @@ func TestUpdateOnRampsDestsSolana(t *testing.T) {
 
 	// UPDATE BINDINGS
 	require.NoError(t, err)
-	chain := e.SolChains[deployment.SolanaChainSelector]
 	state, _ := LoadOnchainStateSolana(e)
-	ccipRouterId := state.SolChains[deployment.SolanaChainSelector].CcipRouter
-	var sourceChainStateAccount ccip_router.SourceChain
-	err = solCommomUtil.GetAccountDataBorshInto(e.GetContext(), chain.Client, GetEvmSourceChainStatePDA(ccipRouterId, evmChainSel), solRpc.CommitmentConfirmed, &sourceChainStateAccount)
-	lggr.Infof(fmt.Sprintf("%+v", sourceChainStateAccount.State))
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
-	require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
+	for chainSel, chain := range e.SolChains {
+		ccipRouterId := state.SolChains[chainSel].SolCcipRouter
+		var sourceChainStateAccount ccip_router.SourceChain
+		err = solCommomUtil.GetAccountDataBorshInto(e.GetContext(), chain.Client, GetEvmSourceChainStatePDA(ccipRouterId, evmChainSel), solRpc.CommitmentConfirmed, &sourceChainStateAccount)
+		lggr.Infof(fmt.Sprintf("%+v", sourceChainStateAccount.State))
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
+		require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
+	}
 
 }

@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"time"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-// TODO: hard coding these for test, need to figure out the dynamic way like evm
 var (
-	SolanaChainSelector uint64 = chainsel.SOLANA_DEVNET.Selector // devnet
-	deployBinPath              = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
+	deployBinPath = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
+	// keypairPath   = "/Users/yashvardhan/.config/solana/id.json" //wallet
 )
 
 // SolChain represents a Solana chain.
@@ -24,14 +24,13 @@ type SolChain struct {
 	// Selectors used as canonical chain identifier.
 	Selector uint64
 	// RPC cient
-	Client *rpc.Client
-	URL    string
-	WSURL  string
+	Client *solRpc.Client
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
-	// deploy uses the solana CLI which needs a keyfile
-	KeypairPath string
 	Confirm     func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
+	URL         string
+	WSURL       string
+	KeypairPath string
 }
 
 func (c SolChain) String() string {
@@ -50,18 +49,24 @@ func (c SolChain) Name() string {
 		panic(err)
 	}
 	if chainInfo.ChainName == "" {
-		return fmt.Sprintf("%d", c.Selector)
+		return strconv.FormatUint(c.Selector, 10)
 	}
 	return chainInfo.ChainName
 }
 
-func (c SolChain) DeployProgram(programName string) (string, error) {
+func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
 	programFile := fmt.Sprintf("%s/%s.so", deployBinPath, programName)
 	programKeyPair := fmt.Sprintf("%s/%s-keypair.json", deployBinPath, programName)
 
-	// Construct the CLI command: solana program deploy
-	// TODO: @terry doing this on the fly
-	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", c.KeypairPath, "--program-id", programKeyPair)
+	logger.Infow("c.KeypairPath", "path", c.KeypairPath)
+	logger.Infow("private key", "key", c.DeployerKey)
+	key, err := solana.PrivateKeyFromSolanaKeygenFile(c.KeypairPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load private key: %w", err)
+	}
+	logger.Infow("program key pair", "key", key)
+	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", c.KeypairPath, "--program-id", programKeyPair, "--url", c.URL)
+	// cmd := exec.Command("solana", "program", "deploy", programFile, "--upgrade-authority", c.DeployerKey.PublicKey().String(), "--program-id", programKeyPair, "--url", c.URL)
 
 	// Capture the command output
 	var stdout, stderr bytes.Buffer

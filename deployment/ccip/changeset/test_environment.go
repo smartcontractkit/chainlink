@@ -260,7 +260,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
 	}
 	m.Chains = chains
-	m.SolChains = memory.NewMemoryChainsSol(t)
+	m.SolChains = memory.NewMemoryChainsSol(t, 1)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)

@@ -418,7 +418,7 @@ func AddDonAndSetCandidateChangeset(
 	for chainSelector, params := range cfg.OCRConfigPerRemoteChainSelector {
 		var offRampAddress []byte
 		if deployment.IsSolanaChainFamily(chainSelector) {
-			offRampAddress = state.SolChains[chainSelector].CcipRouter.Bytes()
+			offRampAddress = state.SolChains[chainSelector].SolCcipRouter.Bytes()
 		} else {
 			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
 		}
@@ -599,7 +599,7 @@ func SetCandidateChangeset(
 	for chainSelector, params := range cfg.OCRConfigPerRemoteChainSelector {
 		var offRampAddress []byte
 		if deployment.IsSolanaChainFamily(chainSelector) {
-			offRampAddress = state.SolChains[chainSelector].CcipRouter.Bytes()
+			offRampAddress = state.SolChains[chainSelector].SolCcipRouter.Bytes()
 		} else {
 			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
 		}

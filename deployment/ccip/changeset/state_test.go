@@ -13,3 +13,5 @@ func TestSmokeState(t *testing.T) {
 	_, err = state.View(tenv.Env.AllChainSelectors())
 	require.NoError(t, err)
 }
+
+// TODO: add solana state test

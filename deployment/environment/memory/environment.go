@@ -2,10 +2,7 @@ package memory
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -35,6 +32,7 @@ const (
 
 type MemoryEnvironmentConfig struct {
 	Chains             int
+	SolChains          int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -65,6 +63,11 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 		users[sel] = chain.Users
 	}
 	return generateMemoryChain(t, mchains), users
+}
+
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
+	mchains := GenerateChainsSol(t, numChains)
+	return generateMemoryChainSol(t, mchains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -120,6 +123,31 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
+func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
+	chains := make(map[uint64]deployment.SolChain)
+	for cid, chain := range inputs {
+		chain := chain
+		chains[cid] = deployment.SolChain{
+			Selector:    cid,
+			Client:      chain.Client,
+			DeployerKey: chain.DeployerKey,
+			URL:         chain.URL,
+			WSURL:       chain.WSURL,
+			KeypairPath: chain.KeypairPath,
+			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
+				_, err := solCommomUtil.SendAndConfirm(
+					context.Background(), chain.Client, instructions, *chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		}
+	}
+	return chains
+}
+
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, solChains map[uint64]deployment.SolChain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
@@ -170,12 +198,8 @@ func NewMemoryEnvironmentFromChainsNodes(
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
-	t.Log("Created chains")
-	solChains := NewMemoryChainsSol(t)
-	t.Log(solChains)
-	// TODO: add solana node support
+	solChains := NewMemoryChainsSol(t, config.SolChains)
 	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
-	fmt.Println("Created nodes")
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
@@ -191,41 +215,4 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		func() context.Context { return tests.Context(t) },
 		deployment.XXXGenerateTestOCRSecrets(),
 	)
-}
-
-func NewMemoryChainsSol(t *testing.T) map[uint64]deployment.SolChain {
-	// one solana chain only for now
-	// TODO: add support for n solana chains like evm
-	t.Logf("Creating solana chain")
-	solChainSelector := deployment.SolanaChainSelector
-	solChains := make(map[uint64]deployment.SolChain)
-	t.Logf("Spinning up devnet")
-	chain := solChain(t)
-	t.TempDir()
-	// store the generated keypair somewhere
-	bytes, err := json.Marshal([]byte(chain.DeployerKey))
-	require.NoError(t, err)
-	keypairPath := path.Join(t.TempDir(), "solana-keypair.json")
-	err = os.WriteFile(keypairPath, bytes, 0600)
-	require.NoError(t, err)
-
-	newSolChain := deployment.SolChain{
-		Selector:    solChainSelector,
-		Client:      chain.Backend,
-		URL:         chain.URL,
-		WSURL:       chain.WSURL,
-		DeployerKey: &chain.DeployerKey,
-		KeypairPath: keypairPath,
-		Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
-			_, err := solCommomUtil.SendAndConfirm(
-				context.Background(), chain.Backend, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
-			)
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	}
-	solChains[solChainSelector] = newSolChain
-	return solChains
 }

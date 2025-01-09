@@ -71,7 +71,7 @@ func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsCon
 			IsEnabled: true,
 		}
 
-		ccipRouterID := s.SolChains[chainSel].CcipRouter
+		ccipRouterID := s.SolChains[chainSel].SolCcipRouter
 		// ccip_router.SetProgramID(ccipRouterId) //cannot set this again
 
 		for destination, update := range updates {
@@ -165,7 +165,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 		// 	continue
 		// }
 		var instructions []solana.Instruction
-		ccipRouterId := solChains[remote].CcipRouter
+		ccipRouterId := solChains[remote].SolCcipRouter
 		for _, arg := range args {
 			instruction, err := ccip_router.NewSetOcrConfigInstruction(
 				uint8(arg.OcrPluginType),
