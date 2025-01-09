@@ -195,7 +195,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			hashes, err1 := usdcReader.MessageHashes(ctx, tc.sourceChain, tc.destChain, tc.tokens)
+			hashes, err1 := usdcReader.MessagesByTokenID(ctx, tc.sourceChain, tc.destChain, tc.tokens)
 			require.NoError(t, err1)
 
 			require.Equal(t, len(tc.expectedMsgIDs), len(hashes))
@@ -270,7 +270,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, tokens)
+				hashes, err := usdcReader.MessagesByTokenID(ctx, sourceChain, destChain, tokens)
 				require.NoError(b, err)
 				require.Len(b, hashes, tc.tokenCount) // Ensure the number of matches is as expected
 			}
