@@ -108,6 +108,8 @@ flowchart LR
 	chainlink-ccip --> chain-selectors
 	chainlink-ccip --> chainlink-common
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
+	chainlink-ccip/chains/solana --> chainlink-common
+	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
@@ -141,6 +143,7 @@ flowchart LR
 	chainlink/core/scripts --> chainlink/deployment
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
+	chainlink/deployment --> chainlink-ccip/chains/solana
 	chainlink/deployment --> chainlink-protos/job-distributor
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
@@ -184,6 +187,12 @@ flowchart LR
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
 
+	subgraph chainlink-ccip-repo[chainlink-ccip]
+		 chainlink-ccip
+		 chainlink-ccip/chains/solana
+	end
+	click chainlink-ccip-repo href "https://github.com/smartcontractkit/chainlink-ccip"
+
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/job-distributor
 		 chainlink-protos/orchestrator
@@ -206,5 +215,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-protos-repo,chainlink-testing-framework-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-protos-repo,chainlink-testing-framework-repo,tdh2-repo outline
 ```

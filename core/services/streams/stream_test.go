@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -57,24 +58,22 @@ func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 func Test_Stream(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	runner := &mockRunner{}
-	spec := pipeline.Spec{}
-	id := StreamID(123)
 	ctx := testutils.Context(t)
 
-	t.Run("Run", func(t *testing.T) {
-		strm := newStream(lggr, id, spec, runner, nil)
+	t.Run("errors with empty pipeline", func(t *testing.T) {
+		jbInvalid := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
+		_, err := newMultiStreamPipeline(lggr, jbInvalid, runner, nil)
+		require.EqualError(t, err, "unparseable pipeline: empty pipeline")
+	})
 
-		t.Run("errors with empty pipeline", func(t *testing.T) {
-			_, _, err := strm.Run(ctx)
-			assert.EqualError(t, err, "Run failed: Run failed due to unparseable pipeline: empty pipeline")
-		})
-
-		spec.DotDagSource = `
-succeed             [type=memo value=42]
+	jb := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
+succeed             [type=memo value=42 streamID=124];
 succeed;
-`
+	`}}
 
-		strm = newStream(lggr, id, spec, runner, nil)
+	t.Run("Run", func(t *testing.T) {
+		strm, err := newMultiStreamPipeline(lggr, jb, runner, nil)
+		require.NoError(t, err)
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {
 			runner.run = &pipeline.Run{ID: 42}

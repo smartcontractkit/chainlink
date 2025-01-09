@@ -581,9 +581,9 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 	seqNums, err := s.reader.NextSeqNum(ctx, []cciptypes.ChainSelector{chainS1, chainS2, chainS3})
 	require.NoError(t, err)
 	assert.Len(t, seqNums, 3)
-	assert.Equal(t, cciptypes.SeqNum(10), seqNums[0])
-	assert.Equal(t, cciptypes.SeqNum(20), seqNums[1])
-	assert.Equal(t, cciptypes.SeqNum(30), seqNums[2])
+	assert.Equal(t, cciptypes.SeqNum(10), seqNums[chainS1])
+	assert.Equal(t, cciptypes.SeqNum(20), seqNums[chainS2])
+	assert.Equal(t, cciptypes.SeqNum(30), seqNums[chainS3])
 }
 
 func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
