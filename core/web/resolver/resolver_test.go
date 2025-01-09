@@ -54,6 +54,7 @@ type mocks struct {
 	aptos                *keystoreMocks.Aptos
 	cosmos               *keystoreMocks.Cosmos
 	starknet             *keystoreMocks.StarkNet
+	tron                 *keystoreMocks.Tron
 	chain                *legacyEvmORMMocks.Chain
 	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
@@ -112,6 +113,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		aptos:                keystoreMocks.NewAptos(t),
 		cosmos:               keystoreMocks.NewCosmos(t),
 		starknet:             keystoreMocks.NewStarkNet(t),
+		tron:                 keystoreMocks.NewTron(t),
 		chain:                legacyEvmORMMocks.NewChain(t),
 		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},

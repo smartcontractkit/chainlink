@@ -23,6 +23,7 @@ type workflow struct {
 	id      string
 	owner   string
 	hexName string
+	name    string
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability

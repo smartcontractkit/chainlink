@@ -18,7 +18,6 @@ var _ deployment.ChangeSet[*AddMintersBurnersLinkConfig] = AddMintersBurnersLink
 
 // AddMintersBurnersLink grants the minter / burner role to the provided addresses.
 func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkConfig) (deployment.ChangesetOutput, error) {
-
 	chain := e.Chains[cfg.ChainSelector]
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
 	if err != nil {
@@ -66,5 +65,4 @@ func AddMintersBurnersLink(e deployment.Environment, cfg *AddMintersBurnersLinkC
 		}
 	}
 	return deployment.ChangesetOutput{}, nil
-
 }

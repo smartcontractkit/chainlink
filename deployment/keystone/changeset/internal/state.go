@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,7 @@ type GetContractSetsResponse struct {
 
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
-	OCR3                 *ocr3_capability.OCR3Capability
+	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
@@ -37,7 +38,9 @@ type ContractSet struct {
 func (cs ContractSet) TransferableContracts() []common.Address {
 	var out []common.Address
 	if cs.OCR3 != nil {
-		out = append(out, cs.OCR3.Address())
+		for _, ocr := range cs.OCR3 {
+			out = append(out, ocr.Address())
+		}
 	}
 	if cs.Forwarder != nil {
 		out = append(out, cs.Forwarder.Address())
@@ -61,6 +64,10 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
 	}
 	return out, nil
+}
+
+func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+	return getOCR3Contract(cs.OCR3, addr)
 }
 
 func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
@@ -109,7 +116,10 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 			if err != nil {
 				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
-			out.OCR3 = c
+			if out.OCR3 == nil {
+				out.OCR3 = make(map[common.Address]*ocr3_capability.OCR3Capability)
+			}
+			out.OCR3[common.HexToAddress(addr)] = c
 		case WorkflowRegistry:
 			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
 			if err != nil {
@@ -122,4 +132,36 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 		}
 	}
 	return &out, nil
+}
+
+// getOCR3Contract returns the OCR3 contract from the contract set.  By default, it returns the only
+// contract in the set if there is no address specified.  If an address is specified, it returns the
+// contract with that address.  If the address is specified but not found in the contract set, it returns
+// an error.
+func getOCR3Contract(contracts map[common.Address]*ocr3_capability.OCR3Capability, addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+	// Fail if the OCR3 contract address is unspecified and there are multiple OCR3 contracts
+	if addr == nil && len(contracts) > 1 {
+		return nil, errors.New("OCR contract address is unspecified")
+	}
+
+	// Use the first OCR3 contract if the address is unspecified
+	if addr == nil && len(contracts) == 1 {
+		// use the first OCR3 contract
+		for _, c := range contracts {
+			return c, nil
+		}
+	}
+
+	// Select the OCR3 contract by address
+	if contract, ok := contracts[*addr]; ok {
+		return contract, nil
+	}
+
+	addrSet := make([]string, 0, len(contracts))
+	for a := range contracts {
+		addrSet = append(addrSet, a.String())
+	}
+
+	// Fail if the OCR3 contract address is specified but not found in the contract set
+	return nil, fmt.Errorf("OCR3 contract address %s not found in contract set %v", *addr, addrSet)
 }

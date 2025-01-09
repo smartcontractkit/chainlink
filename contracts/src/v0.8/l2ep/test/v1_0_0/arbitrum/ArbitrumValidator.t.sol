@@ -6,7 +6,7 @@ import {AccessControllerInterface} from "../../../../shared/interfaces/AccessCon
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../arbitrum/ArbitrumSequencerUptimeFeed.sol";
 import {ArbitrumValidator} from "../../../arbitrum/ArbitrumValidator.sol";
-import {MockArbitrumInbox} from "../../../../tests/MockArbitrumInbox.sol";
+import {MockArbitrumInbox} from "../../mocks/MockArbitrumInbox.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

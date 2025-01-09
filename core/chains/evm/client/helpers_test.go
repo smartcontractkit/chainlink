@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,8 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-framework/multinode"
+	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -128,7 +130,7 @@ func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
 
 func NewChainClientWithTestNode(
 	t *testing.T,
-	nodeCfg commonclient.NodeConfig,
+	nodeCfg multinode.NodeConfig,
 	noNewHeadsThreshold time.Duration,
 	leaseDuration time.Duration,
 	rpcUrl string,
@@ -150,21 +152,21 @@ func NewChainClientWithTestNode(
 	nodePoolCfg := TestNodePoolConfig{
 		NodeFinalizedBlockPollInterval: 1 * time.Second,
 	}
-	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+	rpc := NewRPCClient(nodePoolCfg, lggr, parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
-		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *RPCClient]{n}
+	n := multinode.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
+		nodeCfg, mocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
+	primaries := []multinode.Node[*big.Int, *RPCClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient]
+	sendonlys := make([]multinode.SendOnlyNode[*big.Int, *RPCClient], len(sendonlyRPCURLs))
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
-		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
-		s := commonclient.NewSendOnlyNode[*big.Int, *RPCClient](
+		rpc := NewRPCClient(nodePoolCfg, lggr, nil, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, multinode.Secondary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		s := multinode.NewSendOnlyNode[*big.Int, *RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
-		sendonlys = append(sendonlys, s)
+		sendonlys[i] = s
 	}
 
 	clientErrors := NewTestClientErrors()
@@ -198,13 +200,13 @@ func NewChainClientWithMockedRpc(
 	lggr := logger.Test(t)
 
 	cfg := TestNodePoolConfig{
-		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
+		NodeSelectionMode: multinode.NodeSelectionModeRoundRobin,
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
-		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *RPCClient]{n}
+	n := multinode.NewNode[*big.Int, *evmtypes.Head, *RPCClient](
+		cfg, mocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
+	primaries := []multinode.Node[*big.Int, *RPCClient]{n}
 	clientErrors := NewTestClientErrors()
 	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors, 0, "")
 	t.Cleanup(c.Close)
@@ -216,6 +218,7 @@ const HeadResult = `{"difficulty":"0xf3a00","extraData":"0xd88301050384676574688
 type mockSubscription struct {
 	unsubscribed bool
 	Errors       chan error
+	unsub        sync.Once
 }
 
 func NewMockSubscription() *mockSubscription {
@@ -225,8 +228,10 @@ func NewMockSubscription() *mockSubscription {
 func (mes *mockSubscription) Err() <-chan error { return mes.Errors }
 
 func (mes *mockSubscription) Unsubscribe() {
-	mes.unsubscribed = true
-	close(mes.Errors)
+	mes.unsub.Do(func() {
+		mes.unsubscribed = true
+		close(mes.Errors)
+	})
 }
 
 func ParseTestNodeConfigs(nodes []NodeConfig) ([]*toml.Node, error) {

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
@@ -15,7 +15,7 @@ import {Common} from "../libraries/Common.sol";
  * on a chain.  It is responsible for taking in a verification request and routing
  * it to the correct verifier contract.
  */
-contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
+contract VerifierProxy is IVerifierProxy, ConfirmedOwner, ITypeAndVersion {
   /// @notice This event is emitted whenever a new verifier contract is set
   /// @param oldConfigDigest The config digest that was previously the latest config
   /// digest of the verifier contract at the verifier address.
@@ -115,7 +115,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "VerifierProxy 2.0.0";
   }

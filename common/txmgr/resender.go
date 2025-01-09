@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -184,13 +184,13 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnco
 	return nil
 }
 
-func logResendResult(lggr logger.Logger, codes []client.SendTxReturnCode) {
+func logResendResult(lggr logger.Logger, codes []multinode.SendTxReturnCode) {
 	var nNew int
 	var nFatal int
 	for _, c := range codes {
-		if c == client.Successful {
+		if c == multinode.Successful {
 			nNew++
-		} else if c == client.Fatal {
+		} else if c == multinode.Fatal {
 			nFatal++
 		}
 	}

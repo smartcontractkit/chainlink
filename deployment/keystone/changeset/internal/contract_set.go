@@ -108,7 +108,6 @@ func DeployFeedsConsumer(chain deployment.Chain, ab deployment.AddressBook) (*De
 	}
 	err = ab.Save(chain.Selector, consumerResp.Address.String(), consumerResp.Tv)
 	if err != nil {
-
 		return nil, fmt.Errorf("failed to save FeedsConsumer: %w", err)
 	}
 	return consumerResp, nil

@@ -1,6 +1,7 @@
 package v1_2
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,7 +19,7 @@ type PriceRegistryView struct {
 
 func GeneratePriceRegistryView(pr *price_registry_1_2_0.PriceRegistry) (PriceRegistryView, error) {
 	if pr == nil {
-		return PriceRegistryView{}, fmt.Errorf("cannot generate view for nil PriceRegistry")
+		return PriceRegistryView{}, errors.New("cannot generate view for nil PriceRegistry")
 	}
 	meta, err := types.NewContractMetaData(pr, pr.Address())
 	if err != nil {
