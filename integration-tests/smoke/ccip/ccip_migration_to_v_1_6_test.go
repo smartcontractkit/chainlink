@@ -162,7 +162,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	block := latesthdr.Number.Uint64()
 	startBlocks[dest] = &block
 	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
-	/* uncomment this block once CCIP-4781 is fixed
 	msgSentEvent, err := changeset.DoSendRequest(
 		t, e.Env, state,
 		changeset.WithSourceChain(src1),
@@ -187,7 +186,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	// Wait for all exec reports to land
 	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
-	*/
 
 	// send a message from real router, the send requested event should be received in 1.5 onRamp
 	// the request should get delivered to 1.5 offRamp
