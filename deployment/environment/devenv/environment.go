@@ -50,6 +50,7 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
+		nil, // sending nil for solana chains right now, we can build this when we need it
 		nodeIDs,
 		offChain,
 		ctx,
