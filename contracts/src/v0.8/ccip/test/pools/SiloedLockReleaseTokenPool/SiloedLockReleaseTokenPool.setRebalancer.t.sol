@@ -7,7 +7,7 @@ import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup
 contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolSetup {
   address public REBALANCER_ADDRESS = address(0xdeadbeef);
 
-  function test_setRebalancer_Success() public {
+  function test_setRebalancer() public {
     vm.expectEmit();
     emit SiloedLockReleaseTokenPool.RebalancerSet(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS, OWNER);
 

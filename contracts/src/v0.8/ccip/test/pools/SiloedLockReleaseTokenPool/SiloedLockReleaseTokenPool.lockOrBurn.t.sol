@@ -33,7 +33,7 @@ contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetu
     assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
   }
 
-  function testLockOrBurn_NonSiloedFunds_Success(
+  function testLockOrBurn_NonSiloedFunds(
     uint256 amount
   ) public {
     amount = 10e18;

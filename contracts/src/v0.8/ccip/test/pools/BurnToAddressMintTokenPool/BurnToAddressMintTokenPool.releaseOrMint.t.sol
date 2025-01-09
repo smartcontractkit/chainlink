@@ -53,6 +53,8 @@ contract BurnToAddressMintTokenPool_releaseOrMint is BurnToAddressMintTokenPoolS
     assertEq(s_pool.getLockedTokens(), lockedAmountBefore - releaseAmount);
   }
 
+  // Reverts
+
   function test_ReleaseOrMint_RevertWhen_LockedTokensUnderflows() public {
     uint256 burnAmount = s_initialTokenAmount + 1;
 

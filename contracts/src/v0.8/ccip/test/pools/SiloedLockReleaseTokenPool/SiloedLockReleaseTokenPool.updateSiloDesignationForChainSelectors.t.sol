@@ -5,7 +5,7 @@ import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenP
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_updateSiloDesignationForChainSelectors is SiloedLockReleaseTokenPoolSetup {
-  function test_updateSiloDesignationForChainSelectors_Success() public {
+  function test_updateSiloDesignationForChainSelectors() public {
     uint256 amount = 1e18;
     uint64[] memory chainSelectors = new uint64[](1);
 

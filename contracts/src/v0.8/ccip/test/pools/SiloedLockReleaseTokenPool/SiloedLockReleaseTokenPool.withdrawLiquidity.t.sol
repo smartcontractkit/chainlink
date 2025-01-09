@@ -12,7 +12,7 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
     s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 
-  function test_withdrawLiquidity_SiloedFunds_Success() public {
+  function test_withdrawLiquidity_SiloedFunds() public {
     uint256 amount = 1e24;
 
     uint256 balanceBefore = s_token.balanceOf(OWNER);

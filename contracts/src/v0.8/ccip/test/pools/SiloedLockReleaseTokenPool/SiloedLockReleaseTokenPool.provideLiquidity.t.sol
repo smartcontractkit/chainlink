@@ -15,7 +15,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
     s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 
-  function test_ProvideLiquidity_ChainNotSiloed_Success() public {
+  function test_ProvideLiquidity_ChainNotSiloed() public {
     uint256 amount = 1e24;
 
     vm.expectEmit();
@@ -30,7 +30,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
     assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(DEST_CHAIN_SELECTOR), amount);
   }
 
-  function test_ProvideLiquidity_ChainSiloed_Success() public {
+  function test_ProvideLiquidity_ChainSiloed() public {
     uint256 amount = 1e24;
 
     vm.expectEmit();

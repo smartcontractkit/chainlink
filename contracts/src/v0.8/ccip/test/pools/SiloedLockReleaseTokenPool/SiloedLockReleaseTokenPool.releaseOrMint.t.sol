@@ -7,7 +7,7 @@ import {Pool} from "../../../libraries/Pool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolSetup {
-  function test_ReleaseOrMint_SiloedFunds_Success() public {
+  function test_ReleaseOrMint_SiloedFunds() public {
     uint256 amount = 10e18;
 
     deal(address(s_token), address(s_siloedLockReleaseTokenPool), amount);
@@ -46,7 +46,7 @@ contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolS
     assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), 0);
   }
 
-  function test_ReleaseOrMint_UnsiloedFunds_Success() public {
+  function test_ReleaseOrMint_UnsiloedFunds() public {
     uint256 amount = 10e18;
 
     deal(address(s_token), address(s_siloedLockReleaseTokenPool), amount);
