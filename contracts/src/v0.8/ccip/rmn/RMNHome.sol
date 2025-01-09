@@ -80,8 +80,8 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   }
 
   struct SourceChain {
-    uint64 chainSelector; // ────────╮ The Source chain selector.
-    uint64 fObserve; // ─────────────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
+    uint64 chainSelector; // ─╮ The Source chain selector.
+    uint64 fObserve; // ──────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
     uint256 observerNodesBitmap; // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
   }
 
