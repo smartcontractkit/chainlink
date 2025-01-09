@@ -801,10 +801,12 @@ type RegisterDonsRequest struct {
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
 	DonsToRegister    []DONToRegister
+	UseMCMS           bool
 }
 
 type RegisterDonsResponse struct {
 	DonInfos map[string]capabilities_registry.CapabilitiesRegistryDONInfo
+	Ops      *timelock.BatchChainOperation
 }
 
 func sortedHash(p2pids [][32]byte) string {
@@ -840,6 +842,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
+	mcmsOps := make([]mcms.Operation, 0, len(req.DonsToRegister))
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -888,6 +891,17 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
 		}
+
+		if req.UseMCMS {
+			op := mcms.Operation{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			}
+			mcmsOps = append(mcmsOps, op)
+			continue
+		}
+
 		_, err = registryChain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don.Name, err)
@@ -895,6 +909,16 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("registered DON", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F)
 		addedDons++
 	}
+
+	if req.UseMCMS {
+		return &RegisterDonsResponse{
+			Ops: &timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
+				Batch:           mcmsOps,
+			},
+		}, nil
+	}
+
 	lggr.Debugf("Registered all DONs (new=%d), waiting for registry to update", addedDons)
 
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
