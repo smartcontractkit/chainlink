@@ -1959,7 +1959,7 @@ func (_c *GeneralConfig_Tracing_Call) RunAndReturn(run func() config.Tracing) *G
 	return _c
 }
 
-// TronConfigs provides a mock function with given fields:
+// TronConfigs provides a mock function with no fields
 func (_m *GeneralConfig) TronConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
@@ -2006,7 +2006,7 @@ func (_c *GeneralConfig_TronConfigs_Call) RunAndReturn(run func() chainlink.RawC
 	return _c
 }
 
-// TronEnabled provides a mock function with given fields:
+// TronEnabled provides a mock function with no fields
 func (_m *GeneralConfig) TronEnabled() bool {
 	ret := _m.Called()
 

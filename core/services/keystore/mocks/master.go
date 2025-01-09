@@ -501,7 +501,7 @@ func (_c *Master_StarkNet_Call) RunAndReturn(run func() keystore.StarkNet) *Mast
 	return _c
 }
 
-// Tron provides a mock function with given fields:
+// Tron provides a mock function with no fields
 func (_m *Master) Tron() keystore.Tron {
 	ret := _m.Called()
 
