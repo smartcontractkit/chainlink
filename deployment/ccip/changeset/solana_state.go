@@ -8,9 +8,6 @@ import (
 
 	ag_binary "github.com/gagliardetto/binary"
 	solana "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_receiver"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -79,15 +76,15 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			ccip_router.SetProgramID(pub)
+			//ccip_router.SetProgramID(pub)
 			state.SolCcipRouter = pub
 		case deployment.NewTypeAndVersion(SolReceiver, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			ccip_receiver.SetProgramID(pub)
+			//ccip_receiver.SetProgramID(pub)
 			state.SolCcipReceiver = pub
 		case deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			token_pool.SetProgramID(pub)
+			//token_pool.SetProgramID(pub)
 			state.TokenPool = pub
 		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)

@@ -54,7 +54,6 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
 func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
-	// TODO: add solana chain support
 	mchains := GenerateChains(t, numChains, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
 	for id, chain := range mchains {
@@ -88,7 +87,6 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
 		backend := NewBackend(chain.Backend)
-		// TODO: add solana chain support
 		chains[chainInfo.ChainSelector] = deployment.Chain{
 			Selector:    chainInfo.ChainSelector,
 			Client:      backend,

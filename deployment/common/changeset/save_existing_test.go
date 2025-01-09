@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// TODO: Solana re-write
-
 func TestSaveExisting(t *testing.T) {
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",

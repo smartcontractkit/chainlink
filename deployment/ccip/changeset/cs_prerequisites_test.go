@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// TODO: Solana re-write
 
 func TestDeployPrerequisites(t *testing.T) {
 	t.Parallel()

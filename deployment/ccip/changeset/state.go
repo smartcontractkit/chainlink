@@ -378,10 +378,6 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
-// TODO: Solana re-write
-// we can add logic here but cleaner just to call LoadOnchainState_Sol for now ?
-// the state will need to be defined separately for solana
-// and LoadChainState() is completely different
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	solState, err := LoadOnchainStateSolana(e)
 	if err != nil {

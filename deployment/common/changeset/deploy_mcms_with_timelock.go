@@ -16,8 +16,6 @@ import (
 
 var _ deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfig] = DeployMCMSWithTimelock
 
-// TODO: solana re-write
-
 func DeployMCMSWithTimelock(e deployment.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfig) (deployment.ChangesetOutput, error) {
 	newAddresses := deployment.NewMemoryAddressBook()
 	err := internal.DeployMCMSWithTimelockContractsBatch(

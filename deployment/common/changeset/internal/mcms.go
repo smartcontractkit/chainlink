@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
-// TODO: solana re-write
-
 func DeployMCMSWithConfig(
 	contractType deployment.ContractType,
 	lggr logger.Logger,

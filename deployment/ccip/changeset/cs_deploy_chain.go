@@ -535,6 +535,7 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to save address: %v", err)
 		}
+		//TODO: SOLANA_CCIP deploy token pool contract
 
 	}
 

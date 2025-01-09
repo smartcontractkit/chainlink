@@ -128,7 +128,6 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 	solChainSelectors := e.Env.AllChainSelectorsSolana()
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	// p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, chain := range e.Env.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
@@ -246,7 +245,6 @@ func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	e := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
-	// TODO: not sure how this ends up deploying contracts ?
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	snap, err := state.View(e.Env.AllChainSelectors())
