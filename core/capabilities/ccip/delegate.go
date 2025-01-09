@@ -278,17 +278,34 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
 
-		ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
-		}
-
-		transmitterKeys[relayID] = func() (r []string) {
-			for _, key := range ethKeys {
-				r = append(r, key.Hex())
+		switch relayID.Network {
+		case relay.NetworkEVM:
+			ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
 			}
-			return
-		}()
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range ethKeys {
+					r = append(r, key.Hex())
+				}
+				return
+			}()
+		case relay.NetworkSolana:
+			solKeys, err := d.keystore.Solana().GetAll()
+			if err != nil {
+				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+			}
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range solKeys {
+					r = append(r, key.PublicKeyStr())
+				}
+				return
+			}()
+		default:
+			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
+		}
 	}
 	return transmitterKeys, nil
 }
