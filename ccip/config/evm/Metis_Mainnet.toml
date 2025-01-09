@@ -1,8 +1,14 @@
 # Metis is an L2 chain based on Optimism.
 ChainID = '1088'
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 # Sequencer offers absolute finality
-FinalityDepth = 10
+# High variation on finality depth triggered a commitee to investigate
+# and set 500 as a secure finality depth.
+# https://chainlink-core.slack.com/archives/C0725LNLJLA/p1717118469587219
+FinalityDepth = 500
+# FT and FD are both present here because the dev effort rely only on FinalityTagEnabled are still in progress.
+# We expect to be able to rely only on FinalityTagEnabled=true in the short future.
+# https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
 FinalityTagEnabled = true
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
@@ -19,3 +25,8 @@ BlockHistorySize = 0
 
 [NodePool]
 SyncThreshold = 10
+
+[HeadTracker]
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false

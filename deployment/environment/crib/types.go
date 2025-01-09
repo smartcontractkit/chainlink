@@ -33,6 +33,7 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		lggr,
 		output.AddressBook,
 		chains,
+		nil, // nil for solana chains, can use memory solana chain example when required
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		func() context.Context { return context.Background() }, deployment.XXXGenerateTestOCRSecrets(),

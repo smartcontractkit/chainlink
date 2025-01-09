@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../libraries/Common.sol";
 
@@ -18,7 +18,7 @@ uint256 constant MAX_NUM_ORACLES = 31;
  * a feed. The verifier contract is used to verify that such reports have
  * been signed by the correct signers.
  **/
-contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
+contract Verifier is IVerifier, ConfirmedOwner, ITypeAndVersion {
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
 
@@ -193,7 +193,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     return interfaceId == this.verify.selector;
   }
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "Verifier 1.2.0";
   }
