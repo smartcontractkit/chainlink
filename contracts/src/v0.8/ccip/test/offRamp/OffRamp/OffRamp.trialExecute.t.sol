@@ -122,14 +122,14 @@ contract OffRamp_trialExecute is OffRampSetup {
 
   function test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() public {
     Internal.Any2EVMRampMessage memory message =
-            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+      _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData;
     uint32[] memory tokenGasOverrides;
 
     vm.mockCallRevert(
       address(s_offRamp),
-      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
@@ -142,7 +142,7 @@ contract OffRamp_trialExecute is OffRampSetup {
   function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
     uint256[] memory amounts;
     Internal.Any2EVMRampMessage memory message =
-            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+      _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
     uint32[] memory tokenGasOverrides = new uint32[](0);
@@ -160,7 +160,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
   function test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() public {
     Internal.Any2EVMRampMessage memory message =
-            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
+      _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
     uint32[] memory tokenGasOverrides = new uint32[](0);

@@ -268,7 +268,7 @@ OffRamp_releaseOrMintTokens:test_releaseOrMintTokens_destDenominatedDecimals() (
 OffRamp_setDynamicConfig:test_SetDynamicConfig() (gas: 25442)
 OffRamp_setDynamicConfig:test_SetDynamicConfigWithInterceptor() (gas: 47493)
 OffRamp_trialExecute:test_trialExecute() (gas: 263614)
-OffRamp_trialExecute:test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() (gas: 24390)
+OffRamp_trialExecute:test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() (gas: 24350)
 OffRamp_trialExecute:test_trialExecute_RateLimitError() (gas: 120710)
 OffRamp_trialExecute:test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() (gas: 29415)
 OffRamp_trialExecute:test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() (gas: 29560)
