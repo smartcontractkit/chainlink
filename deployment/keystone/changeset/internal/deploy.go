@@ -425,7 +425,7 @@ type RegisterCapabilitiesResponse struct {
 type RegisteredCapability struct {
 	capabilities_registry.CapabilitiesRegistryCapability
 	ID     [32]byte
-	config RegisteredCapabilityConfig
+	Config RegisteredCapabilityConfig
 }
 
 type RegisteredCapabilityConfig struct {
@@ -456,7 +456,7 @@ type RegisteredCapabilityRemoteExecutableConfig struct {
 	RequestHashExcludedAttributes []string
 }
 
-func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
+func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64, cfg RegisteredCapabilityConfig) (*RegisteredCapability, error) {
 	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
@@ -468,6 +468,7 @@ func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesR
 	return &RegisteredCapability{
 		CapabilitiesRegistryCapability: *cap,
 		ID:                             id,
+		Config:                         cfg,
 	}, nil
 }
 
@@ -883,16 +884,16 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			var capCfg *capabilitiespb.CapabilityConfig
 			switch regCap.CapabilityType {
 			case uint8(0): // trigger
-				cfg := regCap.config.RemoteConfig.TriggerConfig
+				cfg := regCap.Config.RemoteConfig.TriggerConfig
 				if cfg == nil {
 					return nil, fmt.Errorf("no trigger config found for %v", regCap)
 				}
-				capCfg, capErr = GetTriggerCapConfig(cfg.RegistrationRefresh, cfg.RegistrationExpiry, cfg.MinResponsesToAggregate, regCap.config.DefaultConfig)
+				capCfg, capErr = GetTriggerCapConfig(cfg.RegistrationRefresh, cfg.RegistrationExpiry, cfg.MinResponsesToAggregate, regCap.Config.DefaultConfig)
 			case uint8(2): // consensus
 				wfSupported = true // OCR3 capability => WF supported
-				capCfg, capErr = GetConsensusCapConfig(regCap.config.DefaultConfig)
+				capCfg, capErr = GetConsensusCapConfig(regCap.Config.DefaultConfig)
 			case uint8(3): // target
-				capCfg, capErr = GetTargetCapConfig(regCap.config.DefaultConfig)
+				capCfg, capErr = GetTargetCapConfig(regCap.Config.DefaultConfig)
 			default:
 				return nil, fmt.Errorf("unsupported capability type %d for %v", regCap.CapabilityType, regCap)
 			}
