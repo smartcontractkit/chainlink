@@ -95,7 +95,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 
 	// set up chains
-	var addChainChangesets []commonchangeset.ChangesetApplication
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
@@ -113,23 +112,15 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		}
 	}
 
-	for range chainSelectors {
-		addChainChangesets = append(addChainChangesets, commonchangeset.ChangesetApplication{
+	// Setup because we only need to deploy the contracts and distribute job specs
+	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfig),
 			Config: changeset.UpdateChainConfigConfig{
 				HomeChainSelector: homeChainSel,
 				RemoteChainAdds:   chainConfigs,
 			},
-		})
-	}
-
-	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, addChainChangesets)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to add chains: %w", err)
-	}
-
-	// Setup because we only need to deploy the contracts and distribute job specs
-	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    chainSelectors,
