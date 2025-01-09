@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {Internal} from "../libraries/Internal.sol";
 
 /// @notice Onchain verification of reports from the offchain reporting protocol with multiple OCR plugin support.
 abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
@@ -113,11 +114,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
     + 32 // rawVs value.
     + 32 // word containing length rs.
     + 32; // word containing length of ss.
-
-  /// @dev The address used to send calls for gas estimation.
-  /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
-  /// given message and you're attempting to estimate the actual necessary gas limit
-  address internal constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
 
   uint256 internal immutable i_chainID;
 
@@ -280,7 +276,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, Ownable2StepMsgSender {
             && msg.sender == s_ocrConfigs[ocrPluginType].transmitters[transmitter.index]
         )
       ) {
-        if (msg.sender != GAS_ESTIMATION_SENDER) {
+        if (msg.sender != Internal.GAS_ESTIMATION_SENDER) {
           revert UnauthorizedTransmitter();
         }
       }

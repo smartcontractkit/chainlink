@@ -8,12 +8,9 @@ import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
 import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
-
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract OffRamp_trialExecute is OffRampSetup {
-  address private constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
-
   function setUp() public virtual override {
     super.setUp();
     _setupMultipleOffRamps();
@@ -124,14 +121,11 @@ contract OffRamp_trialExecute is OffRampSetup {
   }
 
   function test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() public {
-    uint256[] memory amounts = new uint256[](2);
-    amounts[0] = 1000;
-    amounts[1] = 50;
     Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
-    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
-    uint32[] memory tokenGasOverrides = new uint32[](0);
+    bytes[] memory offchainTokenData;
+    uint32[] memory tokenGasOverrides;
 
     vm.mockCallRevert(
       address(s_offRamp),
@@ -146,11 +140,9 @@ contract OffRamp_trialExecute is OffRampSetup {
   }
 
   function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
-    uint256[] memory amounts = new uint256[](2);
-    amounts[0] = 1000;
-    amounts[1] = 50;
+    uint256[] memory amounts;
     Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
     uint32[] memory tokenGasOverrides = new uint32[](0);
@@ -161,17 +153,14 @@ contract OffRamp_trialExecute is OffRampSetup {
       abi.encodeWithSelector(CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG, "")
     );
 
+    changePrank(Internal.GAS_ESTIMATION_SENDER);
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    changePrank(GAS_ESTIMATION_SENDER);
     s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 
   function test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() public {
-    uint256[] memory amounts = new uint256[](2);
-    amounts[0] = 1000;
-    amounts[1] = 50;
     Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1, amounts);
+            _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
     uint32[] memory tokenGasOverrides = new uint32[](0);
@@ -182,8 +171,8 @@ contract OffRamp_trialExecute is OffRampSetup {
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
+    changePrank(Internal.GAS_ESTIMATION_SENDER);
     vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    changePrank(GAS_ESTIMATION_SENDER);
     s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
   }
 }
