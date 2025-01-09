@@ -8,33 +8,32 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 )
 
 func TestCommitStore(t *testing.T) {
-	ctx := tests.Context(t)
-	for _, versionStr := range []string{ccipdata.V1_2_0} {
-		lggr := logger.Test(t)
+	for _, versionStr := range []string{ccipdata.V1_0_0, ccipdata.V1_2_0} {
+		lggr := logger.TestLogger(t)
 		addr := cciptypes.Address(utils.RandomAddress().String())
 		lp := mocks2.NewLogPoller(t)
 
+		feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
+
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 		versionFinder := newMockVersionFinder(ccipconfig.CommitStore, *semver.MustParse(versionStr), nil)
-		_, err := NewCommitStoreReader(ctx, lggr, versionFinder, addr, nil, lp)
+		_, err := NewCommitStoreReader(lggr, versionFinder, addr, nil, lp, feeEstimatorConfig)
 		assert.NoError(t, err)
 
-		expFilterName := logpoller.FilterName(v1_2_0.ExecReportAccepts, addr)
+		expFilterName := logpoller.FilterName(v1_0_0.EXEC_REPORT_ACCEPTS, addr)
 		lp.On("UnregisterFilter", mock.Anything, expFilterName).Return(nil)
-		err = CloseCommitStoreReader(ctx, lggr, versionFinder, addr, nil, lp)
+		err = CloseCommitStoreReader(lggr, versionFinder, addr, nil, lp, feeEstimatorConfig)
 		assert.NoError(t, err)
 	}
 }

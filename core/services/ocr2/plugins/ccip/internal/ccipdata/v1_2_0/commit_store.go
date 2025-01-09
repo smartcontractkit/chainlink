@@ -14,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -24,17 +23,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
-)
-
-const (
-	ExecReportAccepts = "Exec report accepts"
-	ReportAccepted    = "ReportAccepted"
 )
 
 var _ ccipdata.CommitStoreReader = &CommitStore{}
@@ -53,9 +49,10 @@ type CommitStore struct {
 	commitReportArgs          abi.Arguments
 
 	// Dynamic config
-	configMu          sync.RWMutex
-	gasPriceEstimator *prices.DAGasPriceEstimator
-	offchainConfig    cciptypes.CommitOffchainConfig
+	configMu           sync.RWMutex
+	gasPriceEstimator  *prices.DAGasPriceEstimator
+	offchainConfig     cciptypes.CommitOffchainConfig
+	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
 }
 
 func (c *CommitStore) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
@@ -259,6 +256,7 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		c.sourceMaxGasPrice,
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
+		c.feeEstimatorConfig,
 	)
 	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
@@ -277,7 +275,7 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 }
 
 func (c *CommitStore) Close() error {
-	return logpollerutil.UnregisterLpFilters(context.Background(), c.lp, c.filters)
+	return logpollerutil.UnregisterLpFilters(c.lp, c.filters)
 }
 
 func (c *CommitStore) parseReport(log types.Log) (*cciptypes.CommitStoreReport, error) {
@@ -353,7 +351,8 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 		return nil, err
 	}
 
-	reportsQuery, err := logpoller.Where(
+	reportsQuery, err := query.Where(
+		c.address.String(),
 		logpoller.NewAddressFilter(c.address),
 		logpoller.NewEventSigFilter(c.reportAcceptedSig),
 		query.Timestamp(uint64(ts.Unix()), primitives.Gte),
@@ -365,7 +364,7 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 
 	logs, err := c.lp.FilteredLogs(
 		ctx,
-		reportsQuery,
+		reportsQuery.Expressions,
 		query.NewLimitAndSort(query.Limit{}, query.NewSortBySequence(query.Asc)),
 		"GetAcceptedCommitReportsGteTimestamp",
 	)
@@ -429,21 +428,21 @@ func (c *CommitStore) VerifyExecutionReport(ctx context.Context, report cciptype
 	return true, nil
 }
 
-func (c *CommitStore) RegisterFilters(ctx context.Context) error {
-	return logpollerutil.RegisterLpFilters(ctx, c.lp, c.filters)
+func (c *CommitStore) RegisterFilters() error {
+	return logpollerutil.RegisterLpFilters(c.lp, c.filters)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*CommitStore, error) {
 	commitStore, err := commit_store_1_2_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
 	}
 	commitStoreABI := abihelpers.MustParseABI(commit_store_1_2_0.CommitStoreABI)
-	eventSig := abihelpers.MustGetEventID(ReportAccepted, commitStoreABI)
-	commitReportArgs := abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI)
+	eventSig := abihelpers.MustGetEventID(v1_0_0.ReportAccepted, commitStoreABI)
+	commitReportArgs := abihelpers.MustGetEventInputs(v1_0_0.ReportAccepted, commitStoreABI)
 	filters := []logpoller.Filter{
 		{
-			Name:      logpoller.FilterName(ExecReportAccepts, addr.String()),
+			Name:      logpoller.FilterName(v1_0_0.EXEC_REPORT_ACCEPTS, addr.String()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{addr},
 			Retention: ccipdata.CommitExecLogsRetention,
@@ -466,7 +465,8 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 		configMu:                  sync.RWMutex{},
 
 		// The fields below are initially empty and set on ChangeConfig method
-		offchainConfig:    cciptypes.CommitOffchainConfig{},
-		gasPriceEstimator: nil,
+		offchainConfig:     cciptypes.CommitOffchainConfig{},
+		gasPriceEstimator:  nil,
+		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }

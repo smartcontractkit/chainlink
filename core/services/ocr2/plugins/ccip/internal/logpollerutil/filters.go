@@ -9,24 +9,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
-func RegisterLpFilters(ctx context.Context, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func RegisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.RegisterFilter(ctx, lpFilter); err != nil {
+		// FIXME Dim pgOpts removed from LogPoller
+		if err := lp.RegisterFilter(context.Background(), lpFilter); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func UnregisterLpFilters(ctx context.Context, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func UnregisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.UnregisterFilter(ctx, lpFilter.Name); err != nil {
+		// FIXME Dim pgOpts removed from LogPoller
+		if err := lp.UnregisterFilter(context.Background(), lpFilter.Name); err != nil {
 			return err
 		}
 	}

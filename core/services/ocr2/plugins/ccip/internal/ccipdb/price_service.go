@@ -68,9 +68,10 @@ type priceService struct {
 	destPriceRegistryReader ccipdata.PriceRegistryReader
 
 	services.StateMachine
-	wg              sync.WaitGroup
-	stopChan        services.StopChan
-	dynamicConfigMu sync.RWMutex
+	wg               *sync.WaitGroup
+	backgroundCtx    context.Context //nolint:containedctx
+	backgroundCancel context.CancelFunc
+	dynamicConfigMu  *sync.RWMutex
 }
 
 func NewPriceService(
@@ -84,6 +85,8 @@ func NewPriceService(
 	priceGetter pricegetter.AllTokensPriceGetter,
 	offRampReader ccipdata.OffRampReader,
 ) PriceService {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	pw := &priceService{
 		gasUpdateInterval:   gasPriceUpdateInterval,
 		tokenUpdateInterval: tokenPriceUpdateInterval,
@@ -97,7 +100,11 @@ func NewPriceService(
 		sourceNative:        sourceNative,
 		priceGetter:         priceGetter,
 		offRampReader:       offRampReader,
-		stopChan:            make(services.StopChan),
+
+		wg:               new(sync.WaitGroup),
+		backgroundCtx:    ctx,
+		backgroundCancel: cancel,
+		dynamicConfigMu:  &sync.RWMutex{},
 	}
 	return pw
 }
@@ -114,16 +121,13 @@ func (p *priceService) Start(context.Context) error {
 func (p *priceService) Close() error {
 	return p.StateMachine.StopOnce("PriceService", func() error {
 		p.lggr.Info("Closing PriceService")
-		close(p.stopChan)
+		p.backgroundCancel()
 		p.wg.Wait()
 		return nil
 	})
 }
 
 func (p *priceService) run() {
-	ctx, cancel := p.stopChan.NewCtx()
-	defer cancel()
-
 	gasUpdateTicker := time.NewTicker(utils.WithJitter(p.gasUpdateInterval))
 	tokenUpdateTicker := time.NewTicker(utils.WithJitter(p.tokenUpdateInterval))
 
@@ -134,15 +138,15 @@ func (p *priceService) run() {
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-p.backgroundCtx.Done():
 				return
 			case <-gasUpdateTicker.C:
-				err := p.runGasPriceUpdate(ctx)
+				err := p.runGasPriceUpdate(p.backgroundCtx)
 				if err != nil {
 					p.lggr.Errorw("Error when updating gas prices in the background", "err", err)
 				}
 			case <-tokenUpdateTicker.C:
-				err := p.runTokenPriceUpdate(ctx)
+				err := p.runTokenPriceUpdate(p.backgroundCtx)
 				if err != nil {
 					p.lggr.Errorw("Error when updating token prices in the background", "err", err)
 				}
@@ -294,7 +298,7 @@ func (p *priceService) observeGasPriceUpdates(
 	if sourceGasPrice == nil {
 		return nil, fmt.Errorf("missing gas price")
 	}
-	sourceGasPriceUSD, err = p.gasPriceEstimator.DenoteInUSD(ctx, sourceGasPrice, sourceNativePriceUSD)
+	sourceGasPriceUSD, err = p.gasPriceEstimator.DenoteInUSD(sourceGasPrice, sourceNativePriceUSD)
 	if err != nil {
 		return nil, err
 	}

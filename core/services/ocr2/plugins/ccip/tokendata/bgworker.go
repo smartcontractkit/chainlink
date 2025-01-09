@@ -41,8 +41,9 @@ type BackgroundWorker struct {
 	timeoutDur       time.Duration
 
 	services.StateMachine
-	wg       sync.WaitGroup
-	stopChan services.StopChan
+	wg               *sync.WaitGroup
+	backgroundCtx    context.Context //nolint:containedctx
+	backgroundCancel context.CancelFunc
 }
 
 func NewBackgroundWorker(
@@ -55,13 +56,17 @@ func NewBackgroundWorker(
 		expirationDur = 24 * time.Hour
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	return &BackgroundWorker{
 		tokenDataReaders: tokenDataReaders,
 		numWorkers:       numWorkers,
-		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
+		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*200),
 		resultsCache:     cache.New(expirationDur, expirationDur/2),
 		timeoutDur:       timeoutDur,
-		stopChan:         make(services.StopChan),
+
+		wg:               new(sync.WaitGroup),
+		backgroundCtx:    ctx,
+		backgroundCancel: cancel,
 	}
 }
 
@@ -77,7 +82,7 @@ func (w *BackgroundWorker) Start(context.Context) error {
 
 func (w *BackgroundWorker) Close() error {
 	return w.StateMachine.StopOnce("Token BackgroundWorker", func() error {
-		close(w.stopChan)
+		w.backgroundCancel()
 		w.wg.Wait()
 		return nil
 	})
@@ -85,13 +90,12 @@ func (w *BackgroundWorker) Close() error {
 
 func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) {
 	w.wg.Add(1)
-	go func(ctx context.Context) {
+	go func() {
 		defer w.wg.Done()
-		ctx, cancel := w.stopChan.Ctx(ctx)
-		defer cancel()
-
 		for _, msg := range msgs {
 			select {
+			case <-w.backgroundCtx.Done():
+				return
 			case <-ctx.Done():
 				return
 			default:
@@ -100,7 +104,7 @@ func (w *BackgroundWorker) AddJobsFromMsgs(ctx context.Context, msgs []cciptypes
 				}
 			}
 		}
-	}(ctx)
+	}()
 }
 
 func (w *BackgroundWorker) GetReaders() map[cciptypes.Address]Reader {
@@ -130,15 +134,12 @@ func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg cciptypes.EV
 func (w *BackgroundWorker) run() {
 	go func() {
 		defer w.wg.Done()
-		ctx, cancel := w.stopChan.NewCtx()
-		defer cancel()
-
 		for {
 			select {
-			case <-ctx.Done():
+			case <-w.backgroundCtx.Done():
 				return
 			case msg := <-w.jobsChan:
-				w.workOnMsg(ctx, msg)
+				w.workOnMsg(w.backgroundCtx, msg)
 			}
 		}
 	}()

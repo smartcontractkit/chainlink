@@ -29,7 +29,6 @@ type attestationResponse struct {
 }
 
 func TestUSDCReader_ReadTokenData(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name                string
 		attestationResponse attestationResponse

@@ -10,10 +10,9 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -52,11 +51,13 @@ type USDCReaderImpl struct {
 }
 
 func (u *USDCReaderImpl) Close() error {
+	// FIXME Dim pgOpts removed from LogPoller
 	return u.lp.UnregisterFilter(context.Background(), u.filter.Name)
 }
 
-func (u *USDCReaderImpl) RegisterFilters(ctx context.Context) error {
-	return u.lp.RegisterFilter(ctx, u.filter)
+func (u *USDCReaderImpl) RegisterFilters() error {
+	// FIXME Dim pgOpts removed from LogPoller
+	return u.lp.RegisterFilter(context.Background(), u.filter)
 }
 
 // usdcPayload has to match the onchain event emitted by the USDC message transmitter
@@ -134,7 +135,7 @@ func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, 
 	return parseUSDCMessageSent(allUsdcTokensData[usdcTokenIndex])
 }
 
-func NewUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*USDCReaderImpl, error) {
+func NewUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*USDCReaderImpl, error) {
 	eventSig := utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
 
 	r := &USDCReaderImpl{
@@ -152,15 +153,15 @@ func NewUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transm
 	}
 
 	if registerFilters {
-		if err := r.RegisterFilters(ctx); err != nil {
+		if err := r.RegisterFilters(); err != nil {
 			return nil, fmt.Errorf("register filters: %w", err)
 		}
 	}
 	return r, nil
 }
 
-func CloseUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
-	r, err := NewUSDCReader(ctx, lggr, jobID, transmitter, lp, false)
+func CloseUSDCReader(lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
+	r, err := NewUSDCReader(lggr, jobID, transmitter, lp, false)
 	if err != nil {
 		return err
 	}
