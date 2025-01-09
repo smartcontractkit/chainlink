@@ -28,6 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
+type Chains struct {
+	EVMChains map[uint64]EVMChain
+	SolChains map[uint64]SolChain
+}
+
 type EVMChain struct {
 	Backend     *simulated.Backend
 	DeployerKey *bind.TransactOpts
@@ -39,6 +44,11 @@ type SolChain struct {
 	URL         string
 	WSURL       string
 	DeployerKey solana.PrivateKey
+}
+
+type NumChains struct {
+	Solana int
+	EVM    int
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -61,12 +71,26 @@ func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amoun
 	backend.Commit()
 }
 
-func GenerateChains(t *testing.T, numChains int, numUsers int) map[uint64]EVMChain {
-	chains := make(map[uint64]EVMChain)
-	for i := 0; i < numChains; i++ {
+func GenerateChains(t *testing.T, numChains NumChains, numUsers int) Chains {
+	chains := Chains{}
+	evmChains := make(map[uint64]EVMChain)
+	solChains := make(map[uint64]SolChain)
+
+	// EVM Chain procurement
+	for i := 0; i < numChains.EVM; i++ {
 		chainID := chainsel.TEST_90000001.EvmChainID + uint64(i)
-		chains[chainID] = evmChain(t, numUsers)
+		evmChains[chainID] = evmChain(t, numUsers)
 	}
+
+	chains.EVMChains = evmChains
+
+	// Sol Chain procurement
+	for i := 0; i < numChains.Solana; i++ {
+		chainID := uint64(i)
+		solChains[chainID] = solChain(t)
+	}
+	chains.SolChains = solChains
+
 	return chains
 }
 

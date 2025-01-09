@@ -55,15 +55,26 @@ func NewMemoryChain(t *testing.T, selector uint64) deployment.Chain {
 
 // Needed for environment variables on the node which point to prexisitng addresses.
 // i.e. CapReg.
-func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+func NewMemoryChains(t *testing.T, numChains NumChains, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
 	// TODO: add solana chain support
 	mchains := GenerateChains(t, numChains, numUsers)
 	users := make(map[uint64][]*bind.TransactOpts)
-	for id, chain := range mchains {
-		sel, err := chainsel.SelectorFromChainId(id)
-		require.NoError(t, err)
-		users[sel] = chain.Users
+	if mchains.EVMChains != nil {
+		for id, chain := range mchains.EVMChains {
+			sel, err := chainsel.SelectorFromChainId(id)
+			require.NoError(t, err)
+			users[sel] = chain.Users
+		}
+
 	}
+
+	if mchains.SolChains != nil {
+		for _, _ = range mchains.SolChains {
+			// TODO add chain details with GetChainDetailsByChainIDAndFamily
+			// https://github.com/smartcontractkit/chain-selectors/blob/main/selectors.go#L111-L147
+		}
+	}
+
 	return generateMemoryChain(t, mchains), users
 }
 
@@ -75,12 +86,13 @@ func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) 
 		require.NoError(t, err)
 		users[sel] = chain.Users
 	}
+
 	return generateMemoryChain(t, mchains), users
 }
 
-func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
+func generateMemoryChain(t *testing.T, inputs Chains) map[uint64]deployment.Chain {
 	chains := make(map[uint64]deployment.Chain)
-	for cid, chain := range inputs {
+	for cid, chain := range inputs.EVMChains {
 		chain := chain
 		chainInfo, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(cid, 10), chainsel.FamilyEVM)
 		require.NoError(t, err)
