@@ -25,8 +25,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -39,7 +39,7 @@ func mustNewChainClient(t *testing.T, wsURL string, sendonlys ...url.URL) client
 
 func mustNewChainClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) client.Client {
 	cfg := client.TestNodePoolConfig{
-		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
+		NodeSelectionMode: multinode.NodeSelectionModeRoundRobin,
 	}
 	c, err := client.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
@@ -491,7 +491,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.Fatal)
+		assert.Equal(t, multinode.Fatal, errType)
 	})
 
 	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
@@ -517,7 +517,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.TransactionAlreadyKnown)
+		assert.Equal(t, multinode.TransactionAlreadyKnown, errType)
 	})
 
 	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
@@ -542,7 +542,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.NoError(t, err)
-		assert.Equal(t, errType, commonclient.Successful)
+		assert.Equal(t, multinode.Successful, errType)
 	})
 
 	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {
@@ -568,7 +568,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.Underpriced)
+		assert.Equal(t, multinode.Underpriced, errType)
 	})
 
 	t.Run("returns Unsupported error type when error message is queue full", func(t *testing.T) {
@@ -594,7 +594,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.Unsupported)
+		assert.Equal(t, multinode.Unsupported, errType)
 	})
 
 	t.Run("returns Retryable error type when there is a transaction gap", func(t *testing.T) {
@@ -620,7 +620,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.Retryable)
+		assert.Equal(t, multinode.Retryable, errType)
 	})
 
 	t.Run("returns InsufficientFunds error type when the sender address doesn't have enough funds", func(t *testing.T) {
@@ -646,7 +646,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.InsufficientFunds)
+		assert.Equal(t, multinode.InsufficientFunds, errType)
 	})
 
 	t.Run("returns ExceedsFeeCap error type when gas price is too high for the node", func(t *testing.T) {
@@ -672,7 +672,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.ExceedsMaxFee)
+		assert.Equal(t, multinode.ExceedsMaxFee, errType)
 	})
 
 	t.Run("returns Unknown error type when the error can't be categorized", func(t *testing.T) {
@@ -698,7 +698,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
-		assert.Equal(t, errType, commonclient.Unknown)
+		assert.Equal(t, multinode.Unknown, errType)
 	})
 }
 
@@ -793,34 +793,34 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	ctx := tests.Context(t)
 
 	// Empty node means there are no active nodes to select from, causing client to always return error.
-	erroringClient := client.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
+	erroringClient := client.NewChainClientWithEmptyNode(t, multinode.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID)
 
 	_, err := erroringClient.BalanceAt(ctx, common.Address{}, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	err = erroringClient.BatchCallContext(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	err = erroringClient.BatchCallContextAll(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.BlockByHash(ctx, common.Hash{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.BlockByNumber(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	err = erroringClient.CallContext(ctx, nil, "")
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.CallContract(ctx, ethereum.CallMsg{}, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	id := erroringClient.ConfiguredChainID()
 	require.Equal(t, id, big.NewInt(0))
 
 	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	id = erroringClient.ConfiguredChainID()
 	require.Equal(t, id, testutils.FixtureChainID)
@@ -829,67 +829,67 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.ErrorContains(t, err, "no available nodes for chain")
 
 	_, err = erroringClient.EstimateGas(ctx, ethereum.CallMsg{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.FilterLogs(ctx, ethereum.FilterQuery{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.HeaderByHash(ctx, common.Hash{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.HeaderByNumber(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.HeadByHash(ctx, common.Hash{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.HeadByNumber(ctx, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.LINKBalance(ctx, common.Address{}, common.Address{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.LatestBlockHeight(ctx)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.PendingCodeAt(ctx, common.Address{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.PendingNonceAt(ctx, common.Address{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	txSenderNotStarted := errors.New("TransactionSender not started")
 	err = erroringClient.SendTransaction(ctx, nil)
-	require.Equal(t, err, txSenderNotStarted)
+	require.Equal(t, txSenderNotStarted, err)
 
 	tx := testutils.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	code, err := erroringClient.SendTransactionReturnCode(ctx, tx, common.Address{})
-	require.Equal(t, code, commonclient.Unknown)
-	require.Equal(t, err, txSenderNotStarted)
+	require.Equal(t, multinode.Unknown, code)
+	require.Equal(t, txSenderNotStarted, err)
 
 	_, err = erroringClient.NonceAt(ctx, common.Address{}, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, _, err = erroringClient.SubscribeToHeads(ctx)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.SuggestGasPrice(ctx)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.SuggestGasTipCap(ctx)
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.TokenBalance(ctx, common.Address{}, common.Address{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.TransactionByHash(ctx, common.Hash{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 
 	_, err = erroringClient.TransactionReceipt(ctx, common.Hash{})
-	require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, multinode.ErrNodeError, err)
 }
 
 const headResult = client.HeadResult

@@ -14,8 +14,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
@@ -407,7 +407,7 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 		return false
 	}
 
-	return s.is(ServiceUnavailable, configErrors) || pkgerrors.Is(s.err, commonclient.ErroringNodeError)
+	return s.is(ServiceUnavailable, configErrors) || pkgerrors.Is(s.err, multinode.ErrNodeError)
 }
 
 // IsServiceTimeout indicates if the error was caused by a service timeout
@@ -571,10 +571,10 @@ func ExtractRPCError(baseErr error) (*JsonError, error) {
 	return &jErr, nil
 }
 
-func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) commonclient.SendTxReturnCode {
+func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, fromAddress common.Address, isL2 bool) multinode.SendTxReturnCode {
 	sendError := NewSendError(err)
 	if sendError == nil {
-		return commonclient.Successful
+		return multinode.Successful
 	}
 
 	configErrors := ClientErrorRegexes(clientErrors)
@@ -582,13 +582,13 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 	if sendError.Fatal(configErrors) {
 		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return commonclient.Fatal
+		return multinode.Fatal
 	}
 	if sendError.IsNonceTooLowError(configErrors) || sendError.IsTransactionAlreadyMined(configErrors) {
 		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.
-		return commonclient.TransactionAlreadyKnown
+		return multinode.TransactionAlreadyKnown
 	}
 	if sendError.IsReplacementUnderpriced(configErrors) {
 		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
@@ -596,57 +596,57 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 			tx.Hash()), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap, "err", sendError, "etx", tx)
 
 		// Assume success and hand off to the next cycle.
-		return commonclient.Successful
+		return multinode.Successful
 	}
 	if sendError.IsTransactionAlreadyInMempool(configErrors) {
 		lggr.Debugw("Transaction already in mempool", "etx", tx, "err", sendError)
-		return commonclient.Successful
+		return multinode.Successful
 	}
 	if sendError.IsTemporarilyUnderpriced(configErrors) {
 		lggr.Infow("Transaction temporarily underpriced", "err", sendError)
-		return commonclient.Successful
+		return multinode.Successful
 	}
 	if sendError.IsTerminallyUnderpriced(configErrors) {
 		lggr.Errorw("Transaction terminally underpriced", "etx", tx, "err", sendError)
-		return commonclient.Underpriced
+		return multinode.Underpriced
 	}
 	if sendError.L2FeeTooLow(configErrors) || sendError.IsL2FeeTooHigh(configErrors) || sendError.IsL2Full(configErrors) {
 		if isL2 {
 			lggr.Errorw("Transaction fee out of range", "err", sendError, "etx", tx)
-			return commonclient.FeeOutOfValidRange
+			return multinode.FeeOutOfValidRange
 		}
 		lggr.Errorw("this error type only handled for L2s", "err", sendError, "etx", tx)
-		return commonclient.Unsupported
+		return multinode.Unsupported
 	}
 	if sendError.IsNonceTooHighError(configErrors) {
 		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
 		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
 		// reached the client yet. The correct thing to do is to mark it as retryable.
 		lggr.Warnw("Transaction has a nonce gap.", "err", sendError, "etx", tx)
-		return commonclient.Retryable
+		return multinode.Retryable
 	}
 	if sendError.IsInsufficientEth(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			tx.Hash(), tx.Type(), sendError.Error(), fromAddress,
 		), "err", sendError, "etx", tx)
-		return commonclient.InsufficientFunds
+		return multinode.InsufficientFunds
 	}
 	if sendError.IsServiceUnavailable(configErrors) {
 		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
-		return commonclient.Retryable
+		return multinode.Retryable
 	}
 	if sendError.IsServiceTimeout(configErrors) {
 		lggr.Errorw(fmt.Sprintf("service timed out while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
-		return commonclient.Retryable
+		return multinode.Retryable
 	}
 	if sendError.IsTimeout() {
 		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
-		return commonclient.Retryable
+		return multinode.Retryable
 	}
 	if sendError.IsCanceled() {
 		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
-		return commonclient.Retryable
+		return multinode.Retryable
 	}
 	if sendError.IsTxFeeExceedsCap(configErrors) {
 		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
@@ -654,15 +654,15 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return commonclient.ExceedsMaxFee
+		return multinode.ExceedsMaxFee
 	}
 	if sendError.IsTerminallyStuckConfigError(configErrors) {
 		lggr.Warnw("Transaction that would have been terminally stuck in the mempool detected on send. Marking as fatal error.", "err", sendError, "etx", tx)
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return commonclient.TerminallyStuck
+		return multinode.TerminallyStuck
 	}
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
-	return commonclient.Unknown
+	return multinode.Unknown
 }
 
 var infura = ClientErrors{
