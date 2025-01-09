@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -343,7 +345,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector)
+		chainReaderConfig, err1 := getChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector, destChainFamily)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -444,35 +446,50 @@ func getChainReaderConfig(
 	homeChainID string,
 	ofc offChainConfig,
 	chainSelector cciptypes.ChainSelector,
+	chainFamily string,
 ) ([]byte, error) {
-	var chainReaderConfig evmrelaytypes.ChainReaderConfig
-	if chainID == destChainID {
-		chainReaderConfig = evmconfig.DestReaderConfig
-	} else {
-		chainReaderConfig = evmconfig.SourceReaderConfig
-	}
+	switch chainFamily {
+	case relay.NetworkEVM:
+		var chainReaderConfig evmrelaytypes.ChainReaderConfig
+		if chainID == destChainID {
+			chainReaderConfig = evmconfig.DestReaderConfig
+		} else {
+			chainReaderConfig = evmconfig.SourceReaderConfig
+		}
 
-	if !ofc.commitEmpty() && ofc.commit().PriceFeedChainSelector == chainSelector {
-		lggr.Debugw("Adding feed reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
-	}
+		if !ofc.commitEmpty() && ofc.commit().PriceFeedChainSelector == chainSelector {
+			lggr.Debugw("Adding feed reader config", "chainID", chainID)
+			chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
+		}
 
-	if isUSDCEnabled(ofc) {
-		lggr.Debugw("Adding USDC reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.USDCReaderConfig)
-	}
+		if isUSDCEnabled(ofc) {
+			lggr.Debugw("Adding USDC reader config", "chainID", chainID)
+			chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.USDCReaderConfig)
+		}
 
-	if chainID == homeChainID {
-		lggr.Debugw("Adding home chain reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
-	}
+		if chainID == homeChainID {
+			lggr.Debugw("Adding home chain reader config", "chainID", chainID)
+			chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
+		}
 
-	marshaledConfig, err := json.Marshal(chainReaderConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
-	}
+		marshaledConfig, err := json.Marshal(chainReaderConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
+		}
 
-	return marshaledConfig, nil
+		return marshaledConfig, nil
+	case relay.NetworkSolana:
+		// TODO initialize chain reader config
+		var cfg config.ChainReader
+		marshaledConfig, err := json.Marshal(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
+		}
+
+		return marshaledConfig, nil
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
+	}
 }
 
 func isUSDCEnabled(ofc offChainConfig) bool {
