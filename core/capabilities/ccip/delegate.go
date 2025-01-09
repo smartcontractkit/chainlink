@@ -292,9 +292,10 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 				return
 			}()
 		case relay.NetworkSolana:
+			// Implement EnabledAddressesForChain for Solana as well ?
 			solKeys, err := d.keystore.Solana().GetAll()
 			if err != nil {
-				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+				return nil, fmt.Errorf("error getting all keys Solana: %w", err)
 			}
 
 			transmitterKeys[relayID] = func() (r []string) {
