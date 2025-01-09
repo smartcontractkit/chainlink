@@ -1,0 +1,16 @@
+exec chainlink chains tron --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains tron - Commands for handling tron chains
+
+USAGE:
+   chainlink chains tron command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing tron chains
+
+OPTIONS:
+   --help, -h  show help
+   

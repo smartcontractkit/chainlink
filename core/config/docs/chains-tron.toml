@@ -1,0 +1,13 @@
+[[Tron]]
+# ChainID is the Tron chain ID.
+ChainID = 'foobar' # Example
+# Enabled enables this chain.
+Enabled = true # Default
+
+[[Tron.Nodes]]
+# Name is a unique (per-chain) identifier for this node.
+Name = 'primary' # Example
+# URL is the full node HTTP endpoint for this node.
+URL = 'https://api.trongrid.io/wallet' # Example
+# SolidityURL is the solidity node HTTP endpoint for this node.
+SolidityURL = 'http://api.trongrid.io/wallet' # Example

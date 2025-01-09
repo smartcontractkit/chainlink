@@ -2,6 +2,7 @@ package devenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -39,7 +40,7 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 			c.Users = []*bind.TransactOpts{c.DeployerKey}
 			return nil
 		} else {
-			return fmt.Errorf("no private keys provided for users, deployer key is also not set")
+			return errors.New("no private keys provided for users, deployer key is also not set")
 		}
 	}
 	for _, pvtKeyStr := range pvtkeys {

@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kms"
@@ -59,10 +60,10 @@ type KMS struct {
 
 func NewKMSClient(config KMS) (KMSClient, error) {
 	if config.KmsDeployerKeyId == "" {
-		return nil, fmt.Errorf("KMS key ID is required")
+		return nil, errors.New("KMS key ID is required")
 	}
 	if config.KmsDeployerKeyRegion == "" {
-		return nil, fmt.Errorf("KMS key region is required")
+		return nil, errors.New("KMS key region is required")
 	}
 	var awsSessionFn AwsSessionFn
 	if config.AwsProfileName != "" {
@@ -94,7 +95,7 @@ func (c *EVMKMSClient) GetKMSTransactOpts(ctx context.Context, chainID *big.Int)
 	pubKeyBytes := secp256k1.S256().Marshal(ecdsaPublicKey.X, ecdsaPublicKey.Y)
 	keyAddr := crypto.PubkeyToAddress(*ecdsaPublicKey)
 	if chainID == nil {
-		return nil, fmt.Errorf("chainID is required")
+		return nil, errors.New("chainID is required")
 	}
 	signer := types.LatestSignerForChainID(chainID)
 
@@ -195,7 +196,7 @@ func recoverEthSignature(expectedPublicKeyBytes, txHash, r, s []byte) ([]byte, e
 		}
 
 		if hex.EncodeToString(recoveredPublicKeyBytes) != hex.EncodeToString(expectedPublicKeyBytes) {
-			return nil, fmt.Errorf("can not reconstruct public key from sig")
+			return nil, errors.New("can not reconstruct public key from sig")
 		}
 	}
 
@@ -238,15 +239,15 @@ func KMSConfigFromEnvVars() (KMS, error) {
 	var exists bool
 	config.KmsDeployerKeyId, exists = os.LookupEnv("KMS_DEPLOYER_KEY_ID")
 	if !exists {
-		return config, fmt.Errorf("KMS_DEPLOYER_KEY_ID is required")
+		return config, errors.New("KMS_DEPLOYER_KEY_ID is required")
 	}
 	config.KmsDeployerKeyRegion, exists = os.LookupEnv("KMS_DEPLOYER_KEY_REGION")
 	if !exists {
-		return config, fmt.Errorf("KMS_DEPLOYER_KEY_REGION is required")
+		return config, errors.New("KMS_DEPLOYER_KEY_REGION is required")
 	}
 	config.AwsProfileName, exists = os.LookupEnv("AWS_PROFILE")
 	if !exists {
-		return config, fmt.Errorf("AWS_PROFILE is required")
+		return config, errors.New("AWS_PROFILE is required")
 	}
 	return config, nil
 }

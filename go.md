@@ -37,6 +37,8 @@ flowchart LR
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
+	chainlink-framework/multinode --> chainlink-common
+	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana --> chainlink-common
@@ -48,6 +50,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
+	chainlink/v2 --> chainlink-framework/multinode
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-starknet/relayer
@@ -105,6 +108,8 @@ flowchart LR
 	chainlink-ccip --> chain-selectors
 	chainlink-ccip --> chainlink-common
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
+	chainlink-ccip/chains/solana --> chainlink-common
+	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
@@ -114,6 +119,8 @@ flowchart LR
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
+	chainlink-framework/multinode --> chainlink-common
+	click chainlink-framework/multinode href "https://github.com/smartcontractkit/chainlink-framework"
 	chainlink-protos/job-distributor
 	click chainlink-protos/job-distributor href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
@@ -136,6 +143,7 @@ flowchart LR
 	chainlink/core/scripts --> chainlink/deployment
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
+	chainlink/deployment --> chainlink-ccip/chains/solana
 	chainlink/deployment --> chainlink-protos/job-distributor
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
@@ -150,6 +158,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
+	chainlink/v2 --> chainlink-framework/multinode
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-solana
 	chainlink/v2 --> chainlink-starknet/relayer
@@ -178,6 +187,12 @@ flowchart LR
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
 
+	subgraph chainlink-ccip-repo[chainlink-ccip]
+		 chainlink-ccip
+		 chainlink-ccip/chains/solana
+	end
+	click chainlink-ccip-repo href "https://github.com/smartcontractkit/chainlink-ccip"
+
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/job-distributor
 		 chainlink-protos/orchestrator
@@ -200,5 +215,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-protos-repo,chainlink-testing-framework-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-protos-repo,chainlink-testing-framework-repo,tdh2-repo outline
 ```

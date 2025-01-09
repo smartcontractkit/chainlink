@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -178,14 +179,14 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	if len(c.RMNDynamicConfig.OffchainConfig) != 0 {
-		return fmt.Errorf("RMNDynamicConfig.OffchainConfig must be empty")
+		return errors.New("RMNDynamicConfig.OffchainConfig must be empty")
 	}
 	if len(c.RMNStaticConfig.OffchainConfig) != 0 {
-		return fmt.Errorf("RMNStaticConfig.OffchainConfig must be empty")
+		return errors.New("RMNStaticConfig.OffchainConfig must be empty")
 	}
 
 	if len(c.RMNStaticConfig.Nodes) > 256 {
-		return fmt.Errorf("RMNStaticConfig.Nodes must be less than 256")
+		return errors.New("RMNStaticConfig.Nodes must be less than 256")
 	}
 
 	var (

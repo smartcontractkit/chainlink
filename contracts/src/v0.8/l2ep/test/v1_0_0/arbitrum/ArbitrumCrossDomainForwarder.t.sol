@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ArbitrumCrossDomainForwarder} from "../../../arbitrum/ArbitrumCrossDomainForwarder.sol";
-import {Greeter} from "../../../../tests/Greeter.sol";
+import {Greeter} from "../../Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract ArbitrumCrossDomainForwarderTest is L2EPTest {

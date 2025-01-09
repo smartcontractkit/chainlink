@@ -286,13 +286,6 @@ func (w *client) waitForReady(ctx context.Context) (err error) {
 
 func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
 	ok := w.IfStarted(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				w.handlePanic(r)
-				resp = nil
-				err = fmt.Errorf("Transmit: caught panic: %v", r)
-			}
-		}()
 		w.logger.Trace("Transmit")
 		start := time.Now()
 		if err = w.waitForReady(ctx); err != nil {
@@ -360,13 +353,6 @@ func (w *client) handleTimeout(err error) {
 
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
 	ok := w.IfStarted(func() {
-		defer func() {
-			if r := recover(); r != nil {
-				w.handlePanic(r)
-				resp = nil
-				err = fmt.Errorf("LatestReport: caught panic: %v", r)
-			}
-		}()
 		lggr := w.logger.With("req.FeedId", hexutil.Encode(req.FeedId))
 		lggr.Trace("LatestReport")
 		if err = w.waitForReady(ctx); err != nil {

@@ -10,10 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func Test_toNodeKeys(t *testing.T) {
@@ -49,7 +50,7 @@ func Test_toNodeKeys(t *testing.T) {
 		SelToOCRConfig: map[chainsel.ChainDetails]deployment.OCRConfig{
 			registryChainDetails: {
 				OffchainPublicKey:         types.OffchainPublicKey(common.FromHex("1111111111111111111111111111111111111111111111111111111111111111")),
-				OnchainPublicKey:          signing_1[:],
+				OnchainPublicKey:          signing_1,
 				PeerID:                    p2pID.PeerID(),
 				TransmitAccount:           types.Account(admin_1.String()),
 				ConfigEncryptionPublicKey: encryptionpubkey,

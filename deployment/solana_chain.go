@@ -9,13 +9,14 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/pkg/errors"
 
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var (
-	deployBinPath = "/Users/yashvardhan/chainlink-ccip/chains/solana/contracts/target/deploy"
+	deployBinPath = "./internal/solana_contracts"
 	// keypairPath   = "/Users/yashvardhan/.config/solana/id.json" //wallet
 )
 
@@ -92,7 +93,7 @@ func parseProgramID(output string) (string, error) {
 	const prefix = "Program Id: "
 	startIdx := bytes.Index([]byte(output), []byte(prefix))
 	if startIdx == -1 {
-		return "", fmt.Errorf("failed to find program ID in output")
+		return "", errors.New("failed to find program ID in output")
 	}
 	startIdx += len(prefix)
 	endIdx := bytes.Index([]byte(output[startIdx:]), []byte("\n"))

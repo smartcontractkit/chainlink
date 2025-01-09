@@ -89,14 +89,11 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/src/v0.8/automation @smartcontractkit/dev-services
 /contracts/src/v0.8/ccip @smartcontractkit/ccip-onchain
 /contracts/src/v0.8/functions @smartcontractkit/dev-services
-# TODO: interfaces folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/l2ep @smartcontractkit/bix-build
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
 /contracts/src/v0.8/shared @smartcontractkit/core-solidity
-# TODO: tests folder, folder should be removed and files moved to the correct folders
-# TODO: transmission folder, owner should be found
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
 /contracts/src/v0.8/workflow @smartcontractkit/dev-services

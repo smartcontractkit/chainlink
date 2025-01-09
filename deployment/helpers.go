@@ -132,7 +132,6 @@ func DecodeErr(encodedABI string, err error) error {
 			return fmt.Errorf("failed to decode error '%s' with abi: %w", encErr, parseErr)
 		}
 		return fmt.Errorf("contract error: %s", errStr)
-
 	}
 	return fmt.Errorf("cannot decode error with abi: %w", err)
 }
@@ -182,7 +181,7 @@ func DeployContract[C any](
 
 func IsValidChainSelector(cs uint64) error {
 	if cs == 0 {
-		return fmt.Errorf("chain selector must be set")
+		return errors.New("chain selector must be set")
 	}
 	_, err := chain_selectors.GetSelectorFamily(cs)
 	if err != nil {

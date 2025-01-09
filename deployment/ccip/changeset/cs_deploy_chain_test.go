@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -31,7 +32,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
-	selectors := append(evmSelectors, solChainSelectors...)
+	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
+	selectors = append(selectors, evmSelectors...)
+	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -129,7 +132,8 @@ func TestDeployCCIPContracts(t *testing.T) {
 	fmt.Println(string(b))
 }
 
-func TestYash(t *testing.T) {
+// IGNORE
+func TestSolanaKeygen(t *testing.T) {
 	privateKey, _ := solana.NewRandomPrivateKey()
 	fmt.Println(privateKey.String())
 
@@ -159,14 +163,7 @@ func TestYash(t *testing.T) {
 		return
 	}
 
-	// if err := os.WriteFile(outputFilePath, privateKeyBytes, 0600); err != nil {
-	// 	fmt.Printf("Error writing keypair to file: %v\n", err)
-	// 	return
-	// }
-
 	pk, err := solana.PrivateKeyFromSolanaKeygenFile(outputFilePath)
 	require.NoError(t, err)
-	fmt.Println(pk.String())
-
-	// fmt.Printf("Keypair JSON successfully written to: %s\n", outputFilePath)
+	require.Equal(t, pk.String(), privateKey.String())
 }

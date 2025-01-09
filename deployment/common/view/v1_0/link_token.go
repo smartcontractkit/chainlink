@@ -44,8 +44,8 @@ func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	return LinkTokenView{
 		ContractMetaData: types.ContractMetaData{
 			TypeAndVersion: deployment.TypeAndVersion{
-				commontypes.LinkToken,
-				deployment.Version1_0_0,
+				Type:    commontypes.LinkToken,
+				Version: deployment.Version1_0_0,
 			}.String(),
 			Address: lt.Address(),
 			Owner:   owner,
