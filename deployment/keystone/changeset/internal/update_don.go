@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -56,10 +57,10 @@ func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 
 func (r *UpdateDonRequest) Validate() error {
 	if r.ContractSet.CapabilitiesRegistry == nil {
-		return fmt.Errorf("registry is required")
+		return errors.New("registry is required")
 	}
 	if len(r.P2PIDs) == 0 {
-		return fmt.Errorf("p2pIDs is required")
+		return errors.New("p2pIDs is required")
 	}
 	return nil
 }

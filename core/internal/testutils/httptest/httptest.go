@@ -12,7 +12,8 @@ import (
 // NewTestHTTPClient returns a real HTTP client that may only make requests to
 // localhost
 func NewTestLocalOnlyHTTPClient() *http.Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	// Don't use the default transport, we want zero limits and zero timeouts
+	tr := &http.Transport{}
 	tr.DialContext = testDialContext
 	tr.DisableCompression = true
 	return &http.Client{Transport: tr}

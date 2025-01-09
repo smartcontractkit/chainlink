@@ -14,7 +14,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonvalues "github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent/logeventcap"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"

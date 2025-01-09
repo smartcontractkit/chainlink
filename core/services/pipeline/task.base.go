@@ -24,6 +24,8 @@ type BaseTask struct {
 
 	Tags string `mapstructure:"tags" json:"-"`
 
+	StreamID null.Uint32 `mapstructure:"streamID"`
+
 	uuid uuid.UUID
 }
 
@@ -82,6 +84,13 @@ func (t BaseTask) TaskMaxBackoff() time.Duration {
 
 func (t BaseTask) TaskTags() string {
 	return t.Tags
+}
+
+func (t BaseTask) TaskStreamID() *uint32 {
+	if t.StreamID.Valid {
+		return &t.StreamID.Uint32
+	}
+	return nil
 }
 
 // GetDescendantTasks retrieves all descendant tasks of a given task

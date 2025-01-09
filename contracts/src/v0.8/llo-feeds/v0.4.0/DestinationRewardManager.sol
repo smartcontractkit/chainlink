@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IDestinationRewardManager} from "./interfaces/IDestinationRewardManager.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {Common} from "../libraries/Common.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -14,7 +14,7 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
  * @author Austin Born
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
-contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
   // @dev The mapping of total fees collected for a particular pot: s_totalRewardRecipientFees[poolId]
@@ -73,7 +73,7 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
     i_linkAddress = linkAddress;
   }
 
-  // @inheritdoc TypeAndVersionInterface
+  // @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "DestinationRewardManager 0.4.0";
   }

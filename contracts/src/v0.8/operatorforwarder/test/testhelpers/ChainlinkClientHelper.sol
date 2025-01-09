@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ChainlinkClient} from "../../../ChainlinkClient.sol";
+import {ChainlinkClient} from "../../ChainlinkClient.sol";
 
 contract ChainlinkClientHelper is ChainlinkClient {
   bytes4 public constant FULFILL_SELECTOR = this.fulfill.selector;

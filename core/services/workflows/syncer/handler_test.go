@@ -780,6 +780,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	workflowOwner := hex.EncodeToString([]byte("anOwner"))
 	workflowName := "aName"
 	workflowID := "anID"
+	decodedWorkflowName := "decodedName"
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
@@ -820,7 +821,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 		encryptionKey,
 	)
 
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	expectedSecrets := map[string]string{
@@ -837,6 +838,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	workflowOwner := hex.EncodeToString([]byte("anOwner"))
 	workflowName := "aName"
 	workflowID := "anID"
+	decodedWorkflowName := "decodedName"
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
@@ -881,7 +883,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 		encryptionKey,
 	)
 
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	expectedSecrets := map[string]string{
@@ -898,6 +900,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	workflowOwner := hex.EncodeToString([]byte("anOwner"))
 	workflowName := "aName"
 	workflowID := "anID"
+	decodedWorkflowName := "decodedName"
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
@@ -943,7 +946,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 		encryptionKey,
 	)
 
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	expectedSecrets := map[string]string{
@@ -955,7 +958,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	// SecretsFor should still succeed.
 	fetcher.responseMap[url] = mockFetchResp{}
 
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
@@ -963,7 +966,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	// Now advance so that we hit the freshness limit
 	clock.Advance(48 * time.Hour)
 
-	_, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, workflowID)
+	_, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	assert.ErrorContains(t, err, "unexpected end of JSON input")
 }
 

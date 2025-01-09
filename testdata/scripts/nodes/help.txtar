@@ -14,6 +14,7 @@ COMMANDS:
    evm       Commands for handling evm node configuration
    solana    Commands for handling solana node configuration
    starknet  Commands for handling starknet node configuration
+   tron      Commands for handling tron node configuration
 
 OPTIONS:
    --help, -h  show help

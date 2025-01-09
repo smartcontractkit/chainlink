@@ -30,13 +30,13 @@ func (cfg ExistingContractsConfig) Validate() error {
 			return fmt.Errorf("invalid chain selector: %d - %w", ec.ChainSelector, err)
 		}
 		if ec.Address == (common.Address{}) {
-			return fmt.Errorf("address must be set")
+			return errors.New("address must be set")
 		}
 		if ec.TypeAndVersion.Type == "" {
-			return fmt.Errorf("type must be set")
+			return errors.New("type must be set")
 		}
 		if val, err := ec.TypeAndVersion.Version.Value(); err != nil || val == "" {
-			return fmt.Errorf("version must be set")
+			return errors.New("version must be set")
 		}
 	}
 	return nil

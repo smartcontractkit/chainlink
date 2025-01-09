@@ -5,7 +5,7 @@ import {BlockhashStoreInterface} from "../../interfaces/BlockhashStoreInterface.
 import {VRFOld} from "./VRFOld.sol";
 import {VRFTypes} from "../../VRFTypes.sol";
 import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "../VRFConsumerBaseV2Plus.sol";
-import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../../../shared/util/ChainSpecificUtil.sol";
 import {SubscriptionAPI} from "../SubscriptionAPI.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 import {IVRFCoordinatorV2PlusMigration} from "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
