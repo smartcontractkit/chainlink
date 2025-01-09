@@ -456,17 +456,17 @@ type RegisteredCapabilityRemoteExecutableConfig struct {
 	RequestHashExcludedAttributes []string
 }
 
-func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64, cfg RegisteredCapabilityConfig) (*RegisteredCapability, error) {
+func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64, cfg RegisteredCapabilityConfig) (*RegisteredCapability, error) {
 	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capReg.LabelledName, capReg.Version)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capReg, err)
 	}
 	return &RegisteredCapability{
-		CapabilitiesRegistryCapability: *cap,
+		CapabilitiesRegistryCapability: *capReg,
 		ID:                             id,
 		Config:                         cfg,
 	}, nil
