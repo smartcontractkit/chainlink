@@ -1,0 +1,15 @@
+ChainID = '1001'
+FinalityDepth = 10
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+PriceDefault = '750 gwei' # gwei = ston
+BumpThreshold = 5
+
+[HeadTracker]
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false

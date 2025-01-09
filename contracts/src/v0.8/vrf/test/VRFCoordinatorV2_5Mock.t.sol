@@ -5,7 +5,7 @@ import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
 import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
 import {VRFCoordinatorV2_5Mock} from "../mocks/VRFCoordinatorV2_5Mock.sol";
 import {VRFConsumerV2Plus} from "../testhelpers/VRFConsumerV2Plus.sol";
-import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
+import {MockLinkToken} from "../../functions/tests/v1_X/testhelpers/MockLinkToken.sol";
 
 contract VRFCoordinatorV2_5MockTest is BaseTest {
   MockLinkToken internal s_linkToken;

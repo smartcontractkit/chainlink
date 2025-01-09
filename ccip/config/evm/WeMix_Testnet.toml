@@ -16,5 +16,6 @@ EIP1559DynamicFees = true
 TipCapDefault = '100 gwei'
 
 [HeadTracker]
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
 FinalityTagBypass = false
-PersistenceEnabled = false

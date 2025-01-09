@@ -187,6 +187,15 @@ Name = 'primary'
 [[Aptos.Nodes]]
 Name = 'primary'
 
+[[Tron]]
+Enabled = 1
+
+[[Tron.Nodes]]
+Name = 'tron-test'
+
+[[Tron.Nodes]]
+Name = 'tron-test'
+
 [OCR2]
 Enabled = true
 

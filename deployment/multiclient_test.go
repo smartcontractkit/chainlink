@@ -38,7 +38,7 @@ func TestMultiClient(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, mc)
 	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPC_DEFAULT_RETRY_ATTEMPTS))
-	assert.Equal(t, mc.RetryConfig.Delay, RPC_DEFAULT_RETRY_DELAY)
+	assert.Equal(t, RPC_DEFAULT_RETRY_DELAY, mc.RetryConfig.Delay)
 
 	_, err = NewMultiClient(lggr, []RPC{})
 	require.Error(t, err)
@@ -49,5 +49,5 @@ func TestMultiClient(t *testing.T) {
 		{WSURL: s.URL},
 	})
 	require.NoError(t, err)
-	require.Equal(t, len(mc.Backups), 1)
+	require.Len(t, mc.Backups, 1)
 }

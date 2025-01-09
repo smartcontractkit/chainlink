@@ -64,8 +64,7 @@ func TestOnRampView(t *testing.T) {
 	// Check a few fields.
 	assert.Equal(t, v.StaticConfig.ChainSelector, chain.Selector)
 	assert.Equal(t, v.DynamicConfig.Router, common.HexToAddress("0x4"))
-	assert.Equal(t, v.TypeAndVersion, "EVM2EVMOnRamp 1.5.0")
+	assert.Equal(t, "EVM2EVMOnRamp 1.5.0", v.TypeAndVersion)
 	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)
-
 }

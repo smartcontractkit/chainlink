@@ -30,7 +30,6 @@ func (c *workflowRegistryDeployer) Contract() *workflow_registry.WorkflowRegistr
 }
 
 func (c *workflowRegistryDeployer) Deploy(req changeset.DeployRequest) (*changeset.DeployResponse, error) {
-
 	addr, tx, wr, err := workflow_registry.DeployWorkflowRegistry(
 		req.Chain.DeployerKey,
 		req.Chain.Client)

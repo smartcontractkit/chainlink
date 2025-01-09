@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	ErrInvalidChainSelector = fmt.Errorf("invalid chain selector")
-	ErrInvalidAddress       = fmt.Errorf("invalid address")
-	ErrChainNotFound        = fmt.Errorf("chain not found")
+	ErrInvalidChainSelector = errors.New("invalid chain selector")
+	ErrInvalidAddress       = errors.New("invalid address")
+	ErrChainNotFound        = errors.New("chain not found")
 )
 
 // ContractType is a simple string type for identifying contract types.
@@ -117,7 +117,7 @@ func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersi
 	// TODO NONEVM-960: Add validation for non-EVM chain addresses
 
 	if typeAndVersion.Type == "" {
-		return fmt.Errorf("type cannot be empty")
+		return errors.New("type cannot be empty")
 	}
 
 	if _, exists := m.addressesByChain[chainSelector]; !exists {
@@ -256,7 +256,7 @@ func SearchAddressBook(ab AddressBook, chain uint64, typ ContractType) (string, 
 		}
 	}
 
-	return "", fmt.Errorf("not found")
+	return "", errors.New("not found")
 }
 
 func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool, error) {

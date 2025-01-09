@@ -2,6 +2,7 @@ package devenv
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -30,10 +31,10 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 
 	jd, ok := offChain.(*JobDistributor)
 	if !ok {
-		return nil, nil, fmt.Errorf("offchain client does not implement JobDistributor")
+		return nil, nil, errors.New("offchain client does not implement JobDistributor")
 	}
 	if jd == nil {
-		return nil, nil, fmt.Errorf("offchain client is not set up")
+		return nil, nil, errors.New("offchain client is not set up")
 	}
 	var nodeIDs []string
 	if jd.don != nil {

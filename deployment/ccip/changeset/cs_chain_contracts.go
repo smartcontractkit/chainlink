@@ -223,7 +223,7 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 type UpdateOnRampDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
-	// (can still be acheived by calling this function multiple times)
+	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
 }
 
@@ -308,7 +308,7 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
-				return fmt.Errorf("cannot update onramp destination to the same chain")
+				return errors.New("cannot update onramp destination to the same chain")
 			}
 		}
 	}
@@ -558,7 +558,7 @@ func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPrices
 type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
-	// (can still be acheived by calling this function multiple times)
+	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
 }
 
@@ -596,7 +596,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
-				return fmt.Errorf("source and destination chain cannot be the same")
+				return errors.New("source and destination chain cannot be the same")
 			}
 		}
 	}
@@ -868,7 +868,6 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 				return fmt.Errorf("missing offramp for dest %d", destination)
 			}
 		}
-
 	}
 	return nil
 }
