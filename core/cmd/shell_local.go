@@ -469,6 +469,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure aptos key")
 		}
 	}
+	if s.Config.TronEnabled() {
+		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure tron key")
+		}
+	}
 
 	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
 	if err2 != nil {

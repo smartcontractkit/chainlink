@@ -73,11 +73,11 @@ compileContract automation/testhelpers/UpkeepCounter.sol
 
 compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
 
-compileContract tests/VerifiableLoadUpkeep.sol
-compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol
-compileContract tests/VerifiableLoadLogTriggerUpkeep.sol
-compileContract tests/AutomationConsumerBenchmark.sol
-compileContract tests/StreamsLookupUpkeep.sol
+compileContract automation/testhelpers/VerifiableLoadUpkeep.sol
+compileContract automation/testhelpers/VerifiableLoadStreamsLookupUpkeep.sol
+compileContract automation/testhelpers/VerifiableLoadLogTriggerUpkeep.sol
+compileContract automation/testhelpers/AutomationConsumerBenchmark.sol
+compileContract automation/testhelpers/StreamsLookupUpkeep.sol
 
 SOLC_VERSION="0.8.19"
 

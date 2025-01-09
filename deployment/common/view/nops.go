@@ -2,9 +2,11 @@ package view
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -62,11 +64,11 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			nop.OCRKeys[details.ChainName] = OCRKeyView{
-				OffchainPublicKey:         fmt.Sprintf("%x", ocrConfig.OffchainPublicKey[:]),
+				OffchainPublicKey:         hex.EncodeToString(ocrConfig.OffchainPublicKey[:]),
 				OnchainPublicKey:          fmt.Sprintf("%x", ocrConfig.OnchainPublicKey[:]),
 				PeerID:                    ocrConfig.PeerID.String(),
 				TransmitAccount:           string(ocrConfig.TransmitAccount),
-				ConfigEncryptionPublicKey: fmt.Sprintf("%x", ocrConfig.ConfigEncryptionPublicKey[:]),
+				ConfigEncryptionPublicKey: hex.EncodeToString(ocrConfig.ConfigEncryptionPublicKey[:]),
 				KeyBundleID:               ocrConfig.KeyBundleID,
 			}
 		}

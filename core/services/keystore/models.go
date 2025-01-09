@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -158,6 +159,7 @@ type keyRing struct {
 	Solana     map[string]solkey.Key
 	StarkNet   map[string]starkkey.Key
 	Aptos      map[string]aptoskey.Key
+	Tron       map[string]tronkey.Key
 	VRF        map[string]vrfkey.KeyV2
 	Workflow   map[string]workflowkey.Key
 	LegacyKeys LegacyKeyStorage
@@ -174,6 +176,7 @@ func newKeyRing() *keyRing {
 		Solana:   make(map[string]solkey.Key),
 		StarkNet: make(map[string]starkkey.Key),
 		Aptos:    make(map[string]aptoskey.Key),
+		Tron:     make(map[string]tronkey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
 		Workflow: make(map[string]workflowkey.Key),
 	}
@@ -236,6 +239,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, aptoskey := range kr.Aptos {
 		rawKeys.Aptos = append(rawKeys.Aptos, aptoskey.Raw())
 	}
+	for _, tronkey := range kr.Tron {
+		rawKeys.Tron = append(rawKeys.Tron, tronkey.Raw())
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
@@ -283,6 +289,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, aptosKey := range kr.Aptos {
 		aptosIDs = append(aptosIDs, aptosKey.ID())
 	}
+	tronIDs := []string{}
+	for _, tronKey := range kr.Tron {
+		tronIDs = append(tronIDs, tronKey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -320,6 +330,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(aptosIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Aptos keys", len(aptosIDs)), "keys", aptosIDs)
 	}
+	if len(tronIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Tron keys", len(tronIDs)), "keys", tronIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -344,6 +357,7 @@ type rawKeyRing struct {
 	Solana     []solkey.Raw
 	StarkNet   []starkkey.Raw
 	Aptos      []aptoskey.Raw
+	Tron       []tronkey.Raw
 	VRF        []vrfkey.Raw
 	Workflow   []workflowkey.Raw
 	LegacyKeys LegacyKeyStorage `json:"-"`
@@ -387,6 +401,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawAptosKey := range rawKeys.Aptos {
 		aptosKey := rawAptosKey.Key()
 		keyRing.Aptos[aptosKey.ID()] = aptosKey
+	}
+	for _, rawTronKey := range rawKeys.Tron {
+		tronKey := rawTronKey.Key()
+		keyRing.Tron[tronKey.ID()] = tronKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()

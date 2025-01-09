@@ -59,6 +59,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.StarkNet, starkkey.NewOCR2Key)
 	case chaintype.Aptos:
 		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
+	case chaintype.Tron:
+		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -76,6 +78,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.StarkNet, starkkey.NewOCR2Key, reader)
 	case chaintype.Aptos:
 		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
+	case chaintype.Tron:
+		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -126,6 +130,8 @@ func (raw Raw) Key() (kb KeyBundle) {
 		kb = newKeyBundle(new(starkkey.OCR2Key))
 	case chaintype.Aptos:
 		kb = newKeyBundle(new(aptosKeyring))
+	case chaintype.Tron:
+		kb = newKeyBundle(new(evmKeyring))
 	default:
 		return nil
 	}

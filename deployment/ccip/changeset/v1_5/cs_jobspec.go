@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -41,14 +42,14 @@ func (j JobSpecInput) Validate() error {
 		return fmt.Errorf("DestinationChainSelector is invalid: %w", err)
 	}
 	if j.TokenPricesUSDPipeline == "" && j.PriceGetterConfigJson == "" {
-		return fmt.Errorf("TokenPricesUSDPipeline or PriceGetterConfigJson is required")
+		return errors.New("TokenPricesUSDPipeline or PriceGetterConfigJson is required")
 	}
 	if j.USDCCfg != nil {
 		if err := j.USDCCfg.ValidateUSDCConfig(); err != nil {
 			return fmt.Errorf("USDCCfg is invalid: %w", err)
 		}
 		if j.USDCAttestationAPI == "" {
-			return fmt.Errorf("USDCAttestationAPI is required")
+			return errors.New("USDCAttestationAPI is required")
 		}
 	}
 	return nil

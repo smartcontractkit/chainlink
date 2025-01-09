@@ -36,5 +36,5 @@ func TestDeployFeedsConsumer(t *testing.T) {
 	// no feeds consumer registry on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	require.Len(t, oaddrs, 0)
+	require.Empty(t, oaddrs)
 }

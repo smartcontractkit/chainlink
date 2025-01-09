@@ -1,12 +1,14 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -30,7 +32,7 @@ type UpdateNodesRequest struct {
 
 func (r *UpdateNodesRequest) Validate() error {
 	if r.P2pToUpdates == nil {
-		return fmt.Errorf("P2pToUpdates must be non-nil")
+		return errors.New("P2pToUpdates must be non-nil")
 	}
 	return nil
 }
@@ -74,7 +76,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS() {
 		if resp.Ops == nil {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
 			req.RegistryChainSel: contracts.Timelock.Address(),
