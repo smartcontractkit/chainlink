@@ -432,12 +432,6 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 
 	t.config.Store(tc)
 
-	workflowName, err := hex.DecodeString(e.workflow.hexName)
-	if err != nil {
-		e.logger.Warnw("failed to decode workflow name: %s, using encoded", err)
-		workflowName = []byte(e.workflow.hexName)
-	}
-
 	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
@@ -446,7 +440,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      string(workflowName),
+			DecodedWorkflowName:      e.workflow.name,
 		},
 		Config:    t.config.Load(),
 		TriggerID: triggerID,
@@ -875,13 +869,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	workflowName, err := hex.DecodeString(e.workflow.hexName)
-	if err != nil {
-		e.logger.Warnw("failed to decode workflow name: %s, using encoded", err)
-		workflowName = []byte(e.workflow.hexName)
-	}
-
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, string(workflowName), e.workflow.id)
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, e.workflow.name, e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -966,12 +954,6 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		}
 	}
 
-	workflowName, err := hex.DecodeString(e.workflow.hexName)
-	if err != nil {
-		e.logger.Warnw("failed to decode workflow name: %s, using encoded", err)
-		workflowName = []byte(e.workflow.hexName)
-	}
-
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
 		Config: config,
@@ -983,7 +965,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
-			DecodedWorkflowName:      string(workflowName),
+			DecodedWorkflowName:      e.workflow.name,
 		},
 	}
 
@@ -1001,12 +983,6 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	workflowName, err := hex.DecodeString(e.workflow.hexName)
-	if err != nil {
-		e.logger.Warnw("failed to decode workflow name: %s, using encoded", err)
-		workflowName = []byte(e.workflow.hexName)
-	}
-
 	deregRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
@@ -1015,7 +991,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowName:             e.workflow.hexName,
 			WorkflowOwner:            e.workflow.owner,
 			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      string(workflowName),
+			DecodedWorkflowName:      e.workflow.name,
 		},
 		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
 		Config:    t.config.Load(),
@@ -1322,6 +1298,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
 	workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
+	workflow.name = cfg.WorkflowName
 
 	engine = &Engine{
 		cma:            cma,
