@@ -23,7 +23,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy 1.5 contracts (excluding pools and real RMN, use MockRMN to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithLegacyDeployment(),
+		changeset.WithPrerequisiteDeployment(),
 		changeset.WithChains(3),
 		changeset.WithUsersPerChain(2),
 		// for in-memory test it is important to set the dest chain id as 1337 otherwise the config digest will not match

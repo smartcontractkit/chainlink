@@ -156,7 +156,7 @@ type JobType string
 const (
 	Commit    JobType = "commit"
 	Execution JobType = "exec"
-	Boostrap  JobType = "bootstrap"
+	Bootstrap JobType = "bootstrap"
 )
 
 func JobName(jobType JobType, source string, destination, version string) string {
@@ -323,7 +323,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 		},
 	}
 	return &OCR2TaskJobSpec{
-		Name:           fmt.Sprintf("%s-%s-%s", Boostrap, params.SourceChainName, params.DestChainName),
+		Name:           fmt.Sprintf("%s-%s-%s", Bootstrap, params.SourceChainName, params.DestChainName),
 		JobType:        "bootstrap",
 		OCR2OracleSpec: bootstrapSpec,
 	}

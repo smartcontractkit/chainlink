@@ -168,8 +168,8 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 		dockerEnv := &DeployedLocalDevEnvironment{
 			GenericTCConfig: testCfg,
 		}
-		if testCfg.LegacyDeployment {
-			deployedEnv := changeset.NewLegacyEnvironment(t, dockerEnv)
+		if testCfg.PrerequisiteDeploymentOnly {
+			deployedEnv := changeset.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, dockerEnv
