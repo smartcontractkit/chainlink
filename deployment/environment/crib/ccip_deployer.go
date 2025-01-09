@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -94,7 +96,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			ChainSelector: chain,
 		})
 	}
-
 	// set up chains
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
