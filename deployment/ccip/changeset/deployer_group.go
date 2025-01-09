@@ -21,20 +21,18 @@ type DeployerGroup struct {
 	transactions map[uint64][]*types.Transaction
 }
 
-/*
-DeployerGroup is an abstraction that lets developers write their changeset
-without needing to know if it's executed using a DeployerKey or an MCMS proposal.
-
-Example usage:
-
-	deployerGroup := NewDeployerGroup(e, state, mcmConfig)
-	selector := 0
-	# Get the right deployer key for the chain
-	deployer := deployerGroup.getDeployer(selector)
-	state.Chains[selector].RMNRemote.Curse()
-	# Execute the transaction or create the proposal
-	deployerGroup.enact("Curse RMNRemote")
-*/
+// DeployerGroup is an abstraction that lets developers write their changeset
+// without needing to know if it's executed using a DeployerKey or an MCMS proposal.
+//
+// Example usage:
+//
+//	deployerGroup := NewDeployerGroup(e, state, mcmConfig)
+//	selector := 0
+//	# Get the right deployer key for the chain
+//	deployer := deployerGroup.getDeployer(selector)
+//	state.Chains[selector].RMNRemote.Curse()
+//	# Execute the transaction or create the proposal
+//	deployerGroup.enact("Curse RMNRemote")
 func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) *DeployerGroup {
 	return &DeployerGroup{
 		e:            e,
@@ -77,9 +75,9 @@ func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
 func (d *DeployerGroup) enact(deploymentDescription string) (deployment.ChangesetOutput, error) {
 	if d.mcmConfig != nil {
 		return d.enactMcms(deploymentDescription)
-	} else {
-		return d.enactDeployer()
 	}
+
+	return d.enactDeployer()
 }
 
 func (d *DeployerGroup) enactMcms(deploymentDescription string) (deployment.ChangesetOutput, error) {

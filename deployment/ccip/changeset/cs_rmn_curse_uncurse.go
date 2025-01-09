@@ -2,9 +2,9 @@ package changeset
 
 import (
 	"encoding/binary"
-	"fmt"
 	"slices"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -27,11 +27,11 @@ type RMNCurseConfig struct {
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	if len(c.CurseActions) == 0 {
-		return fmt.Errorf("curse actions are required")
+		return errors.Errorf("curse actions are required")
 	}
 
 	if c.Reason == "" {
-		return fmt.Errorf("reason is required")
+		return errors.Errorf("reason is required")
 	}
 
 	validSelectors := e.AllChainSelectors()
@@ -45,11 +45,11 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 		result := curseAction(e)
 		for _, action := range result {
 			if !slices.Contains(validSelectors, action.ChainSelector) {
-				return fmt.Errorf("invalid chain selector %d", action.ChainSelector)
+				return errors.Errorf("invalid chain selector %d", action.ChainSelector)
 			}
 
 			if !slices.Contains(validSubjects, action.SubjectToCurse) {
-				return fmt.Errorf("invalid subject %x", action.SubjectToCurse)
+				return errors.Errorf("invalid subject %x", action.SubjectToCurse)
 			}
 		}
 	}
@@ -152,7 +152,7 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, filter bool) map[ui
 func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return deployment.ChangesetOutput{}, errors.Errorf("failed to load onchain state: %v", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -170,12 +170,12 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 		if curseSubjects, ok := grouped[selector]; ok {
 			_, err := chain.RMNRemote.Curse0(deployer, curseSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
+				return deployment.ChangesetOutput{}, errors.Errorf("failed to curse chain %d: %v", selector, err)
 			}
 		}
 	}
 
-	return deployerGroup.enact(fmt.Sprintf("proposal to curse RMNs: %s", cfg.Reason))
+	return deployerGroup.enact("proposal to curse RMNs: " + cfg.Reason)
 }
 
 // NewRMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
@@ -194,7 +194,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		return deployment.ChangesetOutput{}, errors.Errorf("failed to load onchain state: %v", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -215,7 +215,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			for _, subject := range curseSubjects {
 				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
+					return deployment.ChangesetOutput{}, errors.Errorf("failed to check if chain %d is cursed: %v", selector, err)
 				}
 
 				if cursed {
@@ -227,10 +227,10 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 
 			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
+				return deployment.ChangesetOutput{}, errors.Errorf("failed to uncurse chain %d: %v", selector, err)
 			}
 		}
 	}
 
-	return deployerGroup.enact(fmt.Sprintf("proposal to uncurse RMNs: %s", cfg.Reason))
+	return deployerGroup.enact("proposal to uncurse RMNs: %s" + cfg.Reason)
 }

@@ -10,86 +10,86 @@ import (
 )
 
 type curseAssertion struct {
-	chainId      uint64
-	subject      uint64
-	global_curse bool
-	cursed       bool
+	chainID     uint64
+	subject     uint64
+	globalCurse bool
+	cursed      bool
 }
 
 type CurseTestCase struct {
 	name                string
-	curseActionsBuilder func(mapIdToSelectorFunc) []CurseAction
+	curseActionsBuilder func(mapIDToSelectorFunc) []CurseAction
 	curseAssertions     []curseAssertion
 }
 
-type mapIdToSelectorFunc func(uint64) uint64
+type mapIDToSelectorFunc func(uint64) uint64
 
 var testCases = []CurseTestCase{
 	{
 		name: "lane",
-		curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLane(mapIdToSelector(0), mapIdToSelector(1))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
+			return []CurseAction{CurseLane(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainId: 0, subject: 1, cursed: true},
-			{chainId: 0, subject: 2, cursed: false},
-			{chainId: 1, subject: 0, cursed: true},
-			{chainId: 1, subject: 2, cursed: false},
-			{chainId: 2, subject: 0, cursed: false},
-			{chainId: 2, subject: 1, cursed: false},
+			{chainID: 0, subject: 1, cursed: true},
+			{chainID: 0, subject: 2, cursed: false},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
 		},
 	},
 	{
 		name: "lane duplicate",
-		curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLane(mapIdToSelector(0), mapIdToSelector(1)), CurseLane(mapIdToSelector(0), mapIdToSelector(1))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
+			return []CurseAction{CurseLane(mapIDToSelector(0), mapIDToSelector(1)), CurseLane(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainId: 0, subject: 1, cursed: true},
-			{chainId: 0, subject: 2, cursed: false},
-			{chainId: 1, subject: 0, cursed: true},
-			{chainId: 1, subject: 2, cursed: false},
-			{chainId: 2, subject: 0, cursed: false},
-			{chainId: 2, subject: 1, cursed: false},
+			{chainID: 0, subject: 1, cursed: true},
+			{chainID: 0, subject: 2, cursed: false},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: false},
+			{chainID: 2, subject: 1, cursed: false},
 		},
 	},
 	{
 		name: "chain",
-		curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIdToSelector(0))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
+			return []CurseAction{CurseChain(mapIDToSelector(0))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainId: 0, global_curse: true, cursed: true},
-			{chainId: 1, subject: 0, cursed: true},
-			{chainId: 1, subject: 2, cursed: false},
-			{chainId: 2, subject: 0, cursed: true},
-			{chainId: 2, subject: 1, cursed: false},
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: true},
+			{chainID: 2, subject: 1, cursed: false},
 		},
 	},
 	{
 		name: "chain duplicate",
-		curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIdToSelector(0)), CurseChain(mapIdToSelector(0))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
+			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseChain(mapIDToSelector(0))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainId: 0, global_curse: true, cursed: true},
-			{chainId: 1, subject: 0, cursed: true},
-			{chainId: 1, subject: 2, cursed: false},
-			{chainId: 2, subject: 0, cursed: true},
-			{chainId: 2, subject: 1, cursed: false},
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: false},
+			{chainID: 2, subject: 0, cursed: true},
+			{chainID: 2, subject: 1, cursed: false},
 		},
 	},
 	{
 		name: "chain and lanes",
-		curseActionsBuilder: func(mapIdToSelector mapIdToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIdToSelector(0)), CurseLane(mapIdToSelector(1), mapIdToSelector(2))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
+			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseLane(mapIDToSelector(1), mapIDToSelector(2))}
 		},
 		curseAssertions: []curseAssertion{
-			{chainId: 0, global_curse: true, cursed: true},
-			{chainId: 1, subject: 0, cursed: true},
-			{chainId: 1, subject: 2, cursed: true},
-			{chainId: 2, subject: 0, cursed: true},
-			{chainId: 2, subject: 1, cursed: true},
+			{chainID: 0, globalCurse: true, cursed: true},
+			{chainID: 1, subject: 0, cursed: true},
+			{chainID: 1, subject: 2, cursed: true},
+			{chainID: 2, subject: 0, cursed: true},
+			{chainID: 2, subject: 1, cursed: true},
 		},
 	},
 }
@@ -97,10 +97,10 @@ var testCases = []CurseTestCase{
 func TestRMNCurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
-			testRmnCurse(t, tc)
+			runRmnCurseTest(t, tc)
 		})
 		t.Run(tc.name+"_MCMS", func(t *testing.T) {
-			testRmnCurseMCMS(t, tc)
+			runRmnCurseMCMSTest(t, tc)
 		})
 	}
 }
@@ -108,10 +108,10 @@ func TestRMNCurse(t *testing.T) {
 func TestRMNUncurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
-			testRmnUncurse(t, tc)
+			runRmnUncurseTest(t, tc)
 		})
 		t.Run(tc.name+"_UNCURSE_MCMS", func(t *testing.T) {
-			testRmnUncurseMCMS(t, tc)
+			runRmnUncurseMCMSTest(t, tc)
 		})
 	}
 }
@@ -119,29 +119,29 @@ func TestRMNUncurse(t *testing.T) {
 func TestRMNCurseConfigValidate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_VALIDATE", func(t *testing.T) {
-			testRmnCurseConfigValidate(t, tc)
+			runRmnCurseConfigValidateTest(t, tc)
 		})
 	}
 }
 
-func testRmnUncurse(t *testing.T, tc CurseTestCase) {
+func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	e := NewMemoryEnvironment(t, WithChains(3))
 
-	mapIdToSelector := func(id uint64) uint64 {
+	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
 	}
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
 	_, err := NewRMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
 	_, err = NewRMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
@@ -171,15 +171,15 @@ func transferRMNContractToMCMS(t *testing.T, e *DeployedEnv, state CCIPOnChainSt
 	require.NoError(t, err)
 }
 
-func testRmnUncurseMCMS(t *testing.T, tc CurseTestCase) {
+func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	e := NewMemoryEnvironment(t, WithChains(3))
 
-	mapIdToSelector := func(id uint64) uint64 {
+	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
 	}
 
 	config := RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 		MCMS:         &MCMSConfig{MinDelay: 0},
 	}
@@ -201,7 +201,7 @@ func testRmnUncurseMCMS(t *testing.T, tc CurseTestCase) {
 	})
 	require.NoError(t, err)
 
-	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
@@ -214,15 +214,15 @@ func testRmnUncurseMCMS(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
-func testRmnCurseConfigValidate(t *testing.T, tc CurseTestCase) {
+func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
 	e := NewMemoryEnvironment(t, WithChains(3))
 
-	mapIdToSelector := func(id uint64) uint64 {
+	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
 	}
 
 	config := RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
@@ -230,35 +230,35 @@ func testRmnCurseConfigValidate(t *testing.T, tc CurseTestCase) {
 	require.NoError(t, err)
 }
 
-func testRmnCurse(t *testing.T, tc CurseTestCase) {
+func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 	e := NewMemoryEnvironment(t, WithChains(3))
 
-	mapIdToSelector := func(id uint64) uint64 {
+	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
 	}
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
 	config := RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
 	_, err := NewRMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 }
 
-func testRmnCurseMCMS(t *testing.T, tc CurseTestCase) {
+func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	e := NewMemoryEnvironment(t, WithChains(3))
 
-	mapIdToSelector := func(id uint64) uint64 {
+	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
 	}
 
 	config := RMNCurseConfig{
-		CurseActions: tc.curseActionsBuilder(mapIdToSelector),
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 		MCMS:         &MCMSConfig{MinDelay: 0},
 	}
@@ -280,22 +280,22 @@ func testRmnCurseMCMS(t *testing.T, tc CurseTestCase) {
 	})
 	require.NoError(t, err)
 
-	verifyTestCaseAssertions(t, &e, tc, mapIdToSelector)
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 }
 
-func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, mapIdToSelector mapIdToSelectorFunc) {
+func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, mapIDToSelector mapIDToSelectorFunc) {
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	for _, assertion := range tc.curseAssertions {
-		cursedSubject := SelectorToSubject(mapIdToSelector(assertion.subject))
-		if assertion.global_curse {
+		cursedSubject := SelectorToSubject(mapIDToSelector(assertion.subject))
+		if assertion.globalCurse {
 			cursedSubject = GlobalCurseSubject()
 		}
 
-		isCursed, err := state.Chains[mapIdToSelector(assertion.chainId)].RMNRemote.IsCursed(nil, cursedSubject)
+		isCursed, err := state.Chains[mapIDToSelector(assertion.chainID)].RMNRemote.IsCursed(nil, cursedSubject)
 		require.NoError(t, err)
-		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainId, assertion.subject)
+		require.Equal(t, assertion.cursed, isCursed, "chain %d subject %d", assertion.chainID, assertion.subject)
 	}
 }
 
