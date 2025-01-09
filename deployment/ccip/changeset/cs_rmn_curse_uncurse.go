@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -221,7 +222,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 				if cursed {
 					actuallyCursedSubjects = append(actuallyCursedSubjects, subject)
 				} else {
-					e.Logger.Warnf("chain %d subject %x is not cursed, ignoring it while uncursing", e.Chains[selector].Name(), subject)
+					e.Logger.Warnf("chain %s subject %x is not cursed, ignoring it while uncursing", e.Chains[selector].Name(), subject)
 				}
 			}
 
