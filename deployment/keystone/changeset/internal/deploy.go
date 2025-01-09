@@ -416,10 +416,14 @@ type RegisterCapabilitiesRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 	DonToCapabilities     map[string][]capabilities_registry.CapabilitiesRegistryCapability
+
+	// if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	UseMCMS bool
 }
 
 type RegisterCapabilitiesResponse struct {
 	DonToCapabilities map[string][]RegisteredCapability
+	Ops               *timelock.BatchChainOperation
 }
 
 type RegisteredCapability struct {
@@ -492,11 +496,14 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 		lggr.Warn("no new capabilities to register")
 		return &RegisterCapabilitiesResponse{}, nil
 	}
-	// not using mcms; ignore proposals
-	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
+
+	ops, err := AddCapabilities(lggr, &contracts, registryChain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
+
+	resp.Ops = ops
+
 	return resp, nil
 }
 
@@ -504,10 +511,12 @@ type RegisterNOPSRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 	Nops                  []capabilities_registry.CapabilitiesRegistryNodeOperator
+	UseMCMS               bool
 }
 
 type RegisterNOPSResponse struct {
 	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	Ops  *timelock.BatchChainOperation
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -550,6 +559,22 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
+
+	if req.UseMCMS {
+		resp.Ops = &timelock.BatchChainOperation{
+			ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
+			Batch: []mcms.Operation{
+				{
+					To:    registry.Address(),
+					Data:  tx.Data(),
+					Value: big.NewInt(0),
+				},
+			},
+		}
+
+		return resp, nil
+	}
+
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
 	// (at least for a simulated backend chain)
 	_, err = registryChain.Confirm(tx)
