@@ -140,7 +140,6 @@ contract OffRamp_trialExecute is OffRampSetup {
   }
 
   function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
-    uint256[] memory amounts;
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
