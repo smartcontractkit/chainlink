@@ -555,29 +555,20 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		return resp, nil
 	}
 
-	txOpts := registryChain.DeployerKey
 	if req.UseMCMS {
-		txOpts = deployment.SimTransactOpts()
+		ops, err := addNOPsMCMSProposal(registry, nops, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add node operators: %w", err)
+		}
+
+		resp.Ops = ops
+		return resp, nil
 	}
-	tx, err := registry.AddNodeOperators(txOpts, nops)
+
+	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
-	}
-
-	if req.UseMCMS {
-		resp.Ops = &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    registry.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		}
-
-		return resp, nil
 	}
 
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
@@ -603,6 +594,25 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	}
 
 	return resp, nil
+}
+
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodeOperators(deployment.SimTransactOpts(), nops)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
+	}, nil
 }
 
 func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
