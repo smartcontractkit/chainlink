@@ -114,11 +114,11 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 	var ss [][32]byte
 	var vs [32]byte
 	for i, as := range sigs {
-		rr, s, v, err := evmutil.SplitSignature(as.Signature)
+		r, s, v, err := evmutil.SplitSignature(as.Signature)
 		if err != nil {
 			return nil, fmt.Errorf("eventTransmit(ev): error in SplitSignature: %w", err)
 		}
-		rs = append(rs, rr)
+		rs = append(rs, r)
 		ss = append(ss, s)
 		vs[i] = v
 	}

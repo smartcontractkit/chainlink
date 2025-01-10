@@ -301,7 +301,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	// Return 10 gwei as market gas price
 	marketGasPrice := tenGwei
-	fee := gas.EvmFee{Legacy: marketGasPrice}
+	fee := gas.EvmFee{GasPrice: marketGasPrice}
 	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	autoPurgeThreshold := uint32(5)
@@ -556,23 +556,6 @@ func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlo
 		attempt.State = txmgrtypes.TxAttemptBroadcast
 		attempt.BroadcastBeforeBlockNum = nil
 		attempt.TxFee = gas.EvmFee{GasPrice: latestGasPrice.Sub(assets.NewWeiI(i))}
-		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
-	}
-	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
-	require.NoError(t, err)
-	return etx
-}
-
-// helper function for edge case where broadcast attempt contains empty pointer
-func mustInsertUnconfirmedTxWithBroadcastAttemptsContainsEmptyBroadcastBeforeBlockNum(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestGasPrice *assets.Wei) txmgr.Tx {
-	ctx := tests.Context(t)
-	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
-	// Insert attempts from oldest to newest
-	for i := int64(numAttempts - 1); i >= 0; i-- {
-		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
-		attempt.State = txmgrtypes.TxAttemptBroadcast
-		attempt.BroadcastBeforeBlockNum = nil
-		attempt.TxFee = gas.EvmFee{Legacy: latestGasPrice.Sub(assets.NewWeiI(i))}
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	}
 	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)

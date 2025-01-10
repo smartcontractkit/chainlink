@@ -42,7 +42,21 @@ var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
 	MaxRetries: (6 * 4) + 10,
 }
 
-func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider, priceGetter ccip.AllTokensPriceGetter, jb job.Job, lggr logger.Logger, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, new bool, sourceChainID int64, destChainID int64, logError func(string)) ([]job.ServiceCtx, error) {
+func NewCommitServices(
+	ctx context.Context,
+	ds sqlutil.DataSource,
+	srcProvider commontypes.CCIPCommitProvider,
+	dstProvider commontypes.CCIPCommitProvider,
+	priceGetter ccip.AllTokensPriceGetter,
+	jb job.Job,
+	lggr logger.Logger,
+	pr pipeline.Runner,
+	argsNoPlugin libocr2.OCR2OracleArgs,
+	newInstance bool,
+	sourceChainID int64,
+	destChainID int64,
+	logError func(string),
+) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
 	var pluginConfig ccipconfig.CommitPluginJobSpecConfig
@@ -154,7 +168,7 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 		return nil, err
 	}
 	// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
-	if new {
+	if newInstance {
 		return []job.ServiceCtx{
 			oraclelib.NewChainAgnosticBackFilledOracle(
 				lggr,

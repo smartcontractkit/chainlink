@@ -18,10 +18,6 @@ func (f *featureConfig) UICSAKeys() bool {
 	return *f.c.UICSAKeys
 }
 
-func (f *featureConfig) CCIP() bool {
-	return *f.c.CCIP
-}
-
 func (f *featureConfig) MultiFeedsManagers() bool {
 	return *f.c.MultiFeedsManagers
 }

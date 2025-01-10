@@ -1,6 +1,7 @@
 package ccipdata_test
 
 import (
+	"context"
 	"math/big"
 	"reflect"
 	"testing"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
@@ -184,7 +184,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
 	feeEstimatorConfig.On(
 		"ModifyGasPriceComponents",
-		mock.AnythingOfType("context.backgroundCtx"),
+		mock.Anything,
 		mock.AnythingOfType("*big.Int"),
 		mock.AnythingOfType("*big.Int"),
 	).Return(func(ctx context.Context, x, y *big.Int) (*big.Int, *big.Int, error) {

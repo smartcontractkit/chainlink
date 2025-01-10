@@ -60,7 +60,7 @@ func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (*big.Int, error) 
 
 	gasPrice, daGasPrice, err = g.feeEstimatorConfig.ModifyGasPriceComponents(ctx, gasPrice, daGasPrice)
 	if err != nil {
-		return nil, fmt.Errorf("gasPrice modification failed: %v", err)
+		return nil, fmt.Errorf("gasPrice modification failed: %w", err)
 	}
 
 	if daGasPrice.Cmp(big.NewInt(0)) > 0 {

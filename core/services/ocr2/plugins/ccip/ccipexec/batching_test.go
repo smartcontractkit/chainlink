@@ -871,9 +871,9 @@ func runAssertions(t *testing.T, tc testCase, seqNrs []ccip.ObservedMessage, exe
 
 	batchingStratID := strategy.GetBatchingStrategyID()
 	if strategyType := reflect.TypeOf(strategy); strategyType == reflect.TypeOf(&BestEffortBatchingStrategy{}) {
-		assert.Equal(t, batchingStratID, uint32(0))
+		assert.Equal(t, uint32(0), batchingStratID)
 	} else {
-		assert.Equal(t, batchingStratID, uint32(1))
+		assert.Equal(t, uint32(1), batchingStratID)
 	}
 }
 

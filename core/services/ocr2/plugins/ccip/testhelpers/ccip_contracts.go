@@ -149,20 +149,20 @@ func (c ExecOffchainConfig) Encode() ([]byte, error) {
 }
 
 func NewExecOffchainConfig(
-	DestOptimisticConfirmations uint32,
-	BatchGasLimit uint32,
-	RelativeBoostPerWaitHour float64,
-	InflightCacheExpiry config.Duration,
-	RootSnoozeTime config.Duration,
-	BatchingStrategyID uint32, // 0 = Standard, 1 = Out of Order
+	destOptimisticConfirmations uint32,
+	batchGasLimit uint32,
+	relativeBoostPerWaitHour float64,
+	inflightCacheExpiry config.Duration,
+	rootSnoozeTime config.Duration,
+	batchingStrategyID uint32, // 0 = Standard, 1 = Out of Order
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
-		DestOptimisticConfirmations: DestOptimisticConfirmations,
-		BatchGasLimit:               BatchGasLimit,
-		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
-		InflightCacheExpiry:         InflightCacheExpiry,
-		RootSnoozeTime:              RootSnoozeTime,
-		BatchingStrategyID:          BatchingStrategyID,
+		DestOptimisticConfirmations: destOptimisticConfirmations,
+		BatchGasLimit:               batchGasLimit,
+		RelativeBoostPerWaitHour:    relativeBoostPerWaitHour,
+		InflightCacheExpiry:         inflightCacheExpiry,
+		RootSnoozeTime:              rootSnoozeTime,
+		BatchingStrategyID:          batchingStrategyID,
 	}}
 }
 

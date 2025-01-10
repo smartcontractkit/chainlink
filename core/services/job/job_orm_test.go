@@ -1567,7 +1567,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 95, 10)
 		require.NoError(t, err)
 		require.Len(t, runIDs, 10)
-		//assert.Equal(t, int64(4*(len(jobs)-1)), runIDs[3]-runIDs[7])
+		assert.Equal(t, int64(4*(len(jobs)-1)), runIDs[3]-runIDs[7])
 	})
 
 	// Internally these queries are batched by 1000, this tests case requiring concatenation
@@ -1577,7 +1577,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 95, 100)
 		require.NoError(t, err)
 		require.Len(t, runIDs, 100)
-		//assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
+		assert.Equal(t, int64(67*(len(jobs)-1)), runIDs[12]-runIDs[79])
 	})
 
 	for i := 0; i < 2100; i++ {
@@ -1592,7 +1592,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 0, 25)
 		require.NoError(t, err)
 		require.Len(t, runIDs, 25)
-		//assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
 	})
 
 	// Same as previous, but where there are fewer matching jobs than the limit
@@ -1601,7 +1601,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		runIDs, err := orm.FindPipelineRunIDsByJobID(ctx, jobs[3].ID, 143, 190)
 		require.NoError(t, err)
 		require.Len(t, runIDs, 107)
-		//assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
+		assert.Equal(t, int64(16*(len(jobs)-1)), runIDs[7]-runIDs[23])
 	})
 }
 

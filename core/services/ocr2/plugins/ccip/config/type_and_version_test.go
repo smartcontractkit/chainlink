@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseTypeAndVersion(t *testing.T) {
@@ -38,9 +39,9 @@ func TestParseTypeAndVersion(t *testing.T) {
 			actualType, actualVersion, err := ParseTypeAndVersion(tc.input)
 
 			if tc.expectedError != "" {
-				assert.EqualError(t, err, tc.expectedError)
+				require.EqualError(t, err, tc.expectedError)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.expectedType, actualType)
 				assert.Equal(t, tc.expectedVersion, actualVersion)
 			}

@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
@@ -72,7 +71,7 @@ func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
 // with a snapshot of data so reader tests can do multi-version assertions.
 func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	user, ec := newSim(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
@@ -280,7 +279,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
-			_, err = factory.NewPriceRegistryReader(ctx, logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, lp, c)
+			_, err = factory.NewPriceRegistryReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), addr, lp, c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

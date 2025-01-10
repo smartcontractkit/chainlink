@@ -55,7 +55,10 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, deathDeclarationDelay, nodePool.DeathDeclarationDelay())
 	require.Equal(t, pollInterval, nodePool.FinalizedBlockPollInterval())
 	require.Equal(t, newHeadsPollInterval, nodePool.NewHeadsPollInterval())
+
+	// Validate node configs
 	require.Equal(t, *nodeConfigs[0].Name, *nodes[0].Name)
+	require.Equal(t, *nodeConfigs[0].WSURL, (*nodes[0].WSURL).String())
 	require.Equal(t, *nodeConfigs[0].HTTPURL, (*nodes[0].HTTPURL).String())
 
 	// Validate chain config

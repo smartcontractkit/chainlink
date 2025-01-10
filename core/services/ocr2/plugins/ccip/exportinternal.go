@@ -10,12 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -28,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-const OFFCHAIN_AGGREGATOR = "OffchainAggregator"
-const DECIMALS_METHOD_NAME = "decimals"
-const LATEST_ROUND_DATA_METHOD_NAME = "latestRoundData"
+const OffchainAggregator = "OffchainAggregator"
+const DecimalsMethodName = "decimals"
+const LatestRoundDataMethodName = "latestRoundData"
 
 func GenericAddrToEvm(addr ccip.Address) (common.Address, error) {
 	return ccipcalc.GenericAddrToEvm(addr)

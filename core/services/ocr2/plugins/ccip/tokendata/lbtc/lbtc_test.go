@@ -38,6 +38,7 @@ func getMockLBTCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write(responseBytes)
+		//nolint:testifylint // we need to use require here
 		require.NoError(t, err)
 	}))
 }
@@ -49,7 +50,7 @@ func TestLBTCReader_callAttestationApi(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
-	attestation, err := lbtcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
+	attestation, err := lbtcService.callAttestationAPI(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
 	require.NoError(t, err)
 
 	require.Equal(t, lbtcMessageHash, attestation.Attestations[0].MessageHash)
@@ -75,7 +76,7 @@ func TestLBTCReader_callAttestationApiMock(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
-	attestation, err := lbtcService.callAttestationApi(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
+	attestation, err := lbtcService.callAttestationAPI(context.Background(), [32]byte(common.FromHex(lbtcMessageHash)))
 	require.NoError(t, err)
 
 	require.Equal(t, response.Attestations[0].Status, attestation.Attestations[0].Status)
@@ -120,6 +121,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					time.Sleep(defaultAttestationTimeout + time.Second)
 					_, err := w.Write(responseBytes)
+					//nolint:testifylint // we need to use require here
 					require.NoError(t, err)
 				}))
 			},
@@ -134,6 +136,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					time.Sleep(2*time.Second + time.Second)
 					_, err := w.Write(responseBytes)
+					//nolint:testifylint // we need to use require here
 					require.NoError(t, err)
 				}))
 			},
@@ -177,7 +180,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 			parentCtx, cancel := context.WithTimeout(context.Background(), time.Duration(test.parentTimeoutSeconds)*time.Second)
 			defer cancel()
 
-			_, err = lbtcService.callAttestationApi(parentCtx, [32]byte(common.FromHex(lbtcMessageHash)))
+			_, err = lbtcService.callAttestationAPI(parentCtx, [32]byte(common.FromHex(lbtcMessageHash)))
 			require.Error(t, err)
 
 			if test.expectedError != nil {
@@ -269,7 +272,7 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 			trigger := make(chan struct{})
 			errorChan := make(chan error, tc.requests)
 			wg := sync.WaitGroup{}
-			for i := 0; i < int(tc.requests); i++ {
+			for i := uint64(0); i < tc.requests; i++ {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -298,6 +301,7 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 			// Collect errors
 			errorFound := false
 			for err := range errorChan {
+				//nolint:gocritic // easier to read using ifElse instead of switch
 				if tc.err != "" && strings.Contains(err.Error(), tc.err) {
 					errorFound = true
 				} else if tc.additionalErr != "" && strings.Contains(err.Error(), tc.additionalErr) {
@@ -469,7 +473,7 @@ func TestLBTCReader_expectedOutput(t *testing.T) {
 			if tc.expectedReturn != nil {
 				require.EqualValues(t, tc.expectedReturn, payloadAndProof)
 			} else if tc.expectedError != nil {
-				require.True(t, strings.Contains(err.Error(), tc.expectedError.Error()))
+				require.Contains(t, err.Error(), tc.expectedError.Error())
 			}
 		})
 	}

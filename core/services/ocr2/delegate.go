@@ -1655,6 +1655,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 	if err != nil {
 		return nil, fmt.Errorf("failed to create price getter: %w", err)
 	}
+	//nolint:gosec // safe to cast
 	return ccipcommit.NewCommitServices(ctx, d.ds, srcProvider, dstProvider, priceGetter, jb, lggr, d.pipelineRunner, oracleArgsNoPlugin, d.isNewlyCreatedJob, int64(srcChainID), dstChainID, logError)
 }
 
@@ -1669,7 +1670,7 @@ func (d *Delegate) ccipCommitPriceGetter(ctx context.Context, lggr logger.Sugare
 	} else {
 		// Use dynamic price getter.
 		if pluginJobSpecConfig.PriceGetterConfig == nil {
-			return nil, fmt.Errorf("priceGetterConfig is nil")
+			return nil, errors.New("priceGetterConfig is nil")
 		}
 
 		// Configure contract readers for all chains specified in the aggregator configurations.
@@ -1694,7 +1695,7 @@ func (d *Delegate) ccipCommitPriceGetter(ctx context.Context, lggr logger.Sugare
 
 			contractsConfig := make(map[string]evmrelaytypes.ChainContractReader, len(aggregatorContracts))
 			for i := range aggregatorContracts {
-				contractsConfig[fmt.Sprintf("%v_%v", ccip.OFFCHAIN_AGGREGATOR, i)] = evmrelaytypes.ChainContractReader{
+				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = evmrelaytypes.ChainContractReader{
 					ContractABI: ccip.OffChainAggregatorABI,
 					Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 						"decimals": { // CR consumers choose an alias
@@ -1710,12 +1711,12 @@ func (d *Delegate) ccipCommitPriceGetter(ctx context.Context, lggr logger.Sugare
 				Contracts: contractsConfig,
 			}
 
-			contractReaderConfigJsonBytes, jerr := json.Marshal(contractReaderConfig)
+			contractReaderConfigJSONBytes, jerr := json.Marshal(contractReaderConfig)
 			if jerr != nil {
 				return nil, fmt.Errorf("marshal contract reader config: %w", jerr)
 			}
 
-			contractReader, cerr := relay.NewContractReader(ctx, contractReaderConfigJsonBytes)
+			contractReader, cerr := relay.NewContractReader(ctx, contractReaderConfigJSONBytes)
 			if cerr != nil {
 				return nil, fmt.Errorf("new ccip commit contract reader %w", cerr)
 			}

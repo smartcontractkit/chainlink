@@ -234,7 +234,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 	testCases := []struct {
 		name               string
 		f                  int
-		batchingStrategyId uint32
+		batchingStrategyID uint32
 		committedSeqNum    uint64
 		observations       []ccip.ExecutionObservation
 
@@ -245,7 +245,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 		{
 			name:               "not enough observations to form consensus - best effort batching",
 			f:                  5,
-			batchingStrategyId: 0,
+			batchingStrategyID: 0,
 			committedSeqNum:    5,
 			observations: []ccip.ExecutionObservation{
 				{Messages: map[uint64]ccip.MsgData{3: {}, 4: {}}},
@@ -257,7 +257,7 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 		{
 			name:               "not enough observaitons to form consensus - zk batching",
 			f:                  5,
-			batchingStrategyId: 1,
+			batchingStrategyID: 1,
 			committedSeqNum:    5,
 			observations: []ccip.ExecutionObservation{
 				{Messages: map[uint64]ccip.MsgData{3: {}, 4: {}}},
@@ -285,8 +285,8 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 			p := ExecutionReportingPlugin{}
 			p.lggr = logger.TestLogger(t)
 			p.F = tc.f
-			bs, err := NewBatchingStrategy(tc.batchingStrategyId, &statuschecker.TxmStatusChecker{})
-			assert.NoError(t, err)
+			bs, err := NewBatchingStrategy(tc.batchingStrategyID, &statuschecker.TxmStatusChecker{})
+			require.NoError(t, err)
 			p.batchingStrategy = bs
 
 			p.commitStoreReader = ccipdatamocks.NewCommitStoreReader(t)
@@ -1469,9 +1469,8 @@ func TestExecutionReportingPlugin_getConsensusThreshold(t *testing.T) {
 			p := &ExecutionReportingPlugin{}
 			p.F = tc.F
 			bs, err := NewBatchingStrategy(tc.batchingStrategyID, &statuschecker.TxmStatusChecker{})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			p.batchingStrategy = bs
-
 			require.Equal(t, tc.expectedConsensusThreshold, p.getConsensusThreshold())
 		})
 	}

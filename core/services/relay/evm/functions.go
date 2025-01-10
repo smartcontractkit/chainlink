@@ -10,14 +10,13 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
@@ -41,7 +40,7 @@ func newFunctionsProvider(lggr logger.Logger, cw *configWatcher, ct ContractTran
 	}
 	p.Service, p.eng = services.Config{
 		Name: "FunctionsProvider",
-		NewSubServices: func(lggr commonlogger.Logger) []services.Service {
+		NewSubServices: func(lggr logger.Logger) []services.Service {
 			return []services.Service{p.configWatcher, p.logPollerWrapper}
 		},
 	}.NewServiceEngine(lggr)

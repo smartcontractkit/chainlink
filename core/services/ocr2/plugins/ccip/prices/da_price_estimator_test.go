@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -489,7 +490,7 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			ctx := tests.Context(t)
 
 			execEstimator := NewMockGasPriceEstimator(t)
-			execEstimator.On("EstimateMsgCostUSD", mock.Anything, tc.wrappedNativePrice, tc.msg).
+			execEstimator.On("EstimateMsgCostUSD", mock.Anything, mock.Anything, tc.wrappedNativePrice, tc.msg).
 				Return(execCostUSD, tc.execEstimatorErr)
 
 			feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
@@ -510,9 +511,9 @@ func TestDAPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			switch {
 			case len(tc.execEstimatorResponse) == 4 && tc.execEstimatorResponse[3] != nil,
 				tc.execEstimatorErr != nil:
-				assert.Error(t, err)
+				require.Error(t, err)
 			default:
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.expUSD, costUSD)
 			}
 		})

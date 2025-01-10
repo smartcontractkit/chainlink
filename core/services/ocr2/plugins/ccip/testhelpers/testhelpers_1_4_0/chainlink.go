@@ -1,3 +1,4 @@
+//nolint:revive // helpers for specific version
 package testhelpers_1_4_0
 
 import (
@@ -25,7 +26,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"k8s.io/utils/pointer" //nolint:staticcheck
+	"k8s.io/utils/pointer" //nolint:staticcheck // tests
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -36,6 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -54,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
-	pb "github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -63,7 +65,6 @@ import (
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
@@ -183,7 +184,7 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
 			testutils.Context(t),
-			v1_0_0.UsdPerUnitGasUpdated,
+			v1_2_0.UsdPerUnitGasUpdated,
 			ccipContracts.Dest.PriceRegistry.Address(),
 			0,
 		)
@@ -246,6 +247,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 	return log
 }
 
+//nolint:gosec // safe cast in tests
 func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, onRamp common.Address, seqNum int) logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
 	require.NoError(t, err)
@@ -273,6 +275,7 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 	return log
 }
 
+//nolint:gosec // safe cast in tests
 func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, minSeqNum int, maxSeqNum int) []logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
@@ -282,9 +285,9 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_0_0.ExecutionStateChangedEvent,
+			v1_2_0.ExecutionStateChangedEvent,
 			offRamp,
-			v1_0_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_0.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
@@ -301,6 +304,7 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 	return logs
 }
 
+//nolint:gosec // safe to casts in tests
 func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, seqNum int) logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
@@ -310,9 +314,9 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_0_0.ExecutionStateChangedEvent,
+			v1_2_0.ExecutionStateChangedEvent,
 			offRamp,
-			v1_0_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_0.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
@@ -425,8 +429,8 @@ func setupNodeCCIP(
 	// test, we fake different chainIDs using the wrapped sim cltest.SimulatedBackend so the RPC
 	// appears to operate on different chainIDs and we use an EthKeyStoreSim wrapper which always
 	// signs 1337 see https://github.com/smartcontractkit/chainlink-ccip/blob/a24dd436810250a458d27d8bb3fb78096afeb79c/core/services/ocr2/plugins/ccip/testhelpers/simulated_backend.go#L35
-	sourceClient := client.NewSimulatedBackendClient(t, sourceChain, sourceChainID)
-	destClient := client.NewSimulatedBackendClient(t, destChain, destChainID)
+	sourceClient := client.NewSimulatedBackendClient(t, sourceChain.Backend, sourceChainID)
+	destClient := client.NewSimulatedBackendClient(t, destChain.Backend, destChainID)
 	csaKeyStore := ksMocks.NewCSA(t)
 
 	key, err := csakey.NewV2()
@@ -456,7 +460,7 @@ func setupNodeCCIP(
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry())
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry(), nil, "")
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
@@ -486,7 +490,7 @@ func setupNodeCCIP(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry()),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry(), nil, ""),
 	})
 	ctx := testutils.Context(t)
 	require.NoError(t, err)
@@ -525,12 +529,12 @@ func setupNodeCCIP(
 	return app, peerID.Raw(), transmitter, kb
 }
 
-func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
+func createConfigV2Chain(chainID *big.Int) *v2.EVMConfig {
 	// NOTE: For the executor jobs, the default of 500k is insufficient for a 3 message batch
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := v2.Defaults((*evmUtils.Big)(chainId))
+	sourceC := v2.Defaults((*evmUtils.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -539,7 +543,7 @@ func createConfigV2Chain(chainId *big.Int) *v2.EVMConfig {
 	fd := uint32(2)
 	sourceC.FinalityDepth = &fd
 	return &v2.EVMConfig{
-		ChainID: (*evmUtils.Big)(chainId),
+		ChainID: (*evmUtils.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
 		Nodes:   v2.EVMNodes{&v2.Node{}},
@@ -558,6 +562,7 @@ func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, de
 	}
 }
 
+//nolint:testifylint //require is used for assertions in handlers
 func (c *CCIPIntegrationTestHarness) CreatePricesPipeline(t *testing.T) (string, *httptest.Server, *httptest.Server) {
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
@@ -668,10 +673,10 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams int
 			utils.RandomAddress().String(),
 			utils.RandomAddress().String(),
 		)
-		execId, err := f.ProposeJob(ctx, &execSpec)
+		execID, err := f.ProposeJob(ctx, &execSpec)
 		require.NoError(t, err)
 
-		err = f.ApproveSpec(ctx, execId, true)
+		err = f.ApproveSpec(ctx, execID, true)
 		require.NoError(t, err)
 
 		var commitSpec feeds2.ProposeJobArgs
@@ -701,10 +706,10 @@ func (c *CCIPIntegrationTestHarness) ApproveJobSpecs(t *testing.T, jobParams int
 			)
 		}
 
-		commitId, err := f.ProposeJob(ctx, &commitSpec)
+		commitID, err := f.ProposeJob(ctx, &commitSpec)
 		require.NoError(t, err)
 
-		err = f.ApproveSpec(ctx, commitId, true)
+		err = f.ApproveSpec(ctx, commitID, true)
 		require.NoError(t, err)
 	}
 }
@@ -810,7 +815,8 @@ func (c *CCIPIntegrationTestHarness) EventuallyExecutionStateChangedToSuccess(t 
 		Should(gomega.BeTrue(), "ExecutionStateChanged Event")
 }
 
-func (c *CCIPIntegrationTestHarness) EventuallyReportCommitted(t *testing.T, max int, commitStoreOpts ...common.Address) uint64 {
+//nolint:gosec // safe to casts in tests
+func (c *CCIPIntegrationTestHarness) EventuallyReportCommitted(t *testing.T, maxSeqNr int, commitStoreOpts ...common.Address) uint64 {
 	var commitStore *commit_store_1_2_0.CommitStore
 	var err error
 	var committedSeqNum uint64
@@ -828,7 +834,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyReportCommitted(t *testing.T, max
 		c.Dest.Chain.Commit()
 		t.Log("next expected seq num reported", minSeqNum)
 		committedSeqNum = minSeqNum
-		return minSeqNum > uint64(max)
+		return minSeqNum > uint64(maxSeqNr)
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue(), "report has not been committed")
 	return committedSeqNum
 }
@@ -858,7 +864,8 @@ func (c *CCIPIntegrationTestHarness) EventuallySendRequested(t *testing.T, seqNu
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue(), "sendRequested has not been generated")
 }
 
-func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T, max int, commitStoreOpts ...common.Address) {
+//nolint:gosec // safe to cast in tests
+func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T, maxSeqNr int, commitStoreOpts ...common.Address) {
 	var commitStore *commit_store_1_2_0.CommitStore
 	var err error
 	if len(commitStoreOpts) > 0 {
@@ -874,7 +881,7 @@ func (c *CCIPIntegrationTestHarness) ConsistentlyReportNotCommitted(t *testing.T
 		c.Source.Chain.Commit()
 		c.Dest.Chain.Commit()
 		t.Log("min seq num reported", minSeqNum)
-		return minSeqNum > uint64(max)
+		return minSeqNum > uint64(maxSeqNr)
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeFalse(), "report has been committed")
 }
 
@@ -965,6 +972,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	return jobParams
 }
 
+//nolint:gosec // safe to cast in tests
 func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline string, priceGetterConfig string, configBlock int64, usdcAttestationAPI string) integrationtesthelpers.CCIPJobSpecParams {
 	return integrationtesthelpers.CCIPJobSpecParams{
 		CommitStore:            c.Dest.CommitStore.Address(),

@@ -11,13 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 )
@@ -179,13 +179,13 @@ func (p *DstCommitProvider) Close() error {
 		if p.seenCommitStoreAddress == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp, P.feeEstimatorConfig)
+		return ccip.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp, p.feeEstimatorConfig)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if p.seenOffRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0), P.feeEstimatorConfig)
+		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0), p.feeEstimatorConfig)
 	})
 
 	var multiErr error
@@ -256,7 +256,7 @@ func (p *DstCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter cci
 }
 
 func (p *SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	commitStoreReader = NewIncompleteSourceCommitStoreReader(p.estimator, p.maxGasPrice, P.feeEstimatorConfig)
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(p.estimator, p.maxGasPrice, p.feeEstimatorConfig)
 	return
 }
 
@@ -264,7 +264,7 @@ func (p *DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStor
 	p.seenCommitStoreAddress = &commitStoreAddress
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, p.lggr, versionFinder, commitStoreAddress, p.client, p.lp, P.feeEstimatorConfig)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, p.lggr, versionFinder, commitStoreAddress, p.client, p.lp, p.feeEstimatorConfig)
 	return
 }
 
@@ -279,7 +279,7 @@ func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress c
 	if err != nil {
 		return nil, err
 	}
-	P.feeEstimatorConfig.SetOnRampReader(onRampReader)
+	p.feeEstimatorConfig.SetOnRampReader(onRampReader)
 	return
 }
 
@@ -292,7 +292,7 @@ func (p *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cc
 }
 
 func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true, P.feeEstimatorConfig)
+	offRampReader, err = ccip.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true, p.feeEstimatorConfig)
 	return
 }
 

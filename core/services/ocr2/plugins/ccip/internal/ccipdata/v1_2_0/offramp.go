@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,7 +24,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -155,12 +155,11 @@ type OffRamp struct {
 
 	// Dynamic config
 	// configMu guards all the dynamic config fields.
-	configMu          sync.RWMutex
-	gasPriceEstimator prices.GasPriceEstimatorExec
-	offchainConfig    cciptypes.ExecOffchainConfig
-	onchainConfig     cciptypes.ExecOnchainConfig
+	configMu           sync.RWMutex
+	gasPriceEstimator  prices.GasPriceEstimatorExec
+	offchainConfig     cciptypes.ExecOffchainConfig
+	onchainConfig      cciptypes.ExecOnchainConfig
 	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
-
 }
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
@@ -671,9 +670,9 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			offRamp.Address(),
 		),
 		// values set on the fly after ChangeConfig is called
-		gasPriceEstimator: prices.ExecGasPriceEstimator{},
-		offchainConfig:    cciptypes.ExecOffchainConfig{},
-		onchainConfig:     cciptypes.ExecOnchainConfig{},
+		gasPriceEstimator:  prices.ExecGasPriceEstimator{},
+		offchainConfig:     cciptypes.ExecOffchainConfig{},
+		onchainConfig:      cciptypes.ExecOnchainConfig{},
 		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }

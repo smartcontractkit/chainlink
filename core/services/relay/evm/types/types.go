@@ -218,10 +218,6 @@ type RelayConfig struct {
 	TriggerCapabilityName    string       `json:"triggerCapabilityName"`
 	TriggerCapabilityVersion string       `json:"triggerCapabilityVersion"`
 
-	// Rebalancer specific
-	// FromBlocks specifies the block numbers to replay from for each chain.
-	FromBlocks map[string]int64 `json:"fromBlocks"`
-
 	// LLO-specific
 	LLODONID      uint32        `json:"lloDonID" toml:"lloDonID"`
 	LLOConfigMode LLOConfigMode `json:"lloConfigMode" toml:"lloConfigMode"`

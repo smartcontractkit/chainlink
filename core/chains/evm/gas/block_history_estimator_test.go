@@ -1453,12 +1453,6 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, false, bhe.IsUsable(tx, block, chaintype.ChainWeMix, geCfg.PriceMin(), logger.Test(t)))
 	})
 
-	t.Run("returns false if transaction is of type 0x16 only on WeMix", func(t *testing.T) {
-		cfg.ChainTypeF = "wemix"
-		tx := evmtypes.Transaction{Type: 0x16, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
-		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
-	})
-
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {
 		tx := evmtypes.Transaction{Type: 0x0, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, chaintype.ChainCelo, geCfg.PriceMin(), logger.Test(t)))

@@ -9,10 +9,10 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -33,7 +33,7 @@ func newMercuryConfigProvider(ctx context.Context, lggr logger.Logger, chain leg
 	}
 	cp, err := mercury.NewConfigPoller(
 		ctx,
-		lggr.Named(relayConfig.FeedID.String()),
+		logger.Named(lggr, relayConfig.FeedID.String()),
 		chain.LogPoller(),
 		aggregatorAddress,
 		*relayConfig.FeedID,

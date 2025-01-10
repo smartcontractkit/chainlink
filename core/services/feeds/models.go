@@ -25,12 +25,12 @@ const (
 type PluginType string
 
 const (
-	PluginTypeCommit           PluginType = "COMMIT"
-	PluginTypeExecute          PluginType = "EXECUTE"
-	PluginTypeMedian           PluginType = "MEDIAN"
-	PluginTypeMercury          PluginType = "MERCURY"
-	PluginTypeLiquidityManager PluginType = "LIQUIDITYMANAGER"
-	PluginTypeUnknown          PluginType = "UNKNOWN"
+	PluginTypeCommit     PluginType = "COMMIT"
+	PluginTypeExecute    PluginType = "EXECUTE"
+	PluginTypeMedian     PluginType = "MEDIAN"
+	PluginTypeMercury    PluginType = "MERCURY"
+	PluginTypeRebalancer PluginType = "REBALANCER"
+	PluginTypeUnknown    PluginType = "UNKNOWN"
 )
 
 func FromPluginTypeInput(pt PluginType) string {
@@ -47,19 +47,19 @@ func ToPluginType(s string) (PluginType, error) {
 		return PluginTypeMedian, nil
 	case "mercury":
 		return PluginTypeMercury, nil
-	case "liquiditymanager":
-		return PluginTypeLiquidityManager, nil
+	case "rebalancer":
+		return PluginTypeRebalancer, nil
 	default:
 		return PluginTypeUnknown, errors.New("unknown plugin type")
 	}
 }
 
 type Plugins struct {
-	Commit           bool `json:"commit"`
-	Execute          bool `json:"execute"`
-	Median           bool `json:"median"`
-	Mercury          bool `json:"mercury"`
-	LiquidityManager bool `json:"liquiditymanager"`
+	Commit     bool `json:"commit"`
+	Execute    bool `json:"execute"`
+	Median     bool `json:"median"`
+	Mercury    bool `json:"mercury"`
+	Rebalancer bool `json:"rebalancer"`
 }
 
 func (p Plugins) Value() (driver.Value, error) {

@@ -71,7 +71,7 @@ func TestOnRampReaderInit(t *testing.T) {
 func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	ctx := tests.Context(t)
 	user, bc := ccipdata.NewSimulation(t)
-	log := logger.TestLogger(t)
+	log := logger.Test(t)
 	orm := logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), log)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -320,7 +320,7 @@ func TestNewOnRampReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
-			_, err = factory.NewOnRampReader(ctx, logger.TestLogger(t), factory.NewEvmVersionFinder(), 1, 2, addr, lp, c)
+			_, err = factory.NewOnRampReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), 1, 2, addr, lp, c)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {

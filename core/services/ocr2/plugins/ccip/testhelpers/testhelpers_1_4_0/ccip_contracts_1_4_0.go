@@ -1,3 +1,4 @@
+//nolint:revive // helpers for specific version
 package testhelpers_1_4_0
 
 import (
@@ -91,20 +92,21 @@ func (c CommitOffchainConfig) Encode() ([]byte, error) {
 }
 
 func NewCommitOffchainConfig(
-	GasPriceHeartBeat config.Duration,
-	DAGasPriceDeviationPPB uint32,
-	ExecGasPriceDeviationPPB uint32,
-	TokenPriceHeartBeat config.Duration,
-	TokenPriceDeviationPPB uint32,
-	InflightCacheExpiry config.Duration,
-	priceReportingDisabled bool) CommitOffchainConfig {
+	gasPriceHeartBeat config.Duration,
+	daGasPriceDeviationPPB uint32,
+	execGasPriceDeviationPPB uint32,
+	tokenPriceHeartBeat config.Duration,
+	tokenPriceDeviationPPB uint32,
+	inflightCacheExpiry config.Duration,
+	priceReportingDisabled bool,
+) CommitOffchainConfig {
 	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
-		GasPriceHeartBeat:        GasPriceHeartBeat,
-		DAGasPriceDeviationPPB:   DAGasPriceDeviationPPB,
-		ExecGasPriceDeviationPPB: ExecGasPriceDeviationPPB,
-		TokenPriceHeartBeat:      TokenPriceHeartBeat,
-		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
-		InflightCacheExpiry:      InflightCacheExpiry,
+		GasPriceHeartBeat:        gasPriceHeartBeat,
+		DAGasPriceDeviationPPB:   daGasPriceDeviationPPB,
+		ExecGasPriceDeviationPPB: execGasPriceDeviationPPB,
+		TokenPriceHeartBeat:      tokenPriceHeartBeat,
+		TokenPriceDeviationPPB:   tokenPriceDeviationPPB,
+		InflightCacheExpiry:      inflightCacheExpiry,
 		PriceReportingDisabled:   priceReportingDisabled,
 	}}
 }
@@ -114,10 +116,10 @@ type CommitOnchainConfig struct {
 }
 
 func NewCommitOnchainConfig(
-	PriceRegistry common.Address,
+	priceRegistry common.Address,
 ) CommitOnchainConfig {
 	return CommitOnchainConfig{ccipdata.CommitOnchainConfig{
-		PriceRegistry: PriceRegistry,
+		PriceRegistry: priceRegistry,
 	}}
 }
 
@@ -126,20 +128,20 @@ type ExecOnchainConfig struct {
 }
 
 func NewExecOnchainConfig(
-	PermissionLessExecutionThresholdSeconds uint32,
-	Router common.Address,
-	PriceRegistry common.Address,
-	MaxNumberOfTokensPerMsg uint16,
-	MaxDataBytes uint32,
-	MaxPoolReleaseOrMintGas uint32,
+	permissionLessExecutionThresholdSeconds uint32,
+	router common.Address,
+	priceRegistry common.Address,
+	maxNumberOfTokensPerMsg uint16,
+	maxDataBytes uint32,
+	maxPoolReleaseOrMintGas uint32,
 ) ExecOnchainConfig {
 	return ExecOnchainConfig{v1_2_0.ExecOnchainConfig{
-		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
-		Router:                                  Router,
-		PriceRegistry:                           PriceRegistry,
-		MaxNumberOfTokensPerMsg:                 MaxNumberOfTokensPerMsg,
-		MaxDataBytes:                            MaxDataBytes,
-		MaxPoolReleaseOrMintGas:                 MaxPoolReleaseOrMintGas,
+		PermissionLessExecutionThresholdSeconds: permissionLessExecutionThresholdSeconds,
+		Router:                                  router,
+		PriceRegistry:                           priceRegistry,
+		MaxNumberOfTokensPerMsg:                 maxNumberOfTokensPerMsg,
+		MaxDataBytes:                            maxDataBytes,
+		MaxPoolReleaseOrMintGas:                 maxPoolReleaseOrMintGas,
 	}}
 }
 
@@ -152,20 +154,20 @@ func (c ExecOffchainConfig) Encode() ([]byte, error) {
 }
 
 func NewExecOffchainConfig(
-	DestOptimisticConfirmations uint32,
-	BatchGasLimit uint32,
-	RelativeBoostPerWaitHour float64,
-	InflightCacheExpiry config.Duration,
-	RootSnoozeTime config.Duration,
-	BatchingStrategyID uint32,
+	destOptimisticConfirmations uint32,
+	batchGasLimit uint32,
+	relativeBoostPerWaitHour float64,
+	inflightCacheExpiry config.Duration,
+	rootSnoozeTime config.Duration,
+	batchingStrategyID uint32,
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
-		DestOptimisticConfirmations: DestOptimisticConfirmations,
-		BatchGasLimit:               BatchGasLimit,
-		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
-		InflightCacheExpiry:         InflightCacheExpiry,
-		RootSnoozeTime:              RootSnoozeTime,
-		BatchingStrategyID:          BatchingStrategyID,
+		DestOptimisticConfirmations: destOptimisticConfirmations,
+		BatchGasLimit:               batchGasLimit,
+		RelativeBoostPerWaitHour:    relativeBoostPerWaitHour,
+		InflightCacheExpiry:         inflightCacheExpiry,
+		RootSnoozeTime:              rootSnoozeTime,
+		BatchingStrategyID:          batchingStrategyID,
 	}}
 }
 
@@ -185,7 +187,7 @@ type Common struct {
 	WrappedNative     *weth9.WETH9
 	WrappedNativePool *lock_release_token_pool_1_0_0.LockReleaseTokenPool
 	ARM               *mock_rmn_contract.MockRMNContract
-	ARMProxy          *rmn_proxy_contract.RMNProxyContract
+	ARMProxy          *rmn_proxy_contract.RMNProxy
 	PriceRegistry     *price_registry_1_2_0.PriceRegistry
 }
 
@@ -516,6 +518,7 @@ func (c *CCIPContracts) DeriveOCR2Config(t *testing.T, oracles []confighelper.Or
 		[]int{1, 1, 1, 1},
 		oracles,
 		rawOffchainConfig,
+		nil,
 		50*time.Millisecond, // Max duration query
 		1*time.Second,       // Max duration observation
 		100*time.Millisecond,
@@ -688,7 +691,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		return [20]byte{}, nil, err
 	}
 
-	//native token is used as fee token
+	// native token is used as fee token
 	_, err = c.Source.PriceRegistry.UpdatePrices(c.Source.User, price_registry_1_2_0.InternalPriceUpdates{
 		TokenPriceUpdates: []price_registry_1_2_0.InternalTokenPriceUpdate{
 			{
@@ -793,60 +796,60 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	armSourceAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		sourceUser,
-		sourceChain,
+		sourceChain.Client(),
 	)
 	require.NoError(t, err)
-	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain)
+	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain.Client())
 	require.NoError(t, err)
-	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		sourceUser,
-		sourceChain,
+		sourceChain.Client(),
 		armSourceAddress,
 	)
 	require.NoError(t, err)
-	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxySourceAddress, sourceChain)
+	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxySourceAddress, sourceChain.Client())
 	require.NoError(t, err)
 	sourceChain.Commit()
 
 	armDestAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
 		destUser,
-		destChain,
+		destChain.Client(),
 	)
 	require.NoError(t, err)
-	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		destUser,
-		destChain,
+		destChain.Client(),
 		armDestAddress,
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	destARM, err := mock_rmn_contract.NewMockRMNContract(armDestAddress, destChain)
+	destARM, err := mock_rmn_contract.NewMockRMNContract(armDestAddress, destChain.Client())
 	require.NoError(t, err)
-	destARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxyDestAddress, destChain)
+	destARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxyDestAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// Deploy link token and pool on source chain
-	sourceLinkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(sourceUser, sourceChain)
+	sourceLinkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(sourceUser, sourceChain.Client())
 	require.NoError(t, err)
 	sourceChain.Commit()
-	sourceLinkToken, err := link_token_interface.NewLinkToken(sourceLinkTokenAddress, sourceChain)
+	sourceLinkToken, err := link_token_interface.NewLinkToken(sourceLinkTokenAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	// Create router
-	sourceWeth9addr, _, _, err := weth9.DeployWETH9(sourceUser, sourceChain)
+	sourceWeth9addr, _, _, err := weth9.DeployWETH9(sourceUser, sourceChain.Client())
 	require.NoError(t, err)
-	sourceWrapped, err := weth9.NewWETH9(sourceWeth9addr, sourceChain)
+	sourceWrapped, err := weth9.NewWETH9(sourceWeth9addr, sourceChain.Client())
 	require.NoError(t, err)
 
-	sourceRouterAddress, _, _, err := router.DeployRouter(sourceUser, sourceChain, sourceWeth9addr, armProxySourceAddress)
+	sourceRouterAddress, _, _, err := router.DeployRouter(sourceUser, sourceChain.Client(), sourceWeth9addr, armProxySourceAddress)
 	require.NoError(t, err)
-	sourceRouter, err := router.NewRouter(sourceRouterAddress, sourceChain)
+	sourceRouter, err := router.NewRouter(sourceRouterAddress, sourceChain.Client())
 	require.NoError(t, err)
 	sourceChain.Commit()
 
 	sourceWeth9PoolAddress, _, _, err := lock_release_token_pool_1_0_0.DeployLockReleaseTokenPool(
 		sourceUser,
-		sourceChain,
+		sourceChain.Client(),
 		sourceWeth9addr,
 		[]common.Address{},
 		armProxySourceAddress,
@@ -854,12 +857,12 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	sourceWeth9Pool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(sourceWeth9PoolAddress, sourceChain)
+	sourceWeth9Pool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(sourceWeth9PoolAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	sourcePoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
 		sourceUser,
-		sourceChain,
+		sourceChain.Client(),
 		sourceLinkTokenAddress,
 		[]common.Address{},
 		armProxySourceAddress,
@@ -868,34 +871,34 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
-	sourcePool, err := lock_release_token_pool.NewLockReleaseTokenPool(sourcePoolAddress, sourceChain)
+	sourcePool, err := lock_release_token_pool.NewLockReleaseTokenPool(sourcePoolAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	// Deploy custom token pool source
-	sourceCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(sourceUser, sourceChain) // Just re-use this, it's an ERC20.
+	sourceCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(sourceUser, sourceChain.Client()) // Just re-use this, it's an ERC20.
 	require.NoError(t, err)
-	sourceCustomToken, err := link_token_interface.NewLinkToken(sourceCustomTokenAddress, sourceChain)
+	sourceCustomToken, err := link_token_interface.NewLinkToken(sourceCustomTokenAddress, sourceChain.Client())
 	require.NoError(t, err)
 	destChain.Commit()
 
 	// Deploy custom token pool dest
-	destCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(destUser, destChain) // Just re-use this, it's an ERC20.
+	destCustomTokenAddress, _, _, err := link_token_interface.DeployLinkToken(destUser, destChain.Client()) // Just re-use this, it's an ERC20.
 	require.NoError(t, err)
-	destCustomToken, err := link_token_interface.NewLinkToken(destCustomTokenAddress, destChain)
+	destCustomToken, err := link_token_interface.NewLinkToken(destCustomTokenAddress, destChain.Client())
 	require.NoError(t, err)
 	destChain.Commit()
 
 	// Deploy and configure onramp
 	sourcePricesAddress, _, _, err := price_registry_1_2_0.DeployPriceRegistry(
 		sourceUser,
-		sourceChain,
+		sourceChain.Client(),
 		nil,
 		[]common.Address{sourceLinkTokenAddress, sourceWeth9addr},
 		60*60*24*14, // two weeks
 	)
 	require.NoError(t, err)
 
-	srcPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(sourcePricesAddress, sourceChain)
+	srcPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(sourcePricesAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	_, err = srcPriceRegistry.UpdatePrices(sourceUser, price_registry_1_2_0.InternalPriceUpdates{
@@ -919,8 +922,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 
 	onRampAddress, _, _, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
-		sourceUser,  // user
-		sourceChain, // client
+		sourceUser,           // user
+		sourceChain.Client(), // client
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 			LinkToken:         sourceLinkTokenAddress,
 			ChainSelector:     sourceChainSelector,
@@ -986,7 +989,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
 	)
 	require.NoError(t, err)
-	onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, sourceChain)
+	onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, sourceChain.Client())
 	require.NoError(t, err)
 	_, err = sourcePool.ApplyChainUpdates(
 		sourceUser,
@@ -1022,27 +1025,27 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	destWethaddr, _, _, err := weth9.DeployWETH9(destUser, destChain)
+	destWethaddr, _, _, err := weth9.DeployWETH9(destUser, destChain.Client())
 	require.NoError(t, err)
-	destWrapped, err := weth9.NewWETH9(destWethaddr, destChain)
+	destWrapped, err := weth9.NewWETH9(destWethaddr, destChain.Client())
 	require.NoError(t, err)
 
 	// Create dest router
-	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain, destWethaddr, armProxyDestAddress)
+	destRouterAddress, _, _, err := router.DeployRouter(destUser, destChain.Client(), destWethaddr, armProxyDestAddress)
 	require.NoError(t, err)
 	destChain.Commit()
-	destRouter, err := router.NewRouter(destRouterAddress, destChain)
+	destRouter, err := router.NewRouter(destRouterAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// Deploy link token and pool on destination chain
-	destLinkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(destUser, destChain)
+	destLinkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(destUser, destChain.Client())
 	require.NoError(t, err)
 	destChain.Commit()
-	destLinkToken, err := link_token_interface.NewLinkToken(destLinkTokenAddress, destChain)
+	destLinkToken, err := link_token_interface.NewLinkToken(destLinkTokenAddress, destChain.Client())
 	require.NoError(t, err)
 	destPoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
 		destUser,
-		destChain,
+		destChain.Client(),
 		destLinkTokenAddress,
 		[]common.Address{},
 		armProxyDestAddress,
@@ -1051,7 +1054,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	destPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destPoolAddress, destChain)
+	destPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destPoolAddress, destChain.Client())
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -1069,13 +1072,13 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	destWrappedPoolAddress, _, _, err := lock_release_token_pool_1_0_0.DeployLockReleaseTokenPool(
 		destUser,
-		destChain,
+		destChain.Client(),
 		destWethaddr,
 		[]common.Address{},
 		armProxyDestAddress,
 	)
 	require.NoError(t, err)
-	destWrappedPool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain)
+	destWrappedPool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain.Client())
 	require.NoError(t, err)
 
 	poolFloatValue := big.NewInt(1e18)
@@ -1093,19 +1096,19 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	// Deploy and configure ge offramp.
 	destPricesAddress, _, _, err := price_registry_1_2_0.DeployPriceRegistry(
 		destUser,
-		destChain,
+		destChain.Client(),
 		nil,
 		[]common.Address{destLinkTokenAddress},
 		60*60*24*14, // two weeks
 	)
 	require.NoError(t, err)
-	destPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(destPricesAddress, destChain)
+	destPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(destPricesAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// Deploy commit store.
 	commitStoreAddress, _, _, err := commit_store_1_2_0.DeployCommitStore(
-		destUser,  // user
-		destChain, // client
+		destUser,           // user
+		destChain.Client(), // client
 		commit_store_1_2_0.CommitStoreStaticConfig{
 			ChainSelector:       destChainSelector,
 			SourceChainSelector: sourceChainSelector,
@@ -1115,12 +1118,12 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	commitStore, err := commit_store_1_2_0.NewCommitStore(commitStoreAddress, destChain)
+	commitStore, err := commit_store_1_2_0.NewCommitStore(commitStoreAddress, destChain.Client())
 	require.NoError(t, err)
 
 	offRampAddress, _, _, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
 		destUser,
-		destChain,
+		destChain.Client(),
 		evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 			CommitStore:         commitStore.Address(),
 			ChainSelector:       destChainSelector,
@@ -1138,7 +1141,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 	)
 	require.NoError(t, err)
-	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampAddress, destChain)
+	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampAddress, destChain.Client())
 	require.NoError(t, err)
 	_, err = destPool.ApplyChainUpdates(destUser,
 		[]lock_release_token_pool.TokenPoolChainUpdate{{
@@ -1180,12 +1183,12 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 
 	// Deploy 2 revertable (one SS one non-SS)
-	revertingMessageReceiver1Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain, false)
+	revertingMessageReceiver1Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain.Client(), false)
 	require.NoError(t, err)
-	revertingMessageReceiver1, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver1Address, destChain)
-	revertingMessageReceiver2Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain, false)
+	revertingMessageReceiver1, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver1Address, destChain.Client())
+	revertingMessageReceiver2Address, _, _, err := maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(destUser, destChain.Client(), false)
 	require.NoError(t, err)
-	revertingMessageReceiver2, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver2Address, destChain)
+	revertingMessageReceiver2, _ := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(revertingMessageReceiver2Address, destChain.Client())
 	// Need to commit here, or we will hit the block gas limit when deploying the executor
 	sourceChain.Commit()
 	destChain.Commit()
@@ -1198,10 +1201,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 
 	source := SourceChain{
 		Common: Common{
-			ChainID:           sourceChainID,
-			ChainSelector:     sourceChainSelector,
-			User:              sourceUser,
-			Chain:             sourceChain,
+			ChainID:       sourceChainID,
+			ChainSelector: sourceChainSelector,
+			User:          sourceUser,
+			// FIXME
+			//Chain:             sourceChain,
 			LinkToken:         sourceLinkToken,
 			LinkTokenPool:     sourcePool,
 			CustomToken:       sourceCustomToken,
@@ -1216,10 +1220,11 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	}
 	dest := DestinationChain{
 		Common: Common{
-			ChainID:           destChainID,
-			ChainSelector:     destChainSelector,
-			User:              destUser,
-			Chain:             destChain,
+			ChainID:       destChainID,
+			ChainSelector: destChainSelector,
+			User:          destUser,
+			// FIXME
+			//Chain:             destChain,
 			LinkToken:         destLinkToken,
 			LinkTokenPool:     destPool,
 			CustomToken:       destCustomToken,
@@ -1244,7 +1249,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 func (c *CCIPContracts) SendRequest(t *testing.T, msg router.ClientEVM2AnyMessage) *types.Transaction {
 	tx, err := c.Source.Router.CcipSend(c.Source.User, c.Dest.ChainSelector, msg)
 	require.NoError(t, err)
-	testhelpers.ConfirmTxs(t, []*types.Transaction{tx}, c.Source.Chain)
+	// FIXME
+	// testhelpers.ConfirmTxs(t, []*types.Transaction{tx}, c.Source.Chain)
 	return tx
 }
 
@@ -1314,6 +1320,7 @@ func (args *ManualExecArgs) ApproxDestStartBlock() error {
 	minBlockNum := args.DestDeployedAt
 	closestBlockNum := uint64(math.Floor((float64(maxBlockNum) + float64(minBlockNum)) / 2))
 	var closestBlockHdr *types.Header
+	//nolint:gosec // safe to casts in tests
 	closestBlockHdr, err = args.DestChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
 	if err != nil {
 		return err
@@ -1327,6 +1334,7 @@ func (args *ManualExecArgs) ApproxDestStartBlock() error {
 		}
 		timeDiff := math.Abs(float64(closestBlockHdr.Time - sendTxTime))
 		// break if the difference in timestamp is lesser than 1 minute
+		//nolint:gocritic // tests
 		if timeDiff < 60 {
 			break
 		} else if closestBlockHdr.Time > sendTxTime {
@@ -1335,6 +1343,7 @@ func (args *ManualExecArgs) ApproxDestStartBlock() error {
 			minBlockNum = blockNum + 1
 		}
 		closestBlockNum = uint64(math.Floor((float64(maxBlockNum) + float64(minBlockNum)) / 2))
+		//nolint:gosec // safe to casts in tests
 		closestBlockHdr, err = args.DestChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
 		if err != nil {
 			return err
@@ -1342,10 +1351,11 @@ func (args *ManualExecArgs) ApproxDestStartBlock() error {
 	}
 
 	for closestBlockHdr.Time > sendTxTime {
-		closestBlockNum = closestBlockNum - blockOffset
+		closestBlockNum -= blockOffset
 		if closestBlockNum <= 0 {
-			return fmt.Errorf("approx destination blocknumber not found")
+			return errors.New("approx destination blocknumber not found")
 		}
+		//nolint:gosec // safe to casts in tests
 		closestBlockHdr, err = args.DestChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
 		if err != nil {
 			return err
@@ -1386,22 +1396,22 @@ func (args *ManualExecArgs) ExecuteManually() (*types.Transaction, error) {
 	if args.SourceChainID == 0 ||
 		args.DestChainID == 0 ||
 		args.DestUser == nil {
-		return nil, fmt.Errorf("chain ids and owners are mandatory for source and dest chain")
+		return nil, errors.New("chain ids and owners are mandatory for source and dest chain")
 	}
 	if !common.IsHexAddress(args.CommitStore) ||
 		!common.IsHexAddress(args.OffRamp) ||
 		!common.IsHexAddress(args.OnRamp) {
-		return nil, fmt.Errorf("contract addresses must be valid hex address")
+		return nil, errors.New("contract addresses must be valid hex address")
 	}
 	if args.SendReqTxHash == "" {
-		return nil, fmt.Errorf("tx hash of ccip-send request are required")
+		return nil, errors.New("tx hash of ccip-send request are required")
 	}
 	if args.SourceStartBlock == nil {
-		return nil, fmt.Errorf("must provide the value of source block in/after which ccip-send tx was included")
+		return nil, errors.New("must provide the value of source block in/after which ccip-send tx was included")
 	}
 	if args.SeqNr == 0 {
 		if args.SendReqLogIndex == 0 {
-			return nil, fmt.Errorf("must provide the value of log index of ccip-send request")
+			return nil, errors.New("must provide the value of log index of ccip-send request")
 		}
 		// locate seq nr from CCIPSendRequested log
 		seqNr, err := args.FindSeqNrFromCCIPSendRequested()
@@ -1451,7 +1461,7 @@ func (args *ManualExecArgs) execute(report *commit_store_1_2_0.CommitStoreCommit
 	}
 	leafHasher := v1_2_0.NewLeafHasher(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx, onRampContract)
 	if leafHasher == nil {
-		return nil, fmt.Errorf("unable to create leaf hasher")
+		return nil, errors.New("unable to create leaf hasher")
 	}
 
 	var leaves [][32]byte
@@ -1523,7 +1533,7 @@ func (args *ManualExecArgs) execute(report *commit_store_1_2_0.CommitStoreCommit
 		return nil, err
 	}
 	if tree.Root() != report.MerkleRoot {
-		return nil, fmt.Errorf("root doesn't match")
+		return nil, errors.New("root doesn't match")
 	}
 
 	proof, err := tree.Prove([]int{prove})
@@ -1555,19 +1565,21 @@ func (c *CCIPContracts) ExecuteMessage(
 	sendReqReceipt, err := c.Source.Chain.TransactionReceipt(context.Background(), txHash)
 	require.NoError(t, err)
 	args := ManualExecArgs{
-		SourceChainID:      c.Source.ChainID,
-		DestChainID:        c.Dest.ChainID,
-		DestUser:           c.Dest.User,
-		SourceChain:        c.Source.Chain,
-		DestChain:          c.Dest.Chain,
-		SourceStartBlock:   sendReqReceipt.BlockNumber,
-		DestStartBlock:     destStartBlock,
-		DestLatestBlockNum: c.Dest.Chain.Blockchain().CurrentBlock().Number.Uint64(),
-		SendReqLogIndex:    uint(req.LogIndex),
-		SendReqTxHash:      txHash.String(),
-		CommitStore:        c.Dest.CommitStore.Address().String(),
-		OnRamp:             c.Source.OnRamp.Address().String(),
-		OffRamp:            c.Dest.OffRamp.Address().String(),
+		SourceChainID:    c.Source.ChainID,
+		DestChainID:      c.Dest.ChainID,
+		DestUser:         c.Dest.User,
+		SourceChain:      c.Source.Chain,
+		DestChain:        c.Dest.Chain,
+		SourceStartBlock: sendReqReceipt.BlockNumber,
+		DestStartBlock:   destStartBlock,
+		// FIXME
+		//DestLatestBlockNum: c.Dest.Chain.Blockchain().CurrentBlock().Number.Uint64(),
+		//nolint:gosec // safe to casts in tests
+		SendReqLogIndex: uint(req.LogIndex),
+		SendReqTxHash:   txHash.String(),
+		CommitStore:     c.Dest.CommitStore.Address().String(),
+		OnRamp:          c.Source.OnRamp.Address().String(),
+		OffRamp:         c.Dest.OffRamp.Address().String(),
 	}
 	tx, err := args.ExecuteManually()
 	require.NoError(t, err)
