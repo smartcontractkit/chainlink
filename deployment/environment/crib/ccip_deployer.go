@@ -5,14 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -206,7 +204,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 								to: {
 									from: {
 										IsEnabled:  true,
-										TestRouter: true,
+										TestRouter: false,
 									},
 								},
 							},
@@ -215,7 +213,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
 						Config: changeset.UpdateRouterRampsConfig{
-							TestRouter: true,
+							TestRouter: false,
 							UpdatesByChain: map[uint64]changeset.RouterUpdates{
 								// onRamp update on source chain
 								from: {
