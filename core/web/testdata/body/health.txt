@@ -20,6 +20,7 @@ ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
+ok NodeHeartbeat
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache

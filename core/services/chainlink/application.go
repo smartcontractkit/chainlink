@@ -232,7 +232,7 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 	cme := custmsg.NewLabeler()
 
 	// Define tick functions
-	tickFn := func(engCtx context.Context) {
+	beatFn := func(engCtx context.Context) {
 		// TODO allow override of tracer provider into engine for beholder
 		_, innerSpan := beholder.GetTracer().Start(engCtx, "heartbeat.beat")
 		defer innerSpan.End()
@@ -251,7 +251,7 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 		return h.beat
 	}
 
-	h.eng.GoTick(timeutil.NewTicker(constantTickFn), tickFn)
+	h.eng.GoTick(timeutil.NewTicker(constantTickFn), beatFn)
 	return nil
 }
 

@@ -191,6 +191,15 @@
     },
     {
       "type": "checks",
+      "id": "NodeHeartbeat",
+      "attributes": {
+        "name": "NodeHeartbeat",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "PipelineORM",
       "attributes": {
         "name": "PipelineORM",
