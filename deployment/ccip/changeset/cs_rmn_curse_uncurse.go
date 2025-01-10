@@ -2,11 +2,13 @@ package changeset
 
 import (
 	"encoding/binary"
+	"fmt"
 	"slices"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func GlobalCurseSubject() Subject {
@@ -27,6 +29,12 @@ type RMNCurseConfig struct {
 }
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+
+	if err != nil {
+		return errors.Errorf("failed to load onchain state: %v", err)
+	}
+
 	if len(c.CurseActions) == 0 {
 		return errors.Errorf("curse actions are required")
 	}
@@ -45,12 +53,19 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	for _, curseAction := range c.CurseActions {
 		result := curseAction(e)
 		for _, action := range result {
+			targetChain := e.Chains[action.ChainSelector]
+			targetChainState := state.Chains[action.ChainSelector]
+
+			if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, targetChain.DeployerKey.From, targetChainState.Timelock.Address(), targetChainState.RMNRemote); err != nil {
+				return fmt.Errorf("chain %s: %w", targetChain.String(), err)
+			}
+
 			if !slices.Contains(validSelectors, action.ChainSelector) {
-				return errors.Errorf("invalid chain selector %d", action.ChainSelector)
+				return errors.Errorf("invalid chain selector %d for chain %s", action.ChainSelector, targetChain.String())
 			}
 
 			if !slices.Contains(validSubjects, action.SubjectToCurse) {
-				return errors.Errorf("invalid subject %x", action.SubjectToCurse)
+				return errors.Errorf("invalid subject %x for chain %s", action.SubjectToCurse, targetChain.String())
 			}
 		}
 	}
@@ -66,19 +81,28 @@ func SelectorToSubject(subject uint64) Subject {
 	return b
 }
 
-func CurseLane(sourceSelector uint64, destinationSelector uint64) CurseAction {
-	// Bidirectional curse between two chains
+// CurseLaneOnlyOnSource curses a lane only on the source chain
+// This will prevent message from source to destination to be initiated
+// One noteworthy behaviour is that this means that message can be sent from destination to source but will not be executed on the source
+func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) CurseAction {
+	// Curse from source to destination
 	return func(e deployment.Environment) []RMNCurseAction {
 		return []RMNCurseAction{
 			{
 				ChainSelector:  sourceSelector,
 				SubjectToCurse: SelectorToSubject(destinationSelector),
 			},
-			{
-				ChainSelector:  destinationSelector,
-				SubjectToCurse: SelectorToSubject(sourceSelector),
-			},
 		}
+	}
+}
+
+func CurseLane(sourceSelector uint64, destinationSelector uint64) CurseAction {
+	// Bidirectional curse between two chains
+	return func(e deployment.Environment) []RMNCurseAction {
+		return append(
+			CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e),
+			CurseLaneOnlyOnSource(destinationSelector, sourceSelector)(e)...,
+		)
 	}
 }
 
@@ -142,7 +166,7 @@ func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, filter bool) map[ui
 // Example usage:
 //
 //	cfg := RMNCurseConfig{
-//	    CurseActions: []func(deployment.Environment) []RMNCurseAction{
+//	    CurseActions: []CurseAction{
 //	        CurseChain(SEPOLIA_CHAIN_SELECTOR),
 //	        CurseLane(SEPOLIA_CHAIN_SELECTOR, AVAX_FUJI_CHAIN_SELECTOR),
 //	    },
@@ -197,7 +221,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 // Example usage:
 //
 //	cfg := RMNCurseConfig{
-//	    CurseActions: []func(deployment.Environment) []RMNCurseAction{
+//	    CurseActions: []CurseAction{
 //	        CurseChain(SEPOLIA_CHAIN_SELECTOR),
 //	        CurseLane(SEPOLIA_CHAIN_SELECTOR, AVAX_FUJI_CHAIN_SELECTOR),
 //	    },
