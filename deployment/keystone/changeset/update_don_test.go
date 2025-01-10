@@ -29,6 +29,11 @@ func TestUpdateDon(t *testing.T) {
 		}
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
+	capACfg, err := internal.GetDefaultCapConfig(capA)
+	require.NoError(t, err)
+	capBCfg, err := internal.GetDefaultCapConfig(capB)
+	require.NoError(t, err)
+
 	t.Run("no mcms", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{N: 4},
@@ -54,10 +59,10 @@ func TestUpdateDon(t *testing.T) {
 				P2PIDs:           p2pIDs,
 				CapabilityConfigs: []changeset.CapabilityConfig{
 					{
-						Capability: capA,
+						Capability: capA, Config: capACfg,
 					},
 					{
-						Capability: capB,
+						Capability: capB, Config: capBCfg,
 					},
 				},
 			}
@@ -94,9 +99,11 @@ func TestUpdateDon(t *testing.T) {
 			CapabilityConfigs: []changeset.CapabilityConfig{
 				{
 					Capability: capA,
+					Config:     capACfg,
 				},
 				{
 					Capability: capB,
+					Config:     capBCfg,
 				},
 			},
 			MCMSConfig: &changeset.MCMSConfig{MinDuration: 0},

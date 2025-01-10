@@ -131,7 +131,12 @@ type DonCapabilities struct {
 	Name         string
 	F            uint8
 	Nops         []NOP
-	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
+	Capabilities []DONCapabilityWithConfig // every capability is hosted on each nop
+}
+
+type DONCapabilityWithConfig struct {
+	Capability kcr.CapabilitiesRegistryCapability
+	Config     []byte
 }
 
 func (v DonCapabilities) Validate() error {
@@ -195,10 +200,14 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 }
 
 // mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonInfo) map[string][]kcr.CapabilitiesRegistryCapability {
-	out := make(map[string][]kcr.CapabilitiesRegistryCapability)
+func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
+	out := make(map[string][]DONCapabilityWithConfig)
 	for _, don := range dons {
-		out[don.Name] = don.Capabilities
+		var donCaps []DONCapabilityWithConfig
+		for _, donCap := range don.Capabilities {
+			donCaps = append(donCaps, donCap)
+		}
+		out[don.Name] = donCaps
 	}
 	return out
 }

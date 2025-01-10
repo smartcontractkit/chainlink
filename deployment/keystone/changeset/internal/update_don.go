@@ -148,6 +148,7 @@ func computeConfigs(registry *kcr.CapabilitiesRegistry, capCfgs []CapabilityConf
 			return nil, fmt.Errorf("failed to get capability id: %w", err)
 		}
 		out[i].CapabilityId = id
+		out[i].Config = capCfg.Config
 		if out[i].Config == nil {
 			return nil, fmt.Errorf("config is required for capability %s", capCfg.Capability.LabelledName)
 		}

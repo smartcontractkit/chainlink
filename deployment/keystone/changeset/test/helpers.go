@@ -150,6 +150,13 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
+	ocr3CapCfg, err := internal.GetDefaultCapConfig(internal.OCR3Cap)
+	require.NoError(t, err)
+	writerChainCapCfg, err := internal.GetDefaultCapConfig(internal.WriteChainCap)
+	require.NoError(t, err)
+	streamTriggerChainCapCfg, err := internal.GetDefaultCapConfig(internal.StreamTriggerCap)
+	require.NoError(t, err)
+
 	// TODO: partition nodes into multiple nops
 
 	wfDon := internal.DonCapabilities{
@@ -160,7 +167,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(wfNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.OCR3Cap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
+		},
 	}
 	cwDon := internal.DonCapabilities{
 		Name: internal.TargetDonName,
@@ -170,7 +179,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(cwNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.WriteChainCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
+		},
 	}
 	assetDon := internal.DonCapabilities{
 		Name: internal.StreamDonName,
@@ -180,7 +191,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(assetNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.StreamTriggerCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
+		},
 	}
 
 	allChains := make(map[uint64]deployment.Chain)
@@ -372,8 +385,8 @@ func p2pIDs(t *testing.T, vals []string) [][32]byte {
 func expectedHashedCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, don internal.DonCapabilities) [][32]byte {
 	out := make([][32]byte, len(don.Capabilities))
 	var err error
-	for i, cap := range don.Capabilities {
-		out[i], err = registry.GetHashedCapabilityId(nil, cap.LabelledName, cap.Version)
+	for i, capWithCfg := range don.Capabilities {
+		out[i], err = registry.GetHashedCapabilityId(nil, capWithCfg.Capability.LabelledName, capWithCfg.Capability.Version)
 		require.NoError(t, err)
 	}
 	return out

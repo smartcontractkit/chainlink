@@ -15,7 +15,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -136,7 +140,7 @@ type DonInfo struct {
 	Name         string
 	F            uint8
 	Nodes        []deployment.Node
-	Capabilities []capabilities_registry.CapabilitiesRegistryCapability // every capability is hosted on each node
+	Capabilities []DONCapabilityWithConfig // every capability is hosted on each node
 }
 
 func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
@@ -409,7 +413,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 type RegisterCapabilitiesRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
-	DonToCapabilities     map[string][]capabilities_registry.CapabilitiesRegistryCapability
+	DonToCapabilities     map[string][]DONCapabilityWithConfig
 }
 
 type RegisterCapabilitiesResponse struct {
@@ -461,18 +465,19 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for don, caps := range req.DonToCapabilities {
 		var registerCaps []RegisteredCapability
 		for _, cap := range caps {
-			id, ok := uniqueCaps[cap]
+			id, ok := uniqueCaps[cap.Capability]
 			if !ok {
 				var err error
-				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.Capability.LabelledName, cap.Capability.Version)
 				if err != nil {
 					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
 				}
-				uniqueCaps[cap] = id
+				uniqueCaps[cap.Capability] = id
 			}
 			registerCap := RegisteredCapability{
-				CapabilitiesRegistryCapability: cap,
 				ID:                             id,
+				Config:                         cap.Config,
+				CapabilitiesRegistryCapability: cap.Capability,
 			}
 			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
 			registerCaps = append(registerCaps, registerCap)
@@ -927,4 +932,29 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
 	return opMap, nil
+}
+
+func GetDefaultCapConfig(capability capabilities_registry.CapabilitiesRegistryCapability) ([]byte, error) {
+	defaultCfg := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+	switch capability.CapabilityType {
+	case uint8(0): // trigger
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(20 * time.Second),
+				RegistrationExpiry:      durationpb.New(60 * time.Second),
+				MinResponsesToAggregate: uint32(10),
+			},
+		}
+	case uint8(3): // target
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+			},
+		}
+	case uint8(2): // consensus
+	default:
+	}
+	return proto.Marshal(defaultCfg)
 }
