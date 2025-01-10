@@ -426,7 +426,7 @@ type RegisteredCapability struct {
 	Config []byte
 }
 
-func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64, cfg []byte) (*RegisteredCapability, error) {
+func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
 	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
@@ -435,10 +435,17 @@ func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.Capabiliti
 	if err != nil {
 		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capReg, err)
 	}
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required for capability %v", capReg)
+	}
+	cfgB, err := proto.Marshal(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config for capability %v: %w", capReg, err)
+	}
 	return &RegisteredCapability{
 		CapabilitiesRegistryCapability: *capReg,
 		ID:                             id,
-		Config:                         cfg,
+		Config:                         cfgB,
 	}, nil
 }
 
