@@ -170,7 +170,7 @@ func Test_SetCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].LinkToken.Address().String(), state.Chains[tenv.FeedChainSel].Weth9.Address().String(), tenv.FeedChainSel)
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
@@ -186,7 +186,7 @@ func Test_SetCandidate(t *testing.T) {
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 									nil,
 								),
 							},
@@ -204,7 +204,7 @@ func Test_SetCandidate(t *testing.T) {
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 									nil,
 								),
 							},
@@ -291,7 +291,7 @@ func Test_RevokeCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].LinkToken.Address().String(), state.Chains[tenv.FeedChainSel].Weth9.Address().String(), tenv.FeedChainSel)
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
@@ -307,7 +307,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 									nil,
 								),
 							},
@@ -325,7 +325,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 								dest: DefaultOCRParams(
 									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 									nil,
 								),
 							},
