@@ -64,21 +64,6 @@ var RegisterNodes = internal.RegisterNodes
 // RegisteredCapability is a wrapper of a capability and its ID
 type RegisteredCapability = internal.RegisteredCapability
 
-// RegisteredCapabilityConfig is the configuration of a RegisteredCapability
-type RegisteredCapabilityConfig = internal.RegisteredCapabilityConfig
-
-// RegisteredCapabilityRemoteConfig is the remote configuration of a RegisteredCapability
-type RegisteredCapabilityRemoteConfig = internal.RegisteredCapabilityRemoteConfig
-
-// RegisteredCapabilityRemoteTargetConfig is the configuration of target capabilities
-type RegisteredCapabilityRemoteTargetConfig = internal.RegisteredCapabilityRemoteTargetConfig
-
-// RegisteredCapabilityRemoteTriggerConfig is the configuration of trigger capabilities
-type RegisteredCapabilityRemoteTriggerConfig = internal.RegisteredCapabilityRemoteTriggerConfig
-
-// RegisteredCapabilityRemoteExecutableConfig is the configuration of executable capabilities
-type RegisteredCapabilityRemoteExecutableConfig = internal.RegisteredCapabilityRemoteExecutableConfig
-
 // FromCapabilitiesRegistryCapability converts a capabilities registry capability to a registered capability
 var FromCapabilitiesRegistryCapability = internal.FromCapabilitiesRegistryCapability
 
