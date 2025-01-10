@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {IAutomationRegistryMaster2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 import {IERC20Metadata as IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -21,7 +21,7 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC677Receiver {
+contract AutomationRegistrar2_3 is ITypeAndVersion, ConfirmedOwner, IERC677Receiver {
   using SafeERC20 for IERC20;
 
   /**

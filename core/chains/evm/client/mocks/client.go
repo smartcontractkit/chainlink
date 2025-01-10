@@ -11,8 +11,6 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-
 	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -20,6 +18,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	mock "github.com/stretchr/testify/mock"
+
+	multinode "github.com/smartcontractkit/chainlink-framework/multinode"
 
 	rpc "github.com/ethereum/go-ethereum/rpc"
 
@@ -1628,22 +1628,22 @@ func (_c *Client_SendTransaction_Call) RunAndReturn(run func(context.Context, *t
 }
 
 // SendTransactionReturnCode provides a mock function with given fields: ctx, tx, fromAddress
-func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+func (_m *Client) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error) {
 	ret := _m.Called(ctx, tx, fromAddress)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendTransactionReturnCode")
 	}
 
-	var r0 commonclient.SendTxReturnCode
+	var r0 multinode.SendTxReturnCode
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) (multinode.SendTxReturnCode, error)); ok {
 		return rf(ctx, tx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) commonclient.SendTxReturnCode); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Transaction, common.Address) multinode.SendTxReturnCode); ok {
 		r0 = rf(ctx, tx, fromAddress)
 	} else {
-		r0 = ret.Get(0).(commonclient.SendTxReturnCode)
+		r0 = ret.Get(0).(multinode.SendTxReturnCode)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, *types.Transaction, common.Address) error); ok {
@@ -1675,12 +1675,12 @@ func (_c *Client_SendTransactionReturnCode_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *Client_SendTransactionReturnCode_Call) Return(_a0 commonclient.SendTxReturnCode, _a1 error) *Client_SendTransactionReturnCode_Call {
+func (_c *Client_SendTransactionReturnCode_Call) Return(_a0 multinode.SendTxReturnCode, _a1 error) *Client_SendTransactionReturnCode_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Client_SendTransactionReturnCode_Call) RunAndReturn(run func(context.Context, *types.Transaction, common.Address) (commonclient.SendTxReturnCode, error)) *Client_SendTransactionReturnCode_Call {
+func (_c *Client_SendTransactionReturnCode_Call) RunAndReturn(run func(context.Context, *types.Transaction, common.Address) (multinode.SendTxReturnCode, error)) *Client_SendTransactionReturnCode_Call {
 	_c.Call.Return(run)
 	return _c
 }

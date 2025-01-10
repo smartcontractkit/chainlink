@@ -48,7 +48,7 @@ contract RMNHome_validateStaticAndDynamicConfig is RMNHomeTestSetup {
 
   function test_RevertWhen_validateStaticAndDynamicConfig_NotEnoughObservers() public {
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[0].f++;
+    config.dynamicConfig.sourceChains[0].fObserve++;
 
     vm.expectRevert(RMNHome.NotEnoughObservers.selector);
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);

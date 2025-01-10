@@ -13,6 +13,8 @@ NoNewFinalizedHeadsThreshold = '45s'
 
 [GasEstimator]
 PriceDefault = '5 gwei'
+# Set to the BSC node's default Eth.Miner.GasPrice config
+PriceMin = '3 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
 
@@ -26,3 +28,8 @@ ObservationGracePeriod = '500ms'
 
 [NodePool]
 SyncThreshold = 10
+
+[HeadTracker]
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false

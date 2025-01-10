@@ -115,7 +115,7 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 
 	// in general we can map from the view to the node, but we know the test data
 	var nodes []deployment.Node
-	//for _, nv := range nodeViews {
+	// for _, nv := range nodeViews {
 	for _, name := range names {
 		nv := nodeViews[name]
 		node := deployment.Node{

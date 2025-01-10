@@ -41,7 +41,7 @@ jobs:
         findByTestFilesDiff: true
         findByAffectedPackages: false
         slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
-        extraArgs: '{ "skipped_tests": "TestChainComponents", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "omit_test_outputs_on_success": "true" }'
+        extraArgs: '{ "skipped_tests": "", "run_with_race": "true", "print_failed_tests": "true", "test_repeat_count": "3", "omit_test_outputs_on_success": "true" }'
       secrets:
         SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
