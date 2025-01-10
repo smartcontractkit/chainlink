@@ -107,10 +107,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
 	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
-	// Adding to src1 and dest chains first, due to the open issue -
-	// if ccip contracts are added to all chains and only one lane is enabled between src1 and dest, the plugin will not work
-	// until lanes are added involving the rest of the chains
-	e = changeset.AddCCIPContractsToEnvironment(t, []uint64{src1, dest}, tEnv)
+	e = changeset.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
@@ -118,7 +115,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
 			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: []uint64{src1, dest},
+				ChainSelectors: e.Env.AllChainSelectors(),
 				MCMSConfig: &changeset.MCMSConfig{
 					MinDelay: 0,
 				},
@@ -137,10 +134,22 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 							},
 						},
 					},
+					src2: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: dest,
+								EnableOnRamp:        true,
+							},
+						},
+					},
 					dest: {
 						PreviousRampsArgs: []changeset.PreviousRampCfg{
 							{
 								RemoteChainSelector: src1,
+								EnableOffRamp:       true,
+							},
+							{
+								RemoteChainSelector: src2,
 								EnableOffRamp:       true,
 							},
 						},
