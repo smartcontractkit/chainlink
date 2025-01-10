@@ -6081,6 +6081,9 @@ ResendAfterThreshold = '30s'
 [Transactions.AutoPurge]
 Enabled = false
 
+[Transactions.TransactionManagerV2]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -6960,6 +6963,9 @@ ResendAfterThreshold = '1m0s'
 [Transactions.AutoPurge]
 Enabled = false
 
+[Transactions.TransactionManagerV2]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -7068,6 +7074,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
 Enabled = false
 
 [BalanceMonitor]
@@ -8610,6 +8619,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
 Enabled = false
 
 [BalanceMonitor]
@@ -10371,6 +10383,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
 Enabled = false
 
 [BalanceMonitor]
