@@ -81,3 +81,38 @@ func Test_AddCapabilities(t *testing.T) {
 		require.Nil(t, ops)
 	})
 }
+
+func Test_RegisterNodes(t *testing.T) {
+	var (
+		useMCMS   bool
+		lggr      = logger.Test(t)
+		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
+		registry  = setupResp.Registry
+		chain     = setupResp.Chain
+	)
+	t.Run("success create add nodes mcms proposal", func(t *testing.T) {
+		useMCMS = true
+		env := &deployment.Environment{
+			Logger: lggr,
+			Chains: map[uint64]deployment.Chain{
+				chain.Selector: chain,
+			},
+			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+				chain.Selector: {
+					registry.Address().String(): deployment.TypeAndVersion{
+						Type:    internal.CapabilitiesRegistry,
+						Version: deployment.Version1_0_0,
+					},
+				},
+			}),
+		}
+		resp, err := internal.RegisterNodes(lggr, &internal.RegisterNodesRequest{
+			Env:                   env,
+			RegistryChainSelector: chain.Selector,
+			UseMCMS:               useMCMS,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Ops)
+		require.Len(t, resp.Ops.Batch, 1)
+	})
+}

@@ -658,9 +658,11 @@ type RegisterNodesRequest struct {
 	DonToNodes            map[string][]deployment.Node
 	DonToCapabilities     map[string][]RegisteredCapability
 	Nops                  []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	UseMCMS               bool
 }
 type RegisterNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
+	Ops            *timelock.BatchChainOperation
 }
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
@@ -766,6 +768,18 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	}
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
 
+	if req.UseMCMS {
+		ops, err := addNodesMCMSProposal(registry, uniqueNodeParams, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add nodes: %w", err)
+		}
+
+		return &RegisterNodesResponse{
+			nodeIDToParams: nodeIDToParams,
+			Ops:            ops,
+		}, nil
+	}
+
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -802,6 +816,26 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
+	}, nil
+}
+
+// addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
+func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodes(deployment.SimTransactOpts(), params)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
 	}, nil
 }
 
