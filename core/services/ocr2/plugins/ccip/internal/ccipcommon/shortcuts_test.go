@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
@@ -145,14 +146,20 @@ func TestRetryUntilSuccess(t *testing.T) {
 	}
 
 	// Assert that RetryUntilSuccess returns the expected value when fn returns success on the 5th attempt
-	numCalls, err := RetryUntilSuccess(fn, initialDelay, maxDelay)
-	assert.Nil(t, err)
+	numCalls, err := RetryUntilSuccess(fn, initialDelay, maxDelay, 10)
+	require.NoError(t, err)
 	assert.Equal(t, 5, numCalls)
 
 	// Assert that RetryUntilSuccess returns the expected value when fn returns success on the 8th attempt
 	numAttempts = 8
 	numCalls = 0
-	numCalls, err = RetryUntilSuccess(fn, initialDelay, maxDelay)
-	assert.Nil(t, err)
+	numCalls, err = RetryUntilSuccess(fn, initialDelay, maxDelay, 10)
+	require.NoError(t, err)
 	assert.Equal(t, 8, numCalls)
+
+	// Assert that RetryUntilSuccess exhausts retries
+	numAttempts = 8
+	numCalls = 0
+	numCalls, err = RetryUntilSuccess(fn, initialDelay, maxDelay, 2)
+	require.Error(t, err)
 }
