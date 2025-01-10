@@ -38,7 +38,7 @@ func Test_PromoteCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -134,7 +134,7 @@ func Test_SetCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -243,7 +243,7 @@ func Test_RevokeCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -422,7 +422,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv := NewMemoryEnvironment(t, WithChains(3))
+			tenv, _ := NewMemoryEnvironment(t, WithChains(3))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

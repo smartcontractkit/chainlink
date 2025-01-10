@@ -33,7 +33,7 @@ import (
 func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	tenv, _ := testsetups.NewIntegrationEnvironment(
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithUSDC(),
 		changeset.WithUSDCAttestationMissing(),

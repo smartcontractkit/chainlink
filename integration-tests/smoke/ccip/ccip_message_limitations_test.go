@@ -23,7 +23,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	ctx := testcontext.Get(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
-	testEnv, _ := testsetups.NewIntegrationEnvironment(t)
+	testEnv, _, _ := testsetups.NewIntegrationEnvironment(t)
 	chains := maps.Keys(testEnv.Env.Chains)
 
 	onChainState, err := changeset.LoadOnchainState(testEnv.Env)

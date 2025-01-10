@@ -12,18 +12,21 @@ import (
 )
 
 type IHttpClient interface {
-	// Get issue a GET request to the given url and return the response body and status code.
+	// Get issues a GET request to the given url and returns the response body and status code.
 	Get(ctx context.Context, url string, timeout time.Duration) ([]byte, int, http.Header, error)
+
+	// Post issues a POST request to the given url with the given request data and returns the response body and status code.
+	Post(ctx context.Context, url string, requestData io.Reader, timeout time.Duration) ([]byte, int, http.Header, error)
 }
 
 type HttpClient struct {
 }
 
-func (s *HttpClient) Get(ctx context.Context, url string, timeout time.Duration) ([]byte, int, http.Header, error) {
+func doRequest(ctx context.Context, url string, requestType string, requestBody io.Reader, timeout time.Duration) ([]byte, int, http.Header, error) {
 	// Use a timeout to guard against attestation API hanging, causing observation timeout and failing to make any progress.
 	timeoutCtx, cancel := context.WithTimeoutCause(ctx, timeout, tokendata.ErrTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(timeoutCtx, requestType, url, requestBody)
 	if err != nil {
 		return nil, http.StatusBadRequest, nil, err
 	}
@@ -45,4 +48,12 @@ func (s *HttpClient) Get(ctx context.Context, url string, timeout time.Duration)
 
 	body, err := io.ReadAll(res.Body)
 	return body, res.StatusCode, res.Header, err
+}
+
+func (s *HttpClient) Get(ctx context.Context, url string, timeout time.Duration) ([]byte, int, http.Header, error) {
+	return doRequest(ctx, url, http.MethodGet, nil, timeout)
+}
+
+func (s *HttpClient) Post(ctx context.Context, url string, requestBody io.Reader, timeout time.Duration) ([]byte, int, http.Header, error) {
+	return doRequest(ctx, url, http.MethodPost, requestBody, timeout)
 }

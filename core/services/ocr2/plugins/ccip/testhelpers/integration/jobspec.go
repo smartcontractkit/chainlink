@@ -156,7 +156,7 @@ type JobType string
 const (
 	Commit    JobType = "commit"
 	Execution JobType = "exec"
-	Boostrap  JobType = "bootstrap"
+	Bootstrap JobType = "bootstrap"
 )
 
 func JobName(jobType JobType, source string, destination, version string) string {
@@ -180,6 +180,7 @@ type CCIPJobSpecParams struct {
 	DestStartBlock         uint64
 	USDCAttestationAPI     string
 	USDCConfig             *config.USDCConfig
+	LBTCConfig             *config.LBTCConfig
 	P2PV2Bootstrappers     pq.StringArray
 }
 
@@ -305,6 +306,11 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
 	}
+	if params.LBTCConfig != nil {
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.AttestationAPI)
+		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.SourceTokenAddress)
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfig.AttestationAPITimeoutSeconds
+	}
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
@@ -323,7 +329,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 		},
 	}
 	return &OCR2TaskJobSpec{
-		Name:           fmt.Sprintf("%s-%s", Boostrap, params.DestChainName),
+		Name:           fmt.Sprintf("%s-%s-%s", Bootstrap, params.SourceChainName, params.DestChainName),
 		JobType:        "bootstrap",
 		OCR2OracleSpec: bootstrapSpec,
 	}

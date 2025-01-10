@@ -32,7 +32,7 @@ import (
 func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	tenv, _ := testsetups.NewIntegrationEnvironment(t,
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithUsersPerChain(3),
 		changeset.WithChains(3),
 		changeset.WithUSDC(),
