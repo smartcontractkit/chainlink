@@ -499,7 +499,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
+		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders, true, true)
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)
 		}
@@ -550,20 +550,19 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		},
 		{
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				RemoteChainSelectors: allChains,
-				PluginType:           types.PluginTypeCCIPCommit,
-			},
-		},
-		{
-			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				RemoteChainSelectors: allChains,
-				PluginType:           types.PluginTypeCCIPExec,
+			Changeset: commonchangeset.WrapChangeSet(PromoteCandidateChangeset),
+			Config: PromoteCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				PluginInfo: []PromoteCandidatePluginInfo{
+					{
+						PluginType:           types.PluginTypeCCIPCommit,
+						RemoteChainSelectors: allChains,
+					},
+					{
+						PluginType:           types.PluginTypeCCIPExec,
+						RemoteChainSelectors: allChains,
+					},
+				},
 			},
 		},
 		{

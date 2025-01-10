@@ -87,12 +87,16 @@ func Test_PromoteCandidate(t *testing.T) {
 				},
 			}, []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-					Config: PromoteCandidatesChangesetConfig{
-						HomeChainSelector:    tenv.HomeChainSel,
-						RemoteChainSelectors: []uint64{dest},
-						MCMS:                 mcmsConfig,
-						PluginType:           types.PluginTypeCCIPCommit,
+					Changeset: commonchangeset.WrapChangeSet(PromoteCandidateChangeset),
+					Config: PromoteCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						PluginInfo: []PromoteCandidatePluginInfo{
+							{
+								RemoteChainSelectors: []uint64{dest},
+								PluginType:           types.PluginTypeCCIPCommit,
+							},
+						},
+						MCMS: mcmsConfig,
 					},
 				},
 			})
@@ -184,11 +188,7 @@ func Test_SetCandidate(t *testing.T) {
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
 							},
 							PluginType: types.PluginTypeCCIPCommit,
 							MCMS:       mcmsConfig,
@@ -202,11 +202,7 @@ func Test_SetCandidate(t *testing.T) {
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
 							},
 							PluginType: types.PluginTypeCCIPExec,
 							MCMS:       mcmsConfig,
@@ -305,11 +301,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
 							},
 							PluginType: types.PluginTypeCCIPCommit,
 							MCMS:       mcmsConfig,
@@ -323,11 +315,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
 							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
 							},
 							PluginType: types.PluginTypeCCIPExec,
 							MCMS:       mcmsConfig,

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -197,11 +198,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					FeedChainSelector: tenv.FeedChainSel,
 					// NOTE: this is technically not a new chain, but needed for validation.
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
+						dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
 					},
 					PluginType: types.PluginTypeCCIPCommit,
 					MCMS: &MCMSConfig{
@@ -218,11 +215,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					FeedChainSelector: tenv.FeedChainSel,
 					// NOTE: this is technically not a new chain, but needed for validation.
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
+						dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
 					},
 					PluginType: types.PluginTypeCCIPExec,
 					MCMS: &MCMSConfig{

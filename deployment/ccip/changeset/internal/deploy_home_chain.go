@@ -203,8 +203,8 @@ func BuildOCR3ConfigForCCIPHome(
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
 	ocrParams types2.OCRParameters,
-	commitOffchainCfg pluginconfig.CommitOffchainConfig,
-	execOffchainCfg pluginconfig.ExecuteOffchainConfig,
+	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
+	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -228,10 +228,20 @@ func BuildOCR3ConfigForCCIPHome(
 
 	// Add DON on capability registry contract
 	ocr3Configs := make(map[types.PluginType]ccip_home.CCIPHomeOCR3Config)
-	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+	pluginTypes := make([]types.PluginType, 0)
+	if commitOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPCommit)
+	}
+	if execOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPExec)
+	}
+	for _, pluginType := range pluginTypes {
 		var encodedOffchainConfig []byte
 		var err2 error
 		if pluginType == types.PluginTypeCCIPCommit {
+			if commitOffchainCfg == nil {
+				return nil, fmt.Errorf("commitOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
 				TokenPriceBatchWriteFrequency:      commitOffchainCfg.TokenPriceBatchWriteFrequency,
@@ -245,6 +255,9 @@ func BuildOCR3ConfigForCCIPHome(
 				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
 			})
 		} else {
+			if execOffchainCfg == nil {
+				return nil, fmt.Errorf("execOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             execOffchainCfg.BatchGasLimit,
 				RelativeBoostPerWaitHour:  execOffchainCfg.RelativeBoostPerWaitHour,
