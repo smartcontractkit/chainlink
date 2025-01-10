@@ -662,7 +662,7 @@ func SetCandidateChangeset(
 		txOpts = deployment.SimTransactOpts()
 	}
 	var setCandidateOps []mcms.Operation
-	var pluginInfos []string
+	pluginInfos := make([]string, 0)
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {

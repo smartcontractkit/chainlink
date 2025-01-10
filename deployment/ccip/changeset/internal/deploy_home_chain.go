@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -242,7 +243,7 @@ func BuildOCR3ConfigForCCIPHome(
 		var err2 error
 		if pluginType == types.PluginTypeCCIPCommit {
 			if commitOffchainCfg == nil {
-				return nil, fmt.Errorf("commitOffchainCfg is nil")
+				return nil, errors.New("commitOffchainCfg is nil")
 			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
@@ -258,7 +259,7 @@ func BuildOCR3ConfigForCCIPHome(
 			})
 		} else {
 			if execOffchainCfg == nil {
-				return nil, fmt.Errorf("execOffchainCfg is nil")
+				return nil, errors.New("execOffchainCfg is nil")
 			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             execOffchainCfg.BatchGasLimit,
