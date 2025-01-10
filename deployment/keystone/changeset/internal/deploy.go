@@ -497,7 +497,7 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 		return &RegisterCapabilitiesResponse{}, nil
 	}
 
-	ops, err := AddCapabilities(lggr, &contracts, registryChain, capabilities, req.UseMCMS)
+	ops, err := AddCapabilities(lggr, contracts.CapabilitiesRegistry, registryChain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -554,7 +554,12 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		lggr.Debug("no new node operators to register")
 		return resp, nil
 	}
-	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
+
+	txOpts := registryChain.DeployerKey
+	if req.UseMCMS {
+		txOpts = deployment.SimTransactOpts()
+	}
+	tx, err := registry.AddNodeOperators(txOpts, nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
@@ -750,6 +755,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		uniqueNodeParams = append(uniqueNodeParams, v)
 	}
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
+
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -783,6 +789,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	}
+
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
 	}, nil
