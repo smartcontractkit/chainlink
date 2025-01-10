@@ -911,9 +911,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		p2pIdsToDon[p2pSortedHash] = don.Name
 
 		if _, ok := existingDONs[p2pSortedHash]; ok {
-			lggr.Debugw("don already exists, ignoring", "don", don, "p2p sorted hash", p2pSortedHash)
+			lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
 			continue
 		}
+
+		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
 
 		caps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
@@ -937,13 +939,19 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			})
 		}
 
-		tx, err := registry.AddDON(registryChain.DeployerKey, p2pIds, cfgs, true, wfSupported, don.F)
+		txOpts := registryChain.DeployerKey
+		if req.UseMCMS {
+			txOpts = deployment.SimTransactOpts()
+		}
+
+		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
 		}
 
 		if req.UseMCMS {
+			lggr.Debugw("adding mcms op for DON", "don", don.Name)
 			op := mcms.Operation{
 				To:    registry.Address(),
 				Data:  tx.Data(),
@@ -1006,6 +1014,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("adding don info to the response (keyed by DON name)", "don", donName)
 		resp.DonInfos[donName] = donInfos[i]
 	}
+
 	return &resp, nil
 }
 
