@@ -292,10 +292,10 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 				return
 			}()
 		case relay.NetworkSolana:
-			// Implement EnabledAddressesForChain for Solana as well ?
+			// TODO Implement EnabledAddressesForChain for Solana as well
 			solKeys, err := d.keystore.Solana().GetAll()
 			if err != nil {
-				return nil, fmt.Errorf("error getting all keys Solana: %w", err)
+				return nil, fmt.Errorf("error getting all Solana keys: %w", err)
 			}
 
 			transmitterKeys[relayID] = func() (r []string) {
@@ -304,6 +304,43 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 				}
 				return
 			}()
+		case relay.NetworkAptos:
+			aptosKeys, err := d.keystore.Aptos().GetAll()
+			if err != nil {
+				return nil, fmt.Errorf("error getting all Aptos keys: %w", err)
+			}
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range aptosKeys {
+					r = append(r, key.PublicKeyStr())
+				}
+				return
+			}()
+		case relay.NetworkCosmos:
+			cosmosKeys, err := d.keystore.Cosmos().GetAll()
+			if err != nil {
+				return nil, fmt.Errorf("error getting all Cosmos keys: %w", err)
+			}
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range cosmosKeys {
+					r = append(r, key.PublicKeyStr())
+				}
+				return
+			}()
+		case relay.NetworkStarkNet:
+			startNetKeys, err := d.keystore.StarkNet().GetAll()
+			if err != nil {
+				return nil, fmt.Errorf("error getting all startNet keys: %w", err)
+			}
+
+			transmitterKeys[relayID] = func() (r []string) {
+				for _, key := range startNetKeys {
+					r = append(r, key.StarkKeyStr())
+				}
+				return
+			}()
+
 		default:
 			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
