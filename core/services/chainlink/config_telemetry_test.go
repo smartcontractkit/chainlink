@@ -99,7 +99,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 			map[string]string{
 				"service.name":         "chainlink",
 				"service.sha":          "unset",
-				"service.shortversion": "unset",
+				"service.shortversion": "unset@unset",
 				"service.version":      static.Version,
 			},
 		},
@@ -109,7 +109,7 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 			map[string]string{
 				"service.name":         "chainlink",
 				"service.sha":          "unset",
-				"service.shortversion": "unset",
+				"service.shortversion": "unset@unset",
 				"service.version":      static.Version,
 				"custom.key":           "custom.value",
 			},

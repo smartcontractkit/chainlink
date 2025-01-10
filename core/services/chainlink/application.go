@@ -202,7 +202,6 @@ type ApplicationHeartbeat struct {
 	eng *commonservices.Engine
 
 	beat time.Duration
-	lggr logger.Logger
 }
 
 func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
@@ -231,31 +230,30 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 	cme := custmsg.NewLabeler()
 
 	// Define tick functions
-	beatFn := func(engCtx context.Context) {
+	beatFn := func(ctx context.Context) {
 		// TODO allow override of tracer provider into engine for beholder
-		_, innerSpan := beholder.GetTracer().Start(engCtx, "heartbeat.beat")
+		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
 		defer innerSpan.End()
 
-		gauge.Record(engCtx, 1)
-		count.Record(engCtx, 1)
+		gauge.Record(ctx, 1)
+		count.Record(ctx, 1)
 
-		err = cme.Emit(engCtx, "heartbeat")
+		err = cme.Emit(ctx, "heartbeat")
 		if err != nil {
 			h.eng.Errorw("heartbeat emit failed", "err", err)
 		}
 	}
 
-	// consistent tick period
-	constantTickFn := func() time.Duration {
-		return h.beat
-	}
-
-	h.eng.GoTick(timeutil.NewTicker(constantTickFn), beatFn)
+	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
 	return nil
 }
 
 func (h *ApplicationHeartbeat) close() error {
 	return nil
+}
+
+func (h *ApplicationHeartbeat) getBeat() time.Duration {
+	return h.beat
 }
 
 // NewApplication initializes a new store if one is not already
