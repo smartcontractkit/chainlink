@@ -316,8 +316,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	for _, opt := range opts {
 		opt(testCfg)
 	}
-	require.NoError(t, testCfg.Validate(), "invalid test con"+
-		"fig")
+	require.NoError(t, testCfg.Validate(), "invalid test config")
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
 	}
