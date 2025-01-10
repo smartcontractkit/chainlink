@@ -304,6 +304,45 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
+func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint64) error {
+	if p.PluginType != types.PluginTypeCCIPCommit &&
+		p.PluginType != types.PluginTypeCCIPExec {
+		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
+	}
+	for chainSelector, params := range p.OCRConfigPerRemoteChainSelector {
+		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
+			return fmt.Errorf("don chain selector invalid: %w", err)
+		}
+		if state.Chains[chainSelector].OffRamp == nil {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("OffRamp contract does not exist on don chain selector %d", chainSelector)
+		}
+		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
+			return errors.New("commit off-chain config must be set")
+		}
+		if p.PluginType == types.PluginTypeCCIPExec && params.ExecuteOffChainConfig == nil {
+			return errors.New("execute off-chain config must be set")
+		}
+
+		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
+		if err != nil {
+			return fmt.Errorf("get all chain configs: %w", err)
+		}
+		// FChain should never be zero if a chain config is set in CCIPHome
+		if chainConfig.FChain == 0 {
+			return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
+		}
+		if len(chainConfig.Readers) == 0 {
+			return errors.New("readers must be set")
+		}
+		err = params.Validate()
+		if err != nil {
+			return fmt.Errorf("invalid ccip ocr params: %w", err)
+		}
+	}
+	return nil
+}
+
 // SetCandidateConfigBase is a common base config struct for AddDonAndSetCandidateChangesetConfig and SetCandidateChangesetConfig.
 // This is extracted to deduplicate most of the validation logic.
 // Remaining validation logic is done in the specific config structs that inherit from this.
@@ -365,35 +404,10 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 		return err
 	}
 
-	if a.PluginInfo.PluginType != types.PluginTypeCCIPCommit &&
-		a.PluginInfo.PluginType != types.PluginTypeCCIPExec {
-		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
+	if err := a.PluginInfo.Validate(state, a.HomeChainSelector); err != nil {
+		return fmt.Errorf("validate plugin info %s: %w", a.PluginInfo.String(), err)
 	}
-	for chainSelector, params := range a.PluginInfo.OCRConfigPerRemoteChainSelector {
-		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
-			return fmt.Errorf("don chain selector invalid: %w", err)
-		}
-		if state.Chains[chainSelector].OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist on don chain selector %d", chainSelector)
-		}
-
-		// no donID check since this config is used for both adding a new DON and updating an existing one.
-		// see AddDonAndSetCandidateChangesetConfig.Validate and SetCandidateChangesetConfig.Validate
-		// for these checks.
-		// check that chain config is set up for the new chain
-		chainConfig, err := state.Chains[a.HomeChainSelector].CCIPHome.GetChainConfig(nil, chainSelector)
-		if err != nil {
-			return fmt.Errorf("get all chain configs: %w", err)
-		}
-		// FChain should never be zero if a chain config is set in CCIPHome
-		if chainConfig.FChain == 0 {
-			return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
-		}
-		err = params.Validate()
-		if err != nil {
-			return fmt.Errorf("invalid ccip ocr params: %w", err)
-		}
+	for chainSelector := range a.PluginInfo.OCRConfigPerRemoteChainSelector {
 		// check if a DON already exists for this chain
 		donID, err := internal.DonIDForChain(
 			state.Chains[a.HomeChainSelector].CapabilityRegistry,
@@ -583,41 +597,10 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 
 	chainToDonIDs := make(map[uint64]uint32)
 	for _, plugin := range s.PluginInfo {
-		if plugin.PluginType != types.PluginTypeCCIPCommit &&
-			plugin.PluginType != types.PluginTypeCCIPExec {
-			return nil, errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
+		if err := plugin.Validate(state, s.HomeChainSelector); err != nil {
+			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
-		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
-			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
-				return nil, fmt.Errorf("don chain selector invalid: %w", err)
-			}
-			if state.Chains[chainSelector].OffRamp == nil {
-				// should not be possible, but a defensive check.
-				return nil, fmt.Errorf("OffRamp contract does not exist on don chain selector %d", chainSelector)
-			}
-
-			// no donID check since this config is used for both adding a new DON and updating an existing one.
-			// see AddDonAndSetCandidateChangesetConfig.Validate and SetCandidateChangesetConfig.Validate
-			// for these checks.
-			// check that chain config is set up for the new chain
-			chainConfig, err := state.Chains[s.HomeChainSelector].CCIPHome.GetChainConfig(nil, chainSelector)
-			if err != nil {
-				return nil, fmt.Errorf("get all chain configs: %w", err)
-			}
-			// FChain should never be zero if a chain config is set in CCIPHome
-			if chainConfig.FChain == 0 {
-				return nil, fmt.Errorf("chain config not set up for new chain %d", chainSelector)
-			}
-			err = params.Validate()
-			if err != nil {
-				return nil, fmt.Errorf("invalid ccip ocr params: %w", err)
-			}
-			if plugin.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
-				return nil, errors.New("commit off-chain config must be set")
-			}
-			if plugin.PluginType == types.PluginTypeCCIPExec && params.ExecuteOffChainConfig == nil {
-				return nil, errors.New("execute off-chain config must be set")
-			}
+		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
 			donID, err := internal.DonIDForChain(
 				state.Chains[s.HomeChainSelector].CapabilityRegistry,
 				state.Chains[s.HomeChainSelector].CCIPHome,
