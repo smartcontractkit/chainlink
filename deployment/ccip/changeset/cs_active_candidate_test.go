@@ -25,7 +25,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
-	tenv := NewMemoryEnvironment(t,
+	tenv, _ := NewMemoryEnvironment(t,
 		WithChains(2),
 		WithNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
