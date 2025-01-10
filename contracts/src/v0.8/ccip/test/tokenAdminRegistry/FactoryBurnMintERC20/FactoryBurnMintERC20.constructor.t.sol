@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {FactoryBurnMintERC20} from "../../../tokenAdminRegistry/TokenPoolFactory/FactoryBurnMintERC20.sol";
 import {BurnMintERC20Setup} from "./BurnMintERC20Setup.t.sol";
 
 contract FactoryBurnMintERC20_constructor is BurnMintERC20Setup {
-  function test_Constructor_Success() public {
+  function test_Constructor() public {
     string memory name = "Chainlink token v2";
     string memory symbol = "LINK2";
     uint8 decimals = 19;

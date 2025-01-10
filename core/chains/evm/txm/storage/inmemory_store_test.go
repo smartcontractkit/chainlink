@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
@@ -35,10 +36,10 @@ func TestAbandonPendingTransactions(t *testing.T) {
 
 		m.AbandonPendingTransactions()
 
-		assert.Equal(t, types.TxFatalError, tx1.State)
-		assert.Equal(t, types.TxFatalError, tx2.State)
-		assert.Equal(t, types.TxFatalError, tx3.State)
-		assert.Equal(t, types.TxFatalError, tx4.State)
+		assert.Equal(t, txmgr.TxFatalError, tx1.State)
+		assert.Equal(t, txmgr.TxFatalError, tx2.State)
+		assert.Equal(t, txmgr.TxFatalError, tx3.State)
+		assert.Equal(t, txmgr.TxFatalError, tx4.State)
 	})
 
 	t.Run("skips all types apart from unstarted and unconfirmed transactions", func(t *testing.T) {
@@ -55,10 +56,10 @@ func TestAbandonPendingTransactions(t *testing.T) {
 
 		m.AbandonPendingTransactions()
 
-		assert.Equal(t, types.TxFatalError, tx1.State)
-		assert.Equal(t, types.TxFatalError, tx2.State)
-		assert.Equal(t, types.TxConfirmed, tx3.State)
-		assert.Equal(t, types.TxConfirmed, tx4.State)
+		assert.Equal(t, txmgr.TxFatalError, tx1.State)
+		assert.Equal(t, txmgr.TxFatalError, tx2.State)
+		assert.Equal(t, txmgr.TxConfirmed, tx3.State)
+		assert.Equal(t, txmgr.TxConfirmed, tx4.State)
 		assert.Len(t, m.Transactions, 2) // tx1, tx2 were dropped
 	})
 }
@@ -144,7 +145,7 @@ func TestCreateEmptyUnconfirmedTransaction(t *testing.T) {
 	t.Run("creates a new empty unconfirmed transaction", func(t *testing.T) {
 		tx, err := m.CreateEmptyUnconfirmedTransaction(2, 0)
 		require.NoError(t, err)
-		assert.Equal(t, types.TxUnconfirmed, tx.State)
+		assert.Equal(t, txmgr.TxUnconfirmed, tx.State)
 	})
 }
 
@@ -229,8 +230,8 @@ func TestMarkConfirmedAndReorgedTransactions(t *testing.T) {
 
 		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
 		require.NoError(t, err)
-		assert.Equal(t, types.TxConfirmed, ctx1.State)
-		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
+		assert.Equal(t, txmgr.TxConfirmed, ctx1.State)
+		assert.Equal(t, txmgr.TxUnconfirmed, ctx2.State)
 		assert.Equal(t, ctxs[0].ID, ctx1.ID) // Ensure order
 		assert.Empty(t, utxs)
 	})
@@ -245,8 +246,8 @@ func TestMarkConfirmedAndReorgedTransactions(t *testing.T) {
 
 		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
 		require.NoError(t, err)
-		assert.Equal(t, types.TxConfirmed, ctx1.State)
-		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
+		assert.Equal(t, txmgr.TxConfirmed, ctx1.State)
+		assert.Equal(t, txmgr.TxUnconfirmed, ctx2.State)
 		assert.Empty(t, ctxs)
 		assert.Empty(t, utxs)
 	})
@@ -261,8 +262,8 @@ func TestMarkConfirmedAndReorgedTransactions(t *testing.T) {
 
 		ctxs, utxs, err := m.MarkConfirmedAndReorgedTransactions(1)
 		require.NoError(t, err)
-		assert.Equal(t, types.TxConfirmed, ctx1.State)
-		assert.Equal(t, types.TxUnconfirmed, ctx2.State)
+		assert.Equal(t, txmgr.TxConfirmed, ctx1.State)
+		assert.Equal(t, txmgr.TxUnconfirmed, ctx2.State)
 		assert.Equal(t, utxs[0], ctx2.ID)
 		assert.Empty(t, ctxs)
 	})
@@ -381,7 +382,7 @@ func TestUpdateUnstartedTransactionWithNonce(t *testing.T) {
 		tx, err := m.UpdateUnstartedTransactionWithNonce(nonce)
 		require.NoError(t, err)
 		assert.Equal(t, nonce, *tx.Nonce)
-		assert.Equal(t, types.TxUnconfirmed, tx.State)
+		assert.Equal(t, txmgr.TxUnconfirmed, tx.State)
 		assert.Empty(t, m.UnstartedTransactions)
 	})
 }
@@ -474,7 +475,7 @@ func insertUnstartedTransaction(m *InMemoryStore) *types.Transaction {
 		Value:             big.NewInt(0),
 		SpecifiedGasLimit: 0,
 		CreatedAt:         time.Now(),
-		State:             types.TxUnstarted,
+		State:             txmgr.TxUnstarted,
 	}
 
 	m.UnstartedTransactions = append(m.UnstartedTransactions, tx)
@@ -496,7 +497,7 @@ func insertUnconfirmedTransaction(m *InMemoryStore, nonce uint64) (*types.Transa
 		Value:             big.NewInt(0),
 		SpecifiedGasLimit: 0,
 		CreatedAt:         time.Now(),
-		State:             types.TxUnconfirmed,
+		State:             txmgr.TxUnconfirmed,
 	}
 
 	if _, exists := m.UnconfirmedTransactions[nonce]; exists {
@@ -522,7 +523,7 @@ func insertConfirmedTransaction(m *InMemoryStore, nonce uint64) (*types.Transact
 		Value:             big.NewInt(0),
 		SpecifiedGasLimit: 0,
 		CreatedAt:         time.Now(),
-		State:             types.TxConfirmed,
+		State:             txmgr.TxConfirmed,
 	}
 
 	if _, exists := m.ConfirmedTransactions[nonce]; exists {
@@ -549,7 +550,7 @@ func insertFataTransaction(m *InMemoryStore) *types.Transaction {
 		Value:             big.NewInt(0),
 		SpecifiedGasLimit: 0,
 		CreatedAt:         time.Now(),
-		State:             types.TxFatalError,
+		State:             txmgr.TxFatalError,
 	}
 
 	m.FatalTransactions = append(m.FatalTransactions, tx)

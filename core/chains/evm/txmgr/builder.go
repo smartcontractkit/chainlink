@@ -101,7 +101,7 @@ func NewTxmV2(
 	chainConfig ChainConfig,
 	fCfg FeeConfig,
 	txConfig config.Transactions,
-	txmV2Config config.TxmV2,
+	txmV2Config config.TransactionManagerV2,
 	client client.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
@@ -137,7 +137,7 @@ func NewTxmV2(
 		EmptyTxLimitDefault: fCfg.LimitDefault(),
 	}
 	var c txm.Client
-	if chainConfig.ChainType() == chaintype.ChainDualBroadcast {
+	if txmV2Config.DualBroadcast() != nil && *txmV2Config.DualBroadcast() {
 		c = clientwrappers.NewDualBroadcastClient(client, keyStore, txmV2Config.CustomURL())
 	} else {
 		c = clientwrappers.NewChainClient(client)

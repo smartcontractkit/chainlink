@@ -18,10 +18,8 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0'
 LogBroadcasterEnabled = true
 
-[TxmV2]
-Enabled = false
-
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -30,6 +28,9 @@ ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
 
 [Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
 Enabled = false
 
 [BalanceMonitor]

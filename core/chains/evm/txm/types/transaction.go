@@ -1,10 +1,10 @@
 package types
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,18 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-)
-
-type TxState string
-
-const (
-	TxUnstarted   = TxState("unstarted")
-	TxUnconfirmed = TxState("unconfirmed")
-	TxConfirmed   = TxState("confirmed")
-
-	TxFatalError = TxState("fatal")
-	TxFinalized  = TxState("finalized")
 )
 
 type Transaction struct {
@@ -45,7 +35,7 @@ type Transaction struct {
 	InitialBroadcastAt *time.Time
 	LastBroadcastAt    *time.Time
 
-	State        TxState
+	State        commontypes.TxState
 	IsPurgeable  bool
 	Attempts     []*Attempt
 	AttemptCount uint16 // AttempCount is strictly kept in memory and prevents indefinite retrying
@@ -62,10 +52,10 @@ type Transaction struct {
 
 func (t *Transaction) String() string {
 	return fmt.Sprintf(`{txID:%d, IdempotencyKey:%v, ChainID:%v, Nonce:%s, FromAddress:%v, ToAddress:%v, Value:%v, `+
-		`Data:%X, SpecifiedGasLimit:%d, CreatedAt:%v, InitialBroadcastAt:%v, LastBroadcastAt:%v, State:%v, IsPurgeable:%v, AttemptCount:%d, `+
+		`Data:%s, SpecifiedGasLimit:%d, CreatedAt:%v, InitialBroadcastAt:%v, LastBroadcastAt:%v, State:%v, IsPurgeable:%v, AttemptCount:%d, `+
 		`Meta:%v, Subject:%v}`,
 		t.ID, stringOrNull(t.IdempotencyKey), t.ChainID, stringOrNull(t.Nonce), t.FromAddress, t.ToAddress, t.Value,
-		reflect.ValueOf(&t.Data).Elem(), t.SpecifiedGasLimit, t.CreatedAt, stringOrNull(t.InitialBroadcastAt), stringOrNull(t.LastBroadcastAt),
+		base64.StdEncoding.EncodeToString(t.Data), t.SpecifiedGasLimit, t.CreatedAt, stringOrNull(t.InitialBroadcastAt), stringOrNull(t.LastBroadcastAt),
 		t.State, t.IsPurgeable, t.AttemptCount, t.Meta, t.Subject)
 }
 

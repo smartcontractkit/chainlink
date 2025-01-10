@@ -55,11 +55,11 @@ ChainType = 'Foo'
 FinalityDepth = 32
 FinalizedBlockOffset = 64
 
-[EVM.TxmV2]
-Enabled = true
-
 [EVM.Transactions.AutoPurge]
 Enabled = true
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
@@ -111,12 +111,12 @@ WSURL = 'ws://dupe.com'
 ChainID = '534352'
 ChainType = 'scroll'
 
-[EVM.TxmV2]
-Enabled = true
-
 [EVM.Transactions.AutoPurge]
 Enabled = true
 DetectionApiUrl = ''
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
 
 [[EVM.Nodes]]
 Name = 'scroll node'

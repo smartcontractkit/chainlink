@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -36,6 +37,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector.EXPECT().DonID().Return("donID")
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 
 		// build the expected body with the default timeout
@@ -82,6 +84,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector.EXPECT().DonID().Return("donID")
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 
 		// build the expected body with the defined timeout

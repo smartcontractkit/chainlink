@@ -11,6 +11,10 @@ type transactionsConfig struct {
 	c toml.Transactions
 }
 
+func (t *transactionsConfig) Enabled() bool {
+	return *t.c.Enabled
+}
+
 func (t *transactionsConfig) ForwardersEnabled() bool {
 	return *t.c.ForwardersEnabled
 }
@@ -33,6 +37,31 @@ func (t *transactionsConfig) MaxInFlight() uint32 {
 
 func (t *transactionsConfig) MaxQueued() uint64 {
 	return uint64(*t.c.MaxQueued)
+}
+
+func (t *transactionsConfig) TransactionManagerV2() TransactionManagerV2 {
+	return &transactionManagerV2Config{c: t.c.TransactionManagerV2}
+}
+
+type transactionManagerV2Config struct {
+	c toml.TransactionManagerV2Config
+}
+
+func (t *transactionManagerV2Config) Enabled() bool {
+	return *t.c.Enabled
+}
+
+func (t *transactionManagerV2Config) BlockTime() *time.Duration {
+	d := t.c.BlockTime.Duration()
+	return &d
+}
+
+func (t *transactionManagerV2Config) CustomURL() *url.URL {
+	return t.c.CustomURL.URL()
+}
+
+func (t *transactionManagerV2Config) DualBroadcast() *bool {
+	return t.c.DualBroadcast
 }
 
 func (t *transactionsConfig) AutoPurge() AutoPurgeConfig {

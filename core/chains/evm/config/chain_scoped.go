@@ -52,10 +52,6 @@ func (e *EVMConfig) BalanceMonitor() BalanceMonitor {
 	return &balanceMonitorConfig{c: e.C.BalanceMonitor}
 }
 
-func (e *EVMConfig) TxmV2() TxmV2 {
-	return &txmv2Config{c: e.C.TxmV2}
-}
-
 func (e *EVMConfig) Transactions() Transactions {
 	return &transactionsConfig{c: e.C.Transactions}
 }

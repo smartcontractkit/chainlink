@@ -166,6 +166,10 @@ func (t *Txm) Close() error {
 	})
 }
 
+func (t *Txm) HealthReport() map[string]error {
+	return map[string]error{t.lggr.Name(): t.Healthy()}
+}
+
 func (t *Txm) CreateTransaction(ctx context.Context, txRequest *types.TxRequest) (tx *types.Transaction, err error) {
 	tx, err = t.txStore.CreateTransaction(ctx, txRequest)
 	if err == nil {
@@ -390,7 +394,7 @@ func (t *Txm) backfillTransactions(ctx context.Context, address common.Address) 
 		t.lggr.Warnf("Nonce gap at nonce: %d - address: %v. Creating a new transaction\n", latestNonce, address)
 		t.metrics.IncrementNumNonceGaps(ctx)
 		return false, t.createAndSendEmptyTx(ctx, latestNonce, address)
-	} else { //nolint:revive //linter nonsense
+	} else { //nolint:revive //easier to read
 		if !tx.IsPurgeable && t.stuckTxDetector != nil {
 			isStuck, err := t.stuckTxDetector.DetectStuckTransaction(ctx, tx)
 			if err != nil {

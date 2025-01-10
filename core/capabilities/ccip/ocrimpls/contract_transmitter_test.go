@@ -103,7 +103,7 @@ func testTransmitter(
 	report []byte,
 ) {
 	ctx := tests.Context(t)
-	uni := newTestUniverse[[]byte](t, nil)
+	uni := newTestUniverse(t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
 	require.NoError(t, err, "failed to get latest config details")
@@ -199,7 +199,7 @@ type keyringsAndSigners[RI any] struct {
 	signers  []common.Address
 }
 
-func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniverse[RI] {
+func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse[[]byte] {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
@@ -233,7 +233,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 	// create the oracle identities for setConfig
 	// need to create at least 4 identities otherwise setConfig will fail
 	var (
-		keyrings []ocr3types.OnchainKeyring[RI]
+		keyrings []ocr3types.OnchainKeyring[[]byte]
 		signers  []common.Address
 	)
 	if ks != nil {
@@ -243,7 +243,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		for i := 0; i < 4; i++ {
 			kb, err2 := ocr2key.New(kschaintype.EVM)
 			require.NoError(t, err2, "failed to create key")
-			kr := ocrimpls.NewOnchainKeyring[RI](kb, logger.TestLogger(t))
+			kr := ocrimpls.NewOnchainKeyring[[]byte](kb, logger.TestLogger(t))
 			signers = append(signers, common.BytesToAddress(kr.PublicKey()))
 			keyrings = append(keyrings, kr)
 		}
@@ -309,7 +309,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
-	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
+	transmitterWithSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -317,7 +317,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		ocr3HelperAddr.Hex(),
 		ocrimpls.ToCommitCalldata,
 	)
-	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly[RI](
+	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
 		ocrtypes.Account(transmitters[0].Hex()),
 		contractName,
@@ -326,7 +326,7 @@ func newTestUniverse[RI any](t *testing.T, ks *keyringsAndSigners[RI]) *testUniv
 		ocrimpls.ToExecCalldata,
 	)
 
-	return &testUniverse[RI]{
+	return &testUniverse[[]byte]{
 		simClient:              simClient,
 		backend:                backend,
 		deployer:               owner,

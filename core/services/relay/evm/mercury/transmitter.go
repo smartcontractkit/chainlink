@@ -106,7 +106,6 @@ type BenchmarkPriceDecoder func(ctx context.Context, feedID mercuryutils.FeedID,
 var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type TransmitterConfig interface {
-	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 }
 
@@ -237,7 +236,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		}
 		res, err := func(ctx context.Context) (*pb.TransmitResponse, error) {
 			ctx, cancel := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
-			cancel()
+			defer cancel()
 			return s.c.Transmit(ctx, t.Req)
 		}(ctx)
 		if ctx.Err() != nil {
@@ -287,14 +286,16 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 	}
 }
 
+const TransmitQueueMaxSize = 10_000 // hardcode this for legacy transmitter since we want the config var to apply only to LLO
+
 func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, pm *PersistenceManager, serverURL, feedIDHex string) *server {
 	return &server{
 		logger.Sugared(lggr),
 		cfg.TransmitTimeout().Duration(),
 		client,
 		pm,
-		NewTransmitQueue(lggr, serverURL, feedIDHex, int(cfg.TransmitQueueMaxSize()), pm),
-		make(chan *pb.TransmitRequest, int(cfg.TransmitQueueMaxSize())),
+		NewTransmitQueue(lggr, serverURL, feedIDHex, TransmitQueueMaxSize, pm),
+		make(chan *pb.TransmitRequest, TransmitQueueMaxSize),
 		serverURL,
 		transmitSuccessCount.WithLabelValues(feedIDHex, serverURL),
 		transmitDuplicateCount.WithLabelValues(feedIDHex, serverURL),
@@ -311,7 +312,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 	servers := make(map[string]*server, len(clients))
 	for serverURL, client := range clients {
 		cLggr := sugared.Named(serverURL).With("serverURL", serverURL)
-		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
+		pm := NewPersistenceManager(cLggr, serverURL, orm, jobID, TransmitQueueMaxSize, flushDeletesFrequency, pruneFrequency)
 		servers[serverURL] = newServer(cLggr, cfg, client, pm, serverURL, feedIDHex)
 	}
 	return &mercuryTransmitter{

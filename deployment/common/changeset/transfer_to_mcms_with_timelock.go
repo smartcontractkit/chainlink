@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
@@ -141,4 +142,133 @@ func TransferToMCMSWithTimelock(
 	}
 
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
+}
+
+var _ deployment.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
+
+type TransferToDeployerConfig struct {
+	ContractAddress common.Address
+	ChainSel        uint64
+}
+
+// TransferToDeployer relies on the deployer key
+// still being a timelock admin and transfers the ownership of a contract
+// back to the deployer key. It's effectively the rollback function of transferring
+// to the timelock.
+func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) (deployment.ChangesetOutput, error) {
+	owner, ownable, err := LoadOwnableContract(cfg.ContractAddress, e.Chains[cfg.ChainSel].Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if owner == e.Chains[cfg.ChainSel].DeployerKey.From {
+		e.Logger.Infof("Contract %s already owned by deployer", cfg.ContractAddress)
+		return deployment.ChangesetOutput{}, nil
+	}
+	tx, err := ownable.TransferOwnership(deployment.SimTransactOpts(), e.Chains[cfg.ChainSel].DeployerKey.From)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	addrs, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSel)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tls, err := MaybeLoadMCMSWithTimelockChainState(e.Chains[cfg.ChainSel], addrs)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	calls := []owner_helpers.RBACTimelockCall{
+		{
+			Target: ownable.Address(),
+			Data:   tx.Data(),
+			Value:  big.NewInt(0),
+		},
+	}
+	var salt [32]byte
+	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
+	tx, err = tls.Timelock.ScheduleBatch(e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("scheduled transfer ownership batch with tx %s", tx.Hash().Hex())
+	timelockExecutorProxy, err := owner_helpers.NewRBACTimelock(tls.CallProxy.Address(), e.Chains[cfg.ChainSel].Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error creating timelock executor proxy: %w", err)
+	}
+	tx, err = timelockExecutorProxy.ExecuteBatch(
+		e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
+	}
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
+
+	tx, err = ownable.AcceptOwnership(e.Chains[cfg.ChainSel].DeployerKey)
+	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("deployer key accepted ownership tx %s", tx.Hash().Hex())
+	return deployment.ChangesetOutput{}, nil
+}
+
+var _ deployment.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
+
+type RenounceTimelockDeployerConfig struct {
+	ChainSel uint64
+}
+
+func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) error {
+	if err := deployment.IsValidChainSelector(cfg.ChainSel); err != nil {
+		return fmt.Errorf("invalid chain selector: %w", err)
+	}
+
+	_, ok := e.Chains[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("chain selector: %d not found in environment", cfg.ChainSel)
+	}
+
+	// MCMS should already exists
+	state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	if err != nil {
+		return err
+	}
+
+	contract, ok := state[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("mcms contracts not found on chain %d", cfg.ChainSel)
+	}
+	if contract.Timelock == nil {
+		return fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
+	}
+
+	return nil
+}
+
+// RenounceTimelockDeployer revokes the deployer key from administering the contract.
+func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tl := contracts[cfg.ChainSel].Timelock
+	admin, err := tl.ADMINROLE(&bind.CallOpts{Context: e.GetContext()})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
+	}
+
+	chain := e.Chains[cfg.ChainSel]
+	tx, err := tl.RenounceRole(chain.DeployerKey, admin, chain.DeployerKey.From)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
+	}
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())
+	return deployment.ChangesetOutput{}, nil
 }

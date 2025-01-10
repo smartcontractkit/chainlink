@@ -3,7 +3,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains cosmos list - List all existing Cosmos chains
+   chainlink chains cosmos list - List all existing cosmos chains
 
 USAGE:
    chainlink chains cosmos list [arguments...]

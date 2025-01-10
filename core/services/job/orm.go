@@ -747,6 +747,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		Workflow:             `DELETE FROM workflow_specs WHERE id in (SELECT workflow_spec_id FROM deleted_jobs)`,
 		StandardCapabilities: `DELETE FROM standardcapabilities_specs WHERE id in (SELECT standard_capabilities_spec_id FROM deleted_jobs)`,
 		CCIP:                 `DELETE FROM ccip_specs WHERE id in (SELECT ccip_spec_id FROM deleted_jobs)`,
+		Stream:               ``,
 	}
 	q, ok := queries[jobType]
 	if !ok {
@@ -757,7 +758,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 	// and this query was taking ~40secs.
 	ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute)
 	defer cancel()
-	query := fmt.Sprintf(`
+	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
 				id,
@@ -775,15 +776,19 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				gateway_spec_id,
 				workflow_spec_id,
 				standard_capabilities_spec_id,
-				ccip_spec_id
-		),
-		deleted_specific_specs AS (
-			%s
-		),
+				ccip_spec_id,
+				stream_id
+		),`
+	if len(q) > 0 {
+		query += fmt.Sprintf(`deleted_specific_specs AS (
+								%s
+							),`, q)
+	}
+	query += `	
 		deleted_job_pipeline_specs AS (
 			DELETE FROM job_pipeline_specs WHERE job_id IN (SELECT id FROM deleted_jobs) RETURNING pipeline_spec_id
 		)
-		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`, q)
+		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_job_pipeline_specs)`
 	res, err := o.ds.ExecContext(ctx, query, id)
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")

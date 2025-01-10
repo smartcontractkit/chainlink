@@ -92,14 +92,15 @@ func TestDoc(t *testing.T) {
 		docDefaults.Workflow.GasLimitDefault = &gasLimitDefault
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
-		// TxmV2 configs are only set if the feature is enabled
-		docDefaults.TxmV2.BlockTime = nil
-		docDefaults.TxmV2.CustomURL = nil
-
 		// Transactions.AutoPurge configs are only set if the feature is enabled
 		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
 		docDefaults.Transactions.AutoPurge.Threshold = nil
 		docDefaults.Transactions.AutoPurge.MinAttempts = nil
+
+		// TransactionManagerV2 configs are only set if the feature is enabled
+		docDefaults.Transactions.TransactionManagerV2.BlockTime = nil
+		docDefaults.Transactions.TransactionManagerV2.CustomURL = nil
+		docDefaults.Transactions.TransactionManagerV2.DualBroadcast = nil
 
 		// Fallback DA oracle is not set
 		docDefaults.GasEstimator.DAOracle = evmcfg.DAOracle{}

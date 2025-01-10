@@ -8,14 +8,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 )
 
 var _ deployment.ViewState = ViewKeystone
 
 func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
-	state, err := keystone.GetContractSets(e.Logger, &keystone.GetContractSetsRequest{
+	state, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})

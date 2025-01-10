@@ -213,65 +213,73 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 
 func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	var id int64
+	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
+		txErr := tx.QueryRowxContext(
+			ctx,
+			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
+			spec.WorkflowOwner,
+			spec.WorkflowName,
+			spec.WorkflowID,
+		).Scan(nil)
+		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
+		}
 
-	query := `
-		INSERT INTO workflow_specs (
-			workflow,
-			config,
-			workflow_id,
-			workflow_owner,
-			workflow_name,
-			status,
-			binary_url,
-			config_url,
-			secrets_id,
-			created_at,
-			updated_at,
-			spec_type
-		) VALUES (
-			:workflow,
-			:config,
-			:workflow_id,
-			:workflow_owner,
-			:workflow_name,
-			:status,
-			:binary_url,
-			:config_url,
-			:secrets_id,
-			:created_at,
-			:updated_at,
-			:spec_type
-		) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
-		SET
-			workflow = EXCLUDED.workflow,
-			config = EXCLUDED.config,
-			workflow_id = EXCLUDED.workflow_id,
-			workflow_owner = EXCLUDED.workflow_owner,
-			workflow_name = EXCLUDED.workflow_name,
-			status = EXCLUDED.status,
-			binary_url = EXCLUDED.binary_url,
-			config_url = EXCLUDED.config_url,
-			secrets_id = EXCLUDED.secrets_id,
-			created_at = EXCLUDED.created_at,
-			updated_at = EXCLUDED.updated_at,
-			spec_type = EXCLUDED.spec_type
-		RETURNING id
-	`
+		query := `
+			INSERT INTO workflow_specs (
+				workflow,
+				config,
+				workflow_id,
+				workflow_owner,
+				workflow_name,
+				status,
+				binary_url,
+				config_url,
+				secrets_id,
+				created_at,
+				updated_at,
+				spec_type
+			) VALUES (
+				:workflow,
+				:config,
+				:workflow_id,
+				:workflow_owner,
+				:workflow_name,
+				:status,
+				:binary_url,
+				:config_url,
+				:secrets_id,
+				:created_at,
+				:updated_at,
+				:spec_type
+			) ON CONFLICT (workflow_owner, workflow_name) DO UPDATE
+			SET
+				workflow = EXCLUDED.workflow,
+				config = EXCLUDED.config,
+				workflow_id = EXCLUDED.workflow_id,
+				workflow_owner = EXCLUDED.workflow_owner,
+				workflow_name = EXCLUDED.workflow_name,
+				status = EXCLUDED.status,
+				binary_url = EXCLUDED.binary_url,
+				config_url = EXCLUDED.config_url,
+				secrets_id = EXCLUDED.secrets_id,
+				created_at = EXCLUDED.created_at,
+				updated_at = EXCLUDED.updated_at,
+				spec_type = EXCLUDED.spec_type
+			RETURNING id
+		`
 
-	stmt, err := orm.ds.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return 0, err
-	}
-	defer stmt.Close()
+		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
 
-	spec.UpdatedAt = time.Now()
-	err = stmt.QueryRowxContext(ctx, spec).Scan(&id)
+		spec.UpdatedAt = time.Now()
+		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+	})
 
-	if err != nil {
-		return 0, err
-	}
-
-	return id, nil
+	return id, err
 }
 
 func (orm *orm) UpsertWorkflowSpecWithSecrets(
@@ -294,6 +302,17 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 
 		if txErr != nil {
 			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
+		}
+
+		txErr = tx.QueryRowxContext(
+			ctx,
+			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
+			spec.WorkflowOwner,
+			spec.WorkflowName,
+			spec.WorkflowID,
+		).Scan(nil)
+		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
 		}
 
 		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
@@ -338,10 +357,7 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
 				spec_type = EXCLUDED.spec_type,
-				secrets_id = CASE
-					WHEN workflow_specs.secrets_id IS NULL THEN EXCLUDED.secrets_id
-					ELSE workflow_specs.secrets_id
-				END
+				secrets_id = EXCLUDED.secrets_id
 			RETURNING id
 		`
 

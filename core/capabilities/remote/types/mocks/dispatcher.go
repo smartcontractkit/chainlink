@@ -206,9 +206,9 @@ func (_c *Dispatcher_Ready_Call) RunAndReturn(run func() error) *Dispatcher_Read
 	return _c
 }
 
-// RemoveReceiver provides a mock function with given fields: capabilityId, donId
-func (_m *Dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
-	_m.Called(capabilityId, donId)
+// RemoveReceiver provides a mock function with given fields: capabilityID, donID
+func (_m *Dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
+	_m.Called(capabilityID, donID)
 }
 
 // Dispatcher_RemoveReceiver_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RemoveReceiver'
@@ -217,13 +217,13 @@ type Dispatcher_RemoveReceiver_Call struct {
 }
 
 // RemoveReceiver is a helper method to define mock.On call
-//   - capabilityId string
-//   - donId uint32
-func (_e *Dispatcher_Expecter) RemoveReceiver(capabilityId interface{}, donId interface{}) *Dispatcher_RemoveReceiver_Call {
-	return &Dispatcher_RemoveReceiver_Call{Call: _e.mock.On("RemoveReceiver", capabilityId, donId)}
+//   - capabilityID string
+//   - donID uint32
+func (_e *Dispatcher_Expecter) RemoveReceiver(capabilityID interface{}, donID interface{}) *Dispatcher_RemoveReceiver_Call {
+	return &Dispatcher_RemoveReceiver_Call{Call: _e.mock.On("RemoveReceiver", capabilityID, donID)}
 }
 
-func (_c *Dispatcher_RemoveReceiver_Call) Run(run func(capabilityId string, donId uint32)) *Dispatcher_RemoveReceiver_Call {
+func (_c *Dispatcher_RemoveReceiver_Call) Run(run func(capabilityID string, donID uint32)) *Dispatcher_RemoveReceiver_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(uint32))
 	})
@@ -287,9 +287,9 @@ func (_c *Dispatcher_Send_Call) RunAndReturn(run func(p2ptypes.PeerID, *types.Me
 	return _c
 }
 
-// SetReceiver provides a mock function with given fields: capabilityId, donId, receiver
-func (_m *Dispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
-	ret := _m.Called(capabilityId, donId, receiver)
+// SetReceiver provides a mock function with given fields: capabilityID, donID, receiver
+func (_m *Dispatcher) SetReceiver(capabilityID string, donID uint32, receiver types.Receiver) error {
+	ret := _m.Called(capabilityID, donID, receiver)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetReceiver")
@@ -297,7 +297,7 @@ func (_m *Dispatcher) SetReceiver(capabilityId string, donId uint32, receiver ty
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string, uint32, types.Receiver) error); ok {
-		r0 = rf(capabilityId, donId, receiver)
+		r0 = rf(capabilityID, donID, receiver)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -311,14 +311,14 @@ type Dispatcher_SetReceiver_Call struct {
 }
 
 // SetReceiver is a helper method to define mock.On call
-//   - capabilityId string
-//   - donId uint32
+//   - capabilityID string
+//   - donID uint32
 //   - receiver types.Receiver
-func (_e *Dispatcher_Expecter) SetReceiver(capabilityId interface{}, donId interface{}, receiver interface{}) *Dispatcher_SetReceiver_Call {
-	return &Dispatcher_SetReceiver_Call{Call: _e.mock.On("SetReceiver", capabilityId, donId, receiver)}
+func (_e *Dispatcher_Expecter) SetReceiver(capabilityID interface{}, donID interface{}, receiver interface{}) *Dispatcher_SetReceiver_Call {
+	return &Dispatcher_SetReceiver_Call{Call: _e.mock.On("SetReceiver", capabilityID, donID, receiver)}
 }
 
-func (_c *Dispatcher_SetReceiver_Call) Run(run func(capabilityId string, donId uint32, receiver types.Receiver)) *Dispatcher_SetReceiver_Call {
+func (_c *Dispatcher_SetReceiver_Call) Run(run func(capabilityID string, donID uint32, receiver types.Receiver)) *Dispatcher_SetReceiver_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].(uint32), args[2].(types.Receiver))
 	})

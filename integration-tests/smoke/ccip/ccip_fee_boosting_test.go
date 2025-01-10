@@ -2,14 +2,13 @@ package smoke
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -17,13 +16,11 @@ import (
 	"github.com/test-go/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -39,20 +36,17 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		// TODO check if test should use these overrides
-		/*	changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
-				// Only 1 boost (=OCR round) is enough to cover the fee
-				params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-				// Disable token price updates
-				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-				// Disable gas price updates
-				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
-				// Disable token price updates
-				params.CommitOffChainConfig.TokenInfo = nil
-				return params
-			}),
-
-		*/
+		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+			// Only 1 boost (=OCR round) is enough to cover the fee
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			// Disable token price updates
+			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			// Disable gas price updates
+			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
+			// Disable token price updates
+			params.CommitOffChainConfig.TokenInfo = nil
+			return params
+		}),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -69,7 +63,9 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
-	fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	// TODO: discrepancy between client and the gas estimator gas price to be fixed - hardcoded for now
+	// fetchedGasPriceDest, err := e.Env.Chains[destChain].Client.SuggestGasPrice(tests.Context(t))
+	fetchedGasPriceDest := big.NewInt(20e9) // 20 Gwei = default gas price
 	require.NoError(t, err)
 	originalGasPriceDestUSD := new(big.Int).Div(
 		new(big.Int).Mul(fetchedGasPriceDest, wethPrice),
@@ -85,32 +81,31 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		)
 	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
 
-	initialPrices := changeset.InitialPrices{
-		LinkPrice: linkPrice,
-		WethPrice: wethPrice,
-		GasPrice:  changeset.ToPackedFee(adjustedGasPriceDest, big.NewInt(0)),
-	}
-
-	laneCfg := changeset.LaneConfig{
-		SourceSelector:        sourceChain,
-		DestSelector:          destChain,
-		InitialPricesBySource: initialPrices,
-		FeeQuoterDestChain:    changeset.DefaultFeeQuoterDestChainConfig(),
-		TestRouter:            false,
-	}
-
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.AddLanes),
-			Config:    changeset.AddLanesConfig{LaneConfigs: []changeset.LaneConfig{laneCfg}},
+	changeset.AddLane(t, &e, sourceChain, destChain, false,
+		map[uint64]*big.Int{
+			destChain: changeset.ToPackedFee(adjustedGasPriceDest, big.NewInt(0)),
 		},
-	})
-	require.NoError(t, err)
+		map[common.Address]*big.Int{
+			state.Chains[sourceChain].LinkToken.Address(): linkPrice,
+			state.Chains[sourceChain].Weth9.Address():     wethPrice,
+		},
+		changeset.DefaultFeeQuoterDestChainConfig())
 
 	// Update token prices in destination chain FeeQuoter
-	err = updateTokensPrices(e, state, destChain, map[common.Address]*big.Int{
-		state.Chains[destChain].LinkToken.Address(): linkPrice,
-		state.Chains[destChain].Weth9.Address():     wethPrice,
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Config: changeset.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+					destChain: {
+						TokenPrices: map[common.Address]*big.Int{
+							state.Chains[destChain].LinkToken.Address(): linkPrice,
+							state.Chains[destChain].Weth9.Address():     wethPrice,
+						},
+					},
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
 
@@ -138,7 +133,20 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		DestChainSelector:   destChain,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
-	err = updateGasPrice(e, state, sourceChain, destChain, originalGasPriceDestUSD)
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Config: changeset.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+					sourceChain: {
+						GasPrices: map[uint64]*big.Int{
+							destChain: originalGasPriceDestUSD,
+						},
+					},
+				},
+			},
+		},
+	})
 	require.NoError(t, err)
 
 	// Confirm gas prices are updated
@@ -270,62 +278,4 @@ func convertToMessage(msg onramp.InternalEVM2AnyRampMessage) cciptypes.Message {
 		FeeValueJuels:  cciptypes.BigInt{Int: msg.FeeValueJuels},
 		TokenAmounts:   tokenAmounts,
 	}
-}
-
-func updateGasPrice(env changeset.DeployedEnv, state changeset.CCIPOnChainState, srcChain, destChain uint64, gasPrice *big.Int) error {
-	chainState, exists := state.Chains[srcChain]
-	if !exists {
-		return fmt.Errorf("chain state not found for selector: %d", srcChain)
-	}
-
-	feeQuoter := chainState.FeeQuoter
-	// Update gas price
-	auth := env.Env.Chains[srcChain].DeployerKey
-	tx, err := feeQuoter.UpdatePrices(auth, fee_quoter.InternalPriceUpdates{
-		TokenPriceUpdates: nil,
-		GasPriceUpdates: []fee_quoter.InternalGasPriceUpdate{
-			{
-				DestChainSelector: destChain,
-				UsdPerUnitGas:     gasPrice,
-			},
-		},
-	})
-	if err != nil {
-		return errors.Wrapf(err, "updating gas price on chain %d", srcChain)
-	}
-	if _, err := deployment.ConfirmIfNoError(env.Env.Chains[srcChain], tx, err); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func updateTokensPrices(env changeset.DeployedEnv, state changeset.CCIPOnChainState, chain uint64, tokenPrices map[common.Address]*big.Int) error {
-	chainState, exists := state.Chains[chain]
-	if !exists {
-		return fmt.Errorf("chain state not found for selector: %d", chain)
-	}
-
-	feeQuoter := chainState.FeeQuoter
-	// Update token prices
-	auth := env.Env.Chains[chain].DeployerKey
-	tokenPricesUpdates := make([]fee_quoter.InternalTokenPriceUpdate, 0, len(tokenPrices))
-	for token, price := range tokenPrices {
-		tokenPricesUpdates = append(tokenPricesUpdates, fee_quoter.InternalTokenPriceUpdate{
-			SourceToken: token,
-			UsdPerToken: price,
-		})
-	}
-	tx, err := feeQuoter.UpdatePrices(auth, fee_quoter.InternalPriceUpdates{
-		TokenPriceUpdates: tokenPricesUpdates,
-		GasPriceUpdates:   nil,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "updating token prices on chain %d", chain)
-	}
-	if _, err := deployment.ConfirmIfNoError(env.Env.Chains[chain], tx, err); err != nil {
-		return err
-	}
-
-	return nil
 }

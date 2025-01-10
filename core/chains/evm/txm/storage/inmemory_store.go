@@ -11,6 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
@@ -55,7 +58,7 @@ func (m *InMemoryStore) AbandonPendingTransactions() {
 	defer m.Unlock()
 
 	for _, tx := range m.UnstartedTransactions {
-		tx.State = types.TxFatalError
+		tx.State = txmgr.TxFatalError
 	}
 	for _, tx := range m.FatalTransactions {
 		delete(m.Transactions, tx.ID)
@@ -64,7 +67,7 @@ func (m *InMemoryStore) AbandonPendingTransactions() {
 	m.UnstartedTransactions = []*types.Transaction{}
 
 	for _, tx := range m.UnconfirmedTransactions {
-		tx.State = types.TxFatalError
+		tx.State = txmgr.TxFatalError
 		m.FatalTransactions = append(m.FatalTransactions, tx)
 	}
 	m.UnconfirmedTransactions = make(map[uint64]*types.Transaction)
@@ -111,7 +114,7 @@ func (m *InMemoryStore) CreateEmptyUnconfirmedTransaction(nonce uint64, gasLimit
 		Value:             big.NewInt(0),
 		SpecifiedGasLimit: gasLimit,
 		CreatedAt:         time.Now(),
-		State:             types.TxUnconfirmed,
+		State:             txmgr.TxUnconfirmed,
 	}
 
 	if _, exists := m.UnconfirmedTransactions[nonce]; exists {
@@ -143,7 +146,7 @@ func (m *InMemoryStore) CreateTransaction(txRequest *types.TxRequest) *types.Tra
 		Data:              txRequest.Data,
 		SpecifiedGasLimit: txRequest.SpecifiedGasLimit,
 		CreatedAt:         time.Now(),
-		State:             types.TxUnstarted,
+		State:             txmgr.TxUnstarted,
 		Meta:              txRequest.Meta,
 		MinConfirmations:  txRequest.MinConfirmations,
 		PipelineTaskRunID: txRequest.PipelineTaskRunID,
@@ -194,7 +197,7 @@ func (m *InMemoryStore) MarkConfirmedAndReorgedTransactions(latestNonce uint64) 
 				"existingTx", existingTx, "newTx", tx)
 		}
 		if *tx.Nonce < latestNonce {
-			tx.State = types.TxConfirmed
+			tx.State = txmgr.TxConfirmed
 			confirmedTransactions = append(confirmedTransactions, tx.DeepCopy())
 			m.ConfirmedTransactions[*tx.Nonce] = tx
 			delete(m.UnconfirmedTransactions, *tx.Nonce)
@@ -212,7 +215,7 @@ func (m *InMemoryStore) MarkConfirmedAndReorgedTransactions(latestNonce uint64) 
 				"existingTx", existingTx, "newTx", tx)
 		}
 		if *tx.Nonce >= latestNonce {
-			tx.State = types.TxUnconfirmed
+			tx.State = txmgr.TxUnconfirmed
 			tx.LastBroadcastAt = nil // Mark reorged transaction as if it wasn't broadcasted before
 			unconfirmedTransactionIDs = append(unconfirmedTransactionIDs, tx.ID)
 			m.UnconfirmedTransactions[*tx.Nonce] = tx
@@ -283,7 +286,7 @@ func (m *InMemoryStore) UpdateUnstartedTransactionWithNonce(nonce uint64) (*type
 
 	tx := m.UnstartedTransactions[0]
 	tx.Nonce = &nonce
-	tx.State = types.TxUnconfirmed
+	tx.State = txmgr.TxUnconfirmed
 
 	m.UnstartedTransactions = m.UnstartedTransactions[1:]
 	m.UnconfirmedTransactions[nonce] = tx

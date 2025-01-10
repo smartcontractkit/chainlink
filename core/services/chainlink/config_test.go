@@ -653,10 +653,8 @@ func TestConfig_Marshal(t *testing.T) {
 				RPCBlockQueryDelay:           ptr[uint16](10),
 				NoNewFinalizedHeadsThreshold: &hour,
 
-				TxmV2: evmcfg.TxmV2{
-					Enabled: ptr(false),
-				},
 				Transactions: evmcfg.Transactions{
+					Enabled:              ptr(true),
 					MaxInFlight:          ptr[uint32](19),
 					MaxQueued:            ptr[uint32](99),
 					ReaperInterval:       &minute,
@@ -664,6 +662,9 @@ func TestConfig_Marshal(t *testing.T) {
 					ResendAfterThreshold: &hour,
 					ForwardersEnabled:    ptr(true),
 					AutoPurge: evmcfg.AutoPurgeConfig{
+						Enabled: ptr(false),
+					},
+					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
 						Enabled: ptr(false),
 					},
 				},
@@ -753,6 +754,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
 				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
 				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				TxExpirationRebroadcast:  ptr(false),
 				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
 				SkipPreflight:            ptr(true),
 				Commitment:               ptr("banana"),
@@ -1120,10 +1122,8 @@ RPCBlockQueryDelay = 10
 FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
 
-[EVM.TxmV2]
-Enabled = false
-
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = true
 MaxInFlight = 19
 MaxQueued = 99
@@ -1132,6 +1132,9 @@ ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]
@@ -1285,6 +1288,7 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'
@@ -1408,11 +1412,14 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
-		if got.EVM[c].TxmV2.BlockTime == nil {
-			got.EVM[c].TxmV2.BlockTime = new(commoncfg.Duration)
+		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
 		}
-		if got.EVM[c].TxmV2.CustomURL == nil {
-			got.EVM[c].TxmV2.CustomURL = new(commoncfg.URL)
+		if got.EVM[c].Transactions.TransactionManagerV2.CustomURL == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commoncfg.URL)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
@@ -1477,15 +1484,14 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: 2 errors:
 				- 0.HTTPURL: missing: required for all nodes
 				- 1.HTTPURL: missing: required for all nodes
-		- 1: 11 errors:
+		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit, dualBroadcast or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.MinAttempts: missing: needs to be set if auto-purge feature is enabled for Foo
-			- TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
@@ -1494,7 +1500,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit, dualBroadcast or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1516,9 +1522,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 4: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node
-		- 5: 2 errors:
-			- Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
-			- TxmV2.BlockTime: missing: must be set if txmv2 feature is enabled
+		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
 	- Cosmos: 5 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
