@@ -106,6 +106,7 @@ func CreateEnvironmentFromCribOutput(t *testing.T, lggr logger.Logger) (*deploym
 		lggr,
 		ab,
 		chains,
+		nil,
 		nodeIds,
 		nil,
 		func() context.Context { return context.Background() },

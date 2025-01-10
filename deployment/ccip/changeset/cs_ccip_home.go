@@ -1024,8 +1024,10 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", c.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
-		return err
+	if c.MCMS != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
+			return err
+		}
 	}
 	for _, remove := range c.RemoteChainRemoves {
 		if err := deployment.IsValidChainSelector(remove); err != nil {

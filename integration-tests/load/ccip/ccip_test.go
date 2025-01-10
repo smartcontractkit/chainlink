@@ -46,6 +46,17 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
 	lggr.Infof("loaded ccip test config: %+v", config.CCIP.Load)
+	userOverrides := config.CCIP.Load
+
+	timeout, err := time.ParseDuration(*userOverrides.TestTimeout)
+	if err != nil {
+		require.NoError(t, err)
+	}
+	t.Cleanup(func() {
+		time.AfterFunc(timeout, func() {
+			t.Fatalf("Test passed timeout after %v", timeout)
+		})
+	})
 
 	cribEnv := crib.NewDevspaceEnvFromStateDir(CRIB_DIRECTORY)
 
@@ -61,7 +72,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 
 	// Parse all events from the simulated chains, send to Loki
-	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil))
+	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(userOverrides.LokiEndpoint, nil, nil, nil))
 	require.NoError(t, err)
 	defer loki.StopNow()
 
@@ -75,8 +86,16 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		block := latesthdr.Number.Uint64()
 		startBlocks[selector] = &block
 
-		gunMap[selector] = NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), loki)
-
+		// Only create a destination gun if we have decided to send traffic to this chain
+		for _, cs := range *userOverrides.EnabledDestionationChains {
+			if cs == selector {
+				gunMap[selector], err = NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), userOverrides, loki)
+				if err != nil {
+					lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", chain, "error", err)
+					t.Fatal(err)
+				}
+			}
+		}
 	}
 
 	for _, gun := range gunMap {
@@ -85,7 +104,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			GenName:     "ccipLoad",
 			LoadType:    wasp.RPS,
 			CallTimeout: 5 * time.Second,
-			Schedule:    wasp.Plain(1, 5*time.Second),
+			Schedule:    wasp.Plain(1, time.Duration(*userOverrides.SecondsPerRequestPerDestination)*time.Second),
 			// will need to be divided by number of chains
 			// this schedule is per generator
 			// in this example, it would be 1 request per 10seconds per generator (dest chain)
@@ -97,20 +116,34 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}))
 	}
 
-	_, err = p.Run(true)
+	// find get fee revert
 	csPair := ChainSelectorPair{
 		src: 12922642891491394802,
 		dst: 3379446385462418246,
 	}
+	res, err := state.Chains[csPair.src].Router.IsChainSupported(nil, csPair.dst)
+	lggr.Infow("IsChainSupported", "res", res, "err", err)
+
+	destChainConfig, err := state.Chains[csPair.src].FeeQuoter.GetDestChainConfig(nil, csPair.dst)
+	lggr.Infow("GetDestChainConfig", "destChainConfig", destChainConfig, "err", err)
+
+	// find the getFee revert
+	_, err = p.Run(true)
+	//csPair := ChainSelectorPair{
+	//	src: 12922642891491394802,
+	//	dst: 3379446385462418246,
+	//}
 	src, dst := env.Chains[csPair.src], env.Chains[csPair.dst]
 	startblk := uint64(11654)
 
 	seqNum := gunMap[csPair.dst].seqNums[csPair].End.Load()
 	_, err = ccipchangeset.ConfirmCommitWithExpectedSeqNumRange(t, src, dst, state.Chains[3379446385462418246].OffRamp, &startblk, cciptypes.SeqNumRange{
-		cciptypes.SeqNum(seqNum),
-		cciptypes.SeqNum(seqNum),
+		cciptypes.SeqNum(seqNum - 1),
+		cciptypes.SeqNum(seqNum - 1),
 	}, false)
 
+	// todo: create channels that watch for these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
+	// rather than waiting for the generator to finish
 	lokiLabels := map[string]string{}
 	for chainSelector, startBlock := range startBlocks {
 		wg.Add(1)

@@ -9,9 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"go.uber.org/atomic"
+	"math/big"
+	"math/rand"
 	"time"
 )
 
@@ -32,10 +35,11 @@ type DestinationGun struct {
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
+	testConfig    *ccip.LoadConfig
 	loki          *wasp.LokiClient
 }
 
-func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, loki *wasp.LokiClient) *DestinationGun {
+func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
 	seqNums := make(map[ChainSelectorPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 
@@ -48,15 +52,38 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 			End:   atomic.NewUint64(0),
 		}
 	}
-	return &DestinationGun{
+	dg := DestinationGun{
 		l:             l,
 		env:           env,
 		seqNums:       seqNums,
 		roundNum:      &atomic.Int32{},
 		chainSelector: chainSelector,
 		receiver:      receiver,
+		testConfig:    overrides,
 		loki:          loki,
 	}
+
+	err := dg.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &dg, nil
+}
+
+func (m *DestinationGun) Validate() error {
+	if len(*m.testConfig.MessageTypeWeights) != 3 {
+		return fmt.Errorf(
+			"message type must have 3 weights corresponding to message only, token only, token with message")
+	}
+	sum := 0
+	for _, weight := range *m.testConfig.MessageTypeWeights {
+		sum += weight
+	}
+	if sum != 100 {
+		return fmt.Errorf("message type weights must sum to 100")
+	}
+	return nil
 }
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
@@ -84,7 +111,11 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		src: src,
 		dst: m.chainSelector,
 	}
-	m.l.Infow("Starting transmit with ", "RoundNum", requestedRound, "Destination ChainSelector", m.chainSelector, "Source ChainSelector", src, "SequenceNumber", m.seqNums[csPair].End.Load())
+	m.l.Infow("Starting transmit with ",
+		"RoundNum", requestedRound,
+		"Source ChainSelector", src,
+		"Destination ChainSelector", m.chainSelector,
+		"SequenceNumber", m.seqNums[csPair].End.Load())
 
 	r := state.Chains[src].Router
 
@@ -96,7 +127,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
 	if err != nil {
-		m.l.Errorw("could not get fee ", "dstChainSelector", m.chainSelector, "msg", msg, "fee", fee)
+		m.l.Errorw("could not get fee ", "dstChainSelector", m.chainSelector, "msg", msg, "fee", fee, "err", err)
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	m.l.Debugw("setting fee for ", "srcChain", src, "dstChain", m.chainSelector, "fee", fee, "msg", msg)
@@ -152,6 +183,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
 
 	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
+	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, fmt.Errorf("no other chains to send from")
@@ -161,7 +193,6 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 }
 
 // GetMessage will return the message to be sent while considering expected load of different messages
-// TODO: implement randomness and different types of messages
 func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
@@ -169,13 +200,49 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 		return router.ClientEVM2AnyMessage{}, err
 	}
 
-	return router.ClientEVM2AnyMessage{
-		Receiver:     rcv,
-		Data:         common.Hex2Bytes("hello world"),
-		TokenAmounts: nil,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
-	}, nil
+	messages := []router.ClientEVM2AnyMessage{
+		{
+			Receiver:     rcv,
+			Data:         common.Hex2Bytes("message"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		},
+		{
+			Receiver: rcv,
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  common.HexToAddress("0x0"),
+					Amount: big.NewInt(100),
+				},
+			},
+			Data:      common.Hex2Bytes("hello world"),
+			FeeToken:  common.HexToAddress("0x0"),
+			ExtraArgs: nil,
+		},
+		{
+			Receiver: rcv,
+			Data:     common.Hex2Bytes("message with token"),
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  common.HexToAddress("0x0"),
+					Amount: big.NewInt(100),
+				},
+			},
+			FeeToken:  common.HexToAddress("0x0"),
+			ExtraArgs: nil,
+		},
+	}
+	// Select a random message
+	randomValue := rand.Intn(100)
+	switch {
+	case randomValue < (*m.testConfig.MessageTypeWeights)[0]:
+		return messages[0], nil
+	case randomValue < (*m.testConfig.MessageTypeWeights)[0]+(*m.testConfig.MessageTypeWeights)[1]:
+		return messages[1], nil
+	default:
+		return messages[2], nil
+	}
 }
 
 func (m *DestinationGun) GetSequenceNumberRange(csPair ChainSelectorPair) (uint64, uint64, error) {

@@ -152,19 +152,18 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Add all lanes
-	for from := range e.Chains {
-		for to := range e.Chains {
-			if from != to {
-				stateChain1 := state.Chains[from]
+	for src := range e.Chains {
+		for dst := range e.Chains {
+			if src != dst {
+				stateChain1 := state.Chains[src]
 				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
 						Config: changeset.UpdateOnRampDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
-								from: {
-									to: {
+								src: {
+									dst: {
 										IsEnabled:        true,
-										TestRouter:       false,
 										AllowListEnabled: false,
 									},
 								},
@@ -175,13 +174,13 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
 						Config: changeset.UpdateFeeQuoterPricesConfig{
 							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
-								from: {
+								src: {
 									TokenPrices: map[common.Address]*big.Int{
 										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
 										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
 									},
 									GasPrices: map[uint64]*big.Int{
-										to: changeset.DefaultGasPrice,
+										dst: changeset.DefaultGasPrice,
 									},
 								},
 							},
@@ -191,8 +190,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDests),
 						Config: changeset.UpdateFeeQuoterDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-								from: {
-									to: changeset.DefaultFeeQuoterDestChainConfig(),
+								src: {
+									dst: changeset.DefaultFeeQuoterDestChainConfig(),
 								},
 							},
 						},
@@ -201,10 +200,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
 						Config: changeset.UpdateOffRampSourcesConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-								to: {
-									from: {
-										IsEnabled:  true,
-										TestRouter: false,
+								dst: {
+									src: {
+										IsEnabled: true,
 									},
 								},
 							},
@@ -213,18 +211,21 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
 						Config: changeset.UpdateRouterRampsConfig{
-							TestRouter: false,
 							UpdatesByChain: map[uint64]changeset.RouterUpdates{
-								// onRamp update on source chain
-								from: {
+								src: {
+									OffRampUpdates: map[uint64]bool{
+										dst: true,
+									},
 									OnRampUpdates: map[uint64]bool{
-										to: true,
+										dst: true,
 									},
 								},
-								// off
-								from: {
+								dst: {
 									OffRampUpdates: map[uint64]bool{
-										to: true,
+										src: true,
+									},
+									OnRampUpdates: map[uint64]bool{
+										src: true,
 									},
 								},
 							},
