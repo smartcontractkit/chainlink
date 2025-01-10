@@ -528,9 +528,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			// Add the DONs and candidate commit OCR instances for the chain.
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase{
-					HomeChainSelector:               e.HomeChainSel,
-					FeedChainSelector:               e.FeedChainSel,
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+				},
+				PluginInfo: SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: ocrConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
@@ -540,11 +542,15 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			// Add the exec OCR instances for the new chains.
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
 			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase{
-					HomeChainSelector:               e.HomeChainSel,
-					FeedChainSelector:               e.FeedChainSel,
-					OCRConfigPerRemoteChainSelector: ocrConfigs,
-					PluginType:                      types.PluginTypeCCIPExec,
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+				},
+				PluginInfo: []SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigs,
+						PluginType:                      types.PluginTypeCCIPExec,
+					},
 				},
 			},
 		},

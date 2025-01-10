@@ -187,25 +187,21 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
-							},
-							PluginType: types.PluginTypeCCIPCommit,
-							MCMS:       mcmsConfig,
+							MCMS:              mcmsConfig,
 						},
-					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-					Config: SetCandidateChangesetConfig{
-						SetCandidateConfigBase: SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+						PluginInfo: []SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
 							},
-							PluginType: types.PluginTypeCCIPExec,
-							MCMS:       mcmsConfig,
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
 						},
 					},
 				},
@@ -300,25 +296,21 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
-							},
-							PluginType: types.PluginTypeCCIPCommit,
-							MCMS:       mcmsConfig,
+							MCMS:              mcmsConfig,
 						},
-					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-					Config: SetCandidateChangesetConfig{
-						SetCandidateConfigBase: SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+						PluginInfo: []SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
 							},
-							PluginType: types.PluginTypeCCIPExec,
-							MCMS:       mcmsConfig,
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
 						},
 					},
 				},
