@@ -148,13 +148,8 @@ func (p PromoteCandidatesChangesetConfig) Validate(e deployment.Environment) ([]
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return nil, fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		chainState, exists := state.Chains[chainSelector]
-		if !exists {
-			return nil, fmt.Errorf("chain %d does not exist", chainSelector)
-		}
-		if chainState.OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return nil, errors.New("OffRamp contract does not exist")
+		if err := state.ValidateState(chainSelector); err != nil {
+			return nil, err
 		}
 
 		donID, err := internal.DonIDForChain(
@@ -311,9 +306,8 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if state.Chains[chainSelector].OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist on don chain selector %d", chainSelector)
+		if err := state.ValidateState(chainSelector); err != nil {
+			return err
 		}
 		if s.PluginType != types.PluginTypeCCIPCommit &&
 			s.PluginType != types.PluginTypeCCIPExec {
@@ -423,10 +417,16 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donOps []mcms.Operation
 	for chainSelector, params := range cfg.OCRConfigPerRemoteChainSelector {
+		var offRampAddress []byte
+		if deployment.IsSolanaChainFamily(chainSelector) {
+			offRampAddress = state.SolChains[chainSelector].SolCcipRouter.Bytes()
+		} else {
+			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
+		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,
-			state.Chains[chainSelector].OffRamp,
-			e.Chains[chainSelector],
+			offRampAddress,
+			chainSelector,
 			nodes.NonBootstraps(),
 			state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
 			params.OCRParameters,
@@ -598,10 +598,16 @@ func SetCandidateChangeset(
 	}
 	var setCandidateOps []mcms.Operation
 	for chainSelector, params := range cfg.OCRConfigPerRemoteChainSelector {
+		var offRampAddress []byte
+		if deployment.IsSolanaChainFamily(chainSelector) {
+			offRampAddress = state.SolChains[chainSelector].SolCcipRouter.Bytes()
+		} else {
+			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
+		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,
-			state.Chains[chainSelector].OffRamp,
-			e.Chains[chainSelector],
+			offRampAddress,
+			chainSelector,
 			nodes.NonBootstraps(),
 			state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
 			params.OCRParameters,

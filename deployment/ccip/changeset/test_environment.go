@@ -233,7 +233,8 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	Chains map[uint64]deployment.Chain
+	Chains    map[uint64]deployment.Chain
+	SolChains map[uint64]deployment.SolChain
 }
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
@@ -259,12 +260,14 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
 	}
 	m.Chains = chains
+	m.SolChains = memory.NewMemoryChainsSol(t, 1)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
 		Env: deployment.Environment{
-			Chains: m.Chains,
+			Chains:    m.Chains,
+			SolChains: m.SolChains,
 		},
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
@@ -276,7 +279,7 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, tc.Nodes, tc.Bootstraps, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, tc.Nodes, tc.Bootstraps, crConfig)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
@@ -285,7 +288,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig d
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, nodes)
+	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, nodes)
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -463,7 +466,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := NewTestTokenConfig(
+		state.Chains[e.FeedChainSel].USDFeeds[LinkSymbol].Address().String(),
+		state.Chains[e.FeedChainSel].USDFeeds[WethSymbol].Address().String(),
+		e.FeedChainSel)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -498,7 +504,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
-		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken.Address().String(), state.Chains[chain].Weth9.Address().String())
 		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)

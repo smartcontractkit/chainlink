@@ -216,3 +216,11 @@ func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
 	}
 	return nil
 }
+
+func IsSolanaChainFamily(cs uint64) bool {
+	family, err := chain_selectors.GetSelectorFamily(cs)
+	if err != nil {
+		return false
+	}
+	return family == chain_selectors.FamilySolana
+}

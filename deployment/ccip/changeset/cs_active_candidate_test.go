@@ -187,7 +187,7 @@ func Test_ActiveCandidate(t *testing.T) {
 
 	// Now we can add a candidate config, send another request, and observe behavior.
 	// The candidate config should not be able to execute messages.
-	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].LinkToken.Address().String(), state.Chains[tenv.FeedChainSel].Weth9.Address().String(), tenv.FeedChainSel)
 	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
@@ -199,7 +199,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 						dest: DefaultOCRParams(
 							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 							nil,
 						),
 					},
@@ -220,7 +220,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 						dest: DefaultOCRParams(
 							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
 							nil,
 						),
 					},
