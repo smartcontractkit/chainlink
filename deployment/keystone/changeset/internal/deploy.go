@@ -22,13 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -577,48 +571,6 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func GetTriggerCapConfig(refresh time.Duration, expiry time.Duration, minResponsesToAggregate uint32, defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
-	dCfg, err := values.WrapMap(defaultCfg)
-	if err != nil {
-		return nil, err
-	}
-	return &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(dCfg).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(refresh),
-				RegistrationExpiry:      durationpb.New(expiry),
-				MinResponsesToAggregate: minResponsesToAggregate,
-			},
-		},
-	}, nil
-}
-
-func GetConsensusCapConfig(defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
-	dCfg, err := values.WrapMap(defaultCfg)
-	if err != nil {
-		return nil, err
-	}
-	return &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(dCfg).GetMapValue(),
-	}, nil
-}
-
-func GetTargetCapConfig(defaultCfg map[string]any) (*capabilitiespb.CapabilityConfig, error) {
-	dCfg, err := values.WrapMap(defaultCfg)
-	if err != nil {
-		return nil, err
-	}
-	return &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(dCfg).GetMapValue(),
-		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-				RequestHashExcludedAttributes: []string{"signed_report.Signatures"}, // TODO: const defn in a common place
-			},
-		},
-	}, nil
-}
-
 // register nodes
 type RegisterNodesRequest struct {
 	Env                   *deployment.Environment
@@ -855,15 +807,12 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			if regCap.CapabilityType == 2 { // OCR3 capability => WF supported
 				wfSupported = true
 			}
-			var capErr error
-			var capCfg *capabilitiespb.CapabilityConfig
-			cfgb, capErr := proto.Marshal(capCfg)
-			if capErr != nil {
-				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", regCap, capErr)
+			if regCap.Config == nil {
+				return nil, fmt.Errorf("config not found for capability %v", regCap)
 			}
 			cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 				CapabilityId: regCap.ID,
-				Config:       cfgb,
+				Config:       regCap.Config,
 			})
 		}
 
