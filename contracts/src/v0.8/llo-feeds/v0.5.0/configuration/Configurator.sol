@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IConfigurator} from "./interfaces/IConfigurator.sol";
 
@@ -18,7 +18,7 @@ uint256 constant MIN_SUPPORTED_ONCHAIN_CONFIG_VERSION = 1;
  * @notice This contract is intended to be deployed on the source chain and acts as a OCR3 configurator for LLO/Mercury
  **/
 
-contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
+contract Configurator is IConfigurator, ConfirmedOwner, ITypeAndVersion, IERC165 {
   /// @notice This error is thrown whenever trying to set a config
   /// with a fault tolerance of 0
   error FaultToleranceMustBePositive();
@@ -334,7 +334,7 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
     return interfaceId == type(IConfigurator).interfaceId;
   }
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "Configurator 0.5.0";
   }

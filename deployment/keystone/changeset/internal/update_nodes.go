@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -194,7 +195,6 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	p2pToUpdates map[p2pkey.PeerID]NodeUpdate) ([]kcr.CapabilitiesRegistryNodeParams, error) {
-
 	var out []kcr.CapabilitiesRegistryNodeParams
 	var p2pIds []p2pkey.PeerID
 	for p2pID := range p2pToUpdates {
@@ -257,7 +257,6 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	})
 
 	return out, nil
-
 }
 
 // fetchCapabilityIDs fetches the capability ids for the given capabilities

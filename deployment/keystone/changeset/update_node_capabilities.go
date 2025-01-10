@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -61,7 +63,7 @@ type MutateNodeCapabilitiesRequest struct {
 
 func (req *MutateNodeCapabilitiesRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
+		return errors.New("p2pToCapabilities is empty")
 	}
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
@@ -118,7 +120,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS() {
 		if r.Ops == nil {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
 			c.Chain.Selector: c.ContractSet.Timelock.Address(),

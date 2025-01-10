@@ -1,0 +1,16 @@
+exec chainlink nodes tron --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes tron - Commands for handling tron node configuration
+
+USAGE:
+   chainlink nodes tron command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing tron nodes
+
+OPTIONS:
+   --help, -h  show help
+   

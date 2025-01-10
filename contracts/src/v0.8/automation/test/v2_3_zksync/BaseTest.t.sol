@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
-import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../../../shared/mocks/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
 import {UpkeepTranscoder5_0 as Transcoder} from "../../v2_3/UpkeepTranscoder5_0.sol";
 import {ZKSyncAutomationRegistry2_3} from "../../v2_3_zksync/ZKSyncAutomationRegistry2_3.sol";
@@ -21,8 +21,8 @@ import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "../WETH9.sol";
-import {MockGasBoundCaller} from "../../../tests/MockGasBoundCaller.sol";
-import {MockZKSyncSystemContext} from "../../../tests/MockZKSyncSystemContext.sol";
+import {MockGasBoundCaller} from "../../mocks/MockGasBoundCaller.sol";
+import {MockZKSyncSystemContext} from "../../mocks/MockZKSyncSystemContext.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other

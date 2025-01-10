@@ -24,6 +24,9 @@ EIP1559FeeCapBufferBlocks = 0
 
 [HeadTracker]
 HistoryDepth = 300
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false
 
 [NodePool]
 PollFailureThreshold = 2

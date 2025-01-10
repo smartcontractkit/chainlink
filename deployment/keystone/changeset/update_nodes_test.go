@@ -28,7 +28,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			pubKey := [32]byte{31: i + 1}
@@ -48,7 +48,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
-		require.Len(t, csOut.Proposals, 0)
+		require.Empty(t, csOut.Proposals)
 		require.Nil(t, csOut.AddressBook)
 
 		validateUpdate(t, te, updates)
@@ -65,7 +65,7 @@ func TestUpdateNodes(t *testing.T) {
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			pubKey := [32]byte{31: i + 1}
@@ -111,7 +111,6 @@ func TestUpdateNodes(t *testing.T) {
 
 		validateUpdate(t, te, updates)
 	})
-
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates

@@ -16,9 +16,13 @@ runs:
         filters: |
           read_only_sol:
             - 'contracts/src/v0.8/interfaces/**/*'
+            - 'contracts/src/v0.8/automation/interfaces/**/*'
+            - 'contracts/src/v0.8/automation/upkeeps/**/*'
             - 'contracts/src/v0.8/automation/v1_2/**/*'
             - 'contracts/src/v0.8/automation/v1_3/**/*'
             - 'contracts/src/v0.8/automation/v2_0/**/*'
+            - 'contracts/src/v0.8/automation/v2_1/**/*'
+            - 'contracts/src/v0.8/automation/v2_2/**/*'
 
     - name: Fail if read-only files have changed
       if: ${{ steps.changed_files.outputs.read_only_sol == 'true' }}

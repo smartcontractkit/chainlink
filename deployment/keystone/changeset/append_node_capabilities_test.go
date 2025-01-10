@@ -38,7 +38,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			newCapabilities[k] = caps
@@ -52,7 +52,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 
 			csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
 			require.NoError(t, err)
-			require.Len(t, csOut.Proposals, 0)
+			require.Empty(t, csOut.Proposals)
 			require.Nil(t, csOut.AddressBook)
 
 			validateCapabilityAppends(t, te, newCapabilities)
@@ -68,7 +68,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			newCapabilities[k] = caps
@@ -105,7 +105,6 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		require.NoError(t, err)
 		validateCapabilityAppends(t, te, newCapabilities)
 	})
-
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates

@@ -3,6 +3,7 @@ package changeset
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -139,7 +140,7 @@ func (p PromoteCandidatesChangesetConfig) Validate(e deployment.Environment) ([]
 
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
-		return nil, fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+		return nil, errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 
 	var donIDs []uint32
@@ -153,7 +154,7 @@ func (p PromoteCandidatesChangesetConfig) Validate(e deployment.Environment) ([]
 		}
 		if chainState.OffRamp == nil {
 			// should not be possible, but a defensive check.
-			return nil, fmt.Errorf("OffRamp contract does not exist")
+			return nil, errors.New("OffRamp contract does not exist")
 		}
 
 		donID, err := internal.DonIDForChain(
@@ -182,13 +183,13 @@ func (p PromoteCandidatesChangesetConfig) Validate(e deployment.Environment) ([]
 		donIDs = append(donIDs, donID)
 	}
 	if len(e.NodeIDs) == 0 {
-		return nil, fmt.Errorf("NodeIDs must be set")
+		return nil, errors.New("NodeIDs must be set")
 	}
 	if state.Chains[p.HomeChainSelector].CCIPHome == nil {
-		return nil, fmt.Errorf("CCIPHome contract does not exist")
+		return nil, errors.New("CCIPHome contract does not exist")
 	}
 	if state.Chains[p.HomeChainSelector].CapabilityRegistry == nil {
-		return nil, fmt.Errorf("CapabilityRegistry contract does not exist")
+		return nil, errors.New("CapabilityRegistry contract does not exist")
 	}
 
 	return donIDs, nil
@@ -316,7 +317,7 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 		}
 		if s.PluginType != types.PluginTypeCCIPCommit &&
 			s.PluginType != types.PluginTypeCCIPExec {
-			return fmt.Errorf("PluginType must be set to either CCIPCommit or CCIPExec")
+			return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 		}
 
 		// no donID check since this config is used for both adding a new DON and updating an existing one.
@@ -340,17 +341,17 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 		// TODO: validate gas config in the chain config in cciphome for this RemoteChainSelectors.
 	}
 	if len(e.NodeIDs) == 0 {
-		return fmt.Errorf("nodeIDs must be set")
+		return errors.New("nodeIDs must be set")
 	}
 	if state.Chains[s.HomeChainSelector].CCIPHome == nil {
-		return fmt.Errorf("CCIPHome contract does not exist")
+		return errors.New("CCIPHome contract does not exist")
 	}
 	if state.Chains[s.HomeChainSelector].CapabilityRegistry == nil {
-		return fmt.Errorf("CapabilityRegistry contract does not exist")
+		return errors.New("CapabilityRegistry contract does not exist")
 	}
 
 	if e.OCRSecrets.IsEmpty() {
-		return fmt.Errorf("OCR secrets must be set")
+		return errors.New("OCR secrets must be set")
 	}
 
 	return nil
@@ -443,7 +444,7 @@ func AddDonAndSetCandidateChangeset(
 
 		pluginOCR3Config, ok := newDONArgs[cfg.PluginType]
 		if !ok {
-			return deployment.ChangesetOutput{}, fmt.Errorf("missing commit plugin in ocr3Configs")
+			return deployment.ChangesetOutput{}, errors.New("missing commit plugin in ocr3Configs")
 		}
 
 		expectedDonID := latestDon.Id + 1
@@ -476,7 +477,7 @@ func AddDonAndSetCandidateChangeset(
 			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
 			Batch:           donOps,
 		}},
-		fmt.Sprintf("addDON on new Chain && setCandidate for plugin %s", cfg.PluginType.String()),
+		"addDON on new Chain && setCandidate for plugin "+cfg.PluginType.String(),
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
@@ -671,7 +672,7 @@ func setCandidateOnExistingDon(
 	mcmsEnabled bool,
 ) ([]mcms.Operation, error) {
 	if donID == 0 {
-		return nil, fmt.Errorf("donID is zero")
+		return nil, errors.New("donID is zero")
 	}
 
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
@@ -791,7 +792,7 @@ func promoteAllCandidatesForChainOps(
 	mcmsEnabled bool,
 ) (mcms.Operation, error) {
 	if donID == 0 {
-		return mcms.Operation{}, fmt.Errorf("donID is zero")
+		return mcms.Operation{}, errors.New("donID is zero")
 	}
 
 	updatePluginOp, err := promoteCandidateOp(
@@ -831,13 +832,13 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 		return 0, fmt.Errorf("don chain selector invalid: %w", err)
 	}
 	if len(e.NodeIDs) == 0 {
-		return 0, fmt.Errorf("NodeIDs must be set")
+		return 0, errors.New("NodeIDs must be set")
 	}
 	if state.Chains[r.HomeChainSelector].CCIPHome == nil {
-		return 0, fmt.Errorf("CCIPHome contract does not exist")
+		return 0, errors.New("CCIPHome contract does not exist")
 	}
 	if state.Chains[r.HomeChainSelector].CapabilityRegistry == nil {
-		return 0, fmt.Errorf("CapabilityRegistry contract does not exist")
+		return 0, errors.New("CapabilityRegistry contract does not exist")
 	}
 	homeChainState, exists := state.Chains[r.HomeChainSelector]
 	if !exists {
@@ -866,7 +867,7 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 		return 0, fmt.Errorf("fetching candidate digest from cciphome: %w", err)
 	}
 	if candidateDigest == [32]byte{} {
-		return 0, fmt.Errorf("candidate config digest is zero, can't revoke it")
+		return 0, errors.New("candidate config digest is zero, can't revoke it")
 	}
 
 	return donID, nil
@@ -947,7 +948,7 @@ func revokeCandidateOps(
 	mcmsEnabled bool,
 ) ([]mcms.Operation, error) {
 	if donID == 0 {
-		return nil, fmt.Errorf("donID is zero")
+		return nil, errors.New("donID is zero")
 	}
 
 	candidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, pluginType)
@@ -1017,7 +1018,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
 	if len(c.RemoteChainRemoves) == 0 && len(c.RemoteChainAdds) == 0 {
-		return fmt.Errorf("no chain adds or removes")
+		return errors.New("no chain adds or removes")
 	}
 	homeChainState, exists := state.Chains[c.HomeChainSelector]
 	if !exists {
@@ -1042,10 +1043,10 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 			return fmt.Errorf("chain to add %d is not supported", add)
 		}
 		if ccfg.FChain == 0 {
-			return fmt.Errorf("FChain must be set")
+			return errors.New("FChain must be set")
 		}
 		if len(ccfg.Readers) == 0 {
-			return fmt.Errorf("Readers must be set")
+			return errors.New("Readers must be set")
 		}
 	}
 	return nil

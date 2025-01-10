@@ -149,7 +149,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 					{Name: "third nop"},
 				},
 				Capabilities: []CapabilityView{
-					//capabilities for don1
+					// capabilities for don1
 					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
 						HashedId:     [32]byte{0: 1},
 						LabelledName: "cap1",
@@ -161,7 +161,7 @@ func TestCapRegView_Denormalize(t *testing.T) {
 						Version:      "1.0.0",
 					}),
 
-					//capabilities for don2
+					// capabilities for don2
 					NewCapabilityView(cr.CapabilitiesRegistryCapabilityInfo{
 						HashedId:     [32]byte{2: 2}, // matches don ID 2, capabitility ID 1
 						LabelledName: "other cap",

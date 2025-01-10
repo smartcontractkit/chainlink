@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"google.golang.org/protobuf/proto"
@@ -187,7 +188,7 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*c
 	}
 	registry = registryChainContracts.CapabilitiesRegistry
 	if registry == nil {
-		return nil, deployment.Chain{}, fmt.Errorf("no registry contract found")
+		return nil, deployment.Chain{}, errors.New("no registry contract found")
 	}
 	e.Logger.Debugf("registry contract address: %s, chain %d", registry.Address().String(), registryChainSel)
 	return registry, registryChain, nil
@@ -409,7 +410,6 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		OCR2OracleConfig: r.ocrConfig,
 		Ops:              r.ops,
 	}, nil
-
 }
 
 type RegisterCapabilitiesRequest struct {
@@ -445,7 +445,7 @@ func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesR
 // RegisterCapabilities add computes the capability id, adds it to the registry and associates the registered capabilities with appropriate don(s)
 func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error) {
 	if len(req.DonToCapabilities) == 0 {
-		return nil, fmt.Errorf("no capabilities to register")
+		return nil, errors.New("no capabilities to register")
 	}
 	cresp, err := GetContractSets(req.Env.Logger, &GetContractSetsRequest{
 		Chains:      req.Env.Chains,
@@ -891,7 +891,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		return nil, fmt.Errorf("failed to call GetDONs: %w", err)
 	}
 	if !foundAll {
-		return nil, fmt.Errorf("did not find all desired DONS")
+		return nil, errors.New("did not find all desired DONS")
 	}
 
 	resp := RegisterDonsResponse{
@@ -903,7 +903,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			lggr.Debugw("irrelevant DON found in the registry, ignoring", "p2p sorted hash", sortedHash(donInfo.NodeP2PIds))
 			continue
 		}
-		lggr.Debugw("adding don info to the reponse (keyed by DON name)", "don", donName)
+		lggr.Debugw("adding don info to the response (keyed by DON name)", "don", donName)
 		resp.DonInfos[donName] = donInfos[i]
 	}
 	return &resp, nil

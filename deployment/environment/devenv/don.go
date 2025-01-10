@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"strconv"
 	"strings"
 	"time"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
+
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
@@ -395,7 +397,7 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 	// create the job distributor in the node with the csa key
 	resp, err := n.gqlClient.ListJobDistributors(ctx)
 	if err != nil {
-		return "", fmt.Errorf("could not list job distrubutors: %w", err)
+		return "", fmt.Errorf("could not list job distributors: %w", err)
 	}
 	if len(resp.FeedsManagers.Results) > 0 {
 		for _, fm := range resp.FeedsManagers.Results {

@@ -7,10 +7,10 @@ import {FunctionsRouterHarness, FunctionsRouter} from "./testhelpers/FunctionsRo
 import {FunctionsCoordinatorHarness} from "./testhelpers/FunctionsCoordinatorHarness.sol";
 import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
-import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../../../shared/mocks/MockV3Aggregator.sol";
 import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
 import {TermsOfServiceAllowListConfig} from "../../dev/v1_X/accessControl/interfaces/ITermsOfServiceAllowList.sol";
-import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
+import {MockLinkToken} from "./testhelpers/MockLinkToken.sol";
 import {FunctionsBillingConfig} from "../../dev/v1_X/interfaces/IFunctionsBilling.sol";
 
 import "forge-std/Vm.sol";

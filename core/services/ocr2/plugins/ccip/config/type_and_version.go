@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/type_and_version"
 )
 
 type ContractType string
@@ -39,7 +39,7 @@ func VerifyTypeAndVersion(addr common.Address, client bind.ContractBackend, expe
 }
 
 func TypeAndVersion(addr common.Address, client bind.ContractBackend) (ContractType, semver.Version, error) {
-	tv, err := type_and_version.NewTypeAndVersionInterface(addr, client)
+	tv, err := type_and_version.NewITypeAndVersion(addr, client)
 	if err != nil {
 		return "", semver.Version{}, err
 	}
