@@ -1426,8 +1426,8 @@ github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 h1:0ewLMbAz3
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2LpSQR9U1gEbRV6PfAkiFdINmQ8nVnXIAQ=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250109230804-64ce56c3fca0 h1:q72UAb75K3DcvV0ZXJ2C/0iaLkBDzDCrlXygLu2Ze80=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250109230804-64ce56c3fca0/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250110142550-e2a9566d39f3 h1:L6UDu0GzSKfz+/nMSz9yfYrgOpW1/OXhiVK60PxVsnY=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250110142550-e2a9566d39f3/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 h1:tNS7U9lrxkFvEuyxQv11HHOiV9LPDGC9wYEy+yM/Jv4=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8/go.mod h1:EBrEgcdIbwepqguClkv8Ohy7CbyWSJaE4EC9aBJlQK0=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.2-0.20250110073248-456673e8eea2 h1:nTUoe7GZLw17nPLV5t3Vgf4U4pf+VW0Uko5xpNiKdKU=
