@@ -46,7 +46,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			for z := 0; z < numTokensPerMsg; z++ {
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
 					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().String()),
-					DestTokenAddress:  cciptypes.UnknownAddress(key.PublicKey().String()),
+					DestTokenAddress:  key.PublicKey().Bytes(),
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 					DestExecData:      destExecData,
@@ -79,7 +79,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 				},
 				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
 				Data:           extraData,
-				Receiver:       cciptypes.UnknownAddress(key.PublicKey().String()),
+				Receiver:       key.PublicKey().Bytes(),
 				ExtraArgs:      buf.Bytes(),
 				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
 				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),

@@ -39,14 +39,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
-			DestTokenAddress, err := solana.PublicKeyFromBase58(string(tokenAmount.DestTokenAddress))
-			if err != nil {
-				return nil, fmt.Errorf("invalid destTokenAddress address: %w", err)
+			if len(tokenAmount.DestTokenAddress) != solana.PublicKeyLength {
+				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
 			tokenAmounts = append(tokenAmounts, ccip_router.Any2SolanaTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
-				DestTokenAddress:  DestTokenAddress,
+				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
 				Amount:            bigIntToBytes32(tokenAmount.Amount),
 				DestGasAmount:     bytesToUint32(tokenAmount.DestExecData),
@@ -60,9 +59,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("invalid extra arguments: %w", err)
 		}
 
-		receiver, err := solana.PublicKeyFromBase58(string(msg.Receiver))
-		if err != nil {
-			return nil, fmt.Errorf("invalid receiver address: %s, %w", string(msg.Receiver), err)
+		if len(msg.Receiver) != solana.PublicKeyLength {
+			return nil, fmt.Errorf("invalid receiver address: %v", msg.Receiver)
 		}
 
 		message = ccip_router.Any2SolanaRampMessage{
@@ -75,7 +73,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			},
 			Sender:       msg.Sender,
 			Data:         msg.Data,
-			Receiver:     receiver,
+			Receiver:     solana.PublicKeyFromBytes(msg.Receiver),
 			TokenAmounts: tokenAmounts,
 			ExtraArgs:    extraArgs,
 		}
@@ -124,7 +122,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
-			DestTokenAddress:  cciptypes.UnknownAddress(tokenAmount.DestTokenAddress.String()),
+			DestTokenAddress:  tokenAmount.DestTokenAddress.Bytes(),
 			ExtraData:         tokenAmount.ExtraData,
 			Amount:            priceHelper(tokenAmount.Amount[:]),
 			DestExecData:      destData,
@@ -151,7 +149,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			},
 			Sender:         executeReport.Message.Sender,
 			Data:           executeReport.Message.Data,
-			Receiver:       cciptypes.UnknownAddress(executeReport.Message.Receiver.String()),
+			Receiver:       executeReport.Message.Receiver.Bytes(),
 			ExtraArgs:      buf.Bytes(),
 			FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
 			FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
