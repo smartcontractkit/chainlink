@@ -180,6 +180,7 @@ type CCIPJobSpecParams struct {
 	DestStartBlock         uint64
 	USDCAttestationAPI     string
 	USDCConfig             *config.USDCConfig
+	LBTCConfig             *config.LBTCConfig
 	P2PV2Bootstrappers     pq.StringArray
 }
 
@@ -304,6 +305,11 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceTokenAddress)
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
+	}
+	if params.LBTCConfig != nil {
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.AttestationAPI)
+		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.SourceTokenAddress)
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfig.AttestationAPITimeoutSeconds
 	}
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,

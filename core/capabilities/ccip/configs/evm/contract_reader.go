@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -33,7 +33,7 @@ var (
 	nonceManagerABI         = evmtypes.MustGetABI(nonce_manager.NonceManagerABI)
 	priceFeedABI            = evmtypes.MustGetABI(aggregator_v3_interface.AggregatorV3InterfaceABI)
 	rmnRemoteABI            = evmtypes.MustGetABI(rmn_remote.RMNRemoteABI)
-	rmnProxyABI             = evmtypes.MustGetABI(rmn_proxy_contract.RMNProxyContractABI)
+	rmnProxyABI             = evmtypes.MustGetABI(rmn_proxy_contract.RMNProxyABI)
 	rmnHomeABI              = evmtypes.MustGetABI(rmn_home.RMNHomeABI)
 	routerABI               = evmtypes.MustGetABI(router.RouterABI)
 )
@@ -190,7 +190,7 @@ var DestReaderConfig = evmrelaytypes.ChainReaderConfig{
 			},
 		},
 		consts.ContractNameRMNProxy: {
-			ContractABI: rmn_proxy_contract.RMNProxyContractABI,
+			ContractABI: rmn_proxy_contract.RMNProxyABI,
 			Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 				consts.MethodNameGetARM: {
 					ChainSpecificName: mustGetMethodName("getARM", rmnProxyABI),

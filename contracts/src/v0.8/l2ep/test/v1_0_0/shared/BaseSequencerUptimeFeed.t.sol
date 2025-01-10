@@ -5,7 +5,7 @@ import {Vm} from "forge-std/Test.sol";
 import {AddressAliasHelper} from "../../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {BaseSequencerUptimeFeed} from "../../../base/BaseSequencerUptimeFeed.sol";
 import {MockBaseSequencerUptimeFeed} from "../../../test/mocks/MockBaseSequencerUptimeFeed.sol";
-import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
+import {FeedConsumer} from "../../FeedConsumer.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 contract BaseSequencerUptimeFeed_Setup is L2EPTest {

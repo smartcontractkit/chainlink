@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -360,12 +361,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 						if mr.SourceChainSelector == src.Selector &&
 							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+							t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 							return event, nil
 						}
 
 						if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-							t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+							t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 							return event, nil
 						}
 					}
@@ -389,12 +390,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 					if mr.SourceChainSelector == src.Selector &&
 						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-						t.Logf("All sequence numbers commited in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+						t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 						return report, nil
 					}
 
 					if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-						t.Logf("All sequence numbers already commited from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+						t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 						return report, nil
 					}
 				}
@@ -482,7 +483,7 @@ func ConfirmExecWithSeqNrs(
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
 	if len(expectedSeqNrs) == 0 {
-		return nil, fmt.Errorf("no expected sequence numbers provided")
+		return nil, errors.New("no expected sequence numbers provided")
 	}
 
 	timer := time.NewTimer(8 * time.Minute)

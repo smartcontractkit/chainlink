@@ -143,7 +143,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var weth9Contract *weth9.WETH9
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
 	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
-	var rmnProxy *rmn_proxy_contract.RMNProxyContract
+	var rmnProxy *rmn_proxy_contract.RMNProxy
 	var r *router.Router
 	var mc3 *multicall3.Multicall3
 	if chainExists {
@@ -202,22 +202,22 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 	}
 	if rmnProxy == nil {
-		rmnProxyContract, err := deployment.DeployContract(lggr, chain, ab,
-			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract] {
-				rmnProxyAddr, tx2, rmnProxy, err2 := rmn_proxy_contract.DeployRMNProxyContract(
+		RMNProxy, err := deployment.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy] {
+				rmnProxyAddr, tx2, rmnProxy2, err2 := rmn_proxy_contract.DeployRMNProxy(
 					chain.DeployerKey,
 					chain.Client,
 					rmnAddr,
 				)
-				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxyContract]{
-					Address: rmnProxyAddr, Contract: rmnProxy, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
+				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
+					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
 			lggr.Errorw("Failed to deploy RMNProxy", "chain", chain.String(), "err", err)
 			return err
 		}
-		rmnProxy = rmnProxyContract.Contract
+		rmnProxy = RMNProxy.Contract
 	} else {
 		lggr.Infow("RMNProxy already deployed", "chain", chain.String(), "addr", rmnProxy.Address)
 		// check if the RMNProxy is pointing to the correct RMN contract

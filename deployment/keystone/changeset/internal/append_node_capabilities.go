@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,10 +21,10 @@ type AppendNodeCapabilitiesRequest struct {
 
 func (req *AppendNodeCapabilitiesRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
+		return errors.New("p2pToCapabilities is empty")
 	}
 	if req.ContractSet.CapabilitiesRegistry == nil {
-		return fmt.Errorf("registry is nil")
+		return errors.New("registry is nil")
 	}
 	return nil
 }

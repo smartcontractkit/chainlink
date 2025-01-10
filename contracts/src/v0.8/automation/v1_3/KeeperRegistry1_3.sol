@@ -8,7 +8,7 @@ import "./KeeperRegistryBase1_3.sol";
 import "./KeeperRegistryLogic1_3.sol";
 import {AutomationRegistryExecutableInterface, State} from "../interfaces/v1_3/AutomationRegistryInterface1_3.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
+import "../../shared/interfaces/ITypeAndVersion.sol";
 import "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
@@ -18,7 +18,7 @@ import "../../shared/interfaces/IERC677Receiver.sol";
 contract KeeperRegistry1_3 is
   KeeperRegistryBase1_3,
   Proxy,
-  TypeAndVersionInterface,
+  ITypeAndVersion,
   AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   IERC677Receiver

@@ -58,7 +58,7 @@ func NewBackgroundWorker(
 	return &BackgroundWorker{
 		tokenDataReaders: tokenDataReaders,
 		numWorkers:       numWorkers,
-		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*100),
+		jobsChan:         make(chan cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numWorkers*200),
 		resultsCache:     cache.New(expirationDur, expirationDur/2),
 		timeoutDur:       timeoutDur,
 		stopChan:         make(services.StopChan),

@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
@@ -19,7 +19,7 @@ import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
  * @author Austin Born
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
-contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+contract FeeManager is IFeeManager, ConfirmedOwner, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
@@ -158,7 +158,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     _;
   }
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "FeeManager 2.0.0";
   }

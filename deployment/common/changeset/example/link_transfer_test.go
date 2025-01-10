@@ -25,7 +25,6 @@ import (
 
 // setupLinkTransferContracts deploys all required contracts for the link transfer tests and returns the updated env.
 func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
-
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1,

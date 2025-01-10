@@ -1,0 +1,9 @@
+exec chainlink chains tron list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains tron list - List all existing tron chains
+
+USAGE:
+   chainlink chains tron list [arguments...]
