@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
+import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
 import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
-import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract OffRamp_trialExecute is OffRampSetup {
@@ -124,8 +124,8 @@ contract OffRamp_trialExecute is OffRampSetup {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
-    bytes[] memory offchainTokenData;
-    uint32[] memory tokenGasOverrides;
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    uint32[] memory tokenGasOverrides = new uint32[](0);
 
     vm.mockCallRevert(
       address(s_offRamp),
@@ -148,7 +148,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
     vm.mockCallRevert(
       address(s_offRamp),
-      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
       abi.encodeWithSelector(CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG, "")
     );
 
@@ -166,7 +166,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
     vm.mockCallRevert(
       address(s_offRamp),
-      abi.encodeWithSelector(s_offRamp.executeSingleMessage.selector, message, offchainTokenData, tokenGasOverrides),
+      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
