@@ -371,15 +371,15 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		if chainID == destChainID && destChainFamily == relayChainFamily {
-			offrampAddressHex := common.BytesToAddress(config.Config.OfframpAddress).Hex()
+			offrampAddress := encodeOffRampAddr(config.Config.OfframpAddress, relayChainFamily)
 			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
-					Address: offrampAddressHex,
+					Address: offrampAddress,
 					Name:    consts.ContractNameOffRamp,
 				},
 			})
 			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddressHex, err)
+				return nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err)
 			}
 		}
 
