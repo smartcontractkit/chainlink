@@ -89,6 +89,14 @@ func TestCommitPluginCodecV1(t *testing.T) {
 				return report
 			},
 		},
+		{
+			name: "empty gas price",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = cciptypes.NewBigInt(nil)
+				return report
+			},
+			expErr: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -129,5 +137,19 @@ func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := commitCodec.Decode(ctx, encodedReport)
 		require.NoError(b, err)
+	}
+}
+
+func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
+	commitCodec := NewCommitPluginCodecV1()
+	ctx := testutils.Context(b)
+
+	rep := randomCommitReport()
+	for i := 0; i < b.N; i++ {
+		encodedReport, err := commitCodec.Encode(ctx, rep)
+		require.NoError(b, err)
+		decodedReport, err := commitCodec.Decode(ctx, encodedReport)
+		require.NoError(b, err)
+		require.Equal(b, rep, decodedReport)
 	}
 }

@@ -28,14 +28,16 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	encoder := agbinary.NewBorshEncoder(&buf)
 	mr := ccip_router.MerkleRoot{}
 
-	if len(report.MerkleRoots) != 0 {
-		mr = ccip_router.MerkleRoot{
-			SourceChainSelector: uint64(report.MerkleRoots[0].ChainSel),
-			OnRampAddress:       report.MerkleRoots[0].OnRampAddress,
-			MinSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.Start()),
-			MaxSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.End()),
-			MerkleRoot:          report.MerkleRoots[0].MerkleRoot,
-		}
+	if len(report.MerkleRoots) == 0 || len(report.MerkleRoots) > 1 {
+		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.MerkleRoots))
+	}
+
+	mr = ccip_router.MerkleRoot{
+		SourceChainSelector: uint64(report.MerkleRoots[0].ChainSel),
+		OnRampAddress:       report.MerkleRoots[0].OnRampAddress,
+		MinSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.Start()),
+		MaxSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.End()),
+		MerkleRoot:          report.MerkleRoots[0].MerkleRoot,
 	}
 
 	tpu := make([]ccip_router.TokenPriceUpdate, 0, len(report.PriceUpdates.TokenPriceUpdates))
@@ -55,6 +57,10 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 	gpu := make([]ccip_router.GasPriceUpdate, 0, len(report.PriceUpdates.GasPriceUpdates))
 	for _, update := range report.PriceUpdates.GasPriceUpdates {
+		if update.GasPrice.IsEmpty() {
+			return nil, fmt.Errorf("empty gas price for chain: %d", update.ChainSel)
+		}
+
 		gpu = append(gpu, ccip_router.GasPriceUpdate{
 			DestChainSelector: uint64(update.ChainSel),
 			UsdPerUnitGas:     common.To28BytesBE(update.GasPrice.Int.Uint64()),
