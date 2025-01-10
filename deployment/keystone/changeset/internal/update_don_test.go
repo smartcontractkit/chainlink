@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -95,6 +96,11 @@ func TestUpdateDon(t *testing.T) {
 		}
 	)
 
+	initialCapCfg, err := internal.GetDefaultCapConfig(initialCap)
+	require.NoError(t, err)
+	capToAddCfg, err := internal.GetDefaultCapConfig(capToAdd)
+	require.NoError(t, err)
+
 	lggr := logger.Test(t)
 
 	t.Run("empty", func(t *testing.T) {
@@ -103,7 +109,7 @@ func TestUpdateDon(t *testing.T) {
 				{
 					Name:         "don 1",
 					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
-					Capabilities: []kcr.CapabilitiesRegistryCapability{initialCap},
+					Capabilities: []internal.DONCapabilityWithConfig{{Capability: initialCap, Config: initialCapCfg}},
 				},
 			},
 			nops: []internal.NOP{
@@ -133,7 +139,7 @@ func TestUpdateDon(t *testing.T) {
 			Chain:       testCfg.Chain,
 			P2PIDs:      []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
 			CapabilityConfigs: []internal.CapabilityConfig{
-				{Capability: initialCap}, {Capability: capToAdd},
+				{Capability: initialCap, Config: initialCapCfg}, {Capability: capToAdd, Config: capToAddCfg},
 			},
 		}
 		want := &internal.UpdateDonResponse{
@@ -142,8 +148,8 @@ func TestUpdateDon(t *testing.T) {
 				ConfigCount: 1,
 				NodeP2PIds:  internal.PeerIDsToBytes([]p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}),
 				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, initialCap)},
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, capToAdd)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, initialCap), Config: initialCapCfg},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, capToAdd), Config: capToAddCfg},
 				},
 			},
 		}
@@ -286,7 +292,7 @@ func makeP2PToCapabilities(t *testing.T, dons []internal.DonInfo) map[p2pkey.Pee
 			for _, cap := range don.Capabilities {
 				p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
 				require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
-				p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
+				p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap.Capability)
 			}
 		}
 	}
@@ -314,7 +320,7 @@ func testDon(t *testing.T, don internal.DonInfo) kstest.Don {
 	var capabilityConfigs []internal.CapabilityConfig
 	for _, cap := range don.Capabilities {
 		capabilityConfigs = append(capabilityConfigs, internal.CapabilityConfig{
-			Capability: cap,
+			Capability: cap.Capability, Config: cap.Config,
 		})
 	}
 	return kstest.Don{
