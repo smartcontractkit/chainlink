@@ -850,13 +850,13 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 
 			seqNrs, execStates := strategy.BuildBatch(context.Background(), batchContext)
 
-			runAssertions(t, tc, seqNrs, execStates)
+			runAssertions(t, tc, seqNrs, execStates, strategy)
 		})
 	}
 }
 
 // Utility function to run common assertions
-func runAssertions(t *testing.T, tc testCase, seqNrs []ccip.ObservedMessage, execStates []messageExecStatus) {
+func runAssertions(t *testing.T, tc testCase, seqNrs []ccip.ObservedMessage, execStates []messageExecStatus, strategy BatchingStrategy) {
 	if tc.expectedSeqNrs == nil {
 		assert.Len(t, seqNrs, 0)
 	} else {
@@ -867,6 +867,13 @@ func runAssertions(t *testing.T, tc testCase, seqNrs []ccip.ObservedMessage, exe
 		assert.Len(t, execStates, 0)
 	} else {
 		assert.Equal(t, tc.expectedStates, execStates)
+	}
+
+	batchingStratID := strategy.GetBatchingStrategyID()
+	if strategyType := reflect.TypeOf(strategy); strategyType == reflect.TypeOf(&BestEffortBatchingStrategy{}) {
+		assert.Equal(t, batchingStratID, uint32(0))
+	} else {
+		assert.Equal(t, batchingStratID, uint32(1))
 	}
 }
 

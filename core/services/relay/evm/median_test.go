@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestNewMedianProvider(t *testing.T) {
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 
 	chain := mocks.NewChain(t)
 	chainID := testutils.NewRandomEVMChainID()

@@ -81,6 +81,16 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, chaintype ch
 	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
+	// FIXME conflict, to be verified
+	// 	var l1Oracle rollups.L1Oracle
+	//	lggr.Infow("Checking if chain type is roll up", "chainType", cfg.ChainType(), "isRollUp", rollups.IsRollupWithL1Support(cfg.ChainType()))
+	//	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
+	//		var err error
+	//		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+	//		if err != nil {
+	//			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
+	//		}
+	//	}
 	l1Oracle, err := rollups.NewL1GasOracle(lggr, ethClient, chaintype, geCfg.DAOracle(), clientsByChainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)

@@ -142,7 +142,7 @@ func TestParse(t *testing.T) {
 func TestFilters(t *testing.T) {
 	t.Run("filters of different jobs should be distinct", func(t *testing.T) {
 		ctx := tests.Context(t)
-		lggr := logger.Test(t)
+		lggr := logger.TestLogger(t)
 		chainID := testutils.NewRandomEVMChainID()
 		db := pgtest.NewSqlxDB(t)
 		o := logpoller.NewORM(chainID, db, lggr)

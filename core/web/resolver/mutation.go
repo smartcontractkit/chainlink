@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
@@ -1113,7 +1112,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Stream:
 		jb, err = streams.ValidatedStreamSpec(args.Input.TOML)
 	case job.CCIP:
-		jb, err = ccip.ValidatedCCIPSpec(args.Input.TOML)
+		return nil, errors.New("CCIP job type is not supported in this version")
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

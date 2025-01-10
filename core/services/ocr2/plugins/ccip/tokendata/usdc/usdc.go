@@ -17,10 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -133,7 +133,7 @@ func NewUSDCTokenDataReader(
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
-		httpClient:            http.NewObservedIHttpClient(&http.HttpClient{}),
+		httpClient:            http.NewObservedUsdcIHttpClient(&http.HttpClient{}),
 		attestationApi:        usdcAttestationApi,
 		attestationApiTimeout: timeout,
 		usdcTokenAddress:      usdcTokenAddress,

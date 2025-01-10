@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -24,6 +23,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -159,6 +159,8 @@ type OffRamp struct {
 	gasPriceEstimator prices.GasPriceEstimatorExec
 	offchainConfig    cciptypes.ExecOffchainConfig
 	onchainConfig     cciptypes.ExecOnchainConfig
+	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
+
 }
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
@@ -416,7 +418,7 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
 		Router:                                  cciptypes.Address(onchainConfigParsed.Router.String()),
 	}
-	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0)
+	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0, o.feeEstimatorConfig)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
 
@@ -614,7 +616,7 @@ func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cci
 	return DecodeExecReport(ctx, o.ExecutionReportArgs, report)
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
+func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*OffRamp, error) {
 	offRamp, err := evm_2_evm_offramp_1_2_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
@@ -672,5 +674,6 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 		gasPriceEstimator: prices.ExecGasPriceEstimator{},
 		offchainConfig:    cciptypes.ExecOffchainConfig{},
 		onchainConfig:     cciptypes.ExecOnchainConfig{},
+		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }

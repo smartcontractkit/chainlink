@@ -391,6 +391,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 	return confighelper.ContractConfigFromConfigSetEvent(*latest), err
 }
 
+// nolint:exhaustive
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {

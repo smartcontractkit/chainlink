@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var ErrEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")
@@ -278,6 +278,10 @@ func (c EvmCall) MethodName() string {
 
 func (c EvmCall) String() string {
 	return fmt.Sprintf("%s: %s(%+v)", c.contractAddress.String(), c.methodName, c.args)
+}
+
+func (c EvmCall) ContractAddress() common.Address {
+	return c.contractAddress
 }
 
 func EVMCallsToString(calls []EvmCall) string {

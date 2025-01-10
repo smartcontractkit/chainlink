@@ -145,6 +145,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 	for _, req := range reqs {
 		txErr = append(txErr, req.Error)
 	}
+
 	return txReceipt, txErr, nil
 }
 

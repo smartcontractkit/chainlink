@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	usdcLatencyBuckets = []float64{
+	latencyBuckets = []float64{
 		float64(10 * time.Millisecond),
 		float64(25 * time.Millisecond),
 		float64(50 * time.Millisecond),
@@ -29,7 +29,12 @@ var (
 	usdcClientHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ccip_usdc_client_request_total",
 		Help:    "Latency of calls to the USDC client",
-		Buckets: usdcLatencyBuckets,
+		Buckets: latencyBuckets,
+	}, []string{"status", "success"})
+	lbtcClientHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ccip_lbtc_client_request_total",
+		Help:    "Latency of calls to the LBTC client",
+		Buckets: latencyBuckets,
 	}, []string{"status", "success"})
 )
 
@@ -38,9 +43,14 @@ type ObservedIHttpClient struct {
 	histogram *prometheus.HistogramVec
 }
 
-// NewObservedIHttpClient Create a new ObservedIHttpClient with the USDC client metric.
-func NewObservedIHttpClient(origin IHttpClient) *ObservedIHttpClient {
+// NewObservedUsdcIHttpClient Create a new ObservedIHttpClient with the USDC client metric.
+func NewObservedUsdcIHttpClient(origin IHttpClient) *ObservedIHttpClient {
 	return NewObservedIHttpClientWithMetric(origin, usdcClientHistogram)
+}
+
+// NewObservedLbtcIHttpClient Create a new ObservedIHttpClient with the LBTC client metric.
+func NewObservedLbtcIHttpClient(origin IHttpClient) *ObservedIHttpClient {
+	return NewObservedIHttpClientWithMetric(origin, lbtcClientHistogram)
 }
 
 func NewObservedIHttpClientWithMetric(origin IHttpClient, histogram *prometheus.HistogramVec) *ObservedIHttpClient {

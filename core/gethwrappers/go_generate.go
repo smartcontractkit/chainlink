@@ -156,6 +156,9 @@ package gethwrappers
 //go:generate go generate ./liquiditymanager
 //go:generate go generate ./workflow
 
+// CCIP
+//go:generate go generate ./ccip
+
 // Mocks that contain only events and functions to emit them
 // These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
 // The flow is as follows:

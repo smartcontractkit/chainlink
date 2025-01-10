@@ -75,6 +75,8 @@ var (
 	SourceChainSelector = uint64(11787463284727550157)
 	DestChainID         = uint64(1337)
 	DestChainSelector   = uint64(3379446385462418246)
+
+	TokenDecimals = uint8(18)
 )
 
 // Backwards compat, in principle these statuses are version dependent
@@ -152,7 +154,7 @@ func NewExecOffchainConfig(
 	RelativeBoostPerWaitHour float64,
 	InflightCacheExpiry config.Duration,
 	RootSnoozeTime config.Duration,
-	BatchingStrategyID uint32,
+	BatchingStrategyID uint32, // 0 = Standard, 1 = Out of Order
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
 		DestOptimisticConfirmations: DestOptimisticConfirmations,

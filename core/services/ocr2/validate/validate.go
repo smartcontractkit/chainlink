@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	liquiditymanagermodels "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -32,11 +33,11 @@ import (
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
-	var jb = job.Job{}
+	jb := job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return jb, pkgerrors.Wrap(err, "toml error on load")
+		return jb, pkgerrors.Wrapf(err, "toml error on load %v", tomlString)
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
@@ -126,6 +127,8 @@ func validateSpec(ctx context.Context, tree *toml.Tree, spec job.Job, rc plugins
 		return validateOCR2LLOSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
 		return validateGenericPluginSpec(ctx, spec.OCR2OracleSpec, rc)
+	case "liquiditymanager":
+		return validateLiquidityManagerSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -293,6 +296,27 @@ func validateGenericPluginSpec(ctx context.Context, spec *job.OCR2OracleSpec, rc
 	return plugin.ValidateConfig(ctx, spec.PluginConfig)
 }
 
+func validateLiquidityManagerSpec(jsonConfig job.JSONConfig) error {
+	if jsonConfig == nil {
+		return errors.New("pluginConfig is empty")
+	}
+	var pluginConfig liquiditymanagermodels.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
+	}
+	if pluginConfig.LiquidityManagerNetwork == 0 {
+		return errors.New("liquidityManagerNetwork must be provided")
+	}
+	if pluginConfig.ClosePluginTimeoutSec <= 0 {
+		return errors.New("closePluginTimeoutSec must be positive")
+	}
+	if err := liquiditymanagermodels.ValidateRebalancerConfig(pluginConfig.RebalancerConfig); err != nil {
+		return fmt.Errorf("rebalancer config invalid: %w", err)
+	}
+	return nil
+}
+
 func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
@@ -301,7 +325,7 @@ func validateOCR2MercurySpec(spec *job.OCR2OracleSpec, feedID [32]byte) error {
 	var relayConfig evmtypes.RelayConfig
 	err := json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshalling relay config")
+		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
 	}
 
 	if len(spec.PluginConfig) == 0 {

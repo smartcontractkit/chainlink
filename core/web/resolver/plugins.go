@@ -28,7 +28,7 @@ func (r PluginsResolver) Mercury() bool {
 	return r.plugins.Mercury
 }
 
-// Rebalancer returns the the status of the rebalancer plugin.
+// LiquidityManager returns the the status of the liquidity manager plugin.
 func (r PluginsResolver) Rebalancer() bool {
-	return r.plugins.Rebalancer
+	return r.plugins.LiquidityManager
 }
