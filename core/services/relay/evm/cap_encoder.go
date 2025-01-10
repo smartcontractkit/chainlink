@@ -18,10 +18,9 @@ import (
 )
 
 const (
-	abiConfigFieldName     = "abi"
-	subabiConfigFieldName  = "subabi"
-	subabi2ConfigFieldName = "subabi2"
-	encoderName            = "user"
+	abiConfigFieldName    = "abi"
+	subabiConfigFieldName = "subabi"
+	encoderName           = "user"
 )
 
 type capEncoder struct {
@@ -53,8 +52,6 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 		TypeABI: string(jsonSelector),
 	}
 
-	var modifierConfigs commoncodec.ModifiersConfig
-
 	var subabi map[string]string
 	subabiConfig, ok := config.Underlying[subabiConfigFieldName]
 	if ok {
@@ -66,30 +63,13 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 		if err2 != nil {
 			return nil, err2
 		}
-		modifierConfigs = append(modifierConfigs, &commoncodec.PreCodecModifierConfig{
-			Fields: subabi,
-			Codecs: codecs,
-		})
-	}
-
-	var subabi2 map[string]string
-	subabiConfig2, ok := config.Underlying[subabi2ConfigFieldName]
-	if ok {
-		err2 := subabiConfig2.UnwrapTo(&subabi2)
-		if err2 != nil {
-			return nil, err2
+		chainCodecConfig.ModifierConfigs = commoncodec.ModifiersConfig{
+			&commoncodec.PreCodecModifierConfig{
+				Fields: subabi,
+				Codecs: codecs,
+			},
 		}
-		codecs2, err2 := makePreCodecModifierCodecs(subabi2)
-		if err2 != nil {
-			return nil, err2
-		}
-		modifierConfigs = append(modifierConfigs, &commoncodec.PreCodecModifierConfig{
-			Fields: subabi2,
-			Codecs: codecs2,
-		})
 	}
-
-	chainCodecConfig.ModifierConfigs = modifierConfigs
 
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
 		encoderName: chainCodecConfig,

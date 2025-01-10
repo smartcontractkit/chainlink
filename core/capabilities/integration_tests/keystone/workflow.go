@@ -35,7 +35,6 @@ consensus:
       encoder: "EVM"
       encoder_config:
         abi: "(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports"
-        subabi: 'map[string]string{"Reports.Price": "uint224 Price"}'
 
 targets:
   - id: "write_geth-testnet@1.0.0"
