@@ -219,6 +219,8 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 // i.e AddDonAndSetCandidateChangeset must be called first.
 // This can also be used to promote a 0x0 candidate config to be the active, effectively shutting down the DON.
 // At that point you can call the RemoveDON changeset to remove the DON entirely from the capability registry.
+// PromoteCandidateChangeset is NOT idempotent, once candidate config is promoted to active, if it's called again,
+// It might promote empty candidate config to active, which is not desired.
 func PromoteCandidateChangeset(
 	e deployment.Environment,
 	cfg PromoteCandidateChangesetConfig,
@@ -436,6 +438,8 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 // Note that these operations must be done together because the createDON call
 // in the capability registry calls the capability config contract, so we must
 // provide suitable calldata for CCIPHome.
+// AddDonAndSetCandidateChangeset is not idempotent, if AddDON is called more than once for the same chain,
+// it will throw an error because the DON would already exist for that chain.
 func AddDonAndSetCandidateChangeset(
 	e deployment.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
