@@ -526,7 +526,7 @@ func NewSetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemot
 		newConfig := rmn_remote.RMNRemoteConfig{
 			RmnHomeContractConfigDigest: activeConfig,
 			Signers:                     remoteConfig.Signers,
-			F:                           remoteConfig.F,
+			FSign:                       remoteConfig.F,
 		}
 
 		if reflect.DeepEqual(currentVersionConfig.Config, newConfig) {

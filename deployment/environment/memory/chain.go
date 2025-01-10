@@ -73,16 +73,16 @@ func getTestSolanaChainSelectors() []uint64 {
 }
 
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
-	chains := make(map[uint64]SolanaChain)
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
 		t.Fatalf("not enough test solana chain selectors available")
 	}
-
+	chains := make(map[uint64]SolanaChain)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
 		url, _ := solTestUtil.SetupLocalSolNodeWithFlags(t)
 		admin, gerr := solana.NewRandomPrivateKey()
+		solTestUtil.FundTestAccounts(t, []solana.PublicKey{admin.PublicKey()}, url)
 		require.NoError(t, gerr)
 		chains[chainID] = SolanaChain{
 			Client:      solRpc.New(url),
