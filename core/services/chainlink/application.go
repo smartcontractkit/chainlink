@@ -83,7 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const ApplicationHeartbeatSeconds = 1
+const Heartbeat = time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -207,8 +207,7 @@ type ApplicationHeartbeat struct {
 
 func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
 	h := ApplicationHeartbeat{
-		beat: ApplicationHeartbeatSeconds * time.Second,
-		lggr: lggr,
+		beat: Heartbeat,
 	}
 	h.Service, h.eng = commonservices.Config{
 		Name:  "NodeHeartbeat",
@@ -242,7 +241,7 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 
 		err = cme.Emit(engCtx, "heartbeat")
 		if err != nil {
-			h.lggr.Errorw("heartbeat emit failed", "err", err)
+			h.eng.Errorw("heartbeat emit failed", "err", err)
 		}
 	}
 
