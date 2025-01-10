@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
@@ -652,6 +653,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 		if !ok {
 			continue // nothing to curse on this chain
 		}
+		eg := errgroup.Group{}
 
 		for subjectDescription, revokeAfter := range cursedSubjects {
 			curseActions := make([]changeset.CurseAction, 0)
@@ -668,7 +670,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 			})
 			t.Error(err)
 
-			go func() {
+			eg.Go(func() error {
 				<-time.NewTimer(revokeAfter).C
 				t.Logf("revoking curse on subject %d (%d)", subjectDescription, subjectDescription)
 
@@ -676,12 +678,21 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})
-				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
+
 				cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
-				require.NoError(t, err)
+
+				if err != nil {
+					return err
+				}
+
 				t.Logf("Cursed subjects after revoking: %v", cs)
-			}()
+				return nil
+			})
 		}
+		require.NoError(t, eg.Wait())
 
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
 		require.NoError(t, err)
