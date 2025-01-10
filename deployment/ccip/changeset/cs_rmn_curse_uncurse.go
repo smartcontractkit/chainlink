@@ -77,7 +77,7 @@ type Subject = [16]byte
 
 func SelectorToSubject(subject uint64) Subject {
 	var b Subject
-	binary.LittleEndian.PutUint64(b[:8], subject)
+	binary.BigEndian.PutUint64(b[8:], subject)
 	return b
 }
 

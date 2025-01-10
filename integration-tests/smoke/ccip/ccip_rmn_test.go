@@ -624,14 +624,14 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 			if subjectDescription == globalCurse {
 				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLane(remoteSel, uint64((tc.pf.chainSelectors[subjectDescription]))))
+				curseActions = append(curseActions, changeset.CurseLane(remoteSel, (tc.pf.chainSelectors[subjectDescription])))
 			}
 
 			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
-			require.NoError(t, err)
+			t.Error(err)
 		}
 
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
@@ -659,14 +659,14 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 			if subjectDescription == globalCurse {
 				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLane(remoteSel, uint64((tc.pf.chainSelectors[subjectDescription]))))
+				curseActions = append(curseActions, changeset.CurseLane(remoteSel, (tc.pf.chainSelectors[subjectDescription])))
 			}
 
 			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
-			require.NoError(t, err)
+			t.Error(err)
 
 			go func() {
 				<-time.NewTimer(revokeAfter).C
@@ -676,7 +676,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})
-				require.NoError(t, err)
+				require.NoError(t, err) //nolint
 				cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
 				require.NoError(t, err)
 				t.Logf("Cursed subjects after revoking: %v", cs)
