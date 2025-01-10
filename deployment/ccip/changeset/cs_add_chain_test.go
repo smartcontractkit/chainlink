@@ -4,9 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	changesetcommon "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	"github.com/stretchr/testify/require"
@@ -14,7 +17,6 @@ import (
 )
 
 func Test_AddChain(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 
 	const (
@@ -37,6 +39,19 @@ func Test_AddChain(t *testing.T) {
 	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
 	require.Len(t, toDeploy, numChains-1)
 	e = AddCCIPContractsToEnvironment(t, toDeploy, tEnv)
+
+	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
+	var err error
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: toDeploy,
+			},
+		},
+	})
+	require.NoError(t, err)
+
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -94,6 +109,25 @@ func Test_AddChain(t *testing.T) {
 		// Confirm execution of the message
 		ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
 		ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+	}
+
+	// check RMNRemote is up.
+	for _, chain := range toDeploy {
+		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
+		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
+			Context: tests.Context(t),
+		})
+		require.NoError(t, err)
+
+		// check which address RMNProxy is pointing to
+		rmnAddress, err := state.Chains[chain].RMNProxy.GetARM(&bind.CallOpts{
+			Context: tests.Context(t),
+		})
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[chain].RMNRemote.Address(), rmnAddress)
+
+		t.Log("RMNRemote address for chain", chain, "is:", state.Chains[chain].RMNRemote.Address().Hex())
+		t.Log("RMNProxy address for chain", chain, "is:", state.Chains[chain].RMNProxy.Address().Hex())
 	}
 
 	// wait for plugins to come up.

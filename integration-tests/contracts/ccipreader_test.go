@@ -30,6 +30,7 @@ import (
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -885,6 +886,50 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	// Only chainD has reader contracts bound
 	require.Len(t, prices, 1)
 	require.Equal(t, changeset.DefaultWethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
+}
+
+func Test_GetRmnCurseInfo(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	env, _ := changeset.NewMemoryEnvironment(t)
+	state, err := changeset.LoadOnchainState(env.Env)
+	require.NoError(t, err)
+
+	selectors := env.Env.AllChainSelectors()
+	chain1, chain2 := selectors[0], selectors[1]
+
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
+	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+
+	reader := testSetupRealContracts(
+		ctx,
+		t,
+		chain1,
+		map[cciptypes.ChainSelector][]types.BoundContract{
+			cciptypes.ChainSelector(chain1): {
+				{
+					Address: state.Chains[chain1].RMNRemote.Address().String(),
+					Name:    consts.ContractNameRMNRemote,
+				},
+			},
+		},
+		nil,
+		env,
+	)
+
+	curseInfo, err := reader.GetRmnCurseInfo(
+		ctx,
+		ccipocr3.ChainSelector(chain1),
+		[]ccipocr3.ChainSelector{ccipocr3.ChainSelector(chain2)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, &ccipreaderpkg.CurseInfo{
+		CursedSourceChains: map[cciptypes.ChainSelector]bool{
+			ccipocr3.ChainSelector(chain2): false,
+		},
+		CursedDestination: false,
+		GlobalCurse:       false,
+	}, curseInfo)
 }
 
 // Benchmark Results:
