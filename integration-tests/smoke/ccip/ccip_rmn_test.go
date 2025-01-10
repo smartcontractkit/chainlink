@@ -676,7 +676,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})
-				require.NoError(t, err) //nolint
+				require.NoError(t, err)
 				cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
 				require.NoError(t, err)
 				t.Logf("Cursed subjects after revoking: %v", cs)
