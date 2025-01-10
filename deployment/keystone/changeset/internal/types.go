@@ -203,11 +203,7 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
 	out := make(map[string][]DONCapabilityWithConfig)
 	for _, don := range dons {
-		var donCaps []DONCapabilityWithConfig
-		for _, donCap := range don.Capabilities {
-			donCaps = append(donCaps, donCap)
-		}
-		out[don.Name] = donCaps
+		out[don.Name] = don.Capabilities
 	}
 	return out
 }
