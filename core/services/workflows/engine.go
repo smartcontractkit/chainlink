@@ -1297,8 +1297,17 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
-	workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
 	workflow.name = cfg.WorkflowName
+
+	// Workflow names must not exceed 10 bytes for workflow engine use.
+	// A name is used internally that is first hashed to avoid collisions,
+	// truncated to 10 bytes,
+	// then hex encoded to ensure UTF8 encoding
+	// NOTE: Use in logging and metrics can use the longer and human friendly names
+	hashTruncateName := workflows.HashTruncateName(cfg.WorkflowName)
+	var htNameBytes []byte = hashTruncateName[:]
+	hashTruncateNameHex := hex.EncodeToString(htNameBytes)
+	workflow.hexName = hashTruncateNameHex
 
 	engine = &Engine{
 		cma:            cma,
