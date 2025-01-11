@@ -42,7 +42,7 @@ jobs:
           fi
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # v0.1.0
       - name: Fail if CCIP release has wrong version
         if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
         run: |
