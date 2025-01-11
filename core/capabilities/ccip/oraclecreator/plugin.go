@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -481,6 +482,12 @@ func getChainReaderConfig(
 	case relay.NetworkSolana:
 		// TODO initialize chain reader config
 		var cfg config.ChainReader
+
+		if chainID == homeChainID {
+			lggr.Debugw("Adding home chain reader config", "chainID", chainID)
+			cfg = solanaconfig.MergeReaderConfigs(cfg, solanaconfig.HomeChainReaderConfigRaw)
+		}
+
 		marshaledConfig, err := json.Marshal(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
