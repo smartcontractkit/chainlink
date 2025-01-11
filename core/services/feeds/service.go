@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,6 +81,10 @@ var (
 		// Job Proposal status
 		"status",
 	})
+
+	defaultSyncMinDelay    = 10 * time.Second
+	defaultSyncMaxDelay    = 30 * time.Minute
+	defaultSyncMaxAttempts = uint(48 + 8) // 30m * 48 =~ 24h; plus the initial 8 shorter retries
 )
 
 // Service represents a behavior of the feeds service
@@ -145,7 +150,10 @@ type service struct {
 	lggr                logger.Logger
 	version             string
 	loopRegistrarConfig plugins.RegistrarConfig
-	syncNodeInfoCancel  AtomicCancelFunc
+	syncNodeInfoCancel  atomicCancelFns
+	syncMinDelay        time.Duration
+	syncMaxDelay        time.Duration
+	syncMaxAttempts     uint
 }
 
 // NewService constructs a new feeds service
@@ -165,6 +173,7 @@ func NewService(
 	lggr logger.Logger,
 	version string,
 	rc plugins.RegistrarConfig,
+	opts ...ServiceOption,
 ) *service {
 	lggr = lggr.Named("Feeds")
 	svc := &service{
@@ -188,7 +197,14 @@ func NewService(
 		lggr:                lggr,
 		version:             version,
 		loopRegistrarConfig: rc,
-		syncNodeInfoCancel:  AtomicCancelFunc{fn: func() {}},
+		syncNodeInfoCancel:  atomicCancelFns{fns: map[int64]context.CancelFunc{}},
+		syncMinDelay:        defaultSyncMinDelay,
+		syncMaxDelay:        defaultSyncMaxDelay,
+		syncMaxAttempts:     defaultSyncMaxAttempts,
+	}
+
+	for _, opt := range opts {
+		opt(svc)
 	}
 
 	return svc
@@ -260,23 +276,24 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	return id, nil
 }
 
-// syncNodeInfoWithRetry syncs the node's information with FMS using a goroutine.
-// In case of failures, it retries with an exponential backoff for up to 24h.
+// syncNodeInfoWithRetry syncs the node's information with FMS. In case of failures,
+// it retries with an exponential backoff for up to 24h.
 func (s *service) syncNodeInfoWithRetry(id int64) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// cancel the previous context -- and, by extension, the existing goroutine --
 	// so that we can start anew
-	s.syncNodeInfoCancel.CallAndSwap(cancel)
+	s.syncNodeInfoCancel.callAndSwap(id, cancel)
 
 	retryOpts := []retry.Option{
 		retry.Context(ctx),
 		retry.DelayType(retry.BackOffDelay),
-		retry.Delay(10 * time.Second),
-		retry.MaxDelay(30 * time.Minute),
-		retry.Attempts(48 + 8), // 30m * 48 =~ 24h; plus the initial 8 shorter retries
+		retry.Delay(s.syncMinDelay),
+		retry.MaxDelay(s.syncMaxDelay),
+		retry.Attempts(s.syncMaxAttempts),
+		retry.LastErrorOnly(true),
 		retry.OnRetry(func(attempt uint, err error) {
-			s.lggr.Info("failed to sync node info", "attempt", attempt, "err", err)
+			s.lggr.Infow("failed to sync node info", "attempt", attempt, "err", err.Error())
 		}),
 	}
 
@@ -288,7 +305,7 @@ func (s *service) syncNodeInfoWithRetry(id int64) {
 			s.lggr.Info("successfully synced node info")
 		}
 
-		s.syncNodeInfoCancel.CallAndSwap(func(){})
+		s.syncNodeInfoCancel.callAndSwap(id, nil)
 	}()
 }
 
@@ -320,12 +337,22 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 	}
 
 	workflowKey := s.getWorkflowPublicKey()
-	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
+
+	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
 		WorkflowKey:  &workflowKey,
-	}); err != nil {
-		return err
+	})
+	if err != nil {
+		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")
+	}
+	if len(resp.ChainConfigErrors) > 0 {
+		errMsgs := make([]string, 0, len(resp.ChainConfigErrors))
+		for _, ccErr := range resp.ChainConfigErrors {
+			errMsgs = append(errMsgs, ccErr.Message)
+		}
+
+		return errors.Errorf("SyncNodeInfo.UpdateNode call partially failed: %s", strings.Join(errMsgs, "; "))
 	}
 
 	return nil
@@ -1187,7 +1214,7 @@ func (s *service) Close() error {
 		// This blocks until it finishes
 		s.connMgr.Close()
 
-		s.syncNodeInfoCancel.CallAndSwap(func(){})
+		s.syncNodeInfoCancel.callAllAndClear()
 
 		return nil
 	})
@@ -1597,16 +1624,47 @@ func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatu
 	return propStatus != JobProposalStatusDeleted && (specStatus == SpecStatusPending || specStatus == SpecStatusCancelled)
 }
 
-type AtomicCancelFunc struct {
-	fn    context.CancelFunc
+type atomicCancelFns struct {
+	fns   map[int64]context.CancelFunc
 	mutex sync.Mutex
 }
 
-func (f *AtomicCancelFunc) CallAndSwap(other func()) {
+func (f *atomicCancelFns) callAndSwap(id int64, other func()) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	f.fn()
-	f.fn = other
+
+	fn, found := f.fns[id]
+	if found && fn != nil {
+		fn()
+	}
+
+	f.fns[id] = other
+}
+
+func (f *atomicCancelFns) callAllAndClear() {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	for _, fn := range f.fns {
+		if fn != nil {
+			fn()
+		}
+	}
+	clear(f.fns)
+}
+
+type ServiceOption func(*service)
+
+func WithSyncMinDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMinDelay = delay }
+}
+
+func WithSyncMaxDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMaxDelay = delay }
+}
+
+func WithSyncMaxAttempts(attempts uint) ServiceOption {
+	return func(s *service) { s.syncMaxAttempts = attempts }
 }
 
 var _ Service = &NullService{}
