@@ -145,12 +145,6 @@ func deployChainContractsForChains(
 
 	rmnHome := existingEVMState.Chains[homeChainSel].RMNHome
 
-	existingSolState, err := LoadOnchainStateSolana(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain solanastate", "err")
-		return err
-	}
-
 	deployGrp := errgroup.Group{}
 
 	for _, chainSel := range chainsToDeploy {
@@ -167,7 +161,7 @@ func deployChainContractsForChains(
 
 		case chainsel.FamilySolana:
 			chain := e.SolChains[chainSel]
-			if existingSolState.SolChains[chainSel].LinkToken.IsZero() {
+			if existingEVMState.SolChains[chainSel].LinkToken.IsZero() {
 				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 			}
 			deployFn = func() error { return deployChainContractsSolana(e, chain, ab) }

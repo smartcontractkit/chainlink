@@ -20,6 +20,8 @@ var (
 type SolCCIPChainState struct {
 	LinkToken     solana.PublicKey
 	SolCcipRouter solana.PublicKey
+	Weth9         solana.PublicKey // Guessing we need something else, but this is just to unblock tokeninfo in testing right now
+	Timelock      solana.PublicKey
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
