@@ -2,4 +2,4 @@
 '@chainlink/contracts': patch
 ---
 
-fix automation 2.3 batching bug
+DEVSVCS-958: fix automation v2.3 batching bug #bugfix
