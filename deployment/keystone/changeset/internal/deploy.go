@@ -412,7 +412,7 @@ type RegisterCapabilitiesRequest struct {
 	RegistryChainSelector uint64
 	DonToCapabilities     map[string][]DONCapabilityWithConfig
 
-  // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	// if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 	UseMCMS bool
 }
 
@@ -886,7 +886,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		}
 
 		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
-    regCaps, ok := req.DonToCapabilities[don.Name]
+		regCaps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for DON %s", don.Name)
 		}
