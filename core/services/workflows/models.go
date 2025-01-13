@@ -22,7 +22,7 @@ import (
 type workflow struct {
 	id      string
 	owner   string
-	hexName string // Does not exceed 10 bytes. Hex encoded to maintain UTF8.
+	hexName string
 	name    string
 	graph.Graph[string, *step]
 
