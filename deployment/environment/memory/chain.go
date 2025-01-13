@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/mr-tron/base58"
 
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
@@ -196,11 +196,9 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 
 	port := freeport.GetOne(t)
 
-	programIds := getProgramIds(t)
-	// programIds := map[string]string{
-	// 	// "ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
-	// 	"ccip_router": solTestConfig.CcipRouterProgram.String(),
-	// }
+	programIds := map[string]string{
+		"ccip_router": solTestConfig.CcipRouterProgram.String(),
+	}
 
 	bcInput := &blockchain.Input{
 		Type:         "solana",
@@ -239,31 +237,4 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	t.Logf("solana-test-validator is ready at %s", url)
 
 	return url, wsURL, nil
-}
-
-func getProgramIds(t *testing.T) map[string]string {
-	programIds := map[string]string{}
-
-	// the contracts have been copied here during the CI build process
-	programPath := GetProgramsPath()
-
-	// get keys list from dump file
-	content, err := os.ReadFile(filepath.Join(programPath, "program_ids_dump"))
-	require.NoError(t, err)
-
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-
-		parts := strings.Split(line, ": ")
-		if len(parts) == 2 {
-			programIds[parts[0]] = parts[1]
-		}
-	}
-
-	fmt.Printf("%v", programIds)
-
-	return programIds
 }
