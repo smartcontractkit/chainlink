@@ -1,3 +1,4 @@
+//go:debug netdns=cgo
 package network
 
 import (
