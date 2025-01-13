@@ -226,7 +226,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 			_, err := chain.RMNRemote.Curse0(deployer, notAlreadyCursedSubjects)
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %v", selector, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %w", selector, err)
 			}
 		}
 	}
@@ -255,7 +255,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -276,7 +276,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			for _, subject := range curseSubjects {
 				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %v", selector, err)
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
 				if cursed {
@@ -289,7 +289,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
 			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %v", selector, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %w", selector, err)
 			}
 		}
 	}
