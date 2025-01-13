@@ -285,7 +285,9 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 						},
 					}, 0)
 
-					errorChan <- err
+					if err != nil {
+						errorChan <- err
+					}
 				}()
 			}
 
