@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ func Test_AddChain(t *testing.T) {
 	allChains := maps.Keys(e.Env.Chains)
 	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
 	require.Len(t, toDeploy, numChains-1)
+	remainingChain := []uint64{allChains[0]}
 	e = AddCCIPContractsToEnvironment(t, toDeploy, tEnv)
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
@@ -61,17 +63,29 @@ func Test_AddChain(t *testing.T) {
 			if source == dest {
 				continue
 			}
-			AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, source, dest, false)
+			AddLaneWithDefaultPricesAndFeeQuoterConfig(
+				t,
+				&e,
+				state,
+				source,
+				dest,
+				false, // isTestRouter
+				false, // mcmsEnabled
+			)
 		}
 	}
 
 	// Transfer ownership of all contracts to the MCMS and renounce the timelock deployer.
 	transferToMCMSAndRenounceTimelockDeployer(t, e, toDeploy, state)
 
+	// check RMNRemote is up and RMNProxy is correctly wired.
+	assertRMNRemoteAndProxyState(t, toDeploy, state)
+
 	// At this stage we can send some requests and confirm the setup is working.
-	sendMsgs := func(chains []uint64) {
+	sendMsgs := func(chains []uint64) (gasPricePreUpdate map[SourceDestPair]*big.Int, startBlocks map[uint64]*uint64) {
+		startBlocks = make(map[uint64]*uint64)
+		gasPricePreUpdate = make(map[SourceDestPair]*big.Int)
 		var (
-			startBlocks        = make(map[uint64]*uint64)
 			expectedSeqNum     = make(map[SourceDestPair]uint64)
 			expectedSeqNumExec = make(map[SourceDestPair][]uint64)
 		)
@@ -80,6 +94,16 @@ func Test_AddChain(t *testing.T) {
 				if source == dest {
 					continue
 				}
+
+				gp, err := state.Chains[source].FeeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{
+					Context: tests.Context(t),
+				}, dest)
+				require.NoError(t, err)
+				gasPricePreUpdate[SourceDestPair{
+					SourceChainSelector: source,
+					DestChainSelector:   dest,
+				}] = gp.Value
+
 				latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
@@ -109,10 +133,72 @@ func Test_AddChain(t *testing.T) {
 		// Confirm execution of the message
 		ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
 		ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+		return gasPricePreUpdate, startBlocks
 	}
 
-	// check RMNRemote is up.
-	for _, chain := range toDeploy {
+	// wait for plugins to come up.
+	time.Sleep(30 * time.Second)
+	sendMsgs(toDeploy)
+
+	// TODO: Not working. Need to fix/figure out why.
+	// gasPricePreUpdate, startBlocks := sendMsgs(toDeploy)
+	// for sourceDestPair, preUpdateGp := range gasPricePreUpdate {
+	// 	// check that each chain's fee quoter has updated its gas price
+	// 	// for all dests.
+	// 	err := ConfirmGasPriceUpdated(
+	// 		t,
+	// 		e.Env.Chains[sourceDestPair.DestChainSelector],
+	// 		state.Chains[sourceDestPair.SourceChainSelector].FeeQuoter,
+	// 		*startBlocks[sourceDestPair.DestChainSelector],
+	// 		preUpdateGp,
+	// 	)
+	// 	require.NoError(t, err)
+	// }
+
+	// Deploy to the remaining chain.
+	AddCCIPContractsToEnvironment(t, remainingChain, tEnv)
+	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: toDeploy,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	assertRMNRemoteAndProxyState(t, remainingChain, state)
+
+	// TODO: wait for gas price of new chain to be updated on all other chains.
+
+	// add lanes from toDeploy to the new chain
+	// messages from toDeploy to the new chain won't be processed
+	// because OffRamp on new chain doesn't know about other chains' onramps.
+	for _, source := range toDeploy {
+		for _, newChain := range remainingChain {
+			if newChain == source {
+				continue
+			}
+			// TODO: MCMS should be enabled.
+			AddLaneWithDefaultPricesAndFeeQuoterConfig(
+				t,
+				&e,
+				state,
+				source,
+				newChain,
+				true, // isTestRouter
+				true, // mcmsEnabled
+			)
+		}
+	}
+}
+
+func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state CCIPOnChainState) {
+	for _, chain := range chains {
 		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
 		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
 			Context: tests.Context(t),
@@ -129,10 +215,6 @@ func Test_AddChain(t *testing.T) {
 		t.Log("RMNRemote address for chain", chain, "is:", state.Chains[chain].RMNRemote.Address().Hex())
 		t.Log("RMNProxy address for chain", chain, "is:", state.Chains[chain].RMNProxy.Address().Hex())
 	}
-
-	// wait for plugins to come up.
-	time.Sleep(30 * time.Second)
-	sendMsgs(toDeploy)
 }
 
 func transferToMCMSAndRenounceTimelockDeployer(

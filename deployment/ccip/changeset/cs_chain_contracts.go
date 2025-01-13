@@ -157,9 +157,6 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
 			}
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
-			}
 		}
 		if cfg.MCMS == nil {
 			if authTx != nil {

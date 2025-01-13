@@ -20,7 +20,15 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 
 	selectors := e.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
-	AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, chain2, true)
+	AddLaneWithDefaultPricesAndFeeQuoterConfig(
+		t,
+		&e,
+		state,
+		chain1,
+		chain2,
+		true,  // isTestRouter
+		false, // mcmsEnabled
+	)
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.

@@ -390,7 +390,22 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) {
+func AddLane(
+	t *testing.T,
+	e *DeployedEnv,
+	from, to uint64,
+	isTestRouter bool,
+	gasprice map[uint64]*big.Int,
+	tokenPrices map[common.Address]*big.Int,
+	fqCfg fee_quoter.FeeQuoterDestChainConfig,
+	mcmsEnabled bool,
+) {
+	var mcmsConfig *MCMSConfig
+	if mcmsEnabled {
+		mcmsConfig = &MCMSConfig{
+			MinDelay: 0,
+		}
+	}
 	var err error
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
@@ -405,6 +420,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 						},
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		},
 		{
@@ -416,6 +432,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 						GasPrices:   gasprice,
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		},
 		{
@@ -426,6 +443,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 						to: fqCfg,
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		},
 		{
@@ -439,6 +457,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 						},
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		},
 		{
@@ -459,30 +478,37 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 						},
 					},
 				},
+				MCMS: mcmsConfig,
 			},
 		},
 	})
 	require.NoError(t, err)
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter, mcmsEnabled bool) {
 	stateChainFrom := state.Chains[from]
-	AddLane(t, e, from, to, isTestRouter,
+	AddLane(
+		t,
+		e,
+		from, to,
+		isTestRouter,
 		map[uint64]*big.Int{
 			to: DefaultGasPrice,
 		}, map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, DefaultFeeQuoterDestChainConfig())
+		}, DefaultFeeQuoterDestChainConfig(),
+		mcmsEnabled,
+	)
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
-func AddLanesForAll(t *testing.T, e *DeployedEnv, state CCIPOnChainState) {
+func AddLanesForAll(t *testing.T, e *DeployedEnv, state CCIPOnChainState, mcmsEnabled bool) {
 	for source := range e.Env.Chains {
 		for dest := range e.Env.Chains {
 			if source != dest {
-				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
+				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false, mcmsEnabled)
 			}
 		}
 	}
