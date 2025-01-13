@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 )
@@ -42,10 +42,9 @@ type moduleCache struct {
 	clock      clockwork.Clock
 	reapTicker <-chan time.Time
 	onReaper   chan struct{}
-	log        logger.Logger
 }
 
-func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAfterSize int, log logger.Logger) *moduleCache {
+func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAfterSize int) *moduleCache {
 	return &moduleCache{
 		m:              map[string]*module{},
 		tickInterval:   tick,
@@ -54,7 +53,6 @@ func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAft
 		clock:          clock,
 		reapTicker:     clock.NewTicker(tick).Chan(),
 		stopChan:       make(chan struct{}),
-		log:            log,
 	}
 }
 
@@ -85,18 +83,18 @@ func (mc *moduleCache) reapLoop() {
 	}
 }
 
-func (mc *moduleCache) add(id string, mod *module) {
+func (mc *moduleCache) add(id string, mod *module) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 
 	if mc.m[id] != nil {
-		mc.log.Warnf("module with id %q already exists in cache, skipping...", id)
-		return
+		return fmt.Errorf("module with id %q already exists in cache", id)
 	}
 
 	mod.lastFetchedAt = mc.clock.Now()
 	mc.m[id] = mod
 	moduleCacheAddition.Inc()
+	return nil
 }
 
 func (mc *moduleCache) get(id string) (*module, bool) {
