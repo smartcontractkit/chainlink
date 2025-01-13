@@ -1012,7 +1012,7 @@ func (ccipModule *CCIPCommon) DeployContracts(
 				ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, usdcPool)
 			} else if ccipModule.IsLBTCDeployment() && i == 0 {
 				if ccipModule.RMNContract == nil {
-					return fmt.Errorf("RMNContract is not initialized")
+					return errors.New("RMNContract is not initialized")
 				}
 				rmnContract := *ccipModule.RMNContract
 
@@ -3346,7 +3346,7 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, opts validatio
 		}
 	}
 	if opts.expectAnyPhaseToFail {
-		return fmt.Errorf("expected at least any one phase to fail but no phase got failed")
+		return errors.New("expected at least any one phase to fail but no phase got failed")
 	}
 
 	return nil
@@ -4534,7 +4534,7 @@ func SetMockServerWithLBTCAttestation(
 		},
 	}
 	if killGrave == nil && mockserver == nil {
-		return fmt.Errorf("both killgrave and mockserver are nil")
+		return errors.New("both killgrave and mockserver are nil")
 	}
 	log.Info().Str("path", path).Msg("setting attestation-api response for any msgHash")
 	if killGrave != nil {

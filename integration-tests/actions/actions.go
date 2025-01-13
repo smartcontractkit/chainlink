@@ -787,7 +787,6 @@ func TeardownSuite(
 		} else {
 			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
-		//nolint // moved from CCIP repo
 		if c != nil {
 			err := c.Close()
 			if err != nil {
