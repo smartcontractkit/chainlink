@@ -56,3 +56,4 @@ runs:
       run: |
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/* /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        cp chainlink-ccip/chains/solana/contracts/program_ids_dump /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
