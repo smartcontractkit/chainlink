@@ -96,6 +96,17 @@ func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) Cu
 	}
 }
 
+func CurseGloballyOnlyOnSource(sourceSelector uint64) CurseAction {
+	return func(e deployment.Environment) []RMNCurseAction {
+		return []RMNCurseAction{
+			{
+				ChainSelector:  sourceSelector,
+				SubjectToCurse: GlobalCurseSubject(),
+			},
+		}
+	}
+}
+
 func CurseLane(sourceSelector uint64, destinationSelector uint64) CurseAction {
 	// Bidirectional curse between two chains
 	return func(e deployment.Environment) []RMNCurseAction {
@@ -122,10 +133,7 @@ func CurseChain(chainSelector uint64) CurseAction {
 		}
 
 		// Curse the chain with a global curse to prevent any onramp or offramp message from send message in and out of the chain
-		curseActions = append(curseActions, RMNCurseAction{
-			ChainSelector:  chainSelector,
-			SubjectToCurse: GlobalCurseSubject(),
-		})
+		curseActions = append(curseActions, CurseGloballyOnlyOnSource(chainSelector)(e)...)
 
 		return curseActions
 	}
@@ -208,6 +216,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 				}
 			}
 			_, err := chain.RMNRemote.Curse0(deployer, notAlreadyCursedSubjects)
+			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 			if err != nil {
 				return deployment.ChangesetOutput{}, errors.Errorf("failed to curse chain %d: %v", selector, err)
 			}
@@ -265,6 +274,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			}
 
 			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
+			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
 			if err != nil {
 				return deployment.ChangesetOutput{}, errors.Errorf("failed to uncurse chain %d: %v", selector, err)
 			}

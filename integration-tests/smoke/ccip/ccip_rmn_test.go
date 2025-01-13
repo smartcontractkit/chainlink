@@ -326,8 +326,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
 
+	eg := errgroup.Group{}
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
-	tc.callContractsToCurseAndRevokeCurse(ctx, t, onChainState, envWithRMN)
+	tc.callContractsToCurseAndRevokeCurse(&eg, ctx, t, onChainState, envWithRMN)
 
 	tc.enableOracles(ctx, t, envWithRMN, disabledNodes)
 
@@ -386,6 +387,8 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("⌛ Waiting for commit reports...")
 	<-commitReportReceived // wait for commit reports
 	t.Logf("✅ Commit report")
+
+	require.NoError(t, eg.Wait())
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
@@ -623,16 +626,16 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 			curseActions := make([]changeset.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
+				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnSource(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLane(remoteSel, (tc.pf.chainSelectors[subjectDescription])))
+				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
 			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
-			t.Error(err)
+			require.NoError(t, err)
 		}
 
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
@@ -641,7 +644,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(eg *errgroup.Group, ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -649,26 +652,22 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 		_, ok = envWithRMN.Env.Chains[remoteSel]
 		require.True(t, ok)
 
-		cursedSubjects, ok := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
-		if !ok {
-			continue // nothing to curse on this chain
-		}
-		eg := errgroup.Group{}
+		cursedSubjects := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
 
 		for subjectDescription, revokeAfter := range cursedSubjects {
 			curseActions := make([]changeset.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseChain(remoteSel))
+				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnSource(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLane(remoteSel, (tc.pf.chainSelectors[subjectDescription])))
+				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
 			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
-			t.Error(err)
+			require.NoError(t, err)
 
 			eg.Go(func() error {
 				<-time.NewTimer(revokeAfter).C
@@ -681,22 +680,23 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, t 
 				if err != nil {
 					return err
 				}
-
-				cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
-
-				if err != nil {
-					return err
-				}
-
-				t.Logf("Cursed subjects after revoking: %v", cs)
 				return nil
 			})
 		}
-		require.NoError(t, eg.Wait())
-
 		cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
 		require.NoError(t, err)
-		t.Logf("Cursed subjects: %v", cs)
+		t.Logf("Cursed subjects: %v, %v", cs, remoteSel)
+		eg.Go(func() error {
+			<-time.NewTimer(time.Second * 10).C
+			cs, err := chState.RMNRemote.GetCursedSubjects(&bind.CallOpts{Context: ctx})
+
+			if err != nil {
+				return err
+			}
+
+			t.Logf("Cursed subjects after revoking: %v, %v", cs, remoteSel)
+			return nil
+		})
 	}
 }
 
