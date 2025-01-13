@@ -75,7 +75,11 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
       FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
-      uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD + customDataSize * DEST_GAS_PER_PAYLOAD_BYTE;
+
+      uint256 callDataCostHigh = (customDataSize - DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD) * DEST_GAS_PER_PAYLOAD_BYTE_HIGH
+        + DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD * DEST_GAS_PER_PAYLOAD_BYTE_BASE;
+
+      uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD + callDataCostHigh;
       uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
       uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
@@ -103,7 +107,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
 
-      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenBytesOverhead * DEST_GAS_PER_PAYLOAD_BYTE
+      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenBytesOverhead * DEST_GAS_PER_PAYLOAD_BYTE_BASE
         + s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token).destGasOverhead;
       uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
       (uint256 transferFeeUSD,,) =
@@ -159,7 +163,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
       {
         uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD
-          + (message.data.length + tokenTransferBytesOverhead) * DEST_GAS_PER_PAYLOAD_BYTE + tokenGasOverhead;
+          + (message.data.length + tokenTransferBytesOverhead) * DEST_GAS_PER_PAYLOAD_BYTE_BASE + tokenGasOverhead;
 
         gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
       }

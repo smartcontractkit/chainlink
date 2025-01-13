@@ -96,18 +96,20 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 maxDataBytes; //                      │ Maximum data payload size in bytes.
     uint32 maxPerMsgGasLimit; //                 │ Maximum gas limit for messages targeting EVMs.
     uint32 destGasOverhead; //                   │ Gas charged on top of the gasLimit to cover destination chain costs.
-    uint16 destGasPerPayloadByte; //             │ Destination chain gas charged each byte of `data` payload.
+    uint8 destGasPerPayloadByteBase; //          │ Default dest-chain gas charged each byte of `data` payload.
+    uint8 destGasPerPayloadByteHigh; //          │ High dest-chain gas charged each byte of `data` payload, used to account for eip-7623.
     uint32 destDataAvailabilityOverheadGas; //   │ Data availability gas charged for overhead costs e.g. for OCR.
     uint16 destGasPerDataAvailabilityByte; //    │ Gas units charged per byte of message data that needs availability.
     uint16 destDataAvailabilityMultiplierBps; // │ Multiplier for data availability gas, multiples of bps, or 0.0001.
     // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token.
     uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer.
     uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute a token transfer on the destination chain.
-    uint32 defaultTxGasLimit; //──────────╮ Default gas limit for a tx.
+    uint32 defaultTxGasLimit; // ─────────╮ Default gas limit for a tx.
     uint64 gasMultiplierWeiPerEth; //     │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
     uint32 networkFeeUSDCents; //         │ Flat network fee to charge for messages, multiples of 0.01 USD.
     uint32 gasPriceStalenessThreshold; // │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
     bool enforceOutOfOrder; //            │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
+    uint32 destGasPerPayloadByteThreshold; // The value at which the billing switches from destGasPerPayloadByteBase to destGasPerPayloadByteHigh.
     bytes4 chainFamilySelector; // ───────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
   }
 
@@ -573,6 +575,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       // Convert USD cents with 2 decimals to 18 decimals.
       premiumFee = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
     }
+    premiumFee *= s_premiumMultiplierWeiPerEth[message.feeToken];
 
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to
     // post transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
@@ -596,20 +599,25 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
     // 36 decimals. uint112(packedGasPrice) = executionGasPrice
 
+    uint256 calldataLength = message.data.length + tokenTransferBytesOverhead;
+    uint256 destCallDataCost = calldataLength * destChainConfig.destGasPerPayloadByteBase;
+    if (calldataLength > destChainConfig.destGasPerPayloadByteThreshold) {
+      destCallDataCost = destChainConfig.destGasPerPayloadByteBase * destChainConfig.destGasPerPayloadByteThreshold
+        + (calldataLength - destChainConfig.destGasPerPayloadByteThreshold) * destChainConfig.destGasPerPayloadByteHigh;
+    }
+
     // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
     // fee logic for other chains should be implemented in the future.
     uint256 executionCost = uint112(packedGasPrice)
       * (
-        destChainConfig.destGasOverhead
-          + ((message.data.length + tokenTransferBytesOverhead) * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
+        destChainConfig.destGasOverhead + destCallDataCost + tokenTransferGas
           + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
       ) * destChainConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // Result of the division is the number of smallest token denominations.
-    return ((premiumFee * s_premiumMultiplierWeiPerEth[message.feeToken]) + executionCost + dataAvailabilityCost)
-      / feeTokenPrice;
+    return (premiumFee + executionCost + dataAvailabilityCost) / feeTokenPrice;
   }
 
   /// @notice Sets the fee configuration for a token.
