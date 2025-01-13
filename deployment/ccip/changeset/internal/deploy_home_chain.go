@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -274,7 +275,7 @@ func BuildOCR3ConfigForCCIPHome(
 		if err2 != nil {
 			return nil, err2
 		}
-		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		signers, transmitters, configF, onchainConfig, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
 			ocrSecrets.EphemeralSk,
 			ocrSecrets.SharedSecret,
 			ocrParams.DeltaProgress,
@@ -313,7 +314,18 @@ func BuildOCR3ConfigForCCIPHome(
 			}
 			transmittersBytes[i] = parsed
 		}
-
+		// validate ocr3 params correctness
+		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     configF,
+			OnchainConfig:         onchainConfig,
+			OffchainConfigVersion: offchainConfigVersion,
+			OffchainConfig:        offchainConfig,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
+		}
 		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
 			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
