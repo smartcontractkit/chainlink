@@ -1,10 +1,10 @@
 [CCIP]
 [CCIP.ContractVersions]
-PriceRegistry = '1.2.0'
-OffRamp = '1.2.0'
-OnRamp = '1.2.0'
+PriceRegistry = 'latest'
+OffRamp = 'latest'
+OnRamp = 'latest'
+CommitStore = 'latest'
 TokenPool = '1.4.0'
-CommitStore = '1.2.0'
 
 [CCIP.Groups.smoke.TokenConfig]
 CCIPOwnerTokens = true
