@@ -231,6 +231,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
+	b.te.TestConfig = b.testConfig
 
 	b.te.TestConfig = b.testConfig
 
