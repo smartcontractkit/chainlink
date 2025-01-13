@@ -19,7 +19,7 @@ const (
 	destTokenAddress      = "Message.TokenAmounts.DestTokenAddress"
 )
 
-func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte) chainwriter.MethodConfig {
+func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress:        fromAddress,
 		InputModifications: nil,
@@ -30,17 +30,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysv
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			chainwriter.PDALookups{
-				Name: "RouterAccountConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("config")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			routerAccountConfig,
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -117,7 +107,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysv
 	}
 }
 
-func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte) chainwriter.MethodConfig {
+func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress:        fromAddress,
 		InputModifications: nil,
@@ -146,17 +136,7 @@ func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sy
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			chainwriter.PDALookups{
-				Name: "RouterAccountConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("config")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			routerAccountConfig,
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -327,13 +307,25 @@ func GetSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConf
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
+	routeAccountConfig := chainwriter.PDALookups{
+		Name: "RouterAccountConfig",
+		PublicKey: chainwriter.AccountConstant{
+			Address: routerProgramAddress,
+		},
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("config")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+	}
+
 	// solConfig references the ccip_example_config.go from github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter, which is currently subject to change
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			"ccip-router": {
 				Methods: map[string]chainwriter.MethodConfig{
-					"execute": getExecuteProgramConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable),
-					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable),
+					"execute": getExecuteProgramConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable, routeAccountConfig),
+					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable, routeAccountConfig),
 				},
 				IDL: ccipRouter},
 		},
