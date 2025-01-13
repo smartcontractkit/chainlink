@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"

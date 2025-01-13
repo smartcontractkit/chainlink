@@ -15,23 +15,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type ConfigureContractsRequest struct {

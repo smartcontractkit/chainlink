@@ -11,20 +11,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
