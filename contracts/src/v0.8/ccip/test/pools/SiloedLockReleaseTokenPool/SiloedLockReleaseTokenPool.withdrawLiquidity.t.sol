@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
+import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenPool.sol";
+import {TokenPool} from "../../../pools/TokenPool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
-import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenPool.sol";
-
 contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPoolSetup {
+  address public UNAUTHORIZED_ADDRESS = address(0xdeadbeef);
+
   function setUp() public override {
     super.setUp();
 
-    s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 
   function test_withdrawLiquidity_SiloedFunds() public {
@@ -74,5 +76,13 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
 
     // Test withdrawing funds from unsiloed liquidity pool but underflow
     s_siloedLockReleaseTokenPool.withdrawLiquidity(DEST_CHAIN_SELECTOR, amount + 1);
+  }
+
+  function test_withdrawLiqudity_RevertWhen_UnauthorizedOnlyUnsiloedChainRebalancer() public {
+    vm.startPrank(UNAUTHORIZED_ADDRESS);
+
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, UNAUTHORIZED_ADDRESS));
+
+    s_siloedLockReleaseTokenPool.withdrawLiquidity(DEST_CHAIN_SELECTOR, 1);
   }
 }

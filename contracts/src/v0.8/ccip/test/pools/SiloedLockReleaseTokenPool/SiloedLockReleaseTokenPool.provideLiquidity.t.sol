@@ -12,7 +12,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
   function setUp() public override {
     super.setUp();
 
-    s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 
   function test_ProvideLiquidity_ChainNotSiloed() public {

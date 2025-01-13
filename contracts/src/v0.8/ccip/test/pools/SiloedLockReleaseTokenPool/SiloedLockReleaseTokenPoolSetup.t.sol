@@ -86,6 +86,7 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
     assertTrue(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(SILOED_CHAIN_SELECTOR));
     assertFalse(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(DEST_CHAIN_SELECTOR));
 
-    s_siloedLockReleaseTokenPool.setRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setUnsiloedChainRebalancer(OWNER);
   }
 }

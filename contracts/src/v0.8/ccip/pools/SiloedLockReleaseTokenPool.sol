@@ -23,12 +23,16 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   event LiquidityRemoved(uint64 remoteChainSelector, address indexed provider, uint256 indexed amount);
   event ChainSiloeDesignationUpdated(uint64 remoteChainSelector, bool isSiloed);
 
-  event RebalancerSet(uint64 indexed remoteChainSelector, address oldRebalancer, address newRebalancer);
+  event SiloedChainRebalancerSet(uint64 indexed remoteChainSelector, address oldRebalancer, address newRebalancer);
+  event UnsiloedChainRebalancerSet(address oldRebalancer, address newRebalancer);
 
   string public constant override typeAndVersion = "SiloedLockReleaseTokenPool 1.6.0";
 
   /// @notice The amount of tokens available for remote chains which are not siloed as an additional security precaution.
   uint256 internal s_unsiloedTokenBalance;
+
+  /// @notice The rebalancer for unsiloed chains, which can add liquidity to the shared pool.
+  address internal s_unsiloedChainRebalancer;
 
   struct ChainSiloConfig {
     uint256 siloedBalance; // The amount of tokens available for incoming messages, either locked or as liquidity.
@@ -160,31 +164,43 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   ) public view returns (address) {
     ChainSiloConfig memory remoteConfig = s_siloedChainConfigs[remoteChainSelector];
     if (remoteConfig.isSiloed) return remoteConfig.rebalancer;
-    else return owner();
+    else return s_unsiloedChainRebalancer;
   }
 
   /// @notice Sets the Rebalancer address for a given remoteChainSelector.
   /// @dev Only callable by the owner.
   /// @param remoteChainSelector the remote chain to set.
   /// @param newRebalancer the address allowed to add liquidity for the given siloed chain.
-  function setRebalancer(uint64 remoteChainSelector, address newRebalancer) external onlyOwner {
-    // Storage is used instead of memory to save gas, as the state may need to be updated if the chain is siloed.
-    ChainSiloConfig storage remoteConfig = s_siloedChainConfigs[remoteChainSelector];
+  function setSiloedChainRebalancer(uint64 remoteChainSelector, address newRebalancer) external onlyOwner {
+    ChainSiloConfig memory remoteConfig = s_siloedChainConfigs[remoteChainSelector];
 
     if (!remoteConfig.isSiloed) revert ChainNotSiloed(remoteChainSelector);
 
     address oldRebalancer = remoteConfig.rebalancer;
 
-    remoteConfig.rebalancer = newRebalancer;
+    s_siloedChainConfigs[remoteChainSelector].rebalancer = newRebalancer;
 
-    emit RebalancerSet(remoteChainSelector, newRebalancer, oldRebalancer);
+    emit SiloedChainRebalancerSet(remoteChainSelector, newRebalancer, oldRebalancer);
+  }
+
+  /// @notice Sets the Rebalancer address for unsiloed chains.
+  /// @dev Only callable by the owner.
+  /// @param newRebalancer the address allowed to add liquidity for the given siloed chain.
+  function setUnsiloedChainRebalancer(
+    address newRebalancer
+  ) external onlyOwner {
+    address oldRebalancer = s_unsiloedChainRebalancer;
+
+    s_unsiloedChainRebalancer = newRebalancer;
+
+    emit UnsiloedChainRebalancerSet(newRebalancer, oldRebalancer);
   }
 
   /// @notice Adds liquidity to the pool. The tokens should be approved first.
   /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, the liquidity will be shared among all
   /// non-siloed chains.
   /// @param amount The amount of liquidity to provide.
-  /// @dev If the chain is siloed, only the rebalancer can provide liquidity, otherwise the contract owner can.
+  /// @dev Only the rebalancer for the chain can add liquidity
   function provideLiquidity(uint64 remoteChainSelector, uint256 amount) external {
     if (msg.sender != getRebalancerByChain(remoteChainSelector)) revert Unauthorized(msg.sender);
 
@@ -202,11 +218,13 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   }
 
   /// @notice Removed liquidity to the pool. The tokens will be sent to msg.sender.
+  /// @dev Only the rebalancer can remove liquidity from the contract, for both siloed and unsiloed chains.
   /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, then no accounting will be updated,
   /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
   /// @param amount The amount of liquidity to remove.
-  /// @dev Only the owner can remove liquidity from the contract, for both siloed and unsiloed chains.
-  function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external onlyOwner {
+  function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+    if (msg.sender != getRebalancerByChain(remoteChainSelector)) revert Unauthorized(msg.sender);
+
     // If funds are siloed by chain, prevent more than has been locked from being removed from the token pool.
     if (s_siloedChainConfigs[remoteChainSelector].isSiloed) {
       s_siloedChainConfigs[remoteChainSelector].siloedBalance -= amount;
