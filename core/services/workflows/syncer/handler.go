@@ -536,8 +536,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	// A name is used internally that is first hashed to avoid collisions,
 	// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
 	nameTransform := func(name string) string {
-		// return pkgworkflows.HashTruncateName(name)
-		return name
+		return pkgworkflows.HashTruncateName(name)
 	}
 
 	cfg := workflows.Config{
