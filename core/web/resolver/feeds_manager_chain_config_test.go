@@ -376,6 +376,81 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 			}`,
 		},
 		{
+			name:          "success Tron",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("CreateChainConfig", mock.Anything, feeds.ChainConfig{
+					FeedsManagerID:          mgrID,
+					ChainType:               feeds.ChainTypeTron,
+					ChainID:                 chainID,
+					AccountAddress:          accountAddr,
+					AccountAddressPublicKey: null.StringFrom(acctAddrPubKey),
+					AdminAddress:            adminAddr,
+					FluxMonitorConfig: feeds.FluxMonitorConfig{
+						Enabled: false,
+					},
+					OCR1Config: feeds.OCR1Config{
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+					},
+					OCR2Config: feeds.OCR2ConfigModel{
+						Enabled:          true,
+						P2PPeerID:        peerID,
+						KeyBundleID:      keyBundleID,
+						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Plugins: feeds.Plugins{
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
+						},
+					},
+				}).Return(cfgID, nil)
+				f.Mocks.feedsSvc.On("GetChainConfig", mock.Anything, cfgID).Return(&feeds.ChainConfig{
+					ID:                      cfgID,
+					ChainType:               feeds.ChainTypeTron,
+					ChainID:                 chainID,
+					AccountAddress:          accountAddr,
+					AccountAddressPublicKey: null.StringFrom(acctAddrPubKey),
+					AdminAddress:            adminAddr,
+					FluxMonitorConfig: feeds.FluxMonitorConfig{
+						Enabled: false,
+					},
+					OCR1Config: feeds.OCR1Config{
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
+					},
+					OCR2Config: feeds.OCR2ConfigModel{
+						Enabled:          true,
+						P2PPeerID:        peerID,
+						KeyBundleID:      keyBundleID,
+						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Plugins: feeds.Plugins{
+							Commit:     true,
+							Execute:    true,
+							Median:     false,
+							Mercury:    true,
+							Rebalancer: true,
+						},
+					},
+				}, nil)
+			},
+			query:     mutation,
+			variables: withVariables("TRON"),
+			result: `
+			{
+				"createFeedsManagerChainConfig": {
+					"chainConfig": {
+						"id": "1"
+					}
+				}
+			}`,
+		},
+		{
 			name:          "create call not found",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {

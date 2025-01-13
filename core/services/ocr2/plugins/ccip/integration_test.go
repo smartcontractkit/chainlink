@@ -29,6 +29,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
+	t.Parallel()
 	// Run tke batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
@@ -107,7 +108,6 @@ func TestIntegration_CCIP(t *testing.T) {
 				require.NoError(t, err)
 				priceGetterConfigJson = string(priceGetterConfigBytes)
 			}
-
 			jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfigJson, "")
 
 			// track sequence number and nonce separately since nonce doesn't bump for messages with allowOutOfOrderExecution == true,
@@ -650,6 +650,7 @@ func TestIntegration_CCIP(t *testing.T) {
 
 // TestReorg ensures that CCIP works even when a below finality depth reorg happens
 func TestReorg(t *testing.T) {
+	t.Parallel()
 	// We need higher finality depth on the destination to perform reorg deep enough to revert commit and execution reports
 	destinationFinalityDepth := uint32(50)
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
@@ -694,8 +695,9 @@ func TestReorg(t *testing.T) {
 	require.NoError(t, ccipTH.Dest.Chain.Fork(forkBlock.Hash()),
 		"Error while forking the chain")
 	// Make sure that fork is longer than the canonical chain to enforce switch
-	noOfBlocks := uint(currentBlock.NumberU64() - forkBlock.NumberU64())
-	for i := uint(0); i < noOfBlocks+1; i++ {
+	//nolint:gosec // not a problem in tests
+	noOfBlocks := int(currentBlock.NumberU64() - forkBlock.NumberU64())
+	for i := 0; i < noOfBlocks+1; i++ {
 		ccipTH.Dest.Chain.Commit()
 	}
 

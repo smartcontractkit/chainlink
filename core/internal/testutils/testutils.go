@@ -32,6 +32,7 @@ import (
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 const (
@@ -125,19 +126,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
+	return tests.Context(tb)
 }
 
 // MustParseURL parses the URL or fails the test
@@ -415,16 +404,9 @@ func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, m
 	})
 }
 
-// SkipShort skips tb during -short runs, and notes why.
-func SkipShort(tb testing.TB, why string) {
-	if testing.Short() {
-		tb.Skipf("skipping: %s", why)
-	}
-}
-
 // SkipShortDB skips tb during -short runs, and notes the DB dependency.
 func SkipShortDB(tb testing.TB) {
-	SkipShort(tb, "DB dependency")
+	tests.SkipShort(tb, "DB dependency")
 }
 
 func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
@@ -452,10 +434,6 @@ func MustDecodeBase64(s string) (b []byte) {
 		panic(err)
 	}
 	return
-}
-
-func SkipFlakey(t *testing.T, ticketURL string) {
-	t.Skip("Flakey", ticketURL)
 }
 
 func MustRandBytes(n int) (b []byte) {

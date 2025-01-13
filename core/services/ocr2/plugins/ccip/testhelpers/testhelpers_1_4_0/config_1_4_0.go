@@ -1,5 +1,6 @@
-// Package with set of configs that should be used only within tests suites
-
+// Package testhelpers_1_4_0 pkg with set of configs that should be used only within tests suites
+//
+//nolint:revive // used in tests
 package testhelpers_1_4_0
 
 import (

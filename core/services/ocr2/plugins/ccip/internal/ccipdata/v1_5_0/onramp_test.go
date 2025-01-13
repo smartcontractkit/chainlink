@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -29,7 +29,7 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 
 	tests := []struct {
 		name          string
@@ -72,7 +72,7 @@ func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 	sourceChainSelector := uint64(200)
 	onRampAddress, mockRMN, mockRMNAddress := setupOnRampV1_5_0(t, user, bc)
 
-	onRamp, err := NewOnRamp(logger.Test(t), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(t), bc)
+	onRamp, err := NewOnRamp(logger.TestLogger(t), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(t), bc)
 	require.NoError(t, err)
 
 	onRamp.cachedStaticConfig = func(ctx context.Context) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error) {
@@ -121,7 +121,7 @@ func BenchmarkIsSourceCursedWithCache(b *testing.B) {
 	destChainSelector := uint64(100)
 	onRampAddress, _, _ := setupOnRampV1_5_0(b, user, bc)
 
-	onRamp, err := NewOnRamp(logger.Test(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
+	onRamp, err := NewOnRamp(logger.TestLogger(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
 	require.NoError(b, err)
 
 	for i := 0; i < b.N; i++ {

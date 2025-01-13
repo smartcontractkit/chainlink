@@ -3,19 +3,24 @@ pragma solidity ^0.8.4;
 
 import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 
-// Library for CCIP internal definitions common to multiple contracts.
+/// @notice Library for CCIP internal definitions common to multiple contracts.
+/// @dev The following is a non-exhaustive list of "known issues" for CCIP:
+/// - We could implement yield claiming for Blast. This is not worth the custom code path on non-blast chains.
+/// - uint32 is used for timestamps, which will overflow in 2106. This is not a concern for the current use case, as we
+/// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
 
-  /// @dev The minimum amount of gas to perform the call with exact gas.
-  /// We include this in the offramp so that we can redeploy to adjust it should a hardfork change the gas costs of
-  /// relevant opcodes in callWithExactGas.
-  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.
   uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
   /// @dev The expected number of bytes returned by the balanceOf function.
   uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
+
+  /// @dev The address used to send calls for gas estimation.
+  /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
+  /// given message and you're attempting to estimate the actual necessary gas limit
+  address public constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
 
   /// @notice A collection of token price and gas price updates.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -40,8 +45,8 @@ library Internal {
 
   /// @notice A timestamped uint224 value that can contain several tightly packed fields.
   struct TimestampedPackedUint224 {
-    uint224 value; // ──────╮ Value in uint224, packed.
-    uint32 timestamp; // ───╯ Timestamp of the most recent price update.
+    uint224 value; // ────╮ Value in uint224, packed.
+    uint32 timestamp; // ─╯ Timestamp of the most recent price update.
   }
 
   /// @dev Gas price is stored in 112-bit unsigned int. uint224 can pack 2 prices.
@@ -196,10 +201,10 @@ library Internal {
   /// The messageId is not expected to match hash(message), since it may originate from another ramp family.
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded).
-    uint64 sourceChainSelector; // ──╮ the chain selector of the source chain, note: not chainId.
-    uint64 destChainSelector; //     │ the chain selector of the destination chain, note: not chainId.
-    uint64 sequenceNumber; //        │ sequence number, not unique across lanes.
-    uint64 nonce; // ────────────────╯ nonce for this lane for this sender, not unique across senders/lanes.
+    uint64 sourceChainSelector; // ─╮ the chain selector of the source chain, note: not chainId.
+    uint64 destChainSelector; //    │ the chain selector of the destination chain, note: not chainId.
+    uint64 sequenceNumber; //       │ sequence number, not unique across lanes.
+    uint64 nonce; // ───────────────╯ nonce for this lane for this sender, not unique across senders/lanes.
   }
 
   struct EVM2AnyTokenTransfer {
@@ -268,7 +273,7 @@ library Internal {
   // solhint-disable-next-line gas-struct-packing
   struct MerkleRoot {
     uint64 sourceChainSelector; // Remote source chain selector that the Merkle Root is scoped to
-    bytes onRampAddress; //        Generic onramp address, to support arbitrary sources; for EVM, use abi.encode
+    bytes onRampAddress; //        Generic onRamp address, to support arbitrary sources; for EVM, use abi.encode
     uint64 minSeqNr; // ─────────╮ Minimum sequence number, inclusive
     uint64 maxSeqNr; // ─────────╯ Maximum sequence number, inclusive
     bytes32 merkleRoot; //         Merkle root covering the interval & source chain messages

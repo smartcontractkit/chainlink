@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,6 +19,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
 
 type JobClient struct {
@@ -27,42 +28,42 @@ type JobClient struct {
 }
 
 func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
-	//TODO CCIP-3108  implement me
+	// TODO CCIP-3108  implement me
 	panic("implement me")
 }
 
 func (j JobClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) DisableNode(ctx context.Context, in *nodev1.DisableNodeRequest, opts ...grpc.CallOption) (*nodev1.DisableNodeResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) GetKeypair(ctx context.Context, in *csav1.GetKeypairRequest, opts ...grpc.CallOption) (*csav1.GetKeypairResponse, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsRequest, opts ...grpc.CallOption) (*csav1.ListKeypairsResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
@@ -82,7 +83,7 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	//TODO CCIP-3108
+	// TODO CCIP-3108
 	include := func(node *nodev1.Node) bool {
 		if in.Filter == nil {
 			return true
@@ -151,48 +152,11 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if !ok {
 		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}
-	evmBundle := n.Keys.OCRKeyBundles[chaintype.EVM]
-	offpk := evmBundle.OffchainPublicKey()
-	cpk := evmBundle.ConfigEncryptionPublicKey()
-
-	evmKeyBundle := &nodev1.OCR2Config_OCRKeyBundle{
-		BundleId:              evmBundle.ID(),
-		ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
-		OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
-		OnchainSigningAddress: evmBundle.OnChainPublicKey(),
-	}
-
 	var chainConfigs []*nodev1.ChainConfig
-	for evmChainID, transmitter := range n.Keys.TransmittersByEVMChainID {
-		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
-			Chain: &nodev1.Chain{
-				Id:   strconv.Itoa(int(evmChainID)),
-				Type: nodev1.ChainType_CHAIN_TYPE_EVM,
-			},
-			AccountAddress: transmitter.String(),
-			AdminAddress:   transmitter.String(), // TODO: custom address
-			Ocr1Config:     nil,
-			Ocr2Config: &nodev1.OCR2Config{
-				Enabled:     true,
-				IsBootstrap: n.IsBoostrap,
-				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-					PeerId: n.Keys.PeerID.String(),
-				},
-				OcrKeyBundle:     evmKeyBundle,
-				Multiaddr:        n.Addr.String(),
-				Plugins:          nil,
-				ForwarderAddress: ptr(""),
-			},
-		})
-	}
 	for _, selector := range n.Chains {
 		family, err := chainsel.GetSelectorFamily(selector)
 		if err != nil {
 			return nil, err
-		}
-		if family == chainsel.FamilyEVM {
-			// already handled above
-			continue
 		}
 
 		// NOTE: this supports non-EVM too
@@ -218,7 +182,6 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 		}
 
 		bundle := n.Keys.OCRKeyBundles[ocrtype]
-
 		offpk := bundle.OffchainPublicKey()
 		cpk := bundle.ConfigEncryptionPublicKey()
 
@@ -243,13 +206,15 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			panic(fmt.Sprintf("Unsupported chain family %v", family))
 		}
 
+		transmitter := n.Keys.Transmitters[selector]
+
 		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
 			Chain: &nodev1.Chain{
 				Id:   chainID,
 				Type: ctype,
 			},
-			AccountAddress: "", // TODO: support AccountAddress
-			AdminAddress:   "",
+			AccountAddress: transmitter,
+			AdminAddress:   transmitter,
 			Ocr1Config:     nil,
 			Ocr2Config: &nodev1.OCR2Config{
 				Enabled:     true,
@@ -264,29 +229,28 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 			},
 		})
 	}
-	// TODO: I think we can pull it from the feeds manager.
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
 	}, nil
 }
 
 func (j JobClient) GetJob(ctx context.Context, in *jobv1.GetJobRequest, opts ...grpc.CallOption) (*jobv1.GetJobResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) GetProposal(ctx context.Context, in *jobv1.GetProposalRequest, opts ...grpc.CallOption) (*jobv1.GetProposalResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) ListProposals(ctx context.Context, in *jobv1.ListProposalsRequest, opts ...grpc.CallOption) (*jobv1.ListProposalsResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
@@ -295,7 +259,27 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 	// TODO: Use FMS
 	jb, err := validate.ValidatedCCIPSpec(in.Spec)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "the only supported type is currently 'ccip'") {
+			return nil, err
+		}
+		// check if it's offchainreporting2 job
+		jb, err = ocr2validate.ValidatedOracleSpecToml(
+			ctx,
+			n.App.GetConfig().OCR2(),
+			n.App.GetConfig().Insecure(),
+			in.Spec,
+			nil, // not required for validation
+		)
+		if err != nil {
+			if !strings.Contains(err.Error(), "the only supported type is currently 'offchainreporting2'") {
+				return nil, err
+			}
+			// check if it's bootstrap job
+			jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(in.Spec)
+			if err != nil {
+				return nil, fmt.Errorf("failed to validate job spec only ccip, bootstrap and offchainreporting2 are supported: %w", err)
+			}
+		}
 	}
 	err = n.App.AddJobV2(ctx, &jb)
 	if err != nil {
@@ -316,12 +300,12 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 }
 
 func (j JobClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 
 func (j JobClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, opts ...grpc.CallOption) (*jobv1.DeleteJobResponse, error) {
-	//TODO CCIP-3108 implement me
+	// TODO CCIP-3108 implement me
 	panic("implement me")
 }
 

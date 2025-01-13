@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -87,7 +88,7 @@ func parseError(txError error) (string, error) {
 	return callErr.Data, nil
 }
 
-func ParseErrorFromABI(errorString string, contractABI string) (string, error) {
+func parseErrorFromABI(errorString string, contractABI string) (string, error) {
 	parsedAbi, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
 		return "", errors.Wrap(err, "error loading ABI")
@@ -110,6 +111,29 @@ func ParseErrorFromABI(errorString string, contractABI string) (string, error) {
 		}
 	}
 	return "", errors.New("error not found in ABI")
+}
+
+// DecodeErr decodes an error from a contract call using the contract's ABI.
+// If the error is not decodable, it returns the original error.
+func DecodeErr(encodedABI string, err error) error {
+	if err == nil {
+		return nil
+	}
+	//revive:disable
+	var d rpc.DataError
+	ok := errors.As(err, &d)
+	if ok {
+		encErr, ok := d.ErrorData().(string)
+		if !ok {
+			return fmt.Errorf("error without error data: %s", d.Error())
+		}
+		errStr, parseErr := parseErrorFromABI(encErr, encodedABI)
+		if parseErr != nil {
+			return fmt.Errorf("failed to decode error '%s' with abi: %w", encErr, parseErr)
+		}
+		return fmt.Errorf("contract error: %s", errStr)
+	}
+	return fmt.Errorf("cannot decode error with abi: %w", err)
 }
 
 // ContractDeploy represents the result of an EVM contract deployment
@@ -146,7 +170,7 @@ func DeployContract[C any](
 		lggr.Errorw("Failed to confirm deployment", "chain", chain.String(), "Contract", contractDeploy.Tv.String(), "err", err)
 		return nil, err
 	}
-	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.Selector)
+	lggr.Infow("Deployed contract", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String())
 	err = addressBook.Save(chain.Selector, contractDeploy.Address.String(), contractDeploy.Tv)
 	if err != nil {
 		lggr.Errorw("Failed to save contract address", "Contract", contractDeploy.Tv.String(), "addr", contractDeploy.Address, "chain", chain.String(), "err", err)
@@ -157,7 +181,7 @@ func DeployContract[C any](
 
 func IsValidChainSelector(cs uint64) error {
 	if cs == 0 {
-		return fmt.Errorf("chain selector must be set")
+		return errors.New("chain selector must be set")
 	}
 	_, err := chain_selectors.GetSelectorFamily(cs)
 	if err != nil {

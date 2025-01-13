@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
@@ -8,11 +8,6 @@ import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
 import {EnumerableSet} from "../../shared/enumerable/EnumerableSetWithBytes16.sol";
 import {Internal} from "../libraries/Internal.sol";
-
-/// @dev An active curse on this subject will cause isCursed() to return true. Use this subject if there is an issue
-/// with a remote chain, for which there exists a legacy lane contract deployed on the same chain as this RMN contract
-/// is deployed, relying on isCursed().
-bytes16 constant LEGACY_CURSE_SUBJECT = 0x01000000000000000000000000000000;
 
 /// @dev An active curse on this subject will cause isCursed() and isCursed(bytes16) to return true. Use this subject
 /// for issues affecting all of CCIP chains, or pertaining to the chain that this contract is deployed on, instead of
@@ -53,7 +48,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   struct Config {
     bytes32 rmnHomeContractConfigDigest; // Digest of the RMNHome contract config.
     Signer[] signers; // List of signers.
-    uint64 f; // Max number of faulty RMN nodes; f+1 signers are required to verify a report, must configure 2f+1 signers in total.
+    uint64 fSign; // Max number of faulty RMN nodes; f+1 signers are required to verify a report, must configure 2f+1 signers in total.
   }
 
   /// @dev part of the payload that RMN nodes sign: keccak256(abi.encode(RMN_V1_6_ANY2EVM_REPORT, report)).
@@ -99,14 +94,14 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
 
   /// @inheritdoc IRMNRemote
   function verify(
-    address offrampAddress,
+    address offRampAddress,
     Internal.MerkleRoot[] calldata merkleRoots,
     Signature[] calldata signatures
   ) external view {
     if (s_configCount == 0) {
       revert ConfigNotSet();
     }
-    if (signatures.length < s_config.f + 1) revert ThresholdNotMet();
+    if (signatures.length < s_config.fSign + 1) revert ThresholdNotMet();
 
     bytes32 digest = keccak256(
       abi.encode(
@@ -115,7 +110,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
           destChainId: block.chainid,
           destChainSelector: i_localChainSelector,
           rmnRemoteContractAddress: address(this),
-          offrampAddress: offrampAddress,
+          offrampAddress: offRampAddress,
           rmnHomeContractConfigDigest: s_config.rmnHomeContractConfigDigest,
           merkleRoots: merkleRoots
         })
@@ -155,7 +150,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
     }
 
     // min signers requirement is tenable.
-    if (newConfig.signers.length < 2 * newConfig.f + 1) {
+    if (newConfig.signers.length < 2 * newConfig.fSign + 1) {
       revert NotEnoughSigners();
     }
 
@@ -256,11 +251,11 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   /// @inheritdoc IRMNRemote
   function isCursed() external view override(IRMN, IRMNRemote) returns (bool) {
     // There are zero curses under normal circumstances, which means it's cheaper to check for the absence of curses.
-    // than to check the subject list twice, as we have to check for both the legacy and global curse subjects.
+    // than to check the subject list for the global curse subject.
     if (s_cursedSubjects.length() == 0) {
       return false;
     }
-    return s_cursedSubjects.contains(LEGACY_CURSE_SUBJECT) || s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
+    return s_cursedSubjects.contains(GLOBAL_CURSE_SUBJECT);
   }
 
   /// @inheritdoc IRMNRemote

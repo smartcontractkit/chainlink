@@ -25,7 +25,7 @@ import (
 
 type ArmProxy struct {
 	client     blockchain.EVMClient
-	Instance   *rmn_proxy_contract.RMNProxyContract
+	Instance   *rmn_proxy_contract.RMNProxy
 	EthAddress *common.Address
 }
 
@@ -34,7 +34,7 @@ func (e *CCIPContractsDeployer) DeployArmProxy(arm common.Address) (*ArmProxy, e
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return rmn_proxy_contract.DeployRMNProxyContract(
+		return rmn_proxy_contract.DeployRMNProxy(
 			auth,
 			wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 			arm,
@@ -45,7 +45,7 @@ func (e *CCIPContractsDeployer) DeployArmProxy(arm common.Address) (*ArmProxy, e
 	}
 	return &ArmProxy{
 		client:     e.evmClient,
-		Instance:   instance.(*rmn_proxy_contract.RMNProxyContract),
+		Instance:   instance.(*rmn_proxy_contract.RMNProxy),
 		EthAddress: address,
 	}, err
 }

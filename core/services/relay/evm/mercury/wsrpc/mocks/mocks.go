@@ -29,9 +29,10 @@ func (m *MockWSRPCClient) ServerURL() string { return "mock server url" }
 func (m *MockWSRPCClient) RawClient() pb.MercuryClient { return nil }
 
 type MockConn struct {
-	State  grpc_connectivity.State
-	Ready  bool
-	Closed bool
+	State   grpc_connectivity.State
+	Ready   bool
+	Closed  bool
+	InvokeF func(ctx context.Context, method string, args interface{}, reply interface{}) error
 }
 
 func (m *MockConn) Close() error {
@@ -42,3 +43,7 @@ func (m MockConn) WaitForReady(ctx context.Context) bool {
 	return m.Ready
 }
 func (m MockConn) GetState() grpc_connectivity.State { return m.State }
+
+func (m MockConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}) error {
+	return m.InvokeF(ctx, method, args, reply)
+}

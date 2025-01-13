@@ -3,7 +3,6 @@ package logevent_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
@@ -135,7 +135,7 @@ func emitLogTxnAndWaitForLog(t *testing.T,
 
 	for _, expectedLogVal := range expectedLogVals {
 		// Wait for logs with a timeout
-		_, output, err := testutils.WaitForLog(th.BackendTH.Lggr, log1Ch, 15*time.Second)
+		_, output, err := testutils.WaitForLog(th.BackendTH.Lggr, log1Ch, tests.WaitTimeout(t))
 		require.NoError(t, err)
 		th.BackendTH.Lggr.Infow("EmitLog", "output", output)
 

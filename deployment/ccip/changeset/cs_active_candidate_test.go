@@ -1,246 +1,253 @@
 package changeset
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-
-	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/stretchr/testify/require"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestActiveCandidate(t *testing.T) {
-	t.Skipf("to be enabled after latest cl-ccip is compatible")
-
-	lggr := logger.TestLogger(t)
-	tenv := NewMemoryEnvironmentWithJobsAndContracts(t, lggr, memory.MemoryEnvironmentConfig{
-		Chains:             3,
-		NumOfUsersPerChain: 1,
-		Nodes:              5,
-		Bootstraps:         1,
-	}, nil)
-	e := tenv.Env
+func Test_ActiveCandidate(t *testing.T) {
+	// Setup an environment with 2 chains, a source and a dest.
+	// We want to have the active instance execute a few messages
+	// and then setup a candidate instance. The candidate instance
+	// should not be able to transmit anything until we make it active.
+	tenv, _ := NewMemoryEnvironment(t,
+		WithChains(2),
+		WithNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	allChains := maps.Keys(e.Chains)
 
-	// Add all lanes
-	require.NoError(t, AddLanesForAll(e, state))
-	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
-	startBlocks := make(map[uint64]*uint64)
-	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
-	for src := range e.Chains {
-		for dest, destChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			latesthdr, err := destChain.Client.HeaderByNumber(testcontext.Get(t), nil)
-			require.NoError(t, err)
-			block := latesthdr.Number.Uint64()
-			startBlocks[dest] = &block
-			msgSentEvent := TestSendRequest(t, e, state, src, dest, false, router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello world"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			})
-			expectedSeqNum[SourceDestPair{
-				SourceChainSelector: src,
-				DestChainSelector:   dest,
-			}] = msgSentEvent.SequenceNumber
-			expectedSeqNumExec[SourceDestPair{
-				SourceChainSelector: src,
-				DestChainSelector:   dest,
-			}] = []uint64{msgSentEvent.SequenceNumber}
-		}
-	}
+	// Deploy to all chains.
+	allChains := maps.Keys(tenv.Env.Chains)
+	source := allChains[0]
+	dest := allChains[1]
 
-	// Wait for all commit reports to land.
-	ConfirmCommitForAllWithExpectedSeqNums(t, e, state, expectedSeqNum, startBlocks)
+	// Connect source to dest
+	sourceState := state.Chains[source]
+	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+					source: {
+						dest: {
+							IsEnabled:        true,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Config: UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+					source: {
+						TokenPrices: map[common.Address]*big.Int{
+							sourceState.LinkToken.Address(): DefaultLinkPrice,
+							sourceState.Weth9.Address():     DefaultWethPrice,
+						},
+						GasPrices: map[uint64]*big.Int{
+							dest: DefaultGasPrice,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+			Config: UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					source: {
+						dest: DefaultFeeQuoterDestChainConfig(),
+					},
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+					dest: {
+						source: {
+							IsEnabled: true,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]RouterUpdates{
+					// onRamp update on source chain
+					source: {
+						OnRampUpdates: map[uint64]bool{
+							dest: true,
+						},
+					},
+					// offramp update on dest chain
+					dest: {
+						OffRampUpdates: map[uint64]bool{
+							source: true,
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
 
-	//After commit is reported on all chains, token prices should be updated in FeeQuoter.
-	for dest := range e.Chains {
-		linkAddress := state.Chains[dest].LinkToken.Address()
-		feeQuoter := state.Chains[dest].FeeQuoter
-		timestampedPrice, err := feeQuoter.GetTokenPrice(nil, linkAddress)
-		require.NoError(t, err)
-		require.Equal(t, MockLinkPrice, timestampedPrice.Value)
-	}
+	// check that source router has dest enabled
+	onRamp, err := sourceState.Router.GetOnRamp(&bind.CallOpts{
+		Context: testcontext.Get(t),
+	}, dest)
+	require.NoError(t, err)
+	require.NotEqual(t, common.HexToAddress("0x0"), onRamp, "expected onRamp to be set")
 
-	//Wait for all exec reports to land
-	ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
-
-	// compose the transfer ownership and accept ownership changesets
-	timelocks := make(map[uint64]*gethwrappers.RBACTimelock)
-	for _, chain := range allChains {
-		timelocks[chain] = state.Chains[chain].Timelock
-	}
-	_, err = commonchangeset.ApplyChangesets(t, e, timelocks, []commonchangeset.ChangesetApplication{
-		// note this doesn't have proposals.
+	// Transfer ownership so that we can set new candidate configs
+	// and set new config digest on the offramp.
+	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
 		},
 	})
 	require.NoError(t, err)
-	// Apply the accept ownership proposal to all the chains.
+	assertTimelockOwnership(t, tenv, allChains, state)
 
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 2)
-	require.NoError(t, err)
+	sendMsg := func() {
+		latesthdr, err := tenv.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
+		require.NoError(t, err)
+		block := latesthdr.Number.Uint64()
+		msgSentEvent := TestSendRequest(t, tenv.Env, state, source, dest, false, router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello world"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		})
 
-	// [ACTIVE, CANDIDATE] setup by setting candidate through cap reg
-	capReg, ccipHome := state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome
-	donID, err := internal.DonIDForChain(capReg, ccipHome, tenv.FeedChainSel)
-	require.NoError(t, err)
-	donInfo, err := state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
-	require.NoError(t, err)
-	require.Equal(t, 5, len(donInfo.NodeP2PIds))
-	require.Equal(t, uint32(4), donInfo.ConfigCount)
+		var (
+			startBlocks = map[uint64]*uint64{
+				dest: &block,
+			}
+			expectedSeqNum = map[SourceDestPair]uint64{
+				{
+					SourceChainSelector: source,
+					DestChainSelector:   dest,
+				}: msgSentEvent.SequenceNumber,
+			}
+			expectedSeqNumExec = map[SourceDestPair][]uint64{
+				{
+					SourceChainSelector: source,
+					DestChainSelector:   dest,
+				}: {msgSentEvent.SequenceNumber},
+			}
+		)
 
-	state, err = LoadOnchainState(e)
-	require.NoError(t, err)
-
-	// delete a non-bootstrap node
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	require.NoError(t, err)
-	var newNodeIDs []string
-	// make sure we delete a node that is NOT bootstrap.
-	// we will remove bootstrap later by calling nodes.NonBootstrap()
-	if nodes[0].IsBootstrap {
-		newNodeIDs = e.NodeIDs[:len(e.NodeIDs)-1]
-	} else {
-		newNodeIDs = e.NodeIDs[1:]
+		// Confirm execution of the message
+		ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state, expectedSeqNum, startBlocks)
+		ConfirmExecWithSeqNrsForAll(t, tenv.Env, state, expectedSeqNumExec, startBlocks)
 	}
-	nodes, err = deployment.NodeInfo(newNodeIDs, e.Offchain)
-	require.NoError(t, err)
 
-	// this will construct ocr3 configurations for the
-	// commit and exec plugin we will be using
-	rmnHomeAddress := state.Chains[tenv.HomeChainSel].RMNHome.Address()
-	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-	ccipOCRParams := DefaultOCRParams(
-		tenv.FeedChainSel,
-		tokenConfig.GetTokenInfo(e.Logger, state.Chains[tenv.FeedChainSel].LinkToken, state.Chains[tenv.FeedChainSel].Weth9),
-		nil,
-	)
-	ocr3ConfigMap, err := internal.BuildOCR3ConfigForCCIPHome(
-		e.OCRSecrets,
-		state.Chains[tenv.FeedChainSel].OffRamp,
-		e.Chains[tenv.FeedChainSel],
-		nodes.NonBootstraps(),
-		rmnHomeAddress,
-		ccipOCRParams.OCRParameters,
-		ccipOCRParams.CommitOffChainConfig,
-		ccipOCRParams.ExecuteOffChainConfig,
-	)
-	require.NoError(t, err)
+	// send a message from source to dest and ensure that it gets executed
+	sendMsg()
 
 	var (
-		timelocksPerChain = map[uint64]common.Address{
-			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].Timelock.Address(),
-		}
-		proposerMCMSes = map[uint64]*gethwrappers.ManyChainMultiSig{
-			tenv.HomeChainSel: state.Chains[tenv.HomeChainSel].ProposerMcm,
-		}
+		capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
+		ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
 	)
-	setCommitCandidateOp, err := setCandidateOnExistingDon(
-		ocr3ConfigMap[cctypes.PluginTypeCCIPCommit],
-		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
-		state.Chains[tenv.HomeChainSel].CCIPHome,
-		tenv.FeedChainSel,
-		nodes.NonBootstraps(),
-	)
+	donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
 	require.NoError(t, err)
-	setCommitCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
-		Batch:           setCommitCandidateOp,
-	}}, "set new candidates on commit plugin", 0)
+	candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+		Context: testcontext.Get(t),
+	}, donID, uint8(types.PluginTypeCCIPCommit))
 	require.NoError(t, err)
-	setCommitCandidateSigned := commonchangeset.SignProposal(t, e, setCommitCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setCommitCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
+	candidateDigestExecBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+		Context: testcontext.Get(t),
+	}, donID, uint8(types.PluginTypeCCIPExec))
+	require.NoError(t, err)
+	require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-	// create the op for the commit plugin as well
-	setExecCandidateOp, err := setCandidateOnExistingDon(
-		ocr3ConfigMap[cctypes.PluginTypeCCIPExec],
-		state.Chains[tenv.HomeChainSel].CapabilityRegistry,
-		state.Chains[tenv.HomeChainSel].CCIPHome,
-		tenv.FeedChainSel,
-		nodes.NonBootstraps(),
-	)
+	// Now we can add a candidate config, send another request, and observe behavior.
+	// The candidate config should not be able to execute messages.
+	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: tenv.HomeChainSel,
+					FeedChainSelector: tenv.FeedChainSel,
+					// NOTE: this is technically not a new chain, but needed for validation.
+					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+						dest: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+					},
+					PluginType: types.PluginTypeCCIPCommit,
+					MCMS: &MCMSConfig{
+						MinDelay: 0,
+					},
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
+			Config: SetCandidateChangesetConfig{
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: tenv.HomeChainSel,
+					FeedChainSelector: tenv.FeedChainSel,
+					// NOTE: this is technically not a new chain, but needed for validation.
+					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+						dest: DefaultOCRParams(
+							tenv.FeedChainSel,
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
+							nil,
+						),
+					},
+					PluginType: types.PluginTypeCCIPExec,
+					MCMS: &MCMSConfig{
+						MinDelay: 0,
+					},
+				},
+			},
+		},
+	})
 	require.NoError(t, err)
 
-	setExecCandidateProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
-		Batch:           setExecCandidateOp,
-	}}, "set new candidates on commit and exec plugins", 0)
+	// check that CCIPHome state is updated with the new candidate configs
+	// for the dest chain DON.
+	candidateDigestCommit, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+		Context: testcontext.Get(t),
+	}, donID, uint8(types.PluginTypeCCIPCommit))
 	require.NoError(t, err)
-	setExecCandidateSigned := commonchangeset.SignProposal(t, e, setExecCandidateProposal)
-	commonchangeset.ExecuteProposal(t, e, setExecCandidateSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
+	require.NotEqual(t, candidateDigestCommit, candidateDigestCommitBefore)
+	candidateDigestExec, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+		Context: testcontext.Get(t),
+	}, donID, uint8(types.PluginTypeCCIPExec))
+	require.NoError(t, err)
+	require.NotEqual(t, candidateDigestExec, candidateDigestExecBefore)
 
-	// check setup was successful by confirming number of nodes from cap reg
-	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(donInfo.NodeP2PIds))
-	require.Equal(t, uint32(6), donInfo.ConfigCount)
-	// [ACTIVE, CANDIDATE] done setup
-
-	// [ACTIVE, CANDIDATE] make sure we can still send successful transaction without updating job specs
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 3)
-	require.NoError(t, err)
-	// [ACTIVE, CANDIDATE] done send successful transaction on active
-
-	// [NEW ACTIVE, NO CANDIDATE] promote to active
-	// confirm by getting old candidate digest and making sure new active matches
-	oldCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
-	require.NoError(t, err)
-
-	promoteOps, err := promoteAllCandidatesForChainOps(state.Chains[tenv.HomeChainSel].CapabilityRegistry, state.Chains[tenv.HomeChainSel].CCIPHome, tenv.FeedChainSel, nodes.NonBootstraps())
-	require.NoError(t, err)
-	promoteProposal, err := proposalutils.BuildProposalFromBatches(timelocksPerChain, proposerMCMSes, []timelock.BatchChainOperation{{
-		ChainIdentifier: mcms.ChainIdentifier(tenv.HomeChainSel),
-		Batch:           promoteOps,
-	}}, "promote candidates and revoke actives", 0)
-	require.NoError(t, err)
-	promoteSigned := commonchangeset.SignProposal(t, e, promoteProposal)
-	commonchangeset.ExecuteProposal(t, e, promoteSigned, state.Chains[tenv.HomeChainSel].Timelock, tenv.HomeChainSel)
-	// [NEW ACTIVE, NO CANDIDATE] done promoting
-
-	// [NEW ACTIVE, NO CANDIDATE] check onchain state
-	newActiveDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetActiveDigest(nil, donID, uint8(cctypes.PluginTypeCCIPExec))
-	require.NoError(t, err)
-	require.Equal(t, oldCandidateDigest, newActiveDigest)
-
-	newCandidateDigest, err := state.Chains[tenv.HomeChainSel].CCIPHome.GetCandidateDigest(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
-	require.NoError(t, err)
-	require.Equal(t, newCandidateDigest, [32]byte{})
-	// [NEW ACTIVE, NO CANDIDATE] done checking on chain state
-
-	// [NEW ACTIVE, NO CANDIDATE] send successful request on new active
-	donInfo, err = state.Chains[tenv.HomeChainSel].CapabilityRegistry.GetDON(nil, donID)
-	require.NoError(t, err)
-	require.Equal(t, uint32(8), donInfo.ConfigCount)
-
-	err = ConfirmRequestOnSourceAndDest(t, e, state, tenv.HomeChainSel, tenv.FeedChainSel, 4)
-	require.NoError(t, err)
-	// [NEW ACTIVE, NO CANDIDATE] done sending successful request
+	// send a message from source to dest and ensure that it gets executed after the candidate config is set
+	sendMsg()
 }

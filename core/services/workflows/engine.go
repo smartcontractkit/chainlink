@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	fifteenMinutesMs             = 15 * 60 * 1000
+	fifteenMinutesSec            = 15 * 60
 	reservedFieldNameStepTimeout = "cre_step_timeout"
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
 )
@@ -96,7 +96,7 @@ func (sucm *stepUpdateManager) len() int64 {
 }
 
 type secretsFetcher interface {
-	SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error)
+	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
@@ -440,13 +440,14 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
+			DecodedWorkflowName:      e.workflow.name,
 		},
 		Config:    t.config.Load(),
 		TriggerID: triggerID,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		e.metrics.incrementRegisterTriggerFailureCounter(ctx)
+		e.metrics.with(platform.KeyTriggerID, triggerID).incrementRegisterTriggerFailureCounter(ctx)
 		// It's confusing that t.ID is different from triggerID, but
 		// t.ID is the capability ID, and triggerID is the trigger ID.
 		//
@@ -704,7 +705,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		e.metrics.updateWorkflowTimeoutDurationHistogram(ctx, executionDuration)
 	}
 
-	if executionDuration > fifteenMinutesMs {
+	if executionDuration > fifteenMinutesSec {
 		logCustMsg(ctx, cma, fmt.Sprintf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration), l)
 		l.Warnf("execution duration exceeded 15 minutes: %d (seconds)", executionDuration)
 	}
@@ -868,7 +869,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, e.workflow.id)
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, e.workflow.name, e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -964,6 +965,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
+			DecodedWorkflowName:      e.workflow.name,
 		},
 	}
 
@@ -989,6 +991,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowName:             e.workflow.hexName,
 			WorkflowOwner:            e.workflow.owner,
 			ReferenceID:              t.Ref,
+			DecodedWorkflowName:      e.workflow.name,
 		},
 		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
 		Config:    t.config.Load(),
@@ -1179,6 +1182,14 @@ func (e *Engine) Close() error {
 	})
 }
 
+func (e *Engine) HealthReport() map[string]error {
+	return map[string]error{e.Name(): nil}
+}
+
+func (e *Engine) Name() string {
+	return e.logger.Name()
+}
+
 type Config struct {
 	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
@@ -1287,6 +1298,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
 	workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
+	workflow.name = cfg.WorkflowName
 
 	engine = &Engine{
 		cma:            cma,

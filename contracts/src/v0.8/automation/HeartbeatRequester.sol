@@ -2,7 +2,7 @@
 // solhint-disable-next-line one-contract-per-file
 pragma solidity 0.8.6;
 
-import {TypeAndVersionInterface} from "./../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "./../shared/interfaces/ITypeAndVersion.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 
 // defines some interfaces for type safety and reduces encoding/decoding
@@ -20,7 +20,7 @@ interface IOffchainAggregator {
  *         by eligible caller, it will call a proxy for an aggregator address and request a new round. The aggregator
  *         is gated by permissions and this requester address needs to be whitelisted.
  */
-contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
+contract HeartbeatRequester is ITypeAndVersion, ConfirmedOwner {
   event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
   event HeartbeatRemoved(address indexed permittedCaller, address removedProxy);
 

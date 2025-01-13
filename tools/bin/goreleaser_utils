@@ -13,6 +13,7 @@ before_hook() {
   install_local_plugins
   install_remote_plugins
   mkdir -p "$lib_path/plugins"
+  build_standard_capabilities
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
@@ -27,8 +28,10 @@ before_hook() {
   # linux_arm64, rather than being suffixless on native platforms
   if [ "$GOARCH" = "arm64" ]; then
     if [ -d "$BIN_DIR/linux_arm64" ]; then
+      cp "$BIN_DIR/linux_arm64"/chainlink* "$PLUGIN_DIR"
+    elif [ -d "$BIN_DIR/linux_arm64_v8.0" ]; then
       cp "$BIN_DIR/linux_arm64_v8.0"/chainlink* "$PLUGIN_DIR"
-    else 
+    else
       cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
     fi
     # Call patchelf --set-interpreter on all plugins
@@ -67,6 +70,15 @@ get_remote_plugin_paths() {
     full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
     echo "$full_plugin_path"
   done
+}
+
+build_standard_capabilities() {
+  cd ./capabilities
+  npx nx@19.8.2 init
+  ./nx run-many -t build
+  # binaries get put into /bin under /bin/amd64/ and /bin/arm64/
+  cp "./bin/$(go env GOARCH)"/* "../$lib_path/plugins" 
+  cd ../
 }
 
 install_remote_plugins() {

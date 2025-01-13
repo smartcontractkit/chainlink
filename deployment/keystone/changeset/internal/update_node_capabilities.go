@@ -1,28 +1,29 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type UpdateNodeCapabilitiesImplRequest struct {
-	Chain    deployment.Chain
-	Registry *kcr.CapabilitiesRegistry
-
+	Chain             deployment.Chain
+	ContractSet       *ContractSet
 	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
+
+	UseMCMS bool
 }
 
 func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
+		return errors.New("p2pToCapabilities is empty")
 	}
-	if req.Registry == nil {
-		return fmt.Errorf("registry is nil")
+	if req.ContractSet == nil {
+		return errors.New("registry is nil")
 	}
 
 	return nil
@@ -37,7 +38,7 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	err := kslib.AddCapabilities(lggr, req.Registry, req.Chain, capabilities)
+	op, err := AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -49,8 +50,10 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 
 	updateNodesReq := &UpdateNodesRequest{
 		Chain:        req.Chain,
-		Registry:     req.Registry,
 		P2pToUpdates: p2pToUpdates,
+		ContractSet:  req.ContractSet,
+		Ops:          op,
+		UseMCMS:      req.UseMCMS,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {

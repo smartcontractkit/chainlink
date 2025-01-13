@@ -31,6 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -95,6 +96,7 @@ jobs:
       - name: Checkout .Github repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/.github
           ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
           path: ./dot_github
@@ -170,6 +172,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2

@@ -300,7 +300,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 
 		cma := c.emitter.With(
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
-			platform.KeyWorkflowName, req.Metadata.WorkflowName,
+			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
 			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
@@ -318,18 +318,13 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			headersReq[k] = v.String()
 		}
 
-		payloadBytes, err := json.Marshal(ghcapabilities.Request{
+		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
 			URL:       req.Url,
 			Method:    req.Method,
 			Headers:   headersReq,
 			Body:      req.Body,
 			TimeoutMs: req.TimeoutMs,
 		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
-		}
-
-		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, payloadBytes)
 		if err != nil {
 			return nil, err
 		}

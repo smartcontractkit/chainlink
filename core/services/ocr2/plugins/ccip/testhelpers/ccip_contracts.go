@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -74,6 +75,8 @@ var (
 	SourceChainSelector = uint64(11787463284727550157)
 	DestChainID         = uint64(1337)
 	DestChainSelector   = uint64(3379446385462418246)
+
+	TokenDecimals = uint8(18)
 )
 
 // Backwards compat, in principle these statuses are version dependent
@@ -146,20 +149,20 @@ func (c ExecOffchainConfig) Encode() ([]byte, error) {
 }
 
 func NewExecOffchainConfig(
-	DestOptimisticConfirmations uint32,
-	BatchGasLimit uint32,
-	RelativeBoostPerWaitHour float64,
-	InflightCacheExpiry config.Duration,
-	RootSnoozeTime config.Duration,
-	BatchingStrategyID uint32,
+	destOptimisticConfirmations uint32,
+	batchGasLimit uint32,
+	relativeBoostPerWaitHour float64,
+	inflightCacheExpiry config.Duration,
+	rootSnoozeTime config.Duration,
+	batchingStrategyID uint32, // 0 = Standard, 1 = Out of Order
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
-		DestOptimisticConfirmations: DestOptimisticConfirmations,
-		BatchGasLimit:               BatchGasLimit,
-		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
-		InflightCacheExpiry:         InflightCacheExpiry,
-		RootSnoozeTime:              RootSnoozeTime,
-		BatchingStrategyID:          BatchingStrategyID,
+		DestOptimisticConfirmations: destOptimisticConfirmations,
+		BatchGasLimit:               batchGasLimit,
+		RelativeBoostPerWaitHour:    relativeBoostPerWaitHour,
+		InflightCacheExpiry:         inflightCacheExpiry,
+		RootSnoozeTime:              rootSnoozeTime,
+		BatchingStrategyID:          batchingStrategyID,
 	}}
 }
 
@@ -168,18 +171,39 @@ type MaybeRevertReceiver struct {
 	Strict   bool
 }
 
+// Backend wraps a simulated backend with a mutex to make it safe for concurrent use
+// Commit() in particular has caused races.
+type Backend struct {
+	mu sync.Mutex
+	*simulated.Backend
+}
+
+func NewBackend(sim *simulated.Backend) *Backend {
+	return &Backend{
+		mu:      sync.Mutex{},
+		Backend: sim,
+	}
+}
+
+func (b *Backend) Commit() common.Hash {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.Backend.Commit()
+}
+
 type Common struct {
 	ChainID            uint64
 	ChainSelector      uint64
 	User               *bind.TransactOpts
-	Chain              *simulated.Backend
+	Chain              *Backend
 	LinkToken          *link_token_interface.LinkToken
 	LinkTokenPool      *lock_release_token_pool.LockReleaseTokenPool
 	CustomToken        *link_token_interface.LinkToken
 	WrappedNative      *weth9.WETH9
 	WrappedNativePool  *lock_release_token_pool.LockReleaseTokenPool
 	ARM                *mock_rmn_contract.MockRMNContract
-	ARMProxy           *rmn_proxy_contract.RMNProxyContract
+	ARMProxy           *rmn_proxy_contract.RMNProxy
 	PriceRegistry      *price_registry_1_2_0.PriceRegistry
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 	FinalityDepth      uint32
@@ -676,14 +700,14 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceARM, err := mock_rmn_contract.NewMockRMNContract(armSourceAddress, sourceChain.Client())
 	require.NoError(t, err)
-	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxySourceAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		sourceUser,
 		sourceChain.Client(),
 		armSourceAddress,
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
-	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxySourceAddress, sourceChain.Client())
+	sourceARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxySourceAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	armDestAddress, _, _, err := mock_rmn_contract.DeployMockRMNContract(
@@ -692,7 +716,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxyContract(
+	armProxyDestAddress, _, _, err := rmn_proxy_contract.DeployRMNProxy(
 		destUser,
 		destChain.Client(),
 		armDestAddress,
@@ -701,7 +725,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 	destARM, err := mock_rmn_contract.NewMockRMNContract(armDestAddress, destChain.Client())
 	require.NoError(t, err)
-	destARMProxy, err := rmn_proxy_contract.NewRMNProxyContract(armProxyDestAddress, destChain.Client())
+	destARMProxy, err := rmn_proxy_contract.NewRMNProxy(armProxyDestAddress, destChain.Client())
 	require.NoError(t, err)
 
 	// ================================================================
@@ -1194,7 +1218,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ChainID:            sourceChainID,
 			ChainSelector:      sourceChainSelector,
 			User:               sourceUser,
-			Chain:              sourceChain,
+			Chain:              NewBackend(sourceChain),
 			LinkToken:          sourceLinkToken,
 			LinkTokenPool:      sourceLinkPool,
 			CustomToken:        sourceCustomToken,
@@ -1214,7 +1238,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ChainID:            destChainID,
 			ChainSelector:      destChainSelector,
 			User:               destUser,
-			Chain:              destChain,
+			Chain:              NewBackend(destChain),
 			LinkToken:          destLinkToken,
 			LinkTokenPool:      destLinkPool,
 			CustomToken:        destCustomToken,

@@ -10,13 +10,14 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -24,22 +25,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 )
 
 type SrcExecProvider struct {
-	lggr                                   logger.Logger
-	versionFinder                          ccip.VersionFinder
-	client                                 client.Client
-	lp                                     logpoller.LogPoller
-	startBlock                             uint64
-	estimator                              gas.EvmFeeEstimator
-	maxGasPrice                            *big.Int
-	usdcReader                             *ccip.USDCReaderImpl
-	usdcAttestationAPI                     string
-	usdcAttestationAPITimeoutSeconds       int
-	usdcAttestationAPIIntervalMilliseconds int
-	usdcSrcMsgTransmitterAddr              common.Address
+	lggr          logger.Logger
+	versionFinder ccip.VersionFinder
+	client        client.Client
+	lp            logpoller.LogPoller
+	startBlock    uint64
+	estimator     gas.EvmFeeEstimator
+	maxGasPrice   *big.Int
+	usdcReader    *ccip.USDCReaderImpl
+	usdcConfig    config.USDCConfig
+	lbtcConfig    config.LBTCConfig
+
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider
+
+	// TODO: Add lbtc reader & api fields
 
 	// these values are nil and are updated for Close()
 	seenOnRampAddress       *cciptypes.Address
@@ -57,33 +61,31 @@ func NewSrcExecProvider(
 	lp logpoller.LogPoller,
 	startBlock uint64,
 	jobID string,
-	usdcAttestationAPI string,
-	usdcAttestationAPITimeoutSeconds int,
-	usdcAttestationAPIIntervalMilliseconds int,
-	usdcSrcMsgTransmitterAddr common.Address,
+	usdcConfig config.USDCConfig,
+	lbtcConfig config.LBTCConfig,
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (commontypes.CCIPExecProvider, error) {
 	var usdcReader *ccip.USDCReaderImpl
 	var err error
-	if usdcAttestationAPI != "" {
-		usdcReader, err = ccip.NewUSDCReader(ctx, lggr, jobID, usdcSrcMsgTransmitterAddr, lp, true)
+	if usdcConfig.AttestationAPI != "" {
+		usdcReader, err = ccip.NewUSDCReader(ctx, lggr, jobID, usdcConfig.SourceMessageTransmitterAddress, lp, true)
 		if err != nil {
 			return nil, fmt.Errorf("new usdc reader: %w", err)
 		}
 	}
 
 	return &SrcExecProvider{
-		lggr:                                   logger.Named(lggr, "SrcExecProvider"),
-		versionFinder:                          versionFinder,
-		client:                                 client,
-		estimator:                              estimator,
-		maxGasPrice:                            maxGasPrice,
-		lp:                                     lp,
-		startBlock:                             startBlock,
-		usdcReader:                             usdcReader,
-		usdcAttestationAPI:                     usdcAttestationAPI,
-		usdcAttestationAPITimeoutSeconds:       usdcAttestationAPITimeoutSeconds,
-		usdcAttestationAPIIntervalMilliseconds: usdcAttestationAPIIntervalMilliseconds,
-		usdcSrcMsgTransmitterAddr:              usdcSrcMsgTransmitterAddr,
+		lggr:               logger.Named(lggr, "SrcExecProvider"),
+		versionFinder:      versionFinder,
+		client:             client,
+		estimator:          estimator,
+		maxGasPrice:        maxGasPrice,
+		lp:                 lp,
+		startBlock:         startBlock,
+		usdcReader:         usdcReader,
+		usdcConfig:         usdcConfig,
+		lbtcConfig:         lbtcConfig,
+		feeEstimatorConfig: feeEstimatorConfig,
 	}, nil
 }
 
@@ -113,10 +115,10 @@ func (s *SrcExecProvider) Close() error {
 		return ccip.CloseOnRampReader(ctx, s.lggr, versionFinder, *s.seenSourceChainSelector, *s.seenDestChainSelector, *s.seenOnRampAddress, s.lp, s.client)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
-		if s.usdcAttestationAPI == "" {
+		if s.usdcConfig.AttestationAPI == "" {
 			return nil
 		}
-		return ccip.CloseUSDCReader(ctx, s.lggr, s.lggr.Name(), s.usdcSrcMsgTransmitterAddr, s.lp)
+		return ccip.CloseUSDCReader(ctx, s.lggr, s.lggr.Name(), s.usdcConfig.SourceMessageTransmitterAddress, s.lp)
 	})
 	var multiErr error
 	for _, fn := range unregisterFuncs {
@@ -166,7 +168,7 @@ func (s *SrcExecProvider) GetTransactionStatus(ctx context.Context, transactionI
 }
 
 func (s *SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice)
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice, s.feeEstimatorConfig)
 	return
 }
 
@@ -179,6 +181,10 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 
 	versionFinder := ccip.NewEvmVersionFinder()
 	onRampReader, err = ccip.NewOnRampReader(ctx, s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
+	if err != nil {
+		return nil, err
+	}
+	s.feeEstimatorConfig.SetOnRampReader(onRampReader)
 	return
 }
 
@@ -188,24 +194,42 @@ func (s *SrcExecProvider) NewPriceRegistryReader(ctx context.Context, addr ccipt
 	return
 }
 
-func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (tokenDataReader cciptypes.TokenDataReader, err error) {
-	attestationURI, err2 := url.ParseRequestURI(s.usdcAttestationAPI)
-	if err2 != nil {
-		return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err2)
+func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (cciptypes.TokenDataReader, error) {
+	tokenAddr, err := ccip.GenericAddrToEvm(tokenAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token address: %w", err)
 	}
-	tokenAddr, err2 := ccip.GenericAddrToEvm(tokenAddress)
-	if err2 != nil {
-		return nil, fmt.Errorf("failed to parse token address: %w", err2)
+	switch tokenAddr {
+	case s.usdcConfig.SourceTokenAddress:
+		attestationURI, err := url.ParseRequestURI(s.usdcConfig.AttestationAPI)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
+		}
+		return usdc.NewUSDCTokenDataReader(
+			s.lggr,
+			s.usdcReader,
+			attestationURI,
+			//nolint:gosec // integer overflow
+			int(s.usdcConfig.AttestationAPITimeoutSeconds),
+			tokenAddr,
+			time.Duration(s.usdcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
+		), nil
+	case s.lbtcConfig.SourceTokenAddress:
+		attestationURI, err := url.ParseRequestURI(s.lbtcConfig.AttestationAPI)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse USDC attestation API: %w", err)
+		}
+		return lbtc.NewLBTCTokenDataReader(
+			s.lggr,
+			attestationURI,
+			//nolint:gosec // integer overflow
+			int(s.lbtcConfig.AttestationAPITimeoutSeconds),
+			tokenAddr,
+			time.Duration(s.lbtcConfig.AttestationAPIIntervalMilliseconds)*time.Millisecond,
+		), nil
+	default:
+		return nil, fmt.Errorf("unsupported token address: %s", tokenAddress)
 	}
-	tokenDataReader = usdc.NewUSDCTokenDataReader(
-		s.lggr,
-		s.usdcReader,
-		attestationURI,
-		s.usdcAttestationAPITimeoutSeconds,
-		tokenAddr,
-		time.Duration(s.usdcAttestationAPIIntervalMilliseconds)*time.Millisecond,
-	)
-	return
 }
 
 func (s *SrcExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddr cciptypes.Address, sourceChainSelector uint64) (cciptypes.TokenPoolBatchedReader, error) {
@@ -239,6 +263,7 @@ type DstExecProvider struct {
 	configWatcher       *configWatcher
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
+	feeEstimatorConfig  estimatorconfig.FeeEstimatorConfigProvider
 	txm                 txmgr.TxManager
 	offRampAddress      cciptypes.Address
 
@@ -256,6 +281,7 @@ func NewDstExecProvider(
 	configWatcher *configWatcher,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
+	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 	txm txmgr.TxManager,
 	offRampAddress cciptypes.Address,
 ) (commontypes.CCIPExecProvider, error) {
@@ -269,6 +295,7 @@ func NewDstExecProvider(
 		configWatcher:       configWatcher,
 		gasEstimator:        gasEstimator,
 		maxGasPrice:         maxGasPrice,
+		feeEstimatorConfig:  feeEstimatorConfig,
 		txm:                 txm,
 		offRampAddress:      offRampAddress,
 	}, nil
@@ -299,10 +326,10 @@ func (d *DstExecProvider) Close() error {
 		if d.seenCommitStoreAddr == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(ctx, d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp)
+		return ccip.CloseCommitStoreReader(ctx, d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp, d.feeEstimatorConfig)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
-		return ccip.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0))
+		return ccip.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0), d.feeEstimatorConfig)
 	})
 
 	var multiErr error
@@ -350,12 +377,12 @@ func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptyp
 	d.seenCommitStoreAddr = &addr
 
 	versionFinder := ccip.NewEvmVersionFinder()
-	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, d.lggr, versionFinder, addr, d.client, d.lp)
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, d.lggr, versionFinder, addr, d.client, d.lp, d.feeEstimatorConfig)
 	return
 }
 
 func (d *DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(ctx, d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true)
+	offRampReader, err = ccip.NewOffRampReader(ctx, d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true, d.feeEstimatorConfig)
 	return
 }
 
