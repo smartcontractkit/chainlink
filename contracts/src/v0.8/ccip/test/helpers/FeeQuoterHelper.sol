@@ -48,7 +48,12 @@ contract FeeQuoterHelper is FeeQuoter {
     Client.EVMTokenAmount[] calldata tokenAmounts
   ) external view returns (uint256, uint32, uint32) {
     return _getTokenTransferCost(
-      s_destChainConfigs[destChainSelector], destChainSelector, feeToken, feeTokenPrice, tokenAmounts
+      s_destChainConfigs[destChainSelector].defaultTokenFeeUSDCents,
+      s_destChainConfigs[destChainSelector].defaultTokenDestGasOverhead,
+      destChainSelector,
+      feeToken,
+      feeTokenPrice,
+      tokenAmounts
     );
   }
 

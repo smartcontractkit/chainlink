@@ -569,8 +569,14 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 tokenTransferGas = 0;
     uint32 tokenTransferBytesOverhead = 0;
     if (numberOfTokens > 0) {
-      (premiumFee, tokenTransferGas, tokenTransferBytesOverhead) =
-        _getTokenTransferCost(destChainConfig, destChainSelector, message.feeToken, feeTokenPrice, message.tokenAmounts);
+      (premiumFee, tokenTransferGas, tokenTransferBytesOverhead) = _getTokenTransferCost(
+        destChainConfig.defaultTokenFeeUSDCents,
+        destChainConfig.defaultTokenDestGasOverhead,
+        destChainSelector,
+        message.feeToken,
+        feeTokenPrice,
+        message.tokenAmounts
+      );
     } else {
       // Convert USD cents with 2 decimals to 18 decimals.
       premiumFee = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
@@ -658,7 +664,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev Assumes that tokenAmounts are validated to be listed tokens elsewhere.
   /// @dev Splitting one token transfer into multiple transfers is discouraged, as it will result in a transferFee
   /// equal or greater than the same amount aggregated/de-duped.
-  /// @param destChainConfig the config configured for the destination chain selector.
+  /// @param defaultTokenFeeUSDCents the default token fee in USD cents.
+  /// @param defaultTokenDestGasOverhead the default token destination gas overhead.
   /// @param destChainSelector the destination chain selector.
   /// @param feeToken address of the feeToken.
   /// @param feeTokenPrice price of feeToken in USD with 18 decimals.
@@ -667,7 +674,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @return tokenTransferGas total execution gas of the token transfers.
   /// @return tokenTransferBytesOverhead additional token transfer data passed to destination, e.g. USDC attestation.
   function _getTokenTransferCost(
-    DestChainConfig memory destChainConfig,
+    uint256 defaultTokenFeeUSDCents,
+    uint32 defaultTokenDestGasOverhead,
     uint64 destChainSelector,
     address feeToken,
     uint224 feeTokenPrice,
@@ -681,8 +689,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       // If the token has no specific overrides configured, we use the global defaults.
       if (!transferFeeConfig.isEnabled) {
-        tokenTransferFeeUSDWei += uint256(destChainConfig.defaultTokenFeeUSDCents) * 1e16;
-        tokenTransferGas += destChainConfig.defaultTokenDestGasOverhead;
+        tokenTransferFeeUSDWei += defaultTokenFeeUSDCents * 1e16;
+        tokenTransferGas += defaultTokenDestGasOverhead;
         tokenTransferBytesOverhead += Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES;
         continue;
       }
