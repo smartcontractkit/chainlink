@@ -315,6 +315,7 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(a.destGasOverhead, b.destGasOverhead);
     assertEq(a.destGasPerPayloadByteBase, b.destGasPerPayloadByteBase);
     assertEq(a.destGasPerPayloadByteHigh, b.destGasPerPayloadByteHigh);
+    assertEq(a.destGasPerPayloadByteThreshold, b.destGasPerPayloadByteThreshold);
     assertEq(a.destDataAvailabilityOverheadGas, b.destDataAvailabilityOverheadGas);
     assertEq(a.destGasPerDataAvailabilityByte, b.destGasPerDataAvailabilityByte);
     assertEq(a.destDataAvailabilityMultiplierBps, b.destDataAvailabilityMultiplierBps);

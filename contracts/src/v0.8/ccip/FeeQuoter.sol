@@ -91,26 +91,26 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Struct to hold the fee & validation configs for a destination chain.
   struct DestChainConfig {
-    bool isEnabled; // ──────────────────────────╮ Whether this destination chain is enabled.
-    uint16 maxNumberOfTokensPerMsg; //           │ Maximum number of distinct ERC20 tokens transferred per message.
-    uint32 maxDataBytes; //                      │ Maximum data payload size in bytes.
-    uint32 maxPerMsgGasLimit; //                 │ Maximum gas limit for messages targeting EVMs.
-    uint32 destGasOverhead; //                   │ Gas charged on top of the gasLimit to cover destination chain costs.
-    uint8 destGasPerPayloadByteBase; //          │ Default dest-chain gas charged each byte of `data` payload.
-    uint8 destGasPerPayloadByteHigh; //          │ High dest-chain gas charged each byte of `data` payload, used to account for eip-7623.
-    uint32 destDataAvailabilityOverheadGas; //   │ Data availability gas charged for overhead costs e.g. for OCR.
-    uint16 destGasPerDataAvailabilityByte; //    │ Gas units charged per byte of message data that needs availability.
-    uint16 destDataAvailabilityMultiplierBps; // │ Multiplier for data availability gas, multiples of bps, or 0.0001.
+    bool isEnabled; // ─────────────────────────╮ Whether this destination chain is enabled.
+    uint16 maxNumberOfTokensPerMsg; //          │ Maximum number of distinct ERC20 tokens transferred per message.
+    uint32 maxDataBytes; //                     │ Maximum data payload size in bytes.
+    uint32 maxPerMsgGasLimit; //                │ Maximum gas limit for messages targeting EVMs.
+    uint32 destGasOverhead; //                  │ Gas charged on top of the gasLimit to cover destination chain costs.
+    uint8 destGasPerPayloadByteBase; //         │ Default dest-chain gas charged each byte of `data` payload.
+    uint8 destGasPerPayloadByteHigh; //         │ High dest-chain gas charged each byte of `data` payload, used to account for eip-7623.
+    uint16 destGasPerPayloadByteThreshold; //   │ The value at which the billing switches from destGasPerPayloadByteBase to destGasPerPayloadByteHigh.
+    uint32 destDataAvailabilityOverheadGas; //  │ Data availability gas charged for overhead costs e.g. for OCR.
+    uint16 destGasPerDataAvailabilityByte; //   │ Gas units charged per byte of message data that needs availability.
+    uint16 destDataAvailabilityMultiplierBps; //│ Multiplier for data availability gas, multiples of bps, or 0.0001.
+    bytes4 chainFamilySelector; //              │ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
+    bool enforceOutOfOrder; // ─────────────────╯ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
     // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token.
-    uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer.
-    uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute a token transfer on the destination chain.
-    uint32 defaultTxGasLimit; // ─────────╮ Default gas limit for a tx.
-    uint64 gasMultiplierWeiPerEth; //     │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint32 networkFeeUSDCents; //         │ Flat network fee to charge for messages, multiples of 0.01 USD.
-    uint32 gasPriceStalenessThreshold; // │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
-    bool enforceOutOfOrder; //            │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
-    uint32 destGasPerPayloadByteThreshold; // The value at which the billing switches from destGasPerPayloadByteBase to destGasPerPayloadByteHigh.
-    bytes4 chainFamilySelector; // ───────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
+    uint16 defaultTokenFeeUSDCents; // ────╮ Default token fee charged per token transfer.
+    uint32 defaultTokenDestGasOverhead; // │ Default gas charged to execute a token transfer on the destination chain.
+    uint32 defaultTxGasLimit; //           │ Default gas limit for a tx.
+    uint64 gasMultiplierWeiPerEth; //      │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
+    uint32 gasPriceStalenessThreshold; //  │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
+    uint32 networkFeeUSDCents; // ─────────╯ Flat network fee to charge for messages, multiples of 0.01 USD.
   }
 
   /// @dev Struct to hold the configs and its destination chain selector. Same as DestChainConfig but with the
