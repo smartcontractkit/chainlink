@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -34,15 +35,15 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := LoadOnchainState(e)
 
 	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %v", err)
+		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	if len(c.CurseActions) == 0 {
-		return fmt.Errorf("curse actions are required")
+		return errors.New("curse actions are required")
 	}
 
 	if c.Reason == "" {
-		return fmt.Errorf("reason is required")
+		return errors.New("reason is required")
 	}
 
 	validSubjects := map[Subject]struct{}{
@@ -193,7 +194,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -213,7 +214,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 			for _, subject := range curseSubjects {
 				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %v", selector, err)
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %w", selector, err)
 				}
 
 				if !cursed {
