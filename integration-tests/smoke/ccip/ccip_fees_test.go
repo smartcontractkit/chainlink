@@ -101,7 +101,7 @@ func setupTokens(
 
 func Test_CCIPFees(t *testing.T) {
 	t.Parallel()
-	tenv, _ := testsetups.NewIntegrationEnvironment(
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithMultiCall3(),
 	)

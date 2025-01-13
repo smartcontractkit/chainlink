@@ -12,6 +12,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	logger2 "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/networking"
@@ -373,13 +374,22 @@ func (d *peerGroupDialer) sync() {
 	defer d.mu.Unlock()
 
 	activeDigest, candidateDigest := d.rmnHomeReader.GetAllConfigDigests()
+
+	lggr := logger2.With(
+		d.lggr,
+		"method", "sync",
+		"activeDigest", activeDigest,
+		"candidateDigest", candidateDigest,
+		"activeConfigDigests", d.activeConfigDigests,
+	)
+
 	actions := calculateSyncActions(d.activeConfigDigests, activeDigest, candidateDigest)
 	if len(actions) == 0 {
-		d.lggr.Debugw("No peer group actions needed")
+		lggr.Debugw("No peer group actions needed")
 		return
 	}
 
-	d.lggr.Infow("Syncing peer groups", "actions", actions)
+	lggr.Infof("Syncing peer groups by applying the actions: %v", actions)
 
 	// Handle each action
 	for _, action := range actions {
@@ -388,7 +398,7 @@ func (d *peerGroupDialer) sync() {
 			d.closePeerGroup(action.configDigest)
 		case ActionCreate:
 			if err := d.createPeerGroup(action.configDigest); err != nil {
-				d.lggr.Errorw("Failed to create peer group",
+				lggr.Errorw("Failed to create peer group",
 					"configDigest", action.configDigest,
 					"err", err)
 				// Consider closing all groups on error

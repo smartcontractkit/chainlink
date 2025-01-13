@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/guregu/null.v4"
@@ -14,6 +15,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,7 +43,6 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -264,12 +265,12 @@ func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting2
 }
 
-func (d *Delegate) BeforeJobCreated(spec job.Job) {
+func (d *Delegate) BeforeJobCreated(_ job.Job) {
 	// This is only called first time the job is created
 	d.isNewlyCreatedJob = true
 }
-func (d *Delegate) AfterJobCreated(spec job.Job)  {}
-func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
+func (d *Delegate) AfterJobCreated(_ job.Job)  {}
+func (d *Delegate) BeforeJobDeleted(_ job.Job) {}
 func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
 	//  the job deletion itself isn't blocked.
@@ -1650,7 +1651,85 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	return ccipcommit.NewCommitServices(ctx, d.ds, srcProvider, dstProvider, d.legacyChains, jb, lggr, d.pipelineRunner, oracleArgsNoPlugin, d.isNewlyCreatedJob, int64(srcChainID), dstChainID, logError)
+	priceGetter, err := d.ccipCommitPriceGetter(ctx, lggr, pluginJobSpecConfig, jb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create price getter: %w", err)
+	}
+	//nolint:gosec // safe to cast
+	return ccipcommit.NewCommitServices(ctx, d.ds, srcProvider, dstProvider, priceGetter, jb, lggr, d.pipelineRunner, oracleArgsNoPlugin, d.isNewlyCreatedJob, int64(srcChainID), dstChainID, logError)
+}
+
+func (d *Delegate) ccipCommitPriceGetter(ctx context.Context, lggr logger.SugaredLogger, pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig, jb job.Job) (priceGetter ccip.AllTokensPriceGetter, err error) {
+	spec := jb.OCR2OracleSpec
+	withPipeline := strings.Trim(pluginJobSpecConfig.TokenPricesUSDPipeline, "\n\t ") != ""
+	if withPipeline {
+		priceGetter, err = ccip.NewPipelineGetter(pluginJobSpecConfig.TokenPricesUSDPipeline, d.pipelineRunner, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
+		if err != nil {
+			return nil, fmt.Errorf("creating pipeline price getter: %w", err)
+		}
+	} else {
+		// Use dynamic price getter.
+		if pluginJobSpecConfig.PriceGetterConfig == nil {
+			return nil, errors.New("priceGetterConfig is nil")
+		}
+
+		// Configure contract readers for all chains specified in the aggregator configurations.
+		// Some lanes (e.g. Wemix/Kroma) requires other clients than source and destination, since they use feeds from other chains.
+		aggregatorChainsToContracts := make(map[uint64][]common.Address)
+		for _, aggCfg := range pluginJobSpecConfig.PriceGetterConfig.AggregatorPrices {
+			if _, ok := aggregatorChainsToContracts[aggCfg.ChainID]; !ok {
+				aggregatorChainsToContracts[aggCfg.ChainID] = make([]common.Address, 0)
+			}
+
+			aggregatorChainsToContracts[aggCfg.ChainID] = append(aggregatorChainsToContracts[aggCfg.ChainID], aggCfg.AggregatorContractAddress)
+		}
+
+		contractReaders := map[uint64]types.ContractReader{}
+
+		for chainID, aggregatorContracts := range aggregatorChainsToContracts {
+			relayID := types.RelayID{Network: spec.Relay, ChainID: strconv.FormatUint(chainID, 10)}
+			relay, rerr := d.RelayGetter.Get(relayID)
+			if rerr != nil {
+				return nil, fmt.Errorf("get relay by id=%v: %w", relayID, err)
+			}
+
+			contractsConfig := make(map[string]evmrelaytypes.ChainContractReader, len(aggregatorContracts))
+			for i := range aggregatorContracts {
+				contractsConfig[fmt.Sprintf("%v_%v", ccip.OffchainAggregator, i)] = evmrelaytypes.ChainContractReader{
+					ContractABI: ccip.OffChainAggregatorABI,
+					Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
+						"decimals": { // CR consumers choose an alias
+							ChainSpecificName: "decimals",
+						},
+						"latestRoundData": {
+							ChainSpecificName: "latestRoundData",
+						},
+					},
+				}
+			}
+			contractReaderConfig := evmrelaytypes.ChainReaderConfig{
+				Contracts: contractsConfig,
+			}
+
+			contractReaderConfigJSONBytes, jerr := json.Marshal(contractReaderConfig)
+			if jerr != nil {
+				return nil, fmt.Errorf("marshal contract reader config: %w", jerr)
+			}
+
+			contractReader, cerr := relay.NewContractReader(ctx, contractReaderConfigJSONBytes)
+			if cerr != nil {
+				return nil, fmt.Errorf("new ccip commit contract reader %w", cerr)
+			}
+
+			contractReaders[chainID] = contractReader
+		}
+
+		priceGetter, err = ccip.NewDynamicPriceGetter(*pluginJobSpecConfig.PriceGetterConfig, contractReaders)
+		if err != nil {
+			return nil, fmt.Errorf("creating dynamic price getter: %w", err)
+		}
+	}
+	return priceGetter, nil
 }
 
 func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, destStartBlock uint64) config.CommitPluginConfig {
@@ -1834,7 +1913,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 	// PROVIDER BASED ARG CONSTRUCTION
 	// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
-	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, string(jb.ID)).Encode()
+	dstConfigBytes, err := newExecPluginConfig(false, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
 	if err != nil {
 		return nil, err
 	}
@@ -1867,7 +1946,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 
 func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string, dstProvider types.CCIPExecProvider) (srcProvider types.CCIPExecProvider, srcChainID uint64, err error) {
 	spec := jb.OCR2OracleSpec
-	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, string(jb.ID)).Encode()
+	srcConfigBytes, err := newExecPluginConfig(true, pluginJobSpecConfig.SourceStartBlock, pluginJobSpecConfig.DestStartBlock, pluginJobSpecConfig.USDCConfig, pluginJobSpecConfig.LBTCConfig, string(jb.ID)).Encode()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1916,12 +1995,13 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	return
 }
 
-func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, jobID string) config.ExecPluginConfig {
+func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfig ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
 	return config.ExecPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: srcStartBlock,
 		DestStartBlock:   dstStartBlock,
 		USDCConfig:       usdcConfig,
+		LBTCConfig:       lbtcConfig,
 		JobID:            jobID,
 	}
 }

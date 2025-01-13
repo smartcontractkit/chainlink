@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
 import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifierProxyVerifier.sol";
@@ -12,7 +12,7 @@ import {IDestinationVerifierProxyVerifier} from "./interfaces/IDestinationVerifi
  * @author Michael Fletcher
  * @notice This contract will be used to route all requests through to the assigned verifier contract. This contract does not support individual feed configurations and is aimed at being a simple proxy for the verifier contract on any destination chain.
  */
-contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, ITypeAndVersion {
   /// @notice The active verifier for this proxy
   IDestinationVerifierProxyVerifier private s_verifier;
 
@@ -24,7 +24,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
 
   constructor() ConfirmedOwner(msg.sender) {}
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "DestinationVerifierProxy 0.4.0";
   }

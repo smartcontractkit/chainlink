@@ -101,7 +101,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
