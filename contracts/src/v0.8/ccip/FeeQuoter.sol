@@ -565,11 +565,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // If message-only and no token transfers, a flat network fee is charged.
     // If there are token transfers, premiumFee is calculated from token transfer fee.
     // If there are both token transfers and message, premiumFee is only calculated from token transfer fee.
-    uint256 premiumFee = 0;
+    uint256 premiumFeeUSDWei = 0;
     uint32 tokenTransferGas = 0;
     uint32 tokenTransferBytesOverhead = 0;
     if (numberOfTokens > 0) {
-      (premiumFee, tokenTransferGas, tokenTransferBytesOverhead) = _getTokenTransferCost(
+      (premiumFeeUSDWei, tokenTransferGas, tokenTransferBytesOverhead) = _getTokenTransferCost(
         destChainConfig.defaultTokenFeeUSDCents,
         destChainConfig.defaultTokenDestGasOverhead,
         destChainSelector,
@@ -579,18 +579,19 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       );
     } else {
       // Convert USD cents with 2 decimals to 18 decimals.
-      premiumFee = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
+      premiumFeeUSDWei = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
     }
-    premiumFee *= s_premiumMultiplierWeiPerEth[message.feeToken];
+    // Apply the premium multiplier for the fee token, making it 36 decimals
+    premiumFeeUSDWei *= s_premiumMultiplierWeiPerEth[message.feeToken];
 
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to
     // post transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
-    uint256 dataAvailabilityCost = 0;
+    uint256 dataAvailabilityCostUSDC36Decimals = 0;
 
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (destChainConfig.destDataAvailabilityMultiplierBps > 0) {
-      dataAvailabilityCost = _getDataAvailabilityCost(
+      dataAvailabilityCostUSDC36Decimals = _getDataAvailabilityCost(
         destChainConfig,
         // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
         uint112(packedGasPrice >> Internal.GAS_PRICE_BITS),
@@ -600,6 +601,18 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       );
     }
 
+    // Calculate the calldata, taking into account EIP-7623. We charge destGasPerPayloadByteBase for the calldata cost
+    // up to destGasPerPayloadByteThreshold, even when the total calldata length exceeds the threshold. This is safe
+    // because we also charge for execution gas on top of this. When correct values are chosen, the execution gas we
+    // charge is always higher than the difference between the base and high calldata costs for the first
+    // destGasPerPayloadByteThreshold bytes. Since we don't pay for execution gas in EIP-7623, this execution gas is
+    // effectively used to cover teh higher calldata costs for the first destGasPerPayloadByteThreshold bytes.
+    // The threshold should be adjusted based on expected execution cost and, potentially, to discourage large payloads.
+    // Example: 16 base, 40 high, 100k execution cost. 100k/(40-16) = max 4.16kb as the threshold. Take 4kb threshold.
+    // Calldata length = 5000
+    // Our calculations: 1000 * 40 + 4000 * 16 = 104k calldata cost + 100k execution cost = 204k calculated cost.
+    // Actual cost: 5000 * 40 = 200k
+    // The difference is 4k in favour of CCIP. The lower the threshold, the more premium is charged for large payloads.
     uint256 calldataLength = message.data.length + tokenTransferBytesOverhead;
     uint256 destCallDataCost = calldataLength * destChainConfig.destGasPerPayloadByteBase;
     if (calldataLength > destChainConfig.destGasPerPayloadByteThreshold) {
@@ -607,7 +620,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         + (calldataLength - destChainConfig.destGasPerPayloadByteThreshold) * destChainConfig.destGasPerPayloadByteHigh;
     }
 
-    uint256 totalDestChainGasCost = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
+    // We add the destination chain CCIP overhead (commit, exec), the token transfer gas, the calldata cost and the msg
+    // gas limit to get the total gas the tx costs to execute on the destination chain.
+    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
       + _parseEVMExtraArgsFromBytes(
         message.extraArgs,
         destChainConfig.defaultTxGasLimit,
@@ -615,20 +630,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         destChainConfig.enforceOutOfOrder
       ).gasLimit;
 
-    // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer
-    // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
-    // 36 decimals. uint112(packedGasPrice) = executionGasPrice
-
-    // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
-    // fee logic for other chains should be implemented in the future.
-
-    // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
-    // Result of the division is the number of smallest token denominations.
+    // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
+    // uint112(packedGasPrice) = executionGasPrice
     return (
-      uint112(packedGasPrice) * totalDestChainGasCost * destChainConfig.gasMultiplierWeiPerEth + premiumFee
-        + dataAvailabilityCost
+      uint112(packedGasPrice) * totalDestChainGas * destChainConfig.gasMultiplierWeiPerEth + premiumFeeUSDWei
+        + dataAvailabilityCostUSDC36Decimals
     ) / feeTokenPrice;
   }
 
