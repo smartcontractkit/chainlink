@@ -51,7 +51,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		})
 	}
 
-	SavePreloadedSolAddresses(e, solChainSelectors[0])
+	SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),

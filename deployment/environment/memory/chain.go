@@ -21,6 +21,7 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/mr-tron/base58"
+	"github.com/pelletier/go-toml/v2"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -195,6 +197,11 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 
 	port := freeport.GetOne(t)
 
+	// programIds := getProgramIds(t)
+	programIds := map[string]string{
+		"ccip_router": solTestConfig.CcipRouterProgram.String(),
+	}
+
 	bcInput := &blockchain.Input{
 		Type:         "solana",
 		ChainID:      strconv.FormatUint(chainID, 10),
@@ -203,9 +210,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		ContractsDir: ProgramsPath,
 		// TODO: this should be solTestConfig.CCIPRouterProgram
 		// TODO: make this a function
-		SolanaPrograms: map[string]string{
-			"ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
-		},
+		SolanaPrograms: programIds,
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err)
@@ -234,4 +239,20 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	t.Logf("solana-test-validator is ready at %s", url)
 
 	return url, wsURL, nil
+}
+
+func getProgramIds(t *testing.T) map[string]string {
+	programIds := map[string]string{}
+
+	// This file is generated during the CI build process
+	programPath := GetProgramsPath()
+	programData, err := os.ReadFile(filepath.Join(programPath, "program_ids.toml"))
+	require.NoError(t, err)
+
+	fmt.Printf(string(programData))
+
+	err = toml.Unmarshal(programData, &programIds)
+	require.NoError(t, err)
+
+	return programIds
 }

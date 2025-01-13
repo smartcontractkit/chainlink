@@ -517,7 +517,7 @@ func deployChainContractsSolana(
 	}
 	ccip_router.SetProgramID(ccipRouterProgram)
 
-	// check if solana router is initalised
+	// check if solana router is initialised
 	initialized, err := checkRouterInitialized(e, chain, ccipRouterProgram)
 	if err != nil {
 		return err

@@ -101,11 +101,11 @@ func GetExternalTokenPoolsSignerPDA(ccipRouterProgramId solana.PublicKey) solana
 }
 
 // GetSolanaSourceChainStatePDA returns the PDA for the "source_chain_state" account for Solana.
-func GetSolanaSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, SolanaChainSelector uint64) solana.PublicKey {
+func GetSolanaSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, solanaChainSelector uint64) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{
 			[]byte("source_chain_state"),
-			binary.LittleEndian.AppendUint64([]byte{}, SolanaChainSelector),
+			binary.LittleEndian.AppendUint64([]byte{}, solanaChainSelector),
 		},
 		ccipRouterProgramId,
 	)
@@ -113,11 +113,11 @@ func GetSolanaSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, SolanaCh
 }
 
 // GetSolanaDestChainStatePDA returns the PDA for the "dest_chain_state" account for Solana.
-func GetSolanaDestChainStatePDA(ccipRouterProgramId solana.PublicKey, SolanaChainSelector uint64) solana.PublicKey {
+func GetSolanaDestChainStatePDA(ccipRouterProgramId solana.PublicKey, solanaChainSelector uint64) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{
 			[]byte("dest_chain_state"),
-			binary.LittleEndian.AppendUint64([]byte{}, SolanaChainSelector),
+			binary.LittleEndian.AppendUint64([]byte{}, solanaChainSelector),
 		},
 		ccipRouterProgramId,
 	)
@@ -125,11 +125,11 @@ func GetSolanaDestChainStatePDA(ccipRouterProgramId solana.PublicKey, SolanaChai
 }
 
 // GetEvmSourceChainStatePDA returns the PDA for the "source_chain_state" account for EVM.
-func GetEvmSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, EvmChainSelector uint64) solana.PublicKey {
+func GetEvmSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, evmChainSelector uint64) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{
 			[]byte("source_chain_state"),
-			binary.LittleEndian.AppendUint64([]byte{}, EvmChainSelector),
+			binary.LittleEndian.AppendUint64([]byte{}, evmChainSelector),
 		},
 		ccipRouterProgramId,
 	)
@@ -137,11 +137,11 @@ func GetEvmSourceChainStatePDA(ccipRouterProgramId solana.PublicKey, EvmChainSel
 }
 
 // GetEvmDestChainStatePDA returns the PDA for the "dest_chain_state" account for EVM.
-func GetEvmDestChainStatePDA(ccipRouterProgramId solana.PublicKey, EvmChainSelector uint64) solana.PublicKey {
+func GetEvmDestChainStatePDA(ccipRouterProgramId solana.PublicKey, evmChainSelector uint64) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{
 			[]byte("dest_chain_state"),
-			binary.LittleEndian.AppendUint64([]byte{}, EvmChainSelector),
+			binary.LittleEndian.AppendUint64([]byte{}, evmChainSelector),
 		},
 		ccipRouterProgramId,
 	)

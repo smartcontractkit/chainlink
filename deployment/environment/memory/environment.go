@@ -34,10 +34,10 @@ const (
 
 var (
 	// Instead of a relative path, use runtime.Caller or go-bindata
-	ProgramsPath = getProgramsPath()
+	ProgramsPath = GetProgramsPath()
 )
 
-func getProgramsPath() string {
+func GetProgramsPath() string {
 	// Get the directory of the current file (environment.go)
 	_, currentFile, _, _ := runtime.Caller(0)
 	// Go up to the root of the deployment package

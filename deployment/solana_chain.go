@@ -58,14 +58,17 @@ func (c SolChain) Name() string {
 
 func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
+	if _, err := os.Stat(programFile); err != nil {
+		return "", fmt.Errorf("program file not found: %w", err)
+	}
 	programKeyPair := filepath.Join(c.ProgramsPath, programName+"-keypair.json")
 
 	// Base command with required args
 	baseArgs := []string{
 		"program", "deploy",
-		programFile,                //.so file
-		"--keypair", c.KeypairPath, //admin, upgradeAuthority
-		"--url", c.URL, //rpc url
+		programFile,                // .so file
+		"--keypair", c.KeypairPath, // program keypair
+		"--url", c.URL, // rpc url
 	}
 
 	var cmd *exec.Cmd
