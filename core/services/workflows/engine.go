@@ -1191,22 +1191,23 @@ func (e *Engine) Name() string {
 }
 
 type Config struct {
-	Workflow             sdk.WorkflowSpec
-	WorkflowID           string
-	WorkflowOwner        string
-	WorkflowName         string
-	Lggr                 logger.Logger
-	Registry             core.CapabilitiesRegistry
-	MaxWorkerLimit       int
-	QueueSize            int
-	NewWorkerTimeout     time.Duration
-	MaxExecutionDuration time.Duration
-	Store                store.Store
-	Config               []byte
-	Binary               []byte
-	SecretsFetcher       secretsFetcher
-	HeartbeatCadence     time.Duration
-	StepTimeout          time.Duration
+	Workflow              sdk.WorkflowSpec
+	WorkflowID            string
+	WorkflowOwner         string
+	WorkflowName          string
+	WorkflowNameTransform func(string) string
+	Lggr                  logger.Logger
+	Registry              core.CapabilitiesRegistry
+	MaxWorkerLimit        int
+	QueueSize             int
+	NewWorkerTimeout      time.Duration
+	MaxExecutionDuration  time.Duration
+	Store                 store.Store
+	Config                []byte
+	Binary                []byte
+	SecretsFetcher        secretsFetcher
+	HeartbeatCadence      time.Duration
+	StepTimeout           time.Duration
 
 	// For testing purposes only
 	maxRetries          int
@@ -1299,15 +1300,12 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
-	// Workflow names must not exceed 10 bytes for workflow engine use.
-	// A name is used internally that is first hashed to avoid collisions,
-	// truncated to 10 bytes,
-	// then hex encoded to ensure UTF8 encoding
-	// NOTE: Use in logging and metrics can use the longer and human friendly names
-	hashTruncateName := workflows.HashTruncateName(cfg.WorkflowName)
-	var htNameBytes []byte = hashTruncateName[:]
-	hashTruncateNameHex := hex.EncodeToString(htNameBytes)
-	workflow.hexName = hashTruncateNameHex
+	if cfg.WorkflowNameTransform != nil {
+		workflow.hexName = cfg.WorkflowNameTransform(cfg.WorkflowName)
+
+	} else {
+		workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
+	}
 
 	engine = &Engine{
 		cma:            cma,

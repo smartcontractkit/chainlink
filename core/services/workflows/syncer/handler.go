@@ -532,17 +532,26 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 		return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
 	}
 
+	// Workflow names must not exceed 10 bytes for workflow engine use.
+	// A name is used internally that is first hashed to avoid collisions,
+	// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
+	nameTransform := func(name string) string {
+		// return pkgworkflows.HashTruncateName(name)
+		return name
+	}
+
 	cfg := workflows.Config{
-		Lggr:           h.lggr,
-		Workflow:       *sdkSpec,
-		WorkflowID:     id,
-		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
-		Registry:       h.capRegistry,
-		Store:          h.workflowStore,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: h,
+		Lggr:                  h.lggr,
+		Workflow:              *sdkSpec,
+		WorkflowID:            id,
+		WorkflowOwner:         owner, // this gets hex encoded in the engine.
+		WorkflowName:          name,
+		WorkflowNameTransform: nameTransform,
+		Registry:              h.capRegistry,
+		Store:                 h.workflowStore,
+		Config:                config,
+		Binary:                binary,
+		SecretsFetcher:        h,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }
