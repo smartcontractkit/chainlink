@@ -88,6 +88,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
 /contracts/**/*operatorforwarder* @smartcontractkit/data-feeds-engineers
+/contracts/**/*data-feeds* @smartcontractkit/data-feeds-engineers
 /contracts/**/*vrf* @smartcontractkit/dev-services
 /contracts/**/*keystone* @smartcontractkit/keystone
 
@@ -98,6 +99,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/data-feeds @smartcontractkit/data-feeds-engineers
 /contracts/src/v0.8/shared @smartcontractkit/core-solidity
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
@@ -109,6 +111,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/gethwrappers/liquiditymanager @smartcontractkit/ccip-onchain
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/data-feeds @smartcontractkit/data-feeds-engineers
 /core/gethwrappers/shared @smartcontractkit/core-solidity
 /core/gethwrappers/workflow @smartcontractkit/dev-services
 
