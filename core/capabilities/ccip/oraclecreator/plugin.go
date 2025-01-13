@@ -220,11 +220,11 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	return newWrappedOracle(oracle, closers), nil
 }
 
-func encodeOffRampAddr(addr []byte, chainFamily string, hexEncoded bool) string {
+func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	var offRampAddr string
 	switch chainFamily {
 	case relay.NetworkEVM:
-		if hexEncoded {
+		if checkSum {
 			offRampAddr = common.BytesToAddress(addr).Hex()
 		} else {
 			offRampAddr = hexutil.Encode(addr)
