@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -231,9 +233,18 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
+	chainID, err := i.getChainID(config.Config.ChainSelector)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
+	}
+
+	chainFamily, err := chainsel.GetSelectorFamily(uint64(config.Config.ChainSelector))
+	if err != nil {
+		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
+	}
+	msgHasher, err := i.newMessageHasher(chainFamily)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
@@ -262,7 +273,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
-			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			msgHasher,
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -284,7 +295,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
-			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			msgHasher,
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),
@@ -435,6 +446,17 @@ func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) 
 		return "", fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
 	}
 	return chainID, nil
+}
+
+func (i *pluginOracleCreator) newMessageHasher(chainFamily string) (cciptypes.MessageHasher, error) {
+	switch chainFamily {
+	case chainsel.FamilyEVM:
+		return ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")), nil
+	case chainsel.FamilySolana:
+		return ccipsolana.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")), nil
+	default:
+		return nil, fmt.Errorf("family %s is not yet support", chainFamily)
+	}
 }
 
 func getChainReaderConfig(
