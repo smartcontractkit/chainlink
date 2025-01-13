@@ -26,7 +26,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysv
 		ChainSpecificName:  "commit",
 		LookupTables: chainwriter.LookupTables{
 			StaticLookupTables: []solana.PublicKey{
-				solana.PublicKey(commonAddressesLookupTable),
+				commonAddressesLookupTable,
 			},
 		},
 		Accounts: []chainwriter.Lookup{
@@ -132,7 +132,7 @@ func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sy
 				},
 			},
 			StaticLookupTables: []solana.PublicKey{
-				solana.PublicKey(commonAddressesLookupTable),
+				commonAddressesLookupTable,
 			},
 		},
 		Accounts: []chainwriter.Lookup{
