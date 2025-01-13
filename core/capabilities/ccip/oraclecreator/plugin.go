@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -498,7 +499,8 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(transmitter[0]); err == nil {
+		// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be updated
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig("", solana.PublicKey{}, transmitter[0]); err == nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

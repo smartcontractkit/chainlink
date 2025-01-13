@@ -19,7 +19,7 @@ const (
 	destTokenAddress      = "Message.TokenAmounts.DestTokenAddress"
 )
 
-func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
+func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress:        fromAddress,
 		InputModifications: nil,
@@ -107,7 +107,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysv
 	}
 }
 
-func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
+func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress:        fromAddress,
 		InputModifications: nil,
@@ -287,11 +287,7 @@ func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sy
 	}
 }
 
-func GetSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConfig, error) {
-	// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be updated
-	routerProgramAddress := ""
-	var commonAddressesLookupTable []byte
-
+func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, fromAddress string) (chainwriter.ChainWriterConfig, error) {
 	computeBudgetProgramAddress := solana.ComputeBudget.String()
 	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
 
