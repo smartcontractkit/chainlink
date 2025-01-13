@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -248,22 +247,16 @@ func getProgramIds(t *testing.T) map[string]string {
 	// the contracts have been copied here during the CI build process
 	programPath := GetProgramsPath()
 
-	// get keys list
-	cmd := exec.Command("anchor keys list")
-	cmd.Dir = programPath
-	output, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("Failed to run 'anchor keys list': %v", err)
-	}
+	// get keys list from dump file
+	content, err := os.ReadFile(filepath.Join(programPath, "program_ids_dump"))
+	require.NoError(t, err)
 
-	// Split the output into lines and parse each line
-	lines := strings.Split(string(output), "\n")
+	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
-		// Skip empty lines
 		if len(line) == 0 {
 			continue
 		}
-		// Split each line into key and value
+
 		parts := strings.Split(line, ": ")
 		if len(parts) == 2 {
 			programIds[parts[0]] = parts[1]

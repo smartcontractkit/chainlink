@@ -47,10 +47,12 @@ runs:
           RUSTUP_HOME=\"/root/.rustup\" &&\
           FORCE_COLOR=1 &&\
           cd /solana/contracts &&\
+          anchor keys sync &&\
           anchor build &&\
+          anchor keys list > program_ids_dump &&\
           chmod -R 755 ./target"
     - name: move built contracts to test folder
       shell: bash
       run: |
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
-        cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        cp chainlink-ccip/chains/solana/contracts/target/deploy/* /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
