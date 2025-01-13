@@ -389,7 +389,7 @@ func NewAction(
 			emitter:                  labeler,
 			metrics:                  metricsLabeler,
 			registry:                 registry,
-			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3, lggr),
 			transformer:              NewTransformer(lggr, labeler),
 			outgoingConnectorHandler: handler,
 			idGenerator:              idGenerator,
