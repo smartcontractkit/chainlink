@@ -190,7 +190,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 			i.lggr.
 				Named(fmt.Sprintf("CCIP%sOCR3", pluginType.String())).
 				Named(destRelayID.String()).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily)),
+				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 			false,
 			func(ctx context.Context, msg string) {}),
 		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"name": fmt.Sprintf("commit-%d", config.Config.ChainSelector)}, prometheus.DefaultRegisterer),
@@ -220,11 +220,15 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	return newWrappedOracle(oracle, closers), nil
 }
 
-func encodeOffRampAddr(addr []byte, chainFamily string) string {
+func encodeOffRampAddr(addr []byte, chainFamily string, hexEncoded bool) string {
 	var offRampAddr string
 	switch chainFamily {
 	case relay.NetworkEVM:
-		offRampAddr = hexutil.Encode(addr)
+		if hexEncoded {
+			offRampAddr = common.BytesToAddress(addr).Hex()
+		} else {
+			offRampAddr = hexutil.Encode(addr)
+		}
 	case relay.NetworkSolana:
 		offRampAddr = solana.PublicKeyFromBytes(addr).String()
 	default:
@@ -275,7 +279,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named("CCIPCommitPlugin").
 				Named(destRelayID.String()).
 				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily)),
+				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
@@ -290,14 +294,14 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
-			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily),
+			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false),
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
 		factory = execocr3.NewPluginFactory(
 			i.lggr.
 				Named("CCIPExecPlugin").
 				Named(destRelayID.String()).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily)),
+				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
@@ -311,7 +315,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
-			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily),
+			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false),
 		)
 	} else {
 		return nil, nil, fmt.Errorf("unsupported plugin type %d", config.Config.PluginType)
@@ -371,7 +375,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		if chainID == destChainID && destChainFamily == relayChainFamily {
-			offrampAddress := encodeOffRampAddr(config.Config.OfframpAddress, relayChainFamily)
+			offrampAddress := encodeOffRampAddr(config.Config.OfframpAddress, relayChainFamily, true)
 			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
 					Address: offrampAddress,
