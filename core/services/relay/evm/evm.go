@@ -542,7 +542,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	if r.chain.Config().EVM().ChainID().Uint64() == 5003 || r.chain.Config().EVM().ChainID().Uint64() == 5000 {
 		if commitPluginConfig.IsSourceProvider {
 			oracleAddress := r.chain.Config().EVM().GasEstimator().DAOracle().OracleAddress()
-			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress.Address())
+			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress)
 			if iErr != nil {
 				return nil, iErr
 			}
@@ -621,7 +621,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	if r.chain.Config().EVM().ChainID().Uint64() == 5003 || r.chain.Config().EVM().ChainID().Uint64() == 5000 {
 		if !execPluginConfig.IsSourceProvider {
 			oracleAddress := r.chain.Config().EVM().GasEstimator().DAOracle().OracleAddress()
-			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress.Address())
+			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress)
 			if iErr != nil {
 				return nil, iErr
 			}

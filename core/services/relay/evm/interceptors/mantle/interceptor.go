@@ -2,6 +2,7 @@ package mantle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 const (
@@ -30,7 +32,10 @@ type Interceptor struct {
 	oracleAddress        common.Address
 }
 
-func NewInterceptor(_ context.Context, client evmClient.Client, address common.Address) (*Interceptor, error) {
+func NewInterceptor(_ context.Context, client evmClient.Client, address *evmtypes.EIP55Address) (*Interceptor, error) {
+	if address == nil {
+		return nil, errors.New("oracle address is missing")
+	}
 	// Encode calldata for tokenRatio method
 	tokenRatioMethodAbi, err := abi.JSON(strings.NewReader(mantleTokenRatioAbiString))
 	if err != nil {
@@ -44,7 +49,7 @@ func NewInterceptor(_ context.Context, client evmClient.Client, address common.A
 	return &Interceptor{
 		client:             client,
 		tokenRatioCallData: tokenRatioCallData,
-		oracleAddress:      address,
+		oracleAddress:      address.Address(),
 	}, nil
 }
 
