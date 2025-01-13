@@ -247,7 +247,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	ctx := testcontext.Get(t)
 	t.Logf("Running RMN test case: %s", tc.name)
 
-	envWithRMN, rmnCluster := testsetups.NewIntegrationEnvironment(t,
+	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithRMNEnabled(len(tc.rmnNodes)),
 	)
 	t.Logf("envWithRmn: %#v", envWithRMN)

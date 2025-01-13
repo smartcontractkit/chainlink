@@ -2,19 +2,14 @@ package src
 
 import (
 	"context"
-	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -30,7 +25,7 @@ type peer struct {
 }
 
 var (
-	workflowDonPeers = []peer{
+	hardcodedWorkflowDonPeers = []peer{
 		{
 			PeerID:              "12D3KooWQXfwA26jysiKKPXKuHcJtWTbGSwzoJxj4rYtEJyQTnFj",
 			Signer:              "0xC44686106b85687F741e1d6182a5e2eD2211a115",
@@ -70,74 +65,6 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Name() string {
 	return "deploy-and-initialize-capabilities-registry"
 }
 
-func peerIDToB(peerID string) ([32]byte, error) {
-	var peerIDB ragetypes.PeerID
-	err := peerIDB.UnmarshalText([]byte(peerID))
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	return peerIDB, nil
-}
-
-func peers(ps []peer) ([][32]byte, error) {
-	out := [][32]byte{}
-	for _, p := range ps {
-		b, err := peerIDToB(p.PeerID)
-		if err != nil {
-			return nil, err
-		}
-
-		out = append(out, b)
-	}
-
-	return out, nil
-}
-
-func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error) {
-	peerIDB, err := peerIDToB(p.PeerID)
-	if err != nil {
-		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert peerID: %w", err)
-	}
-
-	sig := strings.TrimPrefix(p.Signer, "0x")
-	signerB, err := hex.DecodeString(sig)
-	if err != nil {
-		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
-	}
-
-	keyStr := strings.TrimPrefix(p.EncryptionPublicKey, "0x")
-	encKey, err := hex.DecodeString(keyStr)
-	if err != nil {
-		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryptionPublicKey: %w", err)
-	}
-
-	var sigb [32]byte
-	var encKeyB [32]byte
-	copy(sigb[:], signerB)
-	copy(encKeyB[:], encKey)
-
-	return kcr.CapabilitiesRegistryNodeParams{
-		NodeOperatorId:      nopID,
-		P2pId:               peerIDB,
-		Signer:              sigb,
-		EncryptionPublicKey: encKeyB,
-	}, nil
-}
-
-// newCapabilityConfig returns a new capability config with the default config set as empty.
-// Override the empty default config with functional options.
-func newCapabilityConfig(opts ...func(*values.Map)) *capabilitiespb.CapabilityConfig {
-	dc := values.EmptyMap()
-	for _, opt := range opts {
-		opt(dc)
-	}
-
-	return &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.ProtoMap(dc),
-	}
-}
-
 // withDefaultConfig returns a function that sets the default config for a capability by merging
 // the provided map with the existing default config.  This is a shallow merge.
 func withDefaultConfig(m map[string]any) func(*values.Map) {
@@ -163,7 +90,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	// create flags for all of the env vars then set the env vars to normalize the interface
 	// this is a bit of a hack but it's the easiest way to make this work
 	ethUrl := fs.String("ethurl", "", "URL of the Ethereum node")
-	chainID := fs.Int64("chainid", 11155111, "chain ID of the Ethereum network to deploy to")
+	chainID := fs.Int64("chainid", 1337, "chain ID of the Ethereum network to deploy to")
 	accountKey := fs.String("accountkey", "", "private key of the account to deploy from")
 	capabilityRegistryAddress := fs.String("craddress", "", "address of the capability registry")
 
@@ -179,6 +106,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	os.Setenv("ETH_URL", *ethUrl)
 	os.Setenv("ETH_CHAIN_ID", fmt.Sprintf("%d", *chainID))
 	os.Setenv("ACCOUNT_KEY", *accountKey)
+	os.Setenv("INSECURE_SKIP_VERIFY", "true")
 
 	env := helpers.SetupEnv(false)
 
@@ -288,7 +216,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 
 	nopID := recLog.NodeOperatorId
 	nodes := []kcr.CapabilitiesRegistryNodeParams{}
-	for _, wfPeer := range workflowDonPeers {
+	for _, wfPeer := range hardcodedWorkflowDonPeers {
 		n, innerErr := peerToNode(nopID, wfPeer)
 		if innerErr != nil {
 			panic(innerErr)
@@ -306,7 +234,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	helpers.ConfirmTXMined(ctx, env.Ec, tx, env.ChainID)
 
 	// workflow DON
-	ps, err := peers(workflowDonPeers)
+	ps, err := peers(hardcodedWorkflowDonPeers)
 	if err != nil {
 		panic(err)
 	}

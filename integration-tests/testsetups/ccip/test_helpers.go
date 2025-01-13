@@ -55,17 +55,26 @@ import (
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
 	changeset.DeployedEnv
-	testEnv       *test_env.CLClusterTestEnv
-	DON           *devenv.DON
-	devEnvTestCfg tc.TestConfig
-	devEnvCfg     *devenv.EnvironmentConfig
+	testEnv         *test_env.CLClusterTestEnv
+	DON             *devenv.DON
+	GenericTCConfig *changeset.TestConfigs
+	devEnvTestCfg   tc.TestConfig
+	devEnvCfg       *devenv.EnvironmentConfig
 }
 
 func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
+func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env changeset.DeployedEnv) {
+	l.DeployedEnv = env
+}
+
+func (l *DeployedLocalDevEnvironment) TestConfigs() *changeset.TestConfigs {
+	return l.GenericTCConfig
+}
+
+func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	envConfig, testEnv, cfg := CreateDockerEnv(t)
@@ -93,7 +102,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.Tes
 	l.DeployedEnv.ReplayBlocks = replayBlocks
 }
 
-func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, l.testEnv, "docker env is empty, start chains first")
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
@@ -145,7 +154,7 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 // if CCIP_V16_TEST_ENV is set to 'docker', it creates a docker environment with test config provided under testconfig/ccip/ccip.toml
 // It also creates a RMN cluster if the test config has RMN enabled
 // It returns the deployed environment and RMN cluster ( in case of RMN enabled)
-func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
+func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster, changeset.TestEnvironment) {
 	testCfg := changeset.DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
@@ -155,17 +164,20 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	switch testCfg.Type {
 	case changeset.Memory:
-		memEnv := changeset.NewMemoryEnvironment(t, opts...)
-		return memEnv, devenv.RMNCluster{}
+		dEnv, memEnv := changeset.NewMemoryEnvironment(t, opts...)
+		return dEnv, devenv.RMNCluster{}, memEnv
 	case changeset.Docker:
-		dockerEnv := &DeployedLocalDevEnvironment{}
-		if testCfg.LegacyDeployment {
-			deployedEnv := changeset.NewLegacyEnvironment(t, testCfg, dockerEnv)
+		dockerEnv := &DeployedLocalDevEnvironment{
+			GenericTCConfig: testCfg,
+		}
+		if testCfg.PrerequisiteDeploymentOnly {
+			deployedEnv := changeset.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.RMNEnabled {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
@@ -180,25 +192,31 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 			)
 			require.NoError(t, err)
-			return deployedEnv, *rmnCluster
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, *rmnCluster, dockerEnv
 		}
 		if testCfg.CreateJobAndContracts {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.CreateJob {
-			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, dockerEnv)
+			deployedEnv := changeset.NewEnvironmentWithJobs(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
-		deployedEnv := changeset.NewEnvironment(t, testCfg, dockerEnv)
+		deployedEnv := changeset.NewEnvironment(t, dockerEnv)
 		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-		return deployedEnv, devenv.RMNCluster{}
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, dockerEnv
 	case changeset.AnvilDocker:
-		anvilDockerEnv := &DeployedLocalAnvilDevEnvironment{}
+		anvilDockerEnv := &DeployedLocalAnvilDevEnvironment{
+			GenericTCConfig: testCfg,
+		}
 		if testCfg.RMNEnabled {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, anvilDockerEnv)
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
 			l := logging.GetTestLogger(t)
 			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustGetNetworksToRPCMap(anvilDockerEnv.bcs))
 			require.NotNil(t, anvilDockerEnv.devEnvTestCfg.CCIP)
@@ -212,22 +230,26 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 				anvilDockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 			)
 			require.NoError(t, err)
-			return deployedEnv, *rmnCluster
+			anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, *rmnCluster, anvilDockerEnv
 		}
 		if testCfg.CreateJobAndContracts {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, anvilDockerEnv)
-			return deployedEnv, devenv.RMNCluster{}
+			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
+			anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 		}
 		if testCfg.CreateJob {
-			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, anvilDockerEnv)
-			return deployedEnv, devenv.RMNCluster{}
+			deployedEnv := changeset.NewEnvironmentWithJobs(t, anvilDockerEnv)
+			anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 		}
-		deployedEnv := changeset.NewEnvironment(t, testCfg, anvilDockerEnv)
-		return deployedEnv, devenv.RMNCluster{}
+		deployedEnv := changeset.NewEnvironment(t, anvilDockerEnv)
+		anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 	default:
 		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
 	}
-	return changeset.DeployedEnv{}, devenv.RMNCluster{}
+	return changeset.DeployedEnv{}, devenv.RMNCluster{}, nil
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {

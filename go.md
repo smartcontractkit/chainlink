@@ -147,6 +147,7 @@ flowchart LR
 	chainlink/deployment --> ccip-owner-contracts
 	chainlink/deployment --> chainlink-ccip/chains/solana
 	chainlink/deployment --> chainlink-protos/job-distributor
+	chainlink/deployment --> chainlink-testing-framework/framework
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"

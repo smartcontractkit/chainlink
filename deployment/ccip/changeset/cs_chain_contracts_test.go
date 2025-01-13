@@ -32,7 +32,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			ctx := testcontext.Get(t)
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -106,7 +106,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -176,7 +176,7 @@ func TestUpdateFQDests(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -244,7 +244,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -320,7 +320,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

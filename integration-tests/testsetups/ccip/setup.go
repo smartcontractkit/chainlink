@@ -61,6 +61,7 @@ type DeployedLocalAnvilDevEnvironment struct {
 	bcs           []*blockchain.Output
 	DON           *devenv.DON
 	devEnvTestCfg tc.TestConfig
+	GenericTCConfig *changeset.TestConfigs
 	devEnvCfg     *devenv.EnvironmentConfig
 	in            *CTFV2Conf
 	pvtKeys       []string
@@ -71,7 +72,15 @@ func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() changeset.Deplo
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
+func (l *DeployedLocalAnvilDevEnvironment) UpdateDeployedEnvironment(env changeset.DeployedEnv) {
+	l.DeployedEnv = env
+}
+
+func (l *DeployedLocalAnvilDevEnvironment) TestConfigs() *changeset.TestConfigs {
+	return l.GenericTCConfig
+}
+
+func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	envConfig, cfg, bcs, in := createAnvilDockerNetwork(t)
@@ -101,7 +110,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T, _ *changese
 	l.DeployedEnv.ReplayBlocks = replayBlocks
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
 	nodeOut := startCLNodes(t, crConfig, l.bcs, l.in)
