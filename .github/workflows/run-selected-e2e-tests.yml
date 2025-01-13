@@ -32,6 +32,10 @@ on:
         
 run-name: ${{ inputs.workflow_run_name }}
 
+permissions:
+  id-token: write
+  contents: read
+  
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
