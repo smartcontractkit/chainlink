@@ -64,7 +64,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
     s_destChainConfig.enforceOutOfOrder = true;
 
     vm.expectRevert(FeeQuoter.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
-    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR);
+    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR, true);
   }
 
   function test_RevertWhen_EVMExtraArgsGasLimitTooHigh() public {

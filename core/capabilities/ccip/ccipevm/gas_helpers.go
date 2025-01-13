@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/pkg/errors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -88,7 +90,11 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		bytesForMsgTokens(numTokens) +
 		dataLength
 
-	messageCallDataGas := uint64(messageBytes * CalldataGasPerByteBase)
+	if messageBytes < 0 {
+		return 0, errors.New("message bytes cannot be negative")
+	}
+
+	messageCallDataGas := uint64(messageBytes) * CalldataGasPerByteBase
 
 	// Rate limiter only limits value in tokens. It's not called if there are no
 	// tokens in the message. The same goes for the admin registry, it's only loaded

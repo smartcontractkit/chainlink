@@ -71,11 +71,15 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
-    uint32 defaultTxGasLimit,
-    uint256 maxPerMsgGasLimit,
+    uint64 destChainSelector,
     bool enforceOutOfOrder
-  ) external pure returns (Client.EVMExtraArgsV2 memory) {
-    return _parseEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit, maxPerMsgGasLimit, enforceOutOfOrder);
+  ) external view returns (Client.EVMExtraArgsV2 memory) {
+    return _parseEVMExtraArgsFromBytes(
+      extraArgs,
+      s_destChainConfigs[destChainSelector].defaultTxGasLimit,
+      s_destChainConfigs[destChainSelector].maxPerMsgGasLimit,
+      enforceOutOfOrder
+    );
   }
 
   function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) external pure {
