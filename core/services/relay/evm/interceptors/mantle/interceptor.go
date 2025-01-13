@@ -9,9 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 
 	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 const (
@@ -27,9 +27,10 @@ type Interceptor struct {
 	tokenRatioCallData   []byte
 	tokenRatio           *big.Int
 	tokenRatioLastUpdate time.Time
+	oracleAddress        common.Address
 }
 
-func NewInterceptor(_ context.Context, client evmClient.Client) (*Interceptor, error) {
+func NewInterceptor(_ context.Context, client evmClient.Client, address common.Address) (*Interceptor, error) {
 	// Encode calldata for tokenRatio method
 	tokenRatioMethodAbi, err := abi.JSON(strings.NewReader(mantleTokenRatioAbiString))
 	if err != nil {
@@ -43,6 +44,7 @@ func NewInterceptor(_ context.Context, client evmClient.Client) (*Interceptor, e
 	return &Interceptor{
 		client:             client,
 		tokenRatioCallData: tokenRatioCallData,
+		oracleAddress:      address,
 	}, nil
 }
 
@@ -65,11 +67,8 @@ func (i *Interceptor) ModifyGasPriceComponents(ctx context.Context, execGasPrice
 
 // getMantleTokenRatio Requests and returns a token ratio value for the Mantle chain.
 func (i *Interceptor) getMantleTokenRatio(ctx context.Context) (*big.Int, error) {
-	// FIXME it's removed from chainlink repo
-	// precompile := common.HexToAddress(rollups.OPGasOracleAddress)
-	precompile := utils.RandomAddress()
 	tokenRatio, err := i.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &precompile,
+		To:   &i.oracleAddress,
 		Data: i.tokenRatioCallData,
 	}, nil)
 

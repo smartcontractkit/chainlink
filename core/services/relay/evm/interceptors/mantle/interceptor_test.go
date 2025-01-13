@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 func TestInterceptor(t *testing.T) {
@@ -18,7 +19,7 @@ func TestInterceptor(t *testing.T) {
 	ctx := context.Background()
 
 	tokenRatio := big.NewInt(10)
-	interceptor, err := NewInterceptor(ctx, ethClient)
+	interceptor, err := NewInterceptor(ctx, ethClient, utils.RandomAddress())
 	require.NoError(t, err)
 
 	// request token ratio
@@ -80,7 +81,7 @@ func TestModifyGasPriceComponents(t *testing.T) {
 			ethClient := mocks.NewClient(t)
 			ctx := context.Background()
 
-			interceptor, err := NewInterceptor(ctx, ethClient)
+			interceptor, err := NewInterceptor(ctx, ethClient, utils.RandomAddress())
 			require.NoError(t, err)
 
 			// request token ratio

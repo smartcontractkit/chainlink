@@ -51,13 +51,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig/interceptors/mantle"
 	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
@@ -541,7 +541,8 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	// to minimize misconfigure risk, might make sense to wire Mantle only when Commit + Mantle + IsSourceProvider
 	if r.chain.Config().EVM().ChainID().Uint64() == 5003 || r.chain.Config().EVM().ChainID().Uint64() == 5000 {
 		if commitPluginConfig.IsSourceProvider {
-			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client())
+			oracleAddress := r.chain.Config().EVM().GasEstimator().DAOracle().OracleAddress()
+			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress.Address())
 			if iErr != nil {
 				return nil, iErr
 			}
@@ -619,7 +620,8 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	// to minimize misconfigure risk, make sense to wire Mantle only when Exec + Mantle + !IsSourceProvider
 	if r.chain.Config().EVM().ChainID().Uint64() == 5003 || r.chain.Config().EVM().ChainID().Uint64() == 5000 {
 		if !execPluginConfig.IsSourceProvider {
-			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client())
+			oracleAddress := r.chain.Config().EVM().GasEstimator().DAOracle().OracleAddress()
+			mantleInterceptor, iErr := mantle.NewInterceptor(ctx, r.chain.Client(), oracleAddress.Address())
 			if iErr != nil {
 				return nil, iErr
 			}
