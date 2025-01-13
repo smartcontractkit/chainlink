@@ -75,7 +75,7 @@ var testCases = []CurseTestCase{
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
 			{chainID: 1, subject: 0, cursed: true},
-		{chainID: 1, subject: 2, cursed: false},
+			{chainID: 1, subject: 2, cursed: false},
 			{chainID: 2, subject: 0, cursed: true},
 			{chainID: 2, subject: 1, cursed: false},
 		},
@@ -126,7 +126,7 @@ func TestRMNCurseConfigValidate(t *testing.T) {
 }
 
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(3))
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -173,7 +173,7 @@ func transferRMNContractToMCMS(t *testing.T, e *DeployedEnv, state CCIPOnChainSt
 }
 
 func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(3))
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -216,7 +216,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(3))
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -232,7 +232,7 @@ func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(3))
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -252,7 +252,7 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
-	e := NewMemoryEnvironment(t, WithChains(3))
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
