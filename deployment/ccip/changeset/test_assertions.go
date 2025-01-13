@@ -486,7 +486,7 @@ func ConfirmExecWithSeqNrs(
 		return nil, errors.New("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(8 * time.Minute)
+	timer := time.NewTimer(tests.WaitTimeout(t))
 	defer timer.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
