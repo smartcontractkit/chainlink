@@ -216,6 +216,7 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 }
 
 type UpdateOnRampDestsConfig struct {
+	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
@@ -487,6 +488,8 @@ func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPrices
 					},
 				},
 			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -509,6 +512,7 @@ func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPrices
 }
 
 type UpdateFeeQuoterDestsConfig struct {
+	// UpdatesByChain is a mapping from source -> dest -> config update.
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
@@ -624,6 +628,8 @@ func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConf
 }
 
 type UpdateOffRampSourcesConfig struct {
+	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
+	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
 	MCMS           *MCMSConfig
 }

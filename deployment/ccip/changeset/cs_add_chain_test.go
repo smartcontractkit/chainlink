@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	changesetcommon "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 
 	"github.com/stretchr/testify/require"
@@ -37,14 +39,24 @@ func Test_AddChain(t *testing.T) {
 	)
 
 	allChains := maps.Keys(e.Env.Chains)
+	slices.Sort(allChains)
 	toDeploy := e.Env.AllChainSelectorsExcluding([]uint64{allChains[0]})
 	require.Len(t, toDeploy, numChains-1)
-	remainingChain := []uint64{allChains[0]}
-	e = AddCCIPContractsToEnvironment(t, toDeploy, tEnv)
+	remainingChain := allChains[0]
+	t.Log("initially deploying chains:", toDeploy, "and afterwards adding chain", remainingChain)
+
+	e = AddCCIPContractsToEnvironment(
+		t,
+		toDeploy,
+		tEnv,
+		true,  // deployJobs
+		true,  // deployHomeChain
+		false, // mcmsEnabled
+	)
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
 			Config: SetRMNRemoteOnRMNProxyConfig{
@@ -70,7 +82,6 @@ func Test_AddChain(t *testing.T) {
 				source,
 				dest,
 				false, // isTestRouter
-				false, // mcmsEnabled
 			)
 		}
 	}
@@ -82,15 +93,19 @@ func Test_AddChain(t *testing.T) {
 	assertRMNRemoteAndProxyState(t, toDeploy, state)
 
 	// At this stage we can send some requests and confirm the setup is working.
-	sendMsgs := func(chains []uint64) (gasPricePreUpdate map[SourceDestPair]*big.Int, startBlocks map[uint64]*uint64) {
+	sendMsgs := func(
+		sources []uint64,
+		dests []uint64,
+		testRouter bool,
+	) (gasPricePreUpdate map[SourceDestPair]*big.Int, startBlocks map[uint64]*uint64) {
 		startBlocks = make(map[uint64]*uint64)
 		gasPricePreUpdate = make(map[SourceDestPair]*big.Int)
 		var (
 			expectedSeqNum     = make(map[SourceDestPair]uint64)
 			expectedSeqNumExec = make(map[SourceDestPair][]uint64)
 		)
-		for _, source := range chains {
-			for _, dest := range chains {
+		for _, source := range sources {
+			for _, dest := range dests {
 				if source == dest {
 					continue
 				}
@@ -107,7 +122,7 @@ func Test_AddChain(t *testing.T) {
 				latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
-				msgSentEvent := TestSendRequest(t, e.Env, state, source, dest, false, router.ClientEVM2AnyMessage{
+				msgSentEvent := TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
 					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello world"),
 					TokenAmounts: nil,
@@ -138,7 +153,7 @@ func Test_AddChain(t *testing.T) {
 
 	// wait for plugins to come up.
 	time.Sleep(30 * time.Second)
-	sendMsgs(toDeploy)
+	sendMsgs(toDeploy, toDeploy, false)
 
 	// TODO: Not working. Need to fix/figure out why.
 	// gasPricePreUpdate, startBlocks := sendMsgs(toDeploy)
@@ -156,13 +171,23 @@ func Test_AddChain(t *testing.T) {
 	// }
 
 	// Deploy to the remaining chain.
-	AddCCIPContractsToEnvironment(t, remainingChain, tEnv)
+	// MCMS needs to be enabled because the home chain contracts have been
+	// transferred to MCMS.
+	e = AddCCIPContractsToEnvironment(
+		t,
+		[]uint64{remainingChain},
+		tEnv,
+		false, // deployJobs
+		false, // deployHomeChain
+		true,  // mcmsEnabled
+	)
+
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
 			Config: SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: toDeploy,
+				ChainSelectors: []uint64{remainingChain},
 			},
 		},
 	})
@@ -171,30 +196,272 @@ func Test_AddChain(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	assertRMNRemoteAndProxyState(t, remainingChain, state)
+	assertRMNRemoteAndProxyState(t, []uint64{remainingChain}, state)
 
 	// TODO: wait for gas price of new chain to be updated on all other chains.
 
-	// add lanes from toDeploy to the new chain
-	// messages from toDeploy to the new chain won't be processed
-	// because OffRamp on new chain doesn't know about other chains' onramps.
-	for _, source := range toDeploy {
-		for _, newChain := range remainingChain {
-			if newChain == source {
-				continue
+	// UpdateOnRampDestsConfig on the existing 3 chains with TestRouter=true and MCMS config enabled.
+	// UpdateFeeQuoterPrices (new CS) to set initial FQ prices to the new destination.
+	// UpdateFeeQuoterDestsConfig to enable quoting for the new destination
+	// UpdateRouterRampsConfig on the test router to enable the new destination
+	mcmsConfig := &MCMSConfig{
+		MinDelay: 0,
+	}
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampDestUpdates(t, remainingChain, toDeploy, true),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Config: UpdateFeeQuoterPricesConfig{
+				PricesByChain: feeQuoterPricesByChain(t, remainingChain, toDeploy),
+				MCMS:          mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+			Config: UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: feeQuoterDestUpdates(t, remainingChain, toDeploy),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     true,
+				UpdatesByChain: routerOnRampUpdates(t, remainingChain, toDeploy),
+				MCMS:           mcmsConfig,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err = LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	assertExistingChainsWiring(
+		t,
+		state,
+		remainingChain,
+		toDeploy,
+		true, // testRouterEnabled
+	)
+
+	// At this point we can send messages from the test router to the new chain.
+	// These won't be processed yet because the offRamp is not aware of these new sources.
+	// TODO: do we want to send a request before enabling on the offRamp? Don't think this would
+	// be a practical use case.
+
+	// UpdateOffRampSourcesConfig called on the new chain to enable existing sources. Also with the test router.
+	// UpdateRouterRampsConfig to enable the existing sources on the new test router.
+	// This means we can send messages from toDeploy to remainingChain.
+	// NOTE: not using MCMS since haven't transferred to timelock yet.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: offRampSourceUpdates(t, remainingChain, toDeploy, true),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     true,
+				UpdatesByChain: routerOffRampUpdates(t, remainingChain, toDeploy),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	assertNewChainWiring(
+		t,
+		state,
+		remainingChain,
+		toDeploy,
+		true, // testRouterEnabled
+	)
+
+	sendMsgs(toDeploy, []uint64{remainingChain}, true)
+}
+
+func assertNewChainWiring(
+	t *testing.T,
+	state CCIPOnChainState,
+	newChain uint64,
+	existingChains []uint64,
+	testRouterEnabled bool,
+) {
+	for _, existingChain := range existingChains {
+		var rtr *router.Router
+		if testRouterEnabled {
+			rtr = state.Chains[newChain].TestRouter
+		} else {
+			rtr = state.Chains[newChain].Router
+		}
+
+		// check that the onRamp has the new chain enabled as a dest.
+		dcc, err := state.Chains[newChain].OffRamp.GetSourceChainConfig(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, existingChain)
+		require.NoError(t, err)
+		require.Equal(t, rtr.Address(), dcc.Router)
+
+		// check that the router has the new chain enabled as a dest.
+		routerOffRamps, err := rtr.GetOffRamps(&bind.CallOpts{
+			Context: tests.Context(t),
+		})
+		require.NoError(t, err)
+
+		var found bool
+		for _, offRamp := range routerOffRamps {
+			if offRamp.SourceChainSelector == existingChain {
+				require.Equal(t, state.Chains[newChain].OffRamp.Address(), offRamp.OffRamp)
+				found = true
+				break
 			}
-			// TODO: MCMS should be enabled.
-			AddLaneWithDefaultPricesAndFeeQuoterConfig(
-				t,
-				&e,
-				state,
-				source,
-				newChain,
-				true, // isTestRouter
-				true, // mcmsEnabled
-			)
+		}
+		require.True(t, found)
+	}
+}
+
+// assertExistingChainsWiring asserts that the following changes are applied correctly on all existing chains:
+// UpdateOnRampDestsConfig on the existing chains with TestRouter=true and MCMS config enabled.
+// UpdateFeeQuoterPrices to set initial FQ prices to the new destination.
+// UpdateFeeQuoterDestsConfig to enable quoting for the new destination
+// UpdateRouterRampsConfig on the test router to enable the new destination
+func assertExistingChainsWiring(
+	t *testing.T,
+	state CCIPOnChainState,
+	newChain uint64,
+	existingChains []uint64,
+	testRouterEnabled bool,
+) {
+	for _, existingChain := range existingChains {
+		var rtr *router.Router
+		if testRouterEnabled {
+			rtr = state.Chains[existingChain].TestRouter
+		} else {
+			rtr = state.Chains[existingChain].Router
+		}
+
+		// check that the onRamp has the new chain enabled as a dest.
+		dcc, err := state.Chains[existingChain].OnRamp.GetDestChainConfig(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, newChain)
+		require.NoError(t, err)
+		require.Equal(t, rtr.Address(), dcc.Router)
+
+		// check that the feeQuoter has the new chain enabled as a dest.
+		fqdcc, err := state.Chains[existingChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, newChain)
+		require.NoError(t, err)
+		require.Equal(t, true, fqdcc.IsEnabled)
+
+		// check that the router has the new chain enabled as a dest.
+		routerOnRamp, err := rtr.GetOnRamp(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, newChain)
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[existingChain].OnRamp.Address(), routerOnRamp)
+	}
+}
+
+// routerOffRampUpdates adds the provided sources to the router of the provided dest chain.
+func routerOffRampUpdates(t *testing.T, dest uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
+	updates = make(map[uint64]RouterUpdates)
+	for _, source := range sources {
+		require.NotEqual(t, source, dest)
+		if _, ok := updates[dest]; ok {
+			updates[dest].OffRampUpdates[source] = true
+		} else {
+			updates[dest] = RouterUpdates{
+				OffRampUpdates: map[uint64]bool{
+					source: true,
+				},
+			}
 		}
 	}
+	return
+}
+
+// routerOnRampUpdates adds the sets newChain to point to the onramp.
+func routerOnRampUpdates(t *testing.T, newChain uint64, existingChains []uint64) (updates map[uint64]RouterUpdates) {
+	updates = make(map[uint64]RouterUpdates)
+	for _, existing := range existingChains {
+		require.NotEqual(t, existing, newChain)
+		updates[existing] = RouterUpdates{
+			OnRampUpdates: map[uint64]bool{
+				newChain: true,
+			},
+		}
+	}
+	return
+}
+
+// feeQuoterDestUpdates adds a fee quoter configuration for the provided dest chain on the fee quoters on the provided sources.
+func feeQuoterDestUpdates(t *testing.T, dest uint64, sources []uint64) (updates map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig) {
+	updates = make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+	for _, source := range sources {
+		require.NotEqual(t, source, dest)
+		if _, ok := updates[source]; !ok {
+			updates[source] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+		}
+		updates[source][dest] = DefaultFeeQuoterDestChainConfig()
+	}
+	return
+}
+
+// feeQuoterPricesByChain sets the dest gas price on the fee quoters in the provided sources.
+func feeQuoterPricesByChain(t *testing.T, dest uint64, sources []uint64) (prices map[uint64]FeeQuoterPriceUpdatePerSource) {
+	prices = make(map[uint64]FeeQuoterPriceUpdatePerSource)
+	for _, source := range sources {
+		require.NotEqual(t, source, dest)
+		prices[source] = FeeQuoterPriceUpdatePerSource{
+			GasPrices: map[uint64]*big.Int{
+				dest: DefaultGasPrice,
+			},
+		}
+	}
+	return
+}
+
+// onRampDestUpdates adds the provided dest to the onRamps on the provided sources.
+func onRampDestUpdates(t *testing.T, dest uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OnRampDestinationUpdate) {
+	updates = make(map[uint64]map[uint64]OnRampDestinationUpdate)
+	for _, source := range sources {
+		require.NotEqual(t, source, dest)
+		if _, ok := updates[source]; !ok {
+			updates[source] = make(map[uint64]OnRampDestinationUpdate)
+		}
+		updates[source] = map[uint64]OnRampDestinationUpdate{
+			dest: {
+				IsEnabled:  true,
+				TestRouter: testRouterEnabled,
+			},
+		}
+	}
+	return
+}
+
+// offRampSourceUpdates adds the provided sources to the offRamp on the provided dest chain.
+func offRampSourceUpdates(t *testing.T, dest uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OffRampSourceUpdate) {
+	updates = make(map[uint64]map[uint64]OffRampSourceUpdate)
+	for _, source := range sources {
+		require.NotEqual(t, source, dest)
+		if _, ok := updates[dest]; !ok {
+			updates[dest] = make(map[uint64]OffRampSourceUpdate)
+		}
+		updates[dest][source] = OffRampSourceUpdate{
+			IsEnabled:  true,
+			TestRouter: testRouterEnabled,
+		}
+	}
+	return
 }
 
 func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state CCIPOnChainState) {

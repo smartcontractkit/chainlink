@@ -26,8 +26,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 		state,
 		chain1,
 		chain2,
-		true,  // isTestRouter
-		false, // mcmsEnabled
+		true, // isTestRouter
 	)
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
