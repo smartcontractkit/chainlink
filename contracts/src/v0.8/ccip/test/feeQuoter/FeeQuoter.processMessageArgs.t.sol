@@ -131,7 +131,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
   function test_processMessageArgs_WithSVMExtraArgsV1() public {
     // Apply the chain update to set the chain family selector to SOL
     FeeQuoter.DestChainConfig memory s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
-    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SOL;
+    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
 
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
     destChainConfigs[0] =
@@ -139,7 +139,12 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
 
     bytes memory extraArgs = Client._svmArgsToBytes(
-      Client.SVMExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)})
+      Client.SVMExtraArgsV1({
+        computeUnits: 0,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: address(0),
+        accounts: new bytes32[](0)
+      })
     );
 
     (

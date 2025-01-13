@@ -10,7 +10,7 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 /// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
-  error InvalidSolAddress(bytes SolAddress);
+  error InvalidSVMAddress(bytes SolAddress);
 
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.
@@ -174,6 +174,17 @@ library Internal {
     return address(uint160(encodedAddressUint));
   }
 
+  function _validateSVMAddress(
+    bytes memory encodedAddress
+  ) internal pure returns (bytes32) {
+    if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
+    bytes32 encodedAddressBytes32 = abi.decode(encodedAddress, (bytes32));
+    if (encodedAddressBytes32 == bytes32(0)) {
+      revert InvalidSVMAddress(encodedAddress);
+    }
+    return encodedAddressBytes32;
+  }
+
   /// @notice Enum listing the possible message execution states within the offRamp contract.
   /// UNTOUCHED never executed.
   /// IN_PROGRESS currently being executed, used a replay protection.
@@ -263,8 +274,8 @@ library Internal {
   // bytes4(keccak256("CCIP ChainFamilySelector EVM"));
   bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 
-  // bytes4(keccak256("CCIP ChainFamilySelector SOL"));
-  bytes4 public constant CHAIN_FAMILY_SELECTOR_SOL = 0x2d4dfc1c;
+  // bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+  bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
 
   /// @dev Holds a merkle root and interval for a source chain so that an array of these can be passed in the CommitReport.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.

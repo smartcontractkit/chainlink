@@ -17,7 +17,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   function setUp() public virtual override {
     super.setUp();
     s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
-    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SOL;
+    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
 
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
     destChainConfigs[0] =
@@ -29,13 +29,21 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     bytes32[] memory solAccounts = new bytes32[](1);
     solAccounts[0] = VALID_SOL_PUBKEY;
 
-    Client.SVMExtraArgsV1 memory inputArgs =
-      Client.SVMExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
+    Client.SVMExtraArgsV1 memory inputArgs = Client.SVMExtraArgsV1({
+      computeUnits: GAS_LIMIT,
+      accountIsWritableBitmap: 0,
+      tokenReceiver: address(0),
+      accounts: solAccounts
+    });
 
     bytes memory inputExtraArgs = Client._svmArgsToBytes(inputArgs);
 
-    Client.SVMExtraArgsV1 memory expectedOutputArgs =
-      Client.SVMExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
+    Client.SVMExtraArgsV1 memory expectedOutputArgs = Client.SVMExtraArgsV1({
+      computeUnits: GAS_LIMIT,
+      accountIsWritableBitmap: 0,
+      tokenReceiver: address(0),
+      accounts: solAccounts
+    });
 
     vm.assertEq(
       abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
@@ -47,6 +55,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     Client.SVMExtraArgsV1 memory expectedOutputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.defaultTxGasLimit,
       accountIsWritableBitmap: 0,
+      tokenReceiver: address(0),
       accounts: new bytes32[](0)
     });
 
@@ -75,6 +84,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     Client.SVMExtraArgsV1 memory inputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.maxPerMsgGasLimit + 1,
       accountIsWritableBitmap: 0,
+      tokenReceiver: address(0),
       accounts: new bytes32[](0)
     });
 

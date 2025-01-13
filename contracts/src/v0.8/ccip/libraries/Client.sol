@@ -57,6 +57,7 @@ library Client {
   struct SVMExtraArgsV1 {
     uint32 computeUnits;
     uint64 accountIsWritableBitmap;
+    address tokenReceiver;
     bytes32[] accounts;
   }
 

@@ -207,7 +207,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     vm.startPrank(OWNER);
 
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
-    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SOL;
+    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
 
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
     vm.stopPrank();
