@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -36,15 +34,15 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 	state, err := LoadOnchainState(e)
 
 	if err != nil {
-		return errors.Errorf("failed to load onchain state: %v", err)
+		return fmt.Errorf("failed to load onchain state: %v", err)
 	}
 
 	if len(c.CurseActions) == 0 {
-		return errors.Errorf("curse actions are required")
+		return fmt.Errorf("curse actions are required")
 	}
 
 	if c.Reason == "" {
-		return errors.Errorf("reason is required")
+		return fmt.Errorf("reason is required")
 	}
 
 	validSubjects := map[Subject]struct{}{
@@ -65,11 +63,11 @@ func (c RMNCurseConfig) Validate(e deployment.Environment) error {
 			}
 
 			if err = deployment.IsValidChainSelector(action.ChainSelector); err != nil {
-				return errors.Errorf("invalid chain selector %d for chain %s", action.ChainSelector, targetChain.String())
+				return fmt.Errorf("invalid chain selector %d for chain %s", action.ChainSelector, targetChain.String())
 			}
 
 			if _, ok := validSubjects[action.SubjectToCurse]; !ok {
-				return errors.Errorf("invalid subject %x for chain %s", action.SubjectToCurse, targetChain.String())
+				return fmt.Errorf("invalid subject %x for chain %s", action.SubjectToCurse, targetChain.String())
 			}
 		}
 	}
@@ -195,7 +193,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Errorf("failed to load onchain state: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %v", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -215,7 +213,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 			for _, subject := range curseSubjects {
 				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, errors.Errorf("failed to check if chain %d is cursed: %v", selector, err)
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %v", selector, err)
 				}
 
 				if !cursed {
@@ -227,7 +225,7 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 			_, err := chain.RMNRemote.Curse0(deployer, notAlreadyCursedSubjects)
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, errors.Errorf("failed to curse chain %d: %v", selector, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to curse chain %d: %v", selector, err)
 			}
 		}
 	}
@@ -256,7 +254,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, errors.Errorf("failed to load onchain state: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %v", err)
 	}
 	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
 
@@ -277,7 +275,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			for _, subject := range curseSubjects {
 				cursed, err := chain.RMNRemote.IsCursed(nil, subject)
 				if err != nil {
-					return deployment.ChangesetOutput{}, errors.Errorf("failed to check if chain %d is cursed: %v", selector, err)
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if chain %d is cursed: %v", selector, err)
 				}
 
 				if cursed {
@@ -290,7 +288,7 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
 			e.Logger.Infof("Uncursed chain %d with subjects %v", selector, actuallyCursedSubjects)
 			if err != nil {
-				return deployment.ChangesetOutput{}, errors.Errorf("failed to uncurse chain %d: %v", selector, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to uncurse chain %d: %v", selector, err)
 			}
 		}
 	}
