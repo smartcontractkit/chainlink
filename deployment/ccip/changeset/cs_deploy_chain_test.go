@@ -147,7 +147,7 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 	for _, chain := range e.Env.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	SavePreloadedSolAddresses(e.Env, solChainSelectors[0])
+	SavePreloadedSolAddresses(t, e.Env, solChainSelectors[0])
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
