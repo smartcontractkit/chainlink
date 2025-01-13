@@ -7,6 +7,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
+const (
+	TestNodeOperator = "NodeOperator"
+)
+
 func NewTestRMNStaticConfig() rmn_home.RMNHomeStaticConfig {
 	return rmn_home.RMNHomeStaticConfig{
 		Nodes:          []rmn_home.RMNHomeNode{},
@@ -25,7 +29,7 @@ func NewTestNodeOperator(admin common.Address) []capabilities_registry.Capabilit
 	return []capabilities_registry.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: admin,
-			Name:  "NodeOperator",
+			Name:  TestNodeOperator,
 		},
 	}
 }

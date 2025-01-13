@@ -112,6 +112,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"gas price too low", false, "Arbitrum"},
 			{"client error replacement underpriced", true, "tomlConfig"},
 			{"", false, "tomlConfig"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'replacement transaction underpriced'", true, "Mantle"},
 		}
 
 		for _, test := range tests {
@@ -144,6 +145,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
 			{"client error transaction already in mempool", true, "tomlConfig"},
 			{"alreadyknown", true, "Gnosis"},
+			{"tx already exists in cache", true, "Sei"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'already known'", true, "Mantle"},
 			{"tx already exists in cache", true, "Sei"},
 		}
 		for _, test := range tests {

@@ -21,9 +21,11 @@ contract RMNHomeTestSetup is Test {
 
     RMNHome.SourceChain[] memory sourceChains = new RMNHome.SourceChain[](2);
     // Observer 0 for source chain 9000
-    sourceChains[0] = RMNHome.SourceChain({chainSelector: 9000, f: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
+    sourceChains[0] =
+      RMNHome.SourceChain({chainSelector: 9000, fObserve: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
     // Observers 0, 1 and 2 for source chain 9001
-    sourceChains[1] = RMNHome.SourceChain({chainSelector: 9001, f: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
+    sourceChains[1] =
+      RMNHome.SourceChain({chainSelector: 9001, fObserve: 1, observerNodesBitmap: 1 << 0 | 1 << 1 | 1 << 2});
 
     return Config({
       staticConfig: RMNHome.StaticConfig({nodes: nodes, offchainConfig: abi.encode("static_config")}),

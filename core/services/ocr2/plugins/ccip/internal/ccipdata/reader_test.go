@@ -10,9 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_parseLogs(t *testing.T) {
@@ -28,7 +27,7 @@ func Test_parseLogs(t *testing.T) {
 		return &log.Index, nil
 	}
 
-	parsedEvents, err := ParseLogs[uint](logs, logger.Test(t), parseFn)
+	parsedEvents, err := ParseLogs[uint](logs, logger.TestLogger(t), parseFn)
 	require.NoError(t, err)
 	assert.Len(t, parsedEvents, 100)
 
@@ -56,7 +55,7 @@ func Test_parseLogs_withErrors(t *testing.T) {
 		return &log.Index, nil
 	}
 
-	log, observed := logger.TestObserved(t, zapcore.DebugLevel)
+	log, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	parsedEvents, err := ParseLogs[uint](logs, log, parseFn)
 	assert.ErrorContains(t, err, fmt.Sprintf("%d logs were not parsed", len(logs)/2))
 	assert.Nil(t, parsedEvents, "No events are returned if there was an error.")

@@ -241,6 +241,7 @@ func Test_DualTransmitter(t *testing.T) {
 	})).Twice().Return(txmgr.Tx{}, nil)
 
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
+	require.NoError(t, transmitter.CreateSecondaryEthTransaction(testutils.Context(t), payload, nil))
 
 	require.True(t, primaryTxConfirmed)
 	require.True(t, secondaryTxConfirmed)
