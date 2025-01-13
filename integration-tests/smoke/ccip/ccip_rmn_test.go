@@ -328,7 +328,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	eg := errgroup.Group{}
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
-	tc.callContractsToCurseAndRevokeCurse(&eg, ctx, t, onChainState, envWithRMN)
+	tc.callContractsToCurseAndRevokeCurse(ctx, &eg, t, onChainState, envWithRMN)
 
 	tc.enableOracles(ctx, t, envWithRMN, disabledNodes)
 
@@ -644,7 +644,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(eg *errgroup.Group, ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]

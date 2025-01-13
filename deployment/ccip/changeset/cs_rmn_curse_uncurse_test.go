@@ -75,7 +75,7 @@ var testCases = []CurseTestCase{
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
 			{chainID: 1, subject: 0, cursed: true},
-			{chainID: 1, subject: 2, cursed: false},
+		{chainID: 1, subject: 2, cursed: false},
 			{chainID: 2, subject: 0, cursed: true},
 			{chainID: 2, subject: 1, cursed: false},
 		},
