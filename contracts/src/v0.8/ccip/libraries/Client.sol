@@ -42,7 +42,7 @@ library Client {
   // bytes4(keccak256("CCIP EVMExtraArgsV2"));
   bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 
-  // bytes4(keccak256("CCIP SolExtraArgsV1"));
+  // bytes4(keccak256("CCIP SVMExtraArgsV1"));
   bytes4 public constant SOL_EXTRA_EXTRA_ARGS_V1_TAG = 0x3f2538fa;
 
   /// @param gasLimit: gas limit for the callback on the destination chain.
@@ -54,7 +54,7 @@ library Client {
     bool allowOutOfOrderExecution;
   }
 
-  struct SolExtraArgsV1 {
+  struct SVMExtraArgsV1 {
     uint32 computeUnits;
     uint64 accountIsWritableBitmap;
     bytes32[] accounts;
@@ -66,8 +66,8 @@ library Client {
     return abi.encodeWithSelector(EVM_EXTRA_ARGS_V2_TAG, extraArgs);
   }
 
-  function _solArgsToBytes(
-    SolExtraArgsV1 memory extraArgs
+  function _svmArgsToBytes(
+    SVMExtraArgsV1 memory extraArgs
   ) internal pure returns (bytes memory bts) {
     return abi.encodeWithSelector(SOL_EXTRA_EXTRA_ARGS_V1_TAG, extraArgs);
   }

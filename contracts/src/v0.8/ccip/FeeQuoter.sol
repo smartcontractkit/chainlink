@@ -866,29 +866,29 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       return gasLimit = _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
-      return _parseSolExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
+      return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
     } else {
       return destChainConfig.defaultTxGasLimit;
     }
   }
 
   /// @notice Parse and validate the Solana specific Extra Args Bytes.
-  function _parseSolExtraArgsFromBytes(
+  function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
-  ) internal pure returns (Client.SolExtraArgsV1 memory) {
-    Client.SolExtraArgsV1 memory solExtraArgs;
+  ) internal pure returns (Client.SVMExtraArgsV1 memory) {
+    Client.SVMExtraArgsV1 memory svmExtraArgs;
     if (extraArgs.length == 0) {
-      solExtraArgs.computeUnits = destChainConfig.defaultTxGasLimit;
-      return solExtraArgs;
+      svmExtraArgs.computeUnits = destChainConfig.defaultTxGasLimit;
+      return svmExtraArgs;
     }
 
-    solExtraArgs = abi.decode(extraArgs[4:], (Client.SolExtraArgsV1));
+    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
 
     // Check that compute units is within the allowed range.
-    if (solExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+    if (svmExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
 
-    return solExtraArgs;
+    return svmExtraArgs;
   }
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
@@ -1012,10 +1012,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SOL) {
-      Client.SolExtraArgsV1 memory parsedExtraArgs = _parseSolExtraArgsFromBytes(extraArgs, destChainConfig);
+      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig);
 
       // On Solana OOO execution is enabled for all messages.
-      return (Client._solArgsToBytes(parsedExtraArgs), true);
+      return (Client._svmArgsToBytes(parsedExtraArgs), true);
     } else {
       revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
     }

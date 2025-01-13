@@ -128,7 +128,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_WithSolExtraArgsV1() public {
+  function test_processMessageArgs_WithSVMExtraArgsV1() public {
     // Apply the chain update to set the chain family selector to SOL
     FeeQuoter.DestChainConfig memory s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
     s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SOL;
@@ -138,8 +138,8 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_destChainConfig});
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
 
-    bytes memory extraArgs = Client._solArgsToBytes(
-      Client.SolExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)})
+    bytes memory extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({computeUnits: 0, accountIsWritableBitmap: 0, accounts: new bytes32[](0)})
     );
 
     (
@@ -159,7 +159,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     assertTrue(isOutOfOrderExecution);
     assertEq(
-      convertedExtraArgs, Client._solArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig))
+      convertedExtraArgs, Client._svmArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig))
     );
   }
 

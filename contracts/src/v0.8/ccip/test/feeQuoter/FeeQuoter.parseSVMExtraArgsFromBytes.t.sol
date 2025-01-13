@@ -7,7 +7,7 @@ import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
-contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
+contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   FeeQuoter.DestChainConfig private s_destChainConfig;
 
   /// @dev a Valid pubkey is one that is 32 bytes long, and that's it since no other validation can be performed
@@ -25,17 +25,17 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
   }
 
-  function test_SolExtraArgsV1() public view {
+  function test_SVMExtraArgsV1() public view {
     bytes32[] memory solAccounts = new bytes32[](1);
     solAccounts[0] = VALID_SOL_PUBKEY;
 
-    Client.SolExtraArgsV1 memory inputArgs =
-      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
+    Client.SVMExtraArgsV1 memory inputArgs =
+      Client.SVMExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
 
-    bytes memory inputExtraArgs = Client._solArgsToBytes(inputArgs);
+    bytes memory inputExtraArgs = Client._svmArgsToBytes(inputArgs);
 
-    Client.SolExtraArgsV1 memory expectedOutputArgs =
-      Client.SolExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
+    Client.SVMExtraArgsV1 memory expectedOutputArgs =
+      Client.SVMExtraArgsV1({computeUnits: GAS_LIMIT, accountIsWritableBitmap: 0, accounts: solAccounts});
 
     vm.assertEq(
       abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
@@ -43,8 +43,8 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
     );
   }
 
-  function test_SolExtraArgsDefault() public view {
-    Client.SolExtraArgsV1 memory expectedOutputArgs = Client.SolExtraArgsV1({
+  function test_SVMExtraArgsDefault() public view {
+    Client.SVMExtraArgsV1 memory expectedOutputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.defaultTxGasLimit,
       accountIsWritableBitmap: 0,
       accounts: new bytes32[](0)
@@ -71,14 +71,14 @@ contract FeeQuoter_parseSolExtraArgsFromBytes is FeeQuoterSetup {
 
   // Reverts
 
-  function test_SolExtraArgsV1_RevertWhen_MessageGasLimitTooHigh() public {
-    Client.SolExtraArgsV1 memory inputArgs = Client.SolExtraArgsV1({
+  function test_SVMExtraArgsV1_RevertWhen_MessageGasLimitTooHigh() public {
+    Client.SVMExtraArgsV1 memory inputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.maxPerMsgGasLimit + 1,
       accountIsWritableBitmap: 0,
       accounts: new bytes32[](0)
     });
 
-    bytes memory inputExtraArgs = Client._solArgsToBytes(inputArgs);
+    bytes memory inputExtraArgs = Client._svmArgsToBytes(inputArgs);
 
     vm.expectRevert(FeeQuoter.MessageGasLimitTooHigh.selector);
     s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
