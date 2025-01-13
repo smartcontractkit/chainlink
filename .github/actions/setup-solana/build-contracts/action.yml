@@ -40,10 +40,17 @@ runs:
     - name: build & save contract compilation artifacts
       if: steps.cache-target.outputs.cache-hit != 'true'
       shell: bash
-      run: docker run -v "$(pwd)/chainlink-ccip/chains/solana/contracts":/solana/contracts ccip-solana:build bash ./.github/scripts/parse-solana-keys-to-file.sh
+      run: |
+        cd chainlink-ccip/chains/solana
+        docker run -v "$(pwd)/contracts":/solana/contracts ccip-solana:build bash -c "\
+          set -eoux pipefail &&\
+          RUSTUP_HOME=\"/root/.rustup\" &&\
+          FORCE_COLOR=1 &&\
+          cd /solana/contracts &&\
+          anchor build &&\
+          chmod -R 755 ./target"
     - name: move built contracts to test folder
       shell: bash
       run: |
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
-        cp chainlink-ccip/chains/solana/contracts/program_ids.toml /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts

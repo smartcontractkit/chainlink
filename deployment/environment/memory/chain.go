@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +23,6 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/mr-tron/base58"
-	"github.com/pelletier/go-toml/v2"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -197,11 +197,11 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 
 	port := freeport.GetOne(t)
 
-	// programIds := getProgramIds(t)
-	programIds := map[string]string{
-		// "ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
-		"ccip_router": solTestConfig.CcipRouterProgram.String(),
-	}
+	programIds := getProgramIds(t)
+	// programIds := map[string]string{
+	// 	// "ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
+	// 	"ccip_router": solTestConfig.CcipRouterProgram.String(),
+	// }
 
 	bcInput := &blockchain.Input{
 		Type:         "solana",
@@ -245,15 +245,32 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 func getProgramIds(t *testing.T) map[string]string {
 	programIds := map[string]string{}
 
-	// This file is generated during the CI build process
+	// the contracts have been copied here during the CI build process
 	programPath := GetProgramsPath()
-	programData, err := os.ReadFile(filepath.Join(programPath, "program_ids.toml"))
-	require.NoError(t, err)
 
-	fmt.Printf(string(programData))
+	// get keys list
+	cmd := exec.Command("anchor keys list")
+	cmd.Dir = programPath
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("Failed to run 'anchor keys list': %v", err)
+	}
 
-	err = toml.Unmarshal(programData, &programIds)
-	require.NoError(t, err)
+	// Split the output into lines and parse each line
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		// Skip empty lines
+		if len(line) == 0 {
+			continue
+		}
+		// Split each line into key and value
+		parts := strings.Split(line, ": ")
+		if len(parts) == 2 {
+			programIds[parts[0]] = parts[1]
+		}
+	}
+
+	fmt.Printf("%v", programIds)
 
 	return programIds
 }
