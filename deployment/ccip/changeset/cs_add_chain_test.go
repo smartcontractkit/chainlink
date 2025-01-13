@@ -200,7 +200,7 @@ func Test_AddChain(t *testing.T) {
 
 	// TODO: wait for gas price of new chain to be updated on all other chains.
 
-	// UpdateOnRampDestsConfig on the existing 3 chains with TestRouter=true and MCMS config enabled.
+	// UpdateOnRampDestsConfig on the existing chains with TestRouter=true and MCMS config enabled.
 	// UpdateFeeQuoterPrices (new CS) to set initial FQ prices to the new destination.
 	// UpdateFeeQuoterDestsConfig to enable quoting for the new destination
 	// UpdateRouterRampsConfig on the test router to enable the new destination
@@ -211,21 +211,21 @@ func Test_AddChain(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
 			Config: UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampDestUpdates(t, remainingChain, toDeploy, true),
+				UpdatesByChain: onRampDestUpdates(t, []uint64{remainingChain}, toDeploy, true),
 				MCMS:           mcmsConfig,
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
 			Config: UpdateFeeQuoterPricesConfig{
-				PricesByChain: feeQuoterPricesByChain(t, remainingChain, toDeploy),
+				PricesByChain: feeQuoterPricesByChain(t, []uint64{remainingChain}, toDeploy),
 				MCMS:          mcmsConfig,
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
 			Config: UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestUpdates(t, remainingChain, toDeploy),
+				UpdatesByChain: feeQuoterDestUpdates(t, []uint64{remainingChain}, toDeploy),
 				MCMS:           mcmsConfig,
 			},
 		},
@@ -233,7 +233,7 @@ func Test_AddChain(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
 			Config: UpdateRouterRampsConfig{
 				TestRouter:     true,
-				UpdatesByChain: routerOnRampUpdates(t, remainingChain, toDeploy),
+				UpdatesByChain: routerOnRampUpdates(t, []uint64{remainingChain}, toDeploy),
 				MCMS:           mcmsConfig,
 			},
 		},
@@ -285,7 +285,49 @@ func Test_AddChain(t *testing.T) {
 		true, // testRouterEnabled
 	)
 
+	// Send messages from toDeploy to the newly added chain thru the test router.
 	sendMsgs(toDeploy, []uint64{remainingChain}, true)
+
+	// Now we switch to testing outbound from the new chain.
+	// This amounts to enabling a new lane on the existing OCR instances
+	// (assuming by default we want to enable all chains).
+
+	// UpdateOnRampDestsConfig on the new chain with TestRouter=true and MCMS config enabled.
+	// UpdateFeeQuoterPrices on the new chain to enable quoting for all existing chains
+	// UpdateFeeQuoterDestsConfig on the new chain to set quoting params for the existing chains.
+	// UpdateRouterRampsConfig with TestRouter=true to set the new chains onramp for all existing chain destinations
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampDestUpdates(t, toDeploy, []uint64{remainingChain}, true),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Config: UpdateFeeQuoterPricesConfig{
+				PricesByChain: feeQuoterPricesByChain(t, toDeploy, []uint64{remainingChain}),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+			Config: UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: feeQuoterDestUpdates(t, toDeploy, []uint64{remainingChain}),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     true,
+				UpdatesByChain: routerOnRampUpdates(t, toDeploy, []uint64{remainingChain}),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Send messages from remainingChain to toDeploy thru the test router.
+	// TODO: not working due to discovery bug.
+	// sendMsgs([]uint64{remainingChain}, toDeploy, true)
 }
 
 func assertNewChainWiring(
@@ -389,60 +431,76 @@ func routerOffRampUpdates(t *testing.T, dest uint64, sources []uint64) (updates 
 	return
 }
 
-// routerOnRampUpdates adds the sets newChain to point to the onramp.
-func routerOnRampUpdates(t *testing.T, newChain uint64, existingChains []uint64) (updates map[uint64]RouterUpdates) {
+// routerOnRampUpdates adds the sets each dest selector in the given dest chains slice on the router
+// to point to the local onramp on each source chain.
+func routerOnRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
 	updates = make(map[uint64]RouterUpdates)
-	for _, existing := range existingChains {
-		require.NotEqual(t, existing, newChain)
-		updates[existing] = RouterUpdates{
-			OnRampUpdates: map[uint64]bool{
-				newChain: true,
-			},
+	for _, existing := range sources {
+		for _, newChain := range dests {
+			require.NotEqual(t, existing, newChain)
+			if _, ok := updates[existing]; !ok {
+				updates[existing] = RouterUpdates{
+					OnRampUpdates: map[uint64]bool{
+						newChain: true,
+					},
+				}
+			} else {
+				updates[existing].OnRampUpdates[newChain] = true
+			}
 		}
 	}
 	return
 }
 
-// feeQuoterDestUpdates adds a fee quoter configuration for the provided dest chain on the fee quoters on the provided sources.
-func feeQuoterDestUpdates(t *testing.T, dest uint64, sources []uint64) (updates map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig) {
+// feeQuoterDestUpdates adds a fee quoter configuration for the provided dest chains on the fee quoters on the provided sources.
+func feeQuoterDestUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig) {
 	updates = make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 	for _, source := range sources {
-		require.NotEqual(t, source, dest)
-		if _, ok := updates[source]; !ok {
-			updates[source] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			if _, ok := updates[source]; !ok {
+				updates[source] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			}
+			updates[source][dest] = DefaultFeeQuoterDestChainConfig()
 		}
-		updates[source][dest] = DefaultFeeQuoterDestChainConfig()
 	}
 	return
 }
 
-// feeQuoterPricesByChain sets the dest gas price on the fee quoters in the provided sources.
-func feeQuoterPricesByChain(t *testing.T, dest uint64, sources []uint64) (prices map[uint64]FeeQuoterPriceUpdatePerSource) {
+// feeQuoterPricesByChain sets the gas price for the provided dests on the fee quoters in the provided sources.
+func feeQuoterPricesByChain(t *testing.T, dests []uint64, sources []uint64) (prices map[uint64]FeeQuoterPriceUpdatePerSource) {
 	prices = make(map[uint64]FeeQuoterPriceUpdatePerSource)
 	for _, source := range sources {
-		require.NotEqual(t, source, dest)
 		prices[source] = FeeQuoterPriceUpdatePerSource{
-			GasPrices: map[uint64]*big.Int{
-				dest: DefaultGasPrice,
-			},
+			GasPrices: make(map[uint64]*big.Int),
+		}
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			prices[source].GasPrices[dest] = DefaultGasPrice
 		}
 	}
 	return
 }
 
-// onRampDestUpdates adds the provided dest to the onRamps on the provided sources.
-func onRampDestUpdates(t *testing.T, dest uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OnRampDestinationUpdate) {
+// onRampDestUpdates adds the provided dests as destination chains to the onRamps on the provided sources.
+func onRampDestUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OnRampDestinationUpdate) {
 	updates = make(map[uint64]map[uint64]OnRampDestinationUpdate)
 	for _, source := range sources {
-		require.NotEqual(t, source, dest)
-		if _, ok := updates[source]; !ok {
-			updates[source] = make(map[uint64]OnRampDestinationUpdate)
-		}
-		updates[source] = map[uint64]OnRampDestinationUpdate{
-			dest: {
-				IsEnabled:  true,
-				TestRouter: testRouterEnabled,
-			},
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			if _, ok := updates[source]; !ok {
+				updates[source] = map[uint64]OnRampDestinationUpdate{
+					dest: {
+						IsEnabled:  true,
+						TestRouter: testRouterEnabled,
+					},
+				}
+			} else {
+				updates[source][dest] = OnRampDestinationUpdate{
+					IsEnabled:  true,
+					TestRouter: testRouterEnabled,
+				}
+			}
 		}
 	}
 	return
