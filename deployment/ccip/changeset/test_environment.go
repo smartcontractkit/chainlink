@@ -45,6 +45,7 @@ type TestConfigs struct {
 	CreateJobAndContracts    bool
 	LegacyDeployment         bool
 	Chains                   int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	SolChains                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                 []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain       int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Nodes                    int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -163,6 +164,12 @@ func WithChains(numChains int) TestOps {
 	}
 }
 
+func WithSolChains(numChains int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SolChains = numChains
+	}
+}
+
 func WithUsersPerChain(numUsers int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
@@ -259,8 +266,9 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	} else {
 		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
 	}
+
 	m.Chains = chains
-	m.SolChains = memory.NewMemoryChainsSol(t, 1)
+	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
