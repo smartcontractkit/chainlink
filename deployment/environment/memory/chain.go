@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -195,29 +196,40 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	port := freeport.GetOne(t)
+	maxRetries := 5
+	var url, wsURL string
+	for i := 0; i < maxRetries; i++ {
+		port := freeport.GetOne(t)
 
-	// programIds := getProgramIds(t)
-	programIds := map[string]string{
-		"ccip_router": solTestConfig.CcipRouterProgram.String(),
-	}
+		// programIds := getProgramIds(t)
+		programIds := map[string]string{
+			"ccip_router": solTestConfig.CcipRouterProgram.String(),
+		}
 
-	bcInput := &blockchain.Input{
-		Type:         "solana",
-		ChainID:      strconv.FormatUint(chainID, 10),
-		PublicKey:    adminKey.PublicKey().String(),
-		Port:         strconv.Itoa(port),
-		ContractsDir: ProgramsPath,
-		// TODO: this should be solTestConfig.CCIPRouterProgram
-		// TODO: make this a function
-		SolanaPrograms: programIds,
+		bcInput := &blockchain.Input{
+			Type:         "solana",
+			ChainID:      strconv.FormatUint(chainID, 10),
+			PublicKey:    adminKey.PublicKey().String(),
+			Port:         strconv.Itoa(port),
+			ContractsDir: ProgramsPath,
+			// TODO: this should be solTestConfig.CCIPRouterProgram
+			// TODO: make this a function
+			SolanaPrograms: programIds,
+		}
+		output, err := blockchain.NewBlockchainNetwork(bcInput)
+		if err != nil {
+			// Check if the error is related to port allocation
+			if strings.Contains(err.Error(), "port is already allocated") {
+				fmt.Printf("[WARN] Port %d is already allocated. Retrying...\n", port)
+				maxRetries -= 1
+				continue
+			}
+		}
+		url = output.Nodes[0].HostHTTPUrl
+		wsURL = output.Nodes[0].HostWSUrl
+		defer testcontainers.CleanupContainer(t, output.Container)
 	}
-	output, err := blockchain.NewBlockchainNetwork(bcInput)
-	defer testcontainers.CleanupContainer(t, output.Container)
 	require.NoError(t, err)
-
-	url := output.Nodes[0].HostHTTPUrl
-	wsURL := output.Nodes[0].HostWSUrl
 
 	// Wait for api server to boot
 	client := solRpc.New(url)
