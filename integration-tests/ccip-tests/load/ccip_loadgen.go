@@ -234,6 +234,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 		latestEvent, err = sourceCCIP.IsPastRequestTriggeredWithinTimeframe(testcontext.Get(c.t), c.SkipRequestIfAnotherRequestTriggeredWithin)
 		require.NoError(c.t, err, "error while filtering past requests")
 		if latestEvent != nil {
+			//nolint:gosec // safe to cast
 			hdr, err := sourceCCIP.Common.ChainClient.HeaderByNumber(context.Background(), big.NewInt(int64(latestEvent.BlockNumber)))
 			require.NoError(c.t, err, "error while getting header by block number")
 			recentRequestFoundAt = pointer.ToTime(hdr.Timestamp)

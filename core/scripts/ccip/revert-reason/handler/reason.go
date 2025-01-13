@@ -125,7 +125,7 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 
 	stringErr, err := abi.UnpackRevert(data)
 	if err == nil {
-		return fmt.Sprintf("string error: %s", stringErr), nil
+		return "string error: " + stringErr, nil
 	}
 
 	return "", errors.Errorf(`cannot match error with contract ABI. Error code "%s"`, errorString)

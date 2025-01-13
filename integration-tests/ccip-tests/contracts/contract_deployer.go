@@ -564,7 +564,6 @@ func (e *CCIPContractsDeployer) NewMockLBTCTokenPoolContract(addr common.Address
 	default:
 		return nil, fmt.Errorf("version not supported: %s", version)
 	}
-
 }
 
 func (e *CCIPContractsDeployer) DeployMockLBTCTokenPoolContract(tokenAddr string, rmnProxy common.Address, router common.Address, destPoolData []byte) (

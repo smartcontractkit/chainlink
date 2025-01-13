@@ -702,9 +702,9 @@ func ConfigureOCRv2AggregatorContracts(
 // ReturnFunds attempts to return all the funds from the chainlink nodes to the network's default address
 // all from a remote, k8s style environment
 // Remove this once ccip-tests are moved to seth client
-func ReturnFunds(lggr zerolog.Logger, chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
+func ReturnFunds(lggr zerolog.Logger, chainlinkNodes []*nodeclient.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
-		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
+		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
 	lggr.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if blockchainClient.NetworkSimulated() {
@@ -725,7 +725,7 @@ func ReturnFunds(lggr zerolog.Logger, chainlinkNodes []*client.ChainlinkK8sClien
 			}
 			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
 			// issues. So we avoid running in parallel; slower, but safer.
-			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, nodeclient.ChainlinkKeyPassword)
 			if err != nil {
 				return err
 			}
@@ -787,7 +787,7 @@ func TeardownSuite(
 		} else {
 			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
 		}
-		// nolint
+		//nolint // moved from CCIP repo
 		if c != nil {
 			err := c.Close()
 			if err != nil {

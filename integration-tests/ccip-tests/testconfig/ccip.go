@@ -1,6 +1,7 @@
 package testconfig
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -277,7 +278,7 @@ type CCIPTestGroupConfig struct {
 	ReuseContracts                             *bool                                 `toml:",omitempty"`
 	NodeFunding                                float64                               `toml:",omitempty"`
 	NetworkPairs                               []string                              `toml:",omitempty"`
-	DenselyConnectedNetworkChainIds            []string                              `toml:",omitempty"`
+	DenselyConnectedNetworkChainIDs            []string                              `toml:",omitempty"`
 	NoOfNetworks                               int                                   `toml:",omitempty"`
 	NoOfRoutersPerPair                         int                                   `toml:",omitempty"`
 	MaxNoOfLanes                               int                                   `toml:",omitempty"`
@@ -342,7 +343,7 @@ func (c *CCIPTestGroupConfig) Validate() error {
 	}
 	if c.SkipRequestIfAnotherRequestTriggeredWithin != nil && c.LoadProfile != nil &&
 		c.LoadProfile.TimeUnit.Duration() < c.SkipRequestIfAnotherRequestTriggeredWithin.Duration() {
-		return fmt.Errorf("SkipRequestIfAnotherRequestTriggeredWithin should be set below the load TimeUnit duration")
+		return errors.New("SkipRequestIfAnotherRequestTriggeredWithin should be set below the load TimeUnit duration")
 	}
 
 	return nil
