@@ -14,6 +14,299 @@ import (
 //go:embed ccip_router.json
 var ccipRouter string
 
+const (
+	destChainSelectorPath = "Message.Header.DestChainSelector"
+	destTokenAddress      = "Message.TokenAmounts.DestTokenAddress"
+)
+
+func getCommitMethodConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte) chainwriter.MethodConfig {
+	return chainwriter.MethodConfig{
+		FromAddress:        fromAddress,
+		InputModifications: nil,
+		ChainSpecificName:  "commit",
+		LookupTables: chainwriter.LookupTables{
+			StaticLookupTables: []solana.PublicKey{
+				solana.PublicKey(commonAddressesLookupTable),
+			},
+		},
+		Accounts: []chainwriter.Lookup{
+			chainwriter.PDALookups{
+				Name: "RouterAccountConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "SourceChainState",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("source_chain_state")},
+					{Dynamic: chainwriter.AccountLookup{Location: "MerkleRoot.DestChainSelector"}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "RouterProgram",
+				Address:    routerProgramAddress,
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "RouterAccountConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "RouterAccountState",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("state")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "RouterReportAccount",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Dynamic: chainwriter.AccountLookup{
+						Location: "args.MerkleRoots",
+					}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "ComputeBudgetProgram",
+				Address:    computeBudgetProgramAddress,
+				IsSigner:   true,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "SysvarInstructions",
+				Address:    sysvarInstructionsAddress,
+				IsSigner:   true,
+				IsWritable: false,
+			},
+		},
+		DebugIDLocation: "",
+	}
+}
+
+func getExecuteProgramConfig(fromAddress string, routerProgramAddress string, sysvarInstructionsAddress string, computeBudgetProgramAddress string, commonAddressesLookupTable []byte) chainwriter.MethodConfig {
+	return chainwriter.MethodConfig{
+		FromAddress:        fromAddress,
+		InputModifications: nil,
+		ChainSpecificName:  "execute",
+		LookupTables: chainwriter.LookupTables{
+			DerivedLookupTables: []chainwriter.DerivedLookupTable{
+				{
+					Name: "RegistryTokenState",
+					Accounts: chainwriter.PDALookups{
+						Name: "RegistryTokenState",
+						PublicKey: chainwriter.AccountConstant{
+							Address:    routerProgramAddress,
+							IsSigner:   false,
+							IsWritable: false,
+						},
+						Seeds: []chainwriter.Seed{
+							{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+						},
+						IsSigner:   false,
+						IsWritable: false,
+					},
+				},
+			},
+			StaticLookupTables: []solana.PublicKey{
+				solana.PublicKey(commonAddressesLookupTable),
+			},
+		},
+		Accounts: []chainwriter.Lookup{
+			chainwriter.PDALookups{
+				Name: "RouterAccountConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "SourceChainState",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("source_chain_state")},
+					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "CommitReport",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("commit_report")},
+					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.AccountLookup{
+						Location: "Info.MerkleRoot",
+					}},
+				},
+				IsSigner:   false,
+				IsWritable: true,
+			},
+			chainwriter.PDALookups{
+				Name: "ExternalExecutionConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("external_execution_config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "Authority",
+				Address:    fromAddress,
+				IsSigner:   true,
+				IsWritable: true,
+			},
+			chainwriter.AccountConstant{
+				Name:       "SystemProgram",
+				Address:    solana.SystemProgramID.String(),
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "SysvarInstructions",
+				Address:    sysvarInstructionsAddress,
+				IsSigner:   true,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "ExternalTokenPoolsSigner",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("external_token_pools_signer")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountLookup{
+				Name:     "UserAccounts",
+				Location: "Message.ExtraArgs.Accounts",
+			},
+			chainwriter.PDALookups{
+				Name: "ReceiverAssociatedTokenAccount",
+				PublicKey: chainwriter.AccountConstant{
+					Address: solana.SPLAssociatedTokenAccountProgramID.String(),
+				},
+				Seeds: []chainwriter.Seed{
+					{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
+					{Dynamic: chainwriter.AccountsFromLookupTable{
+						LookupTableName: "RegistryTokenState",
+						IncludeIndexes:  []int{5},
+					}},
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+				},
+			},
+			chainwriter.PDALookups{
+				Name: "PerChainTokenConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountsFromLookupTable{
+				LookupTableName: "RegistryTokenState",
+				IncludeIndexes:  []int{},
+			},
+			chainwriter.PDALookups{
+				Name: "RegistryTokenConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "UserNoncePerChain",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
+					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+				},
+			},
+			chainwriter.PDALookups{
+				Name: "CPISigner",
+				PublicKey: chainwriter.AccountConstant{
+					Address:    routerProgramAddress,
+					IsSigner:   false,
+					IsWritable: false,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("external_token_pools_signer")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.AccountConstant{
+				Name:       "ComputeBudgetProgram",
+				Address:    computeBudgetProgramAddress,
+				IsSigner:   true,
+				IsWritable: false,
+			},
+		},
+		DebugIDLocation: "Message.MessageID",
+	}
+}
+
 func GetSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConfig, error) {
 	// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be updated
 	routerProgramAddress := ""
@@ -39,288 +332,8 @@ func GetSolanaChainWriterConfig(fromAddress string) (chainwriter.ChainWriterConf
 		Programs: map[string]chainwriter.ProgramConfig{
 			"ccip-router": {
 				Methods: map[string]chainwriter.MethodConfig{
-					"execute": {
-						FromAddress:        fromAddress,
-						InputModifications: nil,
-						ChainSpecificName:  "execute",
-						LookupTables: chainwriter.LookupTables{
-							DerivedLookupTables: []chainwriter.DerivedLookupTable{
-								{
-									Name: "RegistryTokenState",
-									Accounts: chainwriter.PDALookups{
-										Name: "RegistryTokenState",
-										PublicKey: chainwriter.AccountConstant{
-											Address:    routerProgramAddress,
-											IsSigner:   false,
-											IsWritable: false,
-										},
-										Seeds: []chainwriter.Seed{
-											{Dynamic: chainwriter.AccountLookup{Location: "Message.TokenAmounts.DestTokenAddress"}},
-										},
-										IsSigner:   false,
-										IsWritable: false,
-									},
-								},
-							},
-							StaticLookupTables: []solana.PublicKey{
-								solana.PublicKey(commonAddressesLookupTable),
-							},
-						},
-						Accounts: []chainwriter.Lookup{
-							chainwriter.PDALookups{
-								Name: "RouterAccountConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("config")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "SourceChainState",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("source_chain_state")},
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Header.DestChainSelector"}},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "CommitReport",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("commit_report")},
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Header.DestChainSelector"}},
-									{Dynamic: chainwriter.AccountLookup{
-										Location: "Info.MerkleRoot",
-									}},
-								},
-								IsSigner:   false,
-								IsWritable: true,
-							},
-							chainwriter.PDALookups{
-								Name: "ExternalExecutionConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("external_execution_config")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "Authority",
-								Address:    fromAddress,
-								IsSigner:   true,
-								IsWritable: true,
-							},
-							chainwriter.AccountConstant{
-								Name:       "SystemProgram",
-								Address:    solana.SystemProgramID.String(),
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "SysvarInstructions",
-								Address:    sysvarInstructionsAddress,
-								IsSigner:   true,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "ExternalTokenPoolsSigner",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("external_token_pools_signer")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountLookup{
-								Name:     "UserAccounts",
-								Location: "Message.ExtraArgs.Accounts",
-							},
-							chainwriter.PDALookups{
-								Name: "ReceiverAssociatedTokenAccount",
-								PublicKey: chainwriter.AccountConstant{
-									Address: solana.SPLAssociatedTokenAccountProgramID.String(),
-								},
-								Seeds: []chainwriter.Seed{
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
-									{Dynamic: chainwriter.AccountsFromLookupTable{
-										LookupTableName: "RegistryTokenState",
-										IncludeIndexes:  []int{5},
-									}},
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.TokenAmounts.DestTokenAddress"}},
-								},
-							},
-							chainwriter.PDALookups{
-								Name: "PerChainTokenConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.TokenAmounts.DestTokenAddress"}},
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Header.DestChainSelector"}},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountsFromLookupTable{
-								LookupTableName: "RegistryTokenState",
-								IncludeIndexes:  []int{},
-							},
-							chainwriter.PDALookups{
-								Name: "RegistryTokenConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.TokenAmounts.DestTokenAddress"}},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "UserNoncePerChain",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
-									{Dynamic: chainwriter.AccountLookup{Location: "Message.Header.DestChainSelector"}},
-								},
-							},
-							chainwriter.PDALookups{
-								Name: "CPISigner",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("external_token_pools_signer")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "ComputeBudgetProgram",
-								Address:    computeBudgetProgramAddress,
-								IsSigner:   true,
-								IsWritable: false,
-							},
-						},
-						DebugIDLocation: "Message.MessageID",
-					},
-					"commit": {
-						FromAddress:        fromAddress,
-						InputModifications: nil,
-						ChainSpecificName:  "commit",
-						LookupTables: chainwriter.LookupTables{
-							StaticLookupTables: []solana.PublicKey{
-								solana.PublicKey(commonAddressesLookupTable),
-							},
-						},
-						Accounts: []chainwriter.Lookup{
-							chainwriter.PDALookups{
-								Name: "RouterAccountConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("config")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "SourceChainState",
-								PublicKey: chainwriter.AccountConstant{
-									Address: routerProgramAddress,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("source_chain_state")},
-									{Dynamic: chainwriter.AccountLookup{Location: "MerkleRoot.DestChainSelector"}},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "RouterProgram",
-								Address:    routerProgramAddress,
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "RouterAccountConfig",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("config")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "RouterAccountState",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Static: []byte("state")},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.PDALookups{
-								Name: "RouterReportAccount",
-								PublicKey: chainwriter.AccountConstant{
-									Address:    routerProgramAddress,
-									IsSigner:   false,
-									IsWritable: false,
-								},
-								Seeds: []chainwriter.Seed{
-									{Dynamic: chainwriter.AccountLookup{
-										Location: "args.MerkleRoots",
-									}},
-								},
-								IsSigner:   false,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "ComputeBudgetProgram",
-								Address:    computeBudgetProgramAddress,
-								IsSigner:   true,
-								IsWritable: false,
-							},
-							chainwriter.AccountConstant{
-								Name:       "SysvarInstructions",
-								Address:    sysvarInstructionsAddress,
-								IsSigner:   true,
-								IsWritable: false,
-							},
-						},
-						DebugIDLocation: "",
-					},
+					"execute": getExecuteProgramConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable),
+					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable),
 				},
 				IDL: ccipRouter},
 		},
