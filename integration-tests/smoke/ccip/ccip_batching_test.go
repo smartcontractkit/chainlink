@@ -39,7 +39,7 @@ type batchTestSetup struct {
 
 func newBatchTestSetup(t *testing.T) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	e, _ := testsetups.NewIntegrationEnvironment(
+	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithMultiCall3(),
 		changeset.WithChains(3),

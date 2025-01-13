@@ -15,9 +15,9 @@ import (
 // This test only works if the destination chain id is 1337
 // Otherwise it shows error for offchain and onchain config digest mismatch
 func TestE2ELegacy(t *testing.T) {
-	e := changeset.NewMemoryEnvironment(
+	e, _ := changeset.NewMemoryEnvironment(
 		t,
-		changeset.WithLegacyDeployment(),
+		changeset.WithPrerequisiteDeployment(),
 		changeset.WithChains(3),
 		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)

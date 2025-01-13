@@ -128,10 +128,10 @@ func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uin
 		chains[cid] = deployment.SolChain{
 			Selector:    cid,
 			Client:      chain.Client,
-			DeployerKey: chain.DeployerKey,
+			DeployerKey: &chain.DeployerKey,
 			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
 				_, err := solCommomUtil.SendAndConfirm(
-					context.Background(), chain.Client, instructions, *chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
+					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
 				)
 				if err != nil {
 					return err
@@ -153,13 +153,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}

@@ -265,9 +265,11 @@ var aStar = ClientErrors{
 }
 
 var mantle = ClientErrors{
-	InsufficientEth: regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
-	Fatal:           regexp.MustCompile(`(: |^)'*invalid sender`),
-	NonceTooLow:     regexp.MustCompile(`(: |^)'*nonce too low`),
+	InsufficientEth:                   regexp.MustCompile(`(: |^)'*insufficient funds for gas \* price \+ value`),
+	Fatal:                             regexp.MustCompile(`(: |^)'*invalid sender`),
+	NonceTooLow:                       regexp.MustCompile(`(: |^)'*nonce too low`),
+	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)'*replacement transaction underpriced`),
+	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)'*already known`),
 }
 
 var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
