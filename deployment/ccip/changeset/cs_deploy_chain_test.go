@@ -137,7 +137,6 @@ func TestDeployCCIPContracts(t *testing.T) {
 }
 
 func TestHomeChainChangesetSolana(t *testing.T) {
-	t.Parallel()
 	e := NewMemoryEnvironment(t, WithSolChains(1))
 	evmSelectors := e.Env.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
