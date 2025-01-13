@@ -19,6 +19,7 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/dominikbraun/graph v0.23.0
+	github.com/doyensec/safeurl v0.2.1
 	github.com/esote/minmaxheap v1.0.0
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/fatih/color v1.17.0
