@@ -600,11 +600,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       );
     }
 
-    // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer
-    // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
-    // 36 decimals. uint112(packedGasPrice) = executionGasPrice
-
     uint256 calldataLength = message.data.length + tokenTransferBytesOverhead;
     uint256 destCallDataCost = calldataLength * destChainConfig.destGasPerPayloadByteBase;
     if (calldataLength > destChainConfig.destGasPerPayloadByteThreshold) {
@@ -612,18 +607,29 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         + (calldataLength - destChainConfig.destGasPerPayloadByteThreshold) * destChainConfig.destGasPerPayloadByteHigh;
     }
 
+    uint256 totalDestChainGasCost = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
+      + _parseEVMExtraArgsFromBytes(
+        message.extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).gasLimit;
+
+    // Calculate execution gas fee on destination chain in USD with 36 decimals.
+    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer
+    // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
+    // 36 decimals. uint112(packedGasPrice) = executionGasPrice
+
     // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
     // fee logic for other chains should be implemented in the future.
-    uint256 executionCost = uint112(packedGasPrice)
-      * (
-        destChainConfig.destGasOverhead + destCallDataCost + tokenTransferGas
-          + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
-      ) * destChainConfig.gasMultiplierWeiPerEth;
 
     // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // Result of the division is the number of smallest token denominations.
-    return (premiumFee + executionCost + dataAvailabilityCost) / feeTokenPrice;
+    return (
+      uint112(packedGasPrice) * totalDestChainGasCost * destChainConfig.gasMultiplierWeiPerEth + premiumFee
+        + dataAvailabilityCost
+    ) / feeTokenPrice;
   }
 
   /// @notice Sets the fee configuration for a token.
@@ -872,21 +878,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
   /// @param extraArgs The extra args bytes.
-  /// @param destChainConfig Dest chain config to validate against.
   /// @return evmExtraArgs The EVMExtraArgs struct (latest version).
   function _parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
+    uint32 defaultTxGasLimit,
+    uint256 maxPerMsgGasLimit,
+    bool enforceOutOfOrder
   ) internal pure returns (Client.EVMExtraArgsV2 memory) {
-    Client.EVMExtraArgsV2 memory evmExtraArgs =
-      _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+    Client.EVMExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
 
-    if (evmExtraArgs.gasLimit > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+    if (evmExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
 
     // If the chain enforces out of order execution, the extra args must allow it, otherwise revert. We cannot assume
     // the user intended to use OOO on any chain that requires it as it may lead to unexpected behavior. Therefore we
     // revert instead of assuming the user intended to use OOO.
-    if (destChainConfig.enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
+    if (enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
 
