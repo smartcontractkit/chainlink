@@ -157,7 +157,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @return The current liquidity manager, contract owner if the chain's funds are not siloed.
   function getRebalancerByChain(
     uint64 remoteChainSelector
-  ) external view returns (address) {
+  ) public view returns (address) {
     ChainSiloConfig memory remoteConfig = s_siloedChainConfigs[remoteChainSelector];
     if (remoteConfig.isSiloed) return remoteConfig.rebalancer;
     else return owner();
@@ -186,17 +186,14 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @param amount The amount of liquidity to provide.
   /// @dev If the chain is siloed, only the rebalancer can provide liquidity, otherwise the contract owner can.
   function provideLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+    if (msg.sender != getRebalancerByChain(remoteChainSelector)) revert Unauthorized(msg.sender);
+
     // Storage is used instead of memory to save gas, as the state may need to be updated if the chain is siloed.
     ChainSiloConfig storage remoteConfig = s_siloedChainConfigs[remoteChainSelector];
 
     if (remoteConfig.isSiloed) {
-      if (msg.sender != remoteConfig.rebalancer) revert Unauthorized(msg.sender);
-
       remoteConfig.siloedBalance += amount;
     } else {
-      // The contract owner is the unsiloed token rebalancer
-      if (msg.sender != owner()) revert Unauthorized(msg.sender);
-
       s_unsiloedTokenBalance += amount;
     }
 
