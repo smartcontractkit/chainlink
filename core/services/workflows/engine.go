@@ -1194,8 +1194,8 @@ type Config struct {
 	Workflow              sdk.WorkflowSpec
 	WorkflowID            string
 	WorkflowOwner         string
-	WorkflowName          string
-	WorkflowNameTransform func(string) string
+	WorkflowName          string // Full human-readable workflow name. Intended for metrics and logging.
+	WorkflowNameTransform string // The Workflow Name in an on-chain format, which has requirements of being hex encoded and max 10 bytes
 	Lggr                  logger.Logger
 	Registry              core.CapabilitiesRegistry
 	MaxWorkerLimit        int
@@ -1298,13 +1298,11 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
+	workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
 	workflow.name = cfg.WorkflowName
 
-	if cfg.WorkflowNameTransform != nil {
-		workflow.hexName = cfg.WorkflowNameTransform(cfg.WorkflowName)
-
-	} else {
-		workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
+	if len(cfg.WorkflowNameTransform) > 0 {
+		workflow.hexName = cfg.WorkflowNameTransform
 	}
 
 	engine = &Engine{
