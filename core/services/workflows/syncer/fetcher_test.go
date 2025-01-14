@@ -64,6 +64,25 @@ func TestNewFetcherService(t *testing.T) {
 		require.Equal(t, expectedPayload, payload)
 	})
 
+	t.Run("fails with invalid payload response", func(t *testing.T) {
+		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+
+		fetcher := NewFetcherService(lggr, wrapper)
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		gatewayResp := signGatewayResponse(t, inconsistentPayload(t, msgID, donID))
+		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		}).Return(nil).Times(1)
+		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+		_, err := fetcher.Fetch(ctx, url)
+		require.Error(t, err)
+	})
+
 	t.Run("fails due to invalid gateway response", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
@@ -87,10 +106,9 @@ func TestNewFetcherService(t *testing.T) {
 	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
 		headers := map[string]string{"Content-Type": "application/json"}
 		responsePayload, err := json.Marshal(ghcapabilities.Response{
-			StatusCode:     400,
-			Headers:        headers,
-			ErrorMessage:   "http: request body too large",
-			ExecutionError: true,
+			StatusCode:   400,
+			Headers:      headers,
+			ErrorMessage: "http: request body too large",
 		})
 		require.NoError(t, err)
 		gatewayResponse := &api.Message{
@@ -124,10 +142,26 @@ func gatewayResponse(t *testing.T, msgID string, donID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
-		StatusCode:     200,
-		Headers:        headers,
-		Body:           body,
-		ExecutionError: false,
+		StatusCode: 200,
+		Headers:    headers,
+		Body:       body,
+	})
+	require.NoError(t, err)
+	return &api.Message{
+		Body: api.MessageBody{
+			MessageId: msgID,
+			DonId:     donID,
+			Method:    ghcapabilities.MethodWebAPITarget,
+			Payload:   responsePayload,
+		},
+	}
+}
+
+// inconsistentPayload creates an unsigned gateway response with an inconsistent payload.  The
+// ExecutionError is true, but there is no ErrorMessage, so it is invalid.
+func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message {
+	responsePayload, err := json.Marshal(ghcapabilities.Response{
+		ExecutionError: true,
 	})
 	require.NoError(t, err)
 	return &api.Message{

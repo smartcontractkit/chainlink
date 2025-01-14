@@ -98,10 +98,14 @@ func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) 
 	}
 
 	s.lggr.Debugw("received gateway response")
+
 	var payload ghcapabilities.Response
-	err = json.Unmarshal(resp.Body.Payload, &payload)
-	if err != nil {
+	if err = json.Unmarshal(resp.Body.Payload, &payload); err != nil {
 		return nil, err
+	}
+
+	if err = payload.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid payload received from gateway message: %w", err)
 	}
 
 	if payload.ExecutionError {
