@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
+
 import {Client} from "../../libraries/Client.sol";
 import {CCIPBase} from "./CCIPBase.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 /// @title CCIPReceiver
 /// @notice This contract is capable of receiving incoming messages from the CCIP Router.
@@ -118,6 +121,23 @@ contract CCIPReceiver is CCIPBase {
     }
 
     emit MessageAbandoned(messageId, receiver);
+  }
+
+
+  /// @notice IERC165 supports an interfaceId.
+  /// @param interfaceId The interfaceId to check.
+  /// @return true if the interfaceId is supported.
+  /// @dev Should indicate whether the contract implements IAny2EVMMessageReceiver.
+  /// e.g. return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId
+  /// This allows CCIP to check if ccipReceive is available before calling it.
+  /// - If this returns false or reverts, only tokens are transferred to the receiver.
+  /// - If this returns true, tokens are transferred and ccipReceive is called atomically.
+  /// Additionally, if the receiver address does not have code associated with it at the time of
+  /// execution (EXTCODESIZE returns 0), only tokens will be transferred.
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public view virtual returns (bool) {
+    return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
   // ================================================================

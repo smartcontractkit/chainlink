@@ -181,7 +181,7 @@ abstract contract CCIPBase is OwnerIsCreator {
 
   /// @notice Reverts if the specified chainSelector is not approved to send/receive messages to/from this contract
   /// @param chainSelector the CCIP specific chain selector for a given remote-chain.
-  modifier isValidChain(uint64 chainSelector) {
+  modifier isValidChain(uint64 chainSelector) virtual {
     if (s_chainConfigs[chainSelector].recipient.length == 0) revert InvalidChain(chainSelector);
     _;
   }
@@ -190,7 +190,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @param chainSelector the CCIP specific chain selector for a given remote-chain.
   /// @param sender the address of the sender of the message on the source-chain.
   /// @dev The modifier will revert if either the sender is not approved OR if the relevant chain is currently disabled.
-  modifier isValidSender(uint64 chainSelector, bytes memory sender) {
+  modifier isValidSender(uint64 chainSelector, bytes memory sender) virtual {
     // If the chain is disabled, then short-circuit trigger a revert because no sender should be valid
     if (s_chainConfigs[chainSelector].recipient.length == 0 || !s_chainConfigs[chainSelector].approvedSender[sender]) {
       revert InvalidSender(sender);

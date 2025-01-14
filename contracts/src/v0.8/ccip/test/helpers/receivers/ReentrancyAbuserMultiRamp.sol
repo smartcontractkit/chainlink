@@ -32,7 +32,7 @@ contract ReentrancyAbuserMultiRamp is CCIPReceiverBasic {
     for (uint256 i = 0; i < numMsgs; ++i) {
       gasOverrides[0][i] = OffRamp.GasLimitOverride({
         receiverExecutionGasLimit: 0,
-        tokenGasOverrides: new uint32[](0)
+        tokenGasOverrides: new uint32[](s_payload.messages[i].tokenAmounts.length)
       });
     }
 
