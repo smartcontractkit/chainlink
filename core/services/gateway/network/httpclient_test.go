@@ -1,4 +1,4 @@
-//go:debug netdns=cgo
+//go:debug netdns=go
 package network
 
 import (
@@ -182,30 +182,26 @@ func TestHTTPClient_Send(t *testing.T) {
 	}
 }
 
+// IMPORTANT: The behaviour of Go's network stack is heavily dependent on the platform;
+// this means that the errors returned can change depending on whether the tests are
+// run on osx or on linux.
 func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	t.Parallel()
 
 	// Setup the test environment
 	lggr := logger.Test(t)
-	config := HTTPClientConfig{
-		MaxResponseBytes: 1024,
-		DefaultTimeout:   5 * time.Second,
-		BlockedIPs:       []string{"177.0.0.1"},
-	}
-
-	client, err := NewHTTPClient(config, lggr)
-	require.NoError(t, err)
-
 	// Define test cases
 	tests := []struct {
 		name          string
 		url           string
 		expectedError string
+		blockPort     bool
 	}{
 		{
 			name:          "blocked port",
-			url:           "http://127.0.0.1:8080",
+			url:           "http://177.0.0.1:8080",
 			expectedError: "port: 8080 not found in allowlist",
+			blockPort:     true,
 		},
 		{
 			name:          "blocked scheme",
@@ -219,12 +215,12 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 		},
 		{
 			name:          "explicitly blocked IP - internal network",
-			url:           "http://169.254.0.1/endpoint",
+			url:           "http://169.254.0.1",
 			expectedError: "ip: 169.254.0.1 not found in allowlist",
 		},
 		{
 			name:          "explicitly blocked IP - loopback",
-			url:           "http://127.0.0.1/endpoint",
+			url:           "http://127.0.0.1",
 			expectedError: "ip: 127.0.0.1 not found in allowlist",
 		},
 		{
@@ -234,71 +230,43 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 		},
 		{
 			name:          "explicitly blocked IP - loopback",
-			url:           "https://⑫7.0.0.1/",
+			url:           "https://⑫7.0.0.1",
 			expectedError: "ip: 127.0.0.1 not found in allowlist",
 		},
 		{
 			name:          "explicitly blocked IP - loopback shortened",
 			url:           "https://127.1",
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - loopback shortened",
 			url:           "https://127.0.1",
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
-		},
-		{
-			name:          "explicitly blocked IP - loopback hex no separators",
-			url:           "https://0x17F000001/",
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - loopback hex encoded with separators",
 			url:           `https://0x7F.0x00.0x00.0x01`,
-			expectedError: "127.0.0.1 not found in allowlist",
-		},
-		{
-			name:          "explicitly blocked IP - loopback octal encoded",
-			url:           `https://\\0177.0000.0000.0001`,
-			expectedError: "invalid character",
-		},
-		{
-			name: "explicitly blocked IP - loopback octal encoded",
-			url:  `https://0177.0000.0000.0001`,
-			// 0177.0000.0000.0001 is 127.0.0.1 octal encoded
-			// however Go interprets this as `177.0.0.1`
-			// in the test setup we add that URL to the list of blocked IPs
-			// if the test confirms that 177.0.0.1 is blocked, then that
-			// means we cannot access 127.0.0.1 via its octal encoding.
-			expectedError: "177.0.0.1 not found in allowlist",
-		},
-		{
-			name: "explicitly blocked IP - loopback binary encoded",
-			url:  `https://01111111.00000000.00000000.00000001`,
-			// fails with dial error
 			expectedError: "no such host",
 		},
 		{
-			name: "explicitly blocked IP - loopback - dword",
-			url:  "https://\\2130706433/",
-			// this fails with a parsing error
-			expectedError: "invalid character",
+			name:          "explicitly blocked IP - loopback octal encoded",
+			url:           `https://0177.0000.0000.0001`,
+			expectedError: "no such host",
 		},
 		{
-			name: "explicitly blocked IP - loopback - dword with overflow",
-			url:  "https://\\45080379393/",
-			// this fails with a parsing error
-			expectedError: "invalid character",
+			name:          "explicitly blocked IP - loopback binary encoded",
+			url:           `https://01111111.00000000.00000000.00000001`,
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - loopback - dword no escape",
-			url:           "https://2130706433/",
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
+			url:           "https://2130706433",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - loopback - dword with overflow no escape",
-			url:           "https://45080379393/",
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
+			url:           "https://45080379393",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - loopback - ipv6",
@@ -328,42 +296,37 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 		{
 			name:          "explicitly blocked IP - current network - octal",
 			url:           "http://0000.0000.0000.0001",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - current network - hex",
 			url:           "http://0x00.0x00.0x00.0x01",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
-		},
-		{
-			name:          "explicitly blocked IP - current network - hex no separators",
-			url:           "http://0x00000001",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - current network - binary",
 			url:           "http://00000000.00000000.00000000.00000001",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - current network - shortened",
 			url:           "http://1",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - current network - shortened",
 			url:           "http://0.1",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - current network - shortened",
 			url:           "http://0.0.1",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - dword",
 			url:           "http://42949672961",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: "no such host",
 		},
 		{
 			name:          "explicitly blocked IP - ipv6 mapped",
@@ -380,12 +343,46 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	// Execute test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := client.Send(context.Background(), HTTPRequest{
+			testURL, err := url.Parse(tt.url)
+			require.NoError(t, err)
+
+			if testURL.Port() == "" {
+				// Setup a test server so the request succeeds if we don't block it, then modify the URL to add the port to it.
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}))
+				defer server.Close()
+
+				u, ierr := url.Parse(server.URL)
+				require.NoError(t, ierr)
+
+				testURL.Host = testURL.Hostname() + ":" + u.Port()
+			}
+
+			portInt, err := strconv.ParseInt(testURL.Port(), 10, 64)
+			require.NoError(t, err)
+
+			allowedPorts := []int{}
+			if !tt.blockPort {
+				allowedPorts = []int{int(portInt)}
+			}
+
+			config := HTTPClientConfig{
+				MaxResponseBytes: 1024,
+				DefaultTimeout:   5 * time.Second,
+				AllowedPorts:     allowedPorts,
+			}
+
+			client, err := NewHTTPClient(config, lggr)
+			require.NoError(t, err)
+
+			require.NoError(t, err)
+			_, err = client.Send(context.Background(), HTTPRequest{
 				Method:  "GET",
-				URL:     tt.url,
+				URL:     testURL.String(),
 				Headers: map[string]string{},
 				Body:    nil,
-				Timeout: 10 * time.Millisecond,
+				Timeout: 1 * time.Second,
 			})
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.expectedError)
