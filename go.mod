@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250110181647-9dba278f2103
 	github.com/smartcontractkit/chainlink-common v0.4.1-0.20250115094325-4e61572bb9bd
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250113165937-53c02f2513d4
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20241220173418-09e17ddbeb20
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0

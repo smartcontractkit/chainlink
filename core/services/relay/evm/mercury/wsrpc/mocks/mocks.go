@@ -26,7 +26,7 @@ func (m *MockWSRPCClient) LatestReport(ctx context.Context, in *pb.LatestReportR
 }
 func (m *MockWSRPCClient) ServerURL() string { return "mock server url" }
 
-func (m *MockWSRPCClient) RawClient() pb.MercuryClient { return nil }
+func (m *MockWSRPCClient) RawClient() pb.MercuryLegacyClient { return nil }
 
 type MockConn struct {
 	State   grpc_connectivity.State

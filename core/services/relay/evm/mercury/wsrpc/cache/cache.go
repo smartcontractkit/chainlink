@@ -51,7 +51,7 @@ type Fetcher interface {
 type Client interface {
 	Fetcher
 	ServerURL() string
-	RawClient() pb.MercuryClient
+	RawClient() pb.MercuryLegacyClient
 }
 
 // Cache is scoped to one particular mercury server

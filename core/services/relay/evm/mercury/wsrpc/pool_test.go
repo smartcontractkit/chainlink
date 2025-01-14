@@ -21,7 +21,7 @@ var _ Client = &mockClient{}
 type mockClient struct {
 	started   bool
 	closed    bool
-	rawClient pb.MercuryClient
+	rawClient pb.MercuryLegacyClient
 }
 
 func (c *mockClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
@@ -38,11 +38,11 @@ func (c *mockClient) Close() error {
 	c.closed = true
 	return nil
 }
-func (c *mockClient) Name() string                   { return "mock client" }
-func (c *mockClient) Ready() error                   { return nil }
-func (c *mockClient) HealthReport() map[string]error { return nil }
-func (c *mockClient) ServerURL() string              { return "mock client url" }
-func (c *mockClient) RawClient() pb.MercuryClient    { return c.rawClient }
+func (c *mockClient) Name() string                      { return "mock client" }
+func (c *mockClient) Ready() error                      { return nil }
+func (c *mockClient) HealthReport() map[string]error    { return nil }
+func (c *mockClient) ServerURL() string                 { return "mock client url" }
+func (c *mockClient) RawClient() pb.MercuryLegacyClient { return c.rawClient }
 
 func newMockClient(lggr logger.Logger) *mockClient {
 	return &mockClient{}
