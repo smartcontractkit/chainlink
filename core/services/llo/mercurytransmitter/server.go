@@ -253,12 +253,18 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 				defer cancelFn()
 				return s.transmit(ctx, t)
 			}(ctx)
+
+			lggr := s.lggr.With("transmission", t, "response", res, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+			if req != nil {
+				lggr = s.lggr.With("req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat)
+			}
+
 			if ctx.Err() != nil {
 				// only canceled on transmitter close so we can exit
 				return false
 			} else if err != nil {
 				s.transmitConnectionErrorCount.Inc()
-				s.lggr.Errorw("Transmit report failed", "err", err, "req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat, "transmission", t)
+				lggr.Errorw("Transmit report failed", "err", err)
 				if ok := s.q.Push(t); !ok {
 					s.lggr.Error("Failed to push report to transmit queue; queue is closed")
 					return false
@@ -276,7 +282,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 			b.Reset()
 			if res.Error == "" {
 				s.transmitSuccessCount.Inc()
-				s.lggr.Debugw("Transmit report success", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+				lggr.Debug("Transmit report success")
 			} else {
 				// We don't need to retry here because the mercury server
 				// has confirmed it received the report. We only need to retry
@@ -285,17 +291,17 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 				case DuplicateReport:
 					s.transmitSuccessCount.Inc()
 					s.transmitDuplicateCount.Inc()
-					s.lggr.Debugw("Transmit report success; duplicate report", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+					lggr.Debug("Transmit report success; duplicate report")
 				default:
 					promTransmitServerErrorCount.WithLabelValues(donIDStr, s.url, strconv.FormatInt(int64(res.Code), 10)).Inc()
-					s.lggr.Errorw("Transmit report failed; mercury server returned error", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "response", res, "transmission", t, "err", res.Error, "code", res.Code)
+					lggr.Errorw("Transmit report failed; mercury server returned error", "err", res.Error, "code", res.Code)
 				}
 			}
 
 			select {
 			case s.deleteQueue <- t.Hash():
 			default:
-				s.lggr.Criticalw("Delete queue is full", "transmission", t, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+				lggr.Criticalw("Delete queue is full")
 			}
 			return true
 		}()
@@ -309,7 +315,7 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitReq
 	switch t.Report.Info.ReportFormat {
 	case llotypes.ReportFormatJSON:
 		payload, err = s.jsonPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
-	case llotypes.ReportFormatEVMPremiumLegacy:
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
 		payload, err = s.evmPremiumLegacyPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	default:
 		return nil, nil, fmt.Errorf("Transmit failed; don't know how to Pack unsupported report format: %q", t.Report.Info.ReportFormat)

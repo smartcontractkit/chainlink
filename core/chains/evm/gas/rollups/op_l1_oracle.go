@@ -26,6 +26,8 @@ import (
 )
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
+//
+//nolint:unused // backported from CCIP
 type optimismL1Oracle struct {
 	services.StateMachine
 	client     l1OracleClient

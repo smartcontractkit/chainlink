@@ -456,6 +456,8 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/dominikbraun/graph v0.23.0 h1:TdZB4pPqCLFxYhdyMFb1TBdFxp8XLcJfTTBQucVPgCo=
 github.com/dominikbraun/graph v0.23.0/go.mod h1:yOjYyogZLY1LSG9E33JWZJiq5k83Qy2C6POAuiViluc=
+github.com/doyensec/safeurl v0.2.1 h1:DY15JorEfQsnpBWhBkVQIkaif2jfxCC14PIuGDsjDVs=
+github.com/doyensec/safeurl v0.2.1/go.mod h1:wzSXqC/6Z410qHz23jtBWT+wQ8yTxcY0p8bZH/4EZIg=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
@@ -518,6 +520,7 @@ github.com/gagliardetto/binary v0.8.0 h1:U9ahc45v9HW0d15LoN++vIXSJyqR/pWw8DDlhd7
 github.com/gagliardetto/binary v0.8.0/go.mod h1:2tfj51g5o9dnvsc+fL3Jxr22MuWzYXwx9wEoN0XQ7/c=
 github.com/gagliardetto/gofuzz v1.2.2 h1:XL/8qDMzcgvR4+CyRQW9UGdwPRPMHVJfqQ/uMvSUuQw=
 github.com/gagliardetto/gofuzz v1.2.2/go.mod h1:bkH/3hYLZrMLbfYWA0pWzXmi5TTRZnu4pMGZBkqMKvY=
+github.com/gagliardetto/hashsearch v0.0.0-20191005111333-09dd671e19f9/go.mod h1:513DXpQPzeRo7d4dsCP3xO3XI8hgvruMl9njxyQeraQ=
 github.com/gagliardetto/solana-go v1.12.0 h1:rzsbilDPj6p+/DOPXBMLhwMZeBgeRuXjm5zQFCoXgsg=
 github.com/gagliardetto/solana-go v1.12.0/go.mod h1:l/qqqIN6qJJPtxW/G1PF4JtcE3Zg2vD2EliZrr9Gn5k=
 github.com/gagliardetto/treeout v0.1.4 h1:ozeYerrLCmCubo1TcIjFiOWTTGteOOHND1twdFpgwaw=
@@ -1105,6 +1108,7 @@ github.com/mfridman/interpolate v0.0.2 h1:pnuTK7MQIxxFz1Gr+rjSIx9u7qVjf5VOoM/u6B
 github.com/mfridman/interpolate v0.0.2/go.mod h1:p+7uk6oE07mpE/Ik1b8EckO0O4ZXiGAfshKBWLUM9Xg=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/miekg/dns v1.1.26/go.mod h1:bPDLeHnStXmXAq1m/Ch/hvfNHr14JKNPMBo3VZKjuso=
+github.com/miekg/dns v1.1.35/go.mod h1:KNUDUusw/aVsxyTYZM1oqvCicbwhgbNgztCETuNZ7xM=
 github.com/miekg/dns v1.1.41/go.mod h1:p6aan82bvRIyn+zDIv9xYNUpwa73JcSh9BKwknJysuI=
 github.com/miekg/dns v1.1.61 h1:nLxbwF3XxhwVSm8g9Dghm9MHPaUZuqhPiGL+675ZmEs=
 github.com/miekg/dns v1.1.61/go.mod h1:mnAarhS3nWaW+NVP2wTkYVIZyHNJ098SJZUki3eykwQ=
@@ -1395,16 +1399,16 @@ github.com/smartcontractkit/chain-selectors v1.0.36 h1:KSpO8I+JOiuyN4FuXsV471sPo
 github.com/smartcontractkit/chain-selectors v1.0.36/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250109124515-ff9d86b874ba h1:gisAer1YxKKui6LhxDgfuZ3OyrHVjHm/oK/0idusFeI=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250109124515-ff9d86b874ba/go.mod h1:ncjd6mPZSRlelEqH/2KeLE1pU3UlqzBSn8RYkEoECzY=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250110181647-9dba278f2103 h1:TeWnxdgSO2cYCKcBMwdkRcs/YdhSvXoWqqw7QWz/KeI=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250110181647-9dba278f2103/go.mod h1:ncjd6mPZSRlelEqH/2KeLE1pU3UlqzBSn8RYkEoECzY=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b h1:UBXi9Yj8YSMHDDaxQLu273x1fWjyEL9xP58nuJsqZfg=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b/go.mod h1:Bmwq4lNb5tE47sydN0TKetcLEGbgl+VxHEWp4S0LI60=
-github.com/smartcontractkit/chainlink-common v0.4.1-0.20250108194320-2ebd63bbb16e h1:8BStiP1F4W8AvjBRga0TYtjvAtkwN8oHYnHJztAlSF4=
-github.com/smartcontractkit/chainlink-common v0.4.1-0.20250108194320-2ebd63bbb16e/go.mod h1:yti7e1+G9hhkYhj+L5sVUULn9Bn3bBL5/AxaNqdJ5YQ=
+github.com/smartcontractkit/chainlink-common v0.4.1-0.20250113183410-42c3764c171e h1:l1npEX9O1Y1R4ss6yNPlggxFOdhPWmvD3tIMZkOzuDU=
+github.com/smartcontractkit/chainlink-common v0.4.1-0.20250113183410-42c3764c171e/go.mod h1:yti7e1+G9hhkYhj+L5sVUULn9Bn3bBL5/AxaNqdJ5YQ=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e h1:PRoeby6ZlTuTkv2f+7tVU4+zboTfRzI+beECynF4JQ0=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e/go.mod h1:mUh5/woemsVaHgTorA080hrYmO3syBCmPdnWc/5dOqk=
-github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241216163550-fa030d178ba3 h1:aeiBdBHGY8QNftps+VqrIk6OnfeeOD5z4jrAabW4ZSc=
-github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241216163550-fa030d178ba3/go.mod h1:AS6zY2BkcRwfiGzNabGbHhfrLSrXrcI/GmjnT4jQ5/s=
+github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250113165937-53c02f2513d4 h1:8qPzgbMGGn6CxQe/cjWvBgNKAxOL+brZZV+xYoY5+GE=
+github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250113165937-53c02f2513d4/go.mod h1:pDZagSGjs9U+l4YIFhveDznMHqxuuz+5vRxvVgpbdr8=
 github.com/smartcontractkit/chainlink-feeds v0.1.1 h1:JzvUOM/OgGQA1sOqTXXl52R6AnNt+Wg64sVG+XSA49c=
 github.com/smartcontractkit/chainlink-feeds v0.1.1/go.mod h1:55EZ94HlKCfAsUiKUTNI7QlE/3d3IwTlsU3YNa/nBb4=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20241220173418-09e17ddbeb20 h1:p/gzWpEf8alodCXm2Gtx2kWI/O9ZLdWZOdNnv5ZGO6c=
@@ -1413,8 +1417,8 @@ github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 h1:0ewLMbAz3
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2LpSQR9U1gEbRV6PfAkiFdINmQ8nVnXIAQ=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce h1:Mvpbr/Fi2IdU2EcmqCxhlCzs5ncnx+BwV80YweA4DZs=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce/go.mod h1:qq+nW0JDnCCGMf2c38ZHjH8xgkAQnXKighjJr5JdDNE=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250110142550-e2a9566d39f3 h1:L6UDu0GzSKfz+/nMSz9yfYrgOpW1/OXhiVK60PxVsnY=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250110142550-e2a9566d39f3/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 h1:tNS7U9lrxkFvEuyxQv11HHOiV9LPDGC9wYEy+yM/Jv4=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8/go.mod h1:EBrEgcdIbwepqguClkv8Ohy7CbyWSJaE4EC9aBJlQK0=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.2-0.20250110073248-456673e8eea2 h1:nTUoe7GZLw17nPLV5t3Vgf4U4pf+VW0Uko5xpNiKdKU=
@@ -2007,6 +2011,7 @@ golang.org/x/tools v0.0.0-20191115202509-3a792d9c32b2/go.mod h1:b+2E5dAYhXwXZwtn
 golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191125144606-a911d9008d1f/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191130070609-6e064ea0cf2d/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+golang.org/x/tools v0.0.0-20191216052735-49a3e744a425/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/tools v0.0.0-20191216173652-a0e659d51361/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/tools v0.0.0-20191227053925-7b8e75db28f4/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/tools v0.0.0-20200103221440-774c71fcf114/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=

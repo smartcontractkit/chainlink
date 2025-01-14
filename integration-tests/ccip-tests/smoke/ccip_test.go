@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/AlekSi/pointer"
-	"github.com/stretchr/testify/require"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -21,10 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 )
 
 type testDefinition struct {
@@ -245,7 +250,10 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				tc.lane.Source.Common.ChainClient.GetDefaultWallet(), src.Common.Router.Address(), src.TransferAmount[0]),
 			)
 			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
-			failedTx, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, err := tc.lane.Source.SendRequest(
+				tc.lane.Dest.ReceiverDapp.EthAddress,
+				big.NewInt(actions.DefaultDestinationGasLimit),
+			)
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err := tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
@@ -886,7 +894,7 @@ func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
 
 // Test creates above finality reorg at destination and
 // expects ccip transactions in-flight and the one initiated after reorg
-// doesn't go through and verifies f+1 nodes is able to detect reorg.
+// doesn't go through and verifies f+1 nodes are able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
 	utils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-4401")
@@ -898,7 +906,7 @@ func TestSmokeCCIPReorgAboveFinalityAtDestination(t *testing.T) {
 
 // Test creates above finality reorg at destination and
 // expects ccip transactions in-flight doesn't go through, the transaction initiated after reorg
-// shouldn't even get initiated and verifies f+1 nodes is able to detect reorg.
+// shouldn't even get initiated and verifies f+1 nodes are able to detect reorg.
 // Note: LogPollInterval interval is set as 1s to detect the reorg immediately
 func TestSmokeCCIPReorgAboveFinalityAtSource(t *testing.T) {
 	utils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-4401")
@@ -906,6 +914,123 @@ func TestSmokeCCIPReorgAboveFinalityAtSource(t *testing.T) {
 	t.Run("Above finality reorg in source chain", func(t *testing.T) {
 		performAboveFinalityReorgAndValidate(t, "Source")
 	})
+}
+
+// TestSmokeCCIPForGivenNetworkPairs is designed specifically for scheduled mainnet testing. This test checks for recent
+// transaction and skip the lanes accordingly. This test also has capability to take override input on network pairs and phase timeout.
+func TestSmokeCCIPForGivenNetworkPairs(t *testing.T) {
+	t.Parallel()
+	log := logging.GetTestLogger(t)
+	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
+	// override network pairs
+	var temp []testsetups.NetworkPair
+	overrideNetworkPairs, err := osutil.GetEnv("OVERRIDE_NETWORK_PAIRS")
+	require.NoError(t, err, "Error getting OVERRIDE_NETWORK_PAIRS environment variable")
+	if overrideNetworkPairs != "" {
+		networkPairs := strings.Split(overrideNetworkPairs, ";")
+		for _, networkPair := range networkPairs {
+			// check for any malformed inputs
+			if !strings.Contains(networkPair, ",") || len(strings.Split(networkPair, ",")) != 2 {
+				log.Error().Msgf("malformed OVERRIDE_NETWORK_PAIRS environment variable for network pair: %s ", networkPair)
+				return
+			}
+			networkPair = strings.ToUpper(strings.ReplaceAll(networkPair, "_", " "))
+			for _, network := range TestCfg.NetworkPairs {
+				if strings.Contains(networkPair, strings.ToUpper(network.NetworkA.Name)) && strings.Contains(networkPair, strings.ToUpper(network.NetworkB.Name)) {
+					temp = append(temp, network)
+					break
+				}
+			}
+		}
+		log.Info().Int("Pairs", len(temp)).Msg("Number of lanes overridden in the test")
+		log.Info().Interface("Lanes", networkPairs).Msg("Lanes under test")
+		TestCfg.NetworkPairs = temp
+	}
+
+	// phase timeout override
+	phaseTimeout, err := osutil.GetEnv("OVERRIDE_PHASE_TIMEOUT")
+	require.NoError(t, err, "Error getting OVERRIDE_PHASE_TIMEOUT environment variable")
+	if phaseTimeout != "" {
+		configDuration, err := config.ParseDuration(phaseTimeout)
+		require.NoError(t, err, "Error parsing phase timeout value")
+		TestCfg.TestGroupInput.PhaseTimeout = &configDuration
+		log.Info().Float64("Timeout in minutes", configDuration.Duration().Minutes()).Msg("Phase timeout is overridden")
+	}
+
+	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
+	if len(setUpOutput.Lanes) == 0 {
+		log.Error().Msg("No lanes found")
+		return
+	}
+
+	t.Cleanup(func() {
+		// If we are running a test that is a token transfer, we need to verify the balance.
+		// skip the balance check for existing deployment, there can be multiple external requests in progress for existing deployments
+		// other than token transfer initiated by the test, which can affect the balance check
+		// therefore we check the balance only for the ccip environment created by the test
+		if TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer() &&
+			!pointer.GetBool(TestCfg.TestGroupInput.USDCMockDeployment) &&
+			!pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {
+			setUpOutput.Balance.Verify(t)
+		}
+		require.NoError(t, setUpOutput.TearDown(), "error in tear down step")
+	})
+
+	var tests []testDefinition
+	lookBackDuration := TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin
+	var recentTxFound *types.Log
+
+	addLanesToTest := func(lane *actions.CCIPLane) {
+		// Create test definitions for given lane if no previous request has been triggered within the specified timeframe.
+		// By default, the timeframe is set to nil. To define a timeframe, assign a duration to the variable
+		// SkipRequestIfAnotherRequestTriggeredWithin.
+		if lookBackDuration != nil {
+			recentTxFound, err = lane.Source.IsPastRequestTriggeredWithinTimeframe(lane.Context, lookBackDuration)
+			require.NoError(t, err, "error while finding recent request for lane network %s to network %s",
+				lane.SourceNetworkName, lane.DestNetworkName)
+		}
+		if recentTxFound == nil {
+			tests = append(tests, testDefinition{
+				testName: fmt.Sprintf("CCIP message transfer from network %s to network %s",
+					lane.SourceNetworkName, lane.DestNetworkName),
+				lane: lane,
+			})
+		} else {
+			log.Info().
+				Str("TX", recentTxFound.TxHash.Hex()).
+				Uint64("Block Number", recentTxFound.BlockNumber).
+				Str("Source", lane.SourceNetworkName).
+				Str("Dest", lane.DestNetworkName).
+				Msgf("Lane Skipped. Recent request found within %v minutes.", lookBackDuration.Duration().Minutes())
+		}
+	}
+	for _, lane := range setUpOutput.Lanes {
+		addLanesToTest(lane.ForwardLane)
+		if lane.ReverseLane != nil {
+			recentTxFound = nil
+			addLanesToTest(lane.ReverseLane)
+		}
+	}
+
+	// Execute tests.
+	log.Info().Int("Total Lanes", len(tests)).Msg("Starting CCIP test")
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.testName, func(t *testing.T) {
+			t.Parallel()
+			tc.lane.Test = t
+			log.Info().
+				Str("Source", tc.lane.SourceNetworkName).
+				Str("Destination", tc.lane.DestNetworkName).
+				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
+
+			tc.lane.RecordStateBeforeTransfer()
+			err = tc.lane.SendRequests(1, gasLimit)
+			require.NoError(t, err, "error sending requests")
+			tc.lane.ValidateRequests()
+		})
+	}
 }
 
 // performAboveFinalityReorgAndValidate is to perform the above finality reorg test
@@ -952,7 +1077,7 @@ func performAboveFinalityReorgAndValidate(t *testing.T, network string) {
 			require.NoError(t, err)
 			for _, d := range resp.Data {
 				if d.Attributes.Name == logPollerName && d.Attributes.Output == "finality violated" && d.Attributes.Status == "failing" {
-					log.Debug().Msg("Finality violated is detected by node")
+					log.Debug().Str("Node", node.ChainlinkClient.URL()).Msg("Finality violated is detected by node")
 					nodesDetectedViolation[node.ChainlinkClient.URL()] = true
 				}
 			}

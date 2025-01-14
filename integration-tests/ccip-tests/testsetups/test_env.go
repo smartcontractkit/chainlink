@@ -240,6 +240,7 @@ func ChainlinkChart(
 		return chainlink.New(0, clProps)
 	}
 	clProps["replicas"] = pointer.GetInt(testInputs.EnvInput.NewCLCluster.NoOfNodes)
+
 	_, tomlStr, err := SetNodeConfig(
 		nets,
 		testInputs.EnvInput.NewCLCluster.Common.BaseConfigTOML,
@@ -293,6 +294,7 @@ func DeployLocalCluster(
 				require.NoError(t, err, "failed to get default chain config: %w", err)
 			} else {
 				chainConfig.ChainID = int(network.ChainID)
+
 				eth1 := ctf_config_types.EthereumVersion_Eth1
 				geth := ctf_config_types.ExecutionLayer_Geth
 
