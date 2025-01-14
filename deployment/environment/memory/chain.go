@@ -24,6 +24,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -221,6 +222,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 				continue
 			}
 		}
+		testcontainers.CleanupContainer(t, output.Container)
 		require.NoError(t, err)
 		url = output.Nodes[0].HostHTTPUrl
 		wsURL = output.Nodes[0].HostWSUrl
