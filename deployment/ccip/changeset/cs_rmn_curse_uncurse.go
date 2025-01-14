@@ -87,6 +87,8 @@ func SelectorToSubject(selector uint64) Subject {
 // CurseLaneOnlyOnSource curses a lane only on the source chain
 // This will prevent message from source to destination to be initiated
 // One noteworthy behaviour is that this means that message can be sent from destination to source but will not be executed on the source
+// Given 3 chains A, B, C
+// CurseLaneOnlyOnSource(A, B) will curse A with the curse subject of B
 func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) CurseAction {
 	// Curse from source to destination
 	return func(e deployment.Environment) []RMNCurseAction {
@@ -99,11 +101,14 @@ func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) Cu
 	}
 }
 
-func CurseGloballyOnlyOnSource(sourceSelector uint64) CurseAction {
+// CurseGloballyOnlyOnChain curses a chain globally only on the source chain
+// Given 3 chains A, B, C
+// CurseGloballyOnlyOnChain(A) will curse a with the global curse subject only
+func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 	return func(e deployment.Environment) []RMNCurseAction {
 		return []RMNCurseAction{
 			{
-				ChainSelector:  sourceSelector,
+				ChainSelector:  selector,
 				SubjectToCurse: GlobalCurseSubject(),
 			},
 		}
@@ -111,7 +116,9 @@ func CurseGloballyOnlyOnSource(sourceSelector uint64) CurseAction {
 }
 
 // Call Curse on both RMNRemote from source and destination to prevent message from source to destination and vice versa
-func CurseLane(sourceSelector uint64, destinationSelector uint64) CurseAction {
+// Given 3 chains A, B, C
+// CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
+func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
 	// Bidirectional curse between two chains
 	return func(e deployment.Environment) []RMNCurseAction {
 		return append(
@@ -122,6 +129,8 @@ func CurseLane(sourceSelector uint64, destinationSelector uint64) CurseAction {
 }
 
 // CurseChain do a global curse on chainSelector and curse chainSelector on all other chains
+// Given 3 chains A, B, C
+// CurseChain(A) will curse A with the global curse subject and curse B and C with the curse subject of A
 func CurseChain(chainSelector uint64) CurseAction {
 	return func(e deployment.Environment) []RMNCurseAction {
 		chainSelectors := e.AllChainSelectors()
@@ -138,7 +147,7 @@ func CurseChain(chainSelector uint64) CurseAction {
 		}
 
 		// Curse the chain with a global curse to prevent any onramp or offramp message from send message in and out of the chain
-		curseActions = append(curseActions, CurseGloballyOnlyOnSource(chainSelector)(e)...)
+		curseActions = append(curseActions, CurseGloballyOnlyOnChain(chainSelector)(e)...)
 
 		return curseActions
 	}

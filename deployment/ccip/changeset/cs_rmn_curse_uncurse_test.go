@@ -29,7 +29,7 @@ var testCases = []CurseTestCase{
 	{
 		name: "lane",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLane(mapIDToSelector(0), mapIDToSelector(1))}
+			return []CurseAction{CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, subject: 1, cursed: true},
@@ -43,7 +43,7 @@ var testCases = []CurseTestCase{
 	{
 		name: "lane duplicate",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLane(mapIDToSelector(0), mapIDToSelector(1)), CurseLane(mapIDToSelector(0), mapIDToSelector(1))}
+			return []CurseAction{CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1)), CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, subject: 1, cursed: true},
@@ -83,7 +83,7 @@ var testCases = []CurseTestCase{
 	{
 		name: "chain and lanes",
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseLane(mapIDToSelector(1), mapIDToSelector(2))}
+			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseLaneBidirectionally(mapIDToSelector(1), mapIDToSelector(2))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
