@@ -199,7 +199,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 						dest: DefaultOCRParams(
 							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
 							nil,
 						),
 					},
@@ -220,7 +220,7 @@ func Test_ActiveCandidate(t *testing.T) {
 					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 						dest: DefaultOCRParams(
 							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken.Address().String(), state.Chains[dest].Weth9.Address().String()),
+							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
 							nil,
 						),
 					},

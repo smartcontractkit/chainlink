@@ -60,12 +60,12 @@ func TestSaveExistingCCIP(t *testing.T) {
 			},
 			{
 				Address:        solAddr1,
-				TypeAndVersion: deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_6_0_dev),
+				TypeAndVersion: deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 			{
 				Address:        solAddr2,
-				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0_dev),
+				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 		},
