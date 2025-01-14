@@ -38,7 +38,11 @@ contract WorkflowRegistryManager_addVersion is WorkflowRegistryManagerSetup {
 
     // Try to add it again
     vm.prank(s_owner);
-    vm.expectRevert(abi.encodeWithSelector(WorkflowRegistryManager.ContractAlreadyRegistered.selector, address(mockWfrContract), s_chainID));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        WorkflowRegistryManager.ContractAlreadyRegistered.selector, address(mockWfrContract), s_chainID
+      )
+    );
     s_registryManager.addVersion(address(mockWfrContract), s_chainID, s_deployedAt, true);
   }
 
