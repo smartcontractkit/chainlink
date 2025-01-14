@@ -24,13 +24,6 @@ func init() {
 	AssertAllContractsArePresent()
 }
 
-const (
-	repoURL   = "https://github.com/smartcontractkit/chainlink-ccip.git"
-	revision  = "main" // TODO get this from go.mod
-	cloneDir  = "./.temp-repo"
-	solanaDir = cloneDir + "/chains/solana"
-)
-
 func runCommand(command string, args []string, workDir string) (string, error) {
 	fmt.Printf("Running command %s %v in %s\n", command, args, workDir)
 	cmd := exec.Command(command, args...)
@@ -56,8 +49,6 @@ func AssertAllContractsArePresent() {
 	// check if all contracts are present in the correct path
 	programsPath := memory.GetProgramsPath()
 
-	// rebuildContracts := false
-
 	// check if all contracts are present
 	for _, contract := range expectedContracts {
 		contractPath := fmt.Sprintf("%s/%s", programsPath, contract)
@@ -66,66 +57,8 @@ func AssertAllContractsArePresent() {
 
 		if err != nil {
 			panic(fmt.Sprintf("Contract %s not found in %s. Please run script TODO to populate them", contract, contractPath))
-			// fmt.Sprintf("Contract %s not found in %s", contract, contractPath)
-			// rebuildContracts = true
-			// break
 		}
 	}
-
-	// if !rebuildContracts {
-	// 	// if all contracts are present, we can skip rebuilding them
-	// 	return
-	// }
-
-	// fmt.Println("Cleaning up local repo...")
-	// _, err := runCommand("rm", []string{"-rf", cloneDir}, ".")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Failed to clear folder: %v", err))
-	// }
-
-	// fmt.Println("Cloning repository...")
-	// _, err = runCommand("git", []string{"clone", repoURL, cloneDir}, ".")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("failed to clone repository: %v", err))
-	// }
-
-	// fmt.Println("Checking out specific revision...")
-	// _, err = runCommand("git", []string{"checkout", revision}, cloneDir)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("failed to checkout revision %s: %v", revision, err))
-	// }
-
-	// fmt.Println("Building contracts...")
-	// _, err = runCommand("make", []string{"build-contracts"}, solanaDir)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Failed to build contracts: %s", err))
-	// }
-
-	// // move the contracts to the correct path
-	// runCommand("pwd", []string{}, solanaDir)
-	// runCommand("ls", []string{}, solanaDir)
-
-	// // Check if the target directory exists
-	// targetDir := solanaDir + "/contracts/target/deploy"
-
-	// // List the .so files in the target directory
-	// files, err := os.ReadDir(targetDir)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Failed to read target directory: %v", err))
-	// }
-
-	// // Copy each .so file individually, I don't know why the wildcard doesn't work
-	// for _, file := range files {
-	// 	if !file.IsDir() && strings.HasSuffix(file.Name(), ".so") {
-	// 		sourcePath := fmt.Sprintf("%s/%s", targetDir, file.Name())
-	// 		destPath := fmt.Sprintf("%s/%s", programsPath, file.Name())
-
-	// 		_, err = runCommand("cp", []string{sourcePath, destPath}, ".")
-	// 		if err != nil {
-	// 			panic(fmt.Sprintf("Failed to copy contract %s: %v", sourcePath, err))
-	// 		}
-	// 	}
-	// }
 }
 
 func TestDeployChainContractsChangeset(t *testing.T) {
