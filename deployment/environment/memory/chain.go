@@ -189,10 +189,11 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	t.Helper()
 
 	// initialize the docker network used by CTF
-	err := framework.DefaultNetwork(once)
+	_, err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	port := freeport.GetOne(t)
+	ports, err := freeport.Take(1)
+	require.NoError(t, err)
 
 	programIds := map[string]string{
 		"ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
@@ -203,7 +204,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		Type:         "solana",
 		ChainID:      strconv.FormatUint(chainID, 10),
 		PublicKey:    adminKey.PublicKey().String(),
-		Port:         strconv.Itoa(port),
+		Port:         strconv.Itoa(ports[0]),
 		ContractsDir: ProgramsPath,
 		// TODO: this should be solTestConfig.CCIPRouterProgram
 		// TODO: make this a function
