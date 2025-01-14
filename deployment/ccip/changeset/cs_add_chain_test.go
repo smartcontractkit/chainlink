@@ -87,7 +87,13 @@ func Test_AddChain(t *testing.T) {
 	}
 
 	// Transfer ownership of all contracts to the MCMS and renounce the timelock deployer.
-	transferToMCMSAndRenounceTimelockDeployer(t, e, toDeploy, state)
+	transferToMCMSAndRenounceTimelockDeployer(
+		t,
+		e,
+		toDeploy,
+		state,
+		false, // onlyChainContracts
+	)
 
 	// check RMNRemote is up and RMNProxy is correctly wired.
 	assertRMNRemoteAndProxyState(t, toDeploy, state)
@@ -243,7 +249,7 @@ func Test_AddChain(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	assertExistingChainsWiringOutboundToNewChain(
+	assertChainWiringOutbound(
 		t,
 		state,
 		remainingChain,
@@ -277,7 +283,7 @@ func Test_AddChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assertNewChainWiringInbound(
+	assertChainWiringInbound(
 		t,
 		state,
 		remainingChain,
@@ -327,7 +333,7 @@ func Test_AddChain(t *testing.T) {
 
 	// sanity check that everything is correctly set up.
 	for _, chain := range toDeploy {
-		assertExistingChainsWiringOutboundToNewChain(t, state, chain, []uint64{remainingChain}, true)
+		assertChainWiringOutbound(t, state, chain, []uint64{remainingChain}, true)
 	}
 
 	// UpdateOffRampSources called on the toDeploy chains to enable the new chain as a source. Also with the test router.
@@ -353,14 +359,127 @@ func Test_AddChain(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, chain := range toDeploy {
-		assertNewChainWiringInbound(t, state, chain, []uint64{remainingChain}, true)
+		assertChainWiringInbound(t, state, chain, []uint64{remainingChain}, true)
 	}
 
 	// Send messages from remainingChain to toDeploy thru the test router.
 	sendMsgs([]uint64{remainingChain}, toDeploy, true)
+
+	// Transfer the new chain contracts to the timelock ownership.
+	transferToMCMSAndRenounceTimelockDeployer(
+		t,
+		e,
+		[]uint64{remainingChain},
+		state,
+		true, // onlyChainContracts
+	)
+
+	// Once verified with the test routers, the last step is to whitelist the new chain on the real routers everywhere with
+	// UpdateRouterRamps, UpdateOffRampSources and UpdateOnRampDests with TestRouter=False.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		// OffRamp updates
+		// TODO: combine into one changeset call w/ the appropriate config.
+		{
+			// This updates the offRamps in toDeploy to enable the new chain as a source through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: offRampSourceUpdates(t, toDeploy, []uint64{remainingChain}, false),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			// This updates the offRamp in remainingChain to enable the toDeploy chains as sources through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: offRampSourceUpdates(t, []uint64{remainingChain}, toDeploy, false),
+				MCMS:           mcmsConfig,
+			},
+		},
+
+		// OnRamp updates
+		// TODO: combine into one changeset call w/ the appropriate config.
+		{
+			// This updates the onRamps in toDeploy to enable the new chain as a dest through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampDestUpdates(t, []uint64{remainingChain}, toDeploy, false),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			// This updates the onRamp in remainingChain to enable the toDeploy chains as dests through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampDestUpdates(t, toDeploy, []uint64{remainingChain}, false),
+				MCMS:           mcmsConfig,
+			},
+		},
+
+		// Router updates
+		// TODO: combine into one changeset call w/ the appropriate config.
+		{
+			// This updates the real router on remainingChain to enable the toDeploy chains as destinations.
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     false,
+				UpdatesByChain: routerOnRampUpdates(t, toDeploy, []uint64{remainingChain}),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			// This updates the real router on toDeploy chains to enable the new chain as a destination.
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     false,
+				UpdatesByChain: routerOnRampUpdates(t, []uint64{remainingChain}, toDeploy),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			// This updates the offRamps in toDeploy to enable the new chain as a source through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     false,
+				UpdatesByChain: routerOffRampUpdates(t, toDeploy, []uint64{remainingChain}),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			// This updates the offRamps in remaining chain to enable the toDeploy chains sources through the real router.
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     false,
+				UpdatesByChain: routerOffRampUpdates(t, []uint64{remainingChain}, toDeploy),
+				MCMS:           mcmsConfig,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// assert wiring is correct but with real router now.
+	// this checks that the toDeploy chains can be requested from remainingChain.
+	for _, chain := range toDeploy {
+		assertChainWiringOutbound(t, state, chain, []uint64{remainingChain}, false)
+	}
+	// this checks that the remainingChain can be requested from the toDeploy chains.
+	assertChainWiringOutbound(t, state, remainingChain, toDeploy, false)
+
+	// this checks that the toDeploy chains have remainingChain enabled as as a source.
+	for _, chain := range toDeploy {
+		assertChainWiringInbound(t, state, chain, []uint64{remainingChain}, false)
+	}
+	// this checks that the remainingChain has the toDeploy chains enabled as sources.
+	assertChainWiringInbound(t, state, remainingChain, toDeploy, false)
+
+	// Finally, at this point, we can request messages from the real routers.
+	// sendMsgs(toDeploy, []uint64{remainingChain}, false)
+	// sendMsgs([]uint64{remainingChain}, toDeploy, false)
 }
 
-func assertNewChainWiringInbound(
+// assertChainWiringInbound checks that the new chain has the existing chains enabled as sources.
+// It only checks the inbound wiring on the new chain.
+// It doesn't check that the existing chains have the new chain enabled as a dest.
+func assertChainWiringInbound(
 	t *testing.T,
 	state CCIPOnChainState,
 	newChain uint64,
@@ -400,12 +519,10 @@ func assertNewChainWiringInbound(
 	}
 }
 
-// assertExistingChainsWiringOutboundToNewChain asserts that the following changes are applied correctly on all existing chains:
-// UpdateOnRampDestsConfig on the existing chains with TestRouter=true and MCMS config enabled.
-// UpdateFeeQuoterPrices to set initial FQ prices to the new destination.
-// UpdateFeeQuoterDestsConfig to enable quoting for the new destination
-// UpdateRouterRampsConfig on the test router to enable the new destination
-func assertExistingChainsWiringOutboundToNewChain(
+// assertChainWiringOutbound checks that the new chain can be requested from the existing chains.
+// This only checks the outbound wiring on the existing chains.
+// It doesn't check that the new chain can process the requests.
+func assertChainWiringOutbound(
 	t *testing.T,
 	state CCIPOnChainState,
 	newChain uint64,
@@ -463,7 +580,7 @@ func routerOffRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updat
 	return
 }
 
-// routerOnRampUpdates adds the sets each dest selector in the given dest chains slice on the router
+// routerOnRampUpdates sets each dest selector in the given dest chains slice on the router
 // to point to the local onramp on each source chain.
 func routerOnRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
 	updates = make(map[uint64]RouterUpdates)
@@ -581,11 +698,28 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	e DeployedEnv,
 	chains []uint64,
 	state CCIPOnChainState,
+	onlyChainContracts bool,
 ) {
 	apps := make([]changesetcommon.ChangesetApplication, 0, len(chains)+1)
+	cfg := genTestTransferOwnershipConfig(e, chains, state)
+	if onlyChainContracts {
+		// filter out the home chain contracts from e.HomeChainSel
+		var homeChainContracts = map[common.Address]struct{}{
+			state.Chains[e.HomeChainSel].CapabilityRegistry.Address(): {},
+			state.Chains[e.HomeChainSel].CCIPHome.Address():           {},
+			state.Chains[e.HomeChainSel].RMNHome.Address():            {},
+		}
+		var chainContracts []common.Address
+		for _, contract := range cfg.ContractsByChain[e.HomeChainSel] {
+			if _, ok := homeChainContracts[contract]; !ok {
+				chainContracts = append(chainContracts, contract)
+			}
+		}
+		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
+	}
 	apps = append(apps, changesetcommon.ChangesetApplication{
 		Changeset: changesetcommon.WrapChangeSet(changesetcommon.TransferToMCMSWithTimelock),
-		Config:    genTestTransferOwnershipConfig(e, chains, state),
+		Config:    cfg,
 	})
 	for _, chain := range chains {
 		apps = append(apps, changesetcommon.ChangesetApplication{
