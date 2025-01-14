@@ -100,6 +100,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   error WorkflowContentNotUpdated();
   error WorkflowDoesNotExist();
   error WorkflowIDAlreadyExists();
+  error WorkflowNameRequired();
   error WorkflowNameTooLong(uint256 providedLength, uint8 maxAllowedLength);
 
   modifier registryNotLocked() {
@@ -687,6 +688,10 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   function _validateWorkflowName(
     uint256 workflowNameLength
   ) internal pure {
+    if (workflowNameLength == 0) {
+      revert WorkflowNameRequired();
+    }
+
     if (workflowNameLength > MAX_WORKFLOW_NAME_LENGTH) {
       revert WorkflowNameTooLong(workflowNameLength, MAX_WORKFLOW_NAME_LENGTH);
     }
