@@ -73,7 +73,7 @@ type CCIPOCRParams struct {
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
 }
 
-func (c CCIPOCRParams) Validate(selector uint64, state CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -109,6 +109,8 @@ func (c CCIPOCRParams) Validate(selector uint64, state CCIPOnChainState) error {
 			for _, tk := range onchainState.ERC677Tokens {
 				tokenInfos = append(tokenInfos, tk)
 			}
+			tokenInfos = append(tokenInfos, onchainState.LinkToken)
+			tokenInfos = append(tokenInfos, onchainState.Weth9)
 			symbol, decimal, err := findTokenInfo(tokenInfos, token)
 			if err != nil {
 				return err
@@ -117,13 +119,18 @@ func (c CCIPOCRParams) Validate(selector uint64, state CCIPOnChainState) error {
 				return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
 					symbol, token.String(), tokenConfig.Decimals, decimal)
 			}
-			aggregatorInState := onchainState.USDFeeds[TokenSymbol(symbol)]
+			feedChainState := state.Chains[feedChainSel]
+			aggregatorInState := feedChainState.USDFeeds[TokenSymbol(symbol)]
 			if aggregatorInState == nil {
-				return fmt.Errorf("token %s -address %s has no aggregator in state", symbol, token.String())
-			}
-			if aggregatorAddr != aggregatorInState.Address() {
-				return fmt.Errorf("token %s -address %s has aggregator %s in provided token config, expected %s",
-					symbol, token.String(), aggregatorAddr.String(), aggregatorInState.Address().String())
+				if aggregatorAddr != (common.Address{}) {
+					return fmt.Errorf("token %s -address %s has no aggregator in state,"+
+						" but the aggregator %s is provided in token config", symbol, token.String(), aggregatorAddr.String())
+				}
+			} else {
+				if aggregatorAddr != aggregatorInState.Address() {
+					return fmt.Errorf("token %s -address %s has aggregator %s in provided token config, expected %s",
+						symbol, token.String(), aggregatorAddr.String(), aggregatorInState.Address().String())
+				}
 			}
 		}
 	}
@@ -390,7 +397,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint64, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -421,7 +428,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if len(chainConfig.Readers) == 0 {
 			return errors.New("readers must be set")
 		}
-		err = params.Validate(chainSelector, state)
+		err = params.Validate(chainSelector, feedChain, state)
 		if err != nil {
 			return fmt.Errorf("invalid ccip ocr params: %w", err)
 		}
@@ -490,7 +497,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 		return err
 	}
 
-	if err := a.PluginInfo.Validate(state, a.HomeChainSelector); err != nil {
+	if err := a.PluginInfo.Validate(state, a.HomeChainSelector, a.FeedChainSelector); err != nil {
 		return fmt.Errorf("validate plugin info %s: %w", a.PluginInfo.String(), err)
 	}
 	for chainSelector := range a.PluginInfo.OCRConfigPerRemoteChainSelector {
@@ -685,7 +692,7 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 
 	chainToDonIDs := make(map[uint64]uint32)
 	for _, plugin := range s.PluginInfo {
-		if err := plugin.Validate(state, s.HomeChainSelector); err != nil {
+		if err := plugin.Validate(state, s.HomeChainSelector, s.FeedChainSelector); err != nil {
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
