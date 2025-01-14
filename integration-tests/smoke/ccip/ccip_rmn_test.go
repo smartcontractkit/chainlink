@@ -631,7 +631,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -663,7 +663,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.NewRMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -673,7 +673,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 				<-time.NewTimer(revokeAfter).C
 				t.Logf("revoking curse on subject %d (%d)", subjectDescription, subjectDescription)
 
-				_, err := changeset.NewRMNUncurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+				_, err := changeset.RMNUncurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})
