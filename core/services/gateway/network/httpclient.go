@@ -32,8 +32,9 @@ type HTTPClientConfig struct {
 }
 
 var (
-	defaultAllowedPorts   = []int{80, 443}
-	defaultAllowedSchemes = []string{"http", "https"}
+	defaultAllowedPorts     = []int{80, 443}
+	defaultAllowedSchemes   = []string{"http", "https"}
+	defaultMaxResponseBytes = uint32(30 * 1024 * 1024) // 30MB
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -45,17 +46,23 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 		c.AllowedSchemes = defaultAllowedSchemes
 	}
 
+	if c.MaxResponseBytes == 0 {
+		c.MaxResponseBytes = defaultMaxResponseBytes
+	}
+
 	// safeurl automatically blocks internal IPs so no need
 	// to set defaults here.
 }
 
 type HTTPRequest struct {
-	Method  string
-	URL     string
-	Headers map[string]string
-	Body    []byte
-	Timeout time.Duration
+	Method           string
+	URL              string
+	Headers          map[string]string
+	Body             []byte
+	Timeout          time.Duration
+	MaxResponseBytes uint32
 }
+
 type HTTPResponse struct {
 	StatusCode int               // HTTP status code
 	Headers    map[string]string // HTTP headers
@@ -109,7 +116,10 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	}
 	defer resp.Body.Close()
 
-	reader := http.MaxBytesReader(nil, resp.Body, int64(c.config.MaxResponseBytes))
+	n := maxReadBytes(readSize{defaultSize: c.config.MaxResponseBytes, requestSize: req.MaxResponseBytes})
+	c.lggr.Debugw("max bytes to read from HTTP response", "bytes", n)
+
+	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -127,4 +137,23 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		StatusCode: resp.StatusCode,
 		Body:       body,
 	}, nil
+}
+
+type readSize struct {
+	defaultSize uint32
+	requestSize uint32
+}
+
+func maxReadBytes(sizes readSize) uint32 {
+	if sizes.requestSize == 0 {
+		return sizes.defaultSize
+	}
+	return minUint32(sizes.defaultSize, sizes.requestSize)
+}
+
+func minUint32(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
 }
