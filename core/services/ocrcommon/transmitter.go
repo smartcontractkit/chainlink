@@ -2,10 +2,7 @@ package ocrcommon
 
 import (
 	"context"
-	errors2 "errors"
-	"fmt"
 	"math/big"
-	"net/url"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,6 +25,8 @@ type txManager interface {
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) common.Address
+
+	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
 }
 
 type transmitter struct {
@@ -99,7 +98,24 @@ func NewOCR2FeedsTransmitter(
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
-	baseTransmitter := &ocr2FeedsTransmitter{
+	if dualTransmissionConfig != nil {
+		return &ocr2FeedsDualTransmission{
+			ocr2Aggregator:                     ocr2Aggregator,
+			txm:                                txm,
+			txManagerOCR2:                      txm,
+			primaryFromAddresses:               fromAddresses,
+			gasLimit:                           gasLimit,
+			primaryEffectiveTransmitterAddress: effectiveTransmitterAddress,
+			strategy:                           strategy,
+			checker:                            checker,
+			chainID:                            chainID,
+			keystore:                           keystore,
+			secondaryContractAddress:           dualTransmissionConfig.ContractAddress,
+			secondaryFromAddress:               dualTransmissionConfig.TransmitterAddress,
+			secondaryMeta:                      dualTransmissionConfig.Meta,
+		}, nil
+	}
+	return &ocr2FeedsTransmitter{
 		ocr2Aggregator: ocr2Aggregator,
 		txManagerOCR2:  txm,
 		transmitter: transmitter{
@@ -112,17 +128,7 @@ func NewOCR2FeedsTransmitter(
 			chainID:                     chainID,
 			keystore:                    keystore,
 		},
-	}
-
-	if dualTransmissionConfig != nil {
-		return &ocr2FeedsDualTransmission{
-			transmitter:              *baseTransmitter,
-			secondaryContractAddress: dualTransmissionConfig.ContractAddress,
-			secondaryFromAddress:     dualTransmissionConfig.TransmitterAddress,
-			secondaryMeta:            dualTransmissionConfig.Meta,
-		}, nil
-	}
-	return baseTransmitter, nil
+	}, nil
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
@@ -142,6 +148,10 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Meta:             txMeta,
 	})
 	return errors.Wrap(err, "skipped OCR transmission")
+}
+
+func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
+	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
 func (t *transmitter) FromAddress(context.Context) common.Address {
@@ -219,56 +229,6 @@ func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Ag
 	return forwarderAddress, nil
 }
 
-type ocr2FeedsDualTransmission struct {
-	transmitter ocr2FeedsTransmitter
-
-	secondaryContractAddress common.Address
-	secondaryFromAddress     common.Address
-	secondaryMeta            map[string][]string
-}
-
-func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	// Primary transmission
-	errPrimary := t.transmitter.CreateEthTransaction(ctx, toAddress, payload, txMeta)
-	if errPrimary != nil {
-		errPrimary = fmt.Errorf("skipped primary transmission: %w", errPrimary)
-	}
-
-	if txMeta == nil {
-		txMeta = &txmgr.TxMeta{}
-	}
-
-	dualBroadcast := true
-	dualBroadcastParams := t.urlParams()
-
-	txMeta.DualBroadcast = &dualBroadcast
-	txMeta.DualBroadcastParams = &dualBroadcastParams
-
-	// Secondary transmission
-	_, errSecondary := t.transmitter.txm.CreateTransaction(ctx, txmgr.TxRequest{
-		FromAddress:    t.secondaryFromAddress,
-		ToAddress:      t.secondaryContractAddress,
-		EncodedPayload: payload,
-		FeeLimit:       t.transmitter.gasLimit,
-		Strategy:       t.transmitter.strategy,
-		Checker:        t.transmitter.checker,
-		Meta:           txMeta,
-	})
-
-	errSecondary = errors.Wrap(errSecondary, "skipped secondary transmission")
-	return errors2.Join(errPrimary, errSecondary)
-}
-
-func (t *ocr2FeedsDualTransmission) FromAddress(ctx context.Context) common.Address {
-	return t.transmitter.FromAddress(ctx)
-}
-
-func (t *ocr2FeedsDualTransmission) urlParams() string {
-	values := url.Values{}
-	for k, v := range t.secondaryMeta {
-		for _, p := range v {
-			values.Add(k, p)
-		}
-	}
-	return values.Encode()
+func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
+	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
