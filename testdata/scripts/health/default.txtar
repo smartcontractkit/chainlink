@@ -32,11 +32,11 @@ HTTPPort = $PORT
 
 -- out.txt --
 ok HeadReporter
+ok Heartbeat
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
-ok NodeHeartbeat
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
@@ -52,6 +52,15 @@ ok WorkflowDBStore
       "id": "HeadReporter",
       "attributes": {
         "name": "HeadReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Heartbeat",
+      "attributes": {
+        "name": "Heartbeat",
         "status": "passing",
         "output": ""
       }
@@ -88,15 +97,6 @@ ok WorkflowDBStore
       "id": "Mercury.WSRPCPool.CacheSet",
       "attributes": {
         "name": "Mercury.WSRPCPool.CacheSet",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "NodeHeartbeat",
-      "attributes": {
-        "name": "NodeHeartbeat",
         "status": "passing",
         "output": ""
       }

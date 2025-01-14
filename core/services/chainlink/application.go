@@ -83,7 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-const Heartbeat = time.Second
+const HeartbeatPeriod = time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -197,26 +197,26 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
-type ApplicationHeartbeat struct {
+type Heartbeat struct {
 	commonservices.Service
 	eng *commonservices.Engine
 
 	beat time.Duration
 }
 
-func NewApplicationHeartbeat(lggr logger.Logger) ApplicationHeartbeat {
-	h := ApplicationHeartbeat{
-		beat: Heartbeat,
+func NewHeartbeat(lggr logger.Logger) Heartbeat {
+	h := Heartbeat{
+		beat: HeartbeatPeriod,
 	}
 	h.Service, h.eng = commonservices.Config{
-		Name:  "NodeHeartbeat",
+		Name:  "Heartbeat",
 		Start: h.start,
 		Close: h.close,
 	}.NewServiceEngine(lggr)
 	return h
 }
 
-func (h *ApplicationHeartbeat) start(_ context.Context) error {
+func (h *Heartbeat) start(_ context.Context) error {
 	// Setup beholder resources
 	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
 	if err != nil {
@@ -248,11 +248,11 @@ func (h *ApplicationHeartbeat) start(_ context.Context) error {
 	return nil
 }
 
-func (h *ApplicationHeartbeat) close() error {
+func (h *Heartbeat) close() error {
 	return nil
 }
 
-func (h *ApplicationHeartbeat) getBeat() time.Duration {
+func (h *Heartbeat) getBeat() time.Duration {
 	return h.beat
 }
 
@@ -264,7 +264,7 @@ func (h *ApplicationHeartbeat) getBeat() time.Duration {
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
 
-	heartbeat := NewApplicationHeartbeat(opts.Logger)
+	heartbeat := NewHeartbeat(opts.Logger)
 	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger
