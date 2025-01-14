@@ -199,7 +199,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	m := &module{module: mod}
 	err = c.modules.add(id, m)
 	if err != nil {
-		c.log.Errorf("failed to add module to cache: %s", err.Error())
+		c.log.Warnf("failed to add module to cache: %s", err.Error())
 	}
 	return m, nil
 }
