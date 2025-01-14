@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -41,7 +41,7 @@ func TestUpdateDon(t *testing.T) {
 		// we have to keep track of the existing capabilities to add to the new ones
 		var p2pIDs []p2pkey.PeerID
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			p2pIDs = append(p2pIDs, k)
@@ -64,7 +64,7 @@ func TestUpdateDon(t *testing.T) {
 
 			csOut, err := changeset.UpdateDon(te.Env, &cfg)
 			require.NoError(t, err)
-			require.Len(t, csOut.Proposals, 0)
+			require.Empty(t, csOut.Proposals)
 			require.Nil(t, csOut.AddressBook)
 
 			assertDonContainsCapabilities(t, te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, caps, p2pIDs)
@@ -82,7 +82,7 @@ func TestUpdateDon(t *testing.T) {
 		// contract set is already deployed with capabilities
 		// we have to keep track of the existing capabilities to add to the new ones
 		var p2pIDs []p2pkey.PeerID
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			p2pIDs = append(p2pIDs, k)

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/doyensec/safeurl"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -19,6 +21,28 @@ type HTTPClient interface {
 type HTTPClientConfig struct {
 	MaxResponseBytes uint32
 	DefaultTimeout   time.Duration
+	BlockedIPs       []string
+	BlockedIPsCIDR   []string
+	AllowedPorts     []int
+	AllowedSchemes   []string
+}
+
+var (
+	defaultAllowedPorts   = []int{80, 443}
+	defaultAllowedSchemes = []string{"http", "https"}
+)
+
+func (c *HTTPClientConfig) ApplyDefaults() {
+	if len(c.AllowedPorts) == 0 {
+		c.AllowedPorts = defaultAllowedPorts
+	}
+
+	if len(c.AllowedSchemes) == 0 {
+		c.AllowedSchemes = defaultAllowedSchemes
+	}
+
+	// safeurl automatically blocks internal IPs so no need
+	// to set defaults here.
 }
 
 type HTTPRequest struct {
@@ -35,7 +59,7 @@ type HTTPResponse struct {
 }
 
 type httpClient struct {
-	client *http.Client
+	client *safeurl.WrappedClient
 	config HTTPClientConfig
 	lggr   logger.Logger
 }
@@ -43,13 +67,20 @@ type httpClient struct {
 // NewHTTPClient creates a new NewHTTPClient
 // As of now, the client does not support TLS configuration but may be extended in the future
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
+	config.ApplyDefaults()
+	safeConfig := safeurl.
+		GetConfigBuilder().
+		SetTimeout(config.DefaultTimeout).
+		SetAllowedPorts(config.AllowedPorts...).
+		SetAllowedSchemes(config.AllowedSchemes...).
+		SetBlockedIPs(config.BlockedIPs...).
+		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
+		Build()
+
 	return &httpClient{
 		config: config,
-		client: &http.Client{
-			Timeout:   config.DefaultTimeout,
-			Transport: http.DefaultTransport,
-		},
-		lggr: lggr,
+		client: safeurl.Client(safeConfig),
+		lggr:   lggr,
 	}, nil
 }
 

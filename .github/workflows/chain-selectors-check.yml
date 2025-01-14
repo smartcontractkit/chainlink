@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: ./.github/actions/setup-go

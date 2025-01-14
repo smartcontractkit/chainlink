@@ -17,6 +17,11 @@ library Internal {
   /// @dev The expected number of bytes returned by the balanceOf function.
   uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
 
+  /// @dev The address used to send calls for gas estimation.
+  /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
+  /// given message and you're attempting to estimate the actual necessary gas limit
+  address public constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
+
   /// @notice A collection of token price and gas price updates.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct PriceUpdates {

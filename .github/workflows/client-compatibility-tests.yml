@@ -50,27 +50,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Check for go.mod changes
         id: changes
+        env:
+          GH_BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ -z "${{ github.base_ref }}" ]; then
+          if [ -z "$GH_BASE_REF" ]; then
             echo "No base branch found, this should not happen in a PR or MQ. Please reach out to the Test Tooling team."
             echo "Github even that triggered the workflow: $GITHUB_EVENT_NAME"
             echo "Github ref that triggered the workflow: $GITHUB_REF"
             exit 1
           fi
-          git fetch origin ${{ github.base_ref }}
+          git fetch origin $GH_BASE_REF
           # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
           # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
-          DEPENDENCY_CHANGED=$(git diff -U0 origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          DEPENDENCY_CHANGED=$(git diff -U0 origin/$GH_BASE_REF...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
           PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
 
           # here 0 means a match was found, 1 means no match was found
           if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
             # Dependency was changed in the PR, now compare with the base branch
-            git fetch origin ${{ github.base_ref }}
-            BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+            git fetch origin $GH_BASE_REF
+            BASE_VERSION=$(git show origin/$GH_BASE_REF:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
 
             echo "Base branch version: $BASE_VERSION"
             echo "PR branch version: $PR_VERSION"
@@ -142,6 +145,9 @@ jobs:
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/ghlatestreleasechecker@v1.0.0
       - name: Select EVM implementations to test
         id: select-implementations
+        env:
+          GH_EVENT_INPUTS_BASE64_TEST_LIST: ${{ github.event.inputs.base64TestList }}
+          GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS: ${{ github.event.inputs.evmImplementations }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH          
@@ -184,11 +190,11 @@ jobs:
             fi
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+            if [ -n "$GH_EVENT_INPUTS_BASE64_TEST_LIST" ]; then
               echo "Base64-ed Test Input provided, ignoring EVM implementations"
             else
-              echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
-              echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
+              echo "Will test following EVM implementations: $GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS"
+              echo "evm_implementations=$GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS" >> $GITHUB_OUTPUT
             fi
           else 
             echo "Will test all EVM implementations"
@@ -196,6 +202,12 @@ jobs:
           fi
       - name: Select Chainlink version
         id: select-chainlink-version
+        env:
+          GH_EVENT_INPUTS_CHAINLINK_VERSION: ${{ github.event.inputs.chainlinkVersion }}
+          GH_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_EVENT_MERGE_GROUP_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
@@ -209,9 +221,9 @@ jobs:
             cl_ref_path="releases"
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Fetching Chainlink version from input"
-            if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
+            if [ -n "$GH_EVENT_INPUTS_CHAINLINK_VERSION" ]; then
               echo "Chainlink version provided in input"
-              chainlink_version="${{ github.event.inputs.chainlinkVersion }}"              
+              chainlink_version="$GH_EVENT_INPUTS_CHAINLINK_VERSION"              
               if [[ "$chainlink_version" =~ ^[0-9a-f]{40}$ ]]; then
                 cl_ref_path="commit"
                 chainlink_image_version=$chainlink_version
@@ -222,23 +234,23 @@ jobs:
               fi
             else
               echo "Chainlink version not provided in input. Using latest commit SHA."
-              chainlink_version=${{ github.sha }}
+              chainlink_version=$GH_SHA
               chainlink_image_version=$chainlink_version
               cl_ref_path="commit"
             fi
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
-            chainlink_version="${{ github.event.pull_request.head.sha }}"
+            chainlink_version="$GH_EVENT_PULL_REQUEST_HEAD_SHA"
             chainlink_image_version=$chainlink_version
             cl_ref_path="commit"
           elif [ "$GITHUB_EVENT_NAME" = "merge_queue" ]; then
             echo "Fetching Chainlink version from merge queue's head commit"
-            chainlink_version="${{ github.event.merge_group.head_sha }}"
+            chainlink_version="$GH_EVENT_MERGE_GROUP_HEAD_SHA"
             chainlink_image_version=$chainlink_version
             cl_ref_path="commit"
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Fetching Chainlink version from tag"
-            chainlink_version="${{ github.ref_name }}"
+            chainlink_version="$GH_REF_NAME"
             # strip the 'v' from the version, because we tag our Docker images without it
             chainlink_image_version="${chainlink_version#v}"
             cl_ref_path="releases"
@@ -253,13 +265,16 @@ jobs:
           echo "cl_ref_path=$cl_ref_path" >> $GITHUB_OUTPUT
       - name: Get image count
         id: get-image-count
+        env:
+          GH_EVENT_INPUTS_BASE64_TEST_LIST: ${{ github.event.inputs.base64TestList }}
+          GH_EVENT_INPUTS_LATEST_VERSIONS_NUMBER: ${{ github.event.inputs.latestVersionsNumber }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Fetching latest image count from input"
-            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+            if [ -n "$GH_EVENT_INPUTS_BASE64_TEST_LIST" ]; then
               echo "Base64-ed Test Input provided, ignoring latest image count"
             else
-              image_count="${{ github.event.inputs.latestVersionsNumber }}"
+              image_count="$GH_EVENT_INPUTS_LATEST_VERSIONS_NUMBER"
               echo "image_count=$image_count" >> $GITHUB_OUTPUT
             fi
           else
@@ -326,6 +341,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
@@ -595,6 +611,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Setup GAP for Grafana
@@ -851,6 +868,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Get test results for ${{ matrix.product }}
         id: get-product-results

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -18,6 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -27,6 +32,7 @@ const (
 
 type MemoryEnvironmentConfig struct {
 	Chains             int
+	SolChains          int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -58,9 +64,20 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 	return generateMemoryChain(t, mchains), users
 }
 
-func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64) map[uint64]deployment.Chain {
-	mchains := GenerateChainsWithIds(t, chainIDs)
-	return generateMemoryChain(t, mchains)
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
+	mchains := GenerateChainsSol(t, numChains)
+	return generateMemoryChainSol(t, mchains)
+}
+
+func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
+	mchains := GenerateChainsWithIds(t, chainIDs, numUsers)
+	users := make(map[uint64][]*bind.TransactOpts)
+	for id, chain := range mchains {
+		sel, err := chainsel.SelectorFromChainId(id)
+		require.NoError(t, err)
+		users[sel] = chain.Users
+	}
+	return generateMemoryChain(t, mchains), users
 }
 
 func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]deployment.Chain {
@@ -80,10 +97,13 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 				}
 				for {
 					backend.Commit()
-					receipt, err := backend.TransactionReceipt(context.Background(), tx.Hash())
+					receipt, err := func() (*types.Receipt, error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+						defer cancel()
+						return bind.WaitMined(ctx, backend, tx)
+					}()
 					if err != nil {
-						t.Log("failed to get receipt", "chain", chainInfo.ChainName, err)
-						continue
+						return 0, fmt.Errorf("tx %s failed to confirm: %w, chain %d", tx.Hash().Hex(), err, chainInfo.ChainSelector)
 					}
 					if receipt.Status == 0 {
 						errReason, err := deployment.GetErrorReasonFromTx(chain.Backend.Client(), chain.DeployerKey.From, tx, receipt)
@@ -101,6 +121,28 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
+func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
+	chains := make(map[uint64]deployment.SolChain)
+	for cid, chain := range inputs {
+		chain := chain
+		chains[cid] = deployment.SolChain{
+			Selector:    cid,
+			Client:      chain.Client,
+			DeployerKey: &chain.DeployerKey,
+			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
+				_, err := solCommomUtil.SendAndConfirm(
+					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		}
+	}
+	return chains
+}
+
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
@@ -111,13 +153,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -139,6 +181,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
+		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -149,6 +192,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
+	solChains := NewMemoryChainsSol(t, config.SolChains)
 	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
@@ -159,6 +203,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
+		solChains,
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		func() context.Context { return tests.Context(t) },

@@ -5,13 +5,13 @@ import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {BlockhashStoreInterface} from "./interfaces/BlockhashStoreInterface.sol";
 import {AggregatorV3Interface} from "../shared/interfaces/AggregatorV3Interface.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IERC677Receiver} from "../shared/interfaces/IERC677Receiver.sol";
 import {VRF} from "./VRF.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
-import {ChainSpecificUtil} from "../ChainSpecificUtil_v0_8_6.sol";
-contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface, IERC677Receiver {
+import {ChainSpecificUtil} from "./ChainSpecificUtil_v0_8_6.sol";
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, ITypeAndVersion, VRFCoordinatorV2Interface, IERC677Receiver {
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface public immutable LINK;
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i

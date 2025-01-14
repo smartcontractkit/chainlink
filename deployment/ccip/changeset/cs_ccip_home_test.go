@@ -38,7 +38,7 @@ func Test_PromoteCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -61,16 +61,17 @@ func Test_PromoteCandidate(t *testing.T) {
 			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
 			require.NoError(t, err)
 			require.NotEqual(t, uint32(0), donID)
+			t.Logf("donID: %d", donID)
 			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
 				Context: ctx,
 			}, donID, uint8(types.PluginTypeCCIPCommit))
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
-			candidateDigestExecBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+			ActiveDigestExecBefore, err := ccipHome.GetActiveDigest(&bind.CallOpts{
 				Context: ctx,
 			}, donID, uint8(types.PluginTypeCCIPExec))
 			require.NoError(t, err)
-			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
+			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
 			var mcmsConfig *MCMSConfig
 			if tc.mcmsEnabled {
@@ -78,6 +79,7 @@ func Test_PromoteCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
+			// promotes zero digest on commit and ensure exec is not affected
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
@@ -86,10 +88,11 @@ func Test_PromoteCandidate(t *testing.T) {
 			}, []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-					Config: PromoteAllCandidatesChangesetConfig{
+					Config: PromoteCandidatesChangesetConfig{
 						HomeChainSelector:    tenv.HomeChainSel,
 						RemoteChainSelectors: []uint64{dest},
 						MCMS:                 mcmsConfig,
+						PluginType:           types.PluginTypeCCIPCommit,
 					},
 				},
 			})
@@ -106,7 +109,7 @@ func Test_PromoteCandidate(t *testing.T) {
 				Context: ctx,
 			}, donID, uint8(types.PluginTypeCCIPExec))
 			require.NoError(t, err)
-			require.Equal(t, [32]byte{}, activeDigestExec)
+			require.Equal(t, ActiveDigestExecBefore, activeDigestExec)
 		})
 	}
 }
@@ -127,7 +130,7 @@ func Test_SetCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -248,7 +251,7 @@ func Test_RevokeCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -439,7 +442,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv := NewMemoryEnvironment(t, WithChains(3))
+			tenv, _ := NewMemoryEnvironment(t, WithChains(3))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -456,7 +459,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
 			otherChainConfig, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, otherChainConfig.FChain != 0)
+			assert.NotZero(t, otherChainConfig.FChain)
 
 			var mcmsConfig *MCMSConfig
 			if tc.mcmsEnabled {
@@ -485,7 +488,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			// other chain should be gone
 			chainConfigAfter, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, chainConfigAfter.FChain == 0)
+			assert.Zero(t, chainConfigAfter.FChain)
 
 			// Lets add it back now.
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{

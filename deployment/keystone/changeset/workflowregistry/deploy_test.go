@@ -34,5 +34,5 @@ func Test_Deploy(t *testing.T) {
 	// nothing on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	assert.Len(t, oaddrs, 0)
+	assert.Empty(t, oaddrs)
 }

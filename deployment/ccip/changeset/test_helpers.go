@@ -18,6 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,13 +42,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -60,6 +62,10 @@ var (
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
+
+	DefaultLinkPrice = deployment.E18Mult(20)
+	DefaultWethPrice = deployment.E18Mult(4000)
+	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -384,30 +390,102 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(e deployment.Environment, state CCIPOnChainState, from, to uint64, isTestRouter bool) error {
-	cfg := LaneConfig{
-		SourceSelector:        from,
-		DestSelector:          to,
-		InitialPricesBySource: DefaultInitialPrices,
-		FeeQuoterDestChain:    DefaultFeeQuoterDestChainConfig(),
-	}
-	return addLane(e, state, cfg, isTestRouter)
+func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) {
+	var err error
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+					from: {
+						to: {
+							IsEnabled:        true,
+							TestRouter:       isTestRouter,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Config: UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+					from: {
+						TokenPrices: tokenPrices,
+						GasPrices:   gasprice,
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterDests),
+			Config: UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					from: {
+						to: fqCfg,
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+					to: {
+						from: {
+							IsEnabled:  true,
+							TestRouter: isTestRouter,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter: isTestRouter,
+				UpdatesByChain: map[uint64]RouterUpdates{
+					// onRamp update on source chain
+					from: {
+						OnRampUpdates: map[uint64]bool{
+							to: true,
+						},
+					},
+					// offramp update on dest chain
+					to: {
+						OffRampUpdates: map[uint64]bool{
+							from: true,
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+}
+
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter bool) {
+	stateChainFrom := state.Chains[from]
+	AddLane(t, e, from, to, isTestRouter,
+		map[uint64]*big.Int{
+			to: DefaultGasPrice,
+		}, map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     DefaultWethPrice,
+		}, DefaultFeeQuoterDestChainConfig())
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
-func AddLanesForAll(e deployment.Environment, state CCIPOnChainState) error {
-	for source := range e.Chains {
-		for dest := range e.Chains {
+func AddLanesForAll(t *testing.T, e *DeployedEnv, state CCIPOnChainState) {
+	for source := range e.Env.Chains {
+		for dest := range e.Env.Chains {
 			if source != dest {
-				err := AddLaneWithDefaultPricesAndFeeQuoterConfig(e, state, source, dest, false)
-				if err != nil {
-					return err
-				}
+				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
 			}
 		}
 	}
-	return nil
 }
 
 func ToPackedFee(execFee, daFee *big.Int) *big.Int {
@@ -504,7 +582,7 @@ func deploySingleFeed(
 	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
 	symbol TokenSymbol,
 ) (common.Address, string, error) {
-	//tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
 	if err != nil {
 		lggr.Errorw("Failed to deploy token feed", "err", err, "symbol", symbol)
@@ -658,7 +736,7 @@ func deployTokenPoolsInParallel(
 		return nil, nil, nil, nil, err
 	}
 	if srcToken == nil || srcPool == nil || dstToken == nil || dstPool == nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to deploy token and pool")
+		return nil, nil, nil, nil, errors.New("failed to deploy token and pool")
 	}
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
@@ -685,7 +763,7 @@ func setUSDCTokenPoolCounterPart(
 	var fixedAddr [32]byte
 	copy(fixedAddr[:], allowedCaller[:32])
 
-	domain, _ := reader.AllAvailableDomains()[destChainSelector]
+	domain := reader.AllAvailableDomains()[destChainSelector]
 
 	domains := []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
@@ -839,7 +917,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				tokenAddress, token, tx, deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), err2,
+				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
 	if err != nil {
@@ -868,7 +946,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				tokenPoolAddress, tokenPoolContract, tx, deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), err2,
+				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})
 	if err != nil {

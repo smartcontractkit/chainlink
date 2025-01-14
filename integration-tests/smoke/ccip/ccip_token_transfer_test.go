@@ -22,7 +22,7 @@ func TestTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 
-	tenv, _ := testsetups.NewIntegrationEnvironment(t,
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithUsersPerChain(3))
 
 	e := tenv.Env
@@ -69,7 +69,7 @@ func TestTokenTransfer(t *testing.T) {
 		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	changeset.MintAndAllow(
 		t,

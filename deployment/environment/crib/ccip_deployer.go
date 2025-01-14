@@ -4,22 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"math/big"
-
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can be started with the CR address in Capabilities.ExternalRegistry
-// DeployHomeChainContracts is to 1. Set up crib with chains and chainlink nodes ( cap reg is not known yet so not setting the config with capreg address)
-// Call DeployHomeChain changeset with nodeinfo ( the peer id and all)
+// DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
+// Afterwards, we call DeployHomeChain changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -65,14 +69,16 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	return capRegConfig, e.ExistingAddresses, nil
 }
 
+// DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
 	e.ExistingAddresses = ab
-	allChainIds := e.AllChainSelectors()
+	chainSelectors := e.AllChainSelectors()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
 	for _, chain := range e.AllChainSelectors() {
 		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
 		if err != nil {
@@ -84,19 +90,46 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Proposer:         *mcmsConfig,
 			TimelockMinDelay: big.NewInt(0),
 		}
+		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+		})
 	}
 
-	// This will not apply any proposals because we pass nil to testing.
-	// However, setup is ok because we only need to deploy the contracts and distribute job specs
+	// set up chains
+	chainConfigs := make(map[uint64]changeset.ChainConfig)
+	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get node info from env: %w", err)
+	}
+	for _, chain := range chainSelectors {
+		chainConfigs[chain] = changeset.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  1,
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+				OptimisticConfirmations: 1,
+			},
+		}
+	}
+
+	// Setup because we only need to deploy the contracts and distribute job specs
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfig),
+			Config: changeset.UpdateChainConfigConfig{
+				HomeChainSelector: homeChainSel,
+				RemoteChainAdds:   chainConfigs,
+			},
+		},
+		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChainIds,
+			Config:    chainSelectors,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
 			Config: changeset.DeployPrerequisiteConfig{
-				ChainSelectors: allChainIds,
+				Configs: prereqCfgs,
 			},
 		},
 		{
@@ -106,7 +139,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    allChainIds,
+				ChainSelectors:    chainSelectors,
 				HomeChainSelector: homeChainSel,
 			},
 		},
@@ -120,9 +153,91 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Add all lanes
-	err = changeset.AddLanesForAll(*e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to add lanes: %w", err)
+	for from := range e.Chains {
+		for to := range e.Chains {
+			if from != to {
+				stateChain1 := state.Chains[from]
+				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
+						Config: changeset.UpdateOnRampDestsConfig{
+							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+								from: {
+									to: {
+										IsEnabled:        true,
+										TestRouter:       false,
+										AllowListEnabled: false,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+						Config: changeset.UpdateFeeQuoterPricesConfig{
+							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+								from: {
+									TokenPrices: map[common.Address]*big.Int{
+										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
+										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
+									},
+									GasPrices: map[uint64]*big.Int{
+										to: changeset.DefaultGasPrice,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDests),
+						Config: changeset.UpdateFeeQuoterDestsConfig{
+							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+								from: {
+									to: changeset.DefaultFeeQuoterDestChainConfig(),
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
+						Config: changeset.UpdateOffRampSourcesConfig{
+							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+								to: {
+									from: {
+										IsEnabled:  true,
+										TestRouter: true,
+									},
+								},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
+						Config: changeset.UpdateRouterRampsConfig{
+							TestRouter: true,
+							UpdatesByChain: map[uint64]changeset.RouterUpdates{
+								// onRamp update on source chain
+								from: {
+									OnRampUpdates: map[uint64]bool{
+										to: true,
+									},
+								},
+								// off
+								from: {
+									OffRampUpdates: map[uint64]bool{
+										to: true,
+									},
+								},
+							},
+						},
+					},
+				})
+				if err != nil {
+					return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
+				}
+				e = &newEnv
+			}
+		}
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()

@@ -65,7 +65,7 @@ func TestUpdateRMNConfig(t *testing.T) {
 }
 
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -220,12 +220,16 @@ func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainSt
 
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
-	e := NewMemoryEnvironment(t, WithNoJobsAndContracts())
+	e, _ := NewMemoryEnvironment(t, WithNoJobsAndContracts())
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error
+	var prereqCfgs []DeployPrerequisiteConfigPerChain
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+		prereqCfgs = append(prereqCfgs, DeployPrerequisiteConfigPerChain{
+			ChainSelector: c,
+		})
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -237,7 +241,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
+				Configs: prereqCfgs,
 			},
 		},
 		{
@@ -261,6 +265,8 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 	}
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		// transfer ownership of RMNProxy to timelock
 		{
@@ -268,6 +274,19 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
+			},
+		},
+
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
+				},
 			},
 		},
 		{

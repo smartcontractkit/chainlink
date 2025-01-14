@@ -34,13 +34,17 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test_list: ${{ steps.set-tests.outputs.test_list }}
+    env:
+      GH_INPUTS_TEST_LIST_REGEX: ${{ inputs.test_list_regex }}
+      GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH: ${{ inputs.test_config_override_path }}
+      GH_INPUTS_PERFORMANCE_TEST_TYPE: ${{ inputs.performanceTestType }}
     steps:
       - name: Generate Test List JSON
         id: set-tests
         run: |
-          TEST_CMD='cd integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2plus'
-          TEST_CONFIG_OVERRIDE_PATH=${{ inputs.test_config_override_path }}
-          TEST_TYPE=${{ inputs.performanceTestType }}
+          TEST_CMD='cd integration-tests/load && go test -v -count=1 -timeout 24h -run "$GH_INPUTS_TEST_LIST_REGEX" ./vrfv2plus'
+          TEST_CONFIG_OVERRIDE_PATH=$GH_INPUTS_TEST_CONFIG_OVERRIDE_PATH
+          TEST_TYPE=$GH_INPUTS_PERFORMANCE_TEST_TYPE
 
           TEST_LIST=$(jq -n -c \
             --arg test_cmd "$TEST_CMD" \

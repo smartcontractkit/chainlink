@@ -247,7 +247,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	ctx := testcontext.Get(t)
 	t.Logf("Running RMN test case: %s", tc.name)
 
-	envWithRMN, rmnCluster := testsetups.NewIntegrationEnvironment(t,
+	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithRMNEnabled(len(tc.rmnNodes)),
 	)
 	t.Logf("envWithRmn: %#v", envWithRMN)
@@ -323,7 +323,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
 	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
-	require.NoError(t, changeset.AddLanesForAll(envWithRMN.Env, onChainState))
+	changeset.AddLanesForAll(t, &envWithRMN, onChainState)
 	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(ctx, t, envWithRMN)
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
@@ -499,7 +499,7 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.Deploye
 		// configure remote chain details on the home contract
 		tc.pf.rmnHomeSourceChains = append(tc.pf.rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       tc.pf.chainSelectors[remoteChainIdx],
-			F:                   uint64(remoteF),
+			FObserve:            uint64(remoteF),
 			ObserverNodesBitmap: createObserverNodesBitmap(tc.pf.chainSelectors[remoteChainIdx], tc.rmnNodes, tc.pf.chainSelectors),
 		})
 	}

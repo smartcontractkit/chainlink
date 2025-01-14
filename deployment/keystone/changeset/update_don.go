@@ -1,13 +1,13 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -27,10 +27,10 @@ type UpdateDonRequest struct {
 
 func (r *UpdateDonRequest) Validate() error {
 	if len(r.P2PIDs) == 0 {
-		return fmt.Errorf("p2pIDs is required")
+		return errors.New("p2pIDs is required")
 	}
 	if len(r.CapabilityConfigs) == 0 {
-		return fmt.Errorf("capabilityConfigs is required")
+		return errors.New("capabilityConfigs is required")
 	}
 	return nil
 }
@@ -64,10 +64,10 @@ func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.Ch
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS() {
 		if updateResult.Ops == nil {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		if len(appendResult.Proposals) == 0 {
-			return out, fmt.Errorf("expected append node capabilities to return proposals")
+			return out, errors.New("expected append node capabilities to return proposals")
 		}
 
 		out.Proposals = appendResult.Proposals
@@ -76,10 +76,8 @@ func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.Ch
 		// this makes the proposal all-or-nothing because all the operations are in the same batch, there is only one tr
 		// transaction and only one proposal
 		out.Proposals[0].Transactions[0].Batch = append(out.Proposals[0].Transactions[0].Batch, updateResult.Ops.Batch...)
-
 	}
 	return out, nil
-
 }
 
 func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
@@ -100,7 +98,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	resp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

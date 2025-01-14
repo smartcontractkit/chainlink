@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
@@ -696,7 +696,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	errType, sendError := ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
 
 	switch errType {
-	case client.Underpriced:
+	case multinode.Underpriced:
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in broadcaster.
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "attempt", attempt)
@@ -731,7 +731,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, replacementAttempt, blockHeight)
-	case client.ExceedsMaxFee:
+	case multinode.ExceedsMaxFee:
 		// Confirmer: Note it is not guaranteed that all nodes share the same tx fee cap.
 		// So it is very likely that this attempt was successful on another node since
 		// it was already successfully broadcasted. So we assume it is successful and
@@ -745,7 +745,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		lggr.Criticalw(`RPC node rejected this tx as outside Fee Cap but it may have been accepted by another Node`, "attempt", attempt)
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
-	case client.Fatal:
+	case multinode.Fatal:
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The
 		// Broadcaster can never create a TxAttempt that will
@@ -760,7 +760,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		ec.SvcErrBuffer.Append(sendError)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return ec.txStore.DeleteInProgressAttempt(ctx, attempt)
-	case client.TerminallyStuck:
+	case multinode.TerminallyStuck:
 		// A transaction could broadcast successfully but then be considered terminally stuck on another attempt
 		// Even though the transaction can succeed under different circumstances, we want to purge this transaction as soon as we get this error
 		lggr.Warnw("terminally stuck transaction detected", "err", sendError.Error())
@@ -775,20 +775,20 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			return fmt.Errorf("saveReplacementInProgressAttempt failed: %w", err)
 		}
 		return ec.handleInProgressAttempt(ctx, lggr, etx, purgeAttempt, blockHeight)
-	case client.TransactionAlreadyKnown:
+	case multinode.TransactionAlreadyKnown:
 		// Sequence too low indicated that a transaction at this sequence was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		lggr.Debugw("Sequence already used", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedAttempt(ctx, timeout, &attempt, now)
-	case client.InsufficientFunds:
+	case multinode.InsufficientFunds:
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientFundsAttempt(ctx, timeout, &attempt, now)
-	case client.Successful:
+	case multinode.Successful:
 		lggr.Debugw("Successfully broadcast transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(ctx, timeout, &attempt, now)
-	case client.Unknown:
+	case multinode.Unknown:
 		// Every error that doesn't fall under one of the above categories will be treated as Unknown.
 		fallthrough
 	default:
@@ -838,7 +838,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			}
 			attempt.Tx = *etx // for logging
 			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt)
-			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != client.Successful && err != nil {
+			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != multinode.Successful && err != nil {
 				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v, gas limit %v, and caller provided fee Limit %v	: %s", etx.ID, *etx.Sequence, attempt.ChainSpecificFeeLimit, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
 				continue
 			}

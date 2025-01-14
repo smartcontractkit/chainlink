@@ -20,7 +20,11 @@ func TestDeployPrerequisites(t *testing.T) {
 	})
 	newChain := e.AllChainSelectors()[0]
 	cfg := DeployPrerequisiteConfig{
-		ChainSelectors: []uint64{newChain},
+		Configs: []DeployPrerequisiteConfigPerChain{
+			{
+				ChainSelector: newChain,
+			},
+		},
 	}
 	output, err := DeployPrerequisites(e, cfg)
 	require.NoError(t, err)

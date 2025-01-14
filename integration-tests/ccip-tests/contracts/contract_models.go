@@ -18,6 +18,7 @@ import (
 	"golang.org/x/exp/rand"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_lbtc_token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -404,6 +405,7 @@ type LatestPool struct {
 	PoolInterface   *token_pool.TokenPool
 	LockReleasePool *lock_release_token_pool.LockReleaseTokenPool
 	USDCPool        *usdc_token_pool.USDCTokenPool
+	MockLBTCPool    *mock_lbtc_token_pool.MockLBTCTokenPool
 }
 
 type V1_4_0Pool struct {
@@ -485,6 +487,7 @@ func (w TokenPoolWrapper) ApplyChainUpdates(opts *bind.TransactOpts, update []to
 		for i, u := range update {
 			V1_4_0Updates[i] = token_pool_1_4_0.TokenPoolChainUpdate{
 				RemoteChainSelector: u.RemoteChainSelector,
+				Allowed:             true,
 				InboundRateLimiterConfig: token_pool_1_4_0.RateLimiterConfig{
 					IsEnabled: u.InboundRateLimiterConfig.IsEnabled,
 					Capacity:  u.InboundRateLimiterConfig.Capacity,

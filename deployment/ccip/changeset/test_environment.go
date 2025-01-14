@@ -2,7 +2,7 @@ package changeset
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"os"
 	"testing"
@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -41,33 +42,35 @@ type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
 	// TODO: This should be CreateContracts so the booleans make sense?
-	CreateJobAndContracts    bool
-	Chains                   int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	NumOfUsersPerChain       int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Nodes                    int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Bootstraps               int // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	IsUSDC                   bool
-	IsUSDCAttestationMissing bool
-	IsMultiCall3             bool
-	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
-	RMNEnabled               bool
-	NumOfRMNNodes            int
-	LinkPrice                *big.Int
-	WethPrice                *big.Int
+	CreateJobAndContracts      bool
+	PrerequisiteDeploymentOnly bool
+	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	IsUSDC                     bool
+	IsUSDCAttestationMissing   bool
+	IsMultiCall3               bool
+	OCRConfigOverride          func(CCIPOCRParams) CCIPOCRParams
+	RMNEnabled                 bool
+	NumOfRMNNodes              int
+	LinkPrice                  *big.Int
+	WethPrice                  *big.Int
 }
 
 func (tc *TestConfigs) Validate() error {
 	if tc.Chains < 2 {
-		return fmt.Errorf("chains must be at least 2")
+		return errors.New("chains must be at least 2")
 	}
 	if tc.Nodes < 4 {
-		return fmt.Errorf("nodes must be at least 4")
+		return errors.New("nodes must be at least 4")
 	}
 	if tc.Bootstraps < 1 {
-		return fmt.Errorf("bootstraps must be at least 1")
+		return errors.New("bootstraps must be at least 1")
 	}
 	if tc.Type == Memory && tc.RMNEnabled {
-		return fmt.Errorf("cannot run RMN tests in memory mode")
+		return errors.New("cannot run RMN tests in memory mode")
 	}
 	return nil
 }
@@ -100,6 +103,18 @@ type TestOps func(testCfg *TestConfigs)
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
+	}
+}
+
+func WithPrerequisiteDeployment() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.PrerequisiteDeploymentOnly = true
+	}
+}
+
+func WithChainIds(chainIDs []uint64) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ChainIDs = chainIDs
 	}
 }
 
@@ -168,9 +183,11 @@ func WithBootstraps(numBootstraps int) TestOps {
 
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
-	StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig)
-	StartChains(t *testing.T, tc *TestConfigs)
+	StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig)
+	StartChains(t *testing.T)
+	TestConfigs() *TestConfigs
 	DeployedEnvironment() DeployedEnv
+	UpdateDeployedEnvironment(env DeployedEnv)
 	MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string
 }
 
@@ -218,23 +235,48 @@ func (d *DeployedEnv) SetupJobs(t *testing.T) {
 
 type MemoryEnvironment struct {
 	DeployedEnv
-	chains map[uint64]deployment.Chain
+	TestConfig *TestConfigs
+	Chains     map[uint64]deployment.Chain
+}
+
+func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
+	return m.TestConfig
 }
 
 func (m *MemoryEnvironment) DeployedEnvironment() DeployedEnv {
 	return m.DeployedEnv
 }
 
-func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
+func (m *MemoryEnvironment) UpdateDeployedEnvironment(env DeployedEnv) {
+	m.DeployedEnv = env
+}
+
+func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	ctx := testcontext.Get(t)
-	chains, users := memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
-	m.chains = chains
+	tc := m.TestConfig
+	var chains map[uint64]deployment.Chain
+	var users map[uint64][]*bind.TransactOpts
+	if len(tc.ChainIDs) > 0 {
+		chains, users = memory.NewMemoryChainsWithChainIDs(t, tc.ChainIDs, tc.NumOfUsersPerChain)
+		if tc.Chains > len(tc.ChainIDs) {
+			additionalChains, additionalUsers := memory.NewMemoryChains(t, tc.Chains-len(tc.ChainIDs), tc.NumOfUsersPerChain)
+			for k, v := range additionalChains {
+				chains[k] = v
+			}
+			for k, v := range additionalUsers {
+				users[k] = v
+			}
+		}
+	} else {
+		chains, users = memory.NewMemoryChains(t, tc.Chains, tc.NumOfUsersPerChain)
+	}
+	m.Chains = chains
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
 	replayBlocks, err := LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
 		Env: deployment.Environment{
-			Chains: m.chains,
+			Chains: m.Chains,
 		},
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
@@ -243,10 +285,11 @@ func (m *MemoryEnvironment) StartChains(t *testing.T, tc *TestConfigs) {
 	}
 }
 
-func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
-	require.NotNil(t, m.chains, "start chains first, chains are empty")
+func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
+	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.chains, tc.Nodes, tc.Bootstraps, crConfig)
+	tc := m.TestConfig
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, tc.Nodes, tc.Bootstraps, crConfig)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
@@ -255,7 +298,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, tc *TestConfigs, crConfig d
 			require.NoError(t, node.App.Stop())
 		})
 	}
-	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.chains, nodes)
+	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, nodes)
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -268,68 +311,129 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 }
 
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
-func NewMemoryEnvironment(t *testing.T, opts ...TestOps) DeployedEnv {
+func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvironment) {
 	testCfg := DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
 	}
 	require.NoError(t, testCfg.Validate(), "invalid test config")
-	env := &MemoryEnvironment{}
+	env := &MemoryEnvironment{
+		TestConfig: testCfg,
+	}
+	if testCfg.PrerequisiteDeploymentOnly {
+		dEnv := NewEnvironmentWithPrerequisitesContracts(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
+	}
 	if testCfg.CreateJobAndContracts {
-		return NewEnvironmentWithJobsAndContracts(t, testCfg, env)
+		dEnv := NewEnvironmentWithJobsAndContracts(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
 	}
 	if testCfg.CreateJob {
-		return NewEnvironmentWithJobs(t, testCfg, env)
+		dEnv := NewEnvironmentWithJobs(t, env)
+		env.UpdateDeployedEnvironment(dEnv)
+		return dEnv, env
 	}
-	return NewEnvironment(t, testCfg, env)
+	dEnv := NewEnvironment(t, env)
+	env.UpdateDeployedEnvironment(dEnv)
+	return dEnv, env
 }
 
-func NewEnvironment(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+	var err error
+	tc := tEnv.TestConfigs()
+	e := NewEnvironment(t, tEnv)
+	allChains := e.Env.AllChainSelectors()
+
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, c := range e.Env.AllChainSelectors() {
+		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range allChains {
+		var opts []PrerequisiteOpt
+		if tc != nil {
+			if tc.IsUSDC {
+				opts = append(opts, WithUSDCEnabled())
+			}
+			if tc.IsMultiCall3 {
+				opts = append(opts, WithMultiCall3Enabled())
+			}
+		}
+		// no RMNConfig will ensure that mock RMN is deployed
+		opts = append(opts, WithLegacyDeploymentEnabled(LegacyDeploymentConfig{
+			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+		}))
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+			Opts:          opts,
+		})
+	}
+
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    allChains,
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Config: DeployPrerequisiteConfig{
+				Configs: prereqCfg,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    mcmsCfg,
+		},
+	})
+	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
+	return e
+}
+
+func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	lggr := logger.Test(t)
-	tEnv.StartChains(t, tc)
+	tc := tEnv.TestConfigs()
+	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.Chains)
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
-	tEnv.StartNodes(t, tc, crConfig)
+	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
-	// TODO: Should use ApplyChangesets here.
-	envNodes, err := deployment.NodeInfo(dEnv.Env.NodeIDs, dEnv.Env.Offchain)
-	require.NoError(t, err)
 	dEnv.Env.ExistingAddresses = ab
-	_, err = deployHomeChain(lggr, dEnv.Env, dEnv.Env.ExistingAddresses, dEnv.Env.Chains[dEnv.HomeChainSel],
-		NewTestRMNStaticConfig(),
-		NewTestRMNDynamicConfig(),
-		NewTestNodeOperator(dEnv.Env.Chains[dEnv.HomeChainSel].DeployerKey.From),
-		map[string][][32]byte{
-			"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
-		},
-	)
-	require.NoError(t, err)
-
 	return dEnv
 }
 
-func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
+func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	var err error
-	e := NewEnvironment(t, tc, tEnv)
+	tc := tEnv.TestConfigs()
+	e := NewEnvironment(t, tEnv)
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var (
-		usdcChains   []uint64
-		isMulticall3 bool
-	)
-	if tc != nil {
-		if tc.IsUSDC {
-			usdcChains = allChains
+
+	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range allChains {
+		var opts []PrerequisiteOpt
+		if tc != nil {
+			if tc.IsUSDC {
+				opts = append(opts, WithUSDCEnabled())
+			}
+			if tc.IsMultiCall3 {
+				opts = append(opts, WithMultiCall3Enabled())
+			}
 		}
-		isMulticall3 = tc.IsMultiCall3
+		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+			Opts:          opts,
+		})
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
@@ -341,24 +445,19 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
 			Config: DeployPrerequisiteConfig{
-				ChainSelectors: allChains,
-				Opts: []PrerequisiteOpt{
-					WithUSDCChains(usdcChains),
-					WithMulticall3(isMulticall3),
-				},
+				Configs: prereqCfg,
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    mcmsCfg,
 		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
-			},
-		},
+	})
+	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
+	e = AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv)
+	// now we update RMNProxy to point to RMNRemote
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
 			Config: SetRMNRemoteOnRMNProxyConfig{
@@ -367,25 +466,54 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		},
 	})
 	require.NoError(t, err)
+	return e
+}
+
+func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment) DeployedEnv {
+	tc := tEnv.TestConfigs()
+	e := tEnv.DeployedEnvironment()
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    allChains,
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
+	})
+	require.NoError(t, err)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	// Assert USDC set up as expected.
-	for _, chain := range usdcChains {
-		require.NotNil(t, state.Chains[chain].MockUSDCTokenMessenger)
-		require.NotNil(t, state.Chains[chain].MockUSDCTransmitter)
-		require.NotNil(t, state.Chains[chain].USDCTokenPool)
-	}
 	// Assert link present
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
 	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-	if len(usdcChains) > 0 {
+	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-		for _, usdcChain := range usdcChains {
+		for _, usdcChain := range allChains {
+			require.NotNil(t, state.Chains[usdcChain].MockUSDCTokenMessenger)
+			require.NotNil(t, state.Chains[usdcChain].MockUSDCTransmitter)
+			require.NotNil(t, state.Chains[usdcChain].USDCTokenPool)
 			cctpContracts[cciptypes.ChainSelector(usdcChain)] = pluginconfig.USDCCCTPTokenConfig{
 				SourcePoolAddress:            state.Chains[usdcChain].USDCTokenPool.Address().String(),
 				SourceMessageTransmitterAddr: state.Chains[usdcChain].MockUSDCTransmitter.Address().String(),
@@ -465,9 +593,19 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		{
 			// Promote everything
 			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteAllCandidatesChangesetConfig{
+			Config: PromoteCandidatesChangesetConfig{
 				HomeChainSelector:    e.HomeChainSel,
 				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPCommit,
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
+			Config: PromoteCandidatesChangesetConfig{
+				HomeChainSelector:    e.HomeChainSel,
+				RemoteChainSelectors: allChains,
+				PluginType:           types.PluginTypeCCIPExec,
 			},
 		},
 		{
@@ -504,13 +642,14 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 		require.NotNil(t, state.Chains[chain].OffRamp)
 		require.NotNil(t, state.Chains[chain].OnRamp)
 	}
+	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }
 
 // NewEnvironmentWithJobs creates a new CCIP environment
 // with capreg, fee tokens, feeds, nodes and jobs set up.
-func NewEnvironmentWithJobs(t *testing.T, tc *TestConfigs, tEnv TestEnvironment) DeployedEnv {
-	e := NewEnvironment(t, tc, tEnv)
+func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+	e := NewEnvironment(t, tEnv)
 	e.SetupJobs(t)
 	return e
 }

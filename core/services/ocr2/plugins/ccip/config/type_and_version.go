@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	type_and_version "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/type_and_version_interface_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/type_and_version"
 )
 
 type ContractType string
@@ -19,6 +19,7 @@ var (
 	EVM2EVMOffRamp ContractType = "EVM2EVMOffRamp"
 	CommitStore    ContractType = "CommitStore"
 	PriceRegistry  ContractType = "PriceRegistry"
+	Unknown        ContractType = "Unknown" // 1.0.0 Contracts which have no TypeAndVersion
 	ContractTypes               = mapset.NewSet[ContractType](
 		EVM2EVMOffRamp,
 		EVM2EVMOnRamp,
@@ -39,7 +40,7 @@ func VerifyTypeAndVersion(addr common.Address, client bind.ContractBackend, expe
 }
 
 func TypeAndVersion(addr common.Address, client bind.ContractBackend) (ContractType, semver.Version, error) {
-	tv, err := type_and_version.NewTypeAndVersionInterface(addr, client)
+	tv, err := type_and_version.NewITypeAndVersion(addr, client)
 	if err != nil {
 		return "", semver.Version{}, err
 	}
@@ -63,7 +64,13 @@ func TypeAndVersion(addr common.Address, client bind.ContractBackend) (ContractT
 	return ContractType(contractType), *v, nil
 }
 
+// default version to use when TypeAndVersion is missing.
+const defaultVersion = "1.0.0"
+
 func ParseTypeAndVersion(tvStr string) (string, string, error) {
+	if tvStr == "" {
+		tvStr = string(Unknown) + " " + defaultVersion
+	}
 	typeAndVersionValues := strings.Split(tvStr, " ")
 
 	if len(typeAndVersionValues) < 2 {
