@@ -82,7 +82,7 @@ func (c DeployChainContractsConfig) Validate() error {
 func validateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
 	existingState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
@@ -129,7 +129,7 @@ func deployChainContractsForChains(
 	chainsToDeploy []uint64) error {
 	existingEVMState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", err)
 		return err
 	}
 
@@ -191,7 +191,7 @@ func deployChainContractsEVM(
 	// check for existing contracts
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	chainState, chainExists := state.Chains[chain.Selector]
@@ -485,7 +485,7 @@ func deployChainContractsSolana(
 ) error {
 	state, err := LoadOnchainStateSolana(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	chainState, chainExists := state.SolChains[chain.Selector]
