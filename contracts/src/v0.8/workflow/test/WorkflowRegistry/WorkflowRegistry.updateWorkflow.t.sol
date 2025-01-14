@@ -83,19 +83,6 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
-  function test_RevertWhen_TheNewWorkflowIDIsTheSameAsTheExistingWorkflowID() external {
-    // Register a workflow first
-    _registerValidWorkflow();
-
-    // Update the workflow now with the same workflow ID
-    vm.prank(s_authorizedAddress);
-    vm.expectRevert(WorkflowRegistry.WorkflowIDNotUpdated.selector);
-    s_registry.updateWorkflow(
-      s_validWorkflowKey, s_validWorkflowID, s_validBinaryURL, s_validConfigURL, s_newValidSecretsURL
-    );
-  }
-
-  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
   function test_RevertWhen_NoneOfTheURLsAreUpdated() external {
     // Register a workflow first
     _registerValidWorkflow();

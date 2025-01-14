@@ -100,7 +100,6 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   error WorkflowContentNotUpdated();
   error WorkflowDoesNotExist();
   error WorkflowIDAlreadyExists();
-  error WorkflowIDNotUpdated();
   error WorkflowNameTooLong(uint256 providedLength, uint8 maxAllowedLength);
 
   modifier registryNotLocked() {
@@ -286,11 +285,6 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
     // Store the old workflowID for event emission.
     bytes32 currentWorkflowID = workflow.workflowID;
-
-    // Condition to revert: WorkflowID must change, and at least one URL must change
-    if (currentWorkflowID == newWorkflowID) {
-      revert WorkflowIDNotUpdated();
-    }
 
     // Determine which URLs have changed
     bool sameBinaryURL = Strings.equal(workflow.binaryURL, binaryURL);
