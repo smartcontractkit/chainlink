@@ -155,12 +155,12 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 		Reason:       "test curse",
 	}
 
-	_, err := NewRMNCurseChangeset(e.Env, config)
+	_, err := RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, err = NewRMNUncurseChangeset(e.Env, config)
+	_, err = RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -212,7 +212,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewRMNCurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(RMNCurseChangeset),
 			Config:    config,
 		},
 	})
@@ -222,7 +222,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewRMNUncurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(RMNUncurseChangeset),
 			Config:    config,
 		},
 	})
@@ -261,7 +261,7 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 		Reason:       "test curse",
 	}
 
-	_, err := NewRMNCurseChangeset(e.Env, config)
+	_, err := RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
@@ -281,10 +281,10 @@ func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 		Reason:       "test curse",
 	}
 
-	_, err := NewRMNCurseChangeset(e.Env, config)
+	_, err := RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	_, err = NewRMNCurseChangeset(e.Env, config)
+	_, err = RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
@@ -304,15 +304,15 @@ func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 		Reason:       "test curse",
 	}
 
-	_, err := NewRMNCurseChangeset(e.Env, config)
+	_, err := RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, err = NewRMNUncurseChangeset(e.Env, config)
+	_, err = RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	_, err = NewRMNUncurseChangeset(e.Env, config)
+	_, err = RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -342,7 +342,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewRMNCurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(RMNCurseChangeset),
 			Config:    config,
 		},
 	})
