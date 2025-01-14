@@ -53,7 +53,7 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 }
 
-contract VerifierProxyVerifyTest is VerifierVerifyTest {
+contract VerifierProxyVerifyTestV05 is VerifierVerifyTest {
   function test_revertsIfNoVerifierConfigured() public {
     s_reportContext[0] = bytes32("corrupt-digest");
     bytes memory signedReport = _generateV1EncodedBlob(
@@ -77,7 +77,7 @@ contract VerifierProxyVerifyTest is VerifierVerifyTest {
   }
 }
 
-contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
+contract VerifierProxyAccessControlledVerificationTestV05 is VerifierVerifyTest {
   function setUp() public override {
     VerifierVerifyTest.setUp();
     AccessControllerInterface accessController = AccessControllerInterface(ACCESS_CONTROLLER_ADDRESS);
@@ -121,7 +121,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
   }
 }
 
-contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
+contract VerifierVerifySingleConfigDigestTestV05 is VerifierVerifyTest {
   function test_revertsIfVerifiedByNonProxy() public {
     bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
@@ -225,7 +225,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   }
 }
 
-contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
+contract VerifierVerifyMultipleConfigDigestTestV05 is VerifierVerifyTest {
   bytes32 internal s_oldConfigDigest;
   bytes32 internal s_newConfigDigest;
 

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTest} from "./BaseVerifierTest.t.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 
-contract VerifierProxyInitializeVerifierTest is BaseTest {
+contract VerifierProxyInitializeVerifierTestV05 is BaseTest {
   bytes32 latestDigest;
 
   function setUp() public override {

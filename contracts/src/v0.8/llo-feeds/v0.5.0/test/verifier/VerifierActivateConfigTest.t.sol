@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 
-contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifierAndFeeManager {
+contract VerifierActivateConfigTestV05 is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwner() public {
     vm.expectRevert("Only callable by owner");
 
@@ -23,7 +23,7 @@ contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifierAndFeeManag
   }
 }
 
-contract VerifierActivateConfigWithDeactivatedConfigTest is BaseTestWithMultipleConfiguredDigests {
+contract VerifierActivateConfigWithDeactivatedConfigTestV05 is BaseTestWithMultipleConfiguredDigests {
   bytes32[3] internal s_reportContext;
 
   event ConfigActivated(bytes32 configDigest);

@@ -20,7 +20,7 @@ contract VerifierTestWithConfiguredVerifierAndFeeManager is BaseTestWithConfigur
   }
 }
 
-contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeManager {
+contract VerifierTestBillingReportV05 is VerifierTestWithConfiguredVerifierAndFeeManager {
   function test_verifyWithLink() public {
     bytes memory signedReport = _generateV3EncodedBlob(
       _generateV3Report(),
@@ -77,7 +77,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   }
 }
 
-contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAndFeeManager {
+contract VerifierBulkVerifyBillingReportV05 is VerifierTestWithConfiguredVerifierAndFeeManager {
   uint256 internal constant NUMBERS_OF_REPORTS = 5;
 
   function test_verifyWithBulkLink() public {

@@ -10,7 +10,7 @@ import {IRewardManager} from "../../interfaces/IRewardManager.sol";
  * @author Michael Fletcher
  * @notice This contract will test the functionality of the feeManager processFee
  */
-contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
+contract FeeManagerProcessFeeTestV05 is BaseFeeManagerTest {
   function setUp() public override {
     super.setUp();
   }

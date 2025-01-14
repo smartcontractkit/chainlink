@@ -7,7 +7,7 @@ import {VerifierProxy} from "../../VerifierProxy.sol";
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../../libraries/Common.sol";
 
-contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {
+contract VerifierProxyInitializeVerifierTestV05 is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotCorrectVerifier() public {
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.AccessForbidden.selector));
     s_verifierProxy.setVerifier(bytes32("prev-config"), bytes32("new-config"), new Common.AddressAndWeight[](0));

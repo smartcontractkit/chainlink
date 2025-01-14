@@ -9,7 +9,7 @@ import "./BaseFeeManager.t.sol";
  * @author Michael Fletcher
  * @notice This contract will test the functionality of the feeManager's getFeeAndReward
  */
-contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
+contract FeeManagerProcessFeeTestV05 is BaseFeeManagerTest {
   function test_baseFeeIsAppliedForNative() public view {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);

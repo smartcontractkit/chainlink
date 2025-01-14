@@ -9,7 +9,7 @@ import {IRewardManager} from "../../interfaces/IRewardManager.sol";
  * @author Michael Fletcher
  * @notice This contract will test the functionality of the feeManager processFee
  */
-contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
+contract FeeManagerProcessFeeTestV05 is BaseFeeManagerTest {
   uint256 internal constant NUMBER_OF_REPORTS = 5;
 
   function setUp() public override {
