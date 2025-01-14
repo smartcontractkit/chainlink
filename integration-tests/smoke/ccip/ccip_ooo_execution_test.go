@@ -1,4 +1,4 @@
-package smoke
+package ccip
 
 import (
 	"fmt"
