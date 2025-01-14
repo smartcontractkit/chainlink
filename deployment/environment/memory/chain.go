@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -199,8 +200,8 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		port := freeport.GetOne(t)
 
 		programIds := map[string]string{
-			"ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
-			// "ccip_router": solTestConfig.CcipRouterProgram.String(),
+			// "ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
+			"ccip_router": solTestConfig.CcipRouterProgram.String(),
 		}
 
 		bcInput := &blockchain.Input{
@@ -220,6 +221,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 				continue
 			}
 		}
+		require.NoError(t, err)
 		url = output.Nodes[0].HostHTTPUrl
 		wsURL = output.Nodes[0].HostWSUrl
 		break
