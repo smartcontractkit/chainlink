@@ -10,7 +10,7 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 /// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
-  error InvalidSVMAddress(bytes SolAddress);
+  error InvalidSVMAddress(bytes SVMAddress);
 
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.

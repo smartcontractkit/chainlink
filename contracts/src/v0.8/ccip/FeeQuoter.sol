@@ -865,7 +865,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
-  /// @dev Since Solana addresses are parsed as bytes32, and no other form of validation occurs, no explicit
+  /// @dev Since SVM addresses are parsed as bytes32, and no other form of validation occurs, no explicit
   /// call is needed to a library function for address validation.
   function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
@@ -889,7 +889,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return gasLimit;
   }
 
-  /// @notice Parse and validate the Solana specific Extra Args Bytes.
+  /// @notice Parse and validate the SVM specific Extra Args Bytes.
   function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
@@ -1038,7 +1038,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
-      // On Solana OOO execution is enabled for all messages.
+      // On SVM OOO execution is enabled for all messages.
       return (Client._svmArgsToBytes(parsedExtraArgs), true);
     } else {
       revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
@@ -1118,7 +1118,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
-      // TODO: With the addition of Solana and other Non-evm Chains, family selector is not validated.
+      // TODO: With the addition of SVM and other Non-evm Chains, family selector is not validated.
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
