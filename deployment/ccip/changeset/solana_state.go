@@ -8,10 +8,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
-	LinkToken     deployment.ContractType = "LinkToken"
 	SolCcipRouter deployment.ContractType = "SolCcipRouter"
 )
 
@@ -51,10 +51,10 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 	var state SolCCIPChainState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_6_0_dev).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.LinkToken = pub
-		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_6_0_dev).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SolCcipRouter = pub
 		default:

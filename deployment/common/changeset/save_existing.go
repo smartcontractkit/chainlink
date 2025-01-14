@@ -1,13 +1,17 @@
 package changeset
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+
+	"github.com/mr-tron/base58"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 )
 
 var (
@@ -15,7 +19,7 @@ var (
 )
 
 type Contract struct {
-	Address        common.Address
+	Address        string
 	TypeAndVersion deployment.TypeAndVersion
 	ChainSelector  uint64
 }
@@ -29,8 +33,34 @@ func (cfg ExistingContractsConfig) Validate() error {
 		if err := deployment.IsValidChainSelector(ec.ChainSelector); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", ec.ChainSelector, err)
 		}
-		if ec.Address == (common.Address{}) {
+		if ec.Address == "" {
 			return errors.New("address must be set")
+		}
+		family, err := chain_selectors.GetSelectorFamily(ec.ChainSelector)
+		if err != nil {
+			return err
+		}
+		switch family {
+		case chain_selectors.FamilySolana:
+			decoded, err := base58.Decode(ec.Address)
+			if err != nil {
+				return fmt.Errorf("address must be a valid Solana address (i.e. base58 encoded): %w", err)
+			}
+			if len(decoded) != 32 {
+				return fmt.Errorf("address must be a valid Solana address, got %d bytes expected 32", len(decoded))
+			}
+		case chain_selectors.FamilyEVM:
+			// EVM is the default case
+			fallthrough
+		default:
+			// aggregator must be an ethereum address
+			decoded, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(ec.Address, "0x")))
+			if err != nil {
+				return fmt.Errorf("address must be a valid ethereum address (i.e hex encoded 20 bytes): %w", err)
+			}
+			if len(decoded) != 20 {
+				return fmt.Errorf("address must be a valid ethereum address, got %d bytes expected 20", len(decoded))
+			}
 		}
 		if ec.TypeAndVersion.Type == "" {
 			return errors.New("type must be set")
@@ -51,7 +81,7 @@ func SaveExistingContracts(env deployment.Environment, cfg ExistingContractsConf
 	}
 	ab := deployment.NewMemoryAddressBook()
 	for _, ec := range cfg.ExistingContracts {
-		err = ab.Save(ec.ChainSelector, ec.Address.String(), ec.TypeAndVersion)
+		err = ab.Save(ec.ChainSelector, ec.Address, ec.TypeAndVersion)
 		if err != nil {
 			env.Logger.Errorw("Failed to save existing contract", "err", err, "addressBook", ab)
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to save existing contract: %w", err)
