@@ -170,7 +170,7 @@ func Test_SetCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].LinkToken.Address().String(), state.Chains[tenv.FeedChainSel].Weth9.Address().String(), tenv.FeedChainSel)
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
@@ -291,7 +291,7 @@ func Test_RevokeCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].LinkToken.Address().String(), state.Chains[tenv.FeedChainSel].Weth9.Address().String(), tenv.FeedChainSel)
+			tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
 				tenv.HomeChainSel: {
 					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,

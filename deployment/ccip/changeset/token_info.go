@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 )
 
 type TokenSymbol string
@@ -37,18 +38,18 @@ func NewTokenConfig() TokenConfig {
 	}
 }
 
-func NewTestTokenConfig(linkSymbolAddress, wethSymbolAddress string, chainSelector uint64) TokenConfig {
+func NewTestTokenConfig(feeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface) TokenConfig {
 	tc := NewTokenConfig()
 	tc.UpsertTokenInfo(LinkSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: ccipocr3.UnknownEncodedAddress(linkSymbolAddress),
+			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[LinkSymbol].Address().String()),
 			Decimals:          LinkDecimals,
 			DeviationPPB:      TestDeviationPPB,
 		},
 	)
 	tc.UpsertTokenInfo(WethSymbol,
 		pluginconfig.TokenInfo{
-			AggregatorAddress: ccipocr3.UnknownEncodedAddress(wethSymbolAddress),
+			AggregatorAddress: ccipocr3.UnknownEncodedAddress(feeds[WethSymbol].Address().String()),
 			Decimals:          WethDecimals,
 			DeviationPPB:      TestDeviationPPB,
 		},

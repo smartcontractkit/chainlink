@@ -474,10 +474,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tc *TestConfigs, tEnv Test
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := NewTestTokenConfig(
-		state.Chains[e.FeedChainSel].USDFeeds[LinkSymbol].Address().String(),
-		state.Chains[e.FeedChainSel].USDFeeds[WethSymbol].Address().String(),
-		e.FeedChainSel)
+	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
