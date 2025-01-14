@@ -353,7 +353,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
         Client.SVMExtraArgsV1({
           computeUnits: GAS_LIMIT,
           accountIsWritableBitmap: 0,
-          tokenReceiver: address(0),
+          tokenReceiver: bytes32(0),
           accounts: new bytes32[](0)
         })
       )

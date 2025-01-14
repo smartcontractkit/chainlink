@@ -1035,7 +1035,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig);
-      if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == address(0)) {
+      if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
       // On Solana OOO execution is enabled for all messages.

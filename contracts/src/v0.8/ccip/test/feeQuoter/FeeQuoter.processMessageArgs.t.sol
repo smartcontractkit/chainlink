@@ -142,7 +142,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       Client.SVMExtraArgsV1({
         computeUnits: 0,
         accountIsWritableBitmap: 0,
-        tokenReceiver: address(0),
+        tokenReceiver: bytes32(0),
         accounts: new bytes32[](0)
       })
     );
