@@ -42,6 +42,29 @@ var (
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
 )
 
+type tokenInfo interface {
+	Address() common.Address
+	Symbol(opts *bind.CallOpts) (string, error)
+	Decimals(opts *bind.CallOpts) (uint8, error)
+}
+
+func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, error) {
+	for _, token := range tokens {
+		if token.Address() == address {
+			tokenSymbol, err := token.Symbol(nil)
+			if err != nil {
+				return "", 0, fmt.Errorf("fetch token symbol for token %s: %w", address, err)
+			}
+			tokenDecimals, err := token.Decimals(nil)
+			if err != nil {
+				return "", 0, fmt.Errorf("fetch token decimals for token %s: %w", address, err)
+			}
+			return tokenSymbol, tokenDecimals, nil
+		}
+	}
+	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
+}
+
 type CCIPOCRParams struct {
 	OCRParameters commontypes.OCRParameters
 	// Note contains pointers to Arb feeds for prices
@@ -50,7 +73,7 @@ type CCIPOCRParams struct {
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
 }
 
-func (c CCIPOCRParams) Validate() error {
+func (c CCIPOCRParams) Validate(selector uint64, state CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -61,10 +84,71 @@ func (c CCIPOCRParams) Validate() error {
 		if err := c.CommitOffChainConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid commit off-chain config: %w", err)
 		}
+		for tokenAddr, tokenConfig := range c.CommitOffChainConfig.TokenInfo {
+			tokenUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenAddr))
+			if err != nil {
+				return fmt.Errorf("invalid token address %s: %w", tokenAddr, err)
+			}
+			aggregatorUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenConfig.AggregatorAddress))
+			if err != nil {
+				return fmt.Errorf("invalid aggregator address %s: %w", tokenConfig.AggregatorAddress, err)
+			}
+			aggregatorAddr := common.HexToAddress(aggregatorUnknownAddr.String())
+			token := common.HexToAddress(tokenUnknownAddr.String())
+			tokenInfos := make([]tokenInfo, 0)
+			onchainState, ok := state.Chains[selector]
+			if !ok {
+				return fmt.Errorf("chain %d does not exist in state", selector)
+			}
+			for _, tk := range onchainState.BurnMintTokens677 {
+				tokenInfos = append(tokenInfos, tk)
+			}
+			for _, tk := range onchainState.ERC20Tokens {
+				tokenInfos = append(tokenInfos, tk)
+			}
+			for _, tk := range onchainState.ERC677Tokens {
+				tokenInfos = append(tokenInfos, tk)
+			}
+			symbol, decimal, err := findTokenInfo(tokenInfos, token)
+			if err != nil {
+				return err
+			}
+			if decimal != tokenConfig.Decimals {
+				return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
+					symbol, token.String(), tokenConfig.Decimals, decimal)
+			}
+			aggregatorInState := onchainState.USDFeeds[TokenSymbol(symbol)]
+			if aggregatorInState == nil {
+				return fmt.Errorf("token %s -address %s has no aggregator in state", symbol, token.String())
+			}
+			if aggregatorAddr != aggregatorInState.Address() {
+				return fmt.Errorf("token %s -address %s has aggregator %s in provided token config, expected %s",
+					symbol, token.String(), aggregatorAddr.String(), aggregatorInState.Address().String())
+			}
+		}
 	}
 	if c.ExecuteOffChainConfig != nil {
 		if err := c.ExecuteOffChainConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid execute off-chain config: %w", err)
+		}
+		for _, observer := range c.ExecuteOffChainConfig.TokenDataObservers {
+			usdcConfig := observer.USDCCCTPObserverConfig
+			if usdcConfig != nil {
+				for sel, token := range usdcConfig.Tokens {
+					onchainState, ok := state.Chains[uint64(sel)]
+					if !ok {
+						return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
+					}
+					if onchainState.USDCTokenPool == nil {
+						return fmt.Errorf("chain %d does not have USDC token pool deployed", sel)
+					}
+					if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPool.Address() {
+						return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
+							"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
+							sel, onchainState.USDCTokenPool.Address().String(), token.SourcePoolAddress)
+					}
+				}
+			}
 		}
 	}
 	return nil
@@ -337,7 +421,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if len(chainConfig.Readers) == 0 {
 			return errors.New("readers must be set")
 		}
-		err = params.Validate()
+		err = params.Validate(chainSelector, state)
 		if err != nil {
 			return fmt.Errorf("invalid ccip ocr params: %w", err)
 		}
