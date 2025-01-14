@@ -89,6 +89,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   event RegistryUnlockedV1(address unlockedBy);
 
   error AddressNotAuthorized(address caller);
+  error BinaryURLRequired();
   error CallerIsNotWorkflowOwner(address caller);
   error DONNotAllowed(uint32 donID);
   error InvalidWorkflowID();
@@ -669,6 +670,10 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     uint256 configURLLength,
     uint256 secretsURLLength
   ) internal pure {
+    if (binaryURLLength == 0) {
+      revert BinaryURLRequired();
+    }
+
     if (binaryURLLength > MAX_URL_LENGTH) {
       revert URLTooLong(binaryURLLength, MAX_URL_LENGTH);
     }

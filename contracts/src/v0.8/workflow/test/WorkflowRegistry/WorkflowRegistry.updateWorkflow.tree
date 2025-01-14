@@ -17,6 +17,8 @@ WorkflowRegistry.updateWorkflow
                 │   └── it should revert
                 ├── when none of the URLs are updated
                 │   └── it should revert
+                ├── when the binaryURL is empty
+                │   └── it should revert
                 ├── when the binaryURL is too long
                 │   └── it should revert
                 ├── when the configURL is too long

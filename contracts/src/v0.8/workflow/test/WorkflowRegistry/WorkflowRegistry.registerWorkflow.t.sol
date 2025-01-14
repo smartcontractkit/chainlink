@@ -75,6 +75,22 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
+  function test_RevertWhen_TheBinaryURLIsEmpty() external {
+    vm.prank(s_authorizedAddress);
+
+    vm.expectRevert(WorkflowRegistry.BinaryURLRequired.selector);
+    s_registry.registerWorkflow(
+      s_validWorkflowName,
+      s_validWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      "",
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
   function test_RevertWhen_TheBinaryURLIsTooLong() external {
     vm.prank(s_authorizedAddress);
 

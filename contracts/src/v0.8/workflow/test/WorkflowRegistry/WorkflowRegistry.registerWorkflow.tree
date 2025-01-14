@@ -10,6 +10,8 @@ WorkflowRegistry.registerWorkflow
         └── when the donID is allowed
             ├── when the workflow name is too long
             │   └── it should revert
+            ├── when the binaryURL is empty
+            │   └── it should revert
             ├── when the binaryURL is too long
             │   └── it should revert
             ├── when the configURL is too long

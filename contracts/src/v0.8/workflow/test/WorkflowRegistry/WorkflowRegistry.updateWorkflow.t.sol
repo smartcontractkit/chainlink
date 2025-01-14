@@ -109,6 +109,19 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
+  function test_RevertWhen_TheBinaryURLIsEmpty() external {
+    // Register a workflow first
+    _registerValidWorkflow();
+
+    // Update the workflow with a binary URL that is empty
+    vm.prank(s_authorizedAddress);
+    vm.expectRevert(WorkflowRegistry.BinaryURLRequired.selector);
+    s_registry.updateWorkflow(
+      s_validWorkflowKey, s_newValidWorkflowID, "", s_validConfigURL, s_validSecretsURL
+    );
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
   function test_RevertWhen_TheBinaryURLIsTooLong() external {
     // Register a workflow first
     _registerValidWorkflow();
