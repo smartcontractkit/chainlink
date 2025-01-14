@@ -174,13 +174,8 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 	ocrConfigs := make(map[uint64]CCIPOCRParams)
 	chainConfigs := make(map[uint64]ChainConfig)
 	for _, chain := range solChainSelectors {
-		tokenConfig := NewTestTokenConfig(
-			solState.SolChains[chain].LinkToken.String(),
-			solState.SolChains[chain].Weth9.String(),
-			chain)
 		var tokenDataProviders []pluginconfig.TokenDataObserverConfig
-		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, solState.SolChains[chain].LinkToken.String(), solState.SolChains[chain].Weth9.String())
-		ocrParams := DefaultOCRParams(chain, tokenInfo, tokenDataProviders)
+		ocrParams := DefaultOCRParams(chain, map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}, tokenDataProviders)
 		ocrConfigs[chain] = ocrParams
 		chainConfigs[chain] = ChainConfig{
 			Readers: nodes.NonBootstraps().PeerIDs(),
