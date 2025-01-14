@@ -37,6 +37,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -383,7 +384,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "wsrpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolWSRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -599,7 +600,7 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "grpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -1078,7 +1079,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "grpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -1344,10 +1345,10 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, transmissionMode string) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, transmitterProtocol config.MercuryTransmitterProtocol) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], transmissionMode)
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], transmitterProtocol)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
