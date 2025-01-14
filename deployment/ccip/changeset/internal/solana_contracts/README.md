@@ -1,1 +1,0 @@
-Built contracts will be placed in this folder as part of the CI run for testing
