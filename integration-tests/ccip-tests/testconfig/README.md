@@ -6,7 +6,7 @@ The test config is read in following order:
 
 - The test reads the default configuration from [ccip-default.toml](./tomls/ccip-default.toml).
 - The default can be overridden by specifying the test config in a separate file.
-  - The file content needs to be encoded in base64 format and set in `BASE64_CCIP_CONFIG_OVERRIDE` environment variable.
+  - The file content needs to be encoded in base64 format and set in `BASE64_CONFIG_OVERRIDE` environment variable.
   - The config mentioned in this file will override the default config.
   - Example override file - [override.toml.example](./examples/override.toml.example)
 - If there are sensitive details like private keys, credentials in test config, they can be specified in a separate dotenv file as env vars
