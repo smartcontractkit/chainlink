@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -33,6 +34,8 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -336,33 +339,36 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 	backend.Commit()
 }
 
-func TestIntegration_LLO(t *testing.T) {
+func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
+
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
 
+	const salt = 100
+
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
 	for i := 0; i < nNodes; i++ {
-		k := big.NewInt(int64(i))
+		k := big.NewInt(int64(salt + i))
 		key := csakey.MustNewV2XXXTestingOnly(k)
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, configurator, configuratorAddress, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
-	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
 		reqs := make(chan request, 100000)
-		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
 		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 
@@ -548,10 +554,516 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			}
 		})
 	})
+}
+
+func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
+	t.Parallel()
+
+	testStartTimeStamp := time.Now()
+	expirationWindow := uint32(3600)
+
+	const salt = 200
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := 0; i < nNodes; i++ {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	t.Run("generates reports using go ReportFormatEVMABIEncodeUnpacked format", func(t *testing.T) {
+		reqs := make(chan request, 100000)
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+		serverPubKey := serverKey.PublicKey
+		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+		donID := uint32(888333)
+		streams := []Stream{ethStream, linkStream}
+		streamMap := make(map[uint32]Stream)
+		for _, strm := range streams {
+			streamMap[strm.id] = strm
+		}
+
+		// Setup oracle nodes
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams)
+
+		chainID := testutils.SimulatedChainID
+		relayType := "evm"
+		relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-4", relayType, relayConfig)
+
+		dexBasedAssetPriceStreamID := uint32(1)
+		marketStatusStreamID := uint32(2)
+		baseMarketDepthStreamID := uint32(3)
+		quoteMarketDepthStreamID := uint32(4)
+		benchmarkPriceStreamID := uint32(5)
+		binanceFundingRateStreamID := uint32(6)
+		binanceFundingTimeStreamID := uint32(7)
+		binanceFundingIntervalHoursStreamID := uint32(8)
+		deribitFundingRateStreamID := uint32(9)
+		deribitFundingTimeStreamID := uint32(10)
+		deribitFundingIntervalHoursStreamID := uint32(11)
+
+		mustEncodeOpts := func(opts *lloevm.ReportFormatEVMABIEncodeOpts) []byte {
+			encoded, err := json.Marshal(opts)
+			require.NoError(t, err)
+			return encoded
+		}
+
+		standardMultiplier := ubig.NewI(1e18)
+
+		dexBasedAssetFeedID := utils.NewHash()
+		rwaFeedID := utils.NewHash()
+		benchmarkPriceFeedID := utils.NewHash()
+		fundingRateFeedID := utils.NewHash()
+		// Channel definitions
+		channelDefinitions := llotypes.ChannelDefinitions{
+			// Sample DEX-based asset schema
+			1: {
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   dexBasedAssetPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   baseMarketDepthStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   quoteMarketDepthStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMABIEncodeOpts{
+					BaseUSDFee:       decimal.NewFromFloat32(0.1),
+					ExpirationWindow: expirationWindow,
+					FeedID:           dexBasedAssetFeedID,
+					ABI: []lloevm.ABIEncoder{
+						lloevm.ABIEncoder{
+							StreamID:   dexBasedAssetPriceStreamID,
+							Type:       "int192",
+							Multiplier: standardMultiplier,
+						},
+						lloevm.ABIEncoder{
+							StreamID: baseMarketDepthStreamID,
+							Type:     "int192",
+						},
+						lloevm.ABIEncoder{
+							StreamID: quoteMarketDepthStreamID,
+							Type:     "int192",
+						},
+					},
+				}),
+			},
+			// Sample RWA schema
+			2: {
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   marketStatusStreamID,
+						Aggregator: llotypes.AggregatorMode,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMABIEncodeOpts{
+					BaseUSDFee:       decimal.NewFromFloat32(0.1),
+					ExpirationWindow: expirationWindow,
+					FeedID:           rwaFeedID,
+					ABI: []lloevm.ABIEncoder{
+						{
+							StreamID: marketStatusStreamID,
+							Type:     "uint32",
+						},
+					},
+				}),
+			},
+			// Sample Benchmark price schema
+			3: {
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   benchmarkPriceStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMABIEncodeOpts{
+					BaseUSDFee:       decimal.NewFromFloat32(0.1),
+					ExpirationWindow: expirationWindow,
+					FeedID:           benchmarkPriceFeedID,
+					ABI: []lloevm.ABIEncoder{
+						{
+							StreamID:   benchmarkPriceStreamID,
+							Type:       "int192",
+							Multiplier: standardMultiplier,
+						},
+					},
+				}),
+			},
+			// Sample funding rate scheam
+			4: {
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   binanceFundingRateStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   binanceFundingTimeStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   binanceFundingIntervalHoursStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   deribitFundingRateStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   deribitFundingTimeStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   deribitFundingIntervalHoursStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMABIEncodeOpts{
+					BaseUSDFee:       decimal.NewFromFloat32(0.1),
+					ExpirationWindow: expirationWindow,
+					FeedID:           fundingRateFeedID,
+					ABI: []lloevm.ABIEncoder{
+						{
+							StreamID: binanceFundingRateStreamID,
+							Type:     "int192",
+						},
+						{
+							StreamID: binanceFundingTimeStreamID,
+							Type:     "int192",
+						},
+						{
+							StreamID: binanceFundingIntervalHoursStreamID,
+							Type:     "int192",
+						},
+						{
+							StreamID: deribitFundingRateStreamID,
+							Type:     "int192",
+						},
+						{
+							StreamID: deribitFundingTimeStreamID,
+							Type:     "int192",
+						},
+						{
+							StreamID: deribitFundingIntervalHoursStreamID,
+							Type:     "int192",
+						},
+					},
+				}),
+			},
+		}
+		url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+		// Set channel definitions
+		_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+		require.NoError(t, err)
+		backend.Commit()
+
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+		bridgeName := "superbridge"
+
+		resultJSON := `{
+	"benchmarkPrice": "2976.39",
+	"baseMarketDepth": "1000.1212",
+	"quoteMarketDepth": "998.5431",
+	"marketStatus": "1",
+	"binanceFundingRate": "1234.5678",
+	"binanceFundingTime": "1630000000",
+	"binanceFundingIntervalHours": "8",
+	"deribitFundingRate": "5432.2345",
+	"deribitFundingTime": "1630000000",
+	"deribitFundingIntervalHours": "8"
+}`
+
+		dexBasedAssetPipeline := fmt.Sprintf(`
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+
+bp_parse    				[type=jsonparse path="result,benchmarkPrice"];
+base_market_depth_parse   	[type=jsonparse path="result,baseMarketDepth"];
+quote_market_depth_parse    [type=jsonparse path="result,quoteMarketDepth"];
+
+bp_decimal 					[type=multiply times=1 streamID=%d];
+base_market_depth_decimal   [type=multiply times=1 streamID=%d];
+quote_market_depth_decimal  [type=multiply times=1 streamID=%d];
+
+dp -> bp_parse -> bp_decimal;
+dp -> base_market_depth_parse -> base_market_depth_decimal;
+dp -> quote_market_depth_parse -> quote_market_depth_decimal;
+`, bridgeName, dexBasedAssetPriceStreamID, baseMarketDepthStreamID, quoteMarketDepthStreamID)
+
+		rwaPipeline := fmt.Sprintf(`
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+
+market_status_parse   [type=jsonparse path="result,marketStatus"];
+market_status_decimal [type=multiply times=1 streamID=%d];
+
+dp -> market_status_parse -> market_status_decimal;
+`, bridgeName, marketStatusStreamID)
+
+		benchmarkPricePipeline := fmt.Sprintf(`
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+
+bp_parse    				[type=jsonparse path="result,benchmarkPrice"];
+bp_decimal 					[type=multiply times=1 streamID=%d];
+
+dp -> bp_parse -> bp_decimal;
+`, bridgeName, benchmarkPriceStreamID)
+
+		fundingRatePipeline := fmt.Sprintf(`
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+
+binance_funding_rate_parse   [type=jsonparse path="result,binanceFundingRate"];
+binance_funding_rate_decimal [type=multiply times=1 streamID=%d];
+
+binance_funding_time_parse   [type=jsonparse path="result,binanceFundingTime"];
+binance_funding_time_decimal [type=multiply times=1 streamID=%d];
+
+binance_funding_interval_hours_parse   [type=jsonparse path="result,binanceFundingIntervalHours"];
+binance_funding_interval_hours_decimal [type=multiply times=1 streamID=%d];
+
+deribit_funding_rate_parse   [type=jsonparse path="result,deribitFundingRate"];
+deribit_funding_rate_decimal [type=multiply times=1 streamID=%d];
+
+deribit_funding_time_parse   [type=jsonparse path="result,deribitFundingTime"];
+deribit_funding_time_decimal [type=multiply times=1 streamID=%d];
+
+deribit_funding_interval_hours_parse   [type=jsonparse path="result,deribitFundingIntervalHours"];
+deribit_funding_interval_hours_decimal [type=multiply times=1 streamID=%d];
+
+dp -> binance_funding_rate_parse -> binance_funding_rate_decimal;
+dp -> binance_funding_time_parse -> binance_funding_time_decimal;
+dp -> binance_funding_interval_hours_parse -> binance_funding_interval_hours_decimal;
+dp -> deribit_funding_rate_parse -> deribit_funding_rate_decimal;
+dp -> deribit_funding_time_parse -> deribit_funding_time_decimal;
+dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_decimal;
+`, bridgeName, binanceFundingRateStreamID, binanceFundingTimeStreamID, binanceFundingIntervalHoursStreamID, deribitFundingRateStreamID, deribitFundingTimeStreamID, deribitFundingIntervalHoursStreamID)
+
+		for i, node := range nodes {
+			// superBridge returns a JSON with everything you want in it,
+			// stream specs can just pick the individual fields they need
+			createBridge(t, bridgeName, resultJSON, node.App.BridgeORM())
+			addStreamSpec(t, node, "dexBasedAssetPipeline", nil, dexBasedAssetPipeline)
+			addStreamSpec(t, node, "rwaPipeline", nil, rwaPipeline)
+			addStreamSpec(t, node, "benchmarkPricePipeline", nil, benchmarkPricePipeline)
+			addStreamSpec(t, node, "fundingRatePipeline", nil, fundingRatePipeline)
+			addLLOJob(
+				t,
+				node,
+				configuratorAddress,
+				bootstrapPeerID,
+				bootstrapNodePort,
+				clientPubKeys[i],
+				"llo-evm-abi-encode-unpacked-test",
+				pluginConfig,
+				relayType,
+				relayConfig,
+			)
+		}
+
+		// Set config on configurator
+		digest := setProductionConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+		)
+
+		// NOTE: Wait for one of each type of report
+		feedIDs := map[[32]byte]struct{}{
+			dexBasedAssetFeedID:  {},
+			rwaFeedID:            {},
+			benchmarkPriceFeedID: {},
+			fundingRateFeedID:    {},
+		}
+
+		for req := range reqs {
+			v := make(map[string]interface{})
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			require.NoError(t, err)
+			report, exists := v["report"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'report'", v)
+			}
+			reportCtx, exists := v["reportContext"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'reportContext'", v)
+			}
+
+			// Check the report context
+			assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
+			assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
+
+			reportElems := make(map[string]interface{})
+			err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
+			require.NoError(t, err)
+
+			feedID := reportElems["feedId"].([32]uint8)
+			delete(feedIDs, feedID)
+
+			// Check headers
+			assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
+			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+			// Zero fees since both eth/link stream specs are missing, don't
+			// care about billing for purposes of this test
+			assert.Equal(t, "0", reportElems["nativeFee"].(*big.Int).String())
+			assert.Equal(t, "0", reportElems["linkFee"].(*big.Int).String())
+			assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
+
+			// Check payload values
+			payload := report.([]byte)[192:]
+			switch hex.EncodeToString(feedID[:]) {
+			case hex.EncodeToString(dexBasedAssetFeedID[:]):
+				require.Len(t, payload, 96)
+				args := abi.Arguments([]abi.Argument{
+					{Name: "benchmarkPrice", Type: mustNewType("int192")},
+					{Name: "baseMarketDepth", Type: mustNewType("int192")},
+					{Name: "quoteMarketDepth", Type: mustNewType("int192")},
+				})
+				v := make(map[string]interface{})
+				err := args.UnpackIntoMap(v, payload)
+				require.NoError(t, err)
+
+				assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
+				assert.Equal(t, "1000", v["baseMarketDepth"].(*big.Int).String())
+				assert.Equal(t, "998", v["quoteMarketDepth"].(*big.Int).String())
+			case hex.EncodeToString(rwaFeedID[:]):
+				require.Len(t, payload, 32)
+				args := abi.Arguments([]abi.Argument{
+					{Name: "marketStatus", Type: mustNewType("uint32")},
+				})
+				v := make(map[string]interface{})
+				err := args.UnpackIntoMap(v, payload)
+				require.NoError(t, err)
+
+				assert.Equal(t, uint32(1), v["marketStatus"].(uint32))
+			case hex.EncodeToString(benchmarkPriceFeedID[:]):
+				require.Len(t, payload, 32)
+				args := abi.Arguments([]abi.Argument{
+					{Name: "benchmarkPrice", Type: mustNewType("int192")},
+				})
+				v := make(map[string]interface{})
+				err := args.UnpackIntoMap(v, payload)
+				require.NoError(t, err)
+
+				assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
+			case hex.EncodeToString(fundingRateFeedID[:]):
+				require.Len(t, payload, 192)
+				args := abi.Arguments([]abi.Argument{
+					{Name: "binanceFundingRate", Type: mustNewType("int192")},
+					{Name: "binanceFundingTime", Type: mustNewType("int192")},
+					{Name: "binanceFundingIntervalHours", Type: mustNewType("int192")},
+					{Name: "deribitFundingRate", Type: mustNewType("int192")},
+					{Name: "deribitFundingTime", Type: mustNewType("int192")},
+					{Name: "deribitFundingIntervalHours", Type: mustNewType("int192")},
+				})
+				v := make(map[string]interface{})
+				err := args.UnpackIntoMap(v, payload)
+				require.NoError(t, err)
+
+				assert.Equal(t, "1234", v["binanceFundingRate"].(*big.Int).String())
+				assert.Equal(t, "1630000000", v["binanceFundingTime"].(*big.Int).String())
+				assert.Equal(t, "8", v["binanceFundingIntervalHours"].(*big.Int).String())
+				assert.Equal(t, "5432", v["deribitFundingRate"].(*big.Int).String())
+				assert.Equal(t, "1630000000", v["deribitFundingTime"].(*big.Int).String())
+				assert.Equal(t, "8", v["deribitFundingIntervalHours"].(*big.Int).String())
+			default:
+				t.Fatalf("unexpected feedID: %x", feedID)
+			}
+
+			if len(feedIDs) == 0 {
+				break
+			}
+		}
+	})
+}
+
+func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
+	t.Parallel()
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+
+	const salt = 300
+
+	for i := 0; i < nNodes; i++ {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Blue/Green lifecycle (using JSON report format)", func(t *testing.T) {
 		reqs := make(chan request, 100000)
-		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-2))
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
 		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 
@@ -870,4 +1382,12 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA
+}
+
+func mustNewType(t string) abi.Type {
+	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
+	if err != nil {
+		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
+	}
+	return result
 }

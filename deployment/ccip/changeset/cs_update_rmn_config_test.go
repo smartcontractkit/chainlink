@@ -127,7 +127,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewSetRMNHomeCandidateConfigChangeset),
+			Changeset: commonchangeset.WrapChangeSet(SetRMNHomeCandidateConfigChangeset),
 			Config:    setRMNHomeCandidateConfig,
 		},
 	})
@@ -153,7 +153,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewPromoteCandidateConfigChangeset),
+			Changeset: commonchangeset.WrapChangeSet(PromoteCandidateConfigChangeset),
 			Config:    promoteConfig,
 		},
 	})
@@ -187,7 +187,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(NewSetRMNRemoteConfigChangeset),
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteConfigChangeset),
 			Config:    setRemoteConfig,
 		},
 	})

@@ -232,6 +232,29 @@ observationSource = """
 	))
 }
 
+func addStreamSpec(
+	t *testing.T,
+	node Node,
+	name string,
+	streamID *uint32,
+	observationSource string,
+) (id int32) {
+	optionalStreamID := ""
+	if streamID != nil {
+		optionalStreamID = fmt.Sprintf("streamID = %d\n", *streamID)
+	}
+	specTOML := fmt.Sprintf(`
+type = "stream"
+schemaVersion = 1
+name = "%s"
+%s
+observationSource = """
+%s
+"""
+`, name, optionalStreamID, observationSource)
+	return node.AddStreamJob(t, specTOML)
+}
+
 func addQuoteStreamJob(
 	t *testing.T,
 	node Node,
@@ -331,7 +354,7 @@ transmitterID = "%x"
 	))
 }
 
-func createBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
+func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
@@ -353,6 +376,24 @@ func createBridge(t *testing.T, name string, i int, p decimal.Decimal, borm brid
 	}))
 
 	return bridgeName
+}
+
+func createBridge(t *testing.T, bridgeName string, resultJSON string, borm bridges.ORM) {
+	ctx := testutils.Context(t)
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		resp := fmt.Sprintf(`{"result": %s}`, resultJSON)
+		_, err := res.Write([]byte(resp))
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name: bridges.BridgeName(bridgeName),
+		URL:  models.WebURL(*u),
+	}))
 }
 
 func addOCRJobsEVMPremiumLegacy(
@@ -386,7 +427,7 @@ func addOCRJobsEVMPremiumLegacy(
 					name = "linkprice"
 				}
 				name = fmt.Sprintf("%s-%d-%d", name, strm.id, j)
-				bmBridge := createBridge(t, name, i, strm.baseBenchmarkPrice, node.App.BridgeORM())
+				bmBridge := createSingleDecimalBridge(t, name, i, strm.baseBenchmarkPrice, node.App.BridgeORM())
 				jobID := addSingleDecimalStreamJob(
 					t,
 					node,
@@ -395,9 +436,9 @@ func addOCRJobsEVMPremiumLegacy(
 				)
 				jobIDs[i][strm.id] = jobID
 			} else {
-				bmBridge := createBridge(t, fmt.Sprintf("benchmarkprice-%d-%d", strm.id, j), i, strm.baseBenchmarkPrice, node.App.BridgeORM())
-				bidBridge := createBridge(t, fmt.Sprintf("bid-%d-%d", strm.id, j), i, strm.baseBid, node.App.BridgeORM())
-				askBridge := createBridge(t, fmt.Sprintf("ask-%d-%d", strm.id, j), i, strm.baseAsk, node.App.BridgeORM())
+				bmBridge := createSingleDecimalBridge(t, fmt.Sprintf("benchmarkprice-%d-%d", strm.id, j), i, strm.baseBenchmarkPrice, node.App.BridgeORM())
+				bidBridge := createSingleDecimalBridge(t, fmt.Sprintf("bid-%d-%d", strm.id, j), i, strm.baseBid, node.App.BridgeORM())
+				askBridge := createSingleDecimalBridge(t, fmt.Sprintf("ask-%d-%d", strm.id, j), i, strm.baseAsk, node.App.BridgeORM())
 				jobID := addQuoteStreamJob(
 					t,
 					node,

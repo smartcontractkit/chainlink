@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,8 +17,8 @@ import (
 )
 
 const (
-	binaryLocation = "test/simple/cmd/testmodule.wasm"
-	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
+	simpleBinaryLocation = "test/simple/cmd/testmodule.wasm"
+	simpleBinaryCmd      = "core/capabilities/compute/test/simple/cmd"
 )
 
 // Verify that cache evicts an expired module.
@@ -34,7 +35,7 @@ func TestCache(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -74,7 +75,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, false, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
 	hmod, err := host.NewModule(&host.ModuleConfig{
 		Logger:         logger.TestLogger(t),
 		IsUncompressed: true,
@@ -102,4 +103,56 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	}
 	_, ok = cache.get(id)
 	assert.True(t, ok)
+}
+
+func TestCache_AddDuplicatedModule(t *testing.T) {
+	t.Parallel()
+	clock := clockwork.NewFakeClock()
+	tick := 1 * time.Second
+	timeout := 1 * time.Second
+	reapTicker := make(chan time.Time)
+
+	cache := newModuleCache(clock, tick, timeout, 0)
+	cache.onReaper = make(chan struct{}, 1)
+	cache.reapTicker = reapTicker
+	cache.start()
+	defer cache.close()
+
+	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, false, t)
+	shmod, err := host.NewModule(&host.ModuleConfig{
+		Logger:         logger.TestLogger(t),
+		IsUncompressed: true,
+	}, simpleBinary)
+	require.NoError(t, err)
+
+	// we will use the same id for both modules, but should only be associated to the simple module
+	duplicatedID := uuid.New().String()
+	smod := &module{
+		module: shmod,
+	}
+	err = cache.add(duplicatedID, smod)
+	require.NoError(t, err)
+
+	got, ok := cache.get(duplicatedID)
+	assert.True(t, ok)
+	assert.Equal(t, got, smod)
+
+	// Adding a different module but with the same id should not overwrite the existing module
+	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, false, t)
+	fhmod, err := host.NewModule(&host.ModuleConfig{
+		Logger:         logger.TestLogger(t),
+		IsUncompressed: true,
+	}, fetchBinary)
+	require.NoError(t, err)
+
+	fmod := &module{
+		module: fhmod,
+	}
+	err = cache.add(duplicatedID, fmod)
+	require.ErrorContains(t, err, fmt.Sprintf("module with id %q already exists in cache", duplicatedID))
+
+	// validate that the module is still the same
+	got, ok = cache.get(duplicatedID)
+	assert.True(t, ok)
+	assert.Equal(t, got, smod)
 }
