@@ -106,6 +106,22 @@ func TestRMNCurse(t *testing.T) {
 	}
 }
 
+func TestRMNCurseIdempotent(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			runRmnCurseIdempotentTest(t, tc)
+		})
+	}
+}
+
+func TestRMNUncurseIdempotent(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name+"_NO_MCMS", func(t *testing.T) {
+			runRmnUncurseIdempotentTest(t, tc)
+		})
+	}
+}
+
 func TestRMNUncurse(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name+"_UNCURSE", func(t *testing.T) {
@@ -249,6 +265,57 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+}
+
+func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
+	}
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := RMNCurseConfig{
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
+		Reason:       "test curse",
+	}
+
+	_, err := NewRMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	_, err = NewRMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+}
+
+func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
+	e, _ := NewMemoryEnvironment(t, WithChains(3))
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return e.Env.AllChainSelectors()[id]
+	}
+
+	verifyNoActiveCurseOnAllChains(t, &e)
+
+	config := RMNCurseConfig{
+		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
+		Reason:       "test curse",
+	}
+
+	_, err := NewRMNCurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
+
+	_, err = NewRMNUncurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	_, err = NewRMNUncurseChangeset(e.Env, config)
+	require.NoError(t, err)
+
+	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
 func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {

@@ -232,6 +232,11 @@ func NewRMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deploym
 					e.Logger.Warnf("chain %s subject %x is already cursed, ignoring it while cursing", e.Chains[selector].Name(), subject)
 				}
 			}
+
+			if len(notAlreadyCursedSubjects) == 0 {
+				continue
+			}
+
 			_, err := chain.RMNRemote.Curse0(deployer, notAlreadyCursedSubjects)
 			e.Logger.Infof("Cursed chain %d with subjects %v", selector, notAlreadyCursedSubjects)
 			if err != nil {
@@ -293,6 +298,10 @@ func NewRMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deplo
 				} else {
 					e.Logger.Warnf("chain %s subject %x is not cursed, ignoring it while uncursing", e.Chains[selector].Name(), subject)
 				}
+			}
+
+			if len(actuallyCursedSubjects) == 0 {
+				continue
 			}
 
 			_, err := chain.RMNRemote.Uncurse0(deployer, actuallyCursedSubjects)
