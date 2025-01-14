@@ -64,14 +64,14 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param autoActivate A boolean indicating whether the new version should be activated immediately.
   /// @custom:throws InvalidContractType if the provided contract address is zero or not a WorkflowRegistry.
   function addVersion(address contractAddress, uint64 chainID, uint32 deployedAt, bool autoActivate) external onlyOwner {
-    string memory typeVer = _getTypeAndVersionForContract(contractAddress);
-    uint32 latestVersionNumber = ++s_latestVersionNumber;
-
     // Check if the contract is already registered. If it is, you can just activate that existing version.
     bytes32 key = keccak256(abi.encodePacked(contractAddress, chainID));
     if (s_versionNumberByAddressAndChainID[key] != 0) {
       revert ContractAlreadyRegistered(contractAddress, chainID);
     }
+
+    string memory typeVer = _getTypeAndVersionForContract(contractAddress);
+    uint32 latestVersionNumber = ++s_latestVersionNumber;
 
     s_versions[latestVersionNumber] = Version({
       contractAddress: contractAddress,
