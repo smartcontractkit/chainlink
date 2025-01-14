@@ -489,20 +489,16 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       revert WorkflowAlreadyInDesiredStatus();
     }
 
-    // Check if the DON ID is allowed when activating a workflow
+    // Emit the appropriate event based on newStatus
     if (newStatus == WorkflowStatus.ACTIVE) {
       _validatePermissions(donID, msg.sender);
+      emit WorkflowActivatedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
+    } else if (newStatus == WorkflowStatus.PAUSED) {
+      emit WorkflowPausedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
     }
 
     // Update the workflow status
     workflow.status = newStatus;
-
-    // Emit the appropriate event based on newStatus
-    if (newStatus == WorkflowStatus.PAUSED) {
-      emit WorkflowPausedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
-    } else if (newStatus == WorkflowStatus.ACTIVE) {
-      emit WorkflowActivatedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
-    }
   }
 
   /// @dev Internal function to retrieve a workflow from storage.
