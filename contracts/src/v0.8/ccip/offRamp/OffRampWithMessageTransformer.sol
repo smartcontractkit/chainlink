@@ -25,6 +25,10 @@ contract OffRampWithMessageTransformer is OffRamp {
     return s_messageTransformer;
   }
 
+  function setMessageTransformer(address messageTransformerAddr) external onlyOwner {
+    s_messageTransformer = messageTransformerAddr;
+  }
+
   function _beforeExecuteSingleMessage(
     Internal.Any2EVMRampMessage memory message
   ) internal override returns (Internal.Any2EVMRampMessage memory) {

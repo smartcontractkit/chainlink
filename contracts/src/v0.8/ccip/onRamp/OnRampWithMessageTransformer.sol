@@ -27,6 +27,10 @@ contract OnRampWithMessageTransformer is OnRamp {
     return s_messageTransformer;
   }
 
+  function setMessageTransformer(address messageTransformerAddr) external onlyOwner {
+    s_messageTransformer = messageTransformerAddr;
+  }
+
   function _postProcessMessage(
     Internal.EVM2AnyRampMessage memory message
   ) internal override returns (Internal.EVM2AnyRampMessage memory) {
