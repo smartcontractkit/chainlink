@@ -1,16 +1,16 @@
 package changeset
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -22,22 +22,6 @@ import (
 
 func init() {
 	AssertAllContractsArePresent()
-}
-
-func runCommand(command string, args []string, workDir string) (string, error) {
-	fmt.Printf("Running command %s %v in %s\n", command, args, workDir)
-	cmd := exec.Command(command, args...)
-	cmd.Dir = workDir
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdoutBuf)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
-
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Sprintf("stdout: %s\nstderr: %s", stdoutBuf.String(), stderrBuf.String()), err
-	}
-	return fmt.Sprintf("stdout: %s\nstderr: %s", stdoutBuf.String(), stderrBuf.String()), nil
 }
 
 func AssertAllContractsArePresent() {
@@ -58,6 +42,44 @@ func AssertAllContractsArePresent() {
 		if err != nil {
 			panic(fmt.Sprintf("Contract %s not found in %s. Please run script TODO to populate them", contract, contractPath))
 		}
+	}
+
+	// read current version of contracts and compare with expected
+	currentContractsRevision, err := os.ReadFile(programsPath + "/.solana_contracts_rev")
+	currentContractsRevision = []byte(strings.TrimSpace(string(currentContractsRevision)))
+	if err != nil {
+		panic(fmt.Sprintf("Could not read .solana_contracts_rev file: %v", err))
+	}
+
+	gomodContent, err := os.ReadFile("../../../deployment/go.mod")
+	if err != nil {
+		panic(fmt.Sprintf("Could not read deployment/go.mod file: %v", err))
+	}
+
+	modfile, err := modfile.Parse("deployment/go.mod", gomodContent, nil)
+	if err != nil {
+		panic(fmt.Sprintf("Could not parse deployment/go.mod file: %v", err))
+	}
+
+	var solanaModVersion string = ""
+	for _, r := range modfile.Require {
+		if r.Mod.Path == "github.com/smartcontractkit/chainlink-ccip/chains/solana" {
+			solanaModVersion = r.Mod.Version
+			break
+		}
+	}
+	if solanaModVersion == "" {
+		panic("Could not find ccip solana module in deployment/go.mod")
+	}
+
+	solanaModVersionRev, err := module.PseudoVersionRev(solanaModVersion)
+
+	if err != nil {
+		panic(fmt.Sprintf("Could not parse ccip solana module version: %v", err))
+	}
+
+	if string(currentContractsRevision) != solanaModVersionRev {
+		panic(fmt.Sprintf("solana_contracts_rev file is outdated. Please run script TODO to update it"))
 	}
 }
 

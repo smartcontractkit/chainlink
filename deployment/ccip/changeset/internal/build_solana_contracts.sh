@@ -4,21 +4,27 @@
 DEPLOYMENT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)
 INTERNAL_FOLDER="$DEPLOYMENT_ROOT/ccip/changeset/internal"
 TEMP_FOLDER="$INTERNAL_FOLDER/.tmp-solana-ccip-repo"
+CONTRACTS_FOLDER=$INTERNAL_FOLDER/solana_contracts
 
 cd $DEPLOYMENT_ROOT
 
 # extract the chainlink-ccip revision from go.mod
 CCIP_VERSION=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" $DEPLOYMENT_ROOT/go.mod | awk '{print $2}' | cut -d'-' -f3)
 
-echo "Chainlink-CCIP version: $CCIP_VERSION"
+echo "chainlink-CCIP version: $CCIP_VERSION"
 
 if [ -z "$CCIP_VERSION" ]; then
     echo "Error: Could not find chainlink-ccip dependency in go.mod"
     exit 1
 fi
 
-# remove the existing chainlink-ccip repo if it exists
+# cleanup the existing chainlink-ccip repo if it exists
 rm -rf $TEMP_FOLDER
+rm -rf $CONTRACTS_FOLDER
+
+mkdir -p $CONTRACTS_FOLDER
+
+echo $CCIP_VERSION > $CONTRACTS_FOLDER/.solana_contracts_rev
 
 # clone the chainlink-ccip and checkout the required revision
 git clone git@github.com:smartcontractkit/chainlink-ccip.git $TEMP_FOLDER
@@ -30,7 +36,7 @@ cd $TEMP_FOLDER/chains/solana/contracts
 anchor build
 
 # copy the built programs to the tests directory
-cp target/deploy/*.so $INTERNAL_FOLDER/solana_contracts
+cp target/deploy/*.so $CONTRACTS_FOLDER
 
 # cleanup
 rm -rf $TEMP_FOLDER
