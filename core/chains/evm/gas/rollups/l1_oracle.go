@@ -50,14 +50,15 @@ const (
 	PollPeriod = 6 * time.Second
 )
 
+// Sort alphabetically
 var supportedChainTypes = []chaintype.ChainType{
 	chaintype.ChainArbitrum,
-	chaintype.ChainOptimismBedrock,
 	chaintype.ChainKroma,
-	chaintype.ChainScroll,
-	chaintype.ChainZkSync,
 	chaintype.ChainMantle,
+	chaintype.ChainOptimismBedrock,
+	chaintype.ChainScroll,
 	chaintype.ChainZircuit,
+	chaintype.ChainZkSync,
 }
 
 func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
