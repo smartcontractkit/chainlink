@@ -1,29 +1,32 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
-import {IRouterClient} from "../interfaces/IRouterClient.sol";
-import {IWrappedNative} from "../interfaces/IWrappedNative.sol";
+import {IRouterClient} from "../../interfaces/IRouterClient.sol";
+import {IWrappedNative} from "../../interfaces/IWrappedNative.sol";
 
-import {Client} from "./../libraries/Client.sol";
-import {CCIPReceiver} from "./CCIPReceiver.sol";
+import {Client} from "../../libraries/Client.sol";
+import {CCIPReceiver} from "./CCIPReceiverLegacy.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface ICCIPRouter {
+//solhint-disable interface-starts-with-i
+interface CCIPRouter {
   function getWrappedNative() external view returns (address);
 }
 
 /// @notice A contract that can send raw ether cross-chain using CCIP.
-/// Since CCIP only supports ERC-20 token transfers, this contract accepts normal ether, wraps it, and uses CCIP to
-/// send it cross-chain. On the receiving side, the wrapped ether is unwrapped and sent to the final receiver.
+/// Since CCIP only supports ERC-20 token transfers, this contract accepts
+/// normal ether, wraps it, and uses CCIP to send it cross-chain.
+/// On the receiving side, the wrapped ether is unwrapped and sent to the final receiver.
 /// @notice This contract only supports chains where the wrapped native contract
 /// is the WETH contract (i.e not WMATIC, or WAVAX, etc.). This is because the
 /// receiving contract will always unwrap the ether using it's local wrapped native contract.
-/// @dev This contract is both a sender and a receiver. This same contract can be deployed on source and destination
-/// chains to facilitate cross-chain ether transfers and act as a sender and a receiver.
+/// @dev This contract is both a sender and a receiver. This same contract can be
+/// deployed on source and destination chains to facilitate cross-chain ether transfers
+/// and act as a sender and a receiver.
 /// @dev This contract is intentionally ownerless and permissionless. This contract
 /// will never hold any excess funds, native or otherwise, when used correctly.
 contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
@@ -40,10 +43,8 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   IWrappedNative public immutable i_weth;
 
   /// @param router The CCIP router address.
-  constructor(
-    address router
-  ) CCIPReceiver(router) {
-    i_weth = IWrappedNative(ICCIPRouter(router).getWrappedNative());
+  constructor(address router) CCIPReceiver(router) {
+    i_weth = IWrappedNative(CCIPRouter(router).getWrappedNative());
     i_weth.approve(router, type(uint256).max);
   }
 
@@ -51,11 +52,12 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   receive() external payable {}
 
   /// @notice Get the fee for sending a message to a destination chain.
-  /// This is mirrored from the router for convenience, construct the appropriate message and get it's fee.
-  /// @param destinationChainSelector The destination chainSelector.
-  /// @param message The cross-chain CCIP message including data and/or tokens.
-  /// @return fee returns execution fee for the message delivery to destination chain, denominated  in the feeToken
-  /// specified in the message.
+  /// This is mirrored from the router for convenience, construct the appropriate
+  /// message and get it's fee.
+  /// @param destinationChainSelector The destination chainSelector
+  /// @param message The cross-chain CCIP message including data and/or tokens
+  /// @return fee returns execution fee for the message
+  /// delivery to destination chain, denominated in the feeToken specified in the message.
   /// @dev Reverts with appropriate reason upon invalid message.
   function getFee(
     uint64 destinationChainSelector,
@@ -105,8 +107,8 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
       return IRouterClient(getRouter()).ccipSend(destinationChainSelector, validatedMessage);
     }
 
-    // We don't want to keep any excess ether in this contract, so we send over the entire address(this).balance as the
-    // fee. CCIP will revert if the fee is insufficient, so we don't need to check here.
+    // We don't want to keep any excess ether in this contract, so we send over the entire address(this).balance as the fee.
+    // CCIP will revert if the fee is insufficient, so we don't need to check here.
     return IRouterClient(getRouter()).ccipSend{value: address(this).balance}(destinationChainSelector, validatedMessage);
   }
 
@@ -128,9 +130,7 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
     return validatedMessage;
   }
 
-  function _validateFeeToken(
-    Client.EVM2AnyMessage calldata message
-  ) internal view {
+  function _validateFeeToken(Client.EVM2AnyMessage calldata message) internal view {
     uint256 tokenAmount = message.tokenAmounts[0].amount;
 
     if (message.feeToken != address(0)) {
@@ -146,9 +146,7 @@ contract EtherSenderReceiver is CCIPReceiver, ITypeAndVersion {
   /// @param message The CCIP message containing the wrapped ether amount and the final receiver.
   /// @dev The code below should never revert if the message being is valid according
   /// to the above _validatedMessage and _validateFeeToken functions.
-  function _ccipReceive(
-    Client.Any2EVMMessage memory message
-  ) internal override {
+  function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
     address receiver = abi.decode(message.data, (address));
 
     if (message.destTokenAmounts.length != 1) {
