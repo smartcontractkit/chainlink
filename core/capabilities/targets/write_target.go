@@ -345,10 +345,11 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				return capabilities.CapabilityResponse{}, nil
 			case commontypes.Failed, commontypes.Fatal:
 				cap.lggr.Error("Transaction failed", "request", request, "transaction", txID)
+
 				msg := "failed to submit transaction with ID: " + txID.String()
 				err = cap.emitter.With(
 					platform.KeyWorkflowID, request.Metadata.WorkflowID,
-					platform.KeyWorkflowName, request.Metadata.WorkflowName,
+					platform.KeyWorkflowName, request.Metadata.DecodedWorkflowName,
 					platform.KeyWorkflowOwner, request.Metadata.WorkflowOwner,
 					platform.KeyWorkflowExecutionID, request.Metadata.WorkflowExecutionID,
 				).Emit(ctx, msg)

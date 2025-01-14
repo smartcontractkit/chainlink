@@ -1,0 +1,298 @@
+{
+ "Workflow": {
+  "Name": "workflow",
+  "Prefix": "ks-wf-",
+  "Nodes": [
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-bt-node1.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-bt-node1.local",
+     "path": ""
+    },
+    "ServiceName": "app-0-ks-wf-bt-node1",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node2.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node2.local",
+     "path": ""
+    },
+    "ServiceName": "app-0-ks-wf-node2",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node3.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node3.local",
+     "path": ""
+    },
+    "ServiceName": "app-0-ks-wf-node3",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node4.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node4.local",
+     "path": ""
+    },
+    "ServiceName": "app-0-ks-wf-node4",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node5.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-0-ks-wf-node5.local",
+     "path": ""
+    },
+    "ServiceName": "app-0-ks-wf-node5",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   }
+  ],
+  "NodeKeys": [
+   {
+    "AptosAccount": "38476e214b5c60e642019b38db9f06ce6c5a9bcb987d2bfbbbe750195aa7e964",
+    "EthAddress": "0x568C859E34F210a23847acE0D4960dB74f359dC4",
+    "P2PPeerID": "12D3KooWFSmZaLFF1nu3mzxPKj43F89WgVDqkpvwFUHBfMHSqpVq",
+    "CSAPublicKey": "981d781740ff79bb181a4c70390bd54e936f2d9211f5b20c708205b481a8efcc",
+    "OCR2BundleID": "782e4d14d0f53071ab7a45b9085eb99beed3350e7ab72d5edd4429169e5c87ef",
+    "OCR2OnchainPublicKey": "357ddc6c0fc6510ec67edbb9a63819dcb47f1506",
+    "OCR2OffchainPublicKey": "822488a7e4583eed41e5ab142dd6be721c2cc0f217ceee0912ff2db2a24e404c",
+    "OCR2ConfigPublicKey": "c92ae7ff9b1cef97bb875917456bc6b83df5f5a76ad00c914869c7068748f31a",
+    "AptosBundleID": "d4acd2c80860fd1e49363f08426e7e5efa7fcd57356a8aba408732e975d3e9a6",
+    "AptosOnchainPublicKey": "48b37d91fd2c2c784759021d421e7e6f98078b4343cf8cab378394aa357a49a2"
+   },
+   {
+    "AptosAccount": "bd4d7e53622621af04a0100db7720508c41f3dd5fe9e97dd57eb9673d82a385d",
+    "EthAddress": "0x75cf1355cC4Eb358feaBb9e269a4DAEeB6721DBB",
+    "P2PPeerID": "12D3KooWHhXyDmHB6D1UQosLXmhczw3zxB3DLYBuq9Unb4iCD4Sc",
+    "CSAPublicKey": "6a4723752c843c8d91e542af5373b3d123eca05b570a6e910f5d2f28737a26f6",
+    "OCR2BundleID": "20ccdc97afdf467465590115e3da4e5eb591bf5f43808e81a5d0807cd889b3c7",
+    "OCR2OnchainPublicKey": "321bc7af41a634375526006365a31bf32b4cfa7c",
+    "OCR2OffchainPublicKey": "a2b7f0b85be445e2c7317bdff74c41acd9c67b5a35cda94ae31da8a9ef886db2",
+    "OCR2ConfigPublicKey": "faa4cfefb226ae8e86480e019bd5bbd6405c26e22dcea40d2c6f01e583213e21",
+    "AptosBundleID": "ac364cec9fe7d9ea1035fc511e5b2f30900caa6e65ac0501168005d05129e088",
+    "AptosOnchainPublicKey": "4ca789105da974eec967758ad32b575741d6cb36c1bb3bcfd87b235502cc1753"
+   },
+   {
+    "AptosAccount": "9543634f4a73e4cfb284816b32d7ec6b7ac8d07b841f2c1f714750186cc28a5a",
+    "EthAddress": "0xc6dcE30f492CBD223b9946603192f22D86e783ca",
+    "P2PPeerID": "12D3KooWEWK8e627u6S5NuwXTgGLakGpn1vzQjyjp6Regu1pcpFC",
+    "CSAPublicKey": "a715467dd87ea210d685b82a32f30c781031df00c2c974dc5fad9159a7ba240c",
+    "OCR2BundleID": "c734a4bf01aabe8152b7d0df0b18111ce9b3fe1ef1bca1d6a580967c8e4afc2d",
+    "OCR2OnchainPublicKey": "5192c43a68efb7a698c0459ff8591a115da128ee",
+    "OCR2OffchainPublicKey": "5e68d07f82ea0bf7054560775c2919bc955dd7fa73b2a36391a4dc27cbb18fdb",
+    "OCR2ConfigPublicKey": "ebd66285a029f443277091bc4b191b13e21a9b806ce379584411277a265c8e5c",
+    "AptosBundleID": "f1dfc3d44ee349b4349f33ce4c0ec3716142e9be3ae3ba9276c616556f6430bb",
+    "AptosOnchainPublicKey": "169008927a60e6c03e99aac6fa268dabaf4d00e117419861d87836211267361b"
+   },
+   {
+    "AptosAccount": "bcd6fdce3fdcd060fed58fe13be522dc3fb0cff138b0f4f4460392f5e6d88728",
+    "EthAddress": "0x1289d00A6565Afcd6437B09548F6019EF49696d0",
+    "P2PPeerID": "12D3KooW9uJ981ocDxTJrPVxMEzPcS14WTJSU1YWH5otcpZSqkUd",
+    "CSAPublicKey": "9db8641f2067bfdf476e375060a0bd97c21da46d9f54c6ff4f990c6aef882478",
+    "OCR2BundleID": "129377e1aea4f628b2a3274e528a131175ace13e7cc062b048a34f5b4cf7b512",
+    "OCR2OnchainPublicKey": "ed613636925af2df6ed8332d95028eabcbe95a3f",
+    "OCR2OffchainPublicKey": "4eb3e2f1d324804d0adf5169bc187425d3e665c29cddf13bd57ec40ee207ce75",
+    "OCR2ConfigPublicKey": "effd7d3535e1b6596068085b3e19f9577a536aeacbdeea318cbd870ec678334d",
+    "AptosBundleID": "2e39d555ec0d1e8795167d72d2a53faa5c537762c144f8a569c601f6bcc95d1d",
+    "AptosOnchainPublicKey": "ce86b34de67249f92058f69e47961907ebbf8a71c12123f1d2a7cab4874f6365"
+   },
+   {
+    "AptosAccount": "6549063d427778024fc4230154753c1a30eac88a7a8eab1d36014a3db48c39b3",
+    "EthAddress": "0x4b92B0aaC39932B7302676F48e78FA91852DC0EE",
+    "P2PPeerID": "12D3KooWJJC2KgoP1oih7cky9B1wL12d5CBqWFKpdfQgfujmHGyz",
+    "CSAPublicKey": "8c8b473cc37664a21d548477cd268013256d1d70cd9a137bdfd99da7612a93e0",
+    "OCR2BundleID": "053f21bfd2bbdb65261308af2d0be48593229d644d8b9e3e5dbe36f85399ae6c",
+    "OCR2OnchainPublicKey": "53b5bbc0efa2e2d2770029bab5d5a647a260a72b",
+    "OCR2OffchainPublicKey": "eac02c66802acd9cd998b9b45c52b5b36837bfb829b2838cade040e0155c774a",
+    "OCR2ConfigPublicKey": "43b9d0c7cace05fd17426dad4386857025a71eb08205690dff5f76224e9c7f5c",
+    "AptosBundleID": "3de7ab03a5b6b7fcfd196c6101d9302c5e6a5221ebd82b1fd9afa9a6bc9b0445",
+    "AptosOnchainPublicKey": "f2cb4932d3ce8c10bf67c60d35372a5ff1578255e25c2a119c2dea70e919567a"
+   }
+  ]
+ },
+ "StreamsTrigger": {
+  "Name": "streams-trigger",
+  "Prefix": "ks-str-trig-",
+  "Nodes": [
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-bt-node1.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-bt-node1.local",
+     "path": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-bt-node1",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node2.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node2.local",
+     "path": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node2",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node3.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node3.local",
+     "path": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node3",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node4.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node4.local",
+     "path": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node4",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   },
+   {
+    "URL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node5.local",
+     "path": ""
+    },
+    "RemoteURL": {
+     "scheme": "https",
+     "host": "crib-local-1-ks-str-trig-node5.local",
+     "path": ""
+    },
+    "ServiceName": "app-1-ks-str-trig-node5",
+    "APILogin": "notreal@fakeemail.ch",
+    "APIPassword": "fj293fbBnlQ!f9vNs",
+    "KeystorePassword": "T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ"
+   }
+  ],
+  "NodeKeys": [
+   {
+    "AptosAccount": "",
+    "EthAddress": "0xCE59C33dc0807F194ba2566e093398dc5e459840",
+    "P2PPeerID": "12D3KooWGQkR76gPL7Qt1aYYHtPdU65zG4h36efLAERMwudHqGK3",
+    "CSAPublicKey": "b3dcb60fcf807453c95628a1e7970b077b5e2bbefb0b159841c28dc1776574de",
+    "OCR2BundleID": "ca2e13222b556f34ae5bc9cea72e6e7ce8221bf76e2d8b3d91505facdbbd71d3",
+    "OCR2OnchainPublicKey": "a4938b0552e830b45d481cca9893f319259d365c",
+    "OCR2OffchainPublicKey": "221fe1f972f01da727dbd6842daf4d322f7cab5a7e93816688be7a52f4088b86",
+    "OCR2ConfigPublicKey": "1af18519dfc5a22db640f1f8095bafaaeb987ab4e3e7ec366dfaa92df9a6ee7b",
+    "AptosBundleID": "",
+    "AptosOnchainPublicKey": ""
+   },
+   {
+    "AptosAccount": "",
+    "EthAddress": "0x898D0206d3b3156b92bD499eDFBAfc476543A21F",
+    "P2PPeerID": "12D3KooWDN2jTmtrpZMpjFFuQdzxHyUecBE3zPLG4goaWG7H2iDa",
+    "CSAPublicKey": "bdf13ff3944d59a3e1ea5888f86c0bbfe5eb33e2140188516592bf245d080320",
+    "OCR2BundleID": "3b5d75124ef0f02efd46c08da4b67d36154eed680d7dafd360d976430fe11a7b",
+    "OCR2OnchainPublicKey": "3815f48818db64aa8d7b225e229a328826f3d1de",
+    "OCR2OffchainPublicKey": "ca6f4c20c00fb7af411060cfc226d61d11ce5e3532ebbd15786fe53c32244de3",
+    "OCR2ConfigPublicKey": "7b4e462c24d9076a8822bd4e2bdbd834fcc7898aabd9862dbcdb7df6686d2b41",
+    "AptosBundleID": "",
+    "AptosOnchainPublicKey": ""
+   },
+   {
+    "AptosAccount": "",
+    "EthAddress": "0xb26dD9CD1Fc4Df2F84170960E2a36ed4a5ac6bB7",
+    "P2PPeerID": "12D3KooWJTedkdgDmkAms4pEKDnXX7CXshkxwEcK6hWki519YEqF",
+    "CSAPublicKey": "e95ded4fc733eac43292dc24d8630101cf0c3f40c3764233a6321077eacd0b90",
+    "OCR2BundleID": "742b2a8a90e59aeb8bb35313d4078ef3f950a9e42a157b7ee9e9abd8c7d97d94",
+    "OCR2OnchainPublicKey": "57b41043e9a2b21329be48ccf72943af20b322ff",
+    "OCR2OffchainPublicKey": "0d90fc04c4c0439c184a06478ec1fed7cedfb799b303a6d68c046d90f077b5bd",
+    "OCR2ConfigPublicKey": "a73c070b60c9a175ac34cfd5c6c7884e73b5c8d43417be3f00bc43ac0fb67f39",
+    "AptosBundleID": "",
+    "AptosOnchainPublicKey": ""
+   },
+   {
+    "AptosAccount": "",
+    "EthAddress": "0x50b1bB407F0Ecd71416BfA8a1d703F6115112676",
+    "P2PPeerID": "12D3KooWS1i3x2r34vYCfYrz2ddWUVYtFGNaZvGNNxqzL4Rysd3V",
+    "CSAPublicKey": "46b50be4d72b03f1601ade056bc754f194d6418283065970d470f6f3243f0705",
+    "OCR2BundleID": "1232eb7cdb4145ec8b543b76f17fe59c69aa6df31c827a7553aea3a3d340c637",
+    "OCR2OnchainPublicKey": "dad1e5d6824d7b64df57e9ca3342e4caf66b2c91",
+    "OCR2OffchainPublicKey": "8a7e9833bf8a55435c82866dbe5f9a9bac63b9a93c8c55664dffe653ab4145a2",
+    "OCR2ConfigPublicKey": "48ce76ee5ddd8003ebbd10485a092f8bd237f0f855aca8aba5ccac78b593e62d",
+    "AptosBundleID": "",
+    "AptosOnchainPublicKey": ""
+   },
+   {
+    "AptosAccount": "",
+    "EthAddress": "0xa2340108BE2c563bB89462b464aCF3f88cCd1584",
+    "P2PPeerID": "12D3KooWLZFWAhTejyR7WwwQndgNGGiW3XcGKK6nNtWbhdgCG1rC",
+    "CSAPublicKey": "0837cd5a8544664eaf04f68347bdba4cb7ac6af34488f0a26c65b03fe223d5af",
+    "OCR2BundleID": "2fcbac5dd48e995772d85c47d2744b0df7b74b71d17001f283318cae43b96add",
+    "OCR2OnchainPublicKey": "469d3c0c484c6846be1176920f1cbdc8abb6f638",
+    "OCR2OffchainPublicKey": "21aa97506b74e3bfcbe6eb87f2a6add07898fecbddbcec2447832dc343395499",
+    "OCR2ConfigPublicKey": "a6b7e8ca4faf6122165928d82354de3f9334cdb47af058f6a983d11473c21b5f",
+    "AptosBundleID": "",
+    "AptosOnchainPublicKey": ""
+   }
+  ]
+ }
+}

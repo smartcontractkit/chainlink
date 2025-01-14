@@ -218,6 +218,10 @@ BlockHistorySize = 200
 EIP1559FeeCapBufferBlocks = 0
 """
 
+# Run by default using latest version from `ccip-develop` branch, override this value to use a specific version
+[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+version = "ccip-develop"
+
 # the following configs are specific to each test type, smoke, load , chaos, etc...
 [CCIP.Groups]
 [CCIP.Groups.smoke]
@@ -228,9 +232,8 @@ EIP1559FeeCapBufferBlocks = 0
 
 KeepEnvAlive = false             # if true, the test will not tear down the test environment after the test is finished
 CommitAndExecuteOnSameDON = true # if true, and the test is building the env from scratch, same chainlink nodes will be used for Commit and Execution jobs.
-AllowOutOfOrder = false          # if true, all the lanes will allow out of order execution and it
-# overrides settings from lane_config. To allow out of order execution per lane, then send "allow_out_of_order":true, similar to is_native_fee_token variable.
 # Otherwise Commit and execution jobs will be set up in different nodes based on the number of nodes specified in NoOfCommitNodes and CCIP.Env.NewCLCluster.NoOfNodes
+AllowOutOfOrder = false    # if true, all lanes will set all transactions to allow out of order execution. This setting overrides individual settings from lane_config. To allow out of order execution per lane, then send "allow_out_of_order":true, similar to is_native_fee_token variable.
 BiDirectionalLane = true   # True uses both the lanes. If bidirectional is false only one way lane is set up.
 NoOfCommitNodes = 5        # no of chainlink nodes with Commit job
 PhaseTimeout = '10m'       # Duration to wait for the each phase validation(SendRequested, Commit, RMN Blessing, Execution) to time-out.
@@ -361,7 +364,7 @@ CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CC
 
 # Uncomment the following if you want to run your tests with updated OCR params
 # otherwise test will use default OCR params from -
-# https://github.com/smartcontractkit/chainlink/blob/develop/integration-tests/ccip-tests/contracts/contract_deployer.go#L729-L751
+# https://github.com/smartcontractkit/ccip/blob/ccip-develop/integration-tests/ccip-tests/contracts/contract_deployer.go#L729-L751
 ## OCR Params
 #CommitInflightExpiry = '2m'
 #ExecInflightExpiry = '2m'

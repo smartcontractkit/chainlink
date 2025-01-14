@@ -21,16 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
 
-func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) (ccipdata.CommitStoreReader, error) {
-	return initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, false)
+func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.CommitStoreReader, error) {
+	return initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig, false)
 }
 
-func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) error {
-	_, err := initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, true)
+func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
+	_, err := initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig, true)
 	return err
 }
 
-func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, closeReader bool) (ccipdata.CommitStoreReader, error) {
+func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader, closeReader bool) (ccipdata.CommitStoreReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(address, ec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")
@@ -48,7 +48,7 @@ func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versi
 
 	switch version.String() {
 	case ccipdata.V1_2_0:
-		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp)
+		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -57,7 +57,7 @@ func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versi
 		}
 		return cs, cs.RegisterFilters(ctx)
 	case ccipdata.V1_5_0:
-		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp)
+		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
 		}

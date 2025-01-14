@@ -78,7 +78,7 @@ type RMNHomeDynamicConfig struct {
 
 type RMNHomeSourceChain struct {
 	ChainSelector       uint64   `json:"selector"`
-	F                   uint64   `json:"f"`
+	FObserve            uint64   `json:"fObserve"`
 	ObserverNodesBitmap *big.Int `json:"observerNodesBitmap"`
 }
 
@@ -146,7 +146,7 @@ func mapSourceChains(chains []rmn_home.RMNHomeSourceChain) []RMNHomeSourceChain 
 	for i, chain := range chains {
 		result[i] = RMNHomeSourceChain{
 			ChainSelector:       chain.ChainSelector,
-			F:                   chain.F,
+			FObserve:            chain.FObserve,
 			ObserverNodesBitmap: chain.ObserverNodesBitmap,
 		}
 	}

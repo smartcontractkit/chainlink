@@ -46,6 +46,8 @@ type Config struct {
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 
 	Aptos RawConfigs `toml:",omitempty"`
+
+	Tron RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -260,6 +262,7 @@ func (c *Config) TOMLString() (string, error) {
 // warnings aggregates warnings from valueWarnings and deprecationWarnings
 func (c *Config) warnings() (err error) {
 	deprecationErr := c.deprecationWarnings()
+
 	warningErr := c.valueWarnings()
 	err = multierr.Append(deprecationErr, warningErr)
 	_, list := commonconfig.MultiErrorList(err)
@@ -350,6 +353,10 @@ func (c *Config) SetFrom(f *Config) (err error) {
 
 	if err5 := c.Aptos.SetFrom(f.Aptos); err5 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err5, "Aptos"))
+	}
+
+	if err6 := c.Tron.SetFrom(f.Tron); err6 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err6, "Tron"))
 	}
 
 	_, err = commonconfig.MultiErrorList(err)

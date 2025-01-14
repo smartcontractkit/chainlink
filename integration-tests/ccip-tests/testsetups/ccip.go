@@ -308,8 +308,8 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 		var newNetworkPairs []NetworkPair
 		denselyConnectedNetworks := make(map[string]struct{})
 		// if densely connected networks are provided, choose all the network pairs containing the networks mentioned in the list for DenselyConnectedNetworkChainIds
-		if len(c.TestGroupInput.DenselyConnectedNetworkChainIds) > 0 {
-			for _, n := range c.TestGroupInput.DenselyConnectedNetworkChainIds {
+		if len(c.TestGroupInput.DenselyConnectedNetworkChainIDs) > 0 {
+			for _, n := range c.TestGroupInput.DenselyConnectedNetworkChainIDs {
 				denselyConnectedNetworks[n] = struct{}{}
 			}
 			for _, pair := range c.NetworkPairs {
@@ -1155,7 +1155,14 @@ func CCIPDefaultTestSetUp(
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
 			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer, false)
-			require.NoError(t, err, "failed to set up mock server for attestation")
+			require.NoError(t, err, "failed to set up mock server for USDC attestation")
+		}
+		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.LBTCMockDeployment) {
+			// if it's a new LBTC deployment, set up mock server for attestation,
+			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
+			// all messages across all lanes
+			err = actions.SetMockServerWithLBTCAttestation(killgrave, setUpArgs.Env.MockServer)
+			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}
 	// deploy all lane specific contracts

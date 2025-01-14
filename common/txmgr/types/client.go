@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -49,7 +50,7 @@ type TransactionClient[
 		bathSize int,
 		lggr logger.SugaredLogger,
 	) (
-		txCodes []client.SendTxReturnCode,
+		txCodes []multinode.SendTxReturnCode,
 		txErrs []error,
 		broadcastTime time.Time,
 		successfulTxIDs []int64,
@@ -59,7 +60,7 @@ type TransactionClient[
 		tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 		lggr logger.SugaredLogger,
-	) (client.SendTxReturnCode, error)
+	) (multinode.SendTxReturnCode, error)
 	SendEmptyTransaction(
 		ctx context.Context,
 		newTxAttempt func(ctx context.Context, seq SEQ, feeLimit uint64, fee FEE, fromAddress ADDR) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error),
