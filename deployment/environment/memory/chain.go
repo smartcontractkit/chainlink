@@ -24,7 +24,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 

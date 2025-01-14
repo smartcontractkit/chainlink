@@ -1433,12 +1433,12 @@ github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.3-0.20250
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.3-0.20250113232629-97472181e499/go.mod h1:Rd0nOiFiS0R1WKx9NZCxho8vmT9PGk6xv5Nui9eFN+Q=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2 h1:GDGrC5OGiV0RyM1znYWehSQXyZQWTOzrEeJRYmysPCE=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2/go.mod h1:DsT43c1oTBmp3iQkMcoZOoKThwZvt8X3Pz6UmznJ4GY=
-github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.19 h1:9PMwKNqFKc5FXf4VchyD3CGzZelnSgi13fgVdT2X7T4=
-github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.19/go.mod h1:ag7LEgejsVtPXaUNkcoFPpAoDkl1J8V2HSbqVUxfEtk=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.20-0.20250113232629-97472181e499 h1:Z/ihdpnc1smp0GquptR2uTztlvXa1o2MXP7DbqYTUi0=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.20-0.20250113232629-97472181e499/go.mod h1:y6pVvAT/R+YGocAqoQIat+AEaZz2Jdmj/0uUBmwvLCU=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 h1:VIxK8u0Jd0Q/VuhmsNm6Bls6Tb31H/sA3A/rbc5hnhg=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0/go.mod h1:lyAu+oMXdNUzEDScj2DXB2IueY+SDXPPfyl/kb63tMM=
-github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.9 h1:yB1x5UXvpZNka+5h57yo1/GrKfXKCqMzChCISpldZx4=
-github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.9/go.mod h1:lJk0atEJ5Zyo3Tqrmf1Pl9jUEe79EgDb9bD3K5OTUBI=
+github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10 h1:Yf+n3T/fnUWcYyfe7bsygV4sWAkNo0QhN58APJFIKIc=
+github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10/go.mod h1:05duR85P8YHuIfIkA7sn2bvrhKo/pDpFKV2rliYHNOo=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2 h1:7bCdbTUWzyczQg+kwHCxlx6y07zE8HNB8+ntTne6qd8=
 github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2/go.mod h1:MltlNu3jcXm/DyLN98I5TFNtu/o1NNAcaPAFKMXWk70=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=

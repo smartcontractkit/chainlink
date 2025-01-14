@@ -42,9 +42,9 @@ require (
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.14
 	google.golang.org/protobuf v1.35.1
-	k8s.io/api v0.31.1
-	k8s.io/apimachinery v0.31.1
-	k8s.io/client-go v0.31.1
+	k8s.io/api v0.31.2
+	k8s.io/apimachinery v0.31.2
+	k8s.io/client-go v0.31.2
 )
 
 require (
@@ -207,7 +207,6 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
-	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru v0.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
@@ -310,7 +309,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.20-0.20250113232629-97472181e499 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
