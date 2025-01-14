@@ -196,8 +196,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	maxRetries := 5
 	var url, wsURL string
 	for i := 0; i < maxRetries; i++ {
-		ports, err := freeport.Take(1)
-		require.NoError(t, err)
+		port := freeport.GetOne(t)
 
 		programIds := map[string]string{
 			"ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
@@ -208,7 +207,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 			Type:         "solana",
 			ChainID:      strconv.FormatUint(chainID, 10),
 			PublicKey:    adminKey.PublicKey().String(),
-			Port:         strconv.Itoa(ports[0]),
+			Port:         strconv.Itoa(port),
 			ContractsDir: ProgramsPath,
 			// TODO: this should be solTestConfig.CCIPRouterProgram
 			// TODO: make this a function
@@ -217,7 +216,6 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
 			if strings.Contains(err.Error(), "port is already allocated") {
-				freeport.Return(ports)
 				maxRetries -= 1
 				continue
 			}
