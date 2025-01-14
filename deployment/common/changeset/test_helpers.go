@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -89,6 +90,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
 			Chains:            e.Chains,
+			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,

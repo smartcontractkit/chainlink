@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
@@ -366,7 +367,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		}
 		name := chainInfo.ChainName
 		if chainInfo.ChainName == "" {
-			name = fmt.Sprintf("%d", chainSelector)
+			name = strconv.FormatUint(chainSelector, 10)
 		}
 		m[name] = chainView
 	}

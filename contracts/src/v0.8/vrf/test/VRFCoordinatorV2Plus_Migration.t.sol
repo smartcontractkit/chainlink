@@ -6,8 +6,8 @@ import {ExposedVRFCoordinatorV2_5} from "../dev/testhelpers/ExposedVRFCoordinato
 import {VRFCoordinatorV2_5} from "../dev/VRFCoordinatorV2_5.sol";
 import {SubscriptionAPI} from "../dev/SubscriptionAPI.sol";
 import {VRFV2PlusConsumerExample} from "../dev/testhelpers/VRFV2PlusConsumerExample.sol";
-import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {MockLinkToken} from "../../functions/tests/v1_X/testhelpers/MockLinkToken.sol";
+import {MockV3Aggregator} from "../../shared/mocks/MockV3Aggregator.sol";
 import {VRFV2PlusMaliciousMigrator} from "../dev/testhelpers/VRFV2PlusMaliciousMigrator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {

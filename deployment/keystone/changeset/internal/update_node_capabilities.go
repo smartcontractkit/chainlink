@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -19,10 +20,10 @@ type UpdateNodeCapabilitiesImplRequest struct {
 
 func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
-		return fmt.Errorf("p2pToCapabilities is empty")
+		return errors.New("p2pToCapabilities is empty")
 	}
 	if req.ContractSet == nil {
-		return fmt.Errorf("registry is nil")
+		return errors.New("registry is nil")
 	}
 
 	return nil
@@ -37,7 +38,7 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	op, err := AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
+	op, err := AddCapabilities(lggr, req.ContractSet.CapabilitiesRegistry, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}

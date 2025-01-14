@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
@@ -23,7 +23,7 @@ contract DestinationVerifier is
   IDestinationVerifier,
   IDestinationVerifierProxyVerifier,
   ConfirmedOwner,
-  TypeAndVersionInterface
+  ITypeAndVersion
 {
   /// @notice The list of DON configurations by hash(address|donConfigId) - set to true if the signer is part of the config
   mapping(bytes32 => bool) private s_signerByAddressAndDonConfigId;
@@ -436,7 +436,7 @@ contract DestinationVerifier is
       interfaceId == type(IDestinationVerifierProxyVerifier).interfaceId;
   }
 
-  /// @inheritdoc TypeAndVersionInterface
+  /// @inheritdoc ITypeAndVersion
   function typeAndVersion() external pure override returns (string memory) {
     return "DestinationVerifier 0.4.0";
   }

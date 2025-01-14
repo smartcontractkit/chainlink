@@ -3,6 +3,8 @@ package llo
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"math/big"
 	"sync"
 	"testing"
@@ -10,38 +12,54 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
-type mockStream struct {
+type mockPipeline struct {
 	run  *pipeline.Run
 	trrs pipeline.TaskRunResults
 	err  error
+
+	streamIDs []streams.StreamID
+
+	runCount int
 }
 
-func (m *mockStream) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
+func (m *mockPipeline) Run(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
+	m.runCount++
 	return m.run, m.trrs, m.err
 }
 
-type mockRegistry struct {
-	streams map[streams.StreamID]*mockStream
+func (m *mockPipeline) StreamIDs() []streams.StreamID {
+	return m.streamIDs
 }
 
-func (m *mockRegistry) Get(streamID streams.StreamID) (strm streams.Stream, exists bool) {
-	strm, exists = m.streams[streamID]
+type mockRegistry struct {
+	pipelines map[streams.StreamID]*mockPipeline
+}
+
+func (m *mockRegistry) Get(streamID streams.StreamID) (p streams.Pipeline, exists bool) {
+	p, exists = m.pipelines[streamID]
 	return
 }
 
-func makeStreamWithSingleResult[T any](runID int64, res T, err error) *mockStream {
-	return &mockStream{
+func makePipelineWithSingleResult[T any](runID int64, res T, err error) *mockPipeline {
+	return &mockPipeline{
 		run:  &pipeline.Run{ID: runID},
 		trrs: []pipeline.TaskRunResult{pipeline.TaskRunResult{Task: &pipeline.MemoTask{}, Result: pipeline.Result{Value: res}}},
 		err:  err,
@@ -56,9 +74,11 @@ func makeStreamValues() llo.StreamValues {
 	}
 }
 
-type mockOpts struct{}
+type mockOpts struct {
+	verboseLogging bool
+}
 
-func (m *mockOpts) VerboseLogging() bool { return true }
+func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
 func (m *mockOpts) SeqNr() uint64        { return 1042 }
 func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
 	return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
@@ -91,7 +111,7 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := &mockRegistry{make(map[streams.StreamID]*mockStream)}
+	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
 	ds := newDataSource(lggr, reg, NullTelemeter)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
@@ -105,9 +125,9 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, makeStreamValues(), vals)
 		})
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](3, big.NewInt(15), nil)
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, big.NewInt(15), nil)
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -120,9 +140,9 @@ func Test_DataSource(t *testing.T) {
 			}, vals)
 		})
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](3, nil, errors.New("something exploded 2"))
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), errors.New("something exploded"))
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, nil, errors.New("something exploded 2"))
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -139,9 +159,9 @@ func Test_DataSource(t *testing.T) {
 			tm := &mockTelemeter{}
 			ds.t = tm
 
-			reg.streams[1] = makeStreamWithSingleResult[*big.Int](100, big.NewInt(2181), nil)
-			reg.streams[2] = makeStreamWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
-			reg.streams[3] = makeStreamWithSingleResult[*big.Int](102, big.NewInt(15), nil)
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), nil)
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](102, big.NewInt(15), nil)
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
@@ -166,5 +186,112 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
 			assert.Nil(t, pkt.err)
 		})
+
+		t.Run("records telemetry for errors", func(t *testing.T) {
+			tm := &mockTelemeter{}
+			ds.t = tm
+
+			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), errors.New("something exploded"))
+			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
+			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](102, nil, errors.New("something exploded 2"))
+
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, opts)
+			require.NoError(t, err)
+
+			assert.Equal(t, llo.StreamValues{
+				2: llo.ToDecimal(decimal.NewFromInt(40602)),
+				1: nil,
+				3: nil,
+			}, vals)
+
+			require.Len(t, tm.v3PremiumLegacyPackets, 3)
+			m := make(map[int]v3PremiumLegacyPacket)
+			for _, pkt := range tm.v3PremiumLegacyPackets {
+				m[int(pkt.run.ID)] = pkt
+			}
+			pkt := m[100]
+			assert.Equal(t, 100, int(pkt.run.ID))
+			assert.Len(t, pkt.trrs, 1)
+			assert.Equal(t, 1, int(pkt.streamID))
+			assert.Equal(t, opts, pkt.opts)
+			assert.Nil(t, pkt.val)
+			assert.Error(t, pkt.err)
+		})
 	})
+}
+
+func BenchmarkObserve(b *testing.B) {
+	lggr := logger.TestLogger(b)
+	ctx := testutils.Context(b)
+	// can enable/disable verbose logging to test performance here
+	opts := &mockOpts{verboseLogging: true}
+
+	db := pgtest.NewSqlxDB(b)
+	bridgesORM := bridges.NewORM(db)
+
+	if b.N > math.MaxInt32 {
+		b.Fatalf("N is too large: %d", b.N)
+	}
+
+	n := uint32(b.N) //nolint:gosec // G115 // overflow impossible
+
+	createBridge(b, "foo-bridge", `123.456`, bridgesORM, 0)
+	createBridge(b, "bar-bridge", `"124.456"`, bridgesORM, 0)
+
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	runner := pipeline.NewRunner(
+		nil,
+		bridgesORM,
+		&mockPipelineConfig{},
+		&mockBridgeConfig{},
+		nil,
+		nil,
+		nil,
+		lggr,
+		c,
+		c,
+	)
+
+	r := streams.NewRegistry(lggr, runner)
+	for i := uint32(0); i < n; i++ {
+		i := i
+		jb := job.Job{
+			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
+			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
+			Type:     job.Stream,
+			StreamID: &i,
+			PipelineSpec: &pipeline.Spec{
+				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
+				DotDagSource: fmt.Sprintf(`
+// Benchmark Price
+result1          [type=memo value="900.0022"];
+multiply2 	  	 [type=multiply times=1 streamID=%d index=0]; // force conversion to decimal
+
+result2          [type=bridge name="foo-bridge" requestData="{\"data\":{\"data\":\"foo\"}}"];
+result2_parse    [type=jsonparse path="result" streamID=%d index=1];
+
+result3          [type=bridge name="bar-bridge" requestData="{\"data\":{\"data\":\"bar\"}}"];
+result3_parse    [type=jsonparse path="result"];
+multiply3 	  	 [type=multiply times=1 streamID=%d index=2]; // force conversion to decimal
+
+result1 -> multiply2;
+result2 -> result2_parse;
+result3 -> result3_parse -> multiply3; 
+`, i+n, i+2*n, i+3*n),
+			},
+		}
+		err := r.Register(jb, nil)
+		require.NoError(b, err)
+	}
+
+	ds := newDataSource(lggr, r, NullTelemeter)
+	vals := make(map[llotypes.StreamID]llo.StreamValue)
+	for i := uint32(0); i < 4*n; i++ {
+		vals[i] = nil
+	}
+
+	b.ResetTimer()
+	err := ds.Observe(ctx, vals, opts)
+	require.NoError(b, err)
 }

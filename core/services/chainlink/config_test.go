@@ -22,10 +22,10 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -49,7 +49,7 @@ var (
 
 	second        = *commoncfg.MustNewDuration(time.Second)
 	minute        = *commoncfg.MustNewDuration(time.Minute)
-	selectionMode = client.NodeSelectionModeHighestHead
+	selectionMode = multinode.NodeSelectionModeHighestHead
 
 	multiChain = Config{
 		Core: toml.Core{
@@ -258,7 +258,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
-	selectionMode := client.NodeSelectionModeHighestHead
+	selectionMode := multinode.NodeSelectionModeHighestHead
 
 	global := Config{
 		Core: toml.Core{
@@ -1440,7 +1440,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 8 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1472,7 +1472,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1485,7 +1485,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1537,6 +1537,11 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 	- Aptos: 2 errors:
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains
+	- Tron: 2 errors:
+		- 0.Nodes.1.Name: invalid value (tron-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
 			- ChainID: missing: required for all chains`},

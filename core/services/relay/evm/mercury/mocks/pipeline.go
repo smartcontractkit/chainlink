@@ -41,3 +41,4 @@ func (m *MockTask) TaskTimeout() (time.Duration, bool) { return 0, false }
 func (m *MockTask) TaskRetries() uint32                { return 0 }
 func (m *MockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
+func (m *MockTask) TaskStreamID() *uint32              { return nil }

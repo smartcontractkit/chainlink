@@ -1,5 +1,8 @@
 ChainID = '44787'
 ChainType = 'celo'
+# FT and FD are both present here because the dev effort rely only on FinalityTagEnabled are still in progress.
+# We expect to be able to rely only on FinalityTagEnabled=true in the short future.
+# https://chainlink-core.slack.com/archives/C05CS33N08N/p1715102940763339?thread_ts=1715102478.537529&cid=C05CS33N08N
 FinalityTagEnabled = true
 FinalityDepth = 2750 # mean finality time of ~37 minutes + 500 block buffer
 LogPollInterval = '1s' # 1 sec block rate

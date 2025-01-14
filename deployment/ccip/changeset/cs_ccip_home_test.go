@@ -38,7 +38,7 @@ func Test_PromoteCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -130,7 +130,7 @@ func Test_SetCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -251,7 +251,7 @@ func Test_RevokeCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t,
+			tenv, _ := NewMemoryEnvironment(t,
 				WithChains(2),
 				WithNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
@@ -442,7 +442,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv := NewMemoryEnvironment(t, WithChains(3))
+			tenv, _ := NewMemoryEnvironment(t, WithChains(3))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -459,7 +459,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			ccipHome := state.Chains[tenv.HomeChainSel].CCIPHome
 			otherChainConfig, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, otherChainConfig.FChain != 0)
+			assert.NotZero(t, otherChainConfig.FChain)
 
 			var mcmsConfig *MCMSConfig
 			if tc.mcmsEnabled {
@@ -488,7 +488,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			// other chain should be gone
 			chainConfigAfter, err := ccipHome.GetChainConfig(nil, otherChain)
 			require.NoError(t, err)
-			assert.True(t, chainConfigAfter.FChain == 0)
+			assert.Zero(t, chainConfigAfter.FChain)
 
 			// Lets add it back now.
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
