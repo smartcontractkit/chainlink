@@ -120,10 +120,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param allowed True if they should be added to the allowlist, false to remove them.
   function updateAllowedDONs(uint32[] calldata donIDs, bool allowed) external onlyOwner registryNotLocked {
     uint256 length = donIDs.length;
-    for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
+    if (allowed) {
+      for (uint256 i = 0; i < length; ++i) {
         s_allowedDONs.add(donIDs[i]);
-      } else {
+      }
+    } else {
+      for (uint256 i = 0; i < length; ++i) {
         s_allowedDONs.remove(donIDs[i]);
       }
     }
@@ -137,10 +139,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param allowed True if they should be added to whitelist, false to remove them.
   function updateAuthorizedAddresses(address[] calldata addresses, bool allowed) external onlyOwner registryNotLocked {
     uint256 length = addresses.length;
-    for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
+    if (allowed) {
+      for (uint256 i = 0; i < length; ++i) {
         s_authorizedAddresses.add(addresses[i]);
-      } else {
+      }
+    } else {
+      for (uint256 i = 0; i < length; ++i) {
         s_authorizedAddresses.remove(addresses[i]);
       }
     }
