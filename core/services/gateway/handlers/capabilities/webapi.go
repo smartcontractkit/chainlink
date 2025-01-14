@@ -28,8 +28,6 @@ func (r Response) Validate() error {
 			return errors.New("executionError is true but response details (statusCode, headers, body) are populated")
 		}
 		return nil
-	} else if r.StatusCode == 0 {
-		return errors.New("statusCode must be set when executionError is false")
 	}
 
 	if r.StatusCode < 100 || r.StatusCode > 599 {
