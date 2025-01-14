@@ -432,7 +432,7 @@ func assertExistingChainsWiringOutboundToNewChain(
 			Context: tests.Context(t),
 		}, newChain)
 		require.NoError(t, err)
-		require.Equal(t, true, fqdcc.IsEnabled)
+		require.True(t, fqdcc.IsEnabled)
 
 		// check that the router has the new chain enabled as a dest.
 		routerOnRamp, err := rtr.GetOnRamp(&bind.CallOpts{
@@ -582,7 +582,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	chains []uint64,
 	state CCIPOnChainState,
 ) {
-	var apps []changesetcommon.ChangesetApplication
+	apps := make([]changesetcommon.ChangesetApplication, 0, len(chains)+1)
 	apps = append(apps, changesetcommon.ChangesetApplication{
 		Changeset: changesetcommon.WrapChangeSet(changesetcommon.TransferToMCMSWithTimelock),
 		Config:    genTestTransferOwnershipConfig(e, chains, state),
