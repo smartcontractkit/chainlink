@@ -65,6 +65,74 @@ func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, e
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
+func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
+	if err := c.Validate(); err != nil {
+		return fmt.Errorf("invalid commit off-chain config: %w", err)
+	}
+	for tokenAddr, tokenConfig := range c.TokenInfo {
+		tokenUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenAddr))
+		if err != nil {
+			return fmt.Errorf("invalid token address %s: %w", tokenAddr, err)
+		}
+
+		aggregatorAddr := common.HexToAddress(string(tokenConfig.AggregatorAddress))
+		token := common.HexToAddress(tokenUnknownAddr.String())
+		tokenInfos := make([]tokenInfo, 0)
+		onchainState := state.Chains[selector]
+		for _, tk := range onchainState.BurnMintTokens677 {
+			tokenInfos = append(tokenInfos, tk)
+		}
+		for _, tk := range onchainState.ERC20Tokens {
+			tokenInfos = append(tokenInfos, tk)
+		}
+		for _, tk := range onchainState.ERC677Tokens {
+			tokenInfos = append(tokenInfos, tk)
+		}
+		tokenInfos = append(tokenInfos, onchainState.LinkToken)
+		tokenInfos = append(tokenInfos, onchainState.Weth9)
+		symbol, decimal, err := findTokenInfo(tokenInfos, token)
+		if err != nil {
+			return err
+		}
+		if decimal != tokenConfig.Decimals {
+			return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
+				symbol, token.String(), tokenConfig.Decimals, decimal)
+		}
+		feedChainState := state.Chains[feedChainSel]
+		aggregatorInState := feedChainState.USDFeeds[TokenSymbol(symbol)]
+		if aggregatorAddr == (common.Address{}) {
+			return fmt.Errorf("token %s -address %s has no aggregator in provided token config", symbol, token.String())
+		}
+		if aggregatorInState == nil {
+			return fmt.Errorf("token %s -address %s has no aggregator in state,"+
+				" but the aggregator %s is provided in token config", symbol, token.String(), aggregatorAddr.String())
+		}
+		if aggregatorAddr != aggregatorInState.Address() {
+			return fmt.Errorf("token %s -address %s has aggregator %s in provided token config, expected %s",
+				symbol, token.String(), aggregatorAddr.String(), aggregatorInState.Address().String())
+		}
+	}
+	return nil
+}
+
+func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state CCIPOnChainState) error {
+	for sel, token := range usdcConfig.Tokens {
+		onchainState, ok := state.Chains[uint64(sel)]
+		if !ok {
+			return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
+		}
+		if onchainState.USDCTokenPool == nil {
+			return fmt.Errorf("chain %d does not have USDC token pool deployed", sel)
+		}
+		if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPool.Address() {
+			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
+				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
+				sel, onchainState.USDCTokenPool.Address().String(), token.SourcePoolAddress)
+		}
+	}
+	return nil
+}
+
 type CCIPOCRParams struct {
 	OCRParameters commontypes.OCRParameters
 	// Note contains pointers to Arb feeds for prices
@@ -81,80 +149,22 @@ func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIP
 		return errors.New("at least one of CommitOffChainConfig or ExecuteOffChainConfig must be set")
 	}
 	if c.CommitOffChainConfig != nil {
-		if err := c.CommitOffChainConfig.Validate(); err != nil {
+		if err := validateCommitOffchainConfig(c.CommitOffChainConfig, selector, feedChainSel, state); err != nil {
 			return fmt.Errorf("invalid commit off-chain config: %w", err)
-		}
-		for tokenAddr, tokenConfig := range c.CommitOffChainConfig.TokenInfo {
-			tokenUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenAddr))
-			if err != nil {
-				return fmt.Errorf("invalid token address %s: %w", tokenAddr, err)
-			}
-			aggregatorUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenConfig.AggregatorAddress))
-			if err != nil {
-				return fmt.Errorf("invalid aggregator address %s: %w", tokenConfig.AggregatorAddress, err)
-			}
-			aggregatorAddr := common.HexToAddress(aggregatorUnknownAddr.String())
-			token := common.HexToAddress(tokenUnknownAddr.String())
-			tokenInfos := make([]tokenInfo, 0)
-			onchainState, ok := state.Chains[selector]
-			if !ok {
-				return fmt.Errorf("chain %d does not exist in state", selector)
-			}
-			for _, tk := range onchainState.BurnMintTokens677 {
-				tokenInfos = append(tokenInfos, tk)
-			}
-			for _, tk := range onchainState.ERC20Tokens {
-				tokenInfos = append(tokenInfos, tk)
-			}
-			for _, tk := range onchainState.ERC677Tokens {
-				tokenInfos = append(tokenInfos, tk)
-			}
-			tokenInfos = append(tokenInfos, onchainState.LinkToken)
-			tokenInfos = append(tokenInfos, onchainState.Weth9)
-			symbol, decimal, err := findTokenInfo(tokenInfos, token)
-			if err != nil {
-				return err
-			}
-			if decimal != tokenConfig.Decimals {
-				return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
-					symbol, token.String(), tokenConfig.Decimals, decimal)
-			}
-			feedChainState := state.Chains[feedChainSel]
-			aggregatorInState := feedChainState.USDFeeds[TokenSymbol(symbol)]
-			if aggregatorInState == nil {
-				if aggregatorAddr != (common.Address{}) {
-					return fmt.Errorf("token %s -address %s has no aggregator in state,"+
-						" but the aggregator %s is provided in token config", symbol, token.String(), aggregatorAddr.String())
-				}
-			} else {
-				if aggregatorAddr != aggregatorInState.Address() {
-					return fmt.Errorf("token %s -address %s has aggregator %s in provided token config, expected %s",
-						symbol, token.String(), aggregatorAddr.String(), aggregatorInState.Address().String())
-				}
-			}
 		}
 	}
 	if c.ExecuteOffChainConfig != nil {
 		if err := c.ExecuteOffChainConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid execute off-chain config: %w", err)
 		}
-		for _, observer := range c.ExecuteOffChainConfig.TokenDataObservers {
-			usdcConfig := observer.USDCCCTPObserverConfig
-			if usdcConfig != nil {
-				for sel, token := range usdcConfig.Tokens {
-					onchainState, ok := state.Chains[uint64(sel)]
-					if !ok {
-						return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
-					}
-					if onchainState.USDCTokenPool == nil {
-						return fmt.Errorf("chain %d does not have USDC token pool deployed", sel)
-					}
-					if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPool.Address() {
-						return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
-							"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
-							sel, onchainState.USDCTokenPool.Address().String(), token.SourcePoolAddress)
-					}
+		for _, observerConfig := range c.ExecuteOffChainConfig.TokenDataObservers {
+			switch observerConfig.Type {
+			case pluginconfig.USDCCCTPHandlerType:
+				if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
+					return fmt.Errorf("invalid USDC config: %w", err)
 				}
+			default:
+				return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
 			}
 		}
 	}
@@ -403,6 +413,10 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 	for chainSelector, params := range p.OCRConfigPerRemoteChainSelector {
+		_, ok := state.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain %d does not exist in state", chainSelector)
+		}
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
