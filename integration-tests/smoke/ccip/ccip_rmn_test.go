@@ -626,7 +626,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 			curseActions := make([]changeset.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnSource(remoteSel))
+				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
 				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
@@ -658,7 +658,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 			curseActions := make([]changeset.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnSource(remoteSel))
+				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
 				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
