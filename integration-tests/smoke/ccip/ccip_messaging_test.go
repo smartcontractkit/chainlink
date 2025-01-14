@@ -235,7 +235,7 @@ func manuallyExecute(
 func getMerkleRoot(
 	ctx context.Context,
 	t *testing.T,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	seqNr,
 	startBlock uint64,
 ) (merkleRoot [32]byte) {
@@ -261,7 +261,7 @@ func getMerkleRoot(
 func getMessageHash(
 	ctx context.Context,
 	t *testing.T,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	sourceChainSelector,
 	seqNr uint64,
 	msgID [32]byte,
