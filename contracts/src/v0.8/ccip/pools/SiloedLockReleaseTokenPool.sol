@@ -21,7 +21,9 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   event LiquidityTransferred(uint64 remoteChainSelector, address indexed from, uint256 amount);
   event LiquidityAdded(uint64 remoteChainSelector, address indexed provider, uint256 indexed amount);
   event LiquidityRemoved(uint64 remoteChainSelector, address indexed provider, uint256 indexed amount);
-  event ChainSiloeDesignationUpdated(uint64 remoteChainSelector, bool isSiloed);
+
+  event ChainUnsiloed(uint64 remoteChainSelector, uint256 amountUnsiloed);
+  event ChainSiloed(uint64 remoteChainSelector);
 
   event SiloedChainRebalancerSet(uint64 indexed remoteChainSelector, address oldRebalancer, address newRebalancer);
   event UnsiloedChainRebalancerSet(address oldRebalancer, address newRebalancer);
@@ -33,6 +35,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   /// @notice The rebalancer for unsiloed chains, which can add liquidity to the shared pool.
   address internal s_unsiloedChainRebalancer;
+
+  struct ChainSiloConfigUpdate {
+    uint64 remoteChainSelector;
+    address rebalancer;
+  }
 
   struct ChainSiloConfig {
     uint256 siloedBalance; // The amount of tokens available for incoming messages, either locked or as liquidity.
@@ -48,8 +55,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     uint8 localTokenDecimals,
     address[] memory allowlist,
     address rmnProxy,
-    address router
-  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
+    address router,
+    address unsiloedChainRebalancer
+  ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {
+    s_unsiloedChainRebalancer = unsiloedChainRebalancer;
+  }
 
   /// @notice Locks the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check
@@ -137,22 +147,32 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @param removes A list of chain selectors to disable Siloing. Their funds will be moved into the unsiloed pool.
   /// @param adds A list of chain selectors to enable Siloing. Adding a chain to siloing will not set the rebalancer.
   /// The rebalancer will need to be set separately.
-  function updateSiloDesignationForChainSelectors(uint64[] calldata removes, uint64[] calldata adds) external onlyOwner {
+  function updateSiloDesignationForChainSelectors(
+    uint64[] calldata removes,
+    ChainSiloConfigUpdate[] calldata adds
+  ) external onlyOwner {
     for (uint256 i = 0; i < removes.length; ++i) {
       // When a chain is removed from siloing, the funds are moved to the accounting pool shared by all unsiloed chain.
-      s_unsiloedTokenBalance += s_siloedChainConfigs[removes[i]].siloedBalance;
+      uint256 amountUnsiloed = s_siloedChainConfigs[removes[i]].siloedBalance;
+
+      s_unsiloedTokenBalance += amountUnsiloed;
 
       /// @notice Removing the entire configuration will also delete the rebalancer. If the chain ever becomes siloed
       /// again, the rebalancer will need to be set again.
       delete s_siloedChainConfigs[removes[i]];
 
-      emit ChainSiloeDesignationUpdated(removes[i], false);
+      // Emit a removal event which includes the amount of funds moved to the general silo.
+      emit ChainUnsiloed(removes[i], amountUnsiloed);
     }
 
     for (uint256 i = 0; i < adds.length; ++i) {
-      /// @notice Adding a chain to siloing will not set the rebalancer. The rebalancer will need to be set
-      s_siloedChainConfigs[adds[i]].isSiloed = true;
-      emit ChainSiloeDesignationUpdated(adds[i], true);
+      /// @notice Adding a chain to siloing will not set the rebalancer
+      s_siloedChainConfigs[adds[i].remoteChainSelector].isSiloed = true;
+      s_siloedChainConfigs[adds[i].remoteChainSelector].rebalancer = adds[i].rebalancer;
+
+      // Emit a siloing event to indicate that the chain is now siloed, but that the amount of liquidity
+      // is zero until liquidity is provided.
+      emit ChainSiloed(adds[i].remoteChainSelector);
     }
   }
 
@@ -201,7 +221,21 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// non-siloed chains.
   /// @param amount The amount of liquidity to provide.
   /// @dev Only the rebalancer for the chain can add liquidity
-  function provideLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+  function provideSiloedLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+    _provideLiquidity(remoteChainSelector, amount);
+  }
+
+  /// @notice Adds liquidity to the pool for unsiloed chains. Function is used to support legacy liquidity operations
+  /// by using a function selector available to previous L/R pools.
+  /// @dev Since the remoteChainSelector 0 should never be applied to a real chain, it is used to designate unsiloed chains.
+  /// @param amount The amount of liquidity to provide.
+  function provideLiquidity(
+    uint256 amount
+  ) external {
+    _provideLiquidity(0, amount);
+  }
+
+  function _provideLiquidity(uint64 remoteChainSelector, uint256 amount) internal {
     if (msg.sender != getRebalancerByChain(remoteChainSelector)) revert Unauthorized(msg.sender);
 
     // Storage is used instead of memory to save gas, as the state may need to be updated if the chain is siloed.
@@ -217,12 +251,26 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     emit LiquidityAdded(remoteChainSelector, msg.sender, amount);
   }
 
+  /// @notice Removes liquidity from the pool for unsiloed chains. Function is used to support legacy liquidity operations
+  /// by using a function selector available to previous L/R pools.
+  /// @dev Since the remoteChainSelector 0 should never be applied to a real chain, it is used to designate unsiloed chains.
+  /// @param amount The amount of liquidity to remove.
+  function withdrawLiquidity(
+    uint256 amount
+  ) external {
+    _withdrawLiquidity(0, amount);
+  }
+
   /// @notice Removed liquidity to the pool. The tokens will be sent to msg.sender.
   /// @dev Only the rebalancer can remove liquidity from the contract, for both siloed and unsiloed chains.
   /// @param remoteChainSelector the remote chain to set. If the chain is not siloed, then no accounting will be updated,
   /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
   /// @param amount The amount of liquidity to remove.
-  function withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+  function withdrawSiloedLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+    _withdrawLiquidity(remoteChainSelector, amount);
+  }
+
+  function _withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) internal {
     if (msg.sender != getRebalancerByChain(remoteChainSelector)) revert Unauthorized(msg.sender);
 
     // If funds are siloed by chain, prevent more than has been locked from being removed from the token pool.
