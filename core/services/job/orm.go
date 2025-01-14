@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -326,9 +328,19 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.New("invalid transmitter address in dual transmission config")
 				}
 
+				rawMeta, ok := dualTransmissionConfig["meta"].(map[string]interface{})
+				if !ok {
+					return errors.New("invalid dual transmission meta")
+				}
+
+				if err = validateDualTransmissionMeta(rawMeta); err != nil {
+					return err
+				}
+
 				if err = validateKeyStoreMatchForRelay(ctx, jb.OCR2OracleSpec.Relay, tx.keyStore, dtTransmitterAddress); err != nil {
 					return errors.Wrap(err, "unknown dual transmission transmitterAddress")
 				}
+
 			}
 
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
@@ -1668,4 +1680,68 @@ func (r legacyGasStationServerSpecRow) toLegacyGasStationServerSpec() *LegacyGas
 
 func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 	return errors.Wrapf(o.ds.SelectContext(ctx, &jb.JobSpecErrors, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jb.ID), "failed to load job spec errors for job %d", jb.ID)
+}
+
+func validateDualTransmissionHint(vals []interface{}) error {
+	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs"}
+	for _, v := range vals {
+		valString, ok := v.(string)
+		if !ok {
+			return errors.Errorf("dual transmission meta value %v is not a string", v)
+		}
+		if !slices.Contains(accepted, valString) {
+			return errors.Errorf("dual transmission meta.hint value %s should be one of the following %s", valString, accepted)
+		}
+	}
+	return nil
+}
+
+func validateDualTransmissionRefund(vals []interface{}) error {
+	totalRefund := 0
+	for _, v := range vals {
+		valString, ok := v.(string)
+		if !ok {
+			return errors.Errorf("dual transmission meta value %v is not a string", v)
+		}
+
+		s := strings.Split(valString, ":")
+		if len(s) != 2 {
+			return errors.New("invalid dual transmission refund, format should be <ADDRESS>:<PERCENT>")
+		}
+		if !common.IsHexAddress(s[0]) {
+			return errors.Errorf("invalid dual transmission refund address, %s is not a valid address", s[0])
+		}
+		percent, err := strconv.Atoi(s[1])
+		if err != nil {
+			return errors.Errorf("invalid dual transmission refund percent, %s is not a number", s[1])
+		}
+		totalRefund += percent
+	}
+
+	if totalRefund >= 100 {
+		return errors.New("invalid dual transmission refund percentages, total sum of percentages must be less than 100")
+	}
+	return nil
+}
+
+func validateDualTransmissionMeta(meta map[string]interface{}) error {
+	for k, v := range meta {
+		metaFieldValues, ok := v.([]interface{})
+		if !ok {
+			return errors.Errorf("dual transmission meta value %s is not a slice", k)
+		}
+		if k == "hint" {
+			if err := validateDualTransmissionHint(metaFieldValues); err != nil {
+				return err
+			}
+		}
+
+		if k == "refund" {
+			if err := validateDualTransmissionRefund(metaFieldValues); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

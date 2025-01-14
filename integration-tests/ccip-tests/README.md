@@ -35,6 +35,16 @@ For example, if you want to override the `Network` input in test and want to run
         ```
 
 3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [.testsecrets.example](./examples/.testsecrets.example) for the list of secrets and instruction how to set them up.
+   - The chainlink image is a required secret for all tests
+   - If you are running tests in live networks like testnet and mainnet, you need to set the secrets (rpc urls and private keys) for the respective networks.
+
+**Please note that the secrets should NOT be checked in to the repo and should be kept locally.**
+
+=======
+        export BASE64_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
+        ```
+
+3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [.testsecrets.example](./examples/.testsecrets.example) for the list of secrets and instruction how to set them up.
    - The chainlink image and tag are required secrets for all the tests.
    - If you are running tests in live networks like testnet and mainnet, you need to set the secrets (rpc urls and private keys) for the respective networks.
    - If you are running tests in simulated networks no network specific secrets are required.
@@ -50,6 +60,7 @@ You can run this command to ignore any changes to the file.
 git update-index --skip-worktree <path-to-secrets-file>
 ```
 
+>>>>>>> v2.17.0
 ## Running the Tests
 
 There are two ways to run the tests:
