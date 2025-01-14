@@ -481,7 +481,7 @@ func getChainReaderConfig(
 		return marshaledConfig, nil
 	case relay.NetworkSolana:
 		// TODO update chain reader config in contract_reader.go
-		var cfg config.ChainReader
+		var cfg config.ContractReader
 		if chainID == destChainID {
 			cfg = solanaconfig.DestReaderConfig
 		} else {
