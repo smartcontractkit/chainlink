@@ -303,8 +303,10 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", s.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
-		return err
+	if s.MCMS != nil {
+		if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+			return err
+		}
 	}
 
 	for chainSelector, params := range s.OCRConfigPerRemoteChainSelector {
@@ -1105,7 +1107,6 @@ func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (d
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
 		return deployment.ChangesetOutput{}, nil
 	}
 

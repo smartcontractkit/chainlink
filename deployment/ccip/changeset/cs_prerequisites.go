@@ -306,7 +306,6 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
 			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
 		}
-		e.Logger.Infow("assigned registry module on token admin registry")
 	}
 	if weth9Contract == nil {
 		weth, err := deployment.DeployContract(lggr, chain, ab,

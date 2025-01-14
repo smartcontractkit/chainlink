@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -151,6 +152,71 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
+
+	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
+	for selector := range e.Chains {
+		//tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedChainSel].USDFeeds)
+		ocrConfigPerSelector[selector] = changeset.DefaultOCRParams(
+			selector,
+			//tokenConfig.GetTokenInfo(lggr, state.Chains[selector].LinkToken, state.Chains[selector].Weth9),
+			nil,
+			nil,
+		)
+	}
+
+	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			// Add the DONs and candidate commit OCR instances for the chain.
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			Config: changeset.AddDonAndSetCandidateChangesetConfig{
+				changeset.SetCandidateConfigBase{
+					HomeChainSelector:               homeChainSel,
+					FeedChainSelector:               feedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Add the exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
+			Config: changeset.SetCandidateChangesetConfig{
+				changeset.SetCandidateConfigBase{
+					HomeChainSelector:               homeChainSel,
+					FeedChainSelector:               feedChainSel,
+					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+					PluginType:                      types.PluginTypeCCIPExec,
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteAllCandidatesChangeset),
+			Config: changeset.PromoteCandidatesChangesetConfig{
+				HomeChainSelector:    homeChainSel,
+				RemoteChainSelectors: chainSelectors,
+				PluginType:           types.PluginTypeCCIPCommit,
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteAllCandidatesChangeset),
+			Config: changeset.PromoteCandidatesChangesetConfig{
+				HomeChainSelector:    homeChainSel,
+				RemoteChainSelectors: chainSelectors,
+				PluginType:           types.PluginTypeCCIPExec,
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRamp),
+			Config: changeset.SetOCR3OffRampConfig{
+				HomeChainSel:    homeChainSel,
+				RemoteChainSels: chainSelectors,
+			},
+		},
+	})
+
 	// Add all lanes
 	for src := range e.Chains {
 		for dst := range e.Chains {
