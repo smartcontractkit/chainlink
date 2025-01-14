@@ -606,7 +606,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // because we also charge for execution gas on top of this. When correct values are chosen, the execution gas we
     // charge is always higher than the difference between the base and high calldata costs for the first
     // destGasPerPayloadByteThreshold bytes. Since we don't pay for execution gas in EIP-7623, this execution gas is
-    // effectively used to cover teh higher calldata costs for the first destGasPerPayloadByteThreshold bytes.
+    // effectively used to cover the higher calldata costs for the first destGasPerPayloadByteThreshold bytes.
     // The threshold should be adjusted based on expected execution cost and, potentially, to discourage large payloads.
     // Example: 16 base, 40 high, 100k execution cost. 100k/(40-16) = max 4.16kb as the threshold. Take 4kb threshold.
     // Calldata length = 5000
