@@ -21,9 +21,8 @@ import (
 	ocrconfighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -37,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_lbtc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
@@ -210,6 +210,43 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), "Test Token ERC677", "TERC677", 6, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	token := &ERC677Token{
+		client:          e.evmClient,
+		logger:          e.logger,
+		ContractAddress: *address,
+		instance:        instance.(*burn_mint_erc677.BurnMintERC677),
+		OwnerAddress:    common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+		OwnerWallet:     e.evmClient.GetDefaultWallet(),
+	}
+	if ownerMintingAmount != nil {
+		// grant minter role to owner and mint tokens
+		err = token.GrantMintRole(common.HexToAddress(e.evmClient.GetDefaultWallet().Address()))
+		if err != nil {
+			return token, fmt.Errorf("granting minter role to owner shouldn't fail %w", err)
+		}
+		err = e.evmClient.WaitForEvents()
+		if err != nil {
+			return token, fmt.Errorf("error in waiting for granting mint role %w", err)
+		}
+		err = token.Mint(common.HexToAddress(e.evmClient.GetDefaultWallet().Address()), ownerMintingAmount)
+		if err != nil {
+			return token, fmt.Errorf("minting tokens shouldn't fail %w", err)
+		}
+	}
+	return token, err
+}
+
+func (e *CCIPContractsDeployer) DeployCustomBurnMintERC677Token(name, symbol string, decimals uint8, ownerMintingAmount *big.Int) (*ERC677Token, error) {
+	address, _, instance, err := e.evmClient.DeployContract("Burn Mint ERC 677", func(
+		auth *bind.TransactOpts,
+		_ bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return burn_mint_erc677.DeployBurnMintERC677(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), name, symbol, decimals, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)))
 	})
 	if err != nil {
 		return nil, err
@@ -488,6 +525,81 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 	}
 }
 
+func (e *CCIPContractsDeployer) NewMockLBTCTokenPoolContract(addr common.Address) (
+	*TokenPool,
+	error,
+) {
+	version := VersionMap[TokenPoolContract]
+	e.logger.Info().Str("Version", version.String()).Msg("New Mock LBTC Token Pool")
+	switch version {
+	case Latest:
+		pool, err := mock_lbtc_token_pool.NewMockLBTCTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+
+		if err != nil {
+			return nil, err
+		}
+		e.logger.Info().
+			Str("Contract Address", addr.Hex()).
+			Str("Contract Name", "Mock LBTC Token Pool").
+			Str("From", e.evmClient.GetDefaultWallet().Address()).
+			Str("Network Name", e.evmClient.GetNetworkConfig().Name).
+			Msg("New contract")
+		poolInterface, err := token_pool.NewTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
+		if err != nil {
+			return nil, err
+		}
+		return &TokenPool{
+			client: e.evmClient,
+			logger: e.logger,
+			Instance: &TokenPoolWrapper{
+				Latest: &LatestPool{
+					PoolInterface: poolInterface,
+					MockLBTCPool:  pool,
+				},
+			},
+			EthAddress:   addr,
+			OwnerAddress: common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+			OwnerWallet:  e.evmClient.GetDefaultWallet(),
+		}, err
+	default:
+		return nil, fmt.Errorf("version not supported: %s", version)
+	}
+}
+
+func (e *CCIPContractsDeployer) DeployMockLBTCTokenPoolContract(tokenAddr string, rmnProxy common.Address, router common.Address, destPoolData []byte) (
+	*TokenPool,
+	error,
+) {
+	e.logger.Println("In DeployMockLBTCTokenPoolContract")
+	version := VersionMap[TokenPoolContract]
+	e.logger.Debug().Str("Token", tokenAddr).Msg("Deploying Mock LBTC token pool")
+	token := common.HexToAddress(tokenAddr)
+	switch version {
+	case Latest:
+		address, _, _, err := e.evmClient.DeployContract("Mock LBTC Token Pool", func(
+			auth *bind.TransactOpts,
+			_ bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return mock_lbtc_token_pool.DeployMockLBTCTokenPool(
+				auth,
+				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
+				token,
+				[]common.Address{},
+				rmnProxy,
+				router,
+				destPoolData,
+			)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+		return e.NewMockLBTCTokenPoolContract(*address)
+	default:
+		return nil, fmt.Errorf("version not supported: %s", version)
+	}
+}
+
 func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr string, rmnProxy common.Address, router common.Address) (
 	*TokenPool,
 	error,
@@ -505,7 +617,7 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 				token,
-				18,
+				testhelpers.TokenDecimals,
 				[]common.Address{},
 				rmnProxy,
 				true,

@@ -26,12 +26,12 @@ func Test_Deploy(t *testing.T) {
 	resp, err := Deploy(env, registrySel)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	// OCR3 should be deployed on chain 0
+	// workflow registry should be deployed on chain 0
 	addrs, err := resp.AddressBook.AddressesForChain(registrySel)
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 
-	// nothing on chain 1
+	// assert nothing on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
 	assert.Empty(t, oaddrs)

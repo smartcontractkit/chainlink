@@ -1009,7 +1009,7 @@ func (d *Delegate) newServicesLLO(
 	// Also re-use EVM keys for signing the retirement report. This isn't
 	// required, just seems easiest since it's the only key type available for
 	// now.
-	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatRetirement} {
+	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatRetirement, llotypes.ReportFormatEVMABIEncodeUnpacked} {
 		if _, exists := kbm[rf]; !exists {
 			// Use the first if unspecified
 			kbs, err3 := d.ks.GetAllOfType("evm")

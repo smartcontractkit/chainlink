@@ -2,7 +2,9 @@ package changeset
 
 import (
 	"math/big"
+	"regexp"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,6 +24,62 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
+
+func TestInvalidOCR3Params(t *testing.T) {
+	e, _ := NewMemoryEnvironment(t,
+		WithPrerequisiteDeployment())
+	chain1 := e.Env.AllChainSelectors()[0]
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	// Need to deploy prerequisites first so that we can form the USDC config
+	// no proposals to be made, timelock can be passed as nil here
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    []uint64{chain1},
+				HomeChainSelector: e.HomeChainSel,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	params := DefaultOCRParams(e.FeedChainSel, nil, nil, true, true)
+	// tweak params to have invalid config
+	// make DeltaRound greater than DeltaProgress
+	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
+	_, err = internal.BuildOCR3ConfigForCCIPHome(
+		e.Env.OCRSecrets,
+		state.Chains[chain1].OffRamp,
+		e.Env.Chains[chain1],
+		nodes.NonBootstraps(),
+		state.Chains[e.HomeChainSel].RMNHome.Address(),
+		params.OCRParameters,
+		params.CommitOffChainConfig,
+		params.ExecuteOffChainConfig,
+	)
+	require.Errorf(t, err, "expected error")
+	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`
+	matched, err1 := regexp.MatchString(pattern, err.Error())
+	require.NoError(t, err1)
+	require.True(t, matched)
+}
 
 func Test_PromoteCandidate(t *testing.T) {
 	for _, tc := range []struct {
@@ -87,12 +146,16 @@ func Test_PromoteCandidate(t *testing.T) {
 				},
 			}, []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-					Config: PromoteCandidatesChangesetConfig{
-						HomeChainSelector:    tenv.HomeChainSel,
-						RemoteChainSelectors: []uint64{dest},
-						MCMS:                 mcmsConfig,
-						PluginType:           types.PluginTypeCCIPCommit,
+					Changeset: commonchangeset.WrapChangeSet(PromoteCandidateChangeset),
+					Config: PromoteCandidateChangesetConfig{
+						HomeChainSelector: tenv.HomeChainSel,
+						PluginInfo: []PromoteCandidatePluginInfo{
+							{
+								RemoteChainSelectors: []uint64{dest},
+								PluginType:           types.PluginTypeCCIPCommit,
+							},
+						},
+						MCMS: mcmsConfig,
 					},
 				},
 			})
@@ -183,33 +246,21 @@ func Test_SetCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
-							},
-							PluginType: types.PluginTypeCCIPCommit,
-							MCMS:       mcmsConfig,
+							MCMS:              mcmsConfig,
 						},
-					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-					Config: SetCandidateChangesetConfig{
-						SetCandidateConfigBase: SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+						PluginInfo: []SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
 							},
-							PluginType: types.PluginTypeCCIPExec,
-							MCMS:       mcmsConfig,
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
 						},
 					},
 				},
@@ -304,33 +355,21 @@ func Test_RevokeCandidate(t *testing.T) {
 						SetCandidateConfigBase: SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
-							},
-							PluginType: types.PluginTypeCCIPCommit,
-							MCMS:       mcmsConfig,
+							MCMS:              mcmsConfig,
 						},
-					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-					Config: SetCandidateChangesetConfig{
-						SetCandidateConfigBase: SetCandidateConfigBase{
-							HomeChainSelector: tenv.HomeChainSel,
-							FeedChainSelector: tenv.FeedChainSel,
-							OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-								dest: DefaultOCRParams(
-									tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-									nil,
-								),
+						PluginInfo: []SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
 							},
-							PluginType: types.PluginTypeCCIPExec,
-							MCMS:       mcmsConfig,
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
 						},
 					},
 				},

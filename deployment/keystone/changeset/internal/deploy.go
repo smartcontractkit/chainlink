@@ -416,10 +416,14 @@ type RegisterCapabilitiesRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 	DonToCapabilities     map[string][]capabilities_registry.CapabilitiesRegistryCapability
+
+	// if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	UseMCMS bool
 }
 
 type RegisterCapabilitiesResponse struct {
 	DonToCapabilities map[string][]RegisteredCapability
+	Ops               *timelock.BatchChainOperation
 }
 
 type RegisteredCapability struct {
@@ -492,11 +496,14 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 		lggr.Warn("no new capabilities to register")
 		return &RegisterCapabilitiesResponse{}, nil
 	}
-	// not using mcms; ignore proposals
-	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
+
+	ops, err := AddCapabilities(lggr, contracts.CapabilitiesRegistry, registryChain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
+
+	resp.Ops = ops
+
 	return resp, nil
 }
 
@@ -504,10 +511,12 @@ type RegisterNOPSRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 	Nops                  []capabilities_registry.CapabilitiesRegistryNodeOperator
+	UseMCMS               bool
 }
 
 type RegisterNOPSResponse struct {
 	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	Ops  *timelock.BatchChainOperation
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -545,11 +554,23 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		lggr.Debug("no new node operators to register")
 		return resp, nil
 	}
+
+	if req.UseMCMS {
+		ops, err := addNOPsMCMSProposal(registry, nops, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add node operators: %w", err)
+		}
+
+		resp.Ops = ops
+		return resp, nil
+	}
+
 	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
+
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
 	// (at least for a simulated backend chain)
 	_, err = registryChain.Confirm(tx)
@@ -573,6 +594,25 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	}
 
 	return resp, nil
+}
+
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodeOperators(deployment.SimTransactOpts(), nops)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
+	}, nil
 }
 
 func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
@@ -618,9 +658,11 @@ type RegisterNodesRequest struct {
 	DonToNodes            map[string][]deployment.Node
 	DonToCapabilities     map[string][]RegisteredCapability
 	Nops                  []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	UseMCMS               bool
 }
 type RegisterNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
+	Ops            *timelock.BatchChainOperation
 }
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
@@ -725,6 +767,19 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		uniqueNodeParams = append(uniqueNodeParams, v)
 	}
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
+
+	if req.UseMCMS {
+		ops, err := addNodesMCMSProposal(registry, uniqueNodeParams, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add nodes: %w", err)
+		}
+
+		return &RegisterNodesResponse{
+			nodeIDToParams: nodeIDToParams,
+			Ops:            ops,
+		}, nil
+	}
+
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -758,8 +813,29 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	}
+
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
+	}, nil
+}
+
+// addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
+func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodes(deployment.SimTransactOpts(), params)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
 	}, nil
 }
 
@@ -776,10 +852,12 @@ type RegisterDonsRequest struct {
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
 	DonsToRegister    []DONToRegister
+	UseMCMS           bool
 }
 
 type RegisterDonsResponse struct {
 	DonInfos map[string]capabilities_registry.CapabilitiesRegistryDONInfo
+	Ops      *timelock.BatchChainOperation
 }
 
 func sortedHash(p2pids [][32]byte) string {
@@ -815,6 +893,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
+	mcmsOps := make([]mcms.Operation, 0, len(req.DonsToRegister))
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -832,9 +911,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		p2pIdsToDon[p2pSortedHash] = don.Name
 
 		if _, ok := existingDONs[p2pSortedHash]; ok {
-			lggr.Debugw("don already exists, ignoring", "don", don, "p2p sorted hash", p2pSortedHash)
+			lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
 			continue
 		}
+
+		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
 
 		caps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
@@ -858,11 +939,28 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			})
 		}
 
-		tx, err := registry.AddDON(registryChain.DeployerKey, p2pIds, cfgs, true, wfSupported, don.F)
+		txOpts := registryChain.DeployerKey
+		if req.UseMCMS {
+			txOpts = deployment.SimTransactOpts()
+		}
+
+		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
 		}
+
+		if req.UseMCMS {
+			lggr.Debugw("adding mcms op for DON", "don", don.Name)
+			op := mcms.Operation{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			}
+			mcmsOps = append(mcmsOps, op)
+			continue
+		}
+
 		_, err = registryChain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don.Name, err)
@@ -870,6 +968,16 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("registered DON", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F)
 		addedDons++
 	}
+
+	if req.UseMCMS {
+		return &RegisterDonsResponse{
+			Ops: &timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
+				Batch:           mcmsOps,
+			},
+		}, nil
+	}
+
 	lggr.Debugf("Registered all DONs (new=%d), waiting for registry to update", addedDons)
 
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
@@ -906,6 +1014,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("adding don info to the response (keyed by DON name)", "don", donName)
 		resp.DonInfos[donName] = donInfos[i]
 	}
+
 	return &resp, nil
 }
 
