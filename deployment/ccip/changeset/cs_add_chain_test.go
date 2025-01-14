@@ -357,7 +357,7 @@ func Test_AddChain(t *testing.T) {
 	}
 
 	// Send messages from remainingChain to toDeploy thru the test router.
-	// sendMsgs([]uint64{remainingChain}, toDeploy, true)
+	sendMsgs([]uint64{remainingChain}, toDeploy, true)
 }
 
 func assertNewChainWiringInbound(
