@@ -251,10 +251,8 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, 
 		FeeLimit:       wrappedTx.SpecifiedGasLimit,
 		CreatedAt:      wrappedTx.CreatedAt,
 		Meta:           wrappedTx.Meta,
-		// Subject: wrappedTx.Subject,
-
-		// TransmitChecker: wrappedTx.TransmitChecker,
-		ChainID: wrappedTx.ChainID,
+		Subject:        wrappedTx.Subject,
+		ChainID:        wrappedTx.ChainID,
 
 		PipelineTaskRunID: wrappedTx.PipelineTaskRunID,
 		MinConfirmations:  wrappedTx.MinConfirmations,

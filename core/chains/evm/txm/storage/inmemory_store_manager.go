@@ -2,11 +2,11 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
@@ -39,7 +39,7 @@ func (m *InMemoryStoreManager) AbandonPendingTransactions(_ context.Context, fro
 func (m *InMemoryStoreManager) Add(addresses ...common.Address) (err error) {
 	for _, address := range addresses {
 		if _, exists := m.InMemoryStoreMap[address]; exists {
-			err = multierr.Append(err, fmt.Errorf("address %v already exists in store manager", address))
+			err = errors.Join(err, fmt.Errorf("address %v already exists in store manager", address))
 		}
 		m.InMemoryStoreMap[address] = NewInMemoryStore(m.lggr, address, m.chainID)
 	}

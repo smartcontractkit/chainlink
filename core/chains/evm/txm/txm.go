@@ -85,7 +85,7 @@ type Txm struct {
 	config          Config
 	metrics         *txmMetrics
 
-	nonceMapMu sync.Mutex
+	nonceMapMu sync.RWMutex
 	nonceMap   map[common.Address]uint64
 
 	triggerCh map[common.Address]chan struct{}
@@ -197,8 +197,8 @@ func (t *Txm) Abandon(address common.Address) error {
 }
 
 func (t *Txm) getNonce(address common.Address) uint64 {
-	t.nonceMapMu.Lock()
-	defer t.nonceMapMu.Unlock()
+	t.nonceMapMu.RLock()
+	defer t.nonceMapMu.RUnlock()
 	return t.nonceMap[address]
 }
 

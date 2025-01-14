@@ -8,6 +8,7 @@
 - `EmptyTxLimitDefault`: sets default gas limit for empty transactions. Empty transactions are created in case there is a nonce gap or another stuck transaction in the mempool to fill a given nonce. These are empty transactions and they don't have any data or value.
 
 ## Metrics
-- `txm_num_broadcasted_transactions` : total number of successful broadcasted transactions.
-- `txm_num_confirmed_transactions` : total number of confirmed transactions. Note that this can happen multiple times per transaction in the case of re-orgs.
-- `txm_num_nonce_gaps` : total number of nonce gaps created that the transaction manager had to fill.
+- `txm_num_broadcasted_transactions`: total number of successful broadcasted transactions.
+- `txm_num_confirmed_transactions`: total number of confirmed transactions. Note that this can happen multiple times per transaction in the case of re-orgs.
+- `txm_num_nonce_gaps`: total number of nonce gaps created that the transaction manager had to fill.
+- `txm_time_until_tx_confirmed`: The amount of time elapsed from a transaction being broadcast to being included in a block. 
