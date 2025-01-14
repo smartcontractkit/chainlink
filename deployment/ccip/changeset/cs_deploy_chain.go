@@ -119,7 +119,7 @@ func deployChainContractsForChains(
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
-		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
+		if existingState.Chains[chainSel].StaticLinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
 			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
 		deployGrp.Go(
