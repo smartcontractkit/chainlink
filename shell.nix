@@ -63,7 +63,7 @@ in
     nativeBuildInputs =
       [
         go
-        postgresql
+        postgresql_17
 
         python3
         python3Packages.pip
@@ -85,7 +85,7 @@ in
         gopls
         delve
         golangci-lint
-        github-cli
+        git
         jq
 
         # gofuzz

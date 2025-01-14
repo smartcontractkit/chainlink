@@ -3,11 +3,12 @@ name: Solidity Wrappers
 # used for job execution. The jobs in "solidity.yml" are configured around push events, whereas
 # we only want to generate gethwrappers during pull requests.
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+  # pull_request:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - reopened
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

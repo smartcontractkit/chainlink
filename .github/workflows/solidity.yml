@@ -1,9 +1,9 @@
 name: Solidity
 
 on:
-  merge_group:
-  push:
-
+  # merge_group:
+  # push:
+  workflow_dispatch:
 defaults:
   run:
     shell: bash
