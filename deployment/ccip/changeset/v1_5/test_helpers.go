@@ -73,13 +73,15 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		src := pair.SourceChainSelector
 		sourceChainState := state.Chains[src]
 		destChainState := state.Chains[dest]
-		require.NotNil(t, sourceChainState.LinkToken)
+		_, err := sourceChainState.LinkTokenAddress()
+		require.NoError(t, err)
 		require.NotNil(t, sourceChainState.RMNProxy)
 		require.NotNil(t, sourceChainState.TokenAdminRegistry)
 		require.NotNil(t, sourceChainState.Router)
 		require.NotNil(t, sourceChainState.PriceRegistry)
 		require.NotNil(t, sourceChainState.Weth9)
-		require.NotNil(t, destChainState.LinkToken)
+		_, err = destChainState.LinkTokenAddress()
+		require.NoError(t, err)
 		require.NotNil(t, destChainState.RMNProxy)
 		require.NotNil(t, destChainState.TokenAdminRegistry)
 		tokenPrice, _, _ := CreatePricesPipeline(t, state, src, dest)
@@ -96,11 +98,13 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			TokenPricesUSDPipeline:   tokenPrice,
 			DestinationStartBlock:    block.Number.Uint64(),
 		})
+		srcLinkTokenAddr, err := sourceChainState.LinkTokenAddress()
+		require.NoError(t, err)
 		addLanesCfg = append(addLanesCfg, DeployLaneConfig{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OnRampStaticCfg: evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
-				LinkToken:          sourceChainState.LinkToken.Address(),
+				LinkToken:          srcLinkTokenAddr,
 				ChainSelector:      src,
 				DestChainSelector:  dest,
 				DefaultTxGasLimit:  200_000,
@@ -125,7 +129,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			},
 			OnRampFeeTokenArgs: []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 				{
-					Token:                      sourceChainState.LinkToken.Address(),
+					Token:                      srcLinkTokenAddr,
 					NetworkFeeUSDCents:         1_00,
 					GasMultiplierWeiPerEth:     1e18,
 					PremiumMultiplierWeiPerEth: 9e17,
@@ -141,7 +145,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			},
 			OnRampTransferTokenCfgs: []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 				{
-					Token:                     sourceChainState.LinkToken.Address(),
+					Token:                     srcLinkTokenAddr,
 					MinFeeUSDCents:            50,           // $0.5
 					MaxFeeUSDCents:            1_000_000_00, // $ 1 million
 					DeciBps:                   5_0,          // 5 bps
@@ -163,7 +167,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			},
 			InitialTokenPrices: []price_registry_1_2_0.InternalTokenPriceUpdate{
 				{
-					SourceToken: sourceChainState.LinkToken.Address(),
+					SourceToken: srcLinkTokenAddr,
 					UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(20)),
 				},
 				{
@@ -214,7 +218,8 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 func CreatePricesPipeline(t *testing.T, state changeset.CCIPOnChainState, source, dest uint64) (string, *httptest.Server, *httptest.Server) {
 	sourceRouter := state.Chains[source].Router
 	destRouter := state.Chains[dest].Router
-	destLink := state.Chains[dest].LinkToken
+	destLinkAddr, err := state.Chains[dest].LinkTokenAddress()
+	require.NoError(t, err)
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
 		require.NoError(t, err)
@@ -240,7 +245,7 @@ eth [type=http method=GET url="%s"];
 eth_parse [type=jsonparse path="UsdPerETH"];
 eth->eth_parse;
 merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_parse), \\\"%s\\\":$(eth_parse)}"];`,
-		linkUSD.URL, ethUSD.URL, destLink.Address(), sourceWrappedNative, destWrappedNative)
+		linkUSD.URL, ethUSD.URL, destLinkAddr, sourceWrappedNative, destWrappedNative)
 
 	return tokenPricesUSDPipeline, linkUSD, ethUSD
 }

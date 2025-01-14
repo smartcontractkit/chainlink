@@ -407,13 +407,17 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	// Only applicable if setting up for 1.5 version, remove this once we have fully migrated to 1.6
 	if deployOpts.LegacyDeploymentCfg != nil {
 		if chainState.PriceRegistry == nil {
+			linkAddr, err1 := chainState.LinkTokenAddress()
+			if err1 != nil {
+				return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err1)
+			}
 			_, err := deployment.DeployContract(lggr, chain, ab,
 				func(chain deployment.Chain) deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
 					priceRegAddr, tx2, priceRegAddrC, err2 := price_registry_1_2_0.DeployPriceRegistry(
 						chain.DeployerKey,
 						chain.Client,
 						nil,
-						[]common.Address{weth9Contract.Address(), chainState.LinkToken.Address()},
+						[]common.Address{weth9Contract.Address(), linkAddr},
 						deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
 					)
 					return deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{

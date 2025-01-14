@@ -139,6 +139,16 @@ type CCIPChainState struct {
 	RMN            *rmn_contract.RMNContract
 }
 
+func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
+	if c.LinkToken != nil {
+		return c.LinkToken.Address(), nil
+	}
+	if c.StaticLinkToken != nil {
+		return c.StaticLinkToken.Address(), nil
+	}
+	return common.Address{}, errors.New("no link token found in the state")
+}
+
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
