@@ -45,29 +45,24 @@ func Test_AddChain(t *testing.T) {
 	remainingChain := allChains[0]
 	t.Log("initially deploying chains:", toDeploy, "and afterwards adding chain", remainingChain)
 
-	e = AddCCIPContractsToEnvironment(
+	/////////////////////////////////////
+	// START Setup initial chains
+	/////////////////////////////////////
+	e = setupChain(
 		t,
-		toDeploy,
+		e,
 		tEnv,
+		toDeploy,
 		true,  // deployJobs
 		true,  // deployHomeChain
 		false, // mcmsEnabled
 	)
 
-	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
-	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
-			Config: SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: toDeploy,
-			},
-		},
-	})
-	require.NoError(t, err)
-
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	// check RMNRemote is up and RMNProxy is correctly wired.
+	assertRMNRemoteAndProxyState(t, toDeploy, state)
 
 	// Setup densely connected lanes between all chains.
 	for _, source := range toDeploy {
@@ -94,9 +89,6 @@ func Test_AddChain(t *testing.T) {
 		state,
 		false, // onlyChainContracts
 	)
-
-	// check RMNRemote is up and RMNProxy is correctly wired.
-	assertRMNRemoteAndProxyState(t, toDeploy, state)
 
 	// At this stage we can send some requests and confirm the setup is working.
 	sendMsgs := func(
@@ -161,6 +153,10 @@ func Test_AddChain(t *testing.T) {
 	time.Sleep(30 * time.Second)
 	sendMsgs(toDeploy, toDeploy, false)
 
+	/////////////////////////////////////
+	// END Setup initial chains
+	/////////////////////////////////////
+
 	// TODO: Not working. Need to fix/figure out why.
 	// gasPricePreUpdate, startBlocks := sendMsgs(toDeploy)
 	// for sourceDestPair, preUpdateGp := range gasPricePreUpdate {
@@ -176,28 +172,21 @@ func Test_AddChain(t *testing.T) {
 	// 	require.NoError(t, err)
 	// }
 
-	// Deploy to the remaining chain.
+	/////////////////////////////////////
+	// START Deploy to the remaining chain.
+	/////////////////////////////////////
+
 	// MCMS needs to be enabled because the home chain contracts have been
 	// transferred to MCMS.
-	e = AddCCIPContractsToEnvironment(
+	e = setupChain(
 		t,
-		[]uint64{remainingChain},
+		e,
 		tEnv,
+		[]uint64{remainingChain},
 		false, // deployJobs
 		false, // deployHomeChain
 		true,  // mcmsEnabled
 	)
-
-	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
-			Config: SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: []uint64{remainingChain},
-			},
-		},
-	})
-	require.NoError(t, err)
 
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -206,45 +195,21 @@ func Test_AddChain(t *testing.T) {
 
 	// TODO: wait for gas price of new chain to be updated on all other chains.
 
-	// UpdateOnRampDestsConfig on the existing chains with TestRouter=true and MCMS config enabled.
-	// UpdateFeeQuoterPrices (new CS) to set initial FQ prices to the new destination.
-	// UpdateFeeQuoterDestsConfig to enable quoting for the new destination
-	// UpdateRouterRampsConfig on the test router to enable the new destination
-	mcmsConfig := &MCMSConfig{
-		MinDelay: 0,
-	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
-			Config: UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampDestUpdates(t, []uint64{remainingChain}, toDeploy, true),
-				MCMS:           mcmsConfig,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
-			Config: UpdateFeeQuoterPricesConfig{
-				PricesByChain: feeQuoterPricesByChain(t, []uint64{remainingChain}, toDeploy),
-				MCMS:          mcmsConfig,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
-			Config: UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestUpdates(t, []uint64{remainingChain}, toDeploy),
-				MCMS:           mcmsConfig,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
-			Config: UpdateRouterRampsConfig{
-				TestRouter:     true,
-				UpdatesByChain: routerOnRampUpdates(t, []uint64{remainingChain}, toDeploy),
-				MCMS:           mcmsConfig,
-			},
-		},
-	})
-	require.NoError(t, err)
+	/////////////////////////////////////
+	// END Deploy to the remaining chain.
+	/////////////////////////////////////
+
+	/////////////////////////////////////
+	// START Wire up toDeploy -> remainingChain outbound.
+	/////////////////////////////////////
+	e = setupOutboundWiring(
+		t,
+		e,
+		toDeploy,
+		[]uint64{remainingChain},
+		true, // testRouterEnabled
+		true, // mcmsEnabled
+	)
 
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -259,29 +224,20 @@ func Test_AddChain(t *testing.T) {
 
 	// At this point we can send messages from the test router to the new chain.
 	// These won't be processed yet because the offRamp is not aware of these new sources.
-	// TODO: do we want to send a request before enabling on the offRamp? Don't think this would
-	// be a practical use case.
+
+	/////////////////////////////////////
+	// END Wire up toDeploy -> remainingChain outbound.
+	/////////////////////////////////////
+
+	/////////////////////////////////////
+	// START Wire up toDeploy -> remainingChain inbound on remainingChain.
+	/////////////////////////////////////
 
 	// UpdateOffRampSourcesConfig called on the new chain to enable existing sources. Also with the test router.
 	// UpdateRouterRampsConfig to enable the existing sources on the new test router.
 	// This means we can send messages from toDeploy to remainingChain.
 	// NOTE: not using MCMS since haven't transferred to timelock yet.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
-			Config: UpdateOffRampSourcesConfig{
-				UpdatesByChain: offRampSourceUpdates(t, []uint64{remainingChain}, toDeploy, true),
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
-			Config: UpdateRouterRampsConfig{
-				TestRouter:     true,
-				UpdatesByChain: routerOffRampUpdates(t, []uint64{remainingChain}, toDeploy),
-			},
-		},
-	})
-	require.NoError(t, err)
+	e = setupInboundWiring(t, e, toDeploy, []uint64{remainingChain}, true, false)
 
 	assertChainWiringInbound(
 		t,
@@ -294,76 +250,59 @@ func Test_AddChain(t *testing.T) {
 	// Send messages from toDeploy to the newly added chain thru the test router.
 	sendMsgs(toDeploy, []uint64{remainingChain}, true)
 
+	/////////////////////////////////////
+	// END Wire up toDeploy -> remainingChain inbound on remainingChain.
+	/////////////////////////////////////
+
+	/////////////////////////////////////
+	// START Wire up remainingChain -> toDeploy outbound.
+	/////////////////////////////////////
+
 	// Now we switch to testing outbound from the new chain.
 	// This amounts to enabling a new lane on the existing OCR instances
 	// (assuming by default we want to enable all chains).
-
-	// UpdateOnRampDestsConfig on the new chain with TestRouter=true and MCMS config enabled.
-	// UpdateFeeQuoterPrices on the new chain to enable quoting for all existing chains
-	// UpdateFeeQuoterDestsConfig on the new chain to set quoting params for the existing chains.
-	// UpdateRouterRampsConfig with TestRouter=true to set the new chains onramp for all existing chain destinations
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
-			Config: UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampDestUpdates(t, toDeploy, []uint64{remainingChain}, true),
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
-			Config: UpdateFeeQuoterPricesConfig{
-				PricesByChain: feeQuoterPricesByChain(t, toDeploy, []uint64{remainingChain}),
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
-			Config: UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestUpdates(t, toDeploy, []uint64{remainingChain}),
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
-			Config: UpdateRouterRampsConfig{
-				TestRouter:     true,
-				UpdatesByChain: routerOnRampUpdates(t, toDeploy, []uint64{remainingChain}),
-			},
-		},
-	})
-	require.NoError(t, err)
+	e = setupOutboundWiring(
+		t,
+		e,
+		[]uint64{remainingChain},
+		toDeploy,
+		true,  // testRouterEnabled
+		false, // mcmsEnabled
+	)
 
 	// sanity check that everything is correctly set up.
 	for _, chain := range toDeploy {
 		assertChainWiringOutbound(t, state, chain, []uint64{remainingChain}, true)
 	}
 
-	// UpdateOffRampSources called on the toDeploy chains to enable the new chain as a source. Also with the test router.
-	// UpdateRouterRamps to enable the new chain as a source on the test router.
-	// This means we can send messages from remainingChain to toDeploy.
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
-			Config: UpdateOffRampSourcesConfig{
-				UpdatesByChain: offRampSourceUpdates(t, toDeploy, []uint64{remainingChain}, true),
-				MCMS:           mcmsConfig,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
-			Config: UpdateRouterRampsConfig{
-				TestRouter:     true,
-				UpdatesByChain: routerOffRampUpdates(t, toDeploy, []uint64{remainingChain}),
-				MCMS:           mcmsConfig,
-			},
-		},
-	})
-	require.NoError(t, err)
+	/////////////////////////////////////
+	// END Wire up remainingChain -> toDeploy outbound.
+	/////////////////////////////////////
+
+	/////////////////////////////////////
+	// START Wire up remainingChain -> toDeploy inbound on toDeploy.
+	/////////////////////////////////////
+
+	e = setupInboundWiring(t, e, []uint64{remainingChain}, toDeploy, true, true)
 
 	for _, chain := range toDeploy {
 		assertChainWiringInbound(t, state, chain, []uint64{remainingChain}, true)
 	}
 
+	/////////////////////////////////////
+	// END Wire up remainingChain -> toDeploy inbound on toDeploy.
+	/////////////////////////////////////
+
+	/////////////////////////////////////
+	// START send messages from remainingChain to toDeploy.
+	/////////////////////////////////////
+
 	// Send messages from remainingChain to toDeploy thru the test router.
 	sendMsgs([]uint64{remainingChain}, toDeploy, true)
+
+	/////////////////////////////////////
+	// END send messages from remainingChain to toDeploy.
+	/////////////////////////////////////
 
 	// Transfer the new chain contracts to the timelock ownership.
 	transferToMCMSAndRenounceTimelockDeployer(
@@ -376,6 +315,9 @@ func Test_AddChain(t *testing.T) {
 
 	// Once verified with the test routers, the last step is to whitelist the new chain on the real routers everywhere with
 	// UpdateRouterRamps, UpdateOffRampSources and UpdateOnRampDests with TestRouter=False.
+	mcmsConfig := &MCMSConfig{
+		MinDelay: 0,
+	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		// OffRamp updates
 		// TODO: combine into one changeset call w/ the appropriate config.
@@ -474,6 +416,129 @@ func Test_AddChain(t *testing.T) {
 	// Finally, at this point, we can request messages from the real routers.
 	// sendMsgs(toDeploy, []uint64{remainingChain}, false)
 	// sendMsgs([]uint64{remainingChain}, toDeploy, false)
+}
+
+// setupInboundWiring sets up the newChain to be able to receive ccip messages from the provided sources.
+// This only touches the newChain and does not touch the sources.
+func setupInboundWiring(
+	t *testing.T,
+	e DeployedEnv,
+	sources []uint64,
+	newChains []uint64,
+	testRouterEnabled,
+	mcmsEnabled bool,
+) DeployedEnv {
+	var mcmsConfig *MCMSConfig
+	if mcmsEnabled {
+		mcmsConfig = &MCMSConfig{
+			MinDelay: 0,
+		}
+	}
+
+	var err error
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     testRouterEnabled,
+				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
+				MCMS:           mcmsConfig,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return e
+}
+
+// setupOutboundWiring sets up the given sources to be able to request ccip messages to the newChain.
+// This only touches the sources and does not touch newChain.
+// Therefore any requests to newChain will not be processed until the inbound wiring is set up.
+func setupOutboundWiring(
+	t *testing.T,
+	e DeployedEnv,
+	sources []uint64,
+	newChains []uint64,
+	testRouterEnabled,
+	mcmsEnabled bool,
+) DeployedEnv {
+	var mcmsConfig *MCMSConfig
+	if mcmsEnabled {
+		mcmsConfig = &MCMSConfig{
+			MinDelay: 0,
+		}
+	}
+
+	var err error
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Config: UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampDestUpdates(t, newChains, sources, true),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Config: UpdateFeeQuoterPricesConfig{
+				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
+				MCMS:          mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+			Config: UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     testRouterEnabled,
+				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
+				MCMS:           mcmsConfig,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return e
+}
+
+// setupChain will deploy the ccip chain contracts to the provided chains.
+// Based on the flags provided, it will also deploy the jobs and home chain contracts.
+// mcmsEnabled should be set to true if the home chain contracts have been transferred to MCMS.
+func setupChain(t *testing.T, e DeployedEnv, tEnv TestEnvironment, chains []uint64, deployJobs, deployHomeChain, mcmsEnabled bool) DeployedEnv {
+	e = AddCCIPContractsToEnvironment(
+		t,
+		chains,
+		tEnv,
+		deployJobs,
+		deployHomeChain,
+		mcmsEnabled,
+	)
+
+	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
+	var err error
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Config: SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: chains,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return e
 }
 
 // assertChainWiringInbound checks that the new chain has the existing chains enabled as sources.
