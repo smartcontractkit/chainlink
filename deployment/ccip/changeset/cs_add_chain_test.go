@@ -243,7 +243,7 @@ func Test_AddChain(t *testing.T) {
 	state, err = LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	assertExistingChainsWiring(
+	assertExistingChainsWiringOutboundToNewChain(
 		t,
 		state,
 		remainingChain,
@@ -264,20 +264,20 @@ func Test_AddChain(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
 			Config: UpdateOffRampSourcesConfig{
-				UpdatesByChain: offRampSourceUpdates(t, remainingChain, toDeploy, true),
+				UpdatesByChain: offRampSourceUpdates(t, []uint64{remainingChain}, toDeploy, true),
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
 			Config: UpdateRouterRampsConfig{
 				TestRouter:     true,
-				UpdatesByChain: routerOffRampUpdates(t, remainingChain, toDeploy),
+				UpdatesByChain: routerOffRampUpdates(t, []uint64{remainingChain}, toDeploy),
 			},
 		},
 	})
 	require.NoError(t, err)
 
-	assertNewChainWiring(
+	assertNewChainWiringInbound(
 		t,
 		state,
 		remainingChain,
@@ -325,12 +325,42 @@ func Test_AddChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// sanity check that everything is correctly set up.
+	for _, chain := range toDeploy {
+		assertExistingChainsWiringOutboundToNewChain(t, state, chain, []uint64{remainingChain}, true)
+	}
+
+	// UpdateOffRampSources called on the toDeploy chains to enable the new chain as a source. Also with the test router.
+	// UpdateRouterRamps to enable the new chain as a source on the test router.
+	// This means we can send messages from remainingChain to toDeploy.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Config: UpdateOffRampSourcesConfig{
+				UpdatesByChain: offRampSourceUpdates(t, toDeploy, []uint64{remainingChain}, true),
+				MCMS:           mcmsConfig,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Config: UpdateRouterRampsConfig{
+				TestRouter:     true,
+				UpdatesByChain: routerOffRampUpdates(t, toDeploy, []uint64{remainingChain}),
+				MCMS:           mcmsConfig,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	for _, chain := range toDeploy {
+		assertNewChainWiringInbound(t, state, chain, []uint64{remainingChain}, true)
+	}
+
 	// Send messages from remainingChain to toDeploy thru the test router.
-	// TODO: not working due to discovery bug.
 	// sendMsgs([]uint64{remainingChain}, toDeploy, true)
 }
 
-func assertNewChainWiring(
+func assertNewChainWiringInbound(
 	t *testing.T,
 	state CCIPOnChainState,
 	newChain uint64,
@@ -345,14 +375,14 @@ func assertNewChainWiring(
 			rtr = state.Chains[newChain].Router
 		}
 
-		// check that the onRamp has the new chain enabled as a dest.
+		// check that the offRamp has the existing chain enabled as a source.
 		dcc, err := state.Chains[newChain].OffRamp.GetSourceChainConfig(&bind.CallOpts{
 			Context: tests.Context(t),
 		}, existingChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
 
-		// check that the router has the new chain enabled as a dest.
+		// check that the router has the existing chain enabled as a source.
 		routerOffRamps, err := rtr.GetOffRamps(&bind.CallOpts{
 			Context: tests.Context(t),
 		})
@@ -370,12 +400,12 @@ func assertNewChainWiring(
 	}
 }
 
-// assertExistingChainsWiring asserts that the following changes are applied correctly on all existing chains:
+// assertExistingChainsWiringOutboundToNewChain asserts that the following changes are applied correctly on all existing chains:
 // UpdateOnRampDestsConfig on the existing chains with TestRouter=true and MCMS config enabled.
 // UpdateFeeQuoterPrices to set initial FQ prices to the new destination.
 // UpdateFeeQuoterDestsConfig to enable quoting for the new destination
 // UpdateRouterRampsConfig on the test router to enable the new destination
-func assertExistingChainsWiring(
+func assertExistingChainsWiringOutboundToNewChain(
 	t *testing.T,
 	state CCIPOnChainState,
 	newChain uint64,
@@ -414,17 +444,19 @@ func assertExistingChainsWiring(
 }
 
 // routerOffRampUpdates adds the provided sources to the router of the provided dest chain.
-func routerOffRampUpdates(t *testing.T, dest uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
+func routerOffRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
 	updates = make(map[uint64]RouterUpdates)
 	for _, source := range sources {
-		require.NotEqual(t, source, dest)
-		if _, ok := updates[dest]; ok {
-			updates[dest].OffRampUpdates[source] = true
-		} else {
-			updates[dest] = RouterUpdates{
-				OffRampUpdates: map[uint64]bool{
-					source: true,
-				},
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			if _, ok := updates[dest]; !ok {
+				updates[dest] = RouterUpdates{
+					OffRampUpdates: map[uint64]bool{
+						source: true,
+					},
+				}
+			} else {
+				updates[dest].OffRampUpdates[source] = true
 			}
 		}
 	}
@@ -435,17 +467,17 @@ func routerOffRampUpdates(t *testing.T, dest uint64, sources []uint64) (updates 
 // to point to the local onramp on each source chain.
 func routerOnRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]RouterUpdates) {
 	updates = make(map[uint64]RouterUpdates)
-	for _, existing := range sources {
-		for _, newChain := range dests {
-			require.NotEqual(t, existing, newChain)
-			if _, ok := updates[existing]; !ok {
-				updates[existing] = RouterUpdates{
+	for _, source := range sources {
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			if _, ok := updates[source]; !ok {
+				updates[source] = RouterUpdates{
 					OnRampUpdates: map[uint64]bool{
-						newChain: true,
+						dest: true,
 					},
 				}
 			} else {
-				updates[existing].OnRampUpdates[newChain] = true
+				updates[source].OnRampUpdates[dest] = true
 			}
 		}
 	}
@@ -506,17 +538,19 @@ func onRampDestUpdates(t *testing.T, dests []uint64, sources []uint64, testRoute
 	return
 }
 
-// offRampSourceUpdates adds the provided sources to the offRamp on the provided dest chain.
-func offRampSourceUpdates(t *testing.T, dest uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OffRampSourceUpdate) {
+// offRampSourceUpdates adds the provided sources to the offRamp on the provided dest chains.
+func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]OffRampSourceUpdate) {
 	updates = make(map[uint64]map[uint64]OffRampSourceUpdate)
 	for _, source := range sources {
-		require.NotEqual(t, source, dest)
-		if _, ok := updates[dest]; !ok {
-			updates[dest] = make(map[uint64]OffRampSourceUpdate)
-		}
-		updates[dest][source] = OffRampSourceUpdate{
-			IsEnabled:  true,
-			TestRouter: testRouterEnabled,
+		for _, dest := range dests {
+			require.NotEqual(t, source, dest)
+			if _, ok := updates[dest]; !ok {
+				updates[dest] = make(map[uint64]OffRampSourceUpdate)
+			}
+			updates[dest][source] = OffRampSourceUpdate{
+				IsEnabled:  true,
+				TestRouter: testRouterEnabled,
+			}
 		}
 	}
 	return
