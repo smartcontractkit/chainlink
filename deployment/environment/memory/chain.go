@@ -214,7 +214,6 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err)
-	testcontainers.CleanupContainer(t, output.Container)
 
 	url := output.Nodes[0].HostHTTPUrl
 	wsURL := output.Nodes[0].HostWSUrl
