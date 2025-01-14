@@ -1,0 +1,31 @@
+{
+  "contracts": {
+    "VerifierProxy": {
+      "address": "0x223752Eb475098e79d10937480DF93864D7EfB83",
+      "params": {
+        "accessController": "0x0000000000000000000000000000000000000000"
+      }
+    },
+    "Verifier": {
+      "address": "0xfDb08F0b65b29297aBBCFA231cEf236ef857B8eD",
+      "params": {
+        "verifierProxy": "0x223752Eb475098e79d10937480DF93864D7EfB83"
+      }
+    },
+    "FeeManager": {
+      "address": "0x38cdD44e10c3599C290BB42e73f318F64eD09cfe",
+      "params": {
+        "verifierProxy": "0x223752Eb475098e79d10937480DF93864D7EfB83",
+        "rewardManager": "0xf04e45FcB14B1ce024ee2677F3D44C26994b8c4b",
+        "nativeToken": "0x5300000000000000000000000000000000000004",
+        "linkToken": "0x7273ebbB21F8D8AcF2bC12E71a08937712E9E40c"
+      }
+    },
+    "RewardManager": {
+      "address": "0xf04e45FcB14B1ce024ee2677F3D44C26994b8c4b",
+      "params": {
+        "linkToken": "0x7273ebbB21F8D8AcF2bC12E71a08937712E9E40c"
+      }
+    }
+  }
+}
