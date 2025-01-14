@@ -495,34 +495,35 @@ func (h *eventHandler) getWorkflowArtifacts(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) ([]byte, []byte, error) {
-	spec, err := h.orm.GetWorkflowSpecByID(ctx, hex.EncodeToString(payload.WorkflowID[:]))
-	if err != nil {
-		binary, err2 := h.fetcher(ctx, payload.BinaryURL)
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err2)
+	// Check if the workflow spec is already stored in the database
+	if spec, err := h.orm.GetWorkflowSpecByID(ctx, hex.EncodeToString(payload.WorkflowID[:])); err == nil {
+		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
+		decodedBinary, err := hex.DecodeString(spec.Workflow)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
 		}
-
-		decodedBinary, err2 := base64.StdEncoding.DecodeString(string(binary))
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to decode binary: %w", err2)
-		}
-
-		var config []byte
-		if payload.ConfigURL != "" {
-			config, err2 = h.fetcher(ctx, payload.ConfigURL)
-			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err2)
-			}
-		}
-		return decodedBinary, config, nil
+		return decodedBinary, []byte(spec.Config), nil
 	}
 
-	// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
-	decodedBinary, err := hex.DecodeString(spec.Workflow)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
+	// Fetch the binary and config files from the specified URLs.
+	var (
+		binary, decodedBinary, config []byte
+		err                           error
+	)
+	if binary, err = h.fetcher(ctx, payload.BinaryURL); err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
-	return decodedBinary, []byte(spec.Config), nil
+
+	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+	}
+
+	if payload.ConfigURL != "" {
+		if config, err = h.fetcher(ctx, payload.ConfigURL); err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
+		}
+	}
+	return decodedBinary, config, nil
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
