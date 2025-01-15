@@ -262,6 +262,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, 
 	return
 }
 
+// CountTransactionsByState was required for backwards compatibility and it's used only for unconfirmed transactions.
 func (o *Orchestrator[BLOCK_HASH, HEAD]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (uint32, error) {
 	addresses, err := o.keystore.EnabledAddressesForChain(ctx, o.chainID)
 	if err != nil {
