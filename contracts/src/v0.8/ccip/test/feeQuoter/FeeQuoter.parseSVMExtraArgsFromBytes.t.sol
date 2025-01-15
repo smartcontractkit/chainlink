@@ -82,7 +82,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     vm.expectRevert(
       abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, s_destChainConfig.chainFamilySelector)
     );
-    uint256 gasLimit = s_feeQuoter.resolveGasLimitForDestination("", s_destChainConfig);
+    s_feeQuoter.resolveGasLimitForDestination("", s_destChainConfig);
   }
 
   // Reverts
