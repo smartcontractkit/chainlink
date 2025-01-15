@@ -878,7 +878,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function _resolveGasLimitForDestination(
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
-  ) internal pure returns (uint256 gasLimit) {
+  ) internal pure returns (uint256) {
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
