@@ -126,7 +126,7 @@ func deployChainContractsForChains(
 		feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
 
 		if !feeTokensAreValid {
-			return fmt.Errorf("fee tokens not valid for chain %d", chainSel)
+			return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
 		}
 		deployGrp.Go(
 			func() error {
