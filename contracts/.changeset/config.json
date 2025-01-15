@@ -12,5 +12,5 @@
   "access": "public",
   "baseBranch": "develop",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["@chainlink/contracts-ccip"]
 }
