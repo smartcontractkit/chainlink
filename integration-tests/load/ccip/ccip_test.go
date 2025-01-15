@@ -22,11 +22,8 @@ var (
 		"branch": "ccip_load_crib",
 		"commit": "ccip_load_crib",
 	}
-	wg                     sync.WaitGroup
-	SIM_CHAIN_PRIVATE_KEYS = map[uint64]string{
-		1337: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-		2337: "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
-	}
+	wg                 sync.WaitGroup
+	SIM_CHAIN_TEST_KEY = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 )
 
 const CRIB_DIRECTORY = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
@@ -60,7 +57,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	cribEnv := crib.NewDevspaceEnvFromStateDir(CRIB_DIRECTORY)
 
-	cribDeployOutput, err := cribEnv.GetConfig(SIM_CHAIN_PRIVATE_KEYS)
+	cribDeployOutput, err := cribEnv.GetConfig(SIM_CHAIN_TEST_KEY)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)

@@ -1,7 +1,5 @@
 package crib
 
-import "fmt"
-
 const (
 	AddressBookFileName   = "ccip-v2-scripts-address-book.json"
 	NodesDetailsFileName  = "ccip-v2-scripts-nodes-details.json"
@@ -18,15 +16,11 @@ func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
 	}
 }
 
-func (c CRIBEnv) GetConfig(deployerKeys map[uint64]string) (DeployOutput, error) {
+func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 	reader := NewOutputReader(c.envStateDir)
 	nodesDetails := reader.ReadNodesDetails()
 	chainConfigs := reader.ReadChainConfigs()
 	for i, chain := range chainConfigs {
-		key, ok := deployerKeys[chain.ChainID]
-		if !ok {
-			return DeployOutput{}, fmt.Errorf("could not find deployer key for %s", key)
-		}
 		err := chain.SetDeployerKey(&key)
 		if err != nil {
 			return DeployOutput{}, err

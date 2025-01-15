@@ -46,6 +46,7 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(state CCIPOnChainState) error {
 }
 
 func SetRMNRemoteOnRMNProxy(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("Setting RMNRemote on RMNProxy", "chainSelectors", cfg.ChainSelectors)
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)

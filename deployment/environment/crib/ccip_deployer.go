@@ -72,7 +72,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
@@ -144,6 +144,12 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			},
 		},
 		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
+			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+				ChainSelectors: chainSelectors,
+			},
+		},
+		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
 			Config:    struct{}{},
 		},
@@ -151,6 +157,15 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	// find out which rmn proxy we're pointing to
+	for _, chain := range chainSelectors {
+		r, err := state.Chains[chain].RMNProxy.GetARM(nil)
+		if err != nil {
+			return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn proxy: %w", err)
+		}
+		lggr.Infow("pointed to arm for ", "chain", chain, "rmnProxy", r.String())
 	}
 
 	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
@@ -306,10 +321,16 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		}
 	}
 
+	// distribute funds to transmitters
+	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
+	// populated in the environment variable
+	distributeFunds(lggr, don.PluginNodes(), *e)
+
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
+
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
 		NodeIDs:     e.NodeIDs,
