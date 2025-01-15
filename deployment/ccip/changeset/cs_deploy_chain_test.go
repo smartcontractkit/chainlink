@@ -179,7 +179,8 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 		ocrConfigs[chain] = ocrParams
 		chainConfigs[chain] = ChainConfig{
 			Readers: nodes.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodes.NonBootstraps().PeerIDs()) / 3),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodes.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
@@ -250,5 +251,4 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
 }

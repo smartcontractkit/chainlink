@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -60,16 +61,15 @@ func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsCon
 			).ValidateAndBuild()
 
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %v", err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 
 			err = chain.Confirm([]solana.Instruction{instruction})
 
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %v", err)
-			} else {
-				e.Logger.Infow("Confirmed instruction", "instruction", instruction)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
+			e.Logger.Infow("Confirmed instruction", "instruction", instruction)
 		}
 	}
 
@@ -123,19 +123,19 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 		// 	continue
 		// }
 		var instructions []solana.Instruction
-		ccipRouterId := solChains[remote].SolCcipRouter
+		ccipRouterID := solChains[remote].SolCcipRouter
 		for _, arg := range args {
 			instruction, err := ccip_router.NewSetOcrConfigInstruction(
-				uint8(arg.OcrPluginType),
+				arg.OcrPluginType,
 				ccip_router.Ocr3ConfigInfo{
 					ConfigDigest:                   arg.ConfigDigest,
 					F:                              arg.F,
-					IsSignatureVerificationEnabled: uint8(btoi(arg.IsSignatureVerificationEnabled)),
+					IsSignatureVerificationEnabled: btoi(arg.IsSignatureVerificationEnabled),
 				},
 				arg.Signers,
 				arg.Transmitters,
-				GetRouterConfigPDA(ccipRouterId),
-				GetRouterStatePDA(ccipRouterId),
+				GetRouterConfigPDA(ccipRouterID),
+				GetRouterStatePDA(ccipRouterID),
 				e.SolChains[remote].DeployerKey.PublicKey(),
 			).ValidateAndBuild()
 			if err != nil {
@@ -184,5 +184,4 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 	// return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 	// 	*p,
 	// }}, nil
-
 }

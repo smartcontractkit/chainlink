@@ -209,7 +209,7 @@ func BuildSetOCR3ConfigArgsSolana(
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
 ) ([]MultiOCR3BaseOCRConfigArgsSolana, error) {
-	var ocr3Configs []MultiOCR3BaseOCRConfigArgsSolana
+	ocr3Configs := make([]MultiOCR3BaseOCRConfigArgsSolana, 0)
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
 			Context: context.Background(),
@@ -217,9 +217,6 @@ func BuildSetOCR3ConfigArgsSolana(
 		if err2 != nil {
 			return nil, err2
 		}
-
-		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
-			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
 
 		// we expect only an active config and no candidate config.
 		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
