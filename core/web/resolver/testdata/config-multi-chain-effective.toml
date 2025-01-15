@@ -47,7 +47,10 @@ UseBatchSend = true
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+Headers = [
+    'Authorization: token',
+    'X-SomeOther-Header: value with spaces | and a bar+*',
+]
 
 [Log]
 Level = 'panic'
@@ -274,6 +277,7 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxArtifactSize = '10mb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''

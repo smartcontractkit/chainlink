@@ -4,6 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ config.Capabilities = (*capabilitiesConfig)(nil)
@@ -112,6 +113,10 @@ func (c *capabilitiesWorkflowRegistry) ChainID() string {
 
 func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
+}
+
+func (c *capabilitiesWorkflowRegistry) MaxArtifactsSize() utils.FileSize {
+	return *c.c.MaxArtifactsSize
 }
 
 type gatewayConnector struct {

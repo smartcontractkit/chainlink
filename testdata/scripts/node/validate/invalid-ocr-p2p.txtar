@@ -315,6 +315,7 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxArtifactSize = '10mb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''

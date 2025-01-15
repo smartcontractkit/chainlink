@@ -53,7 +53,10 @@ ServerPubKey = 'test-pub-key'
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
-Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
+Headers = [
+    'Authorization: token',
+    'X-SomeOther-Header: value with spaces | and a bar+*',
+]
 
 [Log]
 Level = 'crit'
@@ -171,7 +174,10 @@ TraceLogging = true
 [P2P.V2]
 Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+DefaultBootstrappers = [
+    '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10',
+    '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99',
+]
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
@@ -260,7 +266,10 @@ TraceLogging = true
 [Capabilities.Peering.V2]
 Enabled = false
 AnnounceAddresses = ['a', 'b', 'c']
-DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10', '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99']
+DefaultBootstrappers = [
+    '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@foo:42/bar:10',
+    '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@test:99',
+]
 DeltaDial = '1m0s'
 DeltaReconcile = '2s'
 ListenAddresses = ['foo', 'bar']
@@ -284,6 +293,7 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxArtifactSize = '10mb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'

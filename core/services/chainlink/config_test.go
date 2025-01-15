@@ -495,9 +495,10 @@ func TestConfig_Marshal(t *testing.T) {
 			NetworkID: ptr("evm"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
-			Address:   ptr(""),
-			ChainID:   ptr("1"),
-			NetworkID: ptr("evm"),
+			Address:          ptr(""),
+			ChainID:          ptr("1"),
+			NetworkID:        ptr("evm"),
+			MaxArtifactsSize: ptr(utils.FileSize(10 * utils.MB)),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),

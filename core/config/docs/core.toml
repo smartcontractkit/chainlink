@@ -451,6 +451,16 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# MaxArtifactSize is the maximum size of an artifact that can be fetched from the registry.
+#
+# Values must have suffixes with a unit like: `5120mb` (5,120 megabytes). If no unit suffix is provided, the value defaults to `b` (bytes). The list of valid unit suffixes are:
+#
+# - b (bytes)
+# - kb (kilobytes)
+# - mb (megabytes)
+# - gb (gigabytes)
+# - tb (terabytes)
+MaxArtifactSize = '10mb'
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.
