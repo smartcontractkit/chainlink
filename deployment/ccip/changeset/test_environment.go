@@ -110,7 +110,9 @@ func WithMultiCall3() TestOps {
 func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
-		testCfg.V1_5Cfg = *v1_5Cfg
+		if v1_5Cfg != nil {
+			testCfg.V1_5Cfg = *v1_5Cfg
+		}
 	}
 }
 
@@ -363,8 +365,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 				opts = append(opts, WithMultiCall3Enabled())
 			}
 		}
-
-		opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		if tc.V1_5Cfg != (V1_5DeploymentConfig{}) {
+			opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		}
 		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
