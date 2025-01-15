@@ -24,7 +24,9 @@ contract FeeQuoterSetup is TokenSetup {
   // OnRamp
   uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
   uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
-  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
+  uint8 internal constant DEST_GAS_PER_PAYLOAD_BYTE_BASE = 16;
+  uint8 internal constant DEST_GAS_PER_PAYLOAD_BYTE_HIGH = 40;
+  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD = 3000;
 
   uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
   uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
@@ -260,7 +262,9 @@ contract FeeQuoterSetup is TokenSetup {
         isEnabled: true,
         maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
         destGasOverhead: DEST_GAS_OVERHEAD,
-        destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
+        destGasPerPayloadByteBase: DEST_GAS_PER_PAYLOAD_BYTE_BASE,
+        destGasPerPayloadByteHigh: DEST_GAS_PER_PAYLOAD_BYTE_HIGH,
+        destGasPerPayloadByteThreshold: DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD,
         destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
         destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
         destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
@@ -309,7 +313,9 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(a.maxDataBytes, b.maxDataBytes);
     assertEq(a.maxPerMsgGasLimit, b.maxPerMsgGasLimit);
     assertEq(a.destGasOverhead, b.destGasOverhead);
-    assertEq(a.destGasPerPayloadByte, b.destGasPerPayloadByte);
+    assertEq(a.destGasPerPayloadByteBase, b.destGasPerPayloadByteBase);
+    assertEq(a.destGasPerPayloadByteHigh, b.destGasPerPayloadByteHigh);
+    assertEq(a.destGasPerPayloadByteThreshold, b.destGasPerPayloadByteThreshold);
     assertEq(a.destDataAvailabilityOverheadGas, b.destDataAvailabilityOverheadGas);
     assertEq(a.destGasPerDataAvailabilityByte, b.destGasPerDataAvailabilityByte);
     assertEq(a.destDataAvailabilityMultiplierBps, b.destDataAvailabilityMultiplierBps);

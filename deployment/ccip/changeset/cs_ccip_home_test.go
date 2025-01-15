@@ -27,7 +27,7 @@ import (
 
 func TestInvalidOCR3Params(t *testing.T) {
 	e, _ := NewMemoryEnvironment(t,
-		WithPrerequisiteDeployment())
+		WithPrerequisiteDeployment(nil))
 	chain1 := e.Env.AllChainSelectors()[0]
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
