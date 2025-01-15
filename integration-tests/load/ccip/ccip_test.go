@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -88,13 +87,21 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
+	loadDuration, err := time.ParseDuration(*userOverrides.LoadDuration)
+	require.NoError(t, err)
+	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
+	require.NoError(t, err)
+
 	for _, gun := range gunMap {
 		p.Add(wasp.NewGenerator(&wasp.Config{
 			T:           t,
 			GenName:     "ccipLoad",
 			LoadType:    wasp.RPS,
 			CallTimeout: 5 * time.Second,
-			Schedule:    wasp.Plain(1, time.Duration(*userOverrides.RequestFrequency)*time.Second),
+			// 1 request per second for n seconds
+			Schedule: wasp.Plain(1, loadDuration),
+			// limit requests to 1 per duration
+			RateLimitUnitDuration: requestFrequency,
 			// will need to be divided by number of chains
 			// this schedule is per generator
 			// in this example, it would be 1 request per 5seconds per generator (dest chain)
@@ -164,7 +171,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 							Timestamp:      timestamp,
 							SequenceNumber: i,
 						})
-						fmt.Printf("Pushed loki for seqNumber %d\n", i)
+						lggr.Infow("pushed loki commit event for ", "seqNumber", i, "src", root.SourceChainSelector, "dest", chainSelector)
 
 					}
 				}
@@ -184,9 +191,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				require.NoError(t, err)
 
 				for execIterator.Next() {
-					event := execIterator.Event
-					fmt.Printf("ExecutionStateChanged event: %+v\n", event)
-
 					blockNum := execIterator.Event.Raw.BlockNumber
 					header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
 					require.NoError(t, err)
@@ -202,7 +206,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 						GasUsed:        execIterator.Event.GasUsed.Uint64(),
 						SequenceNumber: execIterator.Event.SequenceNumber,
 					})
-					fmt.Printf("Pushed loki exec for seqNumber %d\n", execIterator.Event.SequenceNumber)
+					lggr.Infow("pushed loki exec event for ", "seqNumber", execIterator.Event.SequenceNumber, "src", execIterator.Event.SourceChainSelector, "dest", chainSelector)
 				}
 			}(sourceCS, startBlock, filterOpts)
 		}

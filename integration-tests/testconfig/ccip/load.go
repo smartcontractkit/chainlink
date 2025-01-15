@@ -5,7 +5,7 @@ type LoadConfig struct {
 	NoOfNodes                 *int
 	LokiEndpoint              *string
 	MessageTypeWeights        *[]int
-	RequestFrequency          *int
+	RequestFrequency          *string
 	EnabledDestionationChains *[]uint64
 	CribEnvDirectory          *string
 }

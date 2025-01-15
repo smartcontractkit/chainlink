@@ -2,7 +2,6 @@ package crib
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +16,6 @@ import (
 )
 
 func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) {
-	fmt.Println("Funding transmitters...")
 	transmittersStr := make([]common.Address, 0)
 	fundingAmount := big.NewInt(500_000_000_000_000_000) // 0.5 ETH
 	minThreshold := big.NewInt(50_000_000_000_000_000)   // 0.05 ETH
@@ -34,17 +32,15 @@ func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.
 			addr := common.HexToAddress(n.AccountAddr[chainId])
 			balance, err := chain.Client.BalanceAt(context.Background(), addr, nil)
 			if err != nil {
-				fmt.Printf("Error fetching balance for %s: %v\n", n, err)
+				lggr.Errorw("error fetching balance for %s: %v\n", n.Name, err)
 				continue
 			}
 			if balance.Cmp(minThreshold) < 0 {
-				fmt.Printf(
-					"Transmitter %s with address %s, has insufficient funds, funding with %s ETH. Current balance: %s, threshold: %s\n",
-					n.Name,
-					addr.String(),
-					conversions.WeiToEther(fundingAmount).String(),
-					conversions.WeiToEther(balance).String(),
-					conversions.WeiToEther(minThreshold).String(),
+				lggr.Infow(
+					"sending funds to",
+					"node", n.Name,
+					"address", addr.String(),
+					"amount", conversions.WeiToEther(fundingAmount).String(),
 				)
 				transmittersStr = append(transmittersStr, addr)
 			}

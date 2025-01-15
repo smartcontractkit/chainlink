@@ -106,10 +106,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		SourceChainSelector: src,
 		DestChainSelector:   m.chainSelector,
 	}
-	m.l.Infow("Starting transmit with ",
-		"RoundNum", requestedRound,
-		"Source ChainSelector", src,
-		"Destination ChainSelector", m.chainSelector)
 
 	r := state.Chains[src].Router
 
@@ -121,29 +117,43 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
 	if err != nil {
-		m.l.Errorw("could not get fee ", "dstChainSelector", m.chainSelector, "msg", msg, "fee", fee, "err", err)
+		m.l.Errorw("could not get fee ",
+			"dstChainSelector", m.chainSelector,
+			"msg", msg,
+			"fee", fee,
+			"err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
-	m.l.Debugw("setting fee for ", "srcChain", src, "dstChain", m.chainSelector, "fee", fee, "msg", msg)
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		m.env.Chains[src].DeployerKey.Value = fee
 		defer func() { m.env.Chains[src].DeployerKey.Value = nil }()
 	}
+	m.l.Debugw("sending message ",
+		"srcChain", src,
+		"dstChain", m.chainSelector,
+		"round", requestedRound,
+		"fee", fee,
+		"msg", msg)
 	tx, err := r.CcipSend(
 		m.env.Chains[src].DeployerKey,
 		m.chainSelector,
 		msg)
 	if err != nil {
-		m.l.Errorw("execution reverted from ", "sourceChain", src, "destchain", m.chainSelector, "err", err, "tx", tx)
+		m.l.Errorw("execution reverted from ",
+			"sourceChain", src,
+			"destchain", m.chainSelector,
+			"err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
 	blockNum, err := m.env.Chains[src].Confirm(tx)
 	if err != nil {
-		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", err)
+		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
+	// todo: wasp should not manage confirming the message
+	// instead, we should manage the sequence number atomically (at a higher level)
 	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
 		Start:   blockNum,
 		End:     &blockNum,
@@ -185,7 +195,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-
 	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
 	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
@@ -207,7 +216,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 	messages := []router.ClientEVM2AnyMessage{
 		{
 			Receiver:     rcv,
-			Data:         common.Hex2Bytes("message"),
+			Data:         common.Hex2Bytes("0xabcdefabcdef"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
 			ExtraArgs:    nil,
@@ -220,7 +229,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 					Amount: big.NewInt(100),
 				},
 			},
-			Data:      common.Hex2Bytes("hello world"),
+			Data:      common.Hex2Bytes("0xabcdefabcdef"),
 			FeeToken:  common.HexToAddress("0x0"),
 			ExtraArgs: nil,
 		},
