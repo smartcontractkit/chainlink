@@ -24,7 +24,6 @@ import (
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -881,14 +880,14 @@ func observeUntilTxConfirmed[
 
 		// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
 		// of the receipt minus the block number of the first ever broadcast for this transaction.
-		broadcastBefore := iutils.MinFunc(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
-			if attempt.BroadcastBeforeBlockNum != nil {
-				return *attempt.BroadcastBeforeBlockNum
+		var minBroadcastBefore int64
+		for _, a := range attempt.Tx.TxAttempts {
+			if b := a.BroadcastBeforeBlockNum; b != nil && *b < minBroadcastBefore {
+				minBroadcastBefore = *b
 			}
-			return 0
-		})
-		if broadcastBefore > 0 {
-			blocksElapsed := head.BlockNumber() - broadcastBefore
+		}
+		if minBroadcastBefore > 0 {
+			blocksElapsed := head.BlockNumber() - minBroadcastBefore
 			promBlocksUntilTxConfirmed.
 				WithLabelValues(chainID.String()).
 				Observe(float64(blocksElapsed))
