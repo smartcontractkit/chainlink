@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -134,7 +135,8 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock clockwork.Clock
+	clock       clockwork.Clock
+	ratelimiter *common.RateLimiter
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -918,6 +920,13 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		return nil, nil, err
 	}
 
+	allowed := e.ratelimiter.Allow(e.workflow.owner)
+	if !allowed {
+		logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, curStep.ID), "per sender rate limit exceeded", lggr)
+		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+		return nil, nil, fmt.Errorf("exceeded %s's allowed executions per second", e.workflow.owner)
+	}
+
 	var inputs any
 	if curStep.Inputs.OutputRef != "" {
 		inputs = curStep.Inputs.OutputRef
@@ -1208,6 +1217,7 @@ type Config struct {
 	SecretsFetcher        secretsFetcher
 	HeartbeatCadence      time.Duration
 	StepTimeout           time.Duration
+	RateLimiter           *common.RateLimiter
 
 	// For testing purposes only
 	maxRetries          int
@@ -1331,6 +1341,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		retryMs:              cfg.retryMs,
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
+		ratelimiter:          cfg.RateLimiter,
 	}
 
 	return engine, nil

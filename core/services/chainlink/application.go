@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -214,6 +215,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	workflowRateLimiter, _ := gwcommon.NewRateLimiter(gwcommon.RateLimiterConfig{
+		GlobalRPS:      1000.0,
+		GlobalBurst:    1000,
+		PerSenderRPS:   30.0,
+		PerSenderBurst: 30,
+	})
+
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
@@ -305,7 +313,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
 					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
+					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0], workflowRateLimiter)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfSyncer := syncer.NewWorkflowRegistry(
@@ -520,6 +528,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
+		workflowRateLimiter,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
