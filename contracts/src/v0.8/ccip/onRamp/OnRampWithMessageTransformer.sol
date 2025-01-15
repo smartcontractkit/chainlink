@@ -27,7 +27,9 @@ contract OnRampWithMessageTransformer is OnRamp {
     return s_messageTransformer;
   }
 
-  function setMessageTransformer(address messageTransformerAddr) external onlyOwner {
+  function setMessageTransformer(
+    address messageTransformerAddr
+  ) external onlyOwner {
     s_messageTransformer = messageTransformerAddr;
   }
 
