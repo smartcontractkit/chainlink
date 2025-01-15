@@ -197,13 +197,16 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		require.Len(t, starknetKeys, 1)
 		require.Equal(t, chaintype.StarkNet, starknetKeys[0].ChainType())
 
-		tronKeys, err := ks.GetAllOfType(chaintype.Tron)
+		err = ks.EnsureKeys(ctx, chaintype.Tron)
 		require.NoError(t, err)
-		require.Len(t, tronKeys, 1)
-		require.Equal(t, chaintype.Tron, tronKeys[0].ChainType())
 
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 4)
+
+		tronKeys, err := ks.GetAllOfType(chaintype.Tron)
+		require.NoError(t, err)
+		require.Len(t, tronKeys, 1)
+		require.Equal(t, chaintype.Tron, tronKeys[0].ChainType())
 	})
 }
