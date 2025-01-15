@@ -53,7 +53,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			}
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+					Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDestsChangeset),
 					Config: UpdateOnRampDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
 							source: {
@@ -127,7 +127,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 			}
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+					Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSourcesChangeset),
 					Config: UpdateOffRampSourcesConfig{
 						UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
 							source: {
@@ -201,7 +201,7 @@ func TestUpdateFQDests(t *testing.T) {
 			fqCfg2.DestGasOverhead = 1000
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+					Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDestsChangeset),
 					Config: UpdateFeeQuoterDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 							source: {
@@ -267,7 +267,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 			// Updates test router.
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+					Changeset: commonchangeset.WrapChangeSet(UpdateRouterRampsChangeset),
 					Config: UpdateRouterRampsConfig{
 						TestRouter: true,
 						UpdatesByChain: map[uint64]RouterUpdates{
@@ -342,7 +342,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateNonceManagersCS),
+					Changeset: commonchangeset.WrapChangeSet(UpdateNonceManagersChangeset),
 					Config: UpdateNonceManagerConfig{
 						UpdatesByChain: map[uint64]NonceManagerUpdate{
 							source: {

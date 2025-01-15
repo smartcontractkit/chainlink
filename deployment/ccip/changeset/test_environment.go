@@ -218,7 +218,7 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	out, err := CCIPCapabilityJobspec(d.Env, struct{}{})
+	out, err := CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
 	require.NoError(t, err)
 	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
@@ -380,7 +380,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			Config:    allChains,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
 			Config: DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
@@ -446,7 +446,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 			Config:    allChains,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
 			Config: DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
@@ -462,7 +462,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxyChangeset),
 			Config: SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
 			},
@@ -481,7 +481,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
@@ -493,7 +493,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsChangeset),
 			Config: DeployChainContractsConfig{
 				ChainSelectors:    allChains,
 				HomeChainSelector: e.HomeChainSel,
@@ -563,7 +563,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
 			// Add the chain configs for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfigChangeset),
 			Config: UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   chainConfigs,
@@ -618,14 +618,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		},
 		{
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(SetOCR3OffRamp),
+			Changeset: commonchangeset.WrapChangeSet(SetOCR3OffRampChangeset),
 			Config: SetOCR3OffRampConfig{
 				HomeChainSel:    e.HomeChainSel,
 				RemoteChainSels: allChains,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspec),
+			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspecChangeset),
 		},
 	})
 	require.NoError(t, err)

@@ -26,7 +26,7 @@ func TestDeployPrerequisites(t *testing.T) {
 			},
 		},
 	}
-	output, err := DeployPrerequisites(e, cfg)
+	output, err := DeployPrerequisitesChangeset(e, cfg)
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)

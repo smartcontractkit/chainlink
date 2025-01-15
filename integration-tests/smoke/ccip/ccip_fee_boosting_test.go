@@ -93,7 +93,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	// Update token prices in destination chain FeeQuoter
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					destChain: {
@@ -134,7 +134,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					sourceChain: {

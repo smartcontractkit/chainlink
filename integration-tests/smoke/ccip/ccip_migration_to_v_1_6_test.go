@@ -155,7 +155,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
 			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: e.Env.AllChainSelectors(),
 				MCMSConfig: &changeset.MCMSConfig{
@@ -164,7 +164,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersCS),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersChangeset),
 			Config: changeset.UpdateNonceManagerConfig{
 				// we only have lanes between src1 --> dest
 				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
@@ -259,7 +259,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// now that the 1.6 lane is working, we can enable the real router
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 			Config: changeset.UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					src1: {
@@ -273,7 +273,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 			Config: changeset.UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
@@ -287,7 +287,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		},
 		{
 			// this needs to be MCMS proposal as the router contract is owned by MCMS
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
 			Config: changeset.UpdateRouterRampsConfig{
 				TestRouter: false,
 				MCMS: &changeset.MCMSConfig{

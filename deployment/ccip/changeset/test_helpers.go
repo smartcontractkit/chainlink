@@ -394,7 +394,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 	var err error
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateOnRampsDests),
+			Changeset: commoncs.WrapChangeSet(UpdateOnRampsDestsChangeset),
 			Config: UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
 					from: {
@@ -408,7 +408,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesChangeset),
 			Config: UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 					from: {
@@ -419,7 +419,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterDests),
+			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterDestsChangeset),
 			Config: UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
@@ -429,7 +429,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateOffRampSources),
+			Changeset: commoncs.WrapChangeSet(UpdateOffRampSourcesChangeset),
 			Config: UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
 					to: {
@@ -442,7 +442,7 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateRouterRamps),
+			Changeset: commoncs.WrapChangeSet(UpdateRouterRampsChangeset),
 			Config: UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
 				UpdatesByChain: map[uint64]RouterUpdates{

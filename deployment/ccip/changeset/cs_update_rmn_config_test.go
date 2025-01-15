@@ -153,7 +153,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(PromoteCandidateConfigChangeset),
+			Changeset: commonchangeset.WrapChangeSet(PromoteRMNHomeCandidateConfigChangeset),
 			Config:    promoteConfig,
 		},
 	})
@@ -239,7 +239,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			Config:    allChains,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
 			Config: DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
@@ -278,7 +278,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		},
 
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
@@ -290,14 +290,14 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsChangeset),
 			Config: DeployChainContractsConfig{
 				ChainSelectors:    allChains,
 				HomeChainSelector: e.HomeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxy),
+			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxyChangeset),
 			Config: SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
 				MCMSConfig: &MCMSConfig{

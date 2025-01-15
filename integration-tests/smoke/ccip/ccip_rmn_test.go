@@ -286,7 +286,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	_, err = changeset.PromoteCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		DigestToPromote:   candidateDigest,
 	})

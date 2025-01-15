@@ -39,7 +39,7 @@ var (
 	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
-	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
+	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
 type tokenInfo interface {
@@ -1249,7 +1249,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}

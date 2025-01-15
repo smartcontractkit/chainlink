@@ -41,7 +41,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
@@ -61,13 +61,13 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
 			Config: DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsChangeset),
 			Config: DeployChainContractsConfig{
 				ChainSelectors:    selectors,
 				HomeChainSelector: homeChainSel,

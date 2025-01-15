@@ -36,7 +36,7 @@ func TestDeployHomeChain(t *testing.T) {
 			"NodeOperator": p2pIds,
 		},
 	}
-	output, err := DeployHomeChain(e, homeChainCfg)
+	output, err := DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	state, err := LoadOnchainState(e)

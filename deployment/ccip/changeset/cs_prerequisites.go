@@ -22,14 +22,14 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisites
+	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 )
 
-// DeployPrerequisites deploys the pre-requisite contracts for CCIP
+// DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)
 // Caller should update the environment's address book with the returned addresses.
-func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
+func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
@@ -236,7 +236,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			if rmnOwner != chain.DeployerKey.From {
 				lggr.Warnw(
 					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
-						"run SetRMNRemoteOnRMNProxy to update RMN with a proposal",
+						"run SetRMNRemoteOnRMNProxyChangeset to update RMN with a proposal",
 					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
 			} else {
 				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)

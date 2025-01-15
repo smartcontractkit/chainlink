@@ -41,7 +41,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	sourceState := state.Chains[source]
 	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
+			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDestsChangeset),
 			Config: UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
 					source: {
@@ -54,7 +54,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesCS),
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesChangeset),
 			Config: UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 					source: {
@@ -70,7 +70,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
+			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDestsChangeset),
 			Config: UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
@@ -80,7 +80,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
+			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSourcesChangeset),
 			Config: UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
 					dest: {
@@ -92,7 +92,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
+			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRampsChangeset),
 			Config: UpdateRouterRampsConfig{
 				UpdatesByChain: map[uint64]RouterUpdates{
 					// onRamp update on source chain

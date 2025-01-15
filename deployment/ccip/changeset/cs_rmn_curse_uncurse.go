@@ -9,6 +9,11 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
+var (
+	_ deployment.ChangeSet[RMNCurseConfig] = RMNCurseChangeset
+	_ deployment.ChangeSet[RMNCurseConfig] = RMNUncurseChangeset
+)
+
 // GlobalCurseSubject as defined here: https://github.com/smartcontractkit/chainlink/blob/new-rmn-curse-changeset/contracts/src/v0.8/ccip/rmn/RMNRemote.sol#L15
 func GlobalCurseSubject() Subject {
 	return Subject{0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}

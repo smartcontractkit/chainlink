@@ -35,7 +35,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
@@ -47,7 +47,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsChangeset),
 			Config: DeployChainContractsConfig{
 				ChainSelectors:    []uint64{chain1},
 				HomeChainSelector: e.HomeChainSel,
@@ -524,7 +524,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 				},
 			}, []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfigChangeset),
 					Config: UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{otherChain},
@@ -548,7 +548,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 				},
 			}, []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfig),
+					Changeset: commonchangeset.WrapChangeSet(UpdateChainConfigChangeset),
 					Config: UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{},

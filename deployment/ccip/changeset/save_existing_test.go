@@ -56,7 +56,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 		},
 	}
 
-	output, err := commonchangeset.SaveExistingContracts(e, cfg)
+	output, err := commonchangeset.SaveExistingContractsChangeset(e, cfg)
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
