@@ -96,6 +96,9 @@ func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error 
 	return nil
 }
 
+// PermaBlessCommitStoreCS permablesses the commit stores on the RMN contract
+// If commit store addresses are added to the permaBlessed list, those will be considered automatically blessed.
+// This changeset can add to or remove from the existing permaBlessed list.
 func PermaBlessCommitStoreCS(env deployment.Environment, c PermaBlessCommitStoreConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(env); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
