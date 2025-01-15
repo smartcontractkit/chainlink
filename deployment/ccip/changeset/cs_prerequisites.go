@@ -52,10 +52,10 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 type DeployPrerequisiteContractsOpts struct {
 	USDCEnabled         bool
 	Multicall3Enabled   bool
-	LegacyDeploymentCfg *LegacyDeploymentConfig
+	LegacyDeploymentCfg *V1_5DeploymentConfig
 }
 
-type LegacyDeploymentConfig struct {
+type V1_5DeploymentConfig struct {
 	RMNConfig                  *rmn_contract.RMNConfig
 	PriceRegStalenessThreshold uint32
 }
@@ -98,7 +98,7 @@ func WithMultiCall3Enabled() PrerequisiteOpt {
 	}
 }
 
-func WithLegacyDeploymentEnabled(cfg LegacyDeploymentConfig) PrerequisiteOpt {
+func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
 		if cfg.PriceRegStalenessThreshold == 0 {
 			panic("PriceRegStalenessThreshold must be set")

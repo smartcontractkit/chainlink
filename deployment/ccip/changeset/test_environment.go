@@ -42,21 +42,22 @@ type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
 	// TODO: This should be CreateContracts so the booleans make sense?
-	CreateJobAndContracts     bool
-	PrerequisiteDeploymentCfg LegacyDeploymentConfig
-	Chains                    int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	ChainIDs                  []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	NumOfUsersPerChain        int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Nodes                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Bootstraps                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	IsUSDC                    bool
-	IsUSDCAttestationMissing  bool
-	IsMultiCall3              bool
-	OCRConfigOverride         func(CCIPOCRParams) CCIPOCRParams
-	RMNEnabled                bool
-	NumOfRMNNodes             int
-	LinkPrice                 *big.Int
-	WethPrice                 *big.Int
+	CreateJobAndContracts    bool
+	PrerequisiteDeployment   bool
+	V1_5Cfg                  V1_5DeploymentConfig
+	Chains                   int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	ChainIDs                 []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain       int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Nodes                    int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Bootstraps               int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	IsUSDC                   bool
+	IsUSDCAttestationMissing bool
+	IsMultiCall3             bool
+	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
+	RMNEnabled               bool
+	NumOfRMNNodes            int
+	LinkPrice                *big.Int
+	WethPrice                *big.Int
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -106,9 +107,10 @@ func WithMultiCall3() TestOps {
 	}
 }
 
-func WithPrerequisiteDeployment(legacyCfg LegacyDeploymentConfig) TestOps {
+func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
-		testCfg.PrerequisiteDeploymentCfg = legacyCfg
+		testCfg.PrerequisiteDeployment = true
+		testCfg.V1_5Cfg = *v1_5Cfg
 	}
 }
 
@@ -320,7 +322,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
 	}
-	if testCfg.PrerequisiteDeploymentCfg != (LegacyDeploymentConfig{}) {
+	if testCfg.PrerequisiteDeployment {
 		dEnv := NewEnvironmentWithPrerequisitesContracts(t, env)
 		env.UpdateDeployedEnvironment(dEnv)
 		return dEnv, env
@@ -362,7 +364,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			}
 		}
 
-		opts = append(opts, WithLegacyDeploymentEnabled(tc.PrerequisiteDeploymentCfg))
+		opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
 		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,

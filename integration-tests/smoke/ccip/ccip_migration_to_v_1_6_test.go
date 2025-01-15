@@ -22,11 +22,11 @@ import (
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
-	// Deploy 1.5 contracts (excluding pools and real RMN, use MockRMN to start, but including MCMS) .
+	// Deploy 1.5 contracts (excluding pools and to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithPrerequisiteDeployment(
-			changeset.LegacyDeploymentConfig{
+			&changeset.V1_5DeploymentConfig{
 				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 				RMNConfig: &rmn_contract.RMNConfig{
 					BlessWeightThreshold: 2,
@@ -121,7 +121,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			state.Chains[chain].RMNProxy.Address(),
 			state.Chains[chain].PriceRegistry.Address(),
 			state.Chains[chain].TokenAdminRegistry.Address(),
-			state.Chains[chain].MockRMN.Address(),
+			state.Chains[chain].RMN.Address(),
 		}
 		if state.Chains[chain].EVM2EVMOnRamp != nil {
 			for _, onRamp := range state.Chains[chain].EVM2EVMOnRamp {

@@ -20,7 +20,7 @@ import (
 func TestE2ELegacy(t *testing.T) {
 	e, _ := changeset.NewMemoryEnvironment(
 		t,
-		changeset.WithPrerequisiteDeployment(changeset.LegacyDeploymentConfig{
+		changeset.WithPrerequisiteDeployment(&changeset.V1_5DeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 			RMNConfig: &rmn_contract.RMNConfig{
 				BlessWeightThreshold: 2,
