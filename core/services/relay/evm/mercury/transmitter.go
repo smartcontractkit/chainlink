@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/lk"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 
@@ -317,7 +318,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 	}
 	return &mercuryTransmitter{
 		services.StateMachine{},
-		sugared.Named("MercuryTransmitter").With("feedID", feedIDHex),
+		sugared.Named("MercuryTransmitter").With(lk.FeedID, feedIDHex),
 		cfg,
 		orm,
 		servers,

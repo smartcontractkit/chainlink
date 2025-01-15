@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/lk"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
@@ -473,7 +474,8 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			AssetSymbol:                     eaTelem.AssetSymbol,
 			Version:                         uint32(d.FeedVersion),
 		}
-		e.lggr.Debugw(fmt.Sprintf("EA Telemetry = %+v", t), "feedID", e.job.OCR2OracleSpec.FeedID.Hex(), "jobID", e.job.ID, "datasource", eaTelem.DataSource)
+		e.lggr.Debugw(fmt.Sprintf("EA Telemetry = %+v", t),
+			lk.FeedID, e.job.OCR2OracleSpec.FeedID.Hex(), lk.JobID, e.job.ID, "datasource", eaTelem.DataSource)
 		bytes, err := proto.Marshal(t)
 		if err != nil {
 			e.lggr.Warnf("protobuf marshal failed %v", err.Error())

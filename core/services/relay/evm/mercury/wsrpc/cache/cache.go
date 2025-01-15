@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/lk"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
@@ -205,21 +206,21 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	})
 	v := vi.(*cacheVal)
 
-	m.lggr.Tracew("LatestReport", "feedID", feedIDHex, "loaded", loaded)
+	m.lggr.Tracew("LatestReport", lk.FeedID, feedIDHex, "loaded", loaded)
 
 	// HOT PATH
 	v.RLock()
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
 		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
-		m.lggr.Tracew("LatestReport CACHE HIT (hot path)", "feedID", feedIDHex)
+		m.lggr.Tracew("LatestReport CACHE HIT (hot path)", lk.FeedID, feedIDHex)
 
 		defer v.RUnlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
 		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
-		m.lggr.Tracew("LatestReport CACHE WAIT (hot path)", "feedID", feedIDHex)
+		m.lggr.Tracew("LatestReport CACHE WAIT (hot path)", lk.FeedID, feedIDHex)
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.RUnlock()
@@ -235,13 +236,13 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	if time.Now().Before(v.expiresAt) {
 		// CACHE HIT
 		promCacheHitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
-		m.lggr.Tracew("LatestReport CACHE HIT (cold path)", "feedID", feedIDHex)
+		m.lggr.Tracew("LatestReport CACHE HIT (cold path)", lk.FeedID, feedIDHex)
 		defer v.Unlock()
 		return v.val, nil
 	} else if v.fetching {
 		// CACHE WAIT
 		promCacheWaitCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
-		m.lggr.Tracew("LatestReport CACHE WAIT (cold path)", "feedID", feedIDHex)
+		m.lggr.Tracew("LatestReport CACHE WAIT (cold path)", lk.FeedID, feedIDHex)
 		// if someone else is fetching then wait for the fetch to complete
 		ch := v.fetchCh
 		v.Unlock()
@@ -249,7 +250,7 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	}
 	// CACHE MISS
 	promCacheMissCount.WithLabelValues(m.client.ServerURL(), feedIDHex).Inc()
-	m.lggr.Tracew("LatestReport CACHE MISS (cold path)", "feedID", feedIDHex)
+	m.lggr.Tracew("LatestReport CACHE MISS (cold path)", lk.FeedID, feedIDHex)
 	// initiate the fetch and wait for result
 	ch := v.initiateFetch()
 	v.Unlock()

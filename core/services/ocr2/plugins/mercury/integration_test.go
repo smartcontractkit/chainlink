@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger/lk"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
@@ -332,7 +333,7 @@ func integration_MercuryV1(t *testing.T) {
 	for i, feed := range feeds {
 		lggr.Infow("Setting Config on Oracle Contract",
 			"i", i,
-			"feedID", feed.id,
+			lk.FeedID, feed.id,
 			"feedName", feed.name,
 			"signerAddresses", signerAddresses,
 			"offchainTransmitters", offchainTransmitters,
