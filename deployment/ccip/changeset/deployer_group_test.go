@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/stretchr/testify/require"
 )
 
 type dummyDeployerGroupChangesetConfig struct {
@@ -26,7 +27,10 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 	token := state.Chains[cfg.selector].LinkToken
 
 	group := NewDeployerGroup(e, state, cfg.MCMS)
-	deployer := group.getDeployer(cfg.selector)
+	deployer, err := group.getDeployer(cfg.selector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	_, err = token.GrantMintRole(deployer, deployer.From)
 	if err != nil {
@@ -45,7 +49,10 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 	token := state.Chains[cfg.selector].LinkToken
 
 	group := NewDeployerGroup(e, state, cfg.MCMS)
-	deployer := group.getDeployer(cfg.selector)
+	deployer, err := group.getDeployer(cfg.selector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	for _, mint := range cfg.mints {
 		_, err = token.Mint(deployer, cfg.address, mint)

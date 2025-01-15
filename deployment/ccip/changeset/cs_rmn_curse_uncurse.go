@@ -225,7 +225,10 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	grouped := groupRMNSubjectBySelector(curseActions, true, true)
 	// For each chain in the environment get the RMNRemote contract and call curse
 	for selector, chain := range state.Chains {
-		deployer := deployerGroup.getDeployer(selector)
+		deployer, err := deployerGroup.getDeployer(selector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", selector, err)
+		}
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only curse the subjects that are not actually cursed
 			notAlreadyCursedSubjects := make([]Subject, 0)
@@ -293,7 +296,11 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 
 	// For each chain in the environement get the RMNRemote contract and call uncurse
 	for selector, chain := range state.Chains {
-		deployer := deployerGroup.getDeployer(selector)
+		deployer, err := deployerGroup.getDeployer(selector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", selector, err)
+		}
+
 		if curseSubjects, ok := grouped[selector]; ok {
 			// Only keep the subject that are actually cursed
 			actuallyCursedSubjects := make([]Subject, 0)

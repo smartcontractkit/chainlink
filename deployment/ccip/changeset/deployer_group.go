@@ -44,7 +44,7 @@ func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfi
 	}
 }
 
-func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
+func (d *DeployerGroup) getDeployer(chain uint64) (*bind.TransactOpts, error) {
 	txOpts := d.e.Chains[chain].DeployerKey
 	if d.mcmConfig != nil {
 		txOpts = deployment.SimTransactOpts()
@@ -83,7 +83,7 @@ func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
 	} else {
 		nonce, err := d.e.Chains[chain].Client.PendingNonceAt(context.Background(), txOpts.From)
 		if err != nil {
-			panic(fmt.Errorf("could not get nonce for deployer: %v", err))
+			return nil, fmt.Errorf("could not get nonce for deployer: %w", err)
 		}
 		startingNonce = new(big.Int).SetUint64(nonce)
 	}
@@ -99,7 +99,7 @@ func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
 		d.transactions[chain] = append(d.transactions[chain], tx)
 		return tx, nil
 	}
-	return sim
+	return sim, nil
 }
 
 func (d *DeployerGroup) enact(deploymentDescription string) (deployment.ChangesetOutput, error) {
