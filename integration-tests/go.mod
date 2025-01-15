@@ -422,13 +422,13 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-salt-fix // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250114180313-3ba6bac6203a // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20241216163550-fa030d178ba3 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20241220173418-09e17ddbeb20 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250114010532-74b7a72c2706 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect

@@ -1115,6 +1115,7 @@ github.com/smartcontractkit/chainlink-ccip v0.0.0-20250109124515-ff9d86b874ba h1
 github.com/smartcontractkit/chainlink-ccip v0.0.0-20250109124515-ff9d86b874ba/go.mod h1:ncjd6mPZSRlelEqH/2KeLE1pU3UlqzBSn8RYkEoECzY=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b h1:UBXi9Yj8YSMHDDaxQLu273x1fWjyEL9xP58nuJsqZfg=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b/go.mod h1:Bmwq4lNb5tE47sydN0TKetcLEGbgl+VxHEWp4S0LI60=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250114180313-3ba6bac6203a/go.mod h1:Bmwq4lNb5tE47sydN0TKetcLEGbgl+VxHEWp4S0LI60=
 github.com/smartcontractkit/chainlink-common v0.4.1-0.20250108194320-2ebd63bbb16e h1:8BStiP1F4W8AvjBRga0TYtjvAtkwN8oHYnHJztAlSF4=
 github.com/smartcontractkit/chainlink-common v0.4.1-0.20250108194320-2ebd63bbb16e/go.mod h1:yti7e1+G9hhkYhj+L5sVUULn9Bn3bBL5/AxaNqdJ5YQ=
 github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e h1:PRoeby6ZlTuTkv2f+7tVU4+zboTfRzI+beECynF4JQ0=
@@ -1131,6 +1132,7 @@ github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2Lp
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce h1:Mvpbr/Fi2IdU2EcmqCxhlCzs5ncnx+BwV80YweA4DZs=
 github.com/smartcontractkit/chainlink-solana v1.1.1-0.20241223151630-eac4f1508dce/go.mod h1:qq+nW0JDnCCGMf2c38ZHjH8xgkAQnXKighjJr5JdDNE=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250114010532-74b7a72c2706/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 h1:tNS7U9lrxkFvEuyxQv11HHOiV9LPDGC9wYEy+yM/Jv4=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8/go.mod h1:EBrEgcdIbwepqguClkv8Ohy7CbyWSJaE4EC9aBJlQK0=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13 h1:T0kbw07Vb6xUyA9MIJZfErMgWseWi1zf7cYvRpoq7ug=
