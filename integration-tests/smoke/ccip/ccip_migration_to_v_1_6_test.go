@@ -206,6 +206,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Enable a single 1.6 lane with test router
 	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, src1, dest, true)
 	require.GreaterOrEqual(t, len(e.Users[src1]), 2)
+	changeset.ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 	startBlocks := make(map[uint64]*uint64)
 	latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
