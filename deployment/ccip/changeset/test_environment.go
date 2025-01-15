@@ -116,7 +116,7 @@ func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) Tes
 	}
 }
 
-func WithTestConfigChainIds(chainIDs []uint64) TestOps {
+func WithTestConfigChainIDs(chainIDs []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ChainIDs = chainIDs
 	}

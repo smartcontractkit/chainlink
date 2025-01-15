@@ -37,7 +37,7 @@ func TestE2ELegacy(t *testing.T) {
 			},
 		}),
 		changeset.WithTestConfigNumOfChains(3),
-		changeset.WithTestConfigChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		changeset.WithTestConfigChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})

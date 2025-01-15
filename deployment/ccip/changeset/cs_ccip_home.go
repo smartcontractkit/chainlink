@@ -222,10 +222,8 @@ func WithExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserv
 				BatchingStrategyID:        internal.BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
-		} else {
-			if tokenDataObservers != nil {
-				params.ExecuteOffChainConfig.TokenDataObservers = append(params.ExecuteOffChainConfig.TokenDataObservers, tokenDataObservers...)
-			}
+		} else if tokenDataObservers != nil {
+			params.ExecuteOffChainConfig.TokenDataObservers = append(params.ExecuteOffChainConfig.TokenDataObservers, tokenDataObservers...)
 		}
 	}
 }
