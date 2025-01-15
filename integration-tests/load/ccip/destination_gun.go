@@ -109,8 +109,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.l.Infow("Starting transmit with ",
 		"RoundNum", requestedRound,
 		"Source ChainSelector", src,
-		"Destination ChainSelector", m.chainSelector,
-		"SequenceNumber", m.seqNums[csPair].End.Load())
+		"Destination ChainSelector", m.chainSelector)
 
 	r := state.Chains[src].Router
 
@@ -159,17 +158,27 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: "Could not iterate", Group: waspGroup, Failed: true}
 	}
 
+	m.l.Infow("Transmitted message with",
+		"sourceChain", src,
+		"destChain", m.chainSelector,
+		"sequence number", it.Event.SequenceNumber)
+
 	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
 		EventType:      transmitted,
 		Timestamp:      time.Now(),
-		SequenceNumber: m.seqNums[csPair].End.Load(),
+		SequenceNumber: it.Event.SequenceNumber,
 	})
 
-	if m.seqNums[csPair].End.Load() == 0 {
+	// if this is the first time we are sending a message, set the start sequence number
+	// if we ran into a concurrency issue, store the lowest sequence number
+	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() || m.seqNums[csPair].End.Load() == 0 {
 		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
 	}
 
-	m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
+	// only store the greatest sequence number we have seen as the maximum
+	if it.Event.SequenceNumber > m.seqNums[csPair].End.Load() {
+		m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
+	}
 
 	return &wasp.Response{Failed: false, Group: waspGroup}
 }
@@ -237,13 +246,5 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 		return messages[1], nil
 	default:
 		return messages[2], nil
-	}
-}
-
-func (m *DestinationGun) GetSequenceNumberRange(csPair ccipchangeset.SourceDestPair) (uint64, uint64, error) {
-	if r, ok := m.seqNums[csPair]; !ok {
-		return 0, 0, fmt.Errorf("no sequence number found for chain pair %v", csPair)
-	} else {
-		return r.Start.Load(), r.End.Load(), nil
 	}
 }

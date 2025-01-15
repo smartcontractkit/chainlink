@@ -95,6 +95,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			ChainSelector: chain,
 		})
 	}
+
+	// todo: parallelize these step across all chains
 	// set up chains
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -157,15 +159,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	// find out which rmn proxy we're pointing to
-	for _, chain := range chainSelectors {
-		r, err := state.Chains[chain].RMNProxy.GetARM(nil)
-		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn proxy: %w", err)
-		}
-		lggr.Infow("pointed to arm for ", "chain", chain, "rmnProxy", r.String())
 	}
 
 	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
@@ -232,6 +225,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		},
 	})
 
+	// todo: parallelize
 	// Add all lanes
 	for src := range e.Chains {
 		for dst := range e.Chains {

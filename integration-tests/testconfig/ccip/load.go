@@ -1,10 +1,11 @@
 package ccip
 
 type LoadConfig struct {
-	TestTimeout                     *string
-	NoOfNodes                       *int
-	LokiEndpoint                    *string
-	MessageTypeWeights              *[]int
-	SecondsPerRequestPerDestination *int
-	EnabledDestionationChains       *[]uint64
+	LoadDuration              *string
+	NoOfNodes                 *int
+	LokiEndpoint              *string
+	MessageTypeWeights        *[]int
+	RequestFrequency          *int
+	EnabledDestionationChains *[]uint64
+	CribEnvDirectory          *string
 }

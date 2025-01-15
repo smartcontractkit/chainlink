@@ -3,7 +3,6 @@ package ccip
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -26,8 +25,6 @@ var (
 	SIM_CHAIN_TEST_KEY = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 )
 
-const CRIB_DIRECTORY = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
-
 // step 1: setup
 // Parse the test config, initialize CRIB with configurations defined
 // step 2: load
@@ -45,7 +42,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	lggr.Infof("loaded ccip test config: %+v", config.CCIP.Load)
 	userOverrides := config.CCIP.Load
 
-	timeout, err := time.ParseDuration(*userOverrides.TestTimeout)
+	timeout, err := time.ParseDuration(*userOverrides.LoadDuration)
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -55,7 +52,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		})
 	})
 
-	cribEnv := crib.NewDevspaceEnvFromStateDir(CRIB_DIRECTORY)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
 
 	cribDeployOutput, err := cribEnv.GetConfig(SIM_CHAIN_TEST_KEY)
 	require.NoError(t, err)
@@ -74,24 +71,20 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	defer loki.StopNow()
 
 	gunMap := make(map[uint64]*DestinationGun)
-
 	// Based on the config, initialize DestinationGun
 	p := wasp.NewProfile()
-	for selector, chain := range env.Chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+
+	// Only create a destination gun if we have decided to send traffic to this chain
+	for _, cs := range *userOverrides.EnabledDestionationChains {
+		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
-		startBlocks[selector] = &block
+		startBlocks[cs] = &block
 
-		// Only create a destination gun if we have decided to send traffic to this chain
-		for _, cs := range *userOverrides.EnabledDestionationChains {
-			if cs == selector {
-				gunMap[selector], err = NewDestinationGun(env.Logger, selector, *env, state.Chains[selector].Receiver.Address(), userOverrides, loki)
-				if err != nil {
-					lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", chain, "error", err)
-					t.Fatal(err)
-				}
-			}
+		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki)
+		if err != nil {
+			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
+			t.Fatal(err)
 		}
 	}
 
@@ -101,11 +94,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			GenName:     "ccipLoad",
 			LoadType:    wasp.RPS,
 			CallTimeout: 5 * time.Second,
-			Schedule:    wasp.Plain(1, time.Duration(*userOverrides.SecondsPerRequestPerDestination)*time.Second),
+			Schedule:    wasp.Plain(1, time.Duration(*userOverrides.RequestFrequency)*time.Second),
 			// will need to be divided by number of chains
 			// this schedule is per generator
-			// in this example, it would be 1 request per 10seconds per generator (dest chain)
-			// so if there are 3 generators, it would be 3 requests per 10 seconds over the network
+			// in this example, it would be 1 request per 5seconds per generator (dest chain)
+			// so if there are 3 generators, it would be 3 requests per 5 seconds over the network
 			Gun:        gun,
 			Labels:     CommonTestLabels,
 			LokiConfig: wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil),
@@ -113,63 +106,46 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}))
 	}
 
-	// find get fee revert
-	csPair := ccipchangeset.SourceDestPair{
-		SourceChainSelector: 12922642891491394802,
-		DestChainSelector:   3379446385462418246,
-	}
-	res, err := state.Chains[csPair.SourceChainSelector].Router.IsChainSupported(nil, csPair.DestChainSelector)
-	lggr.Infow("IsChainSupported", "res", res, "err", err)
-
-	destChainConfig, err := state.Chains[csPair.SourceChainSelector].FeeQuoter.GetDestChainConfig(nil, csPair.DestChainSelector)
-	lggr.Infow("GetDestChainConfig", "destChainConfig", destChainConfig, "err", err)
-
-	// find the getFee revert
 	_, err = p.Run(true)
 
-	src, dst := env.Chains[csPair.SourceChainSelector], env.Chains[csPair.DestChainSelector]
-	startblk := uint64(11654)
+	// wait for offchain to complete handling load fully
+	execExpectedSeqNums := make(map[ccipchangeset.SourceDestPair][]uint64)
+	commitExepectedSeqNums := make(map[ccipchangeset.SourceDestPair]uint64)
+	for _, gun := range gunMap {
+		for csPair := range gun.seqNums {
+			commitExepectedSeqNums[csPair] = gun.seqNums[csPair].End.Load()
+			for i := gun.seqNums[csPair].Start.Load(); i <= gun.seqNums[csPair].End.Load(); i++ {
+				execExpectedSeqNums[csPair] = append(execExpectedSeqNums[csPair], i)
+			}
+		}
+	}
+	ccipchangeset.ConfirmCommitForAllWithExpectedSeqNums(t, *env, state, commitExepectedSeqNums, startBlocks)
+	ccipchangeset.ConfirmExecWithSeqNrsForAll(t, *env, state, execExpectedSeqNums, startBlocks)
 
-	seqNum := gunMap[csPair.DestChainSelector].seqNums[csPair].End.Load()
-	_, err = ccipchangeset.ConfirmCommitWithExpectedSeqNumRange(t, src, dst, state.Chains[3379446385462418246].OffRamp, &startblk, cciptypes.SeqNumRange{
-		cciptypes.SeqNum(seqNum - 1),
-		cciptypes.SeqNum(seqNum - 1),
-	}, false)
-
-	ccipchangeset.ConfirmExecWithSeqNrsForAll(t, *env, state, map[ccipchangeset.SourceDestPair][]uint64{
-		csPair: {seqNum - 1},
-	}, startBlocks)
-
-	// todo: create channels that watch for these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
-	// rather than waiting for the generator to finish
+	// todo: create channels that subscribe to these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
 	lokiLabels := map[string]string{}
 	for chainSelector, startBlock := range startBlocks {
+		filterOpts := &bind.FilterOpts{
+			Start:   *startBlock,
+			End:     nil, // To the latest block
+			Context: ctx,
+		}
+
 		wg.Add(1)
-		go func(chainSelector uint64, startBlock *uint64) {
+		go func(chainSelector uint64, startBlock *uint64, filterOpts *bind.FilterOpts) {
 			defer wg.Done()
 			lggr.Infow("Starting to query for events on ", "chainSelector", chainSelector, "startblock", startBlock)
 			latesthdr, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, nil)
 			require.NoError(t, err)
 			lggr.Infow("Current block number", "chainSelector", chainSelector, "block", latesthdr.Number.Uint64())
 
-			filterOpts := &bind.FilterOpts{
-				Start:   *startBlock,
-				End:     nil, // To the latest block
-				Context: ctx,
-			}
-
 			offRamp := state.Chains[chainSelector].OffRamp
 			// Filter CommitReportAccepted events
 			commitIterator, err := offRamp.FilterCommitReportAccepted(filterOpts)
 			require.NoError(t, err)
 
-			fmt.Printf("Events on commitIterator %+v", commitIterator)
-
 			for commitIterator.Next() {
-				fmt.Printf("Events on commitIterator inside %+v", commitIterator)
-
 				event := commitIterator.Event
-				fmt.Printf("CommitReportAccepted event: %+v\n", event)
 
 				blockNum := commitIterator.Event.Raw.BlockNumber
 				header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
@@ -182,49 +158,55 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 					for i := root.MinSeqNr; i <= root.MaxSeqNr; i++ {
 						// todo: push loki calls to channel?
-						fmt.Printf("Pushed loki for seqNumber %d\n", i)
 
 						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
 							Timestamp:      timestamp,
 							SequenceNumber: i,
 						})
+						fmt.Printf("Pushed loki for seqNumber %d\n", i)
+
 					}
 				}
 			}
+		}(chainSelector, startBlock, filterOpts)
 
-			// Filter ExecutionStateChanged events
-			execIterator, err := state.Chains[chainSelector].OffRamp.FilterExecutionStateChanged(filterOpts, []uint64{chainSelector}, nil, nil)
-			require.NoError(t, err)
-			for execIterator.Next() {
-				event := execIterator.Event
-				fmt.Printf("ExecutionStateChanged event: %+v\n", event)
-
-				blockNum := execIterator.Event.Raw.BlockNumber
-				header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
-				require.NoError(t, err)
-				timestamp := time.Unix(int64(header.Time), 0)
-
-				// todo: push loki calls to channel?
-				lokiLabels, err = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
+		for sourceCS := range env.Chains {
+			wg.Add(1)
+			go func(srcSelector uint64, startBlock *uint64, filterOpts *bind.FilterOpts) {
+				defer wg.Done()
+				csPair := ccipchangeset.SourceDestPair{
+					SourceChainSelector: srcSelector,
+					DestChainSelector:   chainSelector,
+				}
+				// Filter ExecutionStateChanged events
+				execIterator, err := state.Chains[chainSelector].OffRamp.FilterExecutionStateChanged(filterOpts, []uint64{srcSelector}, execExpectedSeqNums[csPair], nil)
 				require.NoError(t, err)
 
-				fmt.Printf("Pushed loki exec for seqNumber %d\n", execIterator.Event.SequenceNumber)
-				SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
-					EventType:      executed,
-					Timestamp:      timestamp,
-					GasUsed:        execIterator.Event.GasUsed.Uint64(),
-					SequenceNumber: execIterator.Event.SequenceNumber,
-				})
+				for execIterator.Next() {
+					event := execIterator.Event
+					fmt.Printf("ExecutionStateChanged event: %+v\n", event)
 
-			}
-		}(chainSelector, startBlock)
+					blockNum := execIterator.Event.Raw.BlockNumber
+					header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
+					require.NoError(t, err)
+					timestamp := time.Unix(int64(header.Time), 0)
+
+					// todo: push loki calls to channel?
+					lokiLabels, err = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
+					require.NoError(t, err)
+
+					SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
+						EventType:      executed,
+						Timestamp:      timestamp,
+						GasUsed:        execIterator.Event.GasUsed.Uint64(),
+						SequenceNumber: execIterator.Event.SequenceNumber,
+					})
+					fmt.Printf("Pushed loki exec for seqNumber %d\n", execIterator.Event.SequenceNumber)
+				}
+			}(sourceCS, startBlock, filterOpts)
+		}
 	}
 
 	wg.Wait()
-
-	// Stop the chains, cleanup the environment
-
-	// crib.StopChains(env)
-	// crib.StopNodes(env)
 }
