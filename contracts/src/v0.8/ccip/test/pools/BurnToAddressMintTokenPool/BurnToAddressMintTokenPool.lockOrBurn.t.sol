@@ -2,9 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {Pool} from "../../../libraries/Pool.sol";
-import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {BurnToAddressMintTokenPool} from "../../../pools/BurnToAddressMintTokenPool.sol";
-import {TokenPool} from "../../../pools/TokenPool.sol";
 import {BurnToAddressMintTokenPoolSetup} from "./BurnToAddressMintTokenPoolSetup.t.sol";
 
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
