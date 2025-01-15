@@ -29,8 +29,10 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
     deal(address(s_token), OWNER, type(uint256).max);
 
     s_siloedLockReleaseTokenPool = new SiloedLockReleaseTokenPool(
-      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter), OWNER
+      s_token, DEFAULT_TOKEN_DECIMALS, new address[](0), address(s_mockRMNRemote), address(s_sourceRouter)
     );
+
+    s_siloedLockReleaseTokenPool.setRebalancer(OWNER);
 
     s_token.approve(address(s_siloedLockReleaseTokenPool), type(uint256).max);
 
@@ -79,17 +81,16 @@ contract SiloedLockReleaseTokenPoolSetup is BaseTest {
     s_sourceRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
 
     // Apply Siloeing Rules
-    SiloedLockReleaseTokenPool.ChainSiloConfigUpdate[] memory adds =
-      new SiloedLockReleaseTokenPool.ChainSiloConfigUpdate[](1);
+    SiloedLockReleaseTokenPool.SiloConfigUpdate[] memory adds = new SiloedLockReleaseTokenPool.SiloConfigUpdate[](1);
 
     adds[0] =
-      SiloedLockReleaseTokenPool.ChainSiloConfigUpdate({remoteChainSelector: SILOED_CHAIN_SELECTOR, rebalancer: OWNER});
+      SiloedLockReleaseTokenPool.SiloConfigUpdate({remoteChainSelector: SILOED_CHAIN_SELECTOR, rebalancer: OWNER});
 
-    s_siloedLockReleaseTokenPool.updateSiloDesignationForChainSelectors(new uint64[](0), adds);
+    s_siloedLockReleaseTokenPool.updateSiloDesignations(new uint64[](0), adds);
 
-    assertTrue(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(SILOED_CHAIN_SELECTOR));
-    assertFalse(s_siloedLockReleaseTokenPool.chainFundsAreSiloed(DEST_CHAIN_SELECTOR));
+    assertTrue(s_siloedLockReleaseTokenPool.isSiloed(SILOED_CHAIN_SELECTOR));
+    assertFalse(s_siloedLockReleaseTokenPool.isSiloed(DEST_CHAIN_SELECTOR));
 
-    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setSiloRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 }

@@ -18,6 +18,10 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
+  event MintedTokensSet(uint256 newMintedTokenAmount, uint256 oldMintedTokenAmount);
+
+  error InsufficientMintedTokens();
+
   string public constant override typeAndVersion = "BurnToAddressTokenPool 1.5.1";
 
   /// @notice The address where tokens are sent during a call to lockOrBurn, functionally burning but without decreasing
@@ -25,9 +29,11 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   /// This can be either an EOA without a corresponding private key, or a contract which does not have the ability to transfer the tokens.
   address public immutable i_burnAddress;
 
-  /// @notice Locked Tokens is a safety mechanism to ensure that more tokens cannot be sent out of the bridge
-  /// than were originally sent in via CCIP.
-  uint256 internal s_lockedTokens;
+  /// @notice Minted Tokens is a safety mechanism to ensure that more tokens cannot be sent out of the bridge
+  /// than were originally sent in via CCIP. On incoming messages the value is increased, and on outgoing messages,
+  /// the value is decreased. For pools with existing tokens in circulation, the value may not be known at deployment
+  /// time, and thus should be set later using the setMintedTokens() function.
+  uint256 internal s_mintedTokens;
 
   /// @dev Since burnAddress is expected to make the tokens unrecoverable, no check for the zero address needs to be
   /// performed, as it is a valid input.
@@ -37,18 +43,17 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
     address[] memory allowlist,
     address rmnProxy,
     address router,
-    address burnAddress,
-    uint256 initialLockedTokens
+    address burnAddress
   ) TokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {
     i_burnAddress = burnAddress;
-    s_lockedTokens = initialLockedTokens;
   }
 
   /// @notice Mint tokens from the pool to the recipient, updating the internal accounting for an outflow of tokens.
+  /// @dev If the amount of tokens to be
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
-    s_lockedTokens -= releaseOrMintIn.amount;
+    s_mintedTokens += releaseOrMintIn.amount;
 
     return super.releaseOrMint(releaseOrMintIn);
   }
@@ -59,7 +64,11 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   function _burn(
     uint256 amount
   ) internal virtual override {
-    s_lockedTokens += amount;
+    if (amount > s_mintedTokens) {
+      revert InsufficientMintedTokens();
+    }
+
+    s_mintedTokens -= amount;
 
     getToken().safeTransfer(i_burnAddress, amount);
   }
@@ -71,8 +80,20 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   }
 
   /// @notice Return the amount of tokens which were minted by this contract and not yet burned.
-  /// @return lockedTokens The amount of tokens which were minted by this token pool and not yet burned.
-  function getLockedTokens() public view returns (uint256 lockedTokens) {
-    return s_lockedTokens;
+  /// @return mintedTokens The amount of tokens which were minted by this token pool and not yet burned.
+  function getMintedTokens() public view returns (uint256 mintedTokens) {
+    return s_mintedTokens;
+  }
+
+  /// @notice Set the amount of tokens which were minted by this contract and not yet burned.
+  /// @param amount The new amount of tokens which were minted by this token pool and not yet burned.
+  function setMintedTokens(
+    uint256 amount
+  ) external onlyOwner {
+    uint256 currentMintedTokens = s_mintedTokens;
+
+    s_mintedTokens = amount;
+
+    emit MintedTokensSet(amount, currentMintedTokens);
   }
 }

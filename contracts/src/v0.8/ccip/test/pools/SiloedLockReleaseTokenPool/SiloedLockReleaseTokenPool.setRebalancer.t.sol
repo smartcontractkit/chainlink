@@ -9,21 +9,21 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
 
   function test_setSiloedChainRebalancer() public {
     vm.expectEmit();
-    emit SiloedLockReleaseTokenPool.SiloedChainRebalancerSet(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS, OWNER);
+    emit SiloedLockReleaseTokenPool.SiloRebalancerSet(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS, OWNER);
 
-    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS);
+    s_siloedLockReleaseTokenPool.setSiloRebalancer(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS);
 
-    assertEq(s_siloedLockReleaseTokenPool.getRebalancerByChain(SILOED_CHAIN_SELECTOR), REBALANCER_ADDRESS);
-    assertEq(s_siloedLockReleaseTokenPool.getRebalancerByChain(DEST_CHAIN_SELECTOR), OWNER);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(SILOED_CHAIN_SELECTOR), REBALANCER_ADDRESS);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(DEST_CHAIN_SELECTOR), OWNER);
   }
 
   function test_setUnsiloedChainRebalancer() public {
     vm.expectEmit();
-    emit SiloedLockReleaseTokenPool.UnsiloedChainRebalancerSet(REBALANCER_ADDRESS, OWNER);
+    emit SiloedLockReleaseTokenPool.UnsiloedRebalancerSet(REBALANCER_ADDRESS, OWNER);
 
-    s_siloedLockReleaseTokenPool.setUnsiloedChainRebalancer(REBALANCER_ADDRESS);
+    s_siloedLockReleaseTokenPool.setRebalancer(REBALANCER_ADDRESS);
 
-    assertEq(s_siloedLockReleaseTokenPool.getRebalancerByChain(DEST_CHAIN_SELECTOR), REBALANCER_ADDRESS);
+    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(DEST_CHAIN_SELECTOR), REBALANCER_ADDRESS);
   }
 
   // Reverts
@@ -31,6 +31,6 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
   function test_setSiloedChainRebalancer_RevertWhen_ChainNotSiloed() public {
     vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.ChainNotSiloed.selector, DEST_CHAIN_SELECTOR));
 
-    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(DEST_CHAIN_SELECTOR, REBALANCER_ADDRESS);
+    s_siloedLockReleaseTokenPool.setSiloRebalancer(DEST_CHAIN_SELECTOR, REBALANCER_ADDRESS);
   }
 }

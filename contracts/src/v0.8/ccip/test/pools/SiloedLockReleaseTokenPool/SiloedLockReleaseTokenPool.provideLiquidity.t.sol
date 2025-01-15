@@ -12,7 +12,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
   function setUp() public override {
     super.setUp();
 
-    s_siloedLockReleaseTokenPool.setSiloedChainRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
+    s_siloedLockReleaseTokenPool.setSiloRebalancer(SILOED_CHAIN_SELECTOR, OWNER);
   }
 
   function test_ProvideLiquidity_ChainNotSiloed() public {
@@ -27,7 +27,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
 
     // Since the funds for the destination chain are not siloed,
     // the locked token amount should not be increased
-    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(DEST_CHAIN_SELECTOR), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(DEST_CHAIN_SELECTOR), amount);
   }
 
   function test_ProvideLiquidity_ChainSiloed() public {
@@ -42,7 +42,7 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
 
     // Since the funds for the destination chain are not siloed,
     // the locked token amount should not be increased
-    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), amount);
   }
 
   function test_ProvideLiquidity_LegacyFunctionSelector() public {
@@ -57,9 +57,9 @@ contract SiloedLockReleaseTokenPool_provideLiqudity is SiloedLockReleaseTokenPoo
 
     // Since the funds for the destination chain are not siloed,
     // the locked token amount should not be increased
-    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(DEST_CHAIN_SELECTOR), amount);
-    assertEq(s_siloedLockReleaseTokenPool.getliquidityForUnsiloedChains(), amount);
-    assertEq(s_siloedLockReleaseTokenPool.getSiloedTokensByChain(SILOED_CHAIN_SELECTOR), 0);
+    assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(DEST_CHAIN_SELECTOR), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getUnsiloedLiquidity(), amount);
+    assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), 0);
   }
 
   // Reverts
