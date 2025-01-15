@@ -9,6 +9,7 @@ echo " └───────────────────────�
 # The offRamp uses a specific lower optimization runs value. All other contracts use the default value
 # as specified in the foundry.toml.
 OPTIMIZE_RUNS_OFFRAMP=800
+OPTIMIZE_RUNS_FEE_QUOTER=10000
 PROJECT="ccip"
 FOUNDRY_PROJECT_SUFFIX="-compile"
 
@@ -35,9 +36,12 @@ compileContract() {
 function getOptimizations() {
     local optimize_runs_override=""
 
-    case $1 in
+   case $1 in
       "OffRamp")
-        optimize_runs_override="--optimizer-runs "$OPTIMIZE_RUNS_OFFRAMP
+        optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_OFFRAMP"
+        ;;
+      "FeeQuoter")
+        optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_FEE_QUOTER"
         ;;
     esac
 
