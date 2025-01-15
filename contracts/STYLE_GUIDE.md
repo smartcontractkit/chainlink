@@ -265,9 +265,6 @@ All contracts will expose a `typeAndVersion` constant.
 The string has the following format: `<contract name><SPACE><semver>-<dev>` with the `-dev` part only being applicable to contracts that have not been fully released.
 Try to fit it into 32 bytes to keep the impact on contract sizes minimal.
 
-Note that `ITypeAndVersion` should be used, not `TypeAndVersionInterface`.
-
-
 
 
 

@@ -33,6 +33,9 @@ BlockHistorySize = 24
 [HeadTracker]
 # Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 HistoryDepth = 2000
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false
 
 [NodePool]
 SyncThreshold = 10

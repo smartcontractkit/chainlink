@@ -224,7 +224,7 @@ func (h *eventHandler) refreshSecrets(ctx context.Context, workflowOwner, workfl
 	return updatedSecrets, nil
 }
 
-func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error) {
+func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	secretsURLHash, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
 	if err != nil {
 		// The workflow record was found, but secrets_id was empty.
@@ -238,15 +238,16 @@ func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowNa
 
 	lastFetchedAt, ok := h.lastFetchedAtMap.Get(secretsURLHash)
 	if !ok || h.clock.Now().Sub(lastFetchedAt) > h.secretsFreshnessDuration {
-		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, workflowName, workflowID, secretsURLHash)
+		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, hexWorkflowName, workflowID, secretsURLHash)
 		if innerErr != nil {
 			msg := fmt.Sprintf("could not refresh secrets: proceeding with stale secrets for workflowID %s: %s", workflowID, innerErr)
 			h.lggr.Error(msg)
+
 			logCustMsg(
 				ctx,
 				h.emitter.With(
 					platform.KeyWorkflowID, workflowID,
-					platform.KeyWorkflowName, workflowName,
+					platform.KeyWorkflowName, decodedWorkflowName,
 					platform.KeyWorkflowOwner, workflowOwner,
 				),
 				msg,
@@ -532,16 +533,20 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	}
 
 	cfg := workflows.Config{
-		Lggr:           h.lggr,
-		Workflow:       *sdkSpec,
-		WorkflowID:     id,
-		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
-		Registry:       h.capRegistry,
-		Store:          h.workflowStore,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: h,
+		Lggr:          h.lggr,
+		Workflow:      *sdkSpec,
+		WorkflowID:    id,
+		WorkflowOwner: owner, // this gets hex encoded in the engine.
+		WorkflowName:  name,
+		// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
+		// A name is used internally that is first hashed to avoid collisions,
+		// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
+		WorkflowNameTransform: pkgworkflows.HashTruncateName(name),
+		Registry:              h.capRegistry,
+		Store:                 h.workflowStore,
+		Config:                config,
+		Binary:                binary,
+		SecretsFetcher:        h,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

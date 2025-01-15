@@ -11,6 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -18,8 +21,6 @@ import (
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -153,7 +154,6 @@ func TestUpdateDon(t *testing.T) {
 		assert.Equal(t, want.DonInfo.ConfigCount, got.DonInfo.ConfigCount)
 		assert.Equal(t, sortedP2Pids(want.DonInfo.NodeP2PIds), sortedP2Pids(got.DonInfo.NodeP2PIds))
 		assert.Equal(t, capIds(want.DonInfo.CapabilityConfigurations), capIds(got.DonInfo.CapabilityConfigurations))
-
 	})
 }
 
@@ -234,7 +234,6 @@ func registerTestDon(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestCon
 	t.Helper()
 	req := newSetupTestRegistryRequest(t, cfg.dons, cfg.nops)
 	return kstest.SetupTestRegistry(t, lggr, req)
-
 }
 
 func newSetupTestRegistryRequest(t *testing.T, dons []internal.DonInfo, nops []internal.NOP) *kstest.SetupTestRegistryRequest {

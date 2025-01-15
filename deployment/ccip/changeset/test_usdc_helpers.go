@@ -115,8 +115,8 @@ func UpdateFeeQuoterForUSDC(
 			DestChainSelector: dstChain,
 			TokenTransferFeeConfigs: []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
 				{
-					usdcToken.Address(),
-					fee_quoter.FeeQuoterTokenTransferFeeConfig{
+					Token: usdcToken.Address(),
+					TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
 						MinFeeUSDCents:    50,
 						MaxFeeUSDCents:    50_000,
 						DeciBps:           0,

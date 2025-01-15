@@ -135,7 +135,6 @@ func initStatePerChain(cfg *LinkTransferConfig, e deployment.Environment) (
 	mcmsStatePerChain, err = changeset.MaybeLoadMCMSWithTimelockState(e, chainSelectors)
 	if err != nil {
 		return nil, nil, err
-
 	}
 	return linkStatePerChain, mcmsStatePerChain, nil
 }
@@ -160,12 +159,10 @@ func transferOrBuildTx(
 		}
 	}
 	return tx, nil
-
 }
 
 // LinkTransfer takes the given link transfers and executes them or creates an MCMS proposal for them.
 func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
-
 	err := cfg.Validate(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)

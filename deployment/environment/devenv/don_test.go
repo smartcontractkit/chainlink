@@ -7,7 +7,6 @@ import (
 )
 
 func TestPtrVal(t *testing.T) {
-
 	x := "hello"
 	xptr := ptr(x)
 	got := value(xptr)

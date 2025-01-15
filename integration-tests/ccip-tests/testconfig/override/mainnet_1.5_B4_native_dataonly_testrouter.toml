@@ -1,0 +1,1214 @@
+[CCIP]
+[CCIP.ContractVersions]
+PriceRegistry = 'latest'
+OffRamp = 'latest'
+OnRamp = 'latest'
+TokenPool = 'latest'
+CommitStore = 'latest'
+
+[CCIP.Deployments]
+Data = """
+{
+  "lane_configs": {
+    "Arbitrum Mainnet": {
+      "is_mock_arm": true,
+      "fee_token": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+      "arm": "0xC2C5E22a2d9715ed5C5BCC4D8eFf5966cf260744",
+      "router": "0x33340200b7893fc478Eb2558FfC7B100E5B3869c",
+      "price_registry": "0x3971cfEf12c4CC6eD14D65B39C9EC6C740C19A40",
+      "wrapped_native": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+      "src_contracts": {
+        "Avalanche Mainnet": {
+          "on_ramp": "0xe80cC83B895ada027b722b78949b296Bd1fC5639",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xc1b6287A3292d6469F2D8545877E40A2f75CA9a6",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0x14bF7b1Ca6b843f386bfDfa76BFd439919b9378D",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x67761742ac8A21Ec4D76CA18cbd701e5A6F3Bef3",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0xc7d6B885d8A4286E6311F79227430b7862311cd3",
+          "deployed_at": 0
+        },
+        "Metis Andromeda": {
+          "on_ramp": "0xF1e73c37CDa8E47768De2246AEf5eFD4d76330ae",
+          "deployed_at": 0
+        },
+        "Mode Mainnet": {
+          "on_ramp": "0xd236ea4DDE7de1e594021764E2f6Cd8e8cD7F047",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0xAFECc7b67c6a8e606e94ce4e2F70D83C2206C2cb",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x6087d6C33946670232DF09Fe93eECbaEa3D6864d",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Mainnet": {
+          "off_ramp": "0x95095007d5Cc3E7517A1A03c9e228adA5D0bc376",
+          "commit_store": "0x46679C9E93B7312A9191A9aD12A73b0c86A33623",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0xb62178f8198905D0Fa6d640Bdb188E4E8143Ac4b",
+          "commit_store": "0x8F60C335a5d2BEC6B32867d3C05C377E88640AaF",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x16B9709F8A23B9EB922E8Dde7EaB1Ede7C79F663",
+          "commit_store": "0x6c3fD63b9BdE38C414530727a5De858ca023cFc4",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0x91e46cc5590A4B9182e47f40006140A7077Dec31",
+          "commit_store": "0x86be76A0FA2bD3ECB69330cBb4fd1f62c48F43E3",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0xeE53872d1C695933B34cE0a11B58613CBBf37e20",
+          "commit_store": "0x5D88518a198b99F096d2893092a568A97F60B8d4",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Metis Andromeda": {
+          "off_ramp": "0xF1A4DE22FF792b0457306C39f4CB5822Ab47bdAE",
+          "commit_store": "0x7F20F4374f8d99201F22434ad59f96bE898A9E0B",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Mode Mainnet": {
+          "off_ramp": "0xa964355d8eBa62E9b043Eb27eEe6d999Ecc69429",
+          "commit_store": "0x72C3cdA94eCAC06f7605301dd7144815C2F05A03",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x27a971D482335d0f8d1917451390734f7372A4a3",
+          "commit_store": "0x6642E640321e1Ad01eef2fC2ad5427D84A2Ee269",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0xcabc2D71dC3172a154A5A34cD706B050e0ef9b6f",
+          "commit_store": "0x78B15A57889200F246fc52790c4F3DfC37d82Aa2",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Avalanche Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0x4f6Ec25f06A114ADD3154DC17fb637F750AdaA31",
+      "router": "0xC485fDa586037F8a312C2492419C9ce25cF7FDD8",
+      "price_registry": "0x718b6f7454531F6CBdB9eC08F87C8663A7c4FAC2",
+      "wrapped_native": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x4e910c8Bbe88DaDF90baa6c1B7850DbeA32c5B29",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0x139D4108C23e66745Eda4ab47c25C83494b7C14d",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xe6e161d55019AA5960DcF0Af9bB6e4d574C69F99",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0xe8784c29c583C52FA89144b9e5DD91Df2a1C2587",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0x38fd0DF16F6fD0a2C3Ec6615c73e50F5d027b8bA",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x3e3b4Fba004E7824219e79aE9f676d9D41A216Fa",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x5570a4E979d7460F13b84075ACEF69FAc73914b1",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x508Ea280D46E4796Ce0f1Acf8BEDa610c4238dB3",
+          "commit_store": "0x20bEde74Da64C9aE47FFDf4B87613752CD13bE5D",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0x37879EBFCb807f8C397fCe2f42DC0F5329AD6823",
+          "commit_store": "0xDe615EEaD232BEECF6c9b71c293A387B97814E8D",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x6CDAa2711BdF0B719911BF00588A79FA97bf9264",
+          "commit_store": "0x4c05E7AB694C602De3135e025aEc7F7de06E80F7",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xE5F21F43937199D4D57876A83077b3923F68EB76",
+          "commit_store": "0xf0F791901854fAb16adeBd60F0639b960B6ea0CF",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x1181A59FF0BAEd1E0EA77e919185cB8C3D5D3125",
+          "commit_store": "0x60b2Bc7858D6296D8c4370E35a930E5ddF13085E",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x376C0AFC9E64efE0d9202E1F02c3d7f9Dc15e404",
+          "commit_store": "0xF8728f8Cd9C809287e6a97B71A2cdfD2c3C034cE",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0xFf49E35626Eba28Bee1d251782AB75A6cEd91c45",
+          "commit_store": "0xee2570De22C0D07d0FaBC1169dC5EcA342B838Da",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Base Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "bridge_tokens": [
+        "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196"
+      ],
+      "bridge_tokens_pools": [
+        "0x1568A4131760231712E59778DAB9EFE67911f4ff"
+      ],
+      "arm": "0x91cB19E7c4Ba9B08CF544cDc9143042150B007C3",
+      "router": "0xcd06f191359cfA6DB55F7D38134C9f89a2D5Ba56",
+      "price_registry": "0xC792246cF4f41100CA3c67cbF3888D5Cf8FED50B",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x9D0ffA76C7F82C34Be313b5bFc6d42A72dA8CA69",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0x4be6E0F97EA849FF80773af7a317356E6c646FD7",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xE5FD5A0ec3657Ad58E875518e73F6264E00Eb754",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x56b30A0Dcd8dc87Ec08b80FA09502bAB801fa78e",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0xDcFB24AEbcB9Edfb6746a045DDcae402381F984B",
+          "deployed_at": 0
+        },
+        "Mode Mainnet": {
+          "on_ramp": "0xEB50Fc6F57AAc6bf060A2Dfc6479fED592e6e184",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x362E6bE957c18e268ad91046CA6b47EB09AD98C1",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0xd3Bde678BB706Cf727A512515C254BcF021dD203",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x7D38c6363d5E4DFD500a691Bc34878b383F58d93",
+          "commit_store": "0x17891fe60a577c5E1e4a4Ddd78E642428A56039f",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0x61C3f6d72c80A3D1790b213c4cB58c3d4aaFccDF",
+          "commit_store": "0x700C6715734111a6D1Cf414F46D85627b298B5dd",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x45d524b6Fe99C005C52C65c578dc0e02d9751083",
+          "commit_store": "0x1ccD0D49e283789a73E882B0ED4B5b1163675c3C",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xCA04169671A81E4fB8768cfaD46c347ae65371F1",
+          "commit_store": "0xb40659aACb709D1D54c80FC0d38b15705358Ce0B",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x300977dBA924af14E166B31F4926892B1f310661",
+          "commit_store": "0x932D6D5c6647e6495Ed3473ff0F4e31a6056D837",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Mode Mainnet": {
+          "off_ramp": "0x639Dc04368006544eba7CbC959f3e4361bfEAB0d",
+          "commit_store": "0x2D3FC7f8b03718157359266ac06AF6373aFee2f1",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x18095fbD53184A50C2BB3929a6c62Ca328732062",
+          "commit_store": "0xa8FA8aE51dB9661e7D1c21141d967d07110036cb",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0x74d574D11977fC8D40f8590C419504cbE178ADB7",
+          "commit_store": "0x565f70396Ff82C23d25Dd3E57A9A66367dccdF3B",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "BSC Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0x56491A98199aD2e687Ea9D0cFB7b4AC57B4980Fc",
+      "router": "0x641Fb431CD2dA50fF40e7E0272d2B1e58c1ff236",
+      "price_registry": "0x2A92BCecd6e702702864E134821FD2DE73C3e180",
+      "wrapped_native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x5577c19bD183e39a007ce4CE236f1D91e9132D5c",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0x43F00dBf0Aa61A099c674A74FBdCb93786564950",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xdABb6De5eC48dd2fcF28ac85CbEFe3F19E03F1BD",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x35C724666ba31632A56Bad4390eb69f206ab60C7",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0x83AC865c2E18f2CDc1d10126987FfC465e11c0DF",
+          "deployed_at": 0
+        },
+        "Mode Mainnet": {
+          "on_ramp": "0x9d4d125788A548C2f69fAC7f8C3A64FA21d18C9e",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x3A3649852A518ab180f41f28288c6c9184563616",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x1C88e3Fd2B0a8735D1b19A77AA6e2333555BB95c",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x2A9C65afF39758CeAa24dBD1ACd1BeB3618e6780",
+          "commit_store": "0x99C7C97Ed175A3f0BFd4f52526E7B1310bB3fc16",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0xc69a550470bEbC5c3Be98A4C3dD26C6AdD90C64b",
+          "commit_store": "0x49FeF2978569E8061a7CA5cC676d46970613e9D0",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0x133672C0F0067573254dd7C8C9818a37d6208610",
+          "commit_store": "0xEc44EFcf3E0aC801C742e444B130918a5a3A87E9",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xF616733641D420207b8F30db9C4cE39684768991",
+          "commit_store": "0x7aa39A9c9D539b5E7388872a193b3447D34bf11F",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x53AF5cE4534C39582E6a5E3fD77946E0c3BFe870",
+          "commit_store": "0xe7a0Ffc182E2330d19fF79adEEC637094c02dcA3",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Mode Mainnet": {
+          "off_ramp": "0xFc2278eBc27B9d205e3DC9F1b88D6D863D71190D",
+          "commit_store": "0x92eeb265F465Aff3AE708117ba7aE35279227845",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x3c5E62cdFD08e23a0961ff2A3155CaBb96cbc89D",
+          "commit_store": "0xDC39E05264D0C17eD16F2Db363364B127Cf56d75",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0x21159ebdA3E6A2437bCD6ef39853042ACC436D2D",
+          "commit_store": "0x018Bb120265672C699969a9e2193755d4CF1ca16",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Blast Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0xfb83C9eE574f456F5d68Da2643b1122675681B3c",
+      "router": "0x12e0B8E349C6fb7E6E40713E8125C3cF1127ea8C",
+      "price_registry": "0x4f66d9e65af0d3DC27897E29f571f933291bb07c",
+      "wrapped_native": "",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0xBD9bf9AA79adF083BB7100848Eb15F4e8282E27e",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x1a904DbbaDdE629a1460e2F6E2E485Ce06Ed7599",
+          "commit_store": "0x3CB2A81bb8a188C5353CdFa9994ed8666556FC53",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Celo": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "bridge_tokens": [
+        "0xd07294e6E917e07dfDcee882dd1e2565085C2ae0"
+      ],
+      "bridge_tokens_pools": [
+        "0x11825e5d99234bAB7ad1f3972fF6E55eBf3D6E20"
+      ],
+      "arm": "0xAFB3e62dD82E7648C64eFe2450D7c3B76DB24e1B",
+      "router": "0xfB48f15480926A4ADf9116Dca468bDd2EE6C5F62",
+      "price_registry": "0xD9FcEEA20dBB3Dfb91763B301819C9666429DC26",
+      "wrapped_native": "0x2021B12D8138e2D63cF0895eccABC0DFc92416c6",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x27C96A8a2f70a8408aD6c620717a3bDaA54bb10b",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0xd5083684eE92dDeA117636ae5E2F1cb7fE4dfd46",
+          "commit_store": "0x831097033C88c82a7F1897b168Aa88cC44540C8f",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Ethereum Mainnet": {
+      "is_mock_arm": true,
+      "fee_token": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+      "bridge_tokens": [
+        "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+      ],
+      "bridge_tokens_pools": [
+        "0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4"
+      ],
+      "arm": "0xdCD48419bD5Cd9d1b097695F2af4Ee125aADF84F",
+      "router": "0x8C6d31FC27770Ebcc5593c9D10adB9211181ed46",
+      "price_registry": "0xEd1a8c49bbD5618fa6CC952C509557F816d2D4F5",
+      "wrapped_native": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x69eCC4E2D8ea56E2d0a05bF57f4Fd6aEE7f2c284",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0xaFd31C0C78785aDF53E4c185670bfd5376249d8A",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xb8a882f3B88bd52D1Ff56A873bfDB84b70431937",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0x948306C220Ac325fa9392A6E601042A3CD0b480d",
+          "deployed_at": 0
+        },
+        "Blast Mainnet": {
+          "on_ramp": "0x4545F9a17DA50110632C14704a15d893BF9CBD27",
+          "deployed_at": 0
+        },
+        "Celo": {
+          "on_ramp": "0xEd5bE9508ae56531cc0EDe6A3bD588Eb9E2e3cfa",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0xf50B9A46C394bD98491ce163d420222d8030F6F0",
+          "deployed_at": 0
+        },
+        "linea-mainnet": {
+          "on_ramp": "0x626189C882A80fF0D036d8D9f6447555e81F78E9",
+          "deployed_at": 0
+        },
+        "Metis Andromeda": {
+          "on_ramp": "0x75d536eED32f4c8Bb39F4B0c992163f5BA49B84e",
+          "deployed_at": 0
+        },
+        "Mode Mainnet": {
+          "on_ramp": "0xeA6d4a24B262aB3e61a8A62f018A30beCD086f82",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x3455D8E039736944e66e19eAc77a42e8077B07bf",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x15a9D79d6b3485F70bF82bC49dDD1fcB37A7149c",
+          "deployed_at": 0
+        },
+        "scroll-mainnet": {
+          "on_ramp": "0x362A221C3cfd7F992DFE221687323F0BA9BA8187",
+          "deployed_at": 0
+        },
+        "wemix-mainnet": {
+          "on_ramp": "0xCbE7e5DA76dC99Ac317adF6d99137005FDA4E2C4",
+          "deployed_at": 0
+        },
+        "zksync-mainnet": {
+          "on_ramp": "0xD54C93A99CBCb8D865E13DA321B540171795A89f",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0xdf615eF8D4C64d0ED8Fd7824BBEd2f6a10245aC9",
+          "commit_store": "0xf7B343A17445F175f2Dd9f5CB29BAf0a8dE75ed3",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0xd98E80C79a15E4dbaF4C40B6cCDF690fe619BFBb",
+          "commit_store": "0xA9f9bF2b643348c0884f2eBA4F712E833DA9a2b8",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0x6B4B6359Dd5B47Cdb030E5921456D2a0625a9EbD",
+          "commit_store": "0xDaC3A82Cc5e7C137bF28e6EF4F68f29D66205ffe",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x66d84fedED0e51aeB47ceD1BB2fc0221Ae8D7C12",
+          "commit_store": "0x9B9Ec8E26955c034828bBD78E22ab258d983dCdb",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Blast Mainnet": {
+          "off_ramp": "0x4e0092bBC8EfAb6Eca295caB66986193b90a1Bb9",
+          "commit_store": "0xd7cA96B58EE33FdB3aa1392c30eD02645b1F28e2",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Celo": {
+          "off_ramp": "0x90902C0AEE857F3A42f2beBEa38724cE7b7a0cff",
+          "commit_store": "0x25adA90B241143DD5Df04Fb06C1fF6E7f7624ad9",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x70C705ff3eCAA04c8c61d581a59a168a1c49c2ec",
+          "commit_store": "0x9D93D536Ced80871Bf3DA5Bb47bAedE62c794f8A",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "linea-mainnet": {
+          "off_ramp": "0x418dcbCf229897d0CCf1B8B464Db06C23879FBB4",
+          "commit_store": "0x9f592c28590595F3F78a8881E8Dbb9984ed705cD",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Metis Andromeda": {
+          "off_ramp": "0x330349112e13232131Da51f9f3b153d825f65e61",
+          "commit_store": "0x0f89C7c0586536B618e0469402e1c8234bc52959",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Mode Mainnet": {
+          "off_ramp": "0xb57D52F7Cb7BBD19a117585bbaf712108E56dd8f",
+          "commit_store": "0x01346721418045A6c07b71052e452eF8615e9084",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x562a2025E60AA19Aa03Ea41D70ea1FD3286d1D3B",
+          "commit_store": "0x83F3DA5aa2C7534d694B0acde7624573c830250D",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0x718672076D6d51E4c76142B37bC99E4945d704a3",
+          "commit_store": "0x57b548C9c213EA2bcf60193E3D7fd2d2b53Fb9b3",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "scroll-mainnet": {
+          "off_ramp": "0x26a10137A54F4Ea01D20758Ac5AdBf9326340Fc3",
+          "commit_store": "0x57d6cD9CD44770C807b2763Dbe4CFDA0113dd114",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "wemix-mainnet": {
+          "off_ramp": "0xF92Fa796F5307b029c65CA26f322a6D86f211194",
+          "commit_store": "0xbeC110FF43D52be2066B06525304A9924E16b73b",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "zksync-mainnet": {
+          "off_ramp": "0x7c887B97F9Bba9355EC10e2bA949AdB491Ef44Fd",
+          "commit_store": "0xA42bf0c8794FA8853Ec0F1B24a489972e8CF4C30",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Gnosis Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "0x0000000000000000000000000000000000000000",
+      "arm": "0x2ab5ff904CFFdD37f19cC34597cF425916F2DAcA",
+      "router": "0xe6A934D3754797bCe4375368F5f12b94DBc19Fcc",
+      "price_registry": "0x03aF5C79b0D49C040413FdA1e7B2cAa54a0fa5F4",
+      "wrapped_native": "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x140E6D5ba903F684944Dd27369d767DdEf958c9B",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0xB707a6D1d32CE99D5c669DeE71D30d25a066D32c",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xAAb6D9fc00aAc37373206e91789CcDE1E851b3E4",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xb485634dd2E545091722b9d4843d3644addf97e3",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x014ABcfDbCe9F67d0Df34574664a6C0A241Ec03A",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x9379b446fcA75CA57834a4dA33f64ae317Be05e4",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0xD7a49AfEA62E77Ad6BEB2ed64673026271aae188",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x2C1539696E29012806a15Bcd9845Ed1278a9fd63",
+          "commit_store": "0x5b1762a6023157edaf2c46c818f447B1940765D6",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0xe596D90EF0AEe10257109AC8394a85F8944bF6D0",
+          "commit_store": "0xd6Dc07804AE06f575C28094F99aCdDC1535904e7",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0xbeEDd1C5C13C5886c3d600e94Ff9e82C04A53C38",
+          "commit_store": "0x392304E3cb636f75Dc95340672F3b8A2359d5Ebc",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x972a85d7ba0209F1896992B2687cC728cf769e50",
+          "commit_store": "0x5FB18729651f1EDA5ed5ac67594FD94Fa3DBcd29",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0x658d9ae41A9c291De423d3B4B6C064f6dD0e7Ed2",
+          "commit_store": "0xd23391fCBb8a41b971f90bC6e95CC8beaD885221",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0xd84E2316634ab6516Ecc829E2367633bfB3e4B6D",
+          "commit_store": "0x9d432DaF8aF8803baF6Cf560CF0f115c7D7b7f16",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0x6d6a4a60E0E23dbea089c0fEbbA9c5912f02bc57",
+          "commit_store": "0x9CBe49E232aEF27B9d98aC752354879efd7b1E70",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "kroma-mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "bridge_tokens": [
+        "0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450"
+      ],
+      "bridge_tokens_pools": [
+        "0xd9547B702673c61c84bb2dF6FDf6D2F5309fE536"
+      ],
+      "arm": "0xB59779d3364BC6d71168245f9ebb96469E5a5a98",
+      "router": "0xE93E8B0d1b1CEB44350C8758ed1E2799CCee31aB",
+      "price_registry": "0x8155B4710e7bbC90924E957104F94Afd4f95Eca2",
+      "wrapped_native": "",
+      "src_contracts": {
+        "wemix-mainnet": {
+          "on_ramp": "0x3C5Ab46fA1dB1dECD854224654313a69bf9fcAD3",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "wemix-mainnet": {
+          "off_ramp": "0xF886d8DC64E544af4835cbf91e5678A54D95B80e",
+          "commit_store": "0x8794C9534658fdCC44f2FF6645Bf31cf9F6d2d5D",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "linea-mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0xB75C45986892fDBFe1e4Ef9f2e83Fd65471300f3",
+      "router": "0xcACf1F067BF807B77AE8cadE8854236BbA67C8a7",
+      "price_registry": "0x3B9e77E257A9C8b5F53e88dB87874188fB558460",
+      "wrapped_native": "",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x69AbB6043BBEA2467f41CCD0144d1b3b4ECd20f4",
+          "deployed_at": 0
+        },
+        "scroll-mainnet": {
+          "on_ramp": "0x30ebb71dAa827bEAE71EE325A77Ca47dAED7Ec9B",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x656e2aA127Cb15815a90Ef70c6AA7Ed449D689ce",
+          "commit_store": "0xD8850C39D6785d9DdA555b7d81df50609c73c495",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "scroll-mainnet": {
+          "off_ramp": "0xa3Ea5eB15711041fd28950438b5a682392b54e6C",
+          "commit_store": "0x9d75617B79cB12e7c3085b2DA38fa47aaD23f0bA",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Metis Andromeda": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0xC4BFAc3D31C524A4958c5d5d1e68394d8DEbbE69",
+      "router": "0x4c6811BE5f08D9E748C85FDB0050DE49B21F77c9",
+      "price_registry": "0x2C4A017f587574b3d6EEBF6463aE6824Dc43C365",
+      "wrapped_native": "",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x8d3039fE2400151c06Ae84a18CAf38dD9b6Ce58b",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0xdF5394c57A0570ECe45DE0c0fA2e722A672B9198",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0xc6bA5a79991b3775F28259BA551b30eCb0b6D499",
+          "commit_store": "0xb81b0EE9675879a2Dcaa70CCC3b2c2D38fa404b0",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0x1fd37Bf813D0723BEF614bC93d9D2Ce1AcB3228f",
+          "commit_store": "0x7C1efda9F744a2B4f88b924B03C6d6B53E3E390F",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Mode Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0x77EAF440c5d24e25D1834CBBF623bFd83b8b5dA1",
+      "router": "0x4F45E0061fecADa52F0d2F0328b7cA7bD6261fB5",
+      "price_registry": "0x0708505E66DA43B34BB0C429e0F1fE5bfC3A73cd",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0xb2e694efcDa0aeB81700019c3047F92fC3bb520E",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0x347A070EA1B04bc2b4A8f14320688C277022C90e",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xeb7E8c40E95Cd31666359AaeB1F2CccaAB935643",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x7d2aF78868993a5a86676BA639eC0412709707D9",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x7AB4329D19A0255DA90Ee8dbAA60f8f0cB7950C1",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x0Cb870C12013c2d5743585F85b298e129cE57203",
+          "commit_store": "0x682Af2Cfaa5aE554eF222728fF7C7168232e2Ea5",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0x30612D8fb7EcD05ECb863560BA8806d88e8BbFAF",
+          "commit_store": "0xf84d023CCFF8b74e565117cBc034859D06EA1976",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0xdfA601DA2163Ca2C77Eb32126E6B7A97024f6181",
+          "commit_store": "0xb88F947C85b1c6B1E2A0C22792BA58C40c07a644",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xb1caBa234721b8F12C545B3dC25B3F87f6a9c91B",
+          "commit_store": "0x67Ff921DA5d0B61a9b05BDFa92d9f5f992d7861a",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x4adcD1FB4ec76A3c9960E048f81C19A51B2eAC49",
+          "commit_store": "0x7B58aF65DFD717fC0d044D860c8f9A85Ca6813D6",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Optimism Mainnet": {
+      "is_mock_arm": true,
+      "fee_token": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+      "bridge_tokens": [
+        "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
+      ],
+      "bridge_tokens_pools": [
+        "0x841b32B5309ba30cFbf4534667fC3D99EdF05B7A"
+      ],
+      "arm": "0x1c51b6D5BFcFB7ee82C80949DFD146dB157a7E49",
+      "router": "0x0E6137E72CC322b0f3b7eD172f7BD7b5Ac798d05",
+      "price_registry": "0xF1cB3E957D7271Ac788010b2e6146E6ceF8FB9BA",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x6bA81b83091A23e8F2AA173B2b939fAf9E320DfB",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0xB9D655Ad5ba80036725d6c753Fa6AF0454cBF630",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xfE11cfC957cCa331192EAC60040b442303CcA0a9",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0xfC51a4CF925f202d86c6092cda879689d2C17201",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0xE4C51Dc01A4E0aB14c7a7a2ed1655E9CF8A3E698",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0x604a9dda2e27D56cfCe457E437a61f4ED0De9dE6",
+          "deployed_at": 0
+        },
+        "Mode Mainnet": {
+          "on_ramp": "0xc6d9Cb39e34D83d21A021504024887A0e96D4e94",
+          "deployed_at": 0
+        },
+        "Polygon Mainnet": {
+          "on_ramp": "0x9c725164b60E3f6d4d5b7A2841C63E9FD0988805",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0xEB3d6956BCf7b1E29634C8cd182fC9FA740Bce34",
+          "commit_store": "0x6569761680DaC4Bf940244E3cF198A069E34E91F",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0xF8E38B4503418659F791F2135c4912F85BFB7988",
+          "commit_store": "0x23CAc55aDDF28179A999858720E9Fe686372083A",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0x519ee6B83f57df95486aeA6E26819cb7b4B8ee99",
+          "commit_store": "0xCfdF2b21D9777E2B0a221F6b6D8fe176461f058e",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0x51f37b538aD2Bcb9Eaf884859BF7C5Ec58AEc885",
+          "commit_store": "0xF472FEb09544Bf991773f4B94fe3F03e458d1b8d",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0x9979c2dfEcA9051Cf7f08274d978984B2dB12C60",
+          "commit_store": "0x9358663E8f89df8EFE2346a3c4c1D65d03300576",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x01449040D92D75c58FaDc9Bc1c0eadc70C550484",
+          "commit_store": "0xb63230DfcE291DA76FD946EFbc966549F9300347",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Mode Mainnet": {
+          "off_ramp": "0x5a4BEeafd345264360E6894a6bc5F54a70814E68",
+          "commit_store": "0x4E94a327A38E6F3509a5639dCF933CfF6DE93FFD",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Polygon Mainnet": {
+          "off_ramp": "0x4BA0A3bD1E2b70b2fe165A53219e7eF6376849a4",
+          "commit_store": "0xA0f02e1F9C641C9610f688be84F889fE518b36e3",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "Polygon Mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "bridge_tokens": [
+        "0xb0897686c545045aFc77CF20eC7A532E3120E0F1"
+      ],
+      "bridge_tokens_pools": [
+        "0x086892015567fb8764d02c6845C85C25C8FcA389"
+      ],
+      "arm": "0x569a295a09634Ac9414c3efe4E8931986d68F937",
+      "router": "0x10ea937A855268E5336F78B262B4d82ad1Cb84BC",
+      "price_registry": "0xd6D571B37B26Ee1b99FDFa097034Ea4B9E3b76BA",
+      "wrapped_native": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+      "src_contracts": {
+        "Arbitrum Mainnet": {
+          "on_ramp": "0x13263aC754d1e29430930672E3C0019f2BC44Ba2",
+          "deployed_at": 0
+        },
+        "Avalanche Mainnet": {
+          "on_ramp": "0x56cb9Cd82553Bd8157e6504020c38f6DA4971717",
+          "deployed_at": 0
+        },
+        "Base Mainnet": {
+          "on_ramp": "0xD26A4E0c664E72e3c29E634867191cB1cb9AF570",
+          "deployed_at": 0
+        },
+        "BSC Mainnet": {
+          "on_ramp": "0x164507757F7d5Ab35C6af44EeEB099F5be29Da57",
+          "deployed_at": 0
+        },
+        "Ethereum Mainnet": {
+          "on_ramp": "0x1DAcBae00c779913e6E9fc1A3323FbA4847ba53C",
+          "deployed_at": 0
+        },
+        "Gnosis Mainnet": {
+          "on_ramp": "0xcc4A8CFd756895d91B476Dd5461286b300914aBf",
+          "deployed_at": 0
+        },
+        "Optimism Mainnet": {
+          "on_ramp": "0x868B71490B36674B3B9006fa8711C6fA26A26631",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Arbitrum Mainnet": {
+          "off_ramp": "0x60f2788225CeE4a94f8E7589931d5A14Cbc4367d",
+          "commit_store": "0x4DEc80ED383171EC54699B22B869bE098d3cBac9",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Avalanche Mainnet": {
+          "off_ramp": "0x35c1Bb5A9c2F3fa8f8dFF470a6bE7d362CeA1ef3",
+          "commit_store": "0xB3324b80f50a31b12c0C733560D3aA2a32dc5C33",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Base Mainnet": {
+          "off_ramp": "0xF4a9Dbb7f3FBa02e3a244B464e459C32B63857F1",
+          "commit_store": "0x936A0C8635D7087a2D22494762e9a697C3C3D545",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "BSC Mainnet": {
+          "off_ramp": "0xE58074f8F56E23836f088Ac8b4f3882c1b4CAcbb",
+          "commit_store": "0x2110a5f138364d788FDF54eCBa25C1688181cb00",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Ethereum Mainnet": {
+          "off_ramp": "0xa06e68a11d5694316Cc819f2FFD02663e3314C7C",
+          "commit_store": "0xB73d668B26817659E9f48F16b780480B4401cFcE",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Gnosis Mainnet": {
+          "off_ramp": "0x9e2e4e397226f347d11D3fF8469d0c3FFa750C3B",
+          "commit_store": "0x75faF05ec32C9dA97E99Eb6fb18b5087DecAAa82",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "Optimism Mainnet": {
+          "off_ramp": "0x805c292775Be43b10Cc744ea7E81d9939a08cEa4",
+          "commit_store": "0x52faD8fb48451AA555c0f59accA1dC7C69B9681B",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "scroll-mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0x323BFa80a6941C419fB6397698dA816A382CAe53",
+      "router": "0x9bE7a66B3Dec08e111E038Dc34bD7F1AF5cEedA5",
+      "price_registry": "0xd587D08b62CDE7897DA37fB1915F7F6b1D749d96",
+      "wrapped_native": "",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x28cCF73F7982c1786b84e243FFbD47F4fB8ae43d",
+          "deployed_at": 0
+        },
+        "linea-mainnet": {
+          "on_ramp": "0x05d472b114D57E6035089A58Fa997A7940D29a23",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x77601F272dd2d6481Ac3a13942075388097245Fb",
+          "commit_store": "0x1c338D27F36452358611936fc8418849910B1C59",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "linea-mainnet": {
+          "off_ramp": "0x5834e1C639418A4973391126576f550A6996836a",
+          "commit_store": "0x3BD2d806e9cBD3440cb74626BE819d337b70F7De",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "wemix-mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "bridge_tokens": [
+        "0x80f1FcdC96B55e459BF52b998aBBE2c364935d69"
+      ],
+      "bridge_tokens_pools": [
+        "0x80282dF25600c08Bde7560f6c1E509366c1BfBFC"
+      ],
+      "arm": "0x07aaC8B69A62dB5bd3d244091916EbF2fac17b76",
+      "router": "0x7798b795Fde864f4Cd1b124a38Ba9619B7F8A442",
+      "price_registry": "0x252863688762aD86868D3d3076233Eacd80c7055",
+      "wrapped_native": "0x7D72b22a74A216Af4a002a1095C8C707d6eC1C5f",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x190bcE84CF2d500B878966F4Cf98a50d78f2675E",
+          "deployed_at": 0
+        },
+        "kroma-mainnet": {
+          "on_ramp": "0x47E9AE0A815C94836202E696748A5d5476aD8735",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0x3a129e6C18b23d18BA9E6Aa14Dc2e79d1f91c6c5",
+          "commit_store": "0x31f6ab382DDeb9A316Ab61C3945a5292a50a89AB",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        },
+        "kroma-mainnet": {
+          "off_ramp": "0x2B555774B3D1dcbcd76efb7751F3c5FbCFABC5C4",
+          "commit_store": "0x213124614aAf31eBCE7c612A12aac5f8aAD77DE4",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    },
+    "zksync-mainnet": {
+      "is_native_fee_token": true,
+      "is_mock_arm": true,
+      "fee_token": "",
+      "arm": "0x2438AF3167c8f8db49215B96A9A5F5131C4B9718",
+      "router": "0x748Fd769d81F5D94752bf8B0875E9301d0ba71bB",
+      "price_registry": "0xa0C6E00a9Fa10A04989c237dF6dfDCe2AaceE4A3",
+      "wrapped_native": "",
+      "src_contracts": {
+        "Ethereum Mainnet": {
+          "on_ramp": "0x3B80Fe300c9A611abA0496e2543B66Ff7bD4B9e9",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Ethereum Mainnet": {
+          "off_ramp": "0xb368c8946D9fa5A497cDe1Dff7213f9CdfD143Bf",
+          "commit_store": "0xa4d264470a67D9f6682EE12Bdc9c35Df44e3F194",
+          "receiver_dapp": "0x09e4897E068A5Fc4fc22D86867FC1906E6cde563"
+        }
+      }
+    }
+  }
+}
+"""
+
+[CCIP.Env]
+TTL = '8h'
+
+[CCIP.Env.Network]
+selected_networks = [
+    'ARBITRUM_MAINNET',
+    'AVALANCHE_MAINNET',
+    'BASE_MAINNET',
+#    'BLAST_MAINNET',
+    'BSC_MAINNET',
+#    'CELO_MAINNET',
+    'ETHEREUM_MAINNET',
+    'GNOSIS_MAINNET',
+#    'KROMA_MAINNET',
+#    'METIS_ANDROMEDA',
+    'MODE_MAINNET',
+    'OPTIMISM_MAINNET',
+    'POLYGON_MAINNET',
+#    'WEMIX_MAINNET',
+#    'ZKSYNC_MAINNET',
+]
+
+
+[CCIP.Groups.smoke]
+# these are all the valid network pairs
+NetworkPairs = [
+#    'WEMIX_MAINNET,ARBITRUM_MAINNET',
+#    'WEMIX_MAINNET,AVALANCHE_MAINNET',
+#    'WEMIX_MAINNET,BSC_MAINNET',
+#    'WEMIX_MAINNET,OPTIMISM_MAINNET',
+#    'WEMIX_MAINNET,ETHEREUM_MAINNET',
+#    'WEMIX_MAINNET,POLYGON_MAINNET',
+#    'WEMIX_MAINNET,KROMA_MAINNET',
+#    'ZKSYNC_MAINNET,ETHEREUM_MAINNET',
+#    'CELO_MAINNET,ETHEREUM_MAINNET',
+
+    'ARBITRUM_MAINNET,BSC_MAINNET',
+    'ARBITRUM_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,ARBITRUM_MAINNET',
+    'AVALANCHE_MAINNET,BASE_MAINNET',
+    'AVALANCHE_MAINNET,BSC_MAINNET',
+    'AVALANCHE_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,POLYGON_MAINNET',
+#    'AVALANCHE_MAINNET,WEMIX_MAINNET',
+    'BASE_MAINNET,ARBITRUM_MAINNET',
+    'BASE_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,OPTIMISM_MAINNET',
+    'BASE_MAINNET,POLYGON_MAINNET',
+#    'BLAST_MAINNET,ARBITRUM_MAINNET',
+#    'BLAST_MAINNET,BASE_MAINNET',
+#    'BLAST_MAINNET,BSC_MAINNET',
+    'BSC_MAINNET,OPTIMISM_MAINNET',
+    'BSC_MAINNET,POLYGON_MAINNET',
+#    'BSC_MAINNET,WEMIX_MAINNET',
+    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+    'ETHEREUM_MAINNET,BASE_MAINNET',
+#    'ETHEREUM_MAINNET,BLAST_MAINNET',
+    'ETHEREUM_MAINNET,BSC_MAINNET',
+#    'ETHEREUM_MAINNET,CELO_MAINNET',
+    'ETHEREUM_MAINNET,GNOSIS_MAINNET',
+#    'ETHEREUM_MAINNET,METIS_ANDROMEDA',
+    'ETHEREUM_MAINNET,MODE_MAINNET',
+    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+    'ETHEREUM_MAINNET,POLYGON_MAINNET',
+#    'ETHEREUM_MAINNET,WEMIX_MAINNET',
+#    'ETHEREUM_MAINNET,ZKSYNC_MAINNET',
+    'GNOSIS_MAINNET,ARBITRUM_MAINNET',
+    'GNOSIS_MAINNET,AVALANCHE_MAINNET',
+    'GNOSIS_MAINNET,BASE_MAINNET',
+    'GNOSIS_MAINNET,BSC_MAINNET',
+    'GNOSIS_MAINNET,OPTIMISM_MAINNET',
+    'GNOSIS_MAINNET,POLYGON_MAINNET',
+#    'METIS_ANDROMEDA,ARBITRUM_MAINNET',
+    'MODE_MAINNET,ARBITRUM_MAINNET',
+    'MODE_MAINNET,BASE_MAINNET',
+    'MODE_MAINNET,BSC_MAINNET',
+    'MODE_MAINNET,OPTIMISM_MAINNET',
+    'OPTIMISM_MAINNET,POLYGON_MAINNET',
+#    'OPTIMISM_MAINNET,WEMIX_MAINNET',
+    'POLYGON_MAINNET,ARBITRUM_MAINNET',
+#    'POLYGON_MAINNET,WEMIX_MAINNET',
+#    'WEMIX_MAINNET,ARBITRUM_MAINNET',
+#    'WEMIX_MAINNET,KROMA_MAINNET',
+#    'ZKSYNC_MAINNET,ARBITRUM_MAINNET'
+]
+
+BiDirectionalLane = true
+PhaseTimeout = '20m'
+LocalCluster = false
+ExistingDeployment = true
+ReuseContracts = true
+SkipRequestIfAnotherRequestTriggeredWithin = '24h'
+
+[CCIP.Groups.smoke.TokenConfig]
+NoOfTokensPerChain = 1
+CCIPOwnerTokens = true
+
+[CCIP.Groups.smoke.MsgDetails]
+MsgType = 'Data'
+DestGasLimit = 0
+DataLength = 100
+NoOfTokens = 1
+AmountPerToken = 1
+
+[CCIP.Groups.load]
+NetworkPairs = [
+    'ARBITRUM_MAINNET,BSC_MAINNET',
+    'ARBITRUM_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,ARBITRUM_MAINNET',
+    'AVALANCHE_MAINNET,BASE_MAINNET',
+    'AVALANCHE_MAINNET,BSC_MAINNET',
+    'AVALANCHE_MAINNET,OPTIMISM_MAINNET',
+    'AVALANCHE_MAINNET,POLYGON_MAINNET',
+    'BASE_MAINNET,ARBITRUM_MAINNET',
+    'BASE_MAINNET,BSC_MAINNET',
+    'BASE_MAINNET,OPTIMISM_MAINNET',
+    'BASE_MAINNET,POLYGON_MAINNET',
+    'BSC_MAINNET,OPTIMISM_MAINNET',
+    'BSC_MAINNET,POLYGON_MAINNET',
+    'ETHEREUM_MAINNET,ARBITRUM_MAINNET',
+    'ETHEREUM_MAINNET,AVALANCHE_MAINNET',
+    'ETHEREUM_MAINNET,BASE_MAINNET',
+    'ETHEREUM_MAINNET,BSC_MAINNET',
+    'ETHEREUM_MAINNET,GNOSIS_MAINNET',
+    'ETHEREUM_MAINNET,MODE_MAINNET',
+    'ETHEREUM_MAINNET,OPTIMISM_MAINNET',
+    'ETHEREUM_MAINNET,POLYGON_MAINNET',
+    'GNOSIS_MAINNET,ARBITRUM_MAINNET',
+    'GNOSIS_MAINNET,AVALANCHE_MAINNET',
+    'GNOSIS_MAINNET,BASE_MAINNET',
+    'GNOSIS_MAINNET,BSC_MAINNET',
+    'GNOSIS_MAINNET,OPTIMISM_MAINNET',
+    'GNOSIS_MAINNET,POLYGON_MAINNET',
+    'MODE_MAINNET,ARBITRUM_MAINNET',
+    'MODE_MAINNET,BASE_MAINNET',
+    'MODE_MAINNET,BSC_MAINNET',
+    'MODE_MAINNET,OPTIMISM_MAINNET',
+    'OPTIMISM_MAINNET,POLYGON_MAINNET',
+    'POLYGON_MAINNET,ARBITRUM_MAINNET',
+]
+
+BiDirectionalLane = true
+PhaseTimeout = '50m'
+LocalCluster = false
+ExistingDeployment = true
+ReuseContracts = true
+
+[CCIP.Groups.load.TokenConfig]
+NoOfTokensPerChain = 1
+
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [1]
+TimeUnit = '30m'
+TestDuration = '2h'
+TestRunName = 'SoakTest_mainnet_test_router'
+FailOnFirstErrorInLoad = false
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Data'
+DestGasLimit = 0
+DataLength = 100
+NoOfTokens = 1
+AmountPerToken = 1

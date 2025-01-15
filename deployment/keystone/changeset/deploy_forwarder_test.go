@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -65,7 +64,7 @@ func TestConfigureForwarders(t *testing.T) {
 				})
 
 				var wfNodes []string
-				for id, _ := range te.WFNodes {
+				for id := range te.WFNodes {
 					wfNodes = append(wfNodes, id)
 				}
 
@@ -77,7 +76,7 @@ func TestConfigureForwarders(t *testing.T) {
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
-				require.Len(t, csOut.Proposals, 0)
+				require.Empty(t, csOut.Proposals)
 				// check that forwarder
 				// TODO set up a listener to check that the forwarder is configured
 				contractSet := te.ContractSets()
@@ -103,7 +102,7 @@ func TestConfigureForwarders(t *testing.T) {
 				})
 
 				var wfNodes []string
-				for id, _ := range te.WFNodes {
+				for id := range te.WFNodes {
 					wfNodes = append(wfNodes, id)
 				}
 
@@ -134,9 +133,7 @@ func TestConfigureForwarders(t *testing.T) {
 					},
 				})
 				require.NoError(t, err)
-
 			})
 		}
 	})
-
 }

@@ -23,11 +23,12 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -195,7 +196,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			hashes, err1 := usdcReader.MessageHashes(ctx, tc.sourceChain, tc.destChain, tc.tokens)
+			hashes, err1 := usdcReader.MessagesByTokenID(ctx, tc.sourceChain, tc.destChain, tc.tokens)
 			require.NoError(t, err1)
 
 			require.Equal(t, len(tc.expectedMsgIDs), len(hashes))
@@ -270,7 +271,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				hashes, err := usdcReader.MessageHashes(ctx, sourceChain, destChain, tokens)
+				hashes, err := usdcReader.MessagesByTokenID(ctx, sourceChain, destChain, tokens)
 				require.NoError(b, err)
 				require.Len(b, hashes, tc.tokenCount) // Ensure the number of matches is as expected
 			}

@@ -197,7 +197,10 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	computeWASMInit.WithLabelValues(requestMetadata.WorkflowID, requestMetadata.ReferenceID).Observe(float64(initDuration))
 
 	m := &module{module: mod}
-	c.modules.add(id, m)
+	err = c.modules.add(id, m)
+	if err != nil {
+		c.log.Warnf("failed to add module to cache: %s", err.Error())
+	}
 	return m, nil
 }
 
@@ -300,7 +303,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 
 		cma := c.emitter.With(
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
-			platform.KeyWorkflowName, req.Metadata.WorkflowName,
+			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
 			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),

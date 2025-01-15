@@ -24,6 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
+// Batching strategies
+const (
+	BestEffortBatchingStrategyID = uint32(0)
+	ZKOverflowBatchingStrategyID = uint32(1)
+)
+
 type BatchContext struct {
 	report                     commitReportWithSendRequests
 	inflight                   []InflightInternalExecutionReport
@@ -47,6 +53,7 @@ type BatchContext struct {
 
 type BatchingStrategy interface {
 	BuildBatch(ctx context.Context, batchCtx *BatchContext) ([]ccip.ObservedMessage, []messageExecStatus)
+	GetBatchingStrategyID() uint32
 }
 
 type BestEffortBatchingStrategy struct{}
@@ -58,9 +65,9 @@ type ZKOverflowBatchingStrategy struct {
 func NewBatchingStrategy(batchingStrategyID uint32, statusChecker statuschecker.CCIPTransactionStatusChecker) (BatchingStrategy, error) {
 	var batchingStrategy BatchingStrategy
 	switch batchingStrategyID {
-	case 0:
+	case BestEffortBatchingStrategyID:
 		batchingStrategy = &BestEffortBatchingStrategy{}
-	case 1:
+	case ZKOverflowBatchingStrategyID:
 		batchingStrategy = &ZKOverflowBatchingStrategy{
 			statuschecker: statusChecker,
 		}
@@ -68,6 +75,10 @@ func NewBatchingStrategy(batchingStrategyID uint32, statusChecker statuschecker.
 		return nil, errors.Errorf("unknown batching strategy ID %d", batchingStrategyID)
 	}
 	return batchingStrategy, nil
+}
+
+func (s *BestEffortBatchingStrategy) GetBatchingStrategyID() uint32 {
+	return BestEffortBatchingStrategyID
 }
 
 // BestEffortBatchingStrategy is a batching strategy that tries to batch as many messages as possible (up to certain limits).
@@ -93,6 +104,10 @@ func (s *BestEffortBatchingStrategy) BuildBatch(
 		batchBuilder.addToBatch(msg, tokenData)
 	}
 	return batchBuilder.batch, batchBuilder.statuses
+}
+
+func (bs *ZKOverflowBatchingStrategy) GetBatchingStrategyID() uint32 {
+	return ZKOverflowBatchingStrategyID
 }
 
 // ZKOverflowBatchingStrategy is a batching strategy for ZK chains overflowing under certain conditions.

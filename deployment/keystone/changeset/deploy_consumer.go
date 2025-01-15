@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -19,7 +20,7 @@ func DeployFeedsConsumer(env deployment.Environment, req *DeployFeedsConsumerReq
 	lggr := env.Logger
 	chain, ok := env.Chains[chainSelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
 	}
 	ab := deployment.NewMemoryAddressBook()
 	deployResp, err := kslib.DeployFeedsConsumer(chain, ab)

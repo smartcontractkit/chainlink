@@ -32,7 +32,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			ctx := testcontext.Get(t)
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -81,11 +81,11 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			sourceCfg, err := state.Chains[source].OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, dest)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[source].TestRouter.Address(), sourceCfg.Router)
-			require.Equal(t, false, sourceCfg.AllowlistEnabled)
+			require.False(t, sourceCfg.AllowlistEnabled)
 			destCfg, err := state.Chains[dest].OnRamp.GetDestChainConfig(&bind.CallOpts{Context: ctx}, source)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[dest].Router.Address(), destCfg.Router)
-			require.Equal(t, true, destCfg.AllowlistEnabled)
+			require.True(t, destCfg.AllowlistEnabled)
 		})
 	}
 }
@@ -106,7 +106,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -176,7 +176,7 @@ func TestUpdateFQDests(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -244,7 +244,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -320,7 +320,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv := NewMemoryEnvironment(t)
+			tenv, _ := NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

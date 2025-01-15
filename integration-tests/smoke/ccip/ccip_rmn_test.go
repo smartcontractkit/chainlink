@@ -247,7 +247,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	ctx := testcontext.Get(t)
 	t.Logf("Running RMN test case: %s", tc.name)
 
-	envWithRMN, rmnCluster := testsetups.NewIntegrationEnvironment(t,
+	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithRMNEnabled(len(tc.rmnNodes)),
 	)
 	t.Logf("envWithRmn: %#v", envWithRMN)
@@ -275,7 +275,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
-	_, err = changeset.NewSetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
+	_, err = changeset.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNStaticConfig:   staticConfig,
 		RMNDynamicConfig:  dynamicConfig,
@@ -289,7 +289,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	_, err = changeset.NewPromoteCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = changeset.PromoteCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		DigestToPromote:   candidateDigest,
 	})
@@ -314,7 +314,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 	}
 
-	_, err = changeset.NewSetRMNRemoteConfigChangeset(envWithRMN.Env, changeset.SetRMNRemoteConfig{
+	_, err = changeset.SetRMNRemoteConfigChangeset(envWithRMN.Env, changeset.SetRMNRemoteConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNRemoteConfigs:  rmnRemoteConfig,
 	})
@@ -499,7 +499,7 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.Deploye
 		// configure remote chain details on the home contract
 		tc.pf.rmnHomeSourceChains = append(tc.pf.rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       tc.pf.chainSelectors[remoteChainIdx],
-			F:                   uint64(remoteF),
+			FObserve:            uint64(remoteF),
 			ObserverNodesBitmap: createObserverNodesBitmap(tc.pf.chainSelectors[remoteChainIdx], tc.rmnNodes, tc.pf.chainSelectors),
 		})
 	}
