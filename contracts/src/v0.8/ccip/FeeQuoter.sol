@@ -586,12 +586,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to
     // post transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
-    uint256 dataAvailabilityCostUSDC36Decimals = 0;
+    uint256 dataAvailabilityCostUSD36Decimals = 0;
 
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (destChainConfig.destDataAvailabilityMultiplierBps > 0) {
-      dataAvailabilityCostUSDC36Decimals = _getDataAvailabilityCost(
+      dataAvailabilityCostUSD36Decimals = _getDataAvailabilityCost(
         destChainConfig,
         // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
         uint112(packedGasPrice >> Internal.GAS_PRICE_BITS),
@@ -634,8 +634,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
     // uint112(packedGasPrice) = executionGasPrice
     return (
-      uint112(packedGasPrice) * totalDestChainGas * destChainConfig.gasMultiplierWeiPerEth + premiumFeeUSDWei
-        + dataAvailabilityCostUSDC36Decimals
+      totalDestChainGas * uint112(packedGasPrice) * destChainConfig.gasMultiplierWeiPerEth + premiumFeeUSDWei
+        + dataAvailabilityCostUSD36Decimals
     ) / feeTokenPrice;
   }
 
