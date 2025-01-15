@@ -3,11 +3,12 @@ package capabilities
 import "errors"
 
 type Request struct {
-	URL       string            `json:"url"`                 // URL to query, only http and https protocols are supported.
-	Method    string            `json:"method,omitempty"`    // HTTP verb, defaults to GET.
-	Headers   map[string]string `json:"headers,omitempty"`   // HTTP headers, defaults to empty.
-	Body      []byte            `json:"body,omitempty"`      // HTTP request body
-	TimeoutMs uint32            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
+	URL              string            `json:"url"`                 // URL to query, only http and https protocols are supported.
+	Method           string            `json:"method,omitempty"`    // HTTP verb, defaults to GET.
+	Headers          map[string]string `json:"headers,omitempty"`   // HTTP headers, defaults to empty.
+	Body             []byte            `json:"body,omitempty"`      // HTTP request body
+	TimeoutMs        uint32            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
+	MaxResponseBytes uint32            `json:"maxBytes,omitempty"`  // Maximum number of bytes to read from the response body
 }
 
 type Response struct {

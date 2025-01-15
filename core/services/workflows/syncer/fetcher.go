@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
@@ -20,20 +21,31 @@ import (
 
 type FetcherService struct {
 	services.StateMachine
-	lggr    logger.Logger
-	och     *webapi.OutgoingConnectorHandler
-	wrapper gatewayConnector
+	lggr            logger.Logger
+	och             *webapi.OutgoingConnectorHandler
+	wrapper         gatewayConnector
+	maxArtifactSize uint64
 }
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector) *FetcherService {
-	return &FetcherService{
+func WithMaxArtifactSize(maxArtifactSize uint64) func(*FetcherService) {
+	return func(fs *FetcherService) {
+		fs.maxArtifactSize = maxArtifactSize
+	}
+}
+
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, opts ...func(*FetcherService)) *FetcherService {
+	fs := &FetcherService{
 		lggr:    lggr.Named("FetcherService"),
 		wrapper: wrapper,
 	}
+	for _, opt := range opts {
+		opt(fs)
+	}
+	return fs
 }
 
 func (s *FetcherService) Start(ctx context.Context) error {
@@ -85,9 +97,15 @@ func hash(url string) string {
 
 func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
 	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
+
+	if s.maxArtifactSize > 0 && s.maxArtifactSize > math.MaxUint32 {
+		return nil, fmt.Errorf("max artifact size is greater than maximum allowed size %d", math.MaxUint32)
+	}
+
 	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-		URL:    url,
-		Method: http.MethodGet,
+		URL:              url,
+		Method:           http.MethodGet,
+		MaxResponseBytes: uint32(s.maxArtifactSize),
 	})
 	if err != nil {
 		return nil, err

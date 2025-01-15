@@ -364,7 +364,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				}
 
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
+				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper,
+					syncer.WithMaxArtifactSize(uint64(cfg.Capabilities().WorkflowRegistry().MaxArtifactsSize())),
+				)
 
 				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
 					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
