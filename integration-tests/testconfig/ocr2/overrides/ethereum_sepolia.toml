@@ -13,3 +13,17 @@ time_between_rounds = "2m"
 
 [OCR2.Common]
 number_of_contracts = 2
+
+[Network.EVMNetworks.SEPOLIA]
+evm_name = 'SEPOLIA'
+evm_chain_id = 11155111
+evm_finality_tag = true
+evm_finality_depth = 1000
+evm_simulated = false
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 250000
+evm_transaction_timeout = '3m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 10000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 8000000
