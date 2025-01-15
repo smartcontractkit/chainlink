@@ -544,8 +544,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DeriveCCIPOCRParams(WithCommitOffChainConfig(e.FeedChainSel, tokenInfo),
-			WithExecuteOffChainConfig(tokenDataProviders),
+		ocrParams := DeriveCCIPOCRParams(WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
+			WithDefaultExecuteOffChainConfig(tokenDataProviders),
 			WithOCRParamOverride(tc.OCRConfigOverride),
 		)
 		ocrConfigs[chain] = ocrParams

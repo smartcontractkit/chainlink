@@ -61,8 +61,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	params := DeriveCCIPOCRParams(
-		WithCommitOffChainConfig(e.FeedChainSel, nil),
-		WithExecuteOffChainConfig(nil),
+		WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
+		WithDefaultExecuteOffChainConfig(nil),
 	)
 	// tweak params to have invalid config
 	// make DeltaRound greater than DeltaProgress
@@ -255,7 +255,7 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 									dest: DeriveCCIPOCRParams(
-										WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -263,7 +263,7 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 									dest: DeriveCCIPOCRParams(
-										WithExecuteOffChainConfig(nil),
+										WithDefaultExecuteOffChainConfig(nil),
 									),
 								},
 								PluginType: types.PluginTypeCCIPExec,
@@ -368,7 +368,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 									dest: DeriveCCIPOCRParams(
-										WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -376,7 +376,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
 									dest: DeriveCCIPOCRParams(
-										WithExecuteOffChainConfig(nil),
+										WithDefaultExecuteOffChainConfig(nil),
 									),
 								},
 								PluginType: types.PluginTypeCCIPExec,

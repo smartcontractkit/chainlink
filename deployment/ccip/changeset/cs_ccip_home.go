@@ -182,8 +182,8 @@ func WithOCRParamOverride(override func(params *CCIPOCRParams)) CCIPOCROpts {
 	}
 }
 
-// WithCommitOffChainConfig can be used to add token info to the existing commit off-chain config. If no commit off-chain config is set, it will be created with default values.
-func WithCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo) CCIPOCROpts {
+// WithDefaultCommitOffChainConfig can be used to add token info to the existing commit off-chain config. If no commit off-chain config is set, it will be created with default values.
+func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo) CCIPOCROpts {
 	return func(params *CCIPOCRParams) {
 		if params.CommitOffChainConfig == nil {
 			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
@@ -209,8 +209,8 @@ func WithCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.Unknow
 	}
 }
 
-// WithExecuteOffChainConfig can be used to add token data observers to the execute off-chain config. If no execute off-chain config is set, it will be created with default values.
-func WithExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserverConfig) CCIPOCROpts {
+// WithDefaultExecuteOffChainConfig can be used to add token data observers to the execute off-chain config. If no execute off-chain config is set, it will be created with default values.
+func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserverConfig) CCIPOCROpts {
 	return func(params *CCIPOCRParams) {
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
