@@ -98,10 +98,10 @@ jobs:
             go-modules-${{ runner.os }}
       - name: Install dependencies
         run: go mod download
-      - name: Run System Tests
+      - name: Run integration tests
         env:
           CTF_CONFIGS: ${{ matrix.test.config }}
-          CTF_JD_IMAGE: ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/job-distributor:0.0.6
+          CTF_JD_IMAGE: ${{ secrets.PROD_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{secrets.AWS_REGION}}.amazonaws.com/job-distributor:0.6.0
           CTF_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION}}.amazonaws.com/chainlink:${{ github.sha }}
           LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
