@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,6 +48,19 @@ func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
 	txOpts := d.e.Chains[chain].DeployerKey
 	if d.mcmConfig != nil {
 		txOpts = deployment.SimTransactOpts()
+		txOpts = &bind.TransactOpts{
+			From:       d.state.Chains[chain].Timelock.Address(),
+			Signer:     txOpts.Signer,
+			GasLimit:   txOpts.GasLimit,
+			GasPrice:   txOpts.GasPrice,
+			Nonce:      txOpts.Nonce,
+			Value:      txOpts.Value,
+			GasFeeCap:  txOpts.GasFeeCap,
+			GasTipCap:  txOpts.GasTipCap,
+			Context:    txOpts.Context,
+			AccessList: txOpts.AccessList,
+			NoSend:     txOpts.NoSend,
+		}
 	}
 	sim := &bind.TransactOpts{
 		From:       txOpts.From,
@@ -62,7 +76,22 @@ func (d *DeployerGroup) getDeployer(chain uint64) *bind.TransactOpts {
 		NoSend:     true,
 	}
 	oldSigner := sim.Signer
+
+	var startingNonce *big.Int
+	if txOpts.Nonce != nil {
+		startingNonce = new(big.Int).Set(txOpts.Nonce)
+	} else {
+		nonce, err := d.e.Chains[chain].Client.PendingNonceAt(context.Background(), txOpts.From)
+		if err != nil {
+			panic(fmt.Errorf("could not get nonce for deployer: %v", err))
+		}
+		startingNonce = new(big.Int).SetUint64(nonce)
+	}
+
 	sim.Signer = func(a common.Address, t *types.Transaction) (*types.Transaction, error) {
+		// Update the nonce to consider the transactions that have been sent
+		sim.Nonce = big.NewInt(0).Add(startingNonce, big.NewInt(int64(len(d.transactions[chain]))+1))
+
 		tx, err := oldSigner(a, t)
 		if err != nil {
 			return nil, err
