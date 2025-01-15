@@ -529,10 +529,6 @@ var (
 		LinkSymbol: MockLinkAggregatorDescription,
 		WethSymbol: MockWETHAggregatorDescription,
 	}
-	MockSymbolToDecimals = map[TokenSymbol]uint8{
-		LinkSymbol: LinkDecimals,
-		WethSymbol: WethDecimals,
-	}
 )
 
 func DeployFeeds(

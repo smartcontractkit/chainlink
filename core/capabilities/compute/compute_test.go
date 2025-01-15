@@ -91,7 +91,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -134,7 +134,7 @@ func TestComputeExecute(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
