@@ -22,7 +22,7 @@ import (
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
-	// Deploy 1.5 contracts (excluding pools and to start, but including MCMS) .
+	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithPrerequisiteDeployment(
