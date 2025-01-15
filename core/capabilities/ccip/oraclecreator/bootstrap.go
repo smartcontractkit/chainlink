@@ -407,7 +407,7 @@ func (d *peerGroupDialer) sync() {
 
 	// Handle each action
 	for _, action := range actions {
-		lggr := logger2.With(lggr,
+		actionLggr := logger2.With(lggr,
 			"action", action.actionType,
 			"endpointConfigDigest", action.endpointConfigDigest,
 			"rmnHomeConfigDigest", action.rmnHomeConfigDigest)
@@ -415,10 +415,10 @@ func (d *peerGroupDialer) sync() {
 		switch action.actionType {
 		case ActionClose:
 			d.closePeerGroup(action.endpointConfigDigest)
-			lggr.Infow("Peer group closed successfully")
+			actionLggr.Infow("Peer group closed successfully")
 		case ActionCreate:
 			if err := d.createPeerGroup(action.endpointConfigDigest, action.rmnHomeConfigDigest); err != nil {
-				lggr.Errorw("Failed to create peer group", "err", err)
+				actionLggr.Errorw("Failed to create peer group", "err", err)
 				// Consider closing all groups on error
 				d.closeExistingPeerGroups()
 				return
