@@ -3,15 +3,16 @@ pragma solidity ^0.8.24;
 
 import {Pool} from "../../../libraries/Pool.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetup {
-  function test_LockOrBurn_SiloedFunds_Success(
+  function test_lockOrBurn_SiloedFunds(
     uint256 amount
   ) public {
     amount = 10e18;
+
+    assertTrue(s_siloedLockReleaseTokenPool.isSiloed(SILOED_CHAIN_SELECTOR));
 
     vm.startPrank(s_allowedOnRamp);
 
@@ -33,11 +34,13 @@ contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetu
     assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), amount);
   }
 
-  function test_LockOrBurn_NonSiloedFunds(
+  function test_lockOrBurn_UnsiloedFunds(
     uint256 amount
   ) public {
     amount = 10e18;
     vm.startPrank(s_allowedOnRamp);
+
+    assertFalse(s_siloedLockReleaseTokenPool.isSiloed(DEST_CHAIN_SELECTOR));
 
     vm.expectEmit();
     emit RateLimiter.TokensConsumed(amount);

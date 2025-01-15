@@ -48,4 +48,17 @@ contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseT
     // Assert that the available liquidity moved from being siloed to unsiloed.
     assertEq(s_siloedLockReleaseTokenPool.getUnsiloedLiquidity(), amount);
   }
+
+  // Reverts
+
+  function test_updateSiloDesignations_RevertWhen_ChainNotSiloed() public {
+    uint64[] memory removableChainSelectors = new uint64[](1);
+    removableChainSelectors[0] = DEST_CHAIN_SELECTOR;
+
+    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.ChainNotSiloed.selector, DEST_CHAIN_SELECTOR));
+
+    s_siloedLockReleaseTokenPool.updateSiloDesignations(
+      removableChainSelectors, new SiloedLockReleaseTokenPool.SiloConfigUpdate[](0)
+    );
+  }
 }

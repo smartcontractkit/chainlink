@@ -30,9 +30,11 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
 
     assertEq(s_token.balanceOf(OWNER), balanceBefore);
     assertEq(s_token.balanceOf(address(s_siloedLockReleaseTokenPool)), 0);
+    assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), 0);
+    assertEq(s_siloedLockReleaseTokenPool.getUnsiloedLiquidity(), 0);
   }
 
-  function test_withdrawLiquidity_UnsiloedFunds() public {
+  function test_withdrawSiloedLiquidity_UnsiloedFunds() public {
     uint256 amount = 1e24;
 
     uint256 balanceBefore = s_token.balanceOf(OWNER);
@@ -91,7 +93,7 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
     s_siloedLockReleaseTokenPool.withdrawSiloedLiquidity(SILOED_CHAIN_SELECTOR, withdrawAmount);
   }
 
-  function test_withdrawLiquidity_RevertWhen_UnsiloedFunds_NotEnoughLiquidity() public {
+  function test_withdrawSiloedLiquidity_RevertWhen_UnsiloedFunds_NotEnoughLiquidity() public {
     uint256 liquidityAmount = 1e24;
     uint256 withdrawAmount = liquidityAmount + 1;
 
@@ -106,7 +108,7 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
     s_siloedLockReleaseTokenPool.withdrawSiloedLiquidity(DEST_CHAIN_SELECTOR, withdrawAmount);
   }
 
-  function test_withdrawLiqudity_RevertWhen_UnauthorizedOnlyUnsiloedChainRebalancer() public {
+  function test_withdrawSiloedLiqudity_RevertWhen_UnauthorizedOnlyUnsiloedRebalancer() public {
     vm.startPrank(UNAUTHORIZED_ADDRESS);
 
     vm.expectRevert(abi.encodeWithSelector(TokenPool.Unauthorized.selector, UNAUTHORIZED_ADDRESS));

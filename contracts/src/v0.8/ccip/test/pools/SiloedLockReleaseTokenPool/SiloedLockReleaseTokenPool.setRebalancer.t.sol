@@ -5,9 +5,9 @@ import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenP
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolSetup {
-  address public REBALANCER_ADDRESS = address(0xdeadbeef);
+  address public constant REBALANCER_ADDRESS = address(0xdeadbeef);
 
-  function test_setSiloedChainRebalancer() public {
+  function test_setSiloRebalancer() public {
     vm.expectEmit();
     emit SiloedLockReleaseTokenPool.SiloRebalancerSet(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS, OWNER);
 
@@ -17,7 +17,7 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
     assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(DEST_CHAIN_SELECTOR), OWNER);
   }
 
-  function test_setUnsiloedChainRebalancer() public {
+  function test_setRebalancer_UnsiloedChains() public {
     vm.expectEmit();
     emit SiloedLockReleaseTokenPool.UnsiloedRebalancerSet(REBALANCER_ADDRESS, OWNER);
 
@@ -28,7 +28,7 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
 
   // Reverts
 
-  function test_setSiloedChainRebalancer_RevertWhen_ChainNotSiloed() public {
+  function test_setSiloRebalancer_RevertWhen_ChainNotSiloed() public {
     vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.ChainNotSiloed.selector, DEST_CHAIN_SELECTOR));
 
     s_siloedLockReleaseTokenPool.setSiloRebalancer(DEST_CHAIN_SELECTOR, REBALANCER_ADDRESS);

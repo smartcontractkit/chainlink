@@ -9,7 +9,7 @@ import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 contract BurnToAddressMintTokenPool_releaseOrMint is BurnToAddressMintTokenPoolSetup {
   function test_releaseOrMint() public {
     uint256 amount = 1e24;
-    address receiver = makeAddr("receiver_address");
+    address receiver = makeAddr("RECEIVER_ADDRESS");
 
     vm.startPrank(s_burnMintOffRamp);
 

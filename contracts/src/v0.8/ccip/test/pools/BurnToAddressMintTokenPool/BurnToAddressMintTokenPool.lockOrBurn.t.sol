@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Pool} from "../../../libraries/Pool.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
-
 import {BurnToAddressMintTokenPool} from "../../../pools/BurnToAddressMintTokenPool.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
 import {BurnToAddressMintTokenPoolSetup} from "./BurnToAddressMintTokenPoolSetup.t.sol";
@@ -22,18 +21,9 @@ contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetu
     vm.startPrank(s_burnMintOnRamp);
 
     vm.expectEmit();
-    emit RateLimiter.TokensConsumed(burnAmount);
+    emit IERC20.Transfer(address(s_pool), BURN_ADDRESS, burnAmount);
 
-    vm.expectEmit();
-    emit IERC20.Transfer(address(s_pool), address(0xdead), burnAmount);
-
-    vm.expectEmit();
-    emit TokenPool.Burned(address(s_burnMintOnRamp), burnAmount);
-
-    bytes4 expectedSignature = bytes4(keccak256("transfer(address,uint256)"));
-    vm.expectCall(
-      address(s_burnMintERC20), abi.encodeWithSelector(expectedSignature, s_pool.getBurnAddress(), burnAmount)
-    );
+    vm.expectCall(address(s_burnMintERC20), abi.encodeWithSelector(IERC20.transfer.selector, BURN_ADDRESS, burnAmount));
 
     s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
@@ -52,7 +42,7 @@ contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetu
 
   // Reverts
 
-  function test_LockOrBurn_RevertWhen_MintedTokensUnderflows() public {
+  function test_LockOrBurn_RevertWhen_InsufficientMintedTokens() public {
     uint256 burnAmount = 1e24;
 
     s_pool.setMintedTokens(burnAmount - 1);

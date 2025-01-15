@@ -147,10 +147,13 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   /// @notice Updates designations for chains on whether to mark funds as Siloed or not
   /// @param removes A list of chain selectors to disable Siloing. Their funds will be moved into the unsiloed pool.
+  /// If a chain is not siloed, and attempted to be removed, the function will revert.
   /// @param adds A list of chain selectors to enable Siloing. Adding a chain to siloing will not set the rebalancer.
   /// The rebalancer will need to be set separately.
   function updateSiloDesignations(uint64[] calldata removes, SiloConfigUpdate[] calldata adds) external onlyOwner {
     for (uint256 i = 0; i < removes.length; ++i) {
+      if (!s_chainConfigs[removes[i]].isSiloed) revert ChainNotSiloed(removes[i]);
+
       // When a chain is removed from siloing, the funds are moved to the accounting pool shared by all unsiloed chain.
       uint256 amountUnsiloed = s_chainConfigs[removes[i]].tokenBalance;
 

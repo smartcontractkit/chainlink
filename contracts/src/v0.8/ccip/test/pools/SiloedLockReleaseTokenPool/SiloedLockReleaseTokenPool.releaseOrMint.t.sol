@@ -8,12 +8,13 @@ import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenP
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolSetup {
-  function test_ReleaseOrMint_SiloedFunds() public {
+  function test_ReleaseOrMint_SiloedChain() public {
     uint256 amount = 10e18;
 
     deal(address(s_token), address(s_siloedLockReleaseTokenPool), amount);
     vm.startPrank(s_allowedOnRamp);
 
+    // Lock funds so that they can be released without underflowing the internal accounting
     s_siloedLockReleaseTokenPool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: STRANGER,
@@ -47,12 +48,13 @@ contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolS
     assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), 0);
   }
 
-  function test_ReleaseOrMint_UnsiloedFunds() public {
+  function test_ReleaseOrMint_UnsiloedChain() public {
     uint256 amount = 10e18;
 
     deal(address(s_token), address(s_siloedLockReleaseTokenPool), amount);
     vm.startPrank(s_allowedOnRamp);
 
+    // Lock funds for unsiloed chain so they can be released later
     s_siloedLockReleaseTokenPool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: STRANGER,
@@ -90,12 +92,13 @@ contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolS
 
   // Reverts
 
-  function test_ReleaseOrMint_RevertsWhen_InsufficientLiquidity_SiloedTokenPool() public {
+  function test_ReleaseOrMint_RevertsWhen_InsufficientLiquidity_SiloedChain() public {
     uint256 releaseAmount = 10e18;
     uint256 liquidityAmount = releaseAmount - 1;
 
     s_siloedLockReleaseTokenPool.provideSiloedLiquidity(SILOED_CHAIN_SELECTOR, liquidityAmount);
 
+    // Since amount to release is greater than provided liquidity, the function should revert
     vm.expectRevert(
       abi.encodeWithSelector(SiloedLockReleaseTokenPool.InsufficientLiquidity.selector, liquidityAmount, releaseAmount)
     );
@@ -116,12 +119,14 @@ contract SiloedLockReleaseTokenPool_releaseOrMint is SiloedLockReleaseTokenPoolS
     );
   }
 
-  function test_ReleaseOrMint_RevertsWhen_InsufficientLiquidity_UnsiloedTokenPool() public {
+  function test_ReleaseOrMint_RevertsWhen_InsufficientLiquidity_UnsiloedChain() public {
     uint256 releaseAmount = 10e18;
     uint256 liquidityAmount = releaseAmount - 1;
 
+    // Call the provide liquidity function which provides to unsiloed chains.
     s_siloedLockReleaseTokenPool.provideLiquidity(liquidityAmount);
 
+    // Since amount to release is greater than provided liquidity, the function should revert
     vm.expectRevert(
       abi.encodeWithSelector(SiloedLockReleaseTokenPool.InsufficientLiquidity.selector, liquidityAmount, releaseAmount)
     );
