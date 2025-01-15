@@ -178,35 +178,35 @@ func (p *Common) ReadFromEnvVar() error {
 	// TODO Bala, these fields no longer exist
 	// p.Logging.TestLogCollect, p.Logging.RunId, p.Logging.LogStream
 	//
-	//testLogCollect := ctfconfig.MustReadEnvVar_Boolean(ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
-	//if testLogCollect != nil {
-	//	if p.Logging == nil {
-	//		p.Logging = &ctfconfig.LoggingConfig{}
+	//	testLogCollect := ctfconfig.MustReadEnvVar_Boolean(ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
+	//	if testLogCollect != nil {
+	//		if p.Logging == nil {
+	//			p.Logging = &ctfconfig.LoggingConfig{}
+	//		}
+	//		logger.Debug().Msgf("Using %s env var to override Logging.TestLogCollect", ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
+	//		p.Logging.TestLogCollect = testLogCollect
 	//	}
-	//	logger.Debug().Msgf("Using %s env var to override Logging.TestLogCollect", ctfconfig.E2E_TEST_LOG_COLLECT_ENV)
-	//	p.Logging.TestLogCollect = testLogCollect
-	//}
 	//
-	//loggingRunID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
-	//if loggingRunID != "" {
-	//	if p.Logging == nil {
-	//		p.Logging = &ctfconfig.LoggingConfig{}
+	//	loggingRunID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
+	//	if loggingRunID != "" {
+	//		if p.Logging == nil {
+	//			p.Logging = &ctfconfig.LoggingConfig{}
+	//		}
+	//		logger.Debug().Msgf("Using %s env var to override Logging.RunID", ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
+	//		p.Logging.RunId = &loggingRunID
 	//	}
-	//	logger.Debug().Msgf("Using %s env var to override Logging.RunID", ctfconfig.E2E_TEST_LOGGING_RUN_ID_ENV)
-	//	p.Logging.RunId = &loggingRunID
-	//}
 	//
-	//logstreamLogTargets := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV, ",")
-	//if len(logstreamLogTargets) > 0 {
-	//	if p.Logging == nil {
-	//		p.Logging = &ctfconfig.LoggingConfig{}
+	//	logstreamLogTargets := ctfconfig.MustReadEnvVar_Strings(ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV, ",")
+	//	if len(logstreamLogTargets) > 0 {
+	//		if p.Logging == nil {
+	//			p.Logging = &ctfconfig.LoggingConfig{}
+	//		}
+	//		if p.Logging.LogStream == nil {
+	//			p.Logging.LogStream = &ctfconfig.LogStreamConfig{}
+	//		}
+	//		logger.Debug().Msgf("Using %s env var to override Logging.LogStream.LogTargets", ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV)
+	//		p.Logging.LogStream.LogTargets = logstreamLogTargets
 	//	}
-	//	if p.Logging.LogStream == nil {
-	//		p.Logging.LogStream = &ctfconfig.LogStreamConfig{}
-	//	}
-	//	logger.Debug().Msgf("Using %s env var to override Logging.LogStream.LogTargets", ctfconfig.E2E_TEST_LOG_STREAM_LOG_TARGETS_ENV)
-	//	p.Logging.LogStream.LogTargets = logstreamLogTargets
-	//}
 
 	lokiTenantID := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_LOKI_TENANT_ID_ENV)
 	if lokiTenantID != "" {
@@ -256,8 +256,8 @@ func (p *Common) ReadFromEnvVar() error {
 		p.Logging.Loki.BearerToken = &lokiBearerToken
 	}
 
-	grafanaBaseUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-	if grafanaBaseUrl != "" {
+	grafanaBaseURL := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
+	if grafanaBaseURL != "" {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
 		}
@@ -265,11 +265,11 @@ func (p *Common) ReadFromEnvVar() error {
 			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
 		}
 		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.BaseUrl", ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-		p.Logging.Grafana.BaseUrl = &grafanaBaseUrl
+		p.Logging.Grafana.BaseUrl = &grafanaBaseURL
 	}
 
-	grafanaDashboardUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-	if grafanaDashboardUrl != "" {
+	grafanaDashboardURL := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
+	if grafanaDashboardURL != "" {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
 		}
@@ -277,7 +277,7 @@ func (p *Common) ReadFromEnvVar() error {
 			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
 		}
 		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.DashboardUrl", ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-		p.Logging.Grafana.DashboardUrl = &grafanaDashboardUrl
+		p.Logging.Grafana.DashboardUrl = &grafanaDashboardURL
 	}
 
 	grafanaBearerToken := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BEARER_TOKEN_ENV)
