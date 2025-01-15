@@ -3,6 +3,8 @@ package changeset
 import (
 	"testing"
 
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -64,6 +66,71 @@ func TestUpdateRMNConfig(t *testing.T) {
 	}
 }
 
+func TestSetDynamicConfig(t *testing.T) {
+	e, _ := NewMemoryEnvironment(t)
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+
+	nops := []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3}
+	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
+	for _, nop := range nops {
+		nodes = append(nodes, nop.ToRMNHomeNode())
+	}
+
+	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
+		HomeChainSelector: e.HomeChainSel,
+		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+			Nodes:          nodes,
+			OffchainConfig: []byte(""),
+		},
+		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+			SourceChains:   []rmn_home.RMNHomeSourceChain{},
+			OffchainConfig: []byte(""),
+		},
+	}
+
+	_, err = SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	require.NoError(t, err)
+
+	candidate, err := rmnHome.GetCandidateDigest(nil)
+	require.NoError(t, err)
+
+	promoteCandidateConfig := PromoteRMNHomeCandidateConfig{
+		HomeChainSelector: e.HomeChainSel,
+		DigestToPromote:   candidate,
+	}
+
+	_, err = PromoteCandidateConfigChangeset(e.Env, promoteCandidateConfig)
+	require.NoError(t, err)
+
+	active, err := rmnHome.GetActiveDigest(nil)
+	require.NoError(t, err)
+
+	setDynamicConfig := SetRMNHomeDynamicConfigConfig{
+		HomeChainSelector: e.HomeChainSel,
+		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+			SourceChains: []rmn_home.RMNHomeSourceChain{
+				{
+					ChainSelector:       e.HomeChainSel,
+					ObserverNodesBitmap: big.NewInt(1),
+				},
+			},
+			OffchainConfig: []byte(""),
+		},
+		CurrentDigest: active,
+	}
+
+	_, err = SetDynamicConfigChangeset(e.Env, &setDynamicConfig)
+	require.NoError(t, err)
+
+	dynamicConfig, err := rmnHome.GetConfig(nil, active)
+	require.NoError(t, err)
+
+	require.True(t, dynamicConfig.Ok)
+	require.Equal(t, setDynamicConfig.RMNDynamicConfig, dynamicConfig.VersionedConfig.DynamicConfig)
+}
+
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	e, _ := NewMemoryEnvironment(t)
 
@@ -90,6 +157,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 				},
 			},
 		})
+		require.NoError(t, err)
 	}
 
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
