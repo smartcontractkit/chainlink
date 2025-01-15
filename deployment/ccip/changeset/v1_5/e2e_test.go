@@ -68,6 +68,7 @@ func TestE2ELegacy(t *testing.T) {
 			},
 		},
 	})
+	require.NoError(t, err)
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

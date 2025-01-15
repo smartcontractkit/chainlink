@@ -42,22 +42,22 @@ type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
 	// TODO: This should be CreateContracts so the booleans make sense?
-	CreateJobAndContracts    bool
-	PrerequisiteDeployment   bool
-	V1_5Cfg                  V1_5DeploymentConfig
-	Chains                   int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	ChainIDs                 []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	NumOfUsersPerChain       int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Nodes                    int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	Bootstraps               int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	IsUSDC                   bool
-	IsUSDCAttestationMissing bool
-	IsMultiCall3             bool
-	OCRConfigOverride        func(CCIPOCRParams) CCIPOCRParams
-	RMNEnabled               bool
-	NumOfRMNNodes            int
-	LinkPrice                *big.Int
-	WethPrice                *big.Int
+	CreateJobAndContracts      bool
+	PrerequisiteDeploymentOnly bool
+	V1_5Cfg                    V1_5DeploymentConfig
+	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	Bootstraps                 int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
+	IsUSDC                     bool
+	IsUSDCAttestationMissing   bool
+	IsMultiCall3               bool
+	OCRConfigOverride          func(CCIPOCRParams) CCIPOCRParams
+	RMNEnabled                 bool
+	NumOfRMNNodes              int
+	LinkPrice                  *big.Int
+	WethPrice                  *big.Int
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -109,7 +109,7 @@ func WithMultiCall3() TestOps {
 
 func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
-		testCfg.PrerequisiteDeployment = true
+		testCfg.PrerequisiteDeploymentOnly = true
 		testCfg.V1_5Cfg = *v1_5Cfg
 	}
 }
@@ -322,7 +322,7 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
 	}
-	if testCfg.PrerequisiteDeployment {
+	if testCfg.PrerequisiteDeploymentOnly {
 		dEnv := NewEnvironmentWithPrerequisitesContracts(t, env)
 		env.UpdateDeployedEnvironment(dEnv)
 		return dEnv, env
