@@ -38,8 +38,27 @@ func Test_Fees(t *testing.T) {
 
 	t.Run("with base fee == 0", func(t *testing.T) {
 		tokenPriceInUSD := decimal.NewFromInt32(123)
-		BaseUSDFee = decimal.NewFromInt32(0)
-		fee := CalculateFee(tokenPriceInUSD, BaseUSDFee)
+		baseUSDFee := decimal.NewFromInt32(0)
+		fee := CalculateFee(tokenPriceInUSD, baseUSDFee)
+		assert.Equal(t, big.NewInt(0), fee)
+	})
+
+	t.Run("negative fee rounds up to zero", func(t *testing.T) {
+		tokenPriceInUSD := decimal.NewFromInt32(-123)
+		baseUSDFee := decimal.NewFromInt32(1)
+		fee := CalculateFee(tokenPriceInUSD, baseUSDFee)
+		assert.Equal(t, big.NewInt(0), fee)
+
+		tokenPriceInUSD = decimal.NewFromInt32(123)
+		baseUSDFee = decimal.NewFromInt32(-1)
+		fee = CalculateFee(tokenPriceInUSD, baseUSDFee)
+		assert.Equal(t, big.NewInt(0), fee)
+
+		// Multiple negative values also return a zero fee since negative
+		// prices are always nonsensical
+		tokenPriceInUSD = decimal.NewFromInt32(-123)
+		baseUSDFee = decimal.NewFromInt32(-1)
+		fee = CalculateFee(tokenPriceInUSD, baseUSDFee)
 		assert.Equal(t, big.NewInt(0), fee)
 	})
 
