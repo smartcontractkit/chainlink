@@ -18,11 +18,6 @@ import (
 	"time"
 )
 
-type ChainSelectorPair struct {
-	src uint64
-	dst uint64
-}
-
 type SeqNumRange struct {
 	Start *atomic.Uint64
 	End   *atomic.Uint64
@@ -31,7 +26,7 @@ type SeqNumRange struct {
 type DestinationGun struct {
 	l             logger.Logger
 	env           deployment.Environment
-	seqNums       map[ChainSelectorPair]SeqNumRange
+	seqNums       map[ccipchangeset.SourceDestPair]SeqNumRange
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
@@ -40,13 +35,13 @@ type DestinationGun struct {
 }
 
 func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
-	seqNums := make(map[ChainSelectorPair]SeqNumRange)
+	seqNums := make(map[ccipchangeset.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 
 		// query for the actual sequence number
-		seqNums[ChainSelectorPair{
-			src: cs,
-			dst: chainSelector,
+		seqNums[ccipchangeset.SourceDestPair{
+			SourceChainSelector: cs,
+			DestChainSelector:   chainSelector,
 		}] = SeqNumRange{
 			Start: atomic.NewUint64(0),
 			End:   atomic.NewUint64(0),
@@ -107,9 +102,9 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.l.Errorw("Failed setting loki labels", "error", err)
 	}
 
-	csPair := ChainSelectorPair{
-		src: src,
-		dst: m.chainSelector,
+	csPair := ccipchangeset.SourceDestPair{
+		SourceChainSelector: src,
+		DestChainSelector:   m.chainSelector,
 	}
 	m.l.Infow("Starting transmit with ",
 		"RoundNum", requestedRound,
@@ -245,7 +240,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 	}
 }
 
-func (m *DestinationGun) GetSequenceNumberRange(csPair ChainSelectorPair) (uint64, uint64, error) {
+func (m *DestinationGun) GetSequenceNumberRange(csPair ccipchangeset.SourceDestPair) (uint64, uint64, error) {
 	if r, ok := m.seqNums[csPair]; !ok {
 		return 0, 0, fmt.Errorf("no sequence number found for chain pair %v", csPair)
 	} else {

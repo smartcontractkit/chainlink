@@ -114,30 +114,31 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}
 
 	// find get fee revert
-	csPair := ChainSelectorPair{
-		src: 12922642891491394802,
-		dst: 3379446385462418246,
+	csPair := ccipchangeset.SourceDestPair{
+		SourceChainSelector: 12922642891491394802,
+		DestChainSelector:   3379446385462418246,
 	}
-	res, err := state.Chains[csPair.src].Router.IsChainSupported(nil, csPair.dst)
+	res, err := state.Chains[csPair.SourceChainSelector].Router.IsChainSupported(nil, csPair.DestChainSelector)
 	lggr.Infow("IsChainSupported", "res", res, "err", err)
 
-	destChainConfig, err := state.Chains[csPair.src].FeeQuoter.GetDestChainConfig(nil, csPair.dst)
+	destChainConfig, err := state.Chains[csPair.SourceChainSelector].FeeQuoter.GetDestChainConfig(nil, csPair.DestChainSelector)
 	lggr.Infow("GetDestChainConfig", "destChainConfig", destChainConfig, "err", err)
 
 	// find the getFee revert
 	_, err = p.Run(true)
-	//csPair := ChainSelectorPair{
-	//	src: 12922642891491394802,
-	//	dst: 3379446385462418246,
-	//}
-	src, dst := env.Chains[csPair.src], env.Chains[csPair.dst]
+
+	src, dst := env.Chains[csPair.SourceChainSelector], env.Chains[csPair.DestChainSelector]
 	startblk := uint64(11654)
 
-	seqNum := gunMap[csPair.dst].seqNums[csPair].End.Load()
+	seqNum := gunMap[csPair.DestChainSelector].seqNums[csPair].End.Load()
 	_, err = ccipchangeset.ConfirmCommitWithExpectedSeqNumRange(t, src, dst, state.Chains[3379446385462418246].OffRamp, &startblk, cciptypes.SeqNumRange{
 		cciptypes.SeqNum(seqNum - 1),
 		cciptypes.SeqNum(seqNum - 1),
 	}, false)
+
+	ccipchangeset.ConfirmExecWithSeqNrsForAll(t, *env, state, map[ccipchangeset.SourceDestPair][]uint64{
+		csPair: {seqNum - 1},
+	}, startBlocks)
 
 	// todo: create channels that watch for these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
 	// rather than waiting for the generator to finish
