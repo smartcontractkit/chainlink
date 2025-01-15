@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Bump chainlink-common version.
+#updated Bump chainlink-common version.
