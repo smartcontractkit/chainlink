@@ -46,7 +46,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     });
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
+      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
       abi.encode(expectedOutputArgs)
     );
   }
@@ -60,22 +60,23 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     });
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseSOLExtraArgsFromBytes("", s_destChainConfig)), abi.encode(expectedOutputArgs)
+      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes("", s_destChainConfig)), abi.encode(expectedOutputArgs)
     );
   }
 
-  function test_parseGasLimitFromExtraArgBytes_defaultTxGasLimit() public {
+  function test_resolveGasLimitForDestination_defaultTxGasLimit() public {
     // Need to apply a chain family selector that does not have an explicit extraArgs parser available
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
     destChainConfigArgs[0] = _generateFeeQuoterDestChainConfigArgs()[0];
     destChainConfigArgs[0].destChainConfig.isEnabled = false;
+    destChainConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR + 1;
     destChainConfigArgs[0].destChainConfig.chainFamilySelector = bytes4(0xdeadbeef);
 
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+    s_destChainConfig = destChainConfigArgs[0].destChainConfig;
 
-    uint256 defaultTxGasLimit = s_destChainConfig.defaultTxGasLimit;
-    uint256 gasLimit = s_feeQuoter.parseGasLimitFromExtraArgBytes("", s_destChainConfig);
-    vm.assertEq(gasLimit, defaultTxGasLimit);
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, s_destChainConfig.chainFamilySelector));
+    uint256 gasLimit = s_feeQuoter.resolveGasLimitForDestination("", s_destChainConfig);
   }
 
   // Reverts
@@ -91,6 +92,6 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     bytes memory inputExtraArgs = Client._svmArgsToBytes(inputArgs);
 
     vm.expectRevert(FeeQuoter.MessageGasLimitTooHigh.selector);
-    s_feeQuoter.parseSOLExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+    s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
   }
 }

@@ -25,7 +25,6 @@ import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/ut
 /// The authorized callers in the contract represent the fee price updaters.
 contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver, KeystoneFeedsPermissionHandler {
   using EnumerableSet for EnumerableSet.AddressSet;
-  using EnumerableSet for EnumerableSet.Bytes32Set;
   using USDPriceWith18Decimals for uint224;
   using KeystoneFeedDefaultMetadataLib for bytes;
 
@@ -38,6 +37,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error DestinationChainNotEnabled(uint64 destChainSelector);
   error ExtraArgOutOfOrderExecutionMustBeTrue();
   error InvalidExtraArgsTag();
+  error InvalidExtraArgsData();
   error SourceTokenDataTooLarge(address token);
   error InvalidDestChainConfig(uint64 destChainSelector);
   error MessageFeeTooHigh(uint256 msgFeeJuels, uint256 maxFeeJuelsPerMsg);
@@ -60,7 +60,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   event PremiumMultiplierWeiPerEthUpdated(address indexed token, uint64 premiumMultiplierWeiPerEth);
   event DestChainConfigUpdated(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
   event DestChainAdded(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
-  event ChainFamilySelectorModified(bytes4 chainFamilySelector, bool isAdded);
 
   /// @dev Contains token price configuration used in both the keystone price updates and the price feed fallback logic.
   struct TokenPriceFeedConfig {
@@ -574,7 +573,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (!s_feeTokens.contains(message.feeToken)) revert FeeTokenNotSupported(message.feeToken);
 
     v.numberOfTokens = message.tokenAmounts.length;
-    v.gasLimit = _parseGasLimitFromExtraArgBytes(message.extraArgs, v.destChainConfig);
+    v.gasLimit = _resolveGasLimitForDestination(message.extraArgs, v.destChainConfig);
 
     _validateMessage(v.destChainConfig, message.data.length, v.numberOfTokens, v.gasLimit, message.receiver);
 
@@ -865,36 +864,34 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
-  /// @dev Since SVM addresses are parsed as bytes32, and no other form of validation occurs, no explicit
-  /// call is needed to a library function for address validation.
   function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       Internal._validateEVMAddress(destAddress);
+      return;
     } else if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       Internal._validateSVMAddress(destAddress);
+      return;
     }
+    revert InvalidChainFamilySelector(chainFamilySelector);
   }
 
-  function _parseGasLimitFromExtraArgBytes(
+  function _resolveGasLimitForDestination(
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
   ) internal pure returns (uint256 gasLimit) {
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      gasLimit = _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
+      return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      gasLimit = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
-    } else {
-      gasLimit = destChainConfig.defaultTxGasLimit;
+      return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
     }
-    return gasLimit;
+    revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
 
   /// @notice Parse and validate the SVM specific Extra Args Bytes.
   function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     DestChainConfig memory destChainConfig
-  ) internal pure returns (Client.SVMExtraArgsV1 memory) {
-    Client.SVMExtraArgsV1 memory svmExtraArgs;
+  ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
     if (extraArgs.length == 0) {
       svmExtraArgs.computeUnits = destChainConfig.defaultTxGasLimit;
       return svmExtraArgs;

@@ -164,7 +164,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
 
     assertTrue(isOutOfOrderExecution);
     assertEq(
-      convertedExtraArgs, Client._svmArgsToBytes(s_feeQuoter.parseSOLExtraArgsFromBytes(extraArgs, s_destChainConfig))
+      convertedExtraArgs, Client._svmArgsToBytes(s_feeQuoter.parseSVMExtraArgsFromBytes(extraArgs, s_destChainConfig))
     );
   }
 

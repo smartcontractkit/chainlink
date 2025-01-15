@@ -343,7 +343,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
   }
 
   // Used to generate a message with a specific extraArgs tag for SVM
-  function _generateEmptyMessage2Sol() public view returns (Client.EVM2AnyMessage memory) {
+  function _generateEmptyMessage2SVM() public view returns (Client.EVM2AnyMessage memory) {
     return Client.EVM2AnyMessage({
       receiver: abi.encode(OWNER),
       data: "",

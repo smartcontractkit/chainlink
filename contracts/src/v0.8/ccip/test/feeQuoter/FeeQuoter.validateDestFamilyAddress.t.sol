@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
+import {FeeQuoter} from "../../FeeQuoter.sol";
 
 contract FeeQuoter_validateDestFamilyAddress is FeeQuoterSetup {
   function test_ValidEVMAddress() public view {
@@ -10,11 +11,17 @@ contract FeeQuoter_validateDestFamilyAddress is FeeQuoterSetup {
     s_feeQuoter.validateDestFamilyAddress(Internal.CHAIN_FAMILY_SELECTOR_EVM, encodedAddress);
   }
 
-  function test_ValidNonEVMAddress() public view {
-    s_feeQuoter.validateDestFamilyAddress(bytes4(uint32(1)), abi.encode(type(uint208).max));
+  function test_ValidSVMAddress() public view {
+    s_feeQuoter.validateDestFamilyAddress(Internal.CHAIN_FAMILY_SELECTOR_SVM, abi.encode(type(uint208).max));
   }
 
   // Reverts
+  function test_RevertWhen_InvalidChainFamilySelector() public {
+    bytes4 selector = bytes4(0xdeadbeef);
+    bytes memory encodedAddress = abi.encode(address(10000));
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, selector));
+    s_feeQuoter.validateDestFamilyAddress(selector, encodedAddress);
+  }
 
   function test_RevertWhen_InvalidEVMAddress() public {
     bytes memory invalidAddress = abi.encode(type(uint208).max);

@@ -5,7 +5,7 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
-contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
+contract FeeQuoter_resolveGasLimitForDestination is FeeQuoterSetup {
   FeeQuoter.DestChainConfig private s_destChainConfig;
 
   function setUp() public virtual override {

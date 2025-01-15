@@ -212,7 +212,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
     vm.stopPrank();
 
-    Client.EVM2AnyMessage memory message = _generateEmptyMessage2Sol();
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage2SVM();
 
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
