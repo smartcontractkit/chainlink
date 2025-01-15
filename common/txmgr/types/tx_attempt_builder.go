@@ -5,7 +5,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -19,17 +20,17 @@ type TxAttemptBuilder[
 	ADDR types.Hashable, // ADDR - chain address type
 	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
 	SEQ types.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
-	FEE feetypes.Fee, // FEE - chain fee type
+	FEE fees.Fee, // FEE - chain fee type
 ] interface {
 	// interfaces for running the underlying estimator
 	services.Service
 	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
-	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], lggr logger.Logger, opts ...feetypes.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, feeLimit uint64, retryable bool, err error)
+	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], lggr logger.Logger, opts ...fees.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, feeLimit uint64, retryable bool, err error)
 
 	// NewTxAttemptWithType builds a transaction using the configured fee estimator (new estimation) + passed in tx type
-	NewTxAttemptWithType(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], lggr logger.Logger, txType int, opts ...feetypes.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, feeLimit uint64, retryable bool, err error)
+	NewTxAttemptWithType(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], lggr logger.Logger, txType int, opts ...fees.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, feeLimit uint64, retryable bool, err error)
 
 	// NewBumpTxAttempt builds a transaction using the configured fee estimator (bumping) + tx type from previous attempt
 	// this should only be used after an initial attempt has been broadcast and the underlying gas estimator only needs to bump the fee

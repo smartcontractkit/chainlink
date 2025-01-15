@@ -155,6 +155,15 @@
     },
     {
       "type": "checks",
+      "id": "Heartbeat",
+      "attributes": {
+        "name": "Heartbeat",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "JobSpawner",
       "attributes": {
         "name": "JobSpawner",
