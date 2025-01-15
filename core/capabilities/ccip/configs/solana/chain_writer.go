@@ -1,7 +1,6 @@
 package solana
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 
