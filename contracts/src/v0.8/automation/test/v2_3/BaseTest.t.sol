@@ -367,7 +367,7 @@ contract BaseTest is Test {
     _handleTransmit(ids, registry, bytes4(0));
   }
 
-  function _batchTransmitWithBadFirstUpkeep(uint256[] memory ids, Registry registry) internal {
+  function _batchTransmitWithBadTriggers(uint256[] memory ids, bool[] memory goodTriggers, Registry registry) internal {
     bytes memory reportBytes;
     {
       uint256[] memory upkeepIds = new uint256[](ids.length);
@@ -380,8 +380,12 @@ contract BaseTest is Test {
         performDatas[i] = new bytes(0);
         uint8 triggerType = registry.getTriggerType(ids[i]);
         if (triggerType == 0) {
+          uint256 j = 0;
+          if (goodTriggers[i]) {
+            j = 1;
+          }
           triggers[i] = _encodeConditionalTrigger(
-            AutoBase.ConditionalTrigger(uint32(block.number - i), blockhash(block.number - i))
+            AutoBase.ConditionalTrigger(uint32(block.number - j), blockhash(block.number - j))
           );
         } else {
           revert("not implemented");
