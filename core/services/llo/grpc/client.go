@@ -67,17 +67,18 @@ func (c *client) start(context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client mTLS credentials: %w", err)
 	}
+	// Latency is critical so configure aggressively for fast
+	// redial attempts and short keepalive
 	clientConn, err := grpc.NewClient(
 		c.serverURL,
 		grpc.WithTransportCredentials(cMtls),
 		grpc.WithConnectParams(
 			grpc.ConnectParams{
-				// TODO: Make these configurable or at least constants
 				Backoff: backoff.Config{
-					BaseDelay:  1.0 * time.Second,
-					Multiplier: 1.6,
+					BaseDelay:  1 * time.Second,
+					Multiplier: 2,
 					Jitter:     0.2,
-					MaxDelay:   120 * time.Second,
+					MaxDelay:   30 * time.Second,
 				},
 				MinConnectTimeout: time.Second,
 			},

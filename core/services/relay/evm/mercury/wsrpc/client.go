@@ -67,9 +67,9 @@ var (
 
 type Client interface {
 	services.Service
-	pb.MercuryLegacyClient
+	pb.MercuryClient
 	ServerURL() string
-	RawClient() pb.MercuryLegacyClient
+	RawClient() pb.MercuryClient
 }
 
 type Conn interface {
@@ -92,7 +92,7 @@ type client struct {
 
 	logger    logger.Logger
 	conn      Conn
-	rawClient pb.MercuryLegacyClient
+	rawClient pb.MercuryClient
 	mu        sync.RWMutex
 
 	consecutiveTimeoutCnt atomic.Int32
@@ -194,7 +194,7 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	setLivenessMetric(true)
 	w.mu.Lock()
 	w.conn = conn
-	w.rawClient = pb.NewMercuryLegacyClient(conn)
+	w.rawClient = pb.NewMercuryClient(conn)
 	w.mu.Unlock()
 	return nil
 }
@@ -394,7 +394,7 @@ func (w *client) ServerURL() string {
 	return w.serverURL
 }
 
-func (w *client) RawClient() pb.MercuryLegacyClient {
+func (w *client) RawClient() pb.MercuryClient {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.rawClient

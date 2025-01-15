@@ -52,7 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
-var _ pb.MercuryLegacyServer = &wsrpcMercuryServer{}
+var _ pb.MercuryServer = &wsrpcMercuryServer{}
 
 type mercuryServer struct {
 	rpc.UnimplementedTransmitterServer
@@ -149,7 +149,7 @@ func startWSRPCMercuryServer(t *testing.T, srv *wsrpcMercuryServer, pubKeys []ed
 	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
-	pb.RegisterMercuryLegacyServer(s, srv)
+	pb.RegisterMercuryServer(s, srv)
 
 	// Start serving
 	go s.Serve(lis)

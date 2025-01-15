@@ -21,7 +21,7 @@ func (m *mockClient) ServerURL() string {
 	return "mock client url"
 }
 
-func (m *mockClient) RawClient() pb.MercuryLegacyClient {
+func (m *mockClient) RawClient() pb.MercuryClient {
 	return &mockRawClient{m.resp, m.err}
 }
 
