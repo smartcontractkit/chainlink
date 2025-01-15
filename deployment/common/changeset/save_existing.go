@@ -50,9 +50,6 @@ func (cfg ExistingContractsConfig) Validate() error {
 				return fmt.Errorf("address must be a valid Solana address, got %d bytes expected 32", len(decoded))
 			}
 		case chain_selectors.FamilyEVM:
-			// EVM is the default case
-			fallthrough
-		default:
 			// aggregator must be an ethereum address
 			decoded, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(ec.Address, "0x")))
 			if err != nil {
@@ -61,6 +58,8 @@ func (cfg ExistingContractsConfig) Validate() error {
 			if len(decoded) != 20 {
 				return fmt.Errorf("address must be a valid ethereum address, got %d bytes expected 20", len(decoded))
 			}
+		default:
+			return fmt.Errorf("unsupported chain family: %s", family)
 		}
 		if ec.TypeAndVersion.Type == "" {
 			return errors.New("type must be set")

@@ -283,8 +283,6 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 				return
 			}()
 		case relay.NetworkEVM:
-			fallthrough
-		default:
 			chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
 			if !ok {
 				return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
@@ -301,6 +299,8 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 				}
 				return
 			}()
+		default:
+			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
 	}
 	return transmitterKeys, nil

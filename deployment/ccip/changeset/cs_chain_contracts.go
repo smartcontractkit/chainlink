@@ -278,9 +278,6 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 			// }
 		}
 	case chain_selectors.FamilyEVM:
-		// EVM is the default case
-		fallthrough
-	default:
 		chainState, ok := state.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
@@ -311,6 +308,8 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 				return errors.New("cannot update onramp destination to the same chain")
 			}
 		}
+	default:
+		return fmt.Errorf("unsupported chain family %s", family)
 	}
 	return nil
 }
@@ -1013,9 +1012,6 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 			return err
 		}
 	case chain_selectors.FamilyEVM:
-		// EVM is the default case
-		fallthrough
-	default:
 		chainState, ok := state.Chains[chainSelector]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
@@ -1023,6 +1019,8 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("unsupported chain family %s", family)
 	}
 	return nil
 }

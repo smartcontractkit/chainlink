@@ -201,7 +201,6 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		port := freeport.GetOne(t)
 
 		programIds := map[string]string{
-			// "ccip_router": "AmTB9SpwRjjKd3dHjFJiQoVt2bSzbzFnzBHCSpX4k9MW",
 			"ccip_router": solTestConfig.CcipRouterProgram.String(),
 		}
 
@@ -222,8 +221,8 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 				continue
 			}
 		}
-		testcontainers.CleanupContainer(t, output.Container)
 		require.NoError(t, err)
+		testcontainers.CleanupContainer(t, output.Container)
 		url = output.Nodes[0].HostHTTPUrl
 		wsURL = output.Nodes[0].HostWSUrl
 		break
