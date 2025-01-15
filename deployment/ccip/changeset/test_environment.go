@@ -587,11 +587,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				SetCandidateConfigBase: SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
+					MCMS:              mcmsConfig,
 				},
 				PluginInfo: SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: ocrConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
-					MCMS:                            mcmsConfig,
 				},
 			},
 		},
