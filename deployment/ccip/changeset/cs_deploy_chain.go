@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	solInternal "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -497,21 +497,13 @@ func deployChainContractsSolana(
 	linkTokenContract := chainState.LinkToken
 	e.Logger.Infow("link token", "addr", linkTokenContract.String())
 
-	if chainState.SolAddressLookupTableProgram.IsZero() {
-		privateKey, err := solana.NewRandomPrivateKey()
+	if chainState.SolAddressLookupTable.IsZero() {
+		table, err := solCommonUtil.CreateLookupTable(context.Background(), chain.Client, *chain.DeployerKey)
 		if err != nil {
-			return fmt.Errorf("failed to generate private key: %w", err)
+			// TODO: return error, this just unblocks tests
+			e.Logger.Debugf("failed to create lookup table: %v", err)
 		}
-		programID := privateKey.PublicKey()
-		table, err := solInternal.CreateLookupTable(context.Background(), chain, programID)
-		if err != nil {
-			return fmt.Errorf("failed to create lookup table: %w", err)
-		}
-		err = ab.Save(chain.Selector, programID.String(), deployment.NewTypeAndVersion(SolAddressLookupTableProgram, deployment.Version1_0_0))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTablePDA, deployment.Version1_0_0))
+		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}

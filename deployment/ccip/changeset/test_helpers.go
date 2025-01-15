@@ -1272,7 +1272,6 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 	for _, sel := range solChainSelectors {
 		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
 		require.False(t, solState.SolChains[sel].SolCcipRouter.IsZero())
-		require.False(t, solState.SolChains[sel].SolAddressLookupTableProgram.IsZero())
-		require.False(t, solState.SolChains[sel].SolAddressLookupTablePDA.IsZero())
+		require.False(t, solState.SolChains[sel].SolAddressLookupTable.IsZero())
 	}
 }
