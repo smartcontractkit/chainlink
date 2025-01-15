@@ -4,9 +4,9 @@ pragma solidity 0.8.24;
 import {AccessControllerInterface} from "../../../../shared/interfaces/AccessControllerInterface.sol";
 
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
-import {ArbitrumSequencerUptimeFeed} from "../../../dev/arbitrum/ArbitrumSequencerUptimeFeed.sol";
-import {ArbitrumValidator} from "../../../dev/arbitrum/ArbitrumValidator.sol";
-import {MockArbitrumInbox} from "../../../../tests/MockArbitrumInbox.sol";
+import {ArbitrumSequencerUptimeFeed} from "../../../arbitrum/ArbitrumSequencerUptimeFeed.sol";
+import {ArbitrumValidator} from "../../../arbitrum/ArbitrumValidator.sol";
+import {MockArbitrumInbox} from "../../mocks/MockArbitrumInbox.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

@@ -33,6 +33,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
+        with:
+          persist-credentials: false
 
       - name: Get operator-ui tag
         id: get-operator-ui-tag

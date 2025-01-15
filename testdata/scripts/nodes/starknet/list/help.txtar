@@ -3,7 +3,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink nodes starknet list - List all existing StarkNet nodes
+   chainlink nodes starknet list - List all existing starknet nodes
 
 USAGE:
    chainlink nodes starknet list [arguments...]

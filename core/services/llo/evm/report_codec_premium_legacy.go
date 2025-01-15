@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
@@ -13,12 +15,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
@@ -28,10 +30,13 @@ var (
 	_ llo.ReportCodec = ReportCodecPremiumLegacy{}
 )
 
-type ReportCodecPremiumLegacy struct{ logger.Logger }
+type ReportCodecPremiumLegacy struct {
+	logger.Logger
+	donID uint32
+}
 
-func NewReportCodecPremiumLegacy(lggr logger.Logger) llo.ReportCodec {
-	return ReportCodecPremiumLegacy{lggr.Named("ReportCodecPremiumLegacy")}
+func NewReportCodecPremiumLegacy(lggr logger.Logger, donID uint32) ReportCodecPremiumLegacy {
+	return ReportCodecPremiumLegacy{logger.Sugared(lggr).Named("ReportCodecPremiumLegacy"), donID}
 }
 
 type ReportFormatEVMPremiumLegacyOpts struct {
@@ -92,6 +97,9 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 		Bid:                quote.Bid.Mul(multiplier).BigInt(),
 		Ask:                quote.Ask.Mul(multiplier).BigInt(),
 	}
+
+	r.Logger.Debugw("Encoding report", "report", report, "opts", opts, "nativePrice", nativePrice, "linkPrice", linkPrice, "quote", quote, "multiplier", multiplier, "rf", rf)
+
 	return codec.BuildReport(ctx, rf)
 }
 
@@ -114,7 +122,10 @@ func (r ReportCodecPremiumLegacy) Pack(digest types.ConfigDigest, seqNr uint64, 
 		ss = append(ss, s)
 		vs[i] = v
 	}
-	reportCtx := LegacyReportContext(digest, seqNr)
+	reportCtx, err := LegacyReportContext(digest, seqNr, r.donID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get legacy report context: %w", err)
+	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	payload, err := mercury.PayloadTypes.Pack(rawReportCtx, []byte(report), rs, ss, vs)
@@ -176,25 +187,48 @@ func extractPrice(price llo.StreamValue) (decimal.Decimal, error) {
 	}
 }
 
-// TODO: Consider embedding the DON ID here?
-// MERC-3524
-var LLOExtraHash = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
+const PluginVersion uint32 = 1 // the legacy mercury plugin is 0
 
-func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8) {
+// Uniquely identifies this as LLO plugin, rather than the legacy plugin (which
+// uses all zeroes).
+//
+// This is quite a hack but serves the purpose of uniquely identifying
+// dons/plugin versions to the mercury server without having to modify any
+// existing tooling or breaking backwards compatibility. It should be safe
+// since the DonID is encoded into the config digest anyway so report context
+// is already dependent on it, and all LLO jobs in the same don are expected to
+// have the same don ID set.
+//
+// Packs donID+pluginVersion as (uint32, uint32), for example donID=2,
+// PluginVersion=1 Yields:
+// 0x0000000000000000000000000000000000000000000000000000000200000001
+func LLOExtraHash(donID uint32) common.Hash {
+	combined := uint64(donID)<<32 | uint64(PluginVersion)
+	return common.BigToHash(new(big.Int).SetUint64(combined))
+}
+
+func SeqNrToEpochAndRound(seqNr uint64) (epoch uint32, round uint8, err error) {
 	// Simulate 256 rounds/epoch
-	epoch = uint32(seqNr / 256) // nolint
-	round = uint8(seqNr % 256)  // nolint
+	if seqNr/256 > math.MaxUint32 {
+		err = fmt.Errorf("epoch overflows uint32: %d", seqNr)
+		return
+	}
+	epoch = uint32(seqNr / 256) //nolint:gosec // G115 false positive
+	round = uint8(seqNr % 256)  //nolint:gosec // G115 false positive
 	return
 }
 
-func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64) ocr2types.ReportContext {
-	epoch, round := SeqNrToEpochAndRound(seqNr)
+func LegacyReportContext(cd ocr2types.ConfigDigest, seqNr uint64, donID uint32) (ocr2types.ReportContext, error) {
+	epoch, round, err := SeqNrToEpochAndRound(seqNr)
+	if err != nil {
+		return ocr2types.ReportContext{}, err
+	}
 	return ocr2types.ReportContext{
 		ReportTimestamp: ocr2types.ReportTimestamp{
 			ConfigDigest: cd,
-			Epoch:        uint32(epoch),
-			Round:        uint8(round),
+			Epoch:        epoch,
+			Round:        round,
 		},
-		ExtraHash: LLOExtraHash, // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
-	}
+		ExtraHash: LLOExtraHash(donID), // ExtraHash is always zero for mercury, we use LLOExtraHash here to differentiate from the legacy plugin
+	}, nil
 }

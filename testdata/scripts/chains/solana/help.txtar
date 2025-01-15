@@ -3,13 +3,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink chains solana - Commands for handling Solana chains
+   chainlink chains solana - Commands for handling solana chains
 
 USAGE:
    chainlink chains solana command [command options] [arguments...]
 
 COMMANDS:
-   list  List all existing Solana chains
+   list  List all existing solana chains
 
 OPTIONS:
    --help, -h  show help

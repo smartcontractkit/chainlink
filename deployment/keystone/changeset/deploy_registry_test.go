@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
@@ -33,5 +34,5 @@ func TestDeployCapabilityRegistry(t *testing.T) {
 	// no capabilities registry on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	require.Len(t, oaddrs, 0)
+	require.Empty(t, oaddrs)
 }

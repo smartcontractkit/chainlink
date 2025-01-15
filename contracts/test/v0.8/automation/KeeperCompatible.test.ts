@@ -10,7 +10,7 @@ describe('KeeperCompatible', () => {
 
       before(async () => {
         const factory = await ethers.getContractFactory(
-          `src/v0.${version}/tests/KeeperCompatibleTestHelper.sol:KeeperCompatibleTestHelper`,
+          `src/v0.${version}/automation/testhelpers/KeeperCompatibleTestHelper.sol:KeeperCompatibleTestHelper`,
         )
         contract = await factory.deploy()
       })

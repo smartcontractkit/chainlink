@@ -26,9 +26,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/vrf_log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -240,25 +240,26 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 	// Instantiate listener.
 	th := setupVRFLogPollerListenerTH(t)
 
-	// Run the log listener. This should register the log poller filter.
-	go th.Listener.runLogListener(time.Second, 1)
+	func() {
+		// Run the log listener. This should register the log poller filter.
+		go th.Listener.runLogListener(time.Second, 1)
+		// Close the listener to avoid an orphaned goroutine.
+		defer close(th.Listener.chStop)
 
-	// Wait for the log poller filter to be registered.
-	filterName := th.Listener.getLogPollerFilterName()
-	require.Eventually(t, func() bool {
-		return th.Listener.chain.LogPoller().HasFilter(filterName)
-	}, testutils.WaitTimeout(t), time.Second)
+		// Wait for the log poller filter to be registered.
+		filterName := th.Listener.getLogPollerFilterName()
+		require.Eventually(t, func() bool {
+			return th.Listener.chain.LogPoller().HasFilter(filterName)
+		}, testutils.WaitTimeout(t), time.Second)
 
-	// Once registered, expect the filter to stay registered.
-	gomega.NewWithT(t).Consistently(func() bool {
-		return th.Listener.chain.LogPoller().HasFilter(filterName)
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
-
-	// Close the listener to avoid an orphaned goroutine.
-	close(th.Listener.chStop)
+		// Once registered, expect the filter to stay registered.
+		gomega.NewWithT(t).Consistently(func() bool {
+			return th.Listener.chain.LogPoller().HasFilter(filterName)
+		}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	}()
 
 	// Assert channel is closed.
-	_, ok := (<-th.Listener.chStop)
+	_, ok := <-th.Listener.chStop
 	assert.False(t, ok)
 }
 

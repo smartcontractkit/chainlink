@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -50,9 +51,15 @@ type LegacyChainer interface {
 	LegacyCosmosChains() LegacyCosmosContainer
 }
 
+// NetworkChainStatus is a ChainStatus from a particlar Network.
+type NetworkChainStatus struct {
+	Network string
+	types.ChainStatus
+}
+
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
 }
 
 // NodesStatuser is an interface for node configuration and state.
@@ -154,7 +161,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err := factory.NewSolana(config.Keystore, config.TOMLConfigs)
+		solRelayers, err := factory.NewSolana(config)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
@@ -194,6 +201,23 @@ func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryC
 		}
 
 		for id, relayer := range relayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
+// InitTron is a option for instantiating Tron relayers
+func InitTron(ctx context.Context, factory RelayerFactory, config TronFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) error {
+		tronRelayers, err := factory.NewTron(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Tron relayer: %w", err)
+		}
+
+		for id, relayer := range tronRelayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
 		}
@@ -260,9 +284,9 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id ty
 	return lr.GetChainStatus(ctx)
 }
 
-func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error) {
 	var (
-		stats    []types.ChainStatus
+		stats    []NetworkChainStatus
 		totalErr error
 	)
 	rs.mu.Lock()
@@ -282,7 +306,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 			totalErr = errors.Join(totalErr, err)
 			continue
 		}
-		stats = append(stats, stat)
+		stats = append(stats, NetworkChainStatus{ChainStatus: stat, Network: rid.Network})
 	}
 
 	if totalErr != nil {

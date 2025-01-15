@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
-import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
+import {MockV3Aggregator} from "../../../shared/mocks/MockV3Aggregator.sol";
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -16,6 +16,20 @@ contract FeeQuoterSetup is TokenSetup {
   address internal constant DUMMY_CONTRACT_ADDRESS = 0x1111111111111111111111111111111111111112;
   address internal constant CUSTOM_TOKEN = address(12345);
   address internal constant CUSTOM_TOKEN_2 = address(bytes20(keccak256("CUSTOM_TOKEN_2")));
+
+  uint32 internal constant MAX_DATA_SIZE = 30_000;
+  uint16 internal constant MAX_TOKENS_LENGTH = 5;
+  uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
+
+  // OnRamp
+  uint96 internal constant MAX_MSG_FEES_JUELS = 1_000e18;
+  uint32 internal constant DEST_GAS_OVERHEAD = 300_000;
+  uint8 internal constant DEST_GAS_PER_PAYLOAD_BYTE_BASE = 16;
+  uint8 internal constant DEST_GAS_PER_PAYLOAD_BYTE_HIGH = 40;
+  uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD = 3000;
+
+  uint16 internal constant DEFAULT_TOKEN_FEE_USD_CENTS = 50;
+  uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 32;
 
   // Use 16 gas per data availability byte in our tests.
   // This is an overestimation in OP stack, it ignores 4 gas per 0 byte rule.
@@ -248,7 +262,9 @@ contract FeeQuoterSetup is TokenSetup {
         isEnabled: true,
         maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
         destGasOverhead: DEST_GAS_OVERHEAD,
-        destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
+        destGasPerPayloadByteBase: DEST_GAS_PER_PAYLOAD_BYTE_BASE,
+        destGasPerPayloadByteHigh: DEST_GAS_PER_PAYLOAD_BYTE_HIGH,
+        destGasPerPayloadByteThreshold: DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD,
         destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
         destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
         destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
@@ -297,7 +313,9 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(a.maxDataBytes, b.maxDataBytes);
     assertEq(a.maxPerMsgGasLimit, b.maxPerMsgGasLimit);
     assertEq(a.destGasOverhead, b.destGasOverhead);
-    assertEq(a.destGasPerPayloadByte, b.destGasPerPayloadByte);
+    assertEq(a.destGasPerPayloadByteBase, b.destGasPerPayloadByteBase);
+    assertEq(a.destGasPerPayloadByteHigh, b.destGasPerPayloadByteHigh);
+    assertEq(a.destGasPerPayloadByteThreshold, b.destGasPerPayloadByteThreshold);
     assertEq(a.destDataAvailabilityOverheadGas, b.destDataAvailabilityOverheadGas);
     assertEq(a.destGasPerDataAvailabilityByte, b.destGasPerDataAvailabilityByte);
     assertEq(a.destDataAvailabilityMultiplierBps, b.destDataAvailabilityMultiplierBps);
@@ -362,7 +380,7 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     return Internal.EVM2AnyTokenTransfer({
       sourcePoolAddress: tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool,
       destTokenAddress: abi.encode(destToken),
-      extraData: "",
+      extraData: abi.encode(18),
       amount: tokenAmount.amount,
       destExecData: abi.encode(expectedDestGasAmount)
     });

@@ -41,14 +41,20 @@ func NewGatewaySecretsSetGun(cfg types.FunctionsTestConfig, method string, pKey 
 
 func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 	randNum := strconv.Itoa(rand.Intn(100000))
-	randSlot := uint(rand.Intn(5))
-	version := uint64(time.Now().UnixNano())
+	randSlot := rand.Intn(5)
+	if randSlot < 0 {
+		panic(fmt.Errorf("negative rand slot: %d", randSlot))
+	}
+	version := time.Now().UnixNano()
+	if version < 0 {
+		panic(fmt.Errorf("negative timestamp: %d", version))
+	}
 	expiration := int64(60 * 60 * 1000)
 	secret := fmt.Sprintf("{\"ltsecret\": \"%s\"}", randNum)
 	log.Debug().
-		Uint("SlotID", randSlot).
+		Int("SlotID", randSlot).
 		Str("MessageID", randNum).
-		Uint64("Version", version).
+		Int64("Version", version).
 		Int64("Expiration", expiration).
 		Str("Secret", secret).
 		Msg("Sending S4 envelope")
@@ -73,8 +79,8 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 		MessageID:             randNum,
 		Method:                "secrets_set",
 		DonID:                 *cfg.Common.DONID,
-		S4SetSlotID:           randSlot,
-		S4SetVersion:          version,
+		S4SetSlotID:           uint(randSlot),
+		S4SetVersion:          uint64(version),
 		S4SetExpirationPeriod: expiration,
 		S4SetPayload:          secrets,
 	})
@@ -86,8 +92,14 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 
 func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 	randNum := strconv.Itoa(rand.Intn(100000))
-	randSlot := uint(rand.Intn(5))
-	version := uint64(time.Now().UnixNano())
+	randSlot := rand.Intn(5)
+	if randSlot < 0 {
+		panic(fmt.Errorf("negative rand slot: %d", randSlot))
+	}
+	version := time.Now().UnixNano()
+	if version < 0 {
+		panic(fmt.Errorf("negative timestamp: %d", version))
+	}
 	expiration := int64(60 * 60 * 1000)
 	network := m.Cfg.GetNetworkConfig().SelectedNetworks[0]
 	if len(m.Cfg.GetNetworkConfig().WalletKeys[network]) < 1 {
@@ -101,8 +113,8 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 		MessageID:             randNum,
 		Method:                m.Method,
 		DonID:                 *cfg.Common.DONID,
-		S4SetSlotID:           randSlot,
-		S4SetVersion:          version,
+		S4SetSlotID:           uint(randSlot),
+		S4SetVersion:          uint64(version),
 		S4SetExpirationPeriod: expiration,
 	}); err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}

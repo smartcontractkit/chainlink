@@ -13,7 +13,7 @@ type subForwarder[T any] struct {
 	srcCh  chan T
 	srcSub ethereum.Subscription
 
-	interceptResult func(T) T
+	interceptResult func(T) (T, error)
 	interceptError  func(error) error
 
 	done  chan struct{}
@@ -21,14 +21,14 @@ type subForwarder[T any] struct {
 	unSub chan struct{}
 }
 
-func newSubForwarder[T any](destCh chan<- T, interceptResult func(T) T, interceptError func(error) error) *subForwarder[T] {
+func newSubForwarder[T any](destCh chan<- T, interceptResult func(T) (T, error), interceptError func(error) error) *subForwarder[T] {
 	return &subForwarder[T]{
 		interceptResult: interceptResult,
 		interceptError:  interceptError,
 		destCh:          destCh,
 		srcCh:           make(chan T),
 		done:            make(chan struct{}),
-		err:             make(chan error),
+		err:             make(chan error, 1),
 		unSub:           make(chan struct{}, 1),
 	}
 }
@@ -44,6 +44,14 @@ func (c *subForwarder[T]) start(sub ethereum.Subscription, err error) error {
 	return nil
 }
 
+func (c *subForwarder[T]) handleError(err error) {
+	if c.interceptError != nil {
+		err = c.interceptError(err)
+	}
+	c.err <- err // err is buffered, and we never write twice, so write is not blocking
+	c.srcSub.Unsubscribe()
+}
+
 // forwardLoop receives from src, adds the chainID, and then sends to dest.
 // It also handles Unsubscribing, which may interrupt either forwarding operation.
 func (c *subForwarder[T]) forwardLoop() {
@@ -54,19 +62,17 @@ func (c *subForwarder[T]) forwardLoop() {
 	for {
 		select {
 		case err := <-c.srcSub.Err():
-			if c.interceptError != nil {
-				err = c.interceptError(err)
-			}
-			select {
-			case c.err <- err:
-			case <-c.unSub:
-				c.srcSub.Unsubscribe()
-			}
+			c.handleError(err)
 			return
 
 		case h := <-c.srcCh:
 			if c.interceptResult != nil {
-				h = c.interceptResult(h)
+				var err error
+				h, err = c.interceptResult(h)
+				if err != nil {
+					c.handleError(err)
+					return
+				}
 			}
 			select {
 			case c.destCh <- h:

@@ -1,0 +1,25 @@
+name: Flakeguard Nightly
+
+on:
+  schedule:
+    # Run every night at 3:00 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger-flaky-test-detection:
+    name: Find Flaky Tests
+    uses: ./.github/workflows/flakeguard.yml
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      headRef: 'develop'
+      projectPath: '.'
+      maxPassRatio: '1.0'
+      runAllTests: true
+      extraArgs: '{ "skipped_tests": "", "test_repeat_count": "5", "all_tests_runner": "ubuntu22.04-32cores-128GB", "all_tests_runner_count": "3", "run_with_race": "false" }'
+      slackNotificationAfterTestsChannelId: 'C07TRF65CNS' #flaky-test-detector-notifications
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}

@@ -20,9 +20,10 @@ import (
 // treated differently due to their nature of being the starting
 // point of a workflow.
 type workflow struct {
-	id    string
-	owner string
-	name  string
+	id      string
+	owner   string
+	hexName string
+	name    string
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability

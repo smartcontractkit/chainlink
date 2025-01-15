@@ -9,7 +9,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
@@ -111,6 +112,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"gas price too low", false, "Arbitrum"},
 			{"client error replacement underpriced", true, "tomlConfig"},
 			{"", false, "tomlConfig"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'replacement transaction underpriced'", true, "Mantle"},
 		}
 
 		for _, test := range tests {
@@ -143,6 +145,9 @@ func Test_Eth_Errors(t *testing.T) {
 			{"ErrorObject { code: ServerError(3), message: \\\"known transaction. transaction with hash 0xf016…ad63 is already in the system\\\", data: Some(RawValue(\\\"0x\\\")) }", true, "zkSync"},
 			{"client error transaction already in mempool", true, "tomlConfig"},
 			{"alreadyknown", true, "Gnosis"},
+			{"tx already exists in cache", true, "Sei"},
+			{"failed to forward tx to sequencer, please try again. Error message: 'already known'", true, "Mantle"},
+			{"tx already exists in cache", true, "Sei"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -172,6 +177,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"intrinsic gas too low", true, "Klaytn"},
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
+			{"failed to validate the transaction. reason: Validation revert: virtual machine entered unexpected state. Please contact developers and provide transaction details that caused this error. Error description: Assertion error: Fair pubdata price too high", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
 			{"gas price less than block base fee", true, "aStar"},
 			{"[Request ID: e4d09e44-19a4-4eb7-babe-270db4c2ebc9] Gas price '830000000000' is below configured minimum gas price '950000000000'", true, "hedera"},
@@ -244,6 +250,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"network is unreachable", true, "Arbitrum"},
 			{"client error service unavailable", true, "tomlConfig"},
 			{"[Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Error invoking RPC: [Request ID: 825608a8-fd8a-4b5b-aea7-92999509306d] Transaction execution returns a null value for transaction", true, "hedera"},
+			{"call failed: 503 Service Temporarily Unavailable: <html>\r\n<head><title>503 Service Temporarily Unavailable</title></head>\r\n<body>\r\n<center><h1>503 Service Temporarily Unavailable</h1></center>\r\n</body>\r\n</html>\r\n", true, "Arbitrum"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -252,10 +259,24 @@ func Test_Eth_Errors(t *testing.T) {
 			assert.Equal(t, err.IsServiceUnavailable(clientErrors), test.expect)
 		}
 		{
-			err = evmclient.NewSendError(commonclient.ErroringNodeError)
+			err = evmclient.NewSendError(multinode.ErrNodeError)
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
-			err = evmclient.NewSendError(fmt.Errorf("failed to send transaction: %w", commonclient.ErroringNodeError))
+			err = evmclient.NewSendError(fmt.Errorf("failed to send transaction: %w", multinode.ErrNodeError))
 			assert.True(t, err.IsServiceUnavailable(clientErrors))
+		}
+	})
+
+	t.Run("IsServiceTimeout", func(t *testing.T) {
+		tests := []errorCase{
+			{"call failed: 408 Request Timeout: {", true, "Arbitrum"},
+			{"408 Request Timeout: {\"id\":303,\"jsonrpc\":\"2.0\",\"error\":{\"code\\\":-32009,\\\"message\\\":\\\"request timeout\\\"}}\",\"errVerbose\":\"408 Request Timeout:\n", true, "Arbitrum"},
+			{"request timeout", false, "tomlConfig"},
+		}
+		for _, test := range tests {
+			err = evmclient.NewSendErrorS(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
+			err = newSendErrorWrapped(test.message)
+			assert.Equal(t, err.IsServiceTimeout(clientErrors), test.expect)
 		}
 	})
 
@@ -426,6 +447,11 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"client error fatal", true, "tomlConfig"},
 		{"[Request ID: d9711488-4c1e-4af2-bc1f-7969913d7b60] Error invoking RPC: transaction 0.0.4425573@1718213476.914320044 failed precheck with status INVALID_SIGNATURE", true, "hedera"},
 		{"invalid chain id for signer", true, "Treasure"},
+
+		{": out of gas", true, "Sei"},
+		{"Tx too large. Max size is 2048576, but got 2097431", true, "Sei"},
+		{": insufficient funds", true, "Sei"},
+		{"insufficient fee", true, "Sei"},
 	}
 
 	for _, test := range tests {

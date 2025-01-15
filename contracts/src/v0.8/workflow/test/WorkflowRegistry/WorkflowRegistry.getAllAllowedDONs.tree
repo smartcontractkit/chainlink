@@ -1,0 +1,9 @@
+WorkflowRegistry.getAllAllowedDONs
+├── when the set of allowed DONs is empty
+│   └── it should return an empty array
+├── when there is a single allowed DON
+│   └── it should return an array with one element
+├── when there are multiple allowed DONs
+│   └── it should return an array with all the allowed DONs
+└── when the registry is locked
+    └── it should behave the same as when the registry is not locked

@@ -16,6 +16,25 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
+func FuzzPluginScopedRetirementReportCache_CheckAttestedRetirementReport(f *testing.F) {
+	f.Add([]byte("not a protobuf"))
+	f.Add([]byte{0x0a, 0x00})             // empty protobuf
+	f.Add([]byte{0x0a, 0x02, 0x08, 0x01}) // invalid protobuf
+	f.Add(([]byte)(nil))
+	f.Add([]byte{})
+
+	rrc := &mockRetirementReportCache{}
+	v := &mockVerifier{}
+	c := &mockCodec{}
+	psrrc := NewPluginScopedRetirementReportCache(rrc, v, c)
+
+	exampleDigest := ocr2types.ConfigDigest{1}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		psrrc.CheckAttestedRetirementReport(exampleDigest, data) //nolint:errcheck // test that it doesn't panic, don't care about errors
+	})
+}
+
 type mockRetirementReportCache struct {
 	arr    []byte
 	cfg    Config

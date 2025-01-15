@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -38,8 +39,9 @@ type moduleCache struct {
 	timeout        time.Duration
 	evictAfterSize int
 
-	clock    clockwork.Clock
-	onReaper chan struct{}
+	clock      clockwork.Clock
+	reapTicker <-chan time.Time
+	onReaper   chan struct{}
 }
 
 func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAfterSize int) *moduleCache {
@@ -49,6 +51,7 @@ func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAft
 		timeout:        timeout,
 		evictAfterSize: evictAfterSize,
 		clock:          clock,
+		reapTicker:     clock.NewTicker(tick).Chan(),
 		stopChan:       make(chan struct{}),
 	}
 }
@@ -67,10 +70,9 @@ func (mc *moduleCache) close() {
 }
 
 func (mc *moduleCache) reapLoop() {
-	ticker := mc.clock.NewTicker(mc.tickInterval)
 	for {
 		select {
-		case <-ticker.Chan():
+		case <-mc.reapTicker:
 			mc.evictOlderThan(mc.timeout)
 			if mc.onReaper != nil {
 				mc.onReaper <- struct{}{}
@@ -81,12 +83,18 @@ func (mc *moduleCache) reapLoop() {
 	}
 }
 
-func (mc *moduleCache) add(id string, mod *module) {
+func (mc *moduleCache) add(id string, mod *module) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	mod.lastFetchedAt = time.Now()
+
+	if mc.m[id] != nil {
+		return fmt.Errorf("module with id %q already exists in cache", id)
+	}
+
+	mod.lastFetchedAt = mc.clock.Now()
 	mc.m[id] = mod
 	moduleCacheAddition.Inc()
+	return nil
 }
 
 func (mc *moduleCache) get(id string) (*module, bool) {

@@ -6,7 +6,7 @@ import {TokenAdminRegistry} from "../../../tokenAdminRegistry/TokenAdminRegistry
 import {TokenAdminRegistrySetup} from "./TokenAdminRegistrySetup.t.sol";
 
 contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
-  function test_setPool_Success() public {
+  function test_setPool() public {
     address pool = makeAddr("pool");
     vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(true));
 
@@ -24,7 +24,7 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
     vm.assertEq(vm.getRecordedLogs().length, 0);
   }
 
-  function test_setPool_ZeroAddressRemovesPool_Success() public {
+  function test_setPool_ZeroAddressRemovesPool() public {
     address pool = makeAddr("pool");
     vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(true));
     s_tokenAdminRegistry.setPool(s_sourceTokens[0], pool);
@@ -39,7 +39,7 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
     assertEq(s_tokenAdminRegistry.getPool(s_sourceTokens[0]), address(0));
   }
 
-  function test_setPool_InvalidTokenPoolToken_Revert() public {
+  function test_RevertWhen_setPool_InvalidTokenPoolToken() public {
     address pool = makeAddr("pool");
     vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(false));
 
@@ -47,7 +47,7 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
     s_tokenAdminRegistry.setPool(s_sourceTokens[0], pool);
   }
 
-  function test_setPool_OnlyAdministrator_Revert() public {
+  function test_RevertWhen_setPool_OnlyAdministrator() public {
     vm.stopPrank();
 
     vm.expectRevert(

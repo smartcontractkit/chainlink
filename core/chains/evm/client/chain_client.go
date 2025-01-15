@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -59,7 +60,7 @@ type Client interface {
 	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
-	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
 	// blockNumber can be specified as `nil` to imply latest block
@@ -96,11 +97,11 @@ type Client interface {
 }
 
 type chainClient struct {
-	multiNode *commonclient.MultiNode[
+	multiNode *multinode.MultiNode[
 		*big.Int,
 		*RPCClient,
 	]
-	txSender     *commonclient.TransactionSender[*types.Transaction, *big.Int, *RPCClient]
+	txSender     *multinode.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -110,15 +111,15 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, *RPCClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, *RPCClient],
+	nodes []multinode.Node[*big.Int, *RPCClient],
+	sendonlys []multinode.SendOnlyNode[*big.Int, *RPCClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 	deathDeclarationDelay time.Duration,
 	chainType chaintype.ChainType,
 ) Client {
 	chainFamily := "EVM"
-	multiNode := commonclient.NewMultiNode[*big.Int, *RPCClient](
+	multiNode := multinode.NewMultiNode[*big.Int, *RPCClient](
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -129,16 +130,12 @@ func NewChainClient(
 		deathDeclarationDelay,
 	)
 
-	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
-	}
-
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RPCClient](
+	txSender := multinode.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
 		multiNode,
-		classifySendError,
+		NewSendTxResult,
 		0, // use the default value provided by the implementation
 	)
 
@@ -376,18 +373,23 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var result *SendTxResult
 	if c.chainType == chaintype.ChainHedera {
 		activeRPC, err := c.multiNode.SelectRPC()
 		if err != nil {
 			return err
 		}
-		return activeRPC.SendTransaction(ctx, tx)
+		result = activeRPC.SendTransaction(ctx, tx)
+	} else {
+		result = c.txSender.SendTransaction(ctx, tx)
 	}
-	_, err := c.txSender.SendTransaction(ctx, tx)
-	return err
+	if result == nil {
+		return errors.New("SendTransaction failed: result is nil")
+	}
+	return result.Error()
 }
 
-func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	returnCode := ClassifySendError(err, c.clientErrors, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err

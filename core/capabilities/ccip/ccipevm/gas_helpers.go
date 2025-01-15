@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/pkg/errors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 const (
 	EvmAddressLengthBytes           = 20
 	EvmWordBytes                    = 32
-	CalldataGasPerByte              = 16
+	CalldataGasPerByteBase          = 16
+	CalldataGasPerByteHigh          = 40
+	CalldataGasPerByteThreshold     = 3000
 	TokenAdminRegistryWarmupCost    = 2_500
 	TokenAdminRegistryPoolLookupGas = 100 + // WARM_ACCESS_COST TokenAdminRegistry
 		700 + // CALL cost for TokenAdminRegistry
@@ -27,6 +31,8 @@ const (
 	ExecutionStateProcessingOverheadGas = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
+	// TODO: investigate the write overhead for v1.6
+	DestGasOverhead = 110_000 + 110_000 + 130_000 // 110K for commit, 110K for RMN, 130K for Exec
 )
 
 func NewGasEstimateProvider() EstimateProvider {
@@ -42,7 +48,7 @@ func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 		return 0
 	}
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash
-	return uint64(merkleProofBytes * CalldataGasPerByte)
+	return uint64(merkleProofBytes * CalldataGasPerByteBase)
 }
 
 // return the size of bytes for msg tokens
@@ -61,8 +67,6 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 }
 
 // CalculateMessageMaxGasWithError computes the maximum gas overhead for a message.
-// TODO: Add destGasOverhead, see:
-// https://github.com/smartcontractkit/chainlink/blob/23452266132228234312947660374fb393e96f1a/contracts/src/v0.8/ccip/FeeQuoter.sol#L97
 func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
 	numTokens := len(msg.TokenAmounts)
 	var data []byte = msg.Data
@@ -86,7 +90,11 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		bytesForMsgTokens(numTokens) +
 		dataLength
 
-	messageCallDataGas := uint64(messageBytes * CalldataGasPerByte)
+	if messageBytes < 0 {
+		return 0, errors.New("message bytes cannot be negative")
+	}
+
+	messageCallDataGas := uint64(messageBytes) * CalldataGasPerByteBase
 
 	// Rate limiter only limits value in tokens. It's not called if there are no
 	// tokens in the message. The same goes for the admin registry, it's only loaded
@@ -98,7 +106,8 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		adminRegistryOverhead = TokenAdminRegistryWarmupCost
 	}
 
-	return messageGasLimit.Uint64() +
+	return DestGasOverhead +
+		messageGasLimit.Uint64() +
 		messageCallDataGas +
 		ExecutionStateProcessingOverheadGas +
 		SupportsInterfaceCheck +

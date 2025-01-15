@@ -128,7 +128,7 @@ func newDefaultEvmBatchCaller(
 }
 
 // batchCall formats a batch, calls the rpc client, and unpacks results.
-// this function only returns errors of type ErrRead which should wrap lower errors.
+// this function only returns errors of type Error which should wrap lower errors.
 func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint64, batchCall BatchCall) ([]dataAndErr, error) {
 	if len(batchCall) == 0 {
 		return nil, nil
@@ -147,9 +147,9 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	if err = c.evmClient.BatchCallContext(ctx, rpcBatchCalls); err != nil {
 		// return a basic read error with no detail or result since this is a general client
 		// error instead of an error for a specific batch call.
-		return nil, ErrRead{
-			Err:   fmt.Errorf("%w: batch call context: %s", types.ErrInternal, err.Error()),
-			Batch: true,
+		return nil, Error{
+			Err:  fmt.Errorf("%w: batch call context: %s", types.ErrInternal, err.Error()),
+			Type: batchReadType,
 		}
 	}
 
@@ -176,7 +176,7 @@ func (c *defaultEvmBatchCaller) createBatchCalls(
 				fmt.Errorf("%w: encode params: %s", types.ErrInvalidConfig, err.Error()),
 				call,
 				block,
-				true,
+				batchReadType,
 			)
 		}
 
@@ -217,7 +217,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 		if rpcBatchCalls[idx].Error != nil {
 			results[idx].err = newErrorFromCall(
 				fmt.Errorf("%w: rpc call error: %w", types.ErrInternal, rpcBatchCalls[idx].Error),
-				call, block, true,
+				call, block, batchReadType,
 			)
 
 			continue
@@ -233,7 +233,7 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 		if err != nil {
 			callErr := newErrorFromCall(
 				fmt.Errorf("%w: hex decode result: %s", types.ErrInternal, err.Error()),
-				call, block, true,
+				call, block, batchReadType,
 			)
 
 			callErr.Result = &hexEncodedOutputs[idx]
@@ -241,32 +241,36 @@ func (c *defaultEvmBatchCaller) unpackBatchResults(
 			return nil, callErr
 		}
 
-		if err = c.codec.Decode(
-			ctx,
-			packedBytes,
-			call.ReturnVal,
-			codec.WrapItemType(call.ContractName, call.ReadName, false),
-		); err != nil {
-			if len(packedBytes) == 0 {
-				callErr := newErrorFromCall(
-					fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
-					call, block, true,
-				)
+		// the codec can't do anything with no bytes, so skip decoding and allow
+		// the result to be the empty struct or value
+		if len(packedBytes) > 0 {
+			if err = c.codec.Decode(
+				ctx,
+				packedBytes,
+				call.ReturnVal,
+				codec.WrapItemType(call.ContractName, call.ReadName, false),
+			); err != nil {
+				if len(packedBytes) == 0 {
+					callErr := newErrorFromCall(
+						fmt.Errorf("%w: %w: %s", types.ErrInternal, errEmptyOutput, err.Error()),
+						call, block, batchReadType,
+					)
 
-				callErr.Result = &hexEncodedOutputs[idx]
+					callErr.Result = &hexEncodedOutputs[idx]
 
-				results[idx].err = callErr
-			} else {
-				callErr := newErrorFromCall(
-					fmt.Errorf("%w: codec decode result: %s", types.ErrInvalidType, err.Error()),
-					call, block, true,
-				)
+					results[idx].err = callErr
+				} else {
+					callErr := newErrorFromCall(
+						fmt.Errorf("%w: codec decode result: %s", types.ErrInvalidType, err.Error()),
+						call, block, batchReadType,
+					)
 
-				callErr.Result = &hexEncodedOutputs[idx]
-				results[idx].err = callErr
+					callErr.Result = &hexEncodedOutputs[idx]
+					results[idx].err = callErr
+				}
+
+				continue
 			}
-
-			continue
 		}
 
 		results[idx].returnVal = call.ReturnVal
@@ -290,9 +294,9 @@ func (c *defaultEvmBatchCaller) batchCallDynamicLimitRetries(ctx context.Context
 		}
 
 		if lim <= 1 {
-			return nil, ErrRead{
-				Err:   fmt.Errorf("%w: limited call: call data: %+v", err, calls),
-				Batch: true,
+			return nil, Error{
+				Err:  fmt.Errorf("%w: limited call: call data: %+v", err, calls),
+				Type: batchReadType,
 			}
 		}
 

@@ -19,7 +19,6 @@ type OCR3SignerVerifier interface {
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 }
 
-// nolint
 type KeyBundle interface {
 	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
@@ -60,6 +59,8 @@ func New(chainType chaintype.ChainType) (KeyBundle, error) {
 		return newKeyBundleRand(chaintype.StarkNet, starkkey.NewOCR2Key)
 	case chaintype.Aptos:
 		return newKeyBundleRand(chaintype.Aptos, newAptosKeyring)
+	case chaintype.Tron:
+		return newKeyBundleRand(chaintype.Tron, newEVMKeyring)
 	}
 	return nil, chaintype.NewErrInvalidChainType(chainType)
 }
@@ -77,6 +78,8 @@ func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle 
 		return mustNewKeyBundleInsecure(chaintype.StarkNet, starkkey.NewOCR2Key, reader)
 	case chaintype.Aptos:
 		return mustNewKeyBundleInsecure(chaintype.Aptos, newAptosKeyring, reader)
+	case chaintype.Tron:
+		return mustNewKeyBundleInsecure(chaintype.Tron, newEVMKeyring, reader)
 	}
 	panic(chaintype.NewErrInvalidChainType(chainType))
 }
@@ -108,7 +111,6 @@ func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 
-// nolint
 type Raw []byte
 
 func (raw Raw) Key() (kb KeyBundle) {
@@ -128,6 +130,8 @@ func (raw Raw) Key() (kb KeyBundle) {
 		kb = newKeyBundle(new(starkkey.OCR2Key))
 	case chaintype.Aptos:
 		kb = newKeyBundle(new(aptosKeyring))
+	case chaintype.Tron:
+		kb = newKeyBundle(new(evmKeyring))
 	default:
 		return nil
 	}

@@ -377,7 +377,9 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 
 func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Vars) TaskRunResults {
 	l := r.lggr.With("run.ID", run.ID, "executionID", uuid.New(), "specID", run.PipelineSpecID, "jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
-	l.Debug("Initiating tasks for pipeline run of spec")
+	if r.config.VerboseLogging() {
+		l.Debug("Initiating tasks for pipeline run of spec")
+	}
 
 	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
@@ -510,15 +512,23 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 		)
 	}
 	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
-	if run.HasFatalErrors() {
-		// This will also log at error level in OCR if it fails Observe so the
-		// level is appropriate
-		l = l.With("run.FatalErrors", run.FatalErrors)
-		l.Debugw("Completed pipeline run with fatal errors")
-	} else if run.HasErrors() {
-		l = l.With("run.AllErrors", run.AllErrors)
-		l.Debugw("Completed pipeline run with errors")
-	} else {
+	if run.HasFatalErrors() || run.HasErrors() {
+		var errorsWithID []string
+		for _, taskRun := range run.PipelineTaskRuns {
+			if taskRun.Error.Valid {
+				err := fmt.Sprintf("%s(%s); %s", taskRun.DotID, taskRun.Type, taskRun.Error.ValueOrZero())
+				errorsWithID = append(errorsWithID, err)
+			}
+		}
+		l = l.With("run.Errors", errorsWithID)
+		if run.HasFatalErrors() {
+			l = l.With("run.FatalErrors", run.FatalErrors)
+			l.Debugw("Completed pipeline run with fatal errors")
+		} else if run.HasErrors() {
+			l = l.With("run.AllErrors", run.AllErrors)
+			l.Debugw("Completed pipeline run with errors")
+		}
+	} else if r.config.VerboseLogging() {
 		l.Debugw("Completed pipeline run successfully")
 	}
 

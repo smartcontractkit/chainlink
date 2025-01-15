@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
@@ -26,7 +27,7 @@ import (
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -109,6 +110,8 @@ func TestEvmWrite(t *testing.T) {
 	require.NoError(t, err)
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
 	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
+
+	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commonTypes.Finalized, nil)
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)

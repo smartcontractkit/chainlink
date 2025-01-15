@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type roundRobinKeystore interface {
@@ -24,6 +25,8 @@ type txManager interface {
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) common.Address
+
+	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
 }
 
 type transmitter struct {
@@ -88,12 +91,30 @@ func NewOCR2FeedsTransmitter(
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
+	dualTransmissionConfig *types2.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
+	if dualTransmissionConfig != nil {
+		return &ocr2FeedsDualTransmission{
+			ocr2Aggregator:                     ocr2Aggregator,
+			txm:                                txm,
+			txManagerOCR2:                      txm,
+			primaryFromAddresses:               fromAddresses,
+			gasLimit:                           gasLimit,
+			primaryEffectiveTransmitterAddress: effectiveTransmitterAddress,
+			strategy:                           strategy,
+			checker:                            checker,
+			chainID:                            chainID,
+			keystore:                           keystore,
+			secondaryContractAddress:           dualTransmissionConfig.ContractAddress,
+			secondaryFromAddress:               dualTransmissionConfig.TransmitterAddress,
+			secondaryMeta:                      dualTransmissionConfig.Meta,
+		}, nil
+	}
 	return &ocr2FeedsTransmitter{
 		ocr2Aggregator: ocr2Aggregator,
 		txManagerOCR2:  txm,
@@ -127,6 +148,10 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Meta:             txMeta,
 	})
 	return errors.Wrap(err, "skipped OCR transmission")
+}
+
+func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
+	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
 func (t *transmitter) FromAddress(context.Context) common.Address {
@@ -202,4 +227,8 @@ func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Ag
 	}
 
 	return forwarderAddress, nil
+}
+
+func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
+	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }

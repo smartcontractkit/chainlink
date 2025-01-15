@@ -14,6 +14,7 @@ const (
 	NetworkSolana   = "solana"
 	NetworkStarkNet = "starknet"
 	NetworkAptos    = "aptos"
+	NetworkTron     = "tron"
 
 	NetworkDummy = "dummy"
 )
@@ -24,6 +25,7 @@ var SupportedNetworks = map[string]struct{}{
 	NetworkSolana:   {},
 	NetworkStarkNet: {},
 	NetworkAptos:    {},
+	NetworkTron:     {},
 
 	NetworkDummy: {},
 }
@@ -37,7 +39,7 @@ type ServerAdapter struct {
 }
 
 // NewServerAdapter returns a new ServerAdapter.
-func NewServerAdapter(r types.Relayer) *ServerAdapter { //nolint:staticcheck
+func NewServerAdapter(r types.Relayer) *ServerAdapter {
 	return &ServerAdapter{Relayer: r}
 }
 

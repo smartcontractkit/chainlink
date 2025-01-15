@@ -1,0 +1,20 @@
+WorkflowRegistryManager.addVersion
+├── when the caller is not the owner
+│   └── it should revert
+└── when the caller is the owner
+    ├── when the contract address is invalid
+    │   └── it should revert
+    └── when the contract address is valid
+        ├── when the contract is already registered
+        │   └── it should revert
+        └── when the contract type is invalid
+        │   └── it should revert
+        └── when the contract type is valid
+            ├── when autoActivate is true
+            │   ├── it should deactivate any currently active version
+            │   ├── it should activate the new version
+            │   ├── it should emit VersionAdded after adding the version to s_versions
+            │   └── it should emit VersionActivated
+            └── when autoActivate is false
+                ├── it should not activate the new version
+                └── it should emit VersionAdded after adding the version to s_versions

@@ -35,6 +35,8 @@ import (
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -47,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -382,7 +383,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(rootCtx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -433,6 +434,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.AptosEnabled() {
 			enabledChains = append(enabledChains, chaintype.Aptos)
 		}
+		if s.Config.TronEnabled() {
+			enabledChains = append(enabledChains, chaintype.Tron)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -468,15 +472,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return errors.Wrap(err2, "failed to ensure aptos key")
 		}
 	}
-
-	if s.Config.Capabilities().Peering().Enabled() {
-		err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
+	if s.Config.TronEnabled() {
+		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure workflow key")
+			return errors.Wrap(err2, "failed to ensure tron key")
 		}
 	}
 
-	err2 := app.GetKeyStore().CSA().EnsureKey(rootCtx)
+	err2 := app.GetKeyStore().Workflow().EnsureKey(rootCtx)
+	if err2 != nil {
+		return errors.Wrap(err2, "failed to ensure workflow key")
+	}
+
+	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
@@ -629,7 +637,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	defer lggr.ErrorIfFn(db.Close, "Error closing db")
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, db, s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, lggr, s.Registerer, db, s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
@@ -676,18 +684,16 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	orm := txmgr.NewTxStore(app.GetDB(), lggr)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
-	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		cfg, feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
+		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
 		nonces[i] = evmtypes.Nonce(beginningNonce + i)
 	}
 	if gasPriceWei <= math.MaxInt64 {
-		//nolint:gosec // disable G115
 		return s.errorOut(ec.ForceRebroadcast(ctx, nonces, gas.EvmFee{GasPrice: assets.NewWeiI(int64(gasPriceWei))}, address, uint64(overrideGasLimit)))
 	}
 	return s.errorOut(fmt.Errorf("integer overflow conversion error. GasPrice: %v", gasPriceWei))
@@ -809,7 +815,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.Database().URL()
-	db, err := sqlx.Open(string(dialects.Postgres), dbUrl.String())
+	db, err := sqlx.Open(string(pgcommon.Postgres), dbUrl.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -1092,7 +1098,7 @@ type dbConfig interface {
 	MaxOpenConns() int
 	MaxIdleConns() int
 	URL() url.URL
-	Dialect() dialects.DialectName
+	Dialect() pgcommon.DialectName
 }
 
 func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
@@ -1108,7 +1114,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
-	db, err := sql.Open(string(dialects.Postgres), parsed.String())
+	db, err := sql.Open(string(pgcommon.Postgres), parsed.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -1207,7 +1213,7 @@ func checkSchema(dbURL url.URL, prevSchema string) error {
 }
 
 func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
-	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
+	db, err := sql.Open(string(pgcommon.Postgres), dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -1276,7 +1282,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	// From now on, DB locks and DB connection will be released on every return.
 	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
 
-	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, ldb.DB(), s.KeyStoreAuthenticator)
+	app, err := s.AppFactory.NewApplication(ctx, s.Config, s.Logger, s.Registerer, ldb.DB(), s.KeyStoreAuthenticator)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}

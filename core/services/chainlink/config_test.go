@@ -22,10 +22,10 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -49,7 +49,7 @@ var (
 
 	second        = *commoncfg.MustNewDuration(time.Second)
 	minute        = *commoncfg.MustNewDuration(time.Minute)
-	selectionMode = client.NodeSelectionModeHighestHead
+	selectionMode = multinode.NodeSelectionModeHighestHead
 
 	multiChain = Config{
 		Core: toml.Core{
@@ -258,7 +258,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
-	selectionMode := client.NodeSelectionModeHighestHead
+	selectionMode := multinode.NodeSelectionModeHighestHead
 
 	global := Config{
 		Core: toml.Core{
@@ -494,6 +494,11 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID:   ptr("1"),
 			NetworkID: ptr("evm"),
 		},
+		WorkflowRegistry: toml.WorkflowRegistry{
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
+		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
 			ReceiverBufferSize: ptr(10000),
@@ -649,6 +654,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
+					Enabled:              ptr(true),
 					MaxInFlight:          ptr[uint32](19),
 					MaxQueued:            ptr[uint32](99),
 					ReaperInterval:       &minute,
@@ -745,6 +751,8 @@ func TestConfig_Marshal(t *testing.T) {
 				TxTimeout:                commoncfg.MustNewDuration(time.Hour),
 				TxRetryTimeout:           commoncfg.MustNewDuration(time.Minute),
 				TxConfirmTimeout:         commoncfg.MustNewDuration(time.Second),
+				TxExpirationRebroadcast:  ptr(false),
+				TxRetentionTimeout:       commoncfg.MustNewDuration(0 * time.Second),
 				SkipPreflight:            ptr(true),
 				Commitment:               ptr("banana"),
 				MaxRetries:               ptr[int64](7),
@@ -837,6 +845,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Transmitter: toml.MercuryTransmitter{
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
+			TransmitConcurrency:  ptr(uint32(456)),
 		},
 		VerboseLogging: ptr(true),
 	}
@@ -1111,6 +1120,7 @@ FinalizedBlockOffset = 16
 NoNewFinalizedHeadsThreshold = '1h0m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = true
 MaxInFlight = 19
 MaxQueued = 99
@@ -1272,6 +1282,8 @@ OCR2CacheTTL = '1h0m0s'
 TxTimeout = '1h0m0s'
 TxRetryTimeout = '1m0s'
 TxConfirmTimeout = '1s'
+TxExpirationRebroadcast = false
+TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'banana'
 MaxRetries = 7
@@ -1346,6 +1358,7 @@ CertFile = '/path/to/cert.pem'
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
+TransmitConcurrency = 456
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
@@ -1427,7 +1440,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 8 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 9 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1459,7 +1472,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 10 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be greater than or equal to FinalizedBlockOffset
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
@@ -1472,7 +1485,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, astar, celo, gnosis, hedera, kroma, mantle, metis, optimismBedrock, sei, scroll, wemix, xlayer, zkevm, zksync, zircuit or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3: 3 errors:
@@ -1524,6 +1537,11 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 	- Aptos: 2 errors:
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
+		- 0: 2 errors:
+			- Enabled: invalid value (1): expected bool
+			- ChainID: missing: required for all chains
+	- Tron: 2 errors:
+		- 0.Nodes.1.Name: invalid value (tron-test): duplicate - must be unique
 		- 0: 2 errors:
 			- Enabled: invalid value (1): expected bool
 			- ChainID: missing: required for all chains`},

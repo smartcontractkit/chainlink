@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -32,6 +32,12 @@ import (
 )
 
 var _ capabilities.TriggerCapability = (*mockTrigger)(nil)
+
+type mockDonNotifier struct {
+}
+
+func (m *mockDonNotifier) NotifyDonSet(don capabilities.DON) {
+}
 
 type mockTrigger struct {
 	capabilities.CapabilityInfo
@@ -196,10 +202,11 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
-		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*target.server")).Return(nil)
+		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*executable.server")).Return(nil)
 
 		err = launcher.Launch(ctx, state)
 		require.NoError(t, err)
@@ -305,6 +312,7 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		err = launcher.Launch(ctx, state)
@@ -409,6 +417,7 @@ func TestLauncher(t *testing.T) {
 			wrapper,
 			dispatcher,
 			registry,
+			&mockDonNotifier{},
 		)
 
 		err = launcher.Launch(ctx, state)
@@ -600,10 +609,12 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
-	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*target.client")).Return(nil)
+	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
+	dispatcher.On("Ready").Return(nil).Maybe()
 	awaitRegistrationMessageCh := make(chan struct{})
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		select {
@@ -751,6 +762,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	// If the DON were public, this would fail with two errors:
@@ -916,10 +928,11 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
-	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*target.client")).Return(nil)
+	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 
 	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
@@ -1081,6 +1094,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
@@ -1231,6 +1245,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		wrapper,
 		dispatcher,
 		registry,
+		&mockDonNotifier{},
 	)
 
 	err = launcher.Launch(ctx, state)

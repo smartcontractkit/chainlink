@@ -13,11 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -67,7 +67,7 @@ type coordinatorV2PlusUniverse struct {
 }
 
 func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumers int, trusting bool) coordinatorV2PlusUniverse {
-	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
+	tests.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	var (
@@ -1216,13 +1216,13 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni.rootContract, uni.backend, false)
 
 	// Wait for fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 
 	mine(t, requestID, subID, uni.backend, db, vrfcommon.V2Plus, testutils.SimulatedChainID)
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)

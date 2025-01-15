@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"testing"
@@ -23,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -357,9 +358,12 @@ func (c *SimulatedBackendClient) SubscribeToHeads(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
+					if h.Time > math.MaxInt64 {
+						c.t.Fatalf("time overflows int64: %d", h.Time)
+					}
 					head = &evmtypes.Head{
 						Difficulty: h.Difficulty,
-						Timestamp:  time.Unix(int64(h.Time), 0), //nolint:gosec
+						Timestamp:  time.Unix(int64(h.Time), 0),
 						Number:     h.Number.Int64(),
 						Hash:       h.Hash(),
 						ParentHash: h.ParentHash,
@@ -395,16 +399,16 @@ func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash
 	return c.client.HeaderByHash(ctx, h)
 }
 
-func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
+func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
 	if err == nil {
-		return commonclient.Successful, nil
+		return multinode.Successful, nil
 	}
 	if strings.Contains(err.Error(), "could not fetch parent") || strings.Contains(err.Error(), "invalid transaction") {
-		return commonclient.Fatal, err
+		return multinode.Fatal, err
 	}
 	// All remaining error messages returned from SendTransaction are considered Unknown.
-	return commonclient.Unknown, err
+	return multinode.Unknown, err
 }
 
 // SendTransaction sends a transaction.

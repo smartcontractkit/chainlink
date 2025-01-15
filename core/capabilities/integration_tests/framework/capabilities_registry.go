@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/stretchr/testify/require"
 )
@@ -64,6 +64,8 @@ func (r *CapabilitiesRegistry) getAddress() common.Address {
 type capability struct {
 	donCapabilityConfig *pb.CapabilityConfig
 	registryConfig      kcr.CapabilitiesRegistryCapability
+	// internalOnly is true if the capability is published in the registry but not made available outside the DON in which it runs
+	internalOnly bool
 }
 
 // SetupDON sets up a new DON with the given capabilities and returns the DON ID

@@ -44,7 +44,7 @@ before(async () => {
     'src/v0.8/shared/test/helpers/LinkTokenTestHelper.sol:LinkTokenTestHelper',
   )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/shared/mocks/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })

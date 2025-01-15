@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ArbitrumCrossDomainGovernor} from "../../../dev/arbitrum/ArbitrumCrossDomainGovernor.sol";
-import {Greeter} from "../../../../tests/Greeter.sol";
+import {ArbitrumCrossDomainGovernor} from "../../../arbitrum/ArbitrumCrossDomainGovernor.sol";
+import {Greeter} from "../../Greeter.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 
 import {MultiSend} from "../../../../vendor/MultiSend.sol";

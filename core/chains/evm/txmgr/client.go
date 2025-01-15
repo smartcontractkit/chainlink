@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -48,14 +48,14 @@ func (c *evmTxmClient) BatchSendTransactions(
 	batchSize int,
 	lggr logger.SugaredLogger,
 ) (
-	codes []commonclient.SendTxReturnCode,
+	codes []multinode.SendTxReturnCode,
 	txErrs []error,
 	broadcastTime time.Time,
 	successfulTxIDs []int64,
 	err error,
 ) {
 	// preallocate
-	codes = make([]commonclient.SendTxReturnCode, len(attempts))
+	codes = make([]multinode.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))
 
 	reqs, broadcastTime, successfulTxIDs, batchErr := batchSendTransactions(ctx, attempts, batchSize, lggr, c.client)
@@ -95,11 +95,11 @@ func (c *evmTxmClient) BatchSendTransactions(
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (commonclient.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.SugaredLogger) (multinode.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
-		return commonclient.Fatal, err
+		return multinode.Fatal, err
 	}
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
@@ -121,7 +121,7 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 	if nonce > math.MaxInt64 {
 		return 0, fmt.Errorf("overflow for nonce: %d", nonce)
 	}
-	//nolint:gosec // disable G115
+
 	return evmtypes.Nonce(nonce), err
 }
 
@@ -139,7 +139,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 	}
 
 	if err := c.client.BatchCallContext(ctx, reqs); err != nil {
-		return nil, nil, fmt.Errorf("EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext: %w", err)
+		return nil, nil, fmt.Errorf("error fetching receipts with BatchCallContext: %w", err)
 	}
 
 	for _, req := range reqs {
@@ -191,4 +191,8 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 
 func (c *evmTxmClient) HeadByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
 	return c.client.HeadByHash(ctx, hash)
+}
+
+func (c *evmTxmClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	return c.client.BatchCallContext(ctx, b)
 }

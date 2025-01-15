@@ -3,12 +3,14 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/sethvargo/go-retry"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client/doer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/internal/generated"
@@ -18,6 +20,7 @@ type Client interface {
 	FetchCSAPublicKey(ctx context.Context) (*string, error)
 	FetchP2PPeerID(ctx context.Context) (*string, error)
 	FetchAccountAddress(ctx context.Context, chainID string) (*string, error)
+	FetchKeys(ctx context.Context, chainType string) ([]string, error)
 	FetchOCR2KeyBundleID(ctx context.Context, chainType string) (string, error)
 	GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error)
 	ListJobs(ctx context.Context, offset, limit int) (*generated.ListJobsResponse, error)
@@ -61,7 +64,14 @@ func New(baseURI string, creds Credentials) (Client, error) {
 		credentials: creds,
 	}
 
-	if err := c.login(); err != nil {
+	err := retry.Do(context.Background(), retry.WithMaxDuration(10*time.Second, retry.NewFibonacci(2*time.Second)), func(ctx context.Context) error {
+		err := c.login()
+		if err != nil {
+			return retry.RetryableError(fmt.Errorf("retrying login to node: %w", err))
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to login to node: %w", err)
 	}
 
@@ -79,7 +89,7 @@ func (c *client) FetchCSAPublicKey(ctx context.Context) (*string, error) {
 		return nil, err
 	}
 	if keys == nil || len(keys.CsaKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no CSA keys found")
+		return nil, errors.New("no CSA keys found")
 	}
 	return &keys.CsaKeys.GetResults()[0].PublicKey, nil
 }
@@ -90,7 +100,7 @@ func (c *client) FetchP2PPeerID(ctx context.Context) (*string, error) {
 		return nil, err
 	}
 	if keys == nil || len(keys.P2pKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no P2P keys found")
+		return nil, errors.New("no P2P keys found")
 	}
 	return &keys.P2pKeys.GetResults()[0].PeerID, nil
 }
@@ -101,7 +111,7 @@ func (c *client) FetchOCR2KeyBundleID(ctx context.Context, chainType string) (st
 		return "", err
 	}
 	if keyBundles == nil || len(keyBundles.GetOcr2KeyBundles().Results) == 0 {
-		return "", fmt.Errorf("no ocr2 keybundle found, check if ocr2 is enabled")
+		return "", errors.New("no ocr2 keybundle found, check if ocr2 is enabled")
 	}
 	for _, keyBundle := range keyBundles.GetOcr2KeyBundles().Results {
 		if keyBundle.ChainType == generated.OCR2ChainType(chainType) {
@@ -117,14 +127,40 @@ func (c *client) FetchAccountAddress(ctx context.Context, chainID string) (*stri
 		return nil, err
 	}
 	if keys == nil || len(keys.EthKeys.GetResults()) == 0 {
-		return nil, fmt.Errorf("no accounts found")
+		return nil, errors.New("no accounts found")
 	}
 	for _, keyDetail := range keys.EthKeys.GetResults() {
 		if keyDetail.GetChain().Enabled && keyDetail.GetChain().Id == chainID {
-			return pointer.ToString(keyDetail.Address), nil
+			return &keyDetail.Address, nil
 		}
 	}
 	return nil, fmt.Errorf("no account found for chain %s", chainID)
+}
+
+func (c *client) FetchKeys(ctx context.Context, chainType string) ([]string, error) {
+	keys, err := generated.FetchKeys(ctx, c.gqlClient)
+	if err != nil {
+		return nil, err
+	}
+	if keys == nil {
+		return nil, errors.New("no accounts found")
+	}
+	switch generated.OCR2ChainType(chainType) {
+	case generated.OCR2ChainTypeAptos:
+		var accounts []string
+		for _, key := range keys.AptosKeys.GetResults() {
+			accounts = append(accounts, key.Account)
+		}
+		return accounts, nil
+	case generated.OCR2ChainTypeSolana:
+		var accounts []string
+		for _, key := range keys.SolanaKeys.GetResults() {
+			accounts = append(accounts, key.Id)
+		}
+		return accounts, nil
+	default:
+		return nil, fmt.Errorf("unsupported chainType %v", chainType)
+	}
 }
 
 func (c *client) GetJob(ctx context.Context, id string) (*generated.GetJobResponse, error) {
@@ -149,12 +185,12 @@ func (c *client) GetJobDistributor(ctx context.Context, id string) (generated.Fe
 		return generated.FeedsManagerParts{}, err
 	}
 	if res == nil {
-		return generated.FeedsManagerParts{}, fmt.Errorf("no feeds manager found")
+		return generated.FeedsManagerParts{}, errors.New("no feeds manager found")
 	}
 	if success, ok := res.GetFeedsManager().(*generated.GetFeedsManagerFeedsManager); ok {
 		return success.FeedsManagerParts, nil
 	}
-	return generated.FeedsManagerParts{}, fmt.Errorf("failed to get feeds manager")
+	return generated.FeedsManagerParts{}, errors.New("failed to get feeds manager")
 }
 
 func (c *client) ListJobDistributors(ctx context.Context) (*generated.ListFeedsManagersResponse, error) {
@@ -176,7 +212,11 @@ func (c *client) CreateJobDistributor(ctx context.Context, in JobDistributorInpu
 		feedsManager := success.GetFeedsManager()
 		return feedsManager.GetId(), nil
 	}
-	return "", fmt.Errorf("failed to create feeds manager")
+	if err, ok := response.GetCreateFeedsManager().(*generated.CreateFeedsManagerCreateFeedsManagerSingleFeedsManagerError); ok {
+		msg := err.GetMessage()
+		return "", fmt.Errorf("failed to create feeds manager: %v", msg)
+	}
+	return "", fmt.Errorf("failed to create feeds manager: %v", response.GetCreateFeedsManager().GetTypename())
 }
 
 func (c *client) UpdateJobDistributor(ctx context.Context, id string, in JobDistributorInput) error {
@@ -200,12 +240,12 @@ func (c *client) CreateJobDistributorChainConfig(ctx context.Context, in JobDist
 		return "", err
 	}
 	if res == nil {
-		return "", fmt.Errorf("failed to create feeds manager chain config")
+		return "", errors.New("failed to create feeds manager chain config")
 	}
 	if success, ok := res.GetCreateFeedsManagerChainConfig().(*generated.CreateFeedsManagerChainConfigCreateFeedsManagerChainConfigCreateFeedsManagerChainConfigSuccess); ok {
 		return success.ChainConfig.Id, nil
 	}
-	return "", fmt.Errorf("failed to create feeds manager chain config")
+	return "", errors.New("failed to create feeds manager chain config")
 }
 
 func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string) error {
@@ -214,12 +254,12 @@ func (c *client) DeleteJobDistributorChainConfig(ctx context.Context, id string)
 		return err
 	}
 	if res == nil {
-		return fmt.Errorf("failed to delete feeds manager chain config")
+		return errors.New("failed to delete feeds manager chain config")
 	}
 	if _, ok := res.GetDeleteFeedsManagerChainConfig().(*generated.DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigSuccess); ok {
 		return nil
 	}
-	return fmt.Errorf("failed to delete feeds manager chain config")
+	return errors.New("failed to delete feeds manager chain config")
 }
 
 func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJobProposalJobProposal, error) {
@@ -228,12 +268,12 @@ func (c *client) GetJobProposal(ctx context.Context, id string) (*generated.GetJ
 		return nil, err
 	}
 	if proposal == nil {
-		return nil, fmt.Errorf("no job proposal found")
+		return nil, errors.New("no job proposal found")
 	}
 	if success, ok := proposal.GetJobProposal().(*generated.GetJobProposalJobProposal); ok {
 		return success, nil
 	}
-	return nil, fmt.Errorf("failed to get job proposal")
+	return nil, errors.New("failed to get job proposal")
 }
 
 func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bool) (*JobProposalApprovalSuccessSpec, error) {
@@ -251,7 +291,7 @@ func (c *client) ApproveJobProposalSpec(ctx context.Context, id string, force bo
 			return &cmd, nil
 		}
 	}
-	return nil, fmt.Errorf("failed to approve job proposal spec")
+	return nil, errors.New("failed to approve job proposal spec")
 }
 
 func (c *client) CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecResponse, error) {
@@ -289,7 +329,7 @@ func (c *client) login() error {
 
 	cookieHeader := res.Header.Get("Set-Cookie")
 	if cookieHeader == "" {
-		return fmt.Errorf("no cookie found in header")
+		return errors.New("no cookie found in header")
 	}
 
 	c.cookie = strings.Split(cookieHeader, ";")[0]

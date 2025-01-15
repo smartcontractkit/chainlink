@@ -18,8 +18,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -27,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
@@ -43,10 +43,18 @@ var (
 	// 5s for token data worker timeout is a reasonable default.
 	tokenDataWorkerTimeout = 5 * time.Second
 	// tokenDataWorkerNumWorkers is the number of workers that will be processing token data in parallel.
-	tokenDataWorkerNumWorkers = 5
+	tokenDataWorkerNumWorkers = 10
+	// expirationDur is the duration for which the token data will be cached.
+	expirationDurTokenData = 10 * time.Minute
 )
 
-var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{InitialDelay: time.Second, MaxDelay: 5 * time.Minute}
+var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
+	InitialDelay: time.Second,
+	MaxDelay:     10 * time.Minute,
+	// Retry for approximately 4hrs (MaxDelay of 10m = 6 times per hour, times 4 hours, plus 10 because the first
+	// 10 retries only take 20 minutes due to an initial retry of 1s and exponential backoff)
+	MaxRetries: (6 * 4) + 10,
+}
 
 func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcProvider types.CCIPExecProvider, dstProvider types.CCIPExecProvider, srcChainID int64, dstChainID int64, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	if jb.OCR2OracleSpec == nil {
@@ -115,6 +123,20 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		}
 		tokenDataProviders[cciptypes.Address(pluginConfig.USDCConfig.SourceTokenAddress.String())] = usdcReader
 	}
+	// init lbtc token data provider
+	if pluginConfig.LBTCConfig.AttestationAPI != "" {
+		lggr.Infof("LBTC token data provider enabled")
+		err2 := pluginConfig.LBTCConfig.ValidateLBTCConfig()
+		if err2 != nil {
+			return nil, err2
+		}
+
+		lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(pluginConfig.LBTCConfig.SourceTokenAddress))
+		if err2 != nil {
+			return nil, fmt.Errorf("new lbtc reader: %w", err2)
+		}
+		tokenDataProviders[cciptypes.Address(pluginConfig.LBTCConfig.SourceTokenAddress.String())] = lbtcReader
+	}
 
 	// Prom wrappers
 	onRampReader = observability.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
@@ -149,7 +171,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		tokenDataProviders,
 		tokenDataWorkerNumWorkers,
 		tokenDataWorkerTimeout,
-		2*tokenDataWorkerTimeout,
+		expirationDurTokenData,
 	)
 
 	wrappedPluginFactory := NewExecutionReportingPluginFactory(ExecutionPluginStaticConfig{

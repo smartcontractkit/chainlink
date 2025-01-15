@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// nolint
 var (
 	ErrEnvUnset = pkgerrors.New("env var unset")
 )
@@ -26,6 +25,7 @@ type AppConfig interface {
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
 	AptosEnabled() bool
+	TronEnabled() bool
 
 	Validate() error
 	ValidateDB() error

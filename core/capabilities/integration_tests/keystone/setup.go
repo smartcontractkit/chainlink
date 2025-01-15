@@ -11,12 +11,14 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
+	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -46,9 +48,11 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.SugaredLog
 
 	triggerDon := createKeystoneTriggerDon(ctx, t, lggr, triggerDonInfo, donContext, trigger)
 
-	workflowDon.Start(ctx, t)
-	triggerDon.Start(ctx, t)
-	writeTargetDon.Start(ctx, t)
+	servicetest.Run(t, workflowDon)
+	servicetest.Run(t, triggerDon)
+	servicetest.Run(t, writeTargetDon)
+
+	donContext.WaitForCapabilitiesToBeExposed(t, workflowDon, triggerDon, writeTargetDon)
 
 	return workflowDon, consumer
 }
@@ -126,7 +130,7 @@ func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) [
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
 	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
 		BenchmarkPrice: price,
-		//nolint:gosec // disable G115
+
 		Timestamp: uint32(timestamp),
 		Bid:       big.NewInt(0),
 		Ask:       big.NewInt(0),

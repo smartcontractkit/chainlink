@@ -17,17 +17,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	types3 "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"k8s.io/utils/ptr"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"k8s.io/utils/pointer" //nolint:staticcheck
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -39,10 +38,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -369,7 +368,7 @@ func setupNodeCCIP(
 	owner *bind.TransactOpts,
 	port int64,
 	dbName string,
-	sourceChain *simulated.Backend, destChain *simulated.Backend,
+	sourceChain *testhelpers.Backend, destChain *testhelpers.Backend,
 	sourceChainID *big.Int, destChainID *big.Int,
 	bootstrapPeerID string,
 	bootstrapPort int64,
@@ -384,10 +383,11 @@ func setupNodeCCIP(
 			fmt.Sprintf("127.0.0.1:%d", port),
 		}
 		c.Log.Level = &loglevel
+		c.Feature.CCIP = &trueRef
 		c.Feature.UICSAKeys = &trueRef
 		c.Feature.FeedsManager = &trueRef
 		c.OCR.Enabled = &falseRef
-		c.OCR.DefaultTransactionQueueDepth = pointer.Uint32(200)
+		c.OCR.DefaultTransactionQueueDepth = ptr.To[uint32](200)
 		c.OCR2.Enabled = &trueRef
 		c.Feature.LogPoller = &trueRef
 		c.P2P.V2.Enabled = &trueRef
@@ -469,7 +469,7 @@ func setupNodeCCIP(
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
 		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: coretypes.NewCapabilitiesRegistry(t),
+		CapabilitiesRegistry: evmcapabilities.NewRegistry(logger.TestLogger(t)),
 	}
 	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility

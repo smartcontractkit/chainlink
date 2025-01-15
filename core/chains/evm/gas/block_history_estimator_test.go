@@ -16,9 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
@@ -2179,7 +2179,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 	bhCfg := newBlockHistoryConfig()
 	bhCfg.CheckInclusionBlocksF = uint16(4)
 	bhCfg.CheckInclusionPercentileF = uint16(90)
-	lggr, _ := logger.TestObserved(t, zapcore.DebugLevel)
+	lggr := logger.Test(t)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
 	geCfg.PriceMinF = assets.NewWeiI(1)

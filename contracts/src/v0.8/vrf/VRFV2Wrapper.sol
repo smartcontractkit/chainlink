@@ -3,20 +3,20 @@
 pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../shared/interfaces/AggregatorV3Interface.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../ChainSpecificUtil_v0_8_6.sol";
+import {ChainSpecificUtil} from "./ChainSpecificUtil_v0_8_6.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
-contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2, VRFV2WrapperInterface {
+contract VRFV2Wrapper is ConfirmedOwner, ITypeAndVersion, VRFConsumerBaseV2, VRFV2WrapperInterface {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i

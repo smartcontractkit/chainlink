@@ -23,6 +23,9 @@ BlockHistorySize = 12
 
 [HeadTracker]
 HistoryDepth = 2000
+# FinalityDepth < 1k => FinalityTagBypass = false
+# https://smartcontract-it.atlassian.net/browse/SHIP-4078
+FinalityTagBypass = false
 
 [Transactions.AutoPurge]
 Enabled = true

@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {RMNRemote} from "../../../rmn/RMNRemote.sol";
 import {RMNRemoteSetup} from "./RMNRemoteSetup.t.sol";
 
 contract RMNRemote_setConfig is RMNRemoteSetup {
-  function test_setConfig_ZeroValueNotAllowed_revert() public {
+  function test_RevertWhen_setConfig_ZeroValueNotAllowed() public {
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: bytes32(0), signers: s_signers, fSign: 1});
 
     vm.expectRevert(RMNRemote.ZeroValueNotAllowed.selector);
 
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_addSigner_removeSigner_success() public {
+  function test_setConfig_addSigner_removeSigner() public {
     uint32 currentConfigVersion = 0;
     uint256 numSigners = s_signers.length;
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -28,7 +28,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     // add a signer
     address newSigner = makeAddr("new signer");
     s_signers.push(RMNRemote.Signer({onchainPublicKey: newSigner, nodeIndex: uint64(numSigners)}));
-    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -44,7 +44,7 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     // remove two signers
     s_signers.pop();
     s_signers.pop();
-    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+    config = RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
 
     vm.expectEmit();
     emit RMNRemote.ConfigSet(++currentConfigVersion, config);
@@ -56,30 +56,30 @@ contract RMNRemote_setConfig is RMNRemoteSetup {
     assertEq(version, currentConfigVersion);
   }
 
-  function test_setConfig_invalidSignerOrder_reverts() public {
+  function test_RevertWhen_setConfig_invalidSignerOrder() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: address(4), nodeIndex: 0}));
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
 
     vm.expectRevert(RMNRemote.InvalidSignerOrder.selector);
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_notEnoughSigners_reverts() public {
+  function test_RevertWhen_setConfig_notEnoughSigners() public {
     RMNRemote.Config memory config = RMNRemote.Config({
       rmnHomeContractConfigDigest: _randomBytes32(),
       signers: s_signers,
-      f: uint64(s_signers.length / 2) // at least 2f+1 is required
+      fSign: uint64(s_signers.length / 2) // at least 2f+1 is required
     });
 
     vm.expectRevert(RMNRemote.NotEnoughSigners.selector);
     s_rmnRemote.setConfig(config);
   }
 
-  function test_setConfig_duplicateOnChainPublicKey_reverts() public {
+  function test_RevertWhen_setConfig_duplicateOnChainPublicKey() public {
     s_signers.push(RMNRemote.Signer({onchainPublicKey: s_signerWallets[0].addr, nodeIndex: uint64(s_signers.length)}));
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 1});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 1});
 
     vm.expectRevert(RMNRemote.DuplicateOnchainPublicKey.selector);
     s_rmnRemote.setConfig(config);

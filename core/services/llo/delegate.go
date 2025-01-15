@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
@@ -57,6 +59,8 @@ type DelegateConfig struct {
 	RetirementReportCodec  datastreamsllo.RetirementReportCodec
 	ShouldRetireCache      datastreamsllo.ShouldRetireCache
 	EAMonitoringEndpoint   ocrcommontypes.MonitoringEndpoint
+	DonID                  uint32
+	ChainID                string
 
 	// OCR3
 	TraceLogging                 bool
@@ -65,16 +69,16 @@ type DelegateConfig struct {
 	// One Oracle will be started for each ContractConfigTracker
 	ContractConfigTrackers []ocr2types.ContractConfigTracker
 	ContractTransmitter    ocr3types.ContractTransmitter[llotypes.ReportInfo]
-	Database               ocr3types.Database
 	OCR3MonitoringEndpoint ocrcommontypes.MonitoringEndpoint
 	OffchainConfigDigester ocr2types.OffchainConfigDigester
 	OffchainKeyring        ocr2types.OffchainKeyring
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
 	LocalConfig            ocr2types.LocalConfig
+	NewOCR3DB              func(pluginID int32) ocr3types.Database
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
-	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero())
+	lggr := logger.Sugared(cfg.Logger).With("jobName", cfg.JobName.ValueOrZero(), "donID", cfg.DonID)
 	if cfg.DataSource == nil {
 		return nil, errors.New("DataSource must not be nil")
 	}
@@ -90,11 +94,17 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
 	}
-	reportCodecs := NewReportCodecs()
+	var codecLggr logger.Logger
+	if cfg.ReportingPluginConfig.VerboseLogging {
+		codecLggr = logger.Named(lggr, "ReportCodecs")
+	} else {
+		codecLggr = corelogger.NullLogger
+	}
+	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
 	var t TelemeterService
 	if cfg.CaptureEATelemetry {
-		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint)
+		t = NewTelemeterService(lggr, cfg.EAMonitoringEndpoint, cfg.DonID)
 	} else {
 		t = NullTelemeter
 	}
@@ -110,7 +120,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			return fmt.Errorf("expected either 1 or 2 ContractConfigTrackers, got: %d", len(d.cfg.ContractConfigTrackers))
 		}
 
-		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry)
+		d.cfg.Logger.Debugw("Starting LLO job", "instances", len(d.cfg.ContractConfigTrackers), "jobName", d.cfg.JobName.ValueOrZero(), "captureEATelemetry", d.cfg.CaptureEATelemetry, "donID", d.cfg.DonID)
 
 		var merr error
 
@@ -125,9 +135,10 @@ func (d *delegate) Start(ctx context.Context) error {
 			case 1:
 				lggr = logger.With(lggr, "instanceType", "Green")
 			}
-			ocrLogger := logger.NewOCRWrapper(lggr, d.cfg.TraceLogging, func(msg string) {
-				// TODO: do we actually need to DB-persist errors?
-				// MERC-3524
+			ocrLogger := logger.NewOCRWrapper(NewSuppressedLogger(lggr, d.cfg.ReportingPluginConfig.VerboseLogging), d.cfg.TraceLogging, func(msg string) {
+				// NOTE: Some OCR loggers include a DB-persist here
+				// We do not DB persist errors in LLO, since they could be quite voluminous and ought to be present in logs anyway.
+				// This is a performance optimization
 			})
 
 			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs[llotypes.ReportInfo]{
@@ -135,15 +146,28 @@ func (d *delegate) Start(ctx context.Context) error {
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
 				ContractTransmitter:          d.cfg.ContractTransmitter,
-				Database:                     d.cfg.Database,
+				Database:                     d.cfg.NewOCR3DB(int32(i)), // //nolint:gosec // G115 // impossible due to check on line 119
 				LocalConfig:                  d.cfg.LocalConfig,
 				Logger:                       ocrLogger,
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               d.cfg.OnchainKeyring,
-				ReportingPluginFactory: datastreamsllo.NewPluginFactory(
-					d.cfg.ReportingPluginConfig, psrrc, d.src, d.cfg.RetirementReportCodec, d.cfg.ChannelDefinitionCache, d.ds, logger.Named(lggr, "LLOReportingPlugin"), llo.EVMOnchainConfigCodec{}, d.reportCodecs,
+				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
+					datastreamsllo.NewPluginFactory(
+						d.cfg.ReportingPluginConfig,
+						psrrc,
+						d.src,
+						d.cfg.RetirementReportCodec,
+						d.cfg.ChannelDefinitionCache,
+						d.ds,
+						logger.Named(lggr, "ReportingPlugin"),
+						llo.EVMOnchainConfigCodec{},
+						d.reportCodecs,
+					),
+					lggr,
+					d.cfg.ChainID,
+					"llo",
 				),
 				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 			})

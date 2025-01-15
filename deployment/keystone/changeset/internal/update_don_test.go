@@ -2,6 +2,8 @@ package internal_test
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 	"strconv"
@@ -9,22 +11,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/environment/clo/models"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+)
+
+var (
+	registryChain = chainsel.TEST_90000001
 )
 
 func TestUpdateDon(t *testing.T) {
 	var (
-		registryChain = chainsel.TEST_90000001
 		// nodes
 		p2p_1     = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(100))
 		pubKey_1  = "11114981a6119ca3f932cdb8c402d71a72d672adae7849f581ecff8b8e1098e7" // valid csa key
@@ -78,13 +82,13 @@ func TestUpdateDon(t *testing.T) {
 			admin:         admin_4,
 		})
 		// capabilities
-		cap_A = kcr.CapabilitiesRegistryCapability{
+		initialCap = kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "test",
 			Version:        "1.0.0",
 			CapabilityType: 0,
 		}
 
-		cap_B = kcr.CapabilitiesRegistryCapability{
+		capToAdd = kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "cap b",
 			Version:        "1.0.0",
 			CapabilityType: 1,
@@ -95,28 +99,41 @@ func TestUpdateDon(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		cfg := setupUpdateDonTestConfig{
-			dons: []kslib.DonCapabilities{
+			dons: []internal.DonInfo{
 				{
-					Name: "don 1",
-					Nops: []*models.NodeOperator{
-						{
-							Name:  "nop 1",
-							Nodes: []*models.Node{node_1, node_2, node_3, node_4},
-						},
-					},
-					Capabilities: []kcr.CapabilitiesRegistryCapability{cap_A},
+					Name:         "don 1",
+					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
+					Capabilities: []kcr.CapabilitiesRegistryCapability{initialCap},
+				},
+			},
+			nops: []internal.NOP{
+				{
+					Name:  "nop 1",
+					Nodes: []string{node_1.NodeID, node_2.NodeID, node_3.NodeID, node_4.NodeID},
 				},
 			},
 		}
 
-		testCfg := setupUpdateDonTest(t, lggr, cfg)
+		testCfg := registerTestDon(t, lggr, cfg)
+		// add the new capabilities to registry
+		m := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
+		for _, node := range cfg.dons[0].Nodes {
+			m[node.PeerID] = append(m[node.PeerID], capToAdd)
+		}
+
+		_, err := internal.AppendNodeCapabilitiesImpl(lggr, &internal.AppendNodeCapabilitiesRequest{
+			Chain:             testCfg.Chain,
+			ContractSet:       testCfg.ContractSet,
+			P2pToCapabilities: m,
+		})
+		require.NoError(t, err)
 
 		req := &internal.UpdateDonRequest{
-			Registry: testCfg.Registry,
-			Chain:    testCfg.Chain,
-			P2PIDs:   []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
+			ContractSet: testCfg.ContractSet,
+			Chain:       testCfg.Chain,
+			P2PIDs:      []p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()},
 			CapabilityConfigs: []internal.CapabilityConfig{
-				{Capability: cap_A}, {Capability: cap_B},
+				{Capability: initialCap}, {Capability: capToAdd},
 			},
 		}
 		want := &internal.UpdateDonResponse{
@@ -125,8 +142,8 @@ func TestUpdateDon(t *testing.T) {
 				ConfigCount: 1,
 				NodeP2PIds:  internal.PeerIDsToBytes([]p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}),
 				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_A)},
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, cap_B)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, initialCap)},
+					{CapabilityId: kstest.MustCapabilityId(t, testCfg.Registry, capToAdd)},
 				},
 			},
 		}
@@ -137,7 +154,6 @@ func TestUpdateDon(t *testing.T) {
 		assert.Equal(t, want.DonInfo.ConfigCount, got.DonInfo.ConfigCount)
 		assert.Equal(t, sortedP2Pids(want.DonInfo.NodeP2PIds), sortedP2Pids(got.DonInfo.NodeP2PIds))
 		assert.Equal(t, capIds(want.DonInfo.CapabilityConfigurations), capIds(got.DonInfo.CapabilityConfigurations))
-
 	})
 }
 
@@ -169,36 +185,44 @@ type minimalNodeCfg struct {
 	admin         common.Address
 }
 
-func newNode(t *testing.T, cfg minimalNodeCfg) *models.Node {
+func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 	t.Helper()
 
-	return &models.Node{
-		ID:        cfg.id,
-		PublicKey: &cfg.pubKey,
-		ChainConfigs: []*models.NodeChainConfig{
-			{
-				ID: "test chain",
-				Network: &models.Network{
-					ID:        "test network 1",
-					ChainID:   strconv.FormatUint(cfg.registryChain.EvmChainID, 10),
-					ChainType: models.ChainTypeEvm,
-				},
-				AdminAddress: cfg.admin.String(),
-				Ocr2Config: &models.NodeOCR2Config{
-					P2pKeyBundle: &models.NodeOCR2ConfigP2PKeyBundle{
-						PeerID: cfg.p2p.PeerID().String(),
-					},
-					OcrKeyBundle: &models.NodeOCR2ConfigOCRKeyBundle{
-						OnchainSigningAddress: cfg.signingAddr,
-					},
-				},
+	registryChainID, err := chainsel.ChainIdFromSelector(registryChain.Selector)
+	if err != nil {
+		panic(err)
+	}
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	if err != nil {
+		panic(err)
+	}
+
+	signingAddr, err := hex.DecodeString(cfg.signingAddr)
+	require.NoError(t, err)
+
+	var pubkey [32]byte
+	if _, err := hex.Decode(pubkey[:], []byte(cfg.pubKey)); err != nil {
+		panic(fmt.Sprintf("failed to decode pubkey %s: %v", pubkey, err))
+	}
+
+	return deployment.Node{
+		NodeID:    cfg.id,
+		PeerID:    cfg.p2p.PeerID(),
+		CSAKey:    cfg.pubKey,
+		AdminAddr: cfg.admin.String(),
+		SelToOCRConfig: map[chainsel.ChainDetails]deployment.OCRConfig{
+			registryChainDetails: {
+				OnchainPublicKey:          signingAddr,
+				PeerID:                    cfg.p2p.PeerID(),
+				ConfigEncryptionPublicKey: pubkey,
 			},
 		},
 	}
 }
 
 type setupUpdateDonTestConfig struct {
-	dons []kslib.DonCapabilities
+	dons []internal.DonInfo
+	nops []internal.NOP
 }
 
 type setupUpdateDonTestResult struct {
@@ -206,30 +230,21 @@ type setupUpdateDonTestResult struct {
 	chain    deployment.Chain
 }
 
-func setupUpdateDonTest(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {
+func registerTestDon(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestConfig) *kstest.SetupTestRegistryResponse {
 	t.Helper()
-	req := newSetupTestRegistryRequest(t, cfg.dons)
+	req := newSetupTestRegistryRequest(t, cfg.dons, cfg.nops)
 	return kstest.SetupTestRegistry(t, lggr, req)
 }
 
-func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonCapabilities) *kstest.SetupTestRegistryRequest {
+func newSetupTestRegistryRequest(t *testing.T, dons []internal.DonInfo, nops []internal.NOP) *kstest.SetupTestRegistryRequest {
 	t.Helper()
-	allNops := make(map[string]*models.NodeOperator)
+	nodes := make(map[string]deployment.Node)
 	for _, don := range dons {
-		for _, nop := range don.Nops {
-			nop := nop
-			n, exists := allNops[nop.ID]
-			if exists {
-				nop.Nodes = append(n.Nodes, nop.Nodes...)
-			}
-			allNops[nop.ID] = nop
+		for _, node := range don.Nodes {
+			nodes[node.NodeID] = node
 		}
 	}
-	var nops []*models.NodeOperator
-	for _, nop := range allNops {
-		nops = append(nops, nop)
-	}
-	nopsToNodes := makeNopToNodes(t, nops)
+	nopsToNodes := makeNopToNodes(t, nops, nodes)
 	testDons := makeTestDon(t, dons)
 	p2pToCapabilities := makeP2PToCapabilities(t, dons)
 	req := &kstest.SetupTestRegistryRequest{
@@ -240,46 +255,45 @@ func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonCapabilities) *ks
 	return req
 }
 
-func makeNopToNodes(t *testing.T, cloNops []*models.NodeOperator) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
+func makeNopToNodes(t *testing.T, nops []internal.NOP, nodes map[string]deployment.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
 	nopToNodes := make(map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc)
 
-	for _, nop := range cloNops {
+	for _, nop := range nops {
 		// all chain configs are the same wrt admin address & node keys
 		// so we can just use the first one
 		crnop := kcr.CapabilitiesRegistryNodeOperator{
 			Name:  nop.Name,
-			Admin: common.HexToAddress(nop.Nodes[0].ChainConfigs[0].AdminAddress),
+			Admin: common.HexToAddress(nodes[nop.Nodes[0]].AdminAddr),
 		}
-		var nodes []*internal.P2PSignerEnc
-		for _, node := range nop.Nodes {
-			require.NotNil(t, node.PublicKey, "public key is nil %s", node.ID)
+		var signers []*internal.P2PSignerEnc
+		for _, nodeID := range nop.Nodes {
+			node := nodes[nodeID]
+			require.NotNil(t, node.CSAKey, "public key is nil %s", node.NodeID)
 			// all chain configs are the same wrt admin address & node keys
-			p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
-			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-			nodes = append(nodes, p)
+			p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
+			signers = append(signers, p)
 		}
-		nopToNodes[crnop] = nodes
+		nopToNodes[crnop] = signers
 	}
 	return nopToNodes
 }
 
-func makeP2PToCapabilities(t *testing.T, dons []kslib.DonCapabilities) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
+func makeP2PToCapabilities(t *testing.T, dons []internal.DonInfo) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
 	p2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	for _, don := range dons {
-		for _, nop := range don.Nops {
-			for _, node := range nop.Nodes {
-				for _, cap := range don.Capabilities {
-					p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
-					require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-					p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
-				}
+		for _, node := range don.Nodes {
+			for _, cap := range don.Capabilities {
+				p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+				require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
+				p2pToCapabilities[p.P2PKey] = append(p2pToCapabilities[p.P2PKey], cap)
 			}
 		}
 	}
 	return p2pToCapabilities
 }
 
-func makeTestDon(t *testing.T, dons []kslib.DonCapabilities) []kstest.Don {
+func makeTestDon(t *testing.T, dons []internal.DonInfo) []kstest.Don {
 	out := make([]kstest.Don, len(dons))
 	for i, don := range dons {
 		out[i] = testDon(t, don)
@@ -287,16 +301,14 @@ func makeTestDon(t *testing.T, dons []kslib.DonCapabilities) []kstest.Don {
 	return out
 }
 
-func testDon(t *testing.T, don kslib.DonCapabilities) kstest.Don {
+func testDon(t *testing.T, don internal.DonInfo) kstest.Don {
 	var p2pids []p2pkey.PeerID
-	for _, nop := range don.Nops {
-		for _, node := range nop.Nodes {
-			// all chain configs are the same wrt admin address & node keys
-			// so we can just use the first one
-			p, err := kscs.NewP2PSignerEncFromCLO(node.ChainConfigs[0], *node.PublicKey)
-			require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.ID)
-			p2pids = append(p2pids, p.P2PKey)
-		}
+	for _, node := range don.Nodes {
+		// all chain configs are the same wrt admin address & node keys
+		// so we can just use the first one
+		p, err := kscs.NewP2PSignerEnc(&node, registryChain.Selector)
+		require.NoError(t, err, "failed to make p2p signer enc from clo nod %s", node.NodeID)
+		p2pids = append(p2pids, p.P2PKey)
 	}
 
 	var capabilityConfigs []internal.CapabilityConfig
@@ -309,13 +321,5 @@ func testDon(t *testing.T, don kslib.DonCapabilities) kstest.Don {
 		Name:              don.Name,
 		P2PIDs:            p2pids,
 		CapabilityConfigs: capabilityConfigs,
-	}
-}
-
-func newP2PSignerEnc(signer [32]byte, p2pkey p2pkey.PeerID, encryptionPublicKey [32]byte) *internal.P2PSignerEnc {
-	return &internal.P2PSignerEnc{
-		Signer:              signer,
-		P2PKey:              p2pkey,
-		EncryptionPublicKey: encryptionPublicKey,
 	}
 }

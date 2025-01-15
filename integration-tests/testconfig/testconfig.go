@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/barkimedes/go-deepcopy"
@@ -600,6 +599,17 @@ func (c *TestConfig) readNetworkConfiguration() error {
 		c.PrivateEthereumNetwork.EthereumChainConfig.GenerateGenesisTimestamp()
 	}
 
+	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
+		for _, key := range network.PrivateKeys {
+			address, err := conversions.PrivateKeyHexToAddress(key)
+			if err != nil {
+				return errors.Wrapf(err, "error converting private key to address")
+			}
+			c.PrivateEthereumNetwork.EthereumChainConfig.AddressesToFund = append(
+				c.PrivateEthereumNetwork.EthereumChainConfig.AddressesToFund, address.Hex(),
+			)
+		}
+	}
 	return nil
 }
 
@@ -629,26 +639,6 @@ func (c *TestConfig) Validate() error {
 
 	if c.Logging == nil {
 		return fmt.Errorf("logging config must be set")
-	}
-
-	if err := c.Logging.Validate(); err != nil {
-		return errors.Wrapf(err, "logging config validation failed")
-	}
-
-	if c.Logging.Loki != nil {
-		if err := c.Logging.Loki.Validate(); err != nil {
-			return errors.Wrapf(err, "loki config validation failed")
-		}
-	}
-
-	if c.Logging.LogStream != nil && slices.Contains(c.Logging.LogStream.LogTargets, "loki") {
-		if c.Logging.Loki == nil {
-			return fmt.Errorf("in order to use Loki as logging target you must set Loki config in logging config")
-		}
-
-		if err := c.Logging.Loki.Validate(); err != nil {
-			return errors.Wrapf(err, "loki config validation failed")
-		}
 	}
 
 	if c.Pyroscope != nil {

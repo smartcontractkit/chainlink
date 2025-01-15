@@ -74,7 +74,15 @@ func Test_Client_Transmit(t *testing.T) {
 		conn := &mocks.MockConn{
 			Ready: true,
 		}
-		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet)
+		opts := ClientOpts{
+			lggr,
+			csakey.KeyV2{},
+			nil,
+			"",
+			noopCacheSet,
+			nil,
+		}
+		c := newClient(opts)
 		c.conn = conn
 		c.rawClient = wsrpcClient
 		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
@@ -159,7 +167,7 @@ func Test_Client_LatestReport(t *testing.T) {
 			conn := &mocks.MockConn{
 				Ready: true,
 			}
-			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet)
+			c := newClient(ClientOpts{lggr, csakey.KeyV2{}, nil, "", cacheSet, nil})
 			c.conn = conn
 			c.rawClient = wsrpcClient
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"net/url"
 	"strconv"
@@ -25,9 +26,8 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -92,12 +92,13 @@ type RPCClient struct {
 	name                       string
 	id                         int
 	chainID                    *big.Int
-	tier                       commonclient.NodeTier
+	tier                       multinode.NodeTier
 	largePayloadRPCTimeout     time.Duration
 	finalizedBlockPollInterval time.Duration
 	newHeadsPollInterval       time.Duration
 	rpcTimeout                 time.Duration
 	chainType                  chaintype.ChainType
+	clientErrors               config.ClientErrors
 
 	ws   *rawclient
 	http *rawclient
@@ -116,13 +117,13 @@ type RPCClient struct {
 
 	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the RPCClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
-	highestUserObservations commonclient.ChainInfo
+	highestUserObservations multinode.ChainInfo
 	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
-	latestChainInfo commonclient.ChainInfo
+	latestChainInfo multinode.ChainInfo
 }
 
-var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
-var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RPCClient)(nil)
+var _ multinode.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
+var _ multinode.SendTxRPCClient[*types.Transaction, *SendTxResult] = (*RPCClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -132,7 +133,7 @@ func NewRPCClient(
 	name string,
 	id int,
 	chainID *big.Int,
-	tier commonclient.NodeTier,
+	tier multinode.NodeTier,
 	largePayloadRPCTimeout time.Duration,
 	rpcTimeout time.Duration,
 	chainType chaintype.ChainType,
@@ -141,6 +142,7 @@ func NewRPCClient(
 		largePayloadRPCTimeout: largePayloadRPCTimeout,
 		rpcTimeout:             rpcTimeout,
 		chainType:              chainType,
+		clientErrors:           cfg.Errors(),
 	}
 	r.cfg = cfg
 	r.name = name
@@ -178,11 +180,11 @@ func (r *RPCClient) Ping(ctx context.Context) error {
 	return err
 }
 
-func (r *RPCClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
+func (r *RPCClient) UnsubscribeAllExcept(subs ...multinode.Subscription) {
 	r.subsSliceMu.Lock()
 	defer r.subsSliceMu.Unlock()
 
-	keepSubs := map[commontypes.Subscription]struct{}{}
+	keepSubs := map[multinode.Subscription]struct{}{}
 	for _, sub := range subs {
 		keepSubs[sub] = struct{}{}
 	}
@@ -262,7 +264,7 @@ func (r *RPCClient) Close() {
 	r.cancelInflightRequests()
 	r.UnsubscribeAllExcept()
 	r.chainInfoLock.Lock()
-	r.latestChainInfo = commonclient.ChainInfo{}
+	r.latestChainInfo = multinode.ChainInfo{}
 	r.chainInfoLock.Unlock()
 }
 
@@ -374,6 +376,10 @@ func (r *RPCClient) BatchCallContext(rootCtx context.Context, b []rpc.BatchElem)
 	var requestedFinalizedBlock bool
 	if r.chainType == chaintype.ChainAstar {
 		for _, el := range b {
+			if el.Method == "eth_getLogs" {
+				r.rpcLog.Critical("evmclient.BatchCallContext: eth_getLogs is not supported")
+				return errors.New("evmclient.BatchCallContext: eth_getLogs is not supported")
+			}
 			if !isRequestingFinalizedBlock(el) {
 				continue
 			}
@@ -445,7 +451,7 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 	}
 }
 
-func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub multinode.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	args := []interface{}{rpcSubscriptionMethodNewHeads}
@@ -456,10 +462,10 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
-		poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+		isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 			if isHealthCheckRequest {
-				ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+				ctx = multinode.CtxAddHealthCheckFlag(ctx)
 			}
 			return r.latestBlock(ctx)
 		}, timeout, r.rpcLog)
@@ -488,10 +494,10 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	}()
 
 	channel := make(chan *evmtypes.Head)
-	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) (*evmtypes.Head, error) {
 		head.EVMChainID = ubig.New(r.chainID)
 		r.onNewHead(ctx, chStopInFlight, head)
-		return head
+		return head, nil
 	}, r.wrapRPCClientError)
 
 	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
@@ -507,7 +513,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	return channel, forwarder, err
 }
 
-func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, multinode.Subscription, error) {
 	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 
@@ -516,10 +522,10 @@ func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
-	isHealthCheckRequest := commonclient.CtxIsHeathCheckRequest(ctx)
-	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
+	isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+	poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 		if isHealthCheckRequest {
-			ctx = commonclient.CtxAddHealthCheckFlag(ctx)
+			ctx = multinode.CtxAddHealthCheckFlag(ctx)
 		}
 		return r.LatestFinalizedBlock(ctx)
 	}, timeout, r.rpcLog)
@@ -802,7 +808,29 @@ func (r *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 	return
 }
 
-func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+type SendTxResult struct {
+	err  error
+	code multinode.SendTxReturnCode
+}
+
+var _ multinode.SendTxResult = (*SendTxResult)(nil)
+
+func NewSendTxResult(err error) *SendTxResult {
+	result := &SendTxResult{
+		err: err,
+	}
+	return result
+}
+
+func (r *SendTxResult) Error() error {
+	return r.err
+}
+
+func (r *SendTxResult) Code() multinode.SendTxReturnCode {
+	return r.code
+}
+
+func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) *SendTxResult {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
@@ -819,7 +847,10 @@ func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "SendTransaction")
 
-	return err
+	return &SendTxResult{
+		err:  err,
+		code: ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()),
+	}
 }
 
 func (r *RPCClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -1172,8 +1203,11 @@ func (r *RPCClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l [
 		l, err = ws.geth.FilterLogs(ctx, q)
 		err = r.wrapWS(err)
 	}
-	duration := time.Since(start)
 
+	if err == nil {
+		err = r.makeLogsValid(l)
+	}
+	duration := time.Since(start)
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "FilterLogs",
 		"log", l,
 	)
@@ -1201,7 +1235,7 @@ func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 		r.logResult(lggr, err, duration, r.getRPCDomain(), "SubscribeFilterLogs")
 		err = r.wrapWS(err)
 	}()
-	sub := newSubForwarder(ch, nil, r.wrapRPCClientError)
+	sub := newSubForwarder(ch, r.makeLogValid, r.wrapRPCClientError)
 	err = sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
 	if err != nil {
 		return
@@ -1383,9 +1417,9 @@ func (r *RPCClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 
 	r.chainInfoLock.Lock()
 	defer r.chainInfoLock.Unlock()
-	if !commonclient.CtxIsHeathCheckRequest(ctx) {
+	if !multinode.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
-		r.highestUserObservations.TotalDifficulty = commonclient.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
+		r.highestUserObservations.TotalDifficulty = multinode.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
 	}
 	select {
 	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
@@ -1402,7 +1436,7 @@ func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	}
 	r.chainInfoLock.Lock()
 	defer r.chainInfoLock.Unlock()
-	if !commonclient.CtxIsHeathCheckRequest(ctx) {
+	if !multinode.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
 	select {
@@ -1413,7 +1447,7 @@ func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	}
 }
 
-func (r *RPCClient) GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo) {
+func (r *RPCClient) GetInterceptedChainInfo() (latest, highestUserObservations multinode.ChainInfo) {
 	r.chainInfoLock.Lock()
 	defer r.chainInfoLock.Unlock()
 	return r.latestChainInfo, r.highestUserObservations
@@ -1424,4 +1458,39 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func (r *RPCClient) makeLogsValid(logs []types.Log) error {
+	if r.chainType != chaintype.ChainSei {
+		return nil
+	}
+
+	for i := range logs {
+		var err error
+		logs[i], err = r.makeLogValid(logs[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *RPCClient) makeLogValid(log types.Log) (types.Log, error) {
+	if r.chainType != chaintype.ChainSei {
+		return log, nil
+	}
+
+	if log.TxIndex > math.MaxUint32 {
+		return types.Log{}, fmt.Errorf("TxIndex of tx %s exceeds max supported value of %d", log.TxHash, math.MaxUint32)
+	}
+
+	if log.Index > math.MaxUint32 {
+		return types.Log{}, fmt.Errorf("log's index %d of tx %s exceeds max supported value of %d", log.Index, log.TxHash, math.MaxUint32)
+	}
+
+	// it's safe as we have a build guard to guarantee 64-bit system
+	newIndex := uint64(log.TxIndex<<32) | uint64(log.Index)
+	log.Index = uint(newIndex)
+	return log, nil
 }
