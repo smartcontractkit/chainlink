@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
@@ -23,7 +25,23 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy 1.5 contracts (excluding pools and real RMN, use MockRMN to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithPrerequisiteDeployment(),
+		changeset.WithPrerequisiteDeployment(
+			changeset.LegacyDeploymentConfig{
+				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+				RMNConfig: &rmn_contract.RMNConfig{
+					BlessWeightThreshold: 2,
+					CurseWeightThreshold: 2,
+					// setting dummy voters, we will permabless this later
+					Voters: []rmn_contract.RMNVoter{
+						{
+							BlessWeight:   2,
+							CurseWeight:   2,
+							BlessVoteAddr: utils.RandomAddress(),
+							CurseVoteAddr: utils.RandomAddress(),
+						},
+					},
+				},
+			}),
 		changeset.WithChains(3),
 		changeset.WithUsersPerChain(2),
 		// for in-memory test it is important to set the dest chain id as 1337 otherwise the config digest will not match
@@ -44,6 +62,29 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// wire up all lanes
 	// deploy onRamp, commit store, offramp , set ocr2config and send corresponding jobs
 	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
+
+	// permabless the commit stores
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(v1_5.PermaBlessCommitStoreCS),
+			Config: v1_5.PermaBlessCommitStoreConfig{
+				Configs: map[uint64]v1_5.PermaBlessCommitStoreConfigPerDest{
+					dest: {
+						Sources: []v1_5.PermaBlessConfigPerSourceChain{
+							{
+								SourceChainSelector: src1,
+								PermaBless:          true,
+							},
+							{
+								SourceChainSelector: src2,
+								PermaBless:          true,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
 
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)

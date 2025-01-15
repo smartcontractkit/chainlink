@@ -171,7 +171,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					}
 				})
 			if err != nil {
-				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", err)
+				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
 				return err
 			}
 			rmnAddr = rmn.Address
