@@ -6,13 +6,12 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-
+	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
 
-//go:embed ccip_router.json
-var ccipRouter string
+var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
 	destChainSelectorPath = "Message.Header.DestChainSelector"
@@ -299,7 +298,7 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 
 	// validate CCIP Router IDL, errors not expected
 	var idl codec.IDL
-	if err = json.Unmarshal([]byte(ccipRouter), &idl); err != nil {
+	if err = json.Unmarshal([]byte(ccipRouterIDL), &idl); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
@@ -323,7 +322,7 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 					"execute": getExecuteProgramConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable, routeAccountConfig),
 					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, sysvarInstructionsAddress, computeBudgetProgramAddress, commonAddressesLookupTable, routeAccountConfig),
 				},
-				IDL: ccipRouter},
+				IDL: ccipRouterIDL},
 		},
 	}
 
