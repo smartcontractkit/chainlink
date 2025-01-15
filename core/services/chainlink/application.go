@@ -211,7 +211,6 @@ func NewHeartbeat(lggr logger.Logger) Heartbeat {
 	h.Service, h.eng = commonservices.Config{
 		Name:  "Heartbeat",
 		Start: h.start,
-		Close: h.close,
 	}.NewServiceEngine(lggr)
 	return h
 }
@@ -245,10 +244,6 @@ func (h *Heartbeat) start(_ context.Context) error {
 	}
 
 	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
-	return nil
-}
-
-func (h *Heartbeat) close() error {
 	return nil
 }
 
