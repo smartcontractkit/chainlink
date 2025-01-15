@@ -90,6 +90,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			Logger:            e.Logger,
 			ExistingAddresses: addresses,
 			Chains:            e.Chains,
+			SolChains:         e.SolChains,
 			NodeIDs:           e.NodeIDs,
 			Offchain:          e.Offchain,
 			OCRSecrets:        e.OCRSecrets,

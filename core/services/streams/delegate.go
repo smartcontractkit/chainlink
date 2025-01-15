@@ -52,8 +52,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	rrs := ocrcommon.NewResultRunSaver(d.runner, lggr, d.cfg.MaxSuccessfulRuns(), d.cfg.ResultWriteQueueDepth())
 	services = append(services, rrs, &StreamService{
 		d.registry,
-		id,
-		jb.PipelineSpec,
+		jb,
 		lggr,
 		rrs,
 	})
@@ -66,23 +65,22 @@ type ResultRunSaver interface {
 
 type StreamService struct {
 	registry Registry
-	id       StreamID
-	spec     *pipeline.Spec
+	jb       job.Job
 	lggr     logger.Logger
 	rrs      ResultRunSaver
 }
 
 func (s *StreamService) Start(_ context.Context) error {
-	if s.spec == nil {
-		return fmt.Errorf("pipeline spec unexpectedly missing for stream %q", s.id)
+	if s.jb.PipelineSpec == nil {
+		return errors.New("pipeline spec unexpectedly missing for stream")
 	}
-	s.lggr.Debugf("Starting stream %d", s.id)
-	return s.registry.Register(s.id, *s.spec, s.rrs)
+	s.lggr.Debugw("Registering stream", "jobID", s.jb.ID)
+	return s.registry.Register(s.jb, s.rrs)
 }
 
 func (s *StreamService) Close() error {
-	s.lggr.Debugf("Stopping stream %d", s.id)
-	s.registry.Unregister(s.id)
+	s.lggr.Debugw("Unregistering stream", "jobID", s.jb.ID)
+	s.registry.Unregister(s.jb.ID)
 	return nil
 }
 
@@ -101,8 +99,23 @@ func ValidatedStreamSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type: %q", jb.Type)
 	}
 
-	if jb.StreamID == nil {
-		return jb, errors.New("jobs of type 'stream' require streamID to be specified")
+	// The spec stream ID is optional, but if provided represents the final output of the pipeline run.
+	// nodes in the DAG may also contain streamID tags.
+	// Every spec must have at least one streamID.
+	var streamIDs []StreamID
+
+	if jb.StreamID != nil {
+		streamIDs = append(streamIDs, *jb.StreamID)
+	}
+
+	for _, t := range jb.Pipeline.Tasks {
+		if streamID := t.TaskStreamID(); streamID != nil {
+			streamIDs = append(streamIDs, *streamID)
+		}
+	}
+
+	if len(streamIDs) == 0 {
+		return jb, errors.New("no streamID found in spec (must be either specified as top-level key 'streamID' or at least one streamID tag must be provided in the pipeline)")
 	}
 
 	return jb, nil

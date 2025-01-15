@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -19,6 +20,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+
+	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -28,6 +32,7 @@ const (
 
 type MemoryEnvironmentConfig struct {
 	Chains             int
+	SolChains          int
 	NumOfUsersPerChain int
 	Nodes              int
 	Bootstraps         int
@@ -57,6 +62,11 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 		users[sel] = chain.Users
 	}
 	return generateMemoryChain(t, mchains), users
+}
+
+func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
+	mchains := GenerateChainsSol(t, numChains)
+	return generateMemoryChainSol(t, mchains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -111,6 +121,28 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
+func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
+	chains := make(map[uint64]deployment.SolChain)
+	for cid, chain := range inputs {
+		chain := chain
+		chains[cid] = deployment.SolChain{
+			Selector:    cid,
+			Client:      chain.Client,
+			DeployerKey: chain.DeployerKey,
+			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
+				_, err := solCommomUtil.SendAndConfirm(
+					context.Background(), chain.Client, instructions, *chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		}
+	}
+	return chains
+}
+
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
@@ -149,6 +181,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
+		nil,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -159,6 +192,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 // To be used by tests and any kind of deployment logic.
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
+	solChains := NewMemoryChainsSol(t, config.SolChains)
 	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
@@ -169,6 +203,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
+		solChains,
 		nodeIDs,
 		NewMemoryJobClient(nodes),
 		func() context.Context { return tests.Context(t) },

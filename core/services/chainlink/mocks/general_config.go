@@ -1959,6 +1959,98 @@ func (_c *GeneralConfig_Tracing_Call) RunAndReturn(run func() config.Tracing) *G
 	return _c
 }
 
+// TronConfigs provides a mock function with no fields
+func (_m *GeneralConfig) TronConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TronConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_TronConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TronConfigs'
+type GeneralConfig_TronConfigs_Call struct {
+	*mock.Call
+}
+
+// TronConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TronConfigs() *GeneralConfig_TronConfigs_Call {
+	return &GeneralConfig_TronConfigs_Call{Call: _e.mock.On("TronConfigs")}
+}
+
+func (_c *GeneralConfig_TronConfigs_Call) Run(run func()) *GeneralConfig_TronConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TronConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_TronConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TronConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_TronConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TronEnabled provides a mock function with no fields
+func (_m *GeneralConfig) TronEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TronEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_TronEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TronEnabled'
+type GeneralConfig_TronEnabled_Call struct {
+	*mock.Call
+}
+
+// TronEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) TronEnabled() *GeneralConfig_TronEnabled_Call {
+	return &GeneralConfig_TronEnabled_Call{Call: _e.mock.On("TronEnabled")}
+}
+
+func (_c *GeneralConfig_TronEnabled_Call) Run(run func()) *GeneralConfig_TronEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_TronEnabled_Call) Return(_a0 bool) *GeneralConfig_TronEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_TronEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_TronEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Validate provides a mock function with no fields
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()
