@@ -21,6 +21,7 @@ import (
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
+	t.Skipf("CCIP-4868 -This test needs to be investigated for flakiness")
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(

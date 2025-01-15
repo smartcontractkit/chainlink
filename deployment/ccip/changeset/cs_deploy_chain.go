@@ -123,7 +123,7 @@ func deployChainContractsForChains(
 		staticLinkExists := existingState.Chains[chainSel].StaticLinkToken != nil
 		linkExists := existingState.Chains[chainSel].LinkToken != nil
 		weth9Exists := existingState.Chains[chainSel].Weth9 != nil
-		feeTokensAreValid := weth9Exists && (linkExists || staticLinkExists)
+		feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
 
 		if !feeTokensAreValid {
 			return fmt.Errorf("fee tokens not valid for chain %d", chainSel)
