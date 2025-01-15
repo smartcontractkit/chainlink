@@ -37,7 +37,6 @@ import (
 const DefaultChainNamePrefix = "chain-"
 
 type NetworkSetup struct {
-	NumberOfNetworks int      `toml:"number_of_networks" validate:"required"`
 	PrivateKeys      []string `toml:"private_keys" validate:"required"`
 }
 
@@ -58,14 +57,14 @@ type CTFV2Conf struct {
 // DeployedLocalAnvilDevEnvironment is a helper struct for setting up a local anvil dev environment with docker using ctf v2
 type DeployedLocalAnvilDevEnvironment struct {
 	changeset.DeployedEnv
-	bcs           []*blockchain.Output
-	DON           *devenv.DON
-	devEnvTestCfg tc.TestConfig
+	bcs             []*blockchain.Output
+	DON             *devenv.DON
+	devEnvTestCfg   tc.TestConfig
 	GenericTCConfig *changeset.TestConfigs
-	devEnvCfg     *devenv.EnvironmentConfig
-	in            *CTFV2Conf
-	pvtKeys       []string
-	MockAdapter   *fake.Output
+	devEnvCfg       *devenv.EnvironmentConfig
+	in              *CTFV2Conf
+	pvtKeys         []string
+	MockAdapter     *fake.Output
 }
 
 func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
@@ -83,7 +82,7 @@ func (l *DeployedLocalAnvilDevEnvironment) TestConfigs() *changeset.TestConfigs 
 func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
-	envConfig, cfg, bcs, in := createAnvilDockerNetwork(t)
+	envConfig, cfg, bcs, in := createAnvilDockerNetwork(t, l.GenericTCConfig.Chains)
 	l.pvtKeys = in.Network.PrivateKeys
 	l.devEnvTestCfg = cfg
 	l.bcs = bcs
@@ -184,15 +183,6 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 	fakeOut, err := fake.NewFakeDataProvider(l.in.Fake)
 	require.NoError(t, err, "failed to create mock data provider")
 	l.MockAdapter = fakeOut
-	err = fake.JSON(
-		"GET",
-		path,
-		map[string]any{
-			"status":      "complete",
-			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
-		}, 200,
-	)
-	require.NoError(t, err, "failed to set up mock USDC attestation server")
 	if isFaulty {
 		err = fake.JSON(
 			"GET",
@@ -203,11 +193,21 @@ func (l *DeployedLocalAnvilDevEnvironment) MockUSDCAttestationServer(t *testing.
 			}, 200,
 		)
 		require.NoError(t, err, "failed to set up mock faulty USDC attestation server")
+		return fakeOut.BaseURLDocker
 	}
+	err = fake.JSON(
+		"GET",
+		path,
+		map[string]any{
+			"status":      "complete",
+			"attestation": "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
+		}, 200,
+	)
+	require.NoError(t, err, "failed to set up mock USDC attestation server")
 	return fakeOut.BaseURLDocker
 }
 
-func createAnvilDockerNetwork(t *testing.T) (
+func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 	*devenv.EnvironmentConfig,
 	tc.TestConfig,
 	[]*blockchain.Output,
@@ -215,9 +215,9 @@ func createAnvilDockerNetwork(t *testing.T) (
 ) {
 	in, err := framework.Load[CTFV2Conf](t)
 	require.NoError(t, err, "failed to load ccip test config")
-	if in.Network.NumberOfNetworks > len(in.BlockchainNetworks) {
+	if chainsCount > len(in.BlockchainNetworks) {
 		// if number of networks is greater than number of blockchain networks, dynamically add the required networks
-		networksNeeded := in.Network.NumberOfNetworks - len(in.BlockchainNetworks)
+		networksNeeded := chainsCount - len(in.BlockchainNetworks)
 		finalPortID, err := strconv.Atoi(in.BlockchainNetworks[len(in.BlockchainNetworks)-1].Port)
 		require.NoError(t, err, "failed to convert port number to int")
 		for i := 1; i <= networksNeeded; i++ {
@@ -230,7 +230,7 @@ func createAnvilDockerNetwork(t *testing.T) (
 	}
 	// spin up 2 anvils
 	var blockchains []*blockchain.Output
-	for c := 0; c < in.Network.NumberOfNetworks; c++ {
+	for c := 0; c < chainsCount; c++ {
 		bc, err := blockchain.NewBlockchainNetwork(in.BlockchainNetworks[c])
 		require.NoError(t, err, "failed to create blockchain network")
 		blockchains = append(blockchains, bc)

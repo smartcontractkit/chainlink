@@ -141,6 +141,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				}
 				return blockNumber, nil
 			},
+			Users: chainCfg.Users,
 		}
 	}
 	return chains, nil
