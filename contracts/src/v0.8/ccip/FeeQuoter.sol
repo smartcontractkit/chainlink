@@ -1035,11 +1035,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
+
       // On SVM OOO execution is enabled for all messages.
       return (Client._svmArgsToBytes(parsedExtraArgs), true);
-    } else {
-      revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
     }
+    revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
 
   /// @notice Validates pool return data.
@@ -1115,7 +1115,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
-      // TODO: With the addition of SVM and other Non-evm Chains, family selector is not validated.
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
