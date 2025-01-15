@@ -13,44 +13,51 @@ import (
 )
 
 // AddCapabilities adds the capabilities to the registry
-func AddCapabilities(lggr logger.Logger, contractSet *ContractSet, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*timelock.BatchChainOperation, error) {
+func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*timelock.BatchChainOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
 	}
-	registry := contractSet.CapabilitiesRegistry
 	deduped, err := dedupCapabilities(registry, capabilities)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dedup capabilities: %w", err)
 	}
-	txOpts := chain.DeployerKey
+
 	if useMCMS {
-		txOpts = deployment.SimTransactOpts()
+		return addCapabilitiesMCMSProposal(registry, deduped, chain)
 	}
-	tx, err := registry.AddCapabilities(txOpts, deduped)
+
+	tx, err := registry.AddCapabilities(chain.DeployerKey, deduped)
 	if err != nil {
 		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
-	var batch *timelock.BatchChainOperation
-	if !useMCMS {
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
-		}
-		lggr.Info("registered capabilities", "capabilities", deduped)
-	} else {
-		batch = &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    registry.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		}
+
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm AddCapabilities confirm transaction %s: %w", tx.Hash().String(), err)
 	}
-	return batch, nil
+	lggr.Info("registered capabilities", "capabilities", deduped)
+
+	return nil, nil
+}
+
+func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddCapabilities(deployment.SimTransactOpts(), caps)
+	if err != nil {
+		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
+	}, nil
 }
 
 // CapabilityID returns a unique id for the capability

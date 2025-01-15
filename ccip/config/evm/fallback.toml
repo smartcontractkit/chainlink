@@ -6,7 +6,6 @@ FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
-# CCIP uses paging when removing logs to avoid pushing too much pressure on the database
 LogPrunePageSize = 10000
 BackupLogPollerBlockDelay = 100
 MinContractPayment = '.00001 link'
@@ -20,6 +19,7 @@ NoNewFinalizedHeadsThreshold = '0'
 LogBroadcasterEnabled = true
 
 [Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -67,6 +67,7 @@ MaxBufferSize = 3
 SamplingInterval = '1s'
 FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
+PersistenceEnabled = true
 
 [NodePool]
 PollFailureThreshold = 5

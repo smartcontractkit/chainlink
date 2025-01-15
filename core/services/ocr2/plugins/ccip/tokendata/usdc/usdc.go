@@ -133,7 +133,7 @@ func NewUSDCTokenDataReader(
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
-		httpClient:            http.NewObservedIHttpClient(&http.HttpClient{}),
+		httpClient:            http.NewObservedUsdcIHttpClient(&http.HttpClient{}),
 		attestationApi:        usdcAttestationApi,
 		attestationApiTimeout: timeout,
 		usdcTokenAddress:      usdcTokenAddress,

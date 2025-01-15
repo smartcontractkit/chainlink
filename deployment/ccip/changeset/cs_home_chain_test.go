@@ -62,7 +62,7 @@ func TestDeployHomeChain(t *testing.T) {
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
@@ -117,7 +117,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 }
 
 func TestRemoveDons(t *testing.T) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]

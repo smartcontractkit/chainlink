@@ -1,6 +1,7 @@
 package testconfig
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -211,19 +212,18 @@ type LoadFrequency struct {
 }
 
 type LoadProfile struct {
-	MsgProfile                                 *MsgProfile               `toml:",omitempty"`
-	FrequencyByDestination                     map[string]*LoadFrequency `toml:",omitempty"`
-	RequestPerUnitTime                         []int64                   `toml:",omitempty"`
-	TimeUnit                                   *config.Duration          `toml:",omitempty"`
-	StepDuration                               []*config.Duration        `toml:",omitempty"`
-	TestDuration                               *config.Duration          `toml:",omitempty"`
-	NetworkChaosDelay                          *config.Duration          `toml:",omitempty"`
-	WaitBetweenChaosDuringLoad                 *config.Duration          `toml:",omitempty"`
-	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration          `toml:",omitempty"`
-	OptimizeSpace                              *bool                     `toml:",omitempty"`
-	FailOnFirstErrorInLoad                     *bool                     `toml:",omitempty"`
-	SendMaxDataInEveryMsgCount                 *int64                    `toml:",omitempty"`
-	TestRunName                                string                    `toml:",omitempty"`
+	MsgProfile                 *MsgProfile               `toml:",omitempty"`
+	FrequencyByDestination     map[string]*LoadFrequency `toml:",omitempty"`
+	RequestPerUnitTime         []int64                   `toml:",omitempty"`
+	TimeUnit                   *config.Duration          `toml:",omitempty"`
+	StepDuration               []*config.Duration        `toml:",omitempty"`
+	TestDuration               *config.Duration          `toml:",omitempty"`
+	NetworkChaosDelay          *config.Duration          `toml:",omitempty"`
+	WaitBetweenChaosDuringLoad *config.Duration          `toml:",omitempty"`
+	OptimizeSpace              *bool                     `toml:",omitempty"`
+	FailOnFirstErrorInLoad     *bool                     `toml:",omitempty"`
+	SendMaxDataInEveryMsgCount *int64                    `toml:",omitempty"`
+	TestRunName                string                    `toml:",omitempty"`
 }
 
 func (l *LoadProfile) Validate() error {
@@ -241,9 +241,6 @@ func (l *LoadProfile) Validate() error {
 	}
 	if l.TestDuration == nil || l.TestDuration.Duration().Minutes() == 0 {
 		return fmt.Errorf("test duration should be set")
-	}
-	if l.SkipRequestIfAnotherRequestTriggeredWithin != nil && l.TimeUnit.Duration() < l.SkipRequestIfAnotherRequestTriggeredWithin.Duration() {
-		return fmt.Errorf("SkipRequestIfAnotherRequestTriggeredWithin should be set below the TimeUnit duration")
 	}
 	return nil
 }
@@ -265,35 +262,38 @@ func (gp *ReorgProfile) Validate() error {
 
 // CCIPTestGroupConfig defines configuration input to change how a particular CCIP test group should run
 type CCIPTestGroupConfig struct {
-	Type                            string                                `toml:",omitempty"`
-	KeepEnvAlive                    *bool                                 `toml:",omitempty"`
-	BiDirectionalLane               *bool                                 `toml:",omitempty"`
-	CommitAndExecuteOnSameDON       *bool                                 `toml:",omitempty"`
-	AllowOutOfOrder                 *bool                                 `toml:",omitempty"` // To set out of order execution globally
-	NoOfCommitNodes                 int                                   `toml:",omitempty"`
-	MsgDetails                      *MsgDetails                           `toml:",omitempty"`
-	TokenConfig                     *TokenConfig                          `toml:",omitempty"`
-	MulticallInOneTx                *bool                                 `toml:",omitempty"`
-	NoOfSendsInMulticall            int                                   `toml:",omitempty"`
-	PhaseTimeout                    *config.Duration                      `toml:",omitempty"`
-	LocalCluster                    *bool                                 `toml:",omitempty"`
-	ExistingDeployment              *bool                                 `toml:",omitempty"`
-	ReuseContracts                  *bool                                 `toml:",omitempty"`
-	NodeFunding                     float64                               `toml:",omitempty"`
-	NetworkPairs                    []string                              `toml:",omitempty"`
-	DenselyConnectedNetworkChainIds []string                              `toml:",omitempty"`
-	NoOfNetworks                    int                                   `toml:",omitempty"`
-	NoOfRoutersPerPair              int                                   `toml:",omitempty"`
-	MaxNoOfLanes                    int                                   `toml:",omitempty"`
-	ChaosDuration                   *config.Duration                      `toml:",omitempty"`
-	USDCMockDeployment              *bool                                 `toml:",omitempty"`
-	CommitOCRParams                 *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	ExecOCRParams                   *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	OffRampConfig                   *OffRampConfig                        `toml:",omitempty"`
-	CommitInflightExpiry            *config.Duration                      `toml:",omitempty"`
-	StoreLaneConfig                 *bool                                 `toml:",omitempty"`
-	LoadProfile                     *LoadProfile                          `toml:",omitempty"`
-	ReorgProfile                    *ReorgProfile                         `toml:",omitempty"`
+	Type                                       string                                `toml:",omitempty"`
+	KeepEnvAlive                               *bool                                 `toml:",omitempty"`
+	BiDirectionalLane                          *bool                                 `toml:",omitempty"`
+	CommitAndExecuteOnSameDON                  *bool                                 `toml:",omitempty"`
+	AllowOutOfOrder                            *bool                                 `toml:",omitempty"` // To set out of order execution globally
+	NoOfCommitNodes                            int                                   `toml:",omitempty"`
+	MsgDetails                                 *MsgDetails                           `toml:",omitempty"`
+	TokenConfig                                *TokenConfig                          `toml:",omitempty"`
+	MulticallInOneTx                           *bool                                 `toml:",omitempty"`
+	NoOfSendsInMulticall                       int                                   `toml:",omitempty"`
+	PhaseTimeout                               *config.Duration                      `toml:",omitempty"`
+	LocalCluster                               *bool                                 `toml:",omitempty"`
+	ExistingDeployment                         *bool                                 `toml:",omitempty"`
+	ReuseContracts                             *bool                                 `toml:",omitempty"`
+	NodeFunding                                float64                               `toml:",omitempty"`
+	NetworkPairs                               []string                              `toml:",omitempty"`
+	DenselyConnectedNetworkChainIDs            []string                              `toml:",omitempty"`
+	NoOfNetworks                               int                                   `toml:",omitempty"`
+	NoOfRoutersPerPair                         int                                   `toml:",omitempty"`
+	MaxNoOfLanes                               int                                   `toml:",omitempty"`
+	ChaosDuration                              *config.Duration                      `toml:",omitempty"`
+	USDCMockDeployment                         *bool                                 `toml:",omitempty"`
+	LBTCMockDeployment                         *bool                                 `toml:",omitempty"`
+	LBTCDestPoolDataAs32Bytes                  *bool                                 `toml:",omitempty"`
+	CommitOCRParams                            *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	ExecOCRParams                              *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	OffRampConfig                              *OffRampConfig                        `toml:",omitempty"`
+	CommitInflightExpiry                       *config.Duration                      `toml:",omitempty"`
+	StoreLaneConfig                            *bool                                 `toml:",omitempty"`
+	LoadProfile                                *LoadProfile                          `toml:",omitempty"`
+	ReorgProfile                               *ReorgProfile                         `toml:",omitempty"`
+	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration                      `toml:",omitempty"`
 }
 
 func (c *CCIPTestGroupConfig) Validate() error {
@@ -308,6 +308,11 @@ func (c *CCIPTestGroupConfig) Validate() error {
 		if c.ExistingDeployment != nil && *c.ExistingDeployment {
 			if c.LoadProfile.TestRunName == "" && os.Getenv(ctfK8config.EnvVarJobImage) != "" {
 				return fmt.Errorf("test run name should be set if existing deployment is true and test is running in k8s")
+			}
+		}
+		if c.ReorgProfile != nil {
+			if err := c.ReorgProfile.Validate(); err != nil {
+				return err
 			}
 		}
 	}
@@ -335,6 +340,10 @@ func (c *CCIPTestGroupConfig) Validate() error {
 		if c.NoOfSendsInMulticall == 0 {
 			return fmt.Errorf("number of sends in multisend should be greater than 0 if multisend is true")
 		}
+	}
+	if c.SkipRequestIfAnotherRequestTriggeredWithin != nil && c.LoadProfile != nil &&
+		c.LoadProfile.TimeUnit.Duration() < c.SkipRequestIfAnotherRequestTriggeredWithin.Duration() {
+		return errors.New("SkipRequestIfAnotherRequestTriggeredWithin should be set below the load TimeUnit duration")
 	}
 
 	return nil

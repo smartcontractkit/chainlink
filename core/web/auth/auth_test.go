@@ -291,6 +291,7 @@ var routesRolesMap = [...]routeRules{
 	{"POST", "/v2/keys/cosmos/import", false, false, false},
 	{"POST", "/v2/keys/starknet/import", false, false, false},
 	{"POST", "/v2/keys/aptos/import", false, false, false},
+	{"POST", "/v2/keys/tron/import", false, false, false},
 	{"POST", "/v2/keys/solana/export/MOCK", false, false, false},
 	{"POST", "/v2/keys/cosmos/export/MOCK", false, false, false},
 	{"POST", "/v2/keys/starknet/export/MOCK", false, false, false},

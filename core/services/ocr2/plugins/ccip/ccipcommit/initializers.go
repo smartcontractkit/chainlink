@@ -3,13 +3,8 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
-	"strings"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,7 +22,6 @@ import (
 	db "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -40,9 +34,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{InitialDelay: time.Second, MaxDelay: 5 * time.Minute}
+var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
+	InitialDelay: time.Second,
+	MaxDelay:     10 * time.Minute,
+	// Retry for approximately 4hrs (MaxDelay of 10m = 6 times per hour, times 4 hours, plus 10 because the first
+	// 10 retries only take 20 minutes due to an initial retry of 1s and exponential backoff)
+	MaxRetries: (6 * 4) + 10,
+}
 
-func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider, chainSet legacyevm.LegacyChainContainer, jb job.Job, lggr logger.Logger, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, new bool, sourceChainID int64, destChainID int64, logError func(string)) ([]job.ServiceCtx, error) {
+func NewCommitServices(
+	ctx context.Context,
+	ds sqlutil.DataSource,
+	srcProvider commontypes.CCIPCommitProvider,
+	dstProvider commontypes.CCIPCommitProvider,
+	priceGetter ccip.AllTokensPriceGetter,
+	jb job.Job,
+	lggr logger.Logger,
+	pr pipeline.Runner,
+	argsNoPlugin libocr2.OCR2OracleArgs,
+	newInstance bool,
+	sourceChainID int64,
+	destChainID int64,
+	logError func(string),
+) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
 	var pluginConfig ccipconfig.CommitPluginJobSpecConfig
@@ -68,45 +82,6 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 	var commitStoreReader ccipdata.CommitStoreReader
 	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainID, "destChain", destChainID)
-
-	var priceGetter pricegetter.AllTokensPriceGetter
-	withPipeline := strings.Trim(pluginConfig.TokenPricesUSDPipeline, "\n\t ") != ""
-	if withPipeline {
-		priceGetter, err = pricegetter.NewPipelineGetter(pluginConfig.TokenPricesUSDPipeline, pr, jb.ID, jb.ExternalJobID, jb.Name.ValueOrZero(), lggr)
-		if err != nil {
-			return nil, fmt.Errorf("creating pipeline price getter: %w", err)
-		}
-	} else {
-		// Use dynamic price getter.
-		if pluginConfig.PriceGetterConfig == nil {
-			return nil, fmt.Errorf("priceGetterConfig is nil")
-		}
-
-		// Build price getter clients for all chains specified in the aggregator configurations.
-		// Some lanes (e.g. Wemix/Kroma) requires other clients than source and destination, since they use feeds from other chains.
-		priceGetterClients := map[uint64]pricegetter.DynamicPriceGetterClient{}
-		for _, aggCfg := range pluginConfig.PriceGetterConfig.AggregatorPrices {
-			chainID := aggCfg.ChainID
-			// Retrieve the chain.
-			chain, _, err2 := ccipconfig.GetChainByChainID(chainSet, chainID)
-			if err2 != nil {
-				return nil, fmt.Errorf("retrieving chain for chainID %d: %w", chainID, err2)
-			}
-			caller := rpclib.NewDynamicLimitedBatchCaller(
-				lggr,
-				chain.Client(),
-				rpclib.DefaultRpcBatchSizeLimit,
-				rpclib.DefaultRpcBatchBackOffMultiplier,
-				rpclib.DefaultMaxParallelRpcCalls,
-			)
-			priceGetterClients[chainID] = pricegetter.NewDynamicPriceGetterClient(caller)
-		}
-
-		priceGetter, err = pricegetter.NewDynamicPriceGetter(*pluginConfig.PriceGetterConfig, priceGetterClients)
-		if err != nil {
-			return nil, fmt.Errorf("creating dynamic price getter: %w", err)
-		}
-	}
 
 	offRampReader, err := dstProvider.NewOffRampReader(ctx, pluginConfig.OffRamp)
 	if err != nil {
@@ -156,7 +131,7 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 		onRampAddress,
 	)
 
-	orm, err := cciporm.NewObservedORM(ds, lggr)
+	orm, err := cciporm.NewORM(ds, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +168,7 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 		return nil, err
 	}
 	// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
-	if new {
+	if newInstance {
 		return []job.ServiceCtx{
 			oraclelib.NewChainAgnosticBackFilledOracle(
 				lggr,

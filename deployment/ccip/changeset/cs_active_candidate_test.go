@@ -9,6 +9,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -25,7 +26,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
-	tenv := NewMemoryEnvironment(t,
+	tenv, _ := NewMemoryEnvironment(t,
 		WithChains(2),
 		WithNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
@@ -195,38 +196,24 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					// NOTE: this is technically not a new chain, but needed for validation.
-					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
-					},
-					PluginType: types.PluginTypeCCIPCommit,
 					MCMS: &MCMSConfig{
 						MinDelay: 0,
 					},
 				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
-					HomeChainSelector: tenv.HomeChainSel,
-					FeedChainSelector: tenv.FeedChainSel,
-					// NOTE: this is technically not a new chain, but needed for validation.
-					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
+				PluginInfo: []SetCandidatePluginInfo{
+					{
+						// NOTE: this is technically not a new chain, but needed for validation.
+						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+						},
+						PluginType: types.PluginTypeCCIPCommit,
 					},
-					PluginType: types.PluginTypeCCIPExec,
-					MCMS: &MCMSConfig{
-						MinDelay: 0,
+					{
+						// NOTE: this is technically not a new chain, but needed for validation.
+						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+						},
+						PluginType: types.PluginTypeCCIPExec,
 					},
 				},
 			},
