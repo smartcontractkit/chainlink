@@ -16,8 +16,9 @@ const Precision int32 = 18
 
 // CalculateFee outputs a fee in wei according to the formula: baseUSDFee / tokenPriceInUSD
 func CalculateFee(tokenPriceInUSD decimal.Decimal, baseUSDFee decimal.Decimal) *big.Int {
-	if tokenPriceInUSD.IsZero() || baseUSDFee.IsZero() {
+	if baseUSDFee.IsZero() || baseUSDFee.IsNegative() || tokenPriceInUSD.IsZero() || tokenPriceInUSD.IsNegative() {
 		// zero fee if token price or base fee is zero
+		// if either fee should somehow be negative, also, return zero
 		return big.NewInt(0)
 	}
 

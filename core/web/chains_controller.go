@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -33,7 +32,7 @@ func (e errChainDisabled) Error() string {
 
 type chainsController struct {
 	chainStats  chainlink.RelayerChainInteroperators
-	newResource func(commonTypes.ChainStatusWithID) presenters.ChainResource
+	newResource func(chainlink.NetworkChainStatus) presenters.ChainResource
 	lggr        logger.Logger
 	auditLogger audit.AuditLogger
 }
@@ -71,7 +70,7 @@ func (cc *chainsController) Index(c *gin.Context, size, page, offset int) {
 func (cc *chainsController) Show(c *gin.Context) {
 	relayID := types.RelayID{Network: c.Param("network"), ChainID: c.Param("ID")}
 	chain, err := cc.chainStats.ChainStatus(c.Request.Context(), relayID)
-	status := commonTypes.ChainStatusWithID{ChainStatus: chain, RelayID: relayID}
+	status := chainlink.NetworkChainStatus{ChainStatus: chain, Network: relayID.Network}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

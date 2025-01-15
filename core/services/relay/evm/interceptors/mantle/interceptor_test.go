@@ -11,14 +11,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
+
+var randomAddress = types.MustEIP55Address(utils.RandomAddress().String())
 
 func TestInterceptor(t *testing.T) {
 	ethClient := mocks.NewClient(t)
 	ctx := context.Background()
 
+	_, err := NewInterceptor(ctx, ethClient, nil)
+	require.Error(t, err)
+
 	tokenRatio := big.NewInt(10)
-	interceptor, err := NewInterceptor(ctx, ethClient)
+	interceptor, err := NewInterceptor(ctx, ethClient, &randomAddress)
 	require.NoError(t, err)
 
 	// request token ratio
@@ -80,7 +87,7 @@ func TestModifyGasPriceComponents(t *testing.T) {
 			ethClient := mocks.NewClient(t)
 			ctx := context.Background()
 
-			interceptor, err := NewInterceptor(ctx, ethClient)
+			interceptor, err := NewInterceptor(ctx, ethClient, &randomAddress)
 			require.NoError(t, err)
 
 			// request token ratio

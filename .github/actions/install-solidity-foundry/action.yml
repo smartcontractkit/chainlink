@@ -17,7 +17,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        foundry_version=$(grep -Eo "foundryup --version [^ ]+" GNUmakefile | awk '{print $3}')
+        foundry_version=$(grep -Eo "foundryup --install [^ ]+" GNUmakefile | awk '{print $3}')
         if [ -z "$foundry_version" ]; then
           echo "::error::Foundry version not found in GNUmakefile"
           exit 1
@@ -26,6 +26,6 @@ runs:
         echo "foundry-version=$foundry_version" >> $GITHUB_OUTPUT
 
     - name: Install Foundry
-      uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+      uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c # v1.3.1
       with:
         version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
