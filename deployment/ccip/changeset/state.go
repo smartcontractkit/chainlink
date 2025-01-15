@@ -325,6 +325,16 @@ type CCIPOnChainState struct {
 	SolChains map[uint64]SolCCIPChainState
 }
 
+func (s CCIPOnChainState) Validate() error {
+	for sel, chain := range s.Chains {
+		// cannot have static link and link together
+		if chain.LinkToken != nil && chain.StaticLinkToken != nil {
+			return fmt.Errorf("cannot have both link and static link token on the same chain %d", sel)
+		}
+	}
+	return nil
+}
+
 func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
 	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for _, chain := range chains {
@@ -407,7 +417,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 		}
 		state.Chains[chainSelector] = chainState
 	}
-	return state, nil
+	return state, state.Validate()
 }
 
 // LoadChainState Loads all state for a chain into state
