@@ -434,6 +434,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.AptosEnabled() {
 			enabledChains = append(enabledChains, chaintype.Aptos)
 		}
+		if s.Config.TronEnabled() {
+			enabledChains = append(enabledChains, chaintype.Tron)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
