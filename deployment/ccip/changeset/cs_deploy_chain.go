@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	solInternal "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -495,6 +497,26 @@ func deployChainContractsSolana(
 	linkTokenContract := chainState.LinkToken
 	e.Logger.Infow("link token", "addr", linkTokenContract.String())
 
+	if chainState.SolAddressLookupTableProgram.IsZero() {
+		privateKey, err := solana.NewRandomPrivateKey()
+		if err != nil {
+			return fmt.Errorf("failed to generate private key: %w", err)
+		}
+		programID := privateKey.PublicKey()
+		table, err := solInternal.CreateLookupTable(context.Background(), chain, programID)
+		if err != nil {
+			return fmt.Errorf("failed to create lookup table: %w", err)
+		}
+		err = ab.Save(chain.Selector, programID.String(), deployment.NewTypeAndVersion(SolAddressLookupTableProgram, deployment.Version1_0_0))
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTablePDA, deployment.Version1_0_0))
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+
 	var ccipRouterProgram solana.PublicKey
 	if chainState.SolCcipRouter.IsZero() {
 		//deploy router
@@ -503,7 +525,7 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
 
-		tv := deployment.NewTypeAndVersion("SolCcipRouter", deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 
 		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)

@@ -1265,3 +1265,14 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 
 	require.NoError(t, err)
 }
+
+func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
+	solState, err := LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for _, sel := range solChainSelectors {
+		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
+		require.False(t, solState.SolChains[sel].SolCcipRouter.IsZero())
+		require.False(t, solState.SolChains[sel].SolAddressLookupTableProgram.IsZero())
+		require.False(t, solState.SolChains[sel].SolAddressLookupTablePDA.IsZero())
+	}
+}

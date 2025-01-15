@@ -111,12 +111,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
 
-	solState, err := LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	for _, sel := range solChainSelectors {
-		require.NotNil(t, solState.SolChains[sel].LinkToken)
-		require.NotNil(t, solState.SolChains[sel].SolCcipRouter)
-	}
+	ValidateSolanaState(t, e, solChainSelectors)
 
 }
 
@@ -163,12 +158,7 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	solState, err := LoadOnchainStateSolana(e.Env)
-	require.NoError(t, err)
-	for _, sel := range solChainSelectors {
-		require.NotNil(t, solState.SolChains[sel].LinkToken)
-		require.NotNil(t, solState.SolChains[sel].SolCcipRouter)
-	}
+	ValidateSolanaState(t, e.Env, solChainSelectors)
 
 	// Build the per chain config.
 	ocrConfigs := make(map[uint64]CCIPOCRParams)
@@ -251,4 +241,5 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	ValidateSolanaState(t, e.Env, solChainSelectors)
 }

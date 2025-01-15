@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,10 +12,11 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -28,7 +30,7 @@ type SolChain struct {
 	WSURL  string
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
-	Confirm     func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
+	Confirm     func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error
 
 	// deploy uses the solana CLI which needs a keyfile
 	KeypairPath  string
@@ -118,4 +120,35 @@ func parseProgramID(output string) (string, error) {
 		endIdx = len(output)
 	}
 	return output[startIdx : startIdx+endIdx], nil
+}
+
+func (c SolChain) GetSlot(ctx context.Context, commitment solRpc.CommitmentType) (uint64, error) {
+	return c.Client.GetSlot(ctx, commitment)
+}
+
+func (c SolChain) AwaitSlotChange(ctx context.Context) error {
+	originalSlot, err := c.Client.GetSlot(ctx, solRpc.CommitmentConfirmed)
+	if err != nil {
+		return err
+	}
+	newSlot := originalSlot
+	for newSlot == originalSlot {
+		newSlot, err = c.Client.GetSlot(ctx, solRpc.CommitmentConfirmed)
+		if err != nil {
+			return err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return nil
+}
+
+func (c SolChain) GetAddressLookupTable(ctx context.Context, lookupTablePublicKey solana.PublicKey) ([]solana.PublicKey, error) {
+	lookupTableState, err := addresslookuptable.GetAddressLookupTableStateWithOpts(ctx, c.Client, lookupTablePublicKey, &solRpc.GetAccountInfoOpts{
+		Commitment: solRpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		return []solana.PublicKey{}, err
+	}
+
+	return lookupTableState.Addresses, nil
 }
