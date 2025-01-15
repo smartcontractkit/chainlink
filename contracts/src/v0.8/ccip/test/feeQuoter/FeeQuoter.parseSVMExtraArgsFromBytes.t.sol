@@ -25,6 +25,10 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
   }
 
+  function test_SVMExtraArgsV1TagSelector() public view {
+    assertEq(Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP SVMExtraArgsV1")));
+  }
+
   function test_SVMExtraArgsV1() public view {
     bytes32[] memory solAccounts = new bytes32[](1);
     solAccounts[0] = VALID_SOL_PUBKEY;
@@ -75,7 +79,9 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
     s_destChainConfig = destChainConfigArgs[0].destChainConfig;
 
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, s_destChainConfig.chainFamilySelector));
+    vm.expectRevert(
+      abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, s_destChainConfig.chainFamilySelector)
+    );
     uint256 gasLimit = s_feeQuoter.resolveGasLimitForDestination("", s_destChainConfig);
   }
 

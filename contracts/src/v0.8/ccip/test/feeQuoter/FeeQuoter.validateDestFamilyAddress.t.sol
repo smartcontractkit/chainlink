@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
+import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
-import {FeeQuoter} from "../../FeeQuoter.sol";
 
 contract FeeQuoter_validateDestFamilyAddress is FeeQuoterSetup {
   function test_ValidEVMAddress() public view {
