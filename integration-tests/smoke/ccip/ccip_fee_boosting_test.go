@@ -36,7 +36,7 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+		changeset.WithTestConfigOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
 			// Only 1 boost (=OCR round) is enough to cover the fee
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
 			// Disable token price updates
@@ -45,7 +45,6 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
 			// Disable token price updates
 			params.CommitOffChainConfig.TokenInfo = nil
-			return params
 		}),
 	)
 

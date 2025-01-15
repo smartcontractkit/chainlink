@@ -220,7 +220,7 @@ func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainSt
 
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
-	e, _ := NewMemoryEnvironment(t, WithNoJobsAndContracts())
+	e, _ := NewMemoryEnvironment(t, WithTestConfigNoJobsAndContracts())
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error

@@ -35,9 +35,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	ctx := tests.Context(t)
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithUSDC(),
-		changeset.WithUSDCAttestationMissing(),
-		changeset.WithUsersPerChain(2),
+		changeset.WithTestConfigUSDC(),
+		changeset.WithTestConfigUSDCAttestationMissing(),
+		changeset.WithTestConfigNumOfUsersPerChain(2),
 	)
 
 	e := tenv.Env

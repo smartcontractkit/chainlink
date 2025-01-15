@@ -8,7 +8,7 @@ import (
 
 func TestSmokeView(t *testing.T) {
 	t.Parallel()
-	tenv, _ := NewMemoryEnvironment(t, WithChains(3))
+	tenv, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
 	_, err := ViewCCIP(tenv.Env)
 	require.NoError(t, err)
 }

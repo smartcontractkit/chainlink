@@ -53,7 +53,7 @@ type TestConfigs struct {
 	IsUSDC                     bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
-	OCRConfigOverride          func(CCIPOCRParams) CCIPOCRParams
+	OCRConfigOverride          func(*CCIPOCRParams)
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
@@ -101,13 +101,13 @@ func DefaultTestConfigs() *TestConfigs {
 
 type TestOps func(testCfg *TestConfigs)
 
-func WithMultiCall3() TestOps {
+func WithTestConfigMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
 	}
 }
 
-func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
+func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
 		if v1_5Cfg != nil {
@@ -116,70 +116,70 @@ func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	}
 }
 
-func WithChainIds(chainIDs []uint64) TestOps {
+func WithTestConfigChainIds(chainIDs []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ChainIDs = chainIDs
 	}
 }
 
-func WithJobsOnly() TestOps {
+func WithTestConfigJobsOnly() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = true
 	}
 }
 
-func WithNoJobsAndContracts() TestOps {
+func WithTestConfigNoJobsAndContracts() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = false
 	}
 }
 
-func WithRMNEnabled(numOfNode int) TestOps {
+func WithTestConfigRMNEnabled(numOfNode int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.RMNEnabled = true
 		testCfg.NumOfRMNNodes = numOfNode
 	}
 }
 
-func WithOCRConfigOverride(override func(CCIPOCRParams) CCIPOCRParams) TestOps {
+func WithTestConfigOCRConfigOverride(override func(*CCIPOCRParams)) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.OCRConfigOverride = override
 	}
 }
 
-func WithUSDCAttestationMissing() TestOps {
+func WithTestConfigUSDCAttestationMissing() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDCAttestationMissing = true
 	}
 }
 
-func WithUSDC() TestOps {
+func WithTestConfigUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
 	}
 }
 
-func WithChains(numChains int) TestOps {
+func WithTestConfigNumOfChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Chains = numChains
 	}
 }
 
-func WithUsersPerChain(numUsers int) TestOps {
+func WithTestConfigNumOfUsersPerChain(numUsers int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
 	}
 }
 
-func WithNodes(numNodes int) TestOps {
+func WithTestConfigNumOfNodes(numNodes int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Nodes = numNodes
 	}
 }
 
-func WithBootstraps(numBootstraps int) TestOps {
+func WithTestConfigNumOfBootstrapNodes(numBootstraps int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Bootstraps = numBootstraps
 	}
@@ -544,10 +544,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders, true, true)
-		if tc.OCRConfigOverride != nil {
-			ocrParams = tc.OCRConfigOverride(ocrParams)
-		}
+		ocrParams := DeriveCCIPOCRParams(WithCommitOffChainConfig(e.FeedChainSel, tokenInfo),
+			WithExecuteOffChainConfig(tokenDataProviders),
+			WithOCRParamOverride(tc.OCRConfigOverride),
+		)
 		ocrConfigs[chain] = ocrParams
 		chainConfigs[chain] = ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),

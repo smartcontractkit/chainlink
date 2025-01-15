@@ -27,7 +27,7 @@ import (
 
 func TestInvalidOCR3Params(t *testing.T) {
 	e, _ := NewMemoryEnvironment(t,
-		WithPrerequisiteDeployment(nil))
+		WithTestConfigPrerequisiteDeploymentOnly(nil))
 	chain1 := e.Env.AllChainSelectors()[0]
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -60,7 +60,10 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.NoError(t, err)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	params := DefaultOCRParams(e.FeedChainSel, nil, nil, true, true)
+	params := DeriveCCIPOCRParams(
+		WithCommitOffChainConfig(e.FeedChainSel, nil),
+		WithExecuteOffChainConfig(nil),
+	)
 	// tweak params to have invalid config
 	// make DeltaRound greater than DeltaProgress
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
@@ -98,8 +101,8 @@ func Test_PromoteCandidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := NewMemoryEnvironment(t,
-				WithChains(2),
-				WithNodes(4))
+				WithTestConfigNumOfChains(2),
+				WithTestConfigNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -194,8 +197,8 @@ func Test_SetCandidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := NewMemoryEnvironment(t,
-				WithChains(2),
-				WithNodes(4))
+				WithTestConfigNumOfChains(2),
+				WithTestConfigNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -251,13 +254,17 @@ func Test_SetCandidate(t *testing.T) {
 						PluginInfo: []SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+									dest: DeriveCCIPOCRParams(
+										WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+									dest: DeriveCCIPOCRParams(
+										WithExecuteOffChainConfig(nil),
+									),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
@@ -303,8 +310,8 @@ func Test_RevokeCandidate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
 			tenv, _ := NewMemoryEnvironment(t,
-				WithChains(2),
-				WithNodes(4))
+				WithTestConfigNumOfChains(2),
+				WithTestConfigNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -360,13 +367,17 @@ func Test_RevokeCandidate(t *testing.T) {
 						PluginInfo: []SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+									dest: DeriveCCIPOCRParams(
+										WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-									dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, true),
+									dest: DeriveCCIPOCRParams(
+										WithExecuteOffChainConfig(nil),
+									),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
@@ -481,7 +492,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv, _ := NewMemoryEnvironment(t, WithChains(3))
+			tenv, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

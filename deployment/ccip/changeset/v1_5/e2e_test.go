@@ -20,7 +20,7 @@ import (
 func TestE2ELegacy(t *testing.T) {
 	e, _ := changeset.NewMemoryEnvironment(
 		t,
-		changeset.WithPrerequisiteDeployment(&changeset.V1_5DeploymentConfig{
+		changeset.WithTestConfigPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 			RMNConfig: &rmn_contract.RMNConfig{
 				BlessWeightThreshold: 2,
@@ -36,8 +36,8 @@ func TestE2ELegacy(t *testing.T) {
 				},
 			},
 		}),
-		changeset.WithChains(3),
-		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		changeset.WithTestConfigNumOfChains(3),
+		changeset.WithTestConfigChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})

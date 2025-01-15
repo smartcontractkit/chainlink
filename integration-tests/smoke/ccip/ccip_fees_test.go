@@ -103,7 +103,7 @@ func Test_CCIPFees(t *testing.T) {
 	t.Parallel()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithMultiCall3(),
+		changeset.WithTestConfigMultiCall3(),
 	)
 	e := tenv.Env
 

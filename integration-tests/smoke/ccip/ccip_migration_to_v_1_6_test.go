@@ -26,7 +26,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithPrerequisiteDeployment(
+		changeset.WithTestConfigPrerequisiteDeploymentOnly(
 			&changeset.V1_5DeploymentConfig{
 				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 				RMNConfig: &rmn_contract.RMNConfig{
@@ -43,11 +43,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			}),
-		changeset.WithChains(3),
-		changeset.WithUsersPerChain(2),
+		changeset.WithTestConfigNumOfChains(3),
+		changeset.WithTestConfigNumOfUsersPerChain(2),
 		// for in-memory test it is important to set the dest chain id as 1337 otherwise the config digest will not match
 		// between nodes' calculated digest and the digest set on the contract
-		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}),
+		changeset.WithTestConfigChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}),
 	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

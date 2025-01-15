@@ -27,8 +27,8 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
 	tenv, _ := NewMemoryEnvironment(t,
-		WithChains(2),
-		WithNodes(4))
+		WithTestConfigNumOfChains(2),
+		WithTestConfigNumOfNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
@@ -204,14 +204,18 @@ func Test_ActiveCandidate(t *testing.T) {
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
 						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+							dest: DeriveCCIPOCRParams(
+								WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+							),
 						},
 						PluginType: types.PluginTypeCCIPCommit,
 					},
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
 						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+							dest: DeriveCCIPOCRParams(
+								WithCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+							),
 						},
 						PluginType: types.PluginTypeCCIPExec,
 					},
