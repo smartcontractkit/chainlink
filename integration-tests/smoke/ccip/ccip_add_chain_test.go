@@ -35,6 +35,11 @@ func Test_AddChain(t *testing.T) {
 		ccipcs.WithPrerequisiteDeployment(),
 		ccipcs.WithUsersPerChain(usersPerChain),
 		ccipcs.WithNoJobsAndContracts(),
+		ccipcs.WithOCRConfigOverride(func(params ccipcs.CCIPOCRParams) ccipcs.CCIPOCRParams {
+			// Only 1 boost (=OCR round) is enough to cover the fee
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			return params
+		}),
 	)
 
 	allChains := maps.Keys(e.Env.Chains)
