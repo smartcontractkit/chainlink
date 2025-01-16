@@ -121,7 +121,7 @@ func TestSetDynamicConfig(t *testing.T) {
 		CurrentDigest: active,
 	}
 
-	_, err = SetDynamicConfigChangeset(e.Env, &setDynamicConfig)
+	_, err = SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
 	require.NoError(t, err)
 
 	dynamicConfig, err := rmnHome.GetConfig(nil, active)
@@ -129,6 +129,49 @@ func TestSetDynamicConfig(t *testing.T) {
 
 	require.True(t, dynamicConfig.Ok)
 	require.Equal(t, setDynamicConfig.RMNDynamicConfig, dynamicConfig.VersionedConfig.DynamicConfig)
+}
+
+func TestRevokeConfig(t *testing.T) {
+	e, _ := NewMemoryEnvironment(t)
+	state, err := LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	rmnHome := state.Chains[e.HomeChainSel].RMNHome
+
+	nops := []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3}
+	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
+	for _, nop := range nops {
+		nodes = append(nodes, nop.ToRMNHomeNode())
+	}
+
+	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
+		HomeChainSelector: e.HomeChainSel,
+		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+			Nodes:          nodes,
+			OffchainConfig: []byte(""),
+		},
+		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+			SourceChains:   []rmn_home.RMNHomeSourceChain{},
+			OffchainConfig: []byte(""),
+		},
+	}
+
+	_, err = SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	require.NoError(t, err)
+
+	candidate, err := rmnHome.GetCandidateDigest(nil)
+	require.NoError(t, err)
+
+	revokeCandidateConfig := RevokeCandidateConfig{
+		HomeChainSelector: e.HomeChainSel,
+		ConfigDigest:      candidate,
+	}
+
+	_, err = RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
+	require.NoError(t, err)
+
+	newCandidate, err := rmnHome.GetCandidateDigest(nil)
+	require.NoError(t, err)
+	require.NotEqual(t, candidate, newCandidate)
 }
 
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
