@@ -44,6 +44,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
   error UnsupportedNumberOfTokens(uint256 numberOfTokens, uint256 maxNumberOfTokensPerMsg);
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
+  error InvalidChainFamilySelector(bytes4 chainFamilySelector);
+  error InvalidTokenReceiver();
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -551,15 +553,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
-    if (!destChainConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
     if (!s_feeTokens.contains(message.feeToken)) revert FeeTokenNotSupported(message.feeToken);
 
     uint256 numberOfTokens = message.tokenAmounts.length;
-    _validateMessage(destChainConfig, message.data.length, numberOfTokens, message.receiver);
+    uint256 gasLimit = _resolveGasLimitForDestination(message.extraArgs, destChainConfig);
+
+    _validateMessage(destChainConfig, message.data.length, numberOfTokens, gasLimit, message.receiver);
 
     // The below call asserts that feeToken is a supported token.
     uint224 feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
-    uint224 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
+    uint256 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
     // If message-only and no token transfers, a flat network fee is charged.
@@ -622,13 +625,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // We add the destination chain CCIP overhead (commit, exec), the token transfer gas, the calldata cost and the msg
     // gas limit to get the total gas the tx costs to execute on the destination chain.
-    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
-      + _parseEVMExtraArgsFromBytes(
-        message.extraArgs,
-        destChainConfig.defaultTxGasLimit,
-        destChainConfig.maxPerMsgGasLimit,
-        destChainConfig.enforceOutOfOrder
-      ).gasLimit;
+    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost + gasLimit;
 
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
@@ -877,10 +874,66 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
-  function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) internal pure {
+  function _validateDestFamilyAddress(
+    bytes4 chainFamilySelector,
+    bytes memory destAddress,
+    uint256 gasLimit
+  ) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      Internal._validateEVMAddress(destAddress);
+      return Internal._validateEVMAddress(destAddress);
     }
+    if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      return Internal._validateSVMAddress(destAddress, gasLimit > 0);
+    }
+    revert InvalidChainFamilySelector(chainFamilySelector);
+  }
+
+  function _resolveGasLimitForDestination(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) internal pure returns (uint256) {
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      return _parseEVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).gasLimit;
+    }
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      return _parseSVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).computeUnits;
+    }
+    revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
+  }
+
+  /// @notice Parse and validate the SVM specific Extra Args Bytes.
+  function _parseSVMExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    uint32 defaultTxGasLimit,
+    uint256 maxPerMsgGasLimit,
+    bool enforcedOutOfOrder
+  ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
+    bytes4 tag = bytes4(extraArgs[:4]);
+    if (tag != Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG) {
+      revert InvalidExtraArgsTag();
+    }
+
+    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
+
+    if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
+      revert ExtraArgOutOfOrderExecutionMustBeTrue();
+    }
+
+    if (svmExtraArgs.computeUnits > maxPerMsgGasLimit) {
+      revert MessageGasLimitTooHigh();
+    }
+
+    return svmExtraArgs;
   }
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
@@ -943,6 +996,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     DestChainConfig memory destChainConfig,
     uint256 dataLength,
     uint256 numberOfTokens,
+    uint256 gasLimit,
     bytes memory receiver
   ) internal pure {
     // Check that payload is formed correctly.
@@ -952,7 +1006,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (numberOfTokens > uint256(destChainConfig.maxNumberOfTokensPerMsg)) {
       revert UnsupportedNumberOfTokens(numberOfTokens, destChainConfig.maxNumberOfTokensPerMsg);
     }
-    _validateDestFamilyAddress(destChainConfig.chainFamilySelector, receiver);
+    _validateDestFamilyAddress(destChainConfig.chainFamilySelector, receiver, gasLimit);
   }
 
   /// @inheritdoc IFeeQuoter
@@ -983,16 +1037,45 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    uint64 defaultTxGasLimit = s_destChainConfigs[destChainSelector].defaultTxGasLimit;
+    (convertedExtraArgs, isOutOfOrderExecution) =
+      _processChainFamilySelector(destChainSelector, sourceTokenAmounts.length > 0, extraArgs);
 
-    // NOTE: Only EVM chains are supported for now, additional validation logic will be added when supporting other
-    // chain families to parse non-EVM args.
-    // Since the message is called after getFee, which will already validate the params, no validation is necessary.
-    Client.EVMExtraArgsV2 memory parsedExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
-    isOutOfOrderExecution = parsedExtraArgs.allowOutOfOrderExecution;
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
 
-    return (msgFeeJuels, isOutOfOrderExecution, Client._argsToBytes(parsedExtraArgs), destExecDataPerToken);
+    return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken);
+  }
+
+  /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
+  /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
+  function _processChainFamilySelector(
+    uint64 destChainSelector,
+    bool isMessageWithTokenTransfer,
+    bytes calldata extraArgs
+  ) internal view returns (bytes memory, bool) {
+    DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      // Since the message is called after getFee, which will already validate the params, no validation is necessary.
+      Client.EVMExtraArgsV2 memory parsedExtraArgs =
+        _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+
+      return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
+    }
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      bytes32 tokenReceiver = _parseSVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).tokenReceiver;
+      if (isMessageWithTokenTransfer && tokenReceiver == bytes32(0)) {
+        revert InvalidTokenReceiver();
+      }
+
+      // ExtraArgs are required on SVM, meaning the supplied extraArgs are either invalid and we would have reverted
+      // or we have valid extraArgs and we can return them without having to re-encode them.
+      return (extraArgs, true);
+    }
+    revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
 
   /// @notice Validates pool return data.
@@ -1020,7 +1103,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         }
       }
 
-      _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress);
+      _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress, 1);
       FeeQuoter.TokenTransferFeeConfig memory tokenTransferFeeConfig =
         s_tokenTransferFeeConfig[destChainSelector][sourceToken];
 
@@ -1067,12 +1150,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
-      // destChainSelector must be non-zero, defaultTxGasLimit must be set, and must be less than maxPerMsgGasLimit.
-      // Only EVM chains are supported for now, additional validation logic will be added when supporting other chain
-      // families
+      // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
-          || destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
       ) {
         revert InvalidDestChainConfig(destChainSelector);
