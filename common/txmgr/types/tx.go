@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -170,7 +170,7 @@ type TxAttempt[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	ID    int64
 	TxID  int64
@@ -197,7 +197,7 @@ type Tx[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	ID             int64
 	IdempotencyKey *string

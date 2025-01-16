@@ -86,6 +86,7 @@ ok EVM.1.Txm.Confirmer
 ok EVM.1.Txm.Finalizer
 ok EVM.1.Txm.WrappedEvmEstimator
 ok HeadReporter
+ok Heartbeat
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -259,6 +260,15 @@ ok WorkflowDBStore
       "id": "HeadReporter",
       "attributes": {
         "name": "HeadReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Heartbeat",
+      "attributes": {
+        "name": "Heartbeat",
         "status": "passing",
         "output": ""
       }

@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -235,7 +235,7 @@ func (o *optimismL1Oracle) refresh() {
 }
 
 func (o *optimismL1Oracle) refreshWithError() error {
-	ctx, cancel := o.chStop.CtxWithTimeout(commonclient.QueryTimeout)
+	ctx, cancel := o.chStop.CtxWithTimeout(client.QueryTimeout)
 	defer cancel()
 
 	price, err := o.GetDAGasPrice(ctx)

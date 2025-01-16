@@ -119,8 +119,14 @@ func deployChainContractsForChains(
 		if !ok {
 			return fmt.Errorf("chain %d not found", chainSel)
 		}
-		if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
-			return fmt.Errorf("fee tokens not found for chain %d", chainSel)
+
+		staticLinkExists := existingState.Chains[chainSel].StaticLinkToken != nil
+		linkExists := existingState.Chains[chainSel].LinkToken != nil
+		weth9Exists := existingState.Chains[chainSel].Weth9 != nil
+		feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
+
+		if !feeTokensAreValid {
+			return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
 		}
 		deployGrp.Go(
 			func() error {
@@ -162,10 +168,10 @@ func deployChainContracts(
 		return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.String())
 	}
 	weth9Contract := chainState.Weth9
-	if chainState.LinkToken == nil {
-		return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.String())
+	linkTokenContractAddr, err := chainState.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err)
 	}
-	linkTokenContract := chainState.LinkToken
 	if chainState.TokenAdminRegistry == nil {
 		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
 	}
@@ -285,17 +291,17 @@ func deployChainContracts(
 					chain.Client,
 					fee_quoter.FeeQuoterStaticConfig{
 						MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-						LinkToken:                    linkTokenContract.Address(),
+						LinkToken:                    linkTokenContractAddr,
 						TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 					},
-					[]common.Address{state.Chains[chain.Selector].Timelock.Address()},      // timelock should be able to update, ramps added after
-					[]common.Address{weth9Contract.Address(), linkTokenContract.Address()}, // fee tokens
+					[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
+					[]common.Address{weth9Contract.Address(), linkTokenContractAddr},  // fee tokens
 					[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 					[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
 					[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 						{
 							PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-							Token:                      linkTokenContract.Address(),
+							Token:                      linkTokenContractAddr,
 						},
 						{
 							PremiumMultiplierWeiPerEth: 1e18,

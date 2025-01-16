@@ -196,38 +196,24 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					// NOTE: this is technically not a new chain, but needed for validation.
-					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
-					},
-					PluginType: types.PluginTypeCCIPCommit,
 					MCMS: &MCMSConfig{
 						MinDelay: 0,
 					},
 				},
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
-					HomeChainSelector: tenv.HomeChainSel,
-					FeedChainSelector: tenv.FeedChainSel,
-					// NOTE: this is technically not a new chain, but needed for validation.
-					OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-						dest: DefaultOCRParams(
-							tenv.FeedChainSel,
-							tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9),
-							nil,
-						),
+				PluginInfo: []SetCandidatePluginInfo{
+					{
+						// NOTE: this is technically not a new chain, but needed for validation.
+						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, true, false),
+						},
+						PluginType: types.PluginTypeCCIPCommit,
 					},
-					PluginType: types.PluginTypeCCIPExec,
-					MCMS: &MCMSConfig{
-						MinDelay: 0,
+					{
+						// NOTE: this is technically not a new chain, but needed for validation.
+						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
+							dest: DefaultOCRParams(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9), nil, false, true),
+						},
+						PluginType: types.PluginTypeCCIPExec,
 					},
 				},
 			},

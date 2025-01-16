@@ -83,19 +83,6 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
-  function test_RevertWhen_TheNewWorkflowIDIsTheSameAsTheExistingWorkflowID() external {
-    // Register a workflow first
-    _registerValidWorkflow();
-
-    // Update the workflow now with the same workflow ID
-    vm.prank(s_authorizedAddress);
-    vm.expectRevert(WorkflowRegistry.WorkflowIDNotUpdated.selector);
-    s_registry.updateWorkflow(
-      s_validWorkflowKey, s_validWorkflowID, s_validBinaryURL, s_validConfigURL, s_newValidSecretsURL
-    );
-  }
-
-  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
   function test_RevertWhen_NoneOfTheURLsAreUpdated() external {
     // Register a workflow first
     _registerValidWorkflow();
@@ -106,6 +93,17 @@ contract WorkflowRegistry_updateWorkflow is WorkflowRegistrySetup {
     s_registry.updateWorkflow(
       s_validWorkflowKey, s_newValidWorkflowID, s_validBinaryURL, s_validConfigURL, s_validSecretsURL
     );
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner
+  function test_RevertWhen_TheBinaryURLIsEmpty() external {
+    // Register a workflow first
+    _registerValidWorkflow();
+
+    // Update the workflow with a binary URL that is empty
+    vm.prank(s_authorizedAddress);
+    vm.expectRevert(WorkflowRegistry.BinaryURLRequired.selector);
+    s_registry.updateWorkflow(s_validWorkflowKey, s_newValidWorkflowID, "", s_validConfigURL, s_validSecretsURL);
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed whenTheCallerIsTheWorkflowOwner

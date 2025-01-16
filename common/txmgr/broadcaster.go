@@ -20,8 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -70,7 +69,7 @@ type TransmitCheckerFactory[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
 	BuildChecker(spec txmgrtypes.TransmitCheckerSpec[ADDR]) (TransmitChecker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
@@ -82,7 +81,7 @@ type TransmitChecker[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
@@ -112,7 +111,7 @@ type Broadcaster[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	services.StateMachine
 	lggr    logger.SugaredLogger
@@ -158,7 +157,7 @@ func NewBroadcaster[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ](
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -436,8 +435,8 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 	attempt, _, _, retryable, err := eb.NewTxAttempt(ctx, *etx, eb.lggr)
 	// Mark transaction as fatal if provided gas limit is set too low
-	if errors.Is(err, commonfee.ErrFeeLimitTooLow) {
-		etx.Error = null.StringFrom(commonfee.ErrFeeLimitTooLow.Error())
+	if errors.Is(err, fees.ErrFeeLimitTooLow) {
+		etx.Error = null.StringFrom(fees.ErrFeeLimitTooLow.Error())
 		return eb.saveFatallyErroredTransaction(eb.lggr, etx), false
 	} else if err != nil {
 		return fmt.Errorf("processUnstartedTxs failed on NewAttempt: %w", err), retryable
@@ -722,7 +721,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 
 // replaceAttemptWithNewEstimation performs the replacement of the existing tx attempt with a new estimated fee attempt.
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
-	newEstimatedAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, feetypes.OptForceRefetch)
+	newEstimatedAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, fees.OptForceRefetch)
 	if err != nil {
 		return &newEstimatedAttempt, retryable, err
 	}
