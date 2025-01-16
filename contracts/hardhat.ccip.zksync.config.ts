@@ -1,4 +1,3 @@
-
 import '@nomicfoundation/hardhat-ethers'
 import '@nomicfoundation/hardhat-verify'
 import '@matterlabs/hardhat-zksync-solc'
@@ -90,8 +89,7 @@ let config = {
   },
   zksolc: {
     version: '1.5.3',
-    settings: {      
-    //   version: 'v1.5.3',
+    settings: {
       optimizer: {
         enabled: true,
         mode: '3',

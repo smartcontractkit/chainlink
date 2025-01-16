@@ -1,12 +1,12 @@
 import hre from 'hardhat'
-//import big from 'ethers'
+
 // pass in the correct constrcutor arguments for the contract &
-// run with `npx hardhat run zksync-verify.ts --config ./hardhat.ccip.zksync.config.ts` & remember to change the appropriate `default network` in the config file or pass as argument
+// Run with `npx hardhat run zksync-verify.ts --config ./hardhat.ccip.zksync.config.ts` & remember to change the appropriate `default network` in the config file or pass as argument
 async function main() {
   await hre.run('verify:verify', {
     address: '0x37CbA662E9c373F2166CcA0D9c576dd089D7209a',
     constructorArguments: [
-      {
+      /*{
         "linkToken": "0x52869bae3e091e36b0915941577f2d47d8d8b534",
         "chainSelector": "1562403441176082196",
         "destChainSelector": "4051577828743386545",
@@ -53,7 +53,8 @@ async function main() {
         }
       ],
       [],
-      []    
+      [] 
+    */
     ],
   })
 }
