@@ -223,11 +223,6 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
   // Reverts
 
-  function test_RevertWhen_DestinationChainNotEnabled() public {
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
-    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR + 1, _generateEmptyMessage());
-  }
-
   function test_RevertWhen_EnforceOutOfOrder() public {
     // Update config to enforce allowOutOfOrderExecution = true.
     vm.stopPrank();

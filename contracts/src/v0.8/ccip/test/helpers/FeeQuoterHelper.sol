@@ -87,10 +87,7 @@ contract FeeQuoterHelper is FeeQuoter {
     DestChainConfig memory destChainConfig
   ) external pure returns (Client.SVMExtraArgsV1 memory) {
     return _parseSVMExtraArgsFromBytes(
-      extraArgs,
-      destChainConfig.defaultTxGasLimit,
-      destChainConfig.maxPerMsgGasLimit,
-      destChainConfig.enforceOutOfOrder
+      extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder
     );
   }
 

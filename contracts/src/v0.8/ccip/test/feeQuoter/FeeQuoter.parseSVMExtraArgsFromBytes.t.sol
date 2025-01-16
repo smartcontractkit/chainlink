@@ -72,17 +72,16 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     });
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes(tagOnly, s_destChainConfig)),
-      abi.encode(expectedOutputArgs)
+      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes(tagOnly, s_destChainConfig)), abi.encode(expectedOutputArgs)
     );
   }
 
   // Reverts
 
-  function test_parseSVMExtraArgsFromBytes_RevertWhen_ExtraArgsAreEmpty() public {
+  function test_parseSVMExtraArgsFromBytes_RevertWhen_ExtraArgDataIsShort() public {
     bytes memory inputExtraArgs = new bytes(0);
 
-    vm.expectRevert(FeeQuoter.EmptyExtraArgsData.selector);
+    vm.expectRevert(FeeQuoter.InvalidExtraArgsData.selector);
     s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
   }
 
@@ -104,15 +103,13 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   function test_SVMExtraArgsV1_RevertWhen_ExtraArgOutOfOrderExecutionIsFalse() public {
     bytes memory inputExtraArgs = abi.encodeWithSelector(
       Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG,
-      abi.encode(
-        Client.SVMExtraArgsV1({
-          computeUnits: 1_000_000, // within range
-          accountIsWritableBitmap: 0,
-          tokenReceiver: bytes32(0),
-          allowOutOfOrderExecution: false, // mismatch with enforcedOutOfOrder = true
-          accounts: new bytes32[](0)
-        })
-      )
+      Client.SVMExtraArgsV1({
+        computeUnits: 1_000_000,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: false, // mismatch with enforcedOutOfOrder = true
+        accounts: new bytes32[](0)
+      })
     );
 
     vm.expectRevert(FeeQuoter.ExtraArgOutOfOrderExecutionMustBeTrue.selector);

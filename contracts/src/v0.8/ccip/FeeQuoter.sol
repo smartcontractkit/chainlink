@@ -627,8 +627,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // We add the destination chain CCIP overhead (commit, exec), the token transfer gas, the calldata cost and the msg
     // gas limit to get the total gas the tx costs to execute on the destination chain.
-    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
-      + gasLimit;
+    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost + gasLimit;
 
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
@@ -893,9 +892,19 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     DestChainConfig memory destChainConfig
   ) internal pure returns (uint256) {
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder).gasLimit;
+      return _parseEVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder).computeUnits;
+      return _parseSVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).computeUnits;
     }
     revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
@@ -907,7 +916,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 maxPerMsgGasLimit,
     bool enforcedOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
-
     if (extraArgs.length < 4) {
       revert InvalidExtraArgsData();
     }
@@ -946,7 +954,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     return svmExtraArgs;
   }
-
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
   /// @param extraArgs The extra args bytes.
@@ -1074,7 +1081,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
+      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(
+        extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      );
       if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
