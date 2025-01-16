@@ -17,19 +17,19 @@ import (
 )
 
 var (
-	rmn_staging_1 = changeset.RMNNopConfig{
+	rmnStaging1 = changeset.RMNNopConfig{
 		NodeIndex:           0,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWRXxZq3pd4a3ZGkKj7Nt1SQQrnB8CuvbPnnV9KVeMeWqg"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0xb34944857a42444d1b285d7940d6e06682309e0781e43a69676ee9f85c73c2d1")),
 		EVMOnChainPublicKey: common.HexToAddress("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21"),
 	}
-	rmn_staging_2 = changeset.RMNNopConfig{
+	rmnStaging2 = changeset.RMNNopConfig{
 		NodeIndex:           1,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWEmdxYQFsRbD9aFczF32zA3CcUwuSiWCk2CrmACo4v9RL"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0x68d9f3f274e3985528a923a9bace3d39c55dd778b187b4120b384cc48c892859")),
 		EVMOnChainPublicKey: common.HexToAddress("0x858589216956f482a0f68b282a7050af4cd48ed2"),
 	}
-	rmn_staging_3 = changeset.RMNNopConfig{
+	rmnStaging3 = changeset.RMNNopConfig{
 		NodeIndex:           2,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWJS42cNXKJvj6DeZnxEX7aGxhEuap6uNFrz554AbUDw6Q"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21")),
@@ -49,12 +49,12 @@ func TestUpdateRMNConfig(t *testing.T) {
 		{
 			useMCMS: true,
 			name:    "with MCMS",
-			nops:    []changeset.RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3},
+			nops:    []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
 		},
 		{
 			useMCMS: false,
 			name:    "without MCMS",
-			nops:    []changeset.RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3},
+			nops:    []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
 		},
 	}
 
@@ -101,7 +101,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *changeset.MCMSConfig = nil
+	var mcmsConfig *changeset.MCMSConfig
 
 	if tc.useMCMS {
 		mcmsConfig = &changeset.MCMSConfig{
@@ -226,7 +226,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error
-	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
+	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{

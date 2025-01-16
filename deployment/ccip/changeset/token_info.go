@@ -26,11 +26,9 @@ const (
 	WethDecimals             = 18
 	UsdcDecimals             = 6
 	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
 	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
 	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	//nolint:lll
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
 	MockWETHAggregatorDescription = "MockETHUSDAggregator"
 )

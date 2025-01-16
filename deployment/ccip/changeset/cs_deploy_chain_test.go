@@ -35,7 +35,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
 		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,

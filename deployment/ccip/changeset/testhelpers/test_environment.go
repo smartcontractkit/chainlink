@@ -355,7 +355,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range allChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
@@ -423,7 +423,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 
-	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range allChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
