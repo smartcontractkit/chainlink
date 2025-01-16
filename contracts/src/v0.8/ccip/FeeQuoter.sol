@@ -876,7 +876,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
-  function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress, uint256 gasLimit) internal pure {
+  function _validateDestFamilyAddress(
+    bytes4 chainFamilySelector,
+    bytes memory destAddress,
+    uint256 gasLimit
+  ) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       Internal._validateEVMAddress(destAddress);
       return;
@@ -1119,7 +1123,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         }
       }
 
-      _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress);
+      _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress, 1);
       FeeQuoter.TokenTransferFeeConfig memory tokenTransferFeeConfig =
         s_tokenTransferFeeConfig[destChainSelector][sourceToken];
 

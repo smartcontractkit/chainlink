@@ -36,7 +36,7 @@ compileContract() {
 function getOptimizations() {
     local optimize_runs_override=""
 
-   case $1 in
+    case $1 in
       "OffRamp")
         optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_OFFRAMP"
         ;;
