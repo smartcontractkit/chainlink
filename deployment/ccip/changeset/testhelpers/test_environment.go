@@ -94,8 +94,8 @@ func DefaultTestConfigs() *TestConfigs {
 		NumOfUsersPerChain:    1,
 		Nodes:                 4,
 		Bootstraps:            1,
-		LinkPrice:             MockLinkPrice,
-		WethPrice:             MockWethPrice,
+		LinkPrice:             changeset.MockLinkPrice,
+		WethPrice:             changeset.MockWethPrice,
 		CreateJobAndContracts: true,
 	}
 }

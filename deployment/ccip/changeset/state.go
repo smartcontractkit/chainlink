@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -585,7 +584,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			key, ok := testhelpers.MockDescriptionToTokenSymbol[desc]
+			key, ok := MockDescriptionToTokenSymbol[desc]
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}

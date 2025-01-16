@@ -230,7 +230,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	grouped := groupRMNSubjectBySelector(curseActions, true, true)
 	// For each chain in the environment get the RMNRemote contract and call curse
 	for selector, chain := range state.Chains {
-		deployer, err := deployerGroup.getDeployer(selector)
+		deployer, err := deployerGroup.GetDeployer(selector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", selector, err)
 		}
@@ -263,7 +263,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 		}
 	}
 
-	return deployerGroup.enact("proposal to curse RMNs: " + cfg.Reason)
+	return deployerGroup.Enact("proposal to curse RMNs: " + cfg.Reason)
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
@@ -301,7 +301,7 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 
 	// For each chain in the environement get the RMNRemote contract and call uncurse
 	for selector, chain := range state.Chains {
-		deployer, err := deployerGroup.getDeployer(selector)
+		deployer, err := deployerGroup.GetDeployer(selector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %d: %w", selector, err)
 		}
@@ -335,5 +335,5 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 		}
 	}
 
-	return deployerGroup.enact("proposal to uncurse RMNs: %s" + cfg.Reason)
+	return deployerGroup.Enact("proposal to uncurse RMNs: %s" + cfg.Reason)
 }

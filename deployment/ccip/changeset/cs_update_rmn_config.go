@@ -314,9 +314,9 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		},
 	}
 
-	timelocksPerChain := buildTimelockAddressPerChain(e, state)
+	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := buildProposerPerChain(e, state)
+	proposerMCMSes := BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -393,9 +393,9 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 		},
 	}
 
-	timelocksPerChain := buildTimelockAddressPerChain(e, state)
+	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := buildProposerPerChain(e, state)
+	proposerMCMSes := BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -414,7 +414,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	}, nil
 }
 
-func buildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*rmn_remote.RMNRemote {
+func BuildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*rmn_remote.RMNRemote {
 	timelocksPerChain := make(map[uint64]*rmn_remote.RMNRemote)
 	for _, chain := range e.Chains {
 		timelocksPerChain[chain.Selector] = state.Chains[chain.Selector].RMNRemote
@@ -488,7 +488,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get RMNHome active digest for chain %s: %w", homeChain.String(), err)
 	}
 
-	rmnRemotePerChain := buildRMNRemotePerChain(e, state)
+	rmnRemotePerChain := BuildRMNRemotePerChain(e, state)
 	batches := make([]timelock.BatchChainOperation, 0)
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
@@ -545,9 +545,9 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	timelocksPerChain := buildTimelockAddressPerChain(e, state)
+	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := buildProposerPerChain(e, state)
+	proposerMCMSes := BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,

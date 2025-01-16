@@ -500,31 +500,6 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 	return new(big.Int).Or(daShifted, execFee)
 }
 
-const (
-	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	//nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
-	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
-	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	//nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
-	MockWETHAggregatorDescription = "MockETHUSDAggregator"
-)
-
-var (
-	MockLinkPrice = deployment.E18Mult(500)
-	MockWethPrice = big.NewInt(9e8)
-	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
-	MockDescriptionToTokenSymbol = map[string]changeset.TokenSymbol{
-		MockLinkAggregatorDescription: changeset.LinkSymbol,
-		MockWETHAggregatorDescription: changeset.WethSymbol,
-	}
-	MockSymbolToDescription = map[changeset.TokenSymbol]string{
-		changeset.LinkSymbol: MockLinkAggregatorDescription,
-		changeset.WethSymbol: MockWETHAggregatorDescription,
-	}
-)
-
 func DeployFeeds(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
@@ -600,7 +575,7 @@ func deploySingleFeed(
 		return common.Address{}, "", err
 	}
 
-	if desc != MockSymbolToDescription[symbol] {
+	if desc != changeset.MockSymbolToDescription[symbol] {
 		lggr.Errorw("Unexpected description for token", "symbol", symbol, "desc", desc)
 		return common.Address{}, "", fmt.Errorf("unexpected description: %s", desc)
 	}
@@ -1258,5 +1233,43 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
+	}
+}
+
+func GenTestTransferOwnershipConfig(
+	e DeployedEnv,
+	chains []uint64,
+	state changeset.CCIPOnChainState,
+) commoncs.TransferToMCMSWithTimelockConfig {
+	var (
+		timelocksPerChain = make(map[uint64]common.Address)
+		contracts         = make(map[uint64][]common.Address)
+	)
+
+	// chain contracts
+	for _, chain := range chains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		contracts[chain] = []common.Address{
+			state.Chains[chain].OnRamp.Address(),
+			state.Chains[chain].OffRamp.Address(),
+			state.Chains[chain].FeeQuoter.Address(),
+			state.Chains[chain].NonceManager.Address(),
+			state.Chains[chain].RMNRemote.Address(),
+			state.Chains[chain].TestRouter.Address(),
+			state.Chains[chain].Router.Address(),
+		}
+	}
+
+	// home chain
+	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
+	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
+		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		state.Chains[e.HomeChainSel].CCIPHome.Address(),
+		state.Chains[e.HomeChainSel].RMNHome.Address(),
+	)
+
+	return commoncs.TransferToMCMSWithTimelockConfig{
+		ContractsByChain: contracts,
 	}
 }

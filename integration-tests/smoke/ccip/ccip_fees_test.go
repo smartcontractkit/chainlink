@@ -437,7 +437,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 		Context: ctx,
 	}, linkAddress)
 	require.NoError(tc.t, err)
-	require.Equal(tc.t, testhelpers.MockLinkPrice, timestampedPrice.Value)
+	require.Equal(tc.t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 	// Wait for all exec reports to land
 	testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.env.Env, state, expectedSeqNumExec, startBlocks)

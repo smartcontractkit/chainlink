@@ -5,12 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
-func TestSmokeView(t *testing.T) {
-	t.Parallel()
+func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	_, err := ViewCCIP(tenv.Env)
+	state, err := changeset.LoadOnchainState(tenv.Env)
+	require.NoError(t, err)
+	_, err = state.View(tenv.Env.AllChainSelectors())
 	require.NoError(t, err)
 }

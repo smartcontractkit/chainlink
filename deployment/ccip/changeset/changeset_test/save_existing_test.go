@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -35,22 +36,22 @@ func TestSaveExistingCCIP(t *testing.T) {
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(2)),
-				TypeAndVersion: deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(3)),
-				TypeAndVersion: deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0),
 				ChainSelector:  chain1,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(4)),
-				TypeAndVersion: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_5_0),
 				ChainSelector:  chain2,
 			},
 			{
 				Address:        common.BigToAddress(big.NewInt(5)),
-				TypeAndVersion: deployment.NewTypeAndVersion(Router, deployment.Version1_2_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},
 		},
@@ -60,7 +61,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
 	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))

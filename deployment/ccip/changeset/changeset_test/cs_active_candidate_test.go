@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"math/big"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -30,7 +31,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithNumOfNodes(4))
-	state, err := LoadOnchainState(tenv.Env)
+	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	// Deploy to all chains.
@@ -42,9 +43,9 @@ func Test_ActiveCandidate(t *testing.T) {
 	sourceState := state.Chains[source]
 	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDestsChangeset),
-			Config: UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					source: {
 						dest: {
 							IsEnabled:        true,
@@ -55,9 +56,9 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterPricesChangeset),
-			Config: UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			Config: changeset.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					source: {
 						TokenPrices: map[common.Address]*big.Int{
 							sourceState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
@@ -71,19 +72,19 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDestsChangeset),
-			Config: UpdateFeeQuoterDestsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
-						dest: DefaultFeeQuoterDestChainConfig(),
+						dest: changeset.DefaultFeeQuoterDestChainConfig(),
 					},
 				},
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSourcesChangeset),
-			Config: UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+			Config: changeset.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
 						source: {
 							IsEnabled: true,
@@ -93,9 +94,9 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateRouterRampsChangeset),
-			Config: UpdateRouterRampsConfig{
-				UpdatesByChain: map[uint64]RouterUpdates{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]changeset.RouterUpdates{
 					// onRamp update on source chain
 					source: {
 						OnRampUpdates: map[uint64]bool{
@@ -126,11 +127,11 @@ func Test_ActiveCandidate(t *testing.T) {
 	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config:    genTestTransferOwnershipConfig(tenv, allChains, state),
+			Config:    testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state),
 		},
 	})
 	require.NoError(t, err)
-	assertTimelockOwnership(t, tenv, allChains, state)
+	testhelpers.AssertTimelockOwnership(t, tenv, allChains, state)
 
 	sendMsg := func() {
 		latesthdr, err := tenv.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
@@ -189,33 +190,33 @@ func Test_ActiveCandidate(t *testing.T) {
 
 	// Now we can add a candidate config, send another request, and observe behavior.
 	// The candidate config should not be able to execute messages.
-	tokenConfig := NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
+			Config: changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &MCMSConfig{
+					MCMS: &changeset.MCMSConfig{
 						MinDelay: 0,
 					},
 				},
-				PluginInfo: []SetCandidatePluginInfo{
+				PluginInfo: []changeset.SetCandidatePluginInfo{
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
-						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-							dest: DeriveCCIPOCRParams(
-								WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
+							dest: changeset.DeriveCCIPOCRParams(
+								changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
 							),
 						},
 						PluginType: types.PluginTypeCCIPCommit,
 					},
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
-						OCRConfigPerRemoteChainSelector: map[uint64]CCIPOCRParams{
-							dest: DeriveCCIPOCRParams(
-								WithDefaultExecuteOffChainConfig(nil),
+						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
+							dest: changeset.DeriveCCIPOCRParams(
+								changeset.WithDefaultExecuteOffChainConfig(nil),
 							),
 						},
 						PluginType: types.PluginTypeCCIPExec,

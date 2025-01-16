@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -20,7 +21,7 @@ type curseAssertion struct {
 
 type CurseTestCase struct {
 	name                string
-	curseActionsBuilder func(mapIDToSelectorFunc) []CurseAction
+	curseActionsBuilder func(mapIDToSelectorFunc) []changeset.CurseAction
 	curseAssertions     []curseAssertion
 }
 
@@ -29,8 +30,8 @@ type mapIDToSelectorFunc func(uint64) uint64
 var testCases = []CurseTestCase{
 	{
 		name: "lane",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []changeset.CurseAction {
+			return []changeset.CurseAction{changeset.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, subject: 1, cursed: true},
@@ -43,8 +44,10 @@ var testCases = []CurseTestCase{
 	},
 	{
 		name: "lane duplicate",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1)), CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []changeset.CurseAction {
+			return []changeset.CurseAction{
+				changeset.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1)),
+				changeset.CurseLaneBidirectionally(mapIDToSelector(0), mapIDToSelector(1))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, subject: 1, cursed: true},
@@ -57,8 +60,8 @@ var testCases = []CurseTestCase{
 	},
 	{
 		name: "chain",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIDToSelector(0))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []changeset.CurseAction {
+			return []changeset.CurseAction{changeset.CurseChain(mapIDToSelector(0))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
@@ -70,8 +73,8 @@ var testCases = []CurseTestCase{
 	},
 	{
 		name: "chain duplicate",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseChain(mapIDToSelector(0))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []changeset.CurseAction {
+			return []changeset.CurseAction{changeset.CurseChain(mapIDToSelector(0)), changeset.CurseChain(mapIDToSelector(0))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
@@ -83,8 +86,8 @@ var testCases = []CurseTestCase{
 	},
 	{
 		name: "chain and lanes",
-		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []CurseAction {
-			return []CurseAction{CurseChain(mapIDToSelector(0)), CurseLaneBidirectionally(mapIDToSelector(1), mapIDToSelector(2))}
+		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []changeset.CurseAction {
+			return []changeset.CurseAction{changeset.CurseChain(mapIDToSelector(0)), changeset.CurseLaneBidirectionally(mapIDToSelector(1), mapIDToSelector(2))}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: 0, globalCurse: true, cursed: true},
@@ -151,23 +154,23 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
-	_, err := RMNCurseChangeset(e.Env, config)
+	_, err := changeset.RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, err = RMNUncurseChangeset(e.Env, config)
+	_, err = changeset.RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
-func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state CCIPOnChainState, timelocksPerChain map[uint64]*proposalutils.TimelockExecutionContracts) {
+func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state changeset.CCIPOnChainState, timelocksPerChain map[uint64]*proposalutils.TimelockExecutionContracts) {
 	contractsByChain := make(map[uint64][]common.Address)
 	rmnRemoteAddressesByChain := buildRMNRemoteAddressPerChain(e.Env, state)
 	for chainSelector, rmnRemoteAddress := range rmnRemoteAddressesByChain {
@@ -196,24 +199,24 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 		return e.Env.AllChainSelectors()[id]
 	}
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &MCMSConfig{MinDelay: 0},
+		MCMS:         &changeset.MCMSConfig{MinDelay: 0},
 	}
 
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	timelocksPerChain := buildTimelockPerChain(e.Env, state)
+	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
 
 	transferRMNContractToMCMS(t, &e, state, timelocksPerChain)
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(RMNCurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(changeset.RMNCurseChangeset),
 			Config:    config,
 		},
 	})
@@ -223,7 +226,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(RMNUncurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(changeset.RMNUncurseChangeset),
 			Config:    config,
 		},
 	})
@@ -239,7 +242,7 @@ func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
 		return e.Env.AllChainSelectors()[id]
 	}
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
@@ -257,12 +260,12 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
-	_, err := RMNCurseChangeset(e.Env, config)
+	_, err := changeset.RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
@@ -277,15 +280,15 @@ func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
-	_, err := RMNCurseChangeset(e.Env, config)
+	_, err := changeset.RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	_, err = RMNCurseChangeset(e.Env, config)
+	_, err = changeset.RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
@@ -300,20 +303,20 @@ func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
 	}
 
-	_, err := RMNCurseChangeset(e.Env, config)
+	_, err := changeset.RMNCurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, err = RMNUncurseChangeset(e.Env, config)
+	_, err = changeset.RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
-	_, err = RMNUncurseChangeset(e.Env, config)
+	_, err = changeset.RMNUncurseChangeset(e.Env, config)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -326,24 +329,24 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 		return e.Env.AllChainSelectors()[id]
 	}
 
-	config := RMNCurseConfig{
+	config := changeset.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &MCMSConfig{MinDelay: 0},
+		MCMS:         &changeset.MCMSConfig{MinDelay: 0},
 	}
 
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
 
-	timelocksPerChain := buildTimelockPerChain(e.Env, state)
+	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
 
 	transferRMNContractToMCMS(t, &e, state, timelocksPerChain)
 
 	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(RMNCurseChangeset),
+			Changeset: commonchangeset.WrapChangeSet(changeset.RMNCurseChangeset),
 			Config:    config,
 		},
 	})
@@ -353,13 +356,13 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 }
 
 func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc CurseTestCase, mapIDToSelector mapIDToSelectorFunc) {
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	for _, assertion := range tc.curseAssertions {
-		cursedSubject := SelectorToSubject(mapIDToSelector(assertion.subject))
+		cursedSubject := changeset.SelectorToSubject(mapIDToSelector(assertion.subject))
 		if assertion.globalCurse {
-			cursedSubject = GlobalCurseSubject()
+			cursedSubject = changeset.GlobalCurseSubject()
 		}
 
 		isCursed, err := state.Chains[mapIDToSelector(assertion.chainID)].RMNRemote.IsCursed(nil, cursedSubject)
@@ -369,7 +372,7 @@ func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc Curse
 }
 
 func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	for _, chain := range e.Env.Chains {

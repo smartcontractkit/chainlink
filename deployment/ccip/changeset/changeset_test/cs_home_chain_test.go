@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,7 +29,7 @@ func TestDeployHomeChain(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	homeChainCfg := DeployHomeChainConfig{
+	homeChainCfg := changeset.DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -37,10 +38,10 @@ func TestDeployHomeChain(t *testing.T) {
 			"NodeOperator": p2pIds,
 		},
 	}
-	output, err := DeployHomeChainChangeset(e, homeChainCfg)
+	output, err := changeset.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
@@ -64,17 +65,17 @@ func TestDeployHomeChain(t *testing.T) {
 
 func TestRemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	s, err := LoadOnchainState(e.Env)
+	s, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
 	var tt = []struct {
 		name      string
-		config    RemoveDONsConfig
+		config    changeset.RemoveDONsConfig
 		expectErr bool
 	}{
 		{
 			name: "invalid home",
-			config: RemoveDONsConfig{
+			config: changeset.RemoveDONsConfig{
 				HomeChainSel: 0,
 				DonIDs:       []uint32{1},
 			},
@@ -82,7 +83,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "invalid dons",
-			config: RemoveDONsConfig{
+			config: changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{1377},
 			},
@@ -90,7 +91,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "no dons",
-			config: RemoveDONsConfig{
+			config: changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{},
 			},
@@ -98,7 +99,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "success",
-			config: RemoveDONsConfig{
+			config: changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{1},
 			},
@@ -119,7 +120,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 
 func TestRemoveDons(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
-	s, err := LoadOnchainState(e.Env)
+	s, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
 
@@ -128,8 +129,8 @@ func TestRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(RemoveDONs),
-			Config: RemoveDONsConfig{
+			Changeset: commoncs.WrapChangeSet(changeset.RemoveDONs),
+			Config: changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
 			},
@@ -159,11 +160,11 @@ func TestRemoveDons(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(RemoveDONs),
-			Config: RemoveDONsConfig{
+			Changeset: commoncs.WrapChangeSet(changeset.RemoveDONs),
+			Config: changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
-				MCMS:         &MCMSConfig{MinDelay: 0},
+				MCMS:         &changeset.MCMSConfig{MinDelay: 0},
 			},
 		},
 	})

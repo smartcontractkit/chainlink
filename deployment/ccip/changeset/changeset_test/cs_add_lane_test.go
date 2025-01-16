@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
@@ -16,7 +17,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	selectors := e.Env.AllChainSelectors()

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -16,19 +17,19 @@ type dummyDeployerGroupChangesetConfig struct {
 	selector uint64
 	address  common.Address
 	mints    []*big.Int
-	MCMS     *MCMSConfig
+	MCMS     *changeset.MCMSConfig
 }
 
 func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	group := NewDeployerGroup(e, state, cfg.MCMS)
-	deployer, err := group.getDeployer(cfg.selector)
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS)
+	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -38,19 +39,19 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 		return deployment.ChangesetOutput{}, err
 	}
 
-	return group.enact("Grant mint role")
+	return group.Enact("Grant mint role")
 }
 
 func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	group := NewDeployerGroup(e, state, cfg.MCMS)
-	deployer, err := group.getDeployer(cfg.selector)
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS)
+	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -62,7 +63,7 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 		}
 	}
 
-	return group.enact("Mint tokens")
+	return group.Enact("Mint tokens")
 }
 
 type deployerGroupTestCase struct {
@@ -106,7 +107,7 @@ func TestDeployerGroup(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				state, err := LoadOnchainState(e.Env)
+				state, err := changeset.LoadOnchainState(e.Env)
 				require.NoError(t, err)
 
 				token := state.Chains[e.HomeChainSel].LinkToken
@@ -135,13 +136,13 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 			tc.cfg.selector = e.HomeChainSel
-			tc.cfg.MCMS = &MCMSConfig{
+			tc.cfg.MCMS = &changeset.MCMSConfig{
 				MinDelay: 0,
 			}
-			state, err := LoadOnchainState(e.Env)
+			state, err := changeset.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			timelocksPerChain := buildTimelockPerChain(e.Env, state)
+			timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
 
 			contractsByChain := make(map[uint64][]common.Address)
 			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
@@ -173,7 +174,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			state, err = LoadOnchainState(e.Env)
+			state, err = changeset.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
 			token := state.Chains[e.HomeChainSel].LinkToken
