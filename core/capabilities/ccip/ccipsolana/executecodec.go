@@ -94,7 +94,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		Message:             message,
 		OffchainTokenData:   offchainTokenData,
 		Proofs:              solanaProofs,
-		TokenIndexes:        calculateTokenIndexes(message),
 	}
 
 	var buf bytes.Buffer
@@ -179,29 +178,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	}
 
 	return report, nil
-}
-
-// calculateTokenIndexes calculates TokenIndexes, which is a Solana specific value that marks each of the token transfer accounts starts within the list of accounts
-func calculateTokenIndexes(msg ccip_router.Any2SolanaRampMessage) []byte {
-	// For example:
-	//     accounts_for_message = [a, b, c]
-	//     accounts per token T = [t1, t2, t3, t4]
-	//     accounts per token J = [j1, j2, j3]
-	//     So, the list of accounts will be [a, b, c, t1, t2, t3, t4, j1, j2, j3] and the indexes will be [3, 7]
-
-	tokenIndexes := make([]byte, 0, len(msg.TokenAmounts))
-	if len(msg.TokenAmounts) == 0 {
-		return tokenIndexes
-	}
-
-	//  accounts_for_message = [users_receiver_program_id] + extraArgs.Accounts
-	counter := len(msg.ExtraArgs.Accounts) + 1
-	for range msg.TokenAmounts {
-		// TODO: for now it's fixed amount (https://github.com/smartcontractkit/chainlink-ccip/blob/a5e767b178659e220175008ca34a22237fd85195/chains/solana/utils/tokens/tokenpool.go#L170), and there's going to be a sdn provided for calculating accounts per token transfer later
-		tokenIndexes = append(tokenIndexes, byte(counter))
-		counter += 11
-	}
-	return tokenIndexes
 }
 
 func bytesToUint32(b []byte) uint32 {

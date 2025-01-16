@@ -54,11 +54,12 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			}
 
 			extraArgs := ccip_router.SolanaExtraArgs{
-				ComputeUnits: 1000,
-				Accounts: []ccip_router.SolanaAccountMeta{
-					{Pubkey: config.CcipReceiverProgram},
-					{Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
-					{Pubkey: solana.SystemProgramID, IsWritable: false},
+				ComputeUnits:     1000,
+				IsWritableBitmap: 2,
+				Accounts: []solana.PublicKey{
+					config.CcipReceiverProgram,
+					config.ReceiverTargetAccountPDA,
+					solana.SystemProgramID,
 				},
 			}
 
