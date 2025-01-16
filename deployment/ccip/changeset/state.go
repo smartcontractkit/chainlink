@@ -126,7 +126,7 @@ type CCIPChainState struct {
 	RMNHome            *rmn_home.RMNHome
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
