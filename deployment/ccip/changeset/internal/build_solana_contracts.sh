@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Note: this version of the script expects anchor to be installed
+
 # Get the root project directory
 DEPLOYMENT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)
 INTERNAL_FOLDER="$DEPLOYMENT_ROOT/ccip/changeset/internal"
