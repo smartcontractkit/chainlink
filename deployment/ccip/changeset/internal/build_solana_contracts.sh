@@ -34,8 +34,9 @@ cd $TEMP_FOLDER
 git checkout $CCIP_VERSION
 
 # build the solana contracts
-cd $TEMP_FOLDER/chains/solana
-make build-contracts
+cd $TEMP_FOLDER/chains/solana/contracts
+
+anchor build
 
 # copy the built programs to the tests directory
 cp target/deploy/*.so $CONTRACTS_FOLDER

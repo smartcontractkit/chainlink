@@ -60,9 +60,9 @@ runs:
           set -eoux pipefail &&\
           RUSTUP_HOME=\"/root/.rustup\" &&\
           FORCE_COLOR=1 &&\
-          cd /solana &&\
-          make build-contracts &&\
-          chmod -R 755 ./contracts/target"
+          cd /solana/contracts &&\
+          anchor build &&\
+          chmod -R 755 ./target"
     - name: move built contracts to test folder
       shell: bash
       run: |
