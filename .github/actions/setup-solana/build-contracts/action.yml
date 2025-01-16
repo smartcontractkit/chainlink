@@ -8,7 +8,8 @@ runs:
       id: get_ccip_chains_solana_revision
       shell: bash
       run: |
-        revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | sed 's/^v//' | awk -F- '{print $NF}')
+        # revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | sed 's/^v//' | awk -F- '{print $NF}')
+        revision=8973fd0c912b8f5bd12283dca7e599d0241b424f
         echo "CCIP_REVISION=${revision}" >> $GITHUB_ENV
     - name: Checkout chainlink-ccip
       uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
