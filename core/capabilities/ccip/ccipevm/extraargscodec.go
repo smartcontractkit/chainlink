@@ -22,7 +22,7 @@ func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSele
 		return nil, fmt.Errorf("failed to decode extra data, %w", err)
 	}
 
-	extraDataMap := make(map[string]any)
+	extraArgsMap := make(map[string]any)
 	switch family {
 	case chain_selectors.FamilyEVM:
 		v2, err1 := decodeExtraArgsV1V2(extraArgs)
@@ -30,10 +30,10 @@ func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSele
 			return nil, err1
 		}
 
-		extraDataMap[evmExtraArgsKey] = v2
+		extraArgsMap[evmExtraArgsKey] = v2
 	case chain_selectors.FamilySolana:
 		// TODO add svm args type decoding logic once on-chain work is finished
 	}
 
-	return extraDataMap, nil
+	return extraArgsMap, nil
 }
