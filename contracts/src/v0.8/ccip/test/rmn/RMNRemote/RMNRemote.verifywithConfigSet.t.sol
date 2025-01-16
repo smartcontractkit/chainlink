@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IRMNRemote} from "../../../interfaces/IRMNRemote.sol";
 import {RMNRemote} from "../../../rmn/RMNRemote.sol";
@@ -10,7 +10,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
     super.setUp();
 
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 3});
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 3});
     s_rmnRemote.setConfig(config);
     _generatePayloadAndSigs(2, 4);
   }
@@ -55,7 +55,7 @@ contract RMNRemote_verify_withConfigSet is RMNRemoteSetup {
 
   function test_verify_RevertWhen_ThresholdNotMet() public {
     RMNRemote.Config memory config =
-      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, f: 2}); // 3 = f+1 sigs required
+      RMNRemote.Config({rmnHomeContractConfigDigest: _randomBytes32(), signers: s_signers, fSign: 2}); // 3 = f+1 sigs required
     s_rmnRemote.setConfig(config);
 
     _generatePayloadAndSigs(2, 2); // 2 sigs generated, but 3 required

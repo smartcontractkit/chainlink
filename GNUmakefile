@@ -146,7 +146,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.46.3
+	go install github.com/vektra/mockery/v2@v2.50.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -183,7 +183,7 @@ modgraph:
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
-	go test -short ./... | grep -v "no test files" | grep -v "\(cached\)"
+	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
 help:
 	@echo ""

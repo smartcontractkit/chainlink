@@ -37,31 +37,31 @@ func RunChainComponentsEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterf
 	// Add ChainWriter tests here
 }
 
-func RunChainComponentsInLoopEvmTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
-	RunContractReaderInLoopTests[T](t, it)
+func RunChainComponentsInLoopEvmTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], parallel bool) {
+	RunContractReaderInLoopTests[T](t, it, parallel)
 	// Add ChainWriter tests here
 }
 
 func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T]) {
-	RunContractReaderInterfaceTests[T](t, it, false)
+	RunContractReaderInterfaceTests[T](t, it, false, true)
 
 	testCases := []Testcase[T]{
 		{
 			Name: ContractReaderDynamicTypedTopicsFilterAndCorrectReturn,
 			Test: func(t T) {
-				it.Setup(t)
+				cr := it.GetContractReader(t)
+				cw := it.GetContractWriter(t)
+				bindings := it.GetBindings(t)
 
 				anyString := "foo"
 				ctx := it.Helper.Context(t)
 
-				cr := it.GetContractReader(t)
-				bindings := it.GetBindings(t)
 				require.NoError(t, cr.Bind(ctx, bindings))
 
 				type DynamicEvent struct {
 					Field string
 				}
-				SubmitTransactionToCW(t, it, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
+				SubmitTransactionToCW(t, it, cw, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
 				input := struct{ Field string }{Field: anyString}
 				tp := cr.(clcommontypes.ContractTypeProvider)
@@ -88,17 +88,17 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		{
 			Name: ContractReaderMultipleTopicCanFilterTogether,
 			Test: func(t T) {
-				it.Setup(t)
-				ctx := it.Helper.Context(t)
 				cr := it.GetContractReader(t)
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
+				ctx := it.Helper.Context(t)
 
 				require.NoError(t, cr.Bind(ctx, bindings))
 
-				triggerFourTopics(t, it, int32(1), int32(2), int32(3))
-				triggerFourTopics(t, it, int32(2), int32(2), int32(3))
-				triggerFourTopics(t, it, int32(1), int32(3), int32(3))
-				triggerFourTopics(t, it, int32(1), int32(2), int32(4))
+				triggerFourTopics(t, it, cw, bindings, int32(1), int32(2), int32(3))
+				triggerFourTopics(t, it, cw, bindings, int32(2), int32(2), int32(3))
+				triggerFourTopics(t, it, cw, bindings, int32(1), int32(3), int32(3))
+				triggerFourTopics(t, it, cw, bindings, int32(1), int32(2), int32(4))
 
 				var bound types.BoundContract
 				for idx := range bindings {
@@ -121,17 +121,17 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		{
 			Name: ContractReaderFilteringCanBeDoneOnHashedIndexedTopics,
 			Test: func(t T) {
-				it.Setup(t)
-
 				cr := it.GetContractReader(t)
-				ctx := it.Helper.Context(t)
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
+
+				ctx := it.Helper.Context(t)
 
 				require.NoError(t, cr.Bind(ctx, bindings))
 
-				triggerFourTopicsWithHashed(t, it, "1", [32]uint8{2}, [32]byte{5})
-				triggerFourTopicsWithHashed(t, it, "2", [32]uint8{2}, [32]byte{3})
-				triggerFourTopicsWithHashed(t, it, "1", [32]uint8{3}, [32]byte{3})
+				triggerFourTopicsWithHashed(t, it, cw, bindings, "1", [32]uint8{2}, [32]byte{5})
+				triggerFourTopicsWithHashed(t, it, cw, bindings, "2", [32]uint8{2}, [32]byte{3})
+				triggerFourTopicsWithHashed(t, it, cw, bindings, "1", [32]uint8{3}, [32]byte{3})
 
 				var bound types.BoundContract
 				for idx := range bindings {
@@ -158,10 +158,9 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 		{
 			Name: ContractReaderBindReturnsErrorOnMissingContractAtAddress,
 			Test: func(t T) {
-				it.Setup(t)
+				reader := it.GetContractReader(t)
 
 				addr := common.BigToAddress(big.NewInt(42))
-				reader := it.GetContractReader(t)
 
 				ctx := it.Helper.Context(t)
 				err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
@@ -170,29 +169,29 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 			},
 		},
 	}
-	RunTests(t, it, testCases)
+	RunTestsInParallel(t, it, testCases)
 }
 
-func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]) {
-	RunContractReaderInterfaceTests[T](t, it, false)
+func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], parallel bool) {
+	RunContractReaderInterfaceTests[T](t, it, false, parallel)
 
 	testCases := []Testcase[T]{
 		{
 			Name: ContractReaderQueryKeyFilterOnDataWordsWithValueComparator,
 			Test: func(t T) {
-				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
-				require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				boundContract := BindingsByName(bindings, AnyContractName)[0]
+				ctx := tests.Context(t)
 				require.NoError(t, cr.Bind(ctx, bindings))
+				boundContract := BindingsByName(bindings, AnyContractName)[0]
 
 				ts1 := CreateTestStruct[T](0, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
 				ts2 := CreateTestStruct[T](15, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
 				ts3 := CreateTestStruct[T](35, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
 				ts := &TestStruct{}
 				assert.Eventually(t, func() bool {
 					sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{
@@ -211,19 +210,20 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		{
 			Name: ContractReaderQueryKeyOnDataWordsWithValueComparatorOnNestedField,
 			Test: func(t T) {
-				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
-				require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
+				ctx := tests.Context(t)
+
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 				require.NoError(t, cr.Bind(ctx, bindings))
 
 				ts1 := CreateTestStruct[T](0, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
 				ts2 := CreateTestStruct[T](15, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
 				ts3 := CreateTestStruct[T](35, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
 				ts := &TestStruct{}
 				assert.Eventually(t, func() bool {
 					sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{
@@ -247,19 +247,19 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		{
 			Name: ContractReaderQueryKeyFilterOnDataWordsWithValueComparatorOnDynamicField,
 			Test: func(t T) {
-				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
-				require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				boundContract := BindingsByName(bindings, AnyContractName)[0]
+				ctx := tests.Context(t)
 				require.NoError(t, cr.Bind(ctx, bindings))
+				boundContract := BindingsByName(bindings, AnyContractName)[0]
 
 				ts1 := CreateTestStruct[T](0, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts1, boundContract, types.Unconfirmed)
 				ts2 := CreateTestStruct[T](15, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts2, boundContract, types.Unconfirmed)
 				ts3 := CreateTestStruct[T](35, it)
-				_ = SubmitTransactionToCW(t, it, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
+				_ = SubmitTransactionToCW(t, it, cw, MethodTriggeringEvent, ts3, boundContract, types.Unconfirmed)
 				ts := &TestStruct{}
 				assert.Eventually(t, func() bool {
 					sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{
@@ -283,12 +283,12 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 		{
 			Name: ContractReaderQueryKeyFilteringOnDataWordsUsingValueComparatorsOnFieldsWithManualIndex,
 			Test: func(t T) {
-				ctx := tests.Context(t)
 				cr := it.GetContractReader(t)
-				require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
+				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
-				boundContract := BindingsByName(bindings, AnyContractName)[0]
+				ctx := tests.Context(t)
 				require.NoError(t, cr.Bind(ctx, bindings))
+				boundContract := BindingsByName(bindings, AnyContractName)[0]
 				empty12Bytes := [12]byte{}
 				val1, val2, val3, val4 := uint32(1), uint32(2), uint32(3), uint64(4)
 				val5, val6, val7 := [32]byte{}, [32]byte{6}, [32]byte{7}
@@ -313,10 +313,10 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				wrapExpectedRes := eventResAsStruct{Message: &resExpected}
 
 				// emit the one we want to search for and a couple of random ones to confirm that filtering works
-				triggerStaticBytes(t, it, val1, val2, val3, val4, val5, val6, val7, raw)
-				triggerStaticBytes(t, it, 1337, 7331, 4747, val4, val5, val6, val7, raw)
-				triggerStaticBytes(t, it, 7331, 4747, 1337, val4, val5, val6, val7, raw)
-				triggerStaticBytes(t, it, 4747, 1337, 7331, val4, val5, val6, val7, raw)
+				triggerStaticBytes(t, it, cw, bindings, val1, val2, val3, val4, val5, val6, val7, raw)
+				triggerStaticBytes(t, it, cw, bindings, 1337, 7331, 4747, val4, val5, val6, val7, raw)
+				triggerStaticBytes(t, it, cw, bindings, 7331, 4747, 1337, val4, val5, val6, val7, raw)
+				triggerStaticBytes(t, it, cw, bindings, 4747, 1337, 7331, val4, val5, val6, val7, raw)
 
 				assert.Eventually(t, func() bool {
 					sequences, err := cr.QueryKey(ctx, boundContract, query.KeyFilter{
@@ -333,31 +333,33 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 			},
 		},
 	}
-	RunTests(t, it, testCases)
+	if parallel {
+		RunTestsInParallel(t, it, testCases)
+	} else {
+		RunTests(t, it, testCases)
+	}
 }
 
-func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1, i2, i3 int32) {
+func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, i1, i2, i3 int32) {
 	type DynamicEvent struct {
 		Field1 int32
 		Field2 int32
 		Field3 int32
 	}
-	contracts := it.GetBindings(t)
-	SubmitTransactionToCW(t, it, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
+	SubmitTransactionToCW(t, it, cw, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, bindings[0], types.Unconfirmed)
 }
 
-func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], i1 string, i2 [32]uint8, i3 [32]byte) {
+func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, i1 string, i2 [32]uint8, i3 [32]byte) {
 	type DynamicEvent struct {
 		Field1 string
 		Field2 [32]uint8
 		Field3 [32]byte
 	}
-	contracts := it.GetBindings(t)
-	SubmitTransactionToCW(t, it, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, contracts[0], types.Unconfirmed)
+	SubmitTransactionToCW(t, it, cw, "triggerWithFourTopicsWithHashed", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, bindings[0], types.Unconfirmed)
 }
 
 // triggerStaticBytes emits a staticBytes events and returns the expected event bytes.
-func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], val1, val2, val3 uint32, val4 uint64, val5, val6, val7 [32]byte, raw []byte) {
+func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, val1, val2, val3 uint32, val4 uint64, val5, val6, val7 [32]byte, raw []byte) {
 	type StaticBytesEvent struct {
 		Val1 uint32
 		Val2 uint32
@@ -369,8 +371,7 @@ func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]
 		Raw  []byte
 	}
 
-	contracts := it.GetBindings(t)
-	SubmitTransactionToCW(t, it, "triggerStaticBytes",
+	SubmitTransactionToCW(t, it, cw, "triggerStaticBytes",
 		StaticBytesEvent{
 			Val1: val1,
 			Val2: val2,
@@ -381,5 +382,5 @@ func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T]
 			Val7: val7,
 			Raw:  raw,
 		},
-		contracts[0], types.Unconfirmed)
+		bindings[0], types.Unconfirmed)
 }

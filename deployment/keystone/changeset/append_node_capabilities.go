@@ -1,14 +1,15 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -31,7 +32,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 	out := deployment.ChangesetOutput{}
 	if req.UseMCMS() {
 		if r.Ops == nil {
-			return out, fmt.Errorf("expected MCMS operation to be non-nil")
+			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
 			c.Chain.Selector: c.ContractSet.Timelock.Address(),
@@ -63,7 +64,7 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 	if !ok {
 		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	resp, err := kslib.GetContractSets(e.Logger, &kslib.GetContractSetsRequest{
+	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})

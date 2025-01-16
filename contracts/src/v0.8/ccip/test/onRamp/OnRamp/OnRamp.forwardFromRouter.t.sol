@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IMessageInterceptor} from "../../../interfaces/IMessageInterceptor.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
@@ -212,32 +212,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     assertEq(IERC20(s_sourceFeeToken).balanceOf(address(s_onRamp)), feeAmount);
   }
 
-  function test_ShouldStoreNonLinkFees() public {
-    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    message.feeToken = s_sourceTokens[1];
-
-    uint256 feeAmount = 1234567890;
-    IERC20(s_sourceTokens[1]).transferFrom(OWNER, address(s_onRamp), feeAmount);
-
-    // Calculate conversion done by prices contract
-    uint256 feeTokenPrice = s_feeQuoter.getTokenPrice(s_sourceTokens[1]).value;
-    uint256 linkTokenPrice = s_feeQuoter.getTokenPrice(s_sourceFeeToken).value;
-    uint256 conversionRate = (feeTokenPrice * 1e18) / linkTokenPrice;
-    uint256 expectedJuels = (feeAmount * conversionRate) / 1e18;
-
-    vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, expectedJuels, OWNER));
-
-    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
-
-    assertEq(IERC20(s_sourceTokens[1]).balanceOf(address(s_onRamp)), feeAmount);
-  }
-
   // Make sure any valid sender, receiver and feeAmount can be handled.
-  // @TODO Temporarily setting lower fuzz run as 256 triggers snapshot gas off by 1 error.
-  // https://github.com/foundry-rs/foundry/issues/5689
-  /// forge-dynamicConfig: default.fuzz.runs = 32
-  /// forge-dynamicConfig: ccip.fuzz.runs = 32
   function testFuzz_ForwardFromRouter_Success(address originalSender, address receiver, uint96 feeTokenAmount) public {
     // To avoid RouterMustSetOriginalSender
     vm.assume(originalSender != address(0));
@@ -250,14 +225,13 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     destinationChainSelectors[0] = uint64(DEST_CHAIN_SELECTOR);
     address[] memory addAllowedList = new address[](1);
     addAllowedList[0] = originalSender;
-    OnRamp.AllowlistConfigArgs memory allowlistConfigArgs = OnRamp.AllowlistConfigArgs({
+    OnRamp.AllowlistConfigArgs[] memory applyAllowlistConfigArgsItems = new OnRamp.AllowlistConfigArgs[](1);
+    applyAllowlistConfigArgsItems[0] = OnRamp.AllowlistConfigArgs({
       allowlistEnabled: true,
       destChainSelector: DEST_CHAIN_SELECTOR,
       addedAllowlistedSenders: addAllowedList,
       removedAllowlistedSenders: new address[](0)
     });
-    OnRamp.AllowlistConfigArgs[] memory applyAllowlistConfigArgsItems = new OnRamp.AllowlistConfigArgs[](1);
-    applyAllowlistConfigArgsItems[0] = allowlistConfigArgs;
     s_onRamp.applyAllowlistUpdates(applyAllowlistConfigArgsItems);
     vm.stopPrank();
 
@@ -270,9 +244,6 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     deal(s_sourceFeeToken, address(s_onRamp), feeTokenAmount);
 
     Internal.EVM2AnyRampMessage memory expectedEvent = _messageToEvent(message, 1, 1, feeTokenAmount, originalSender);
-
-    vm.expectEmit();
-    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, expectedEvent.header.sequenceNumber, expectedEvent);
 
     // Assert the message Id is correct
     assertEq(
@@ -400,7 +371,7 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_RevertWhen_MesssageFeeTooHigh() public {
+  function test_RevertWhen_MessageFeeTooHigh() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     vm.expectRevert(

@@ -26,6 +26,8 @@ type txManager interface {
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) common.Address
+
+	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
 }
 
 type transmitter struct {
@@ -140,4 +142,8 @@ func (t *transmitter) forwarderAddress() common.Address {
 		}
 	}
 	return t.effectiveTransmitterAddress
+}
+
+func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
+	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }

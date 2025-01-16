@@ -17,6 +17,7 @@ const (
 	ChainMantle          ChainType = "mantle"
 	ChainMetis           ChainType = "metis"
 	ChainOptimismBedrock ChainType = "optimismBedrock"
+	ChainSei             ChainType = "sei"
 	ChainScroll          ChainType = "scroll"
 	ChainWeMix           ChainType = "wemix"
 	ChainXLayer          ChainType = "xlayer"
@@ -39,7 +40,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainAstar, ChainCelo, ChainGnosis, ChainHedera, ChainKroma, ChainMantle, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync, ChainZircuit:
+	case "", ChainArbitrum, ChainAstar, ChainCelo, ChainGnosis, ChainHedera, ChainKroma, ChainMantle, ChainMetis, ChainOptimismBedrock, ChainSei, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync, ChainZircuit:
 		return true
 	}
 	return false
@@ -65,6 +66,8 @@ func FromSlug(slug string) ChainType {
 		return ChainMetis
 	case "optimismBedrock":
 		return ChainOptimismBedrock
+	case "sei":
+		return ChainSei
 	case "scroll":
 		return ChainScroll
 	case "wemix":
@@ -138,6 +141,7 @@ var ErrInvalid = fmt.Errorf("must be one of %s or omitted", strings.Join([]strin
 	string(ChainMantle),
 	string(ChainMetis),
 	string(ChainOptimismBedrock),
+	string(ChainSei),
 	string(ChainScroll),
 	string(ChainWeMix),
 	string(ChainXLayer),

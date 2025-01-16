@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RMNHome} from "../../../rmn/RMNHome.sol";
@@ -42,7 +42,7 @@ contract RMNHome_setCandidate is RMNHomeTestSetup {
     for (uint256 i = 0; i < storedDynamicConfig.sourceChains.length; i++) {
       RMNHome.SourceChain memory storedSourceChain = storedDynamicConfig.sourceChains[i];
       assertEq(storedSourceChain.chainSelector, versionedConfig.dynamicConfig.sourceChains[i].chainSelector);
-      assertEq(storedSourceChain.f, versionedConfig.dynamicConfig.sourceChains[i].f);
+      assertEq(storedSourceChain.fObserve, versionedConfig.dynamicConfig.sourceChains[i].fObserve);
       assertEq(storedSourceChain.observerNodesBitmap, versionedConfig.dynamicConfig.sourceChains[i].observerNodesBitmap);
     }
     assertEq(storedDynamicConfig.offchainConfig, versionedConfig.dynamicConfig.offchainConfig);

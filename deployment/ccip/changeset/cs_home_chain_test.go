@@ -52,17 +52,17 @@ func TestDeployHomeChain(t *testing.T) {
 	capRegSnap, ok := snap[chainName].CapabilityRegistry[state.Chains[homeChainSel].CapabilityRegistry.Address().String()]
 	require.True(t, ok)
 	require.NotNil(t, capRegSnap)
-	require.Equal(t, capRegSnap.Nops, []v1_0.NopView{
+	require.Equal(t, []v1_0.NopView{
 		{
 			Admin: e.Chains[homeChainSel].DeployerKey.From,
 			Name:  "NodeOperator",
 		},
-	})
+	}, capRegSnap.Nops)
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
@@ -117,7 +117,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 }
 
 func TestRemoveDons(t *testing.T) {
-	e := NewMemoryEnvironment(t)
+	e, _ := NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]

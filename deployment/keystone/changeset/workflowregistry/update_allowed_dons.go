@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
@@ -37,7 +36,7 @@ func UpdateAllowedDons(env deployment.Environment, req *UpdateAllowedDonsRequest
 		return deployment.ChangesetOutput{}, err
 	}
 
-	resp, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+	resp, err := changeset.GetContractSets(env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -74,7 +73,7 @@ func UpdateAllowedDons(env deployment.Environment, req *UpdateAllowedDonsRequest
 	return s.Apply(func(opts *bind.TransactOpts) (*types.Transaction, error) {
 		tx, err := registry.UpdateAllowedDONs(opts, req.DonIDs, req.Allowed)
 		if err != nil {
-			err = kslib.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
+			err = deployment.DecodeErr(workflow_registry.WorkflowRegistryABI, err)
 		}
 		return tx, err
 	})

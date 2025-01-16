@@ -11,17 +11,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
-	kslib "github.com/smartcontractkit/chainlink/deployment/keystone"
 	kscs "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -100,14 +99,14 @@ func TestUpdateDon(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		cfg := setupUpdateDonTestConfig{
-			dons: []kslib.DonInfo{
+			dons: []internal.DonInfo{
 				{
 					Name:         "don 1",
 					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
 					Capabilities: []kcr.CapabilitiesRegistryCapability{initialCap},
 				},
 			},
-			nops: []keystone.NOP{
+			nops: []internal.NOP{
 				{
 					Name:  "nop 1",
 					Nodes: []string{node_1.NodeID, node_2.NodeID, node_3.NodeID, node_4.NodeID},
@@ -155,7 +154,6 @@ func TestUpdateDon(t *testing.T) {
 		assert.Equal(t, want.DonInfo.ConfigCount, got.DonInfo.ConfigCount)
 		assert.Equal(t, sortedP2Pids(want.DonInfo.NodeP2PIds), sortedP2Pids(got.DonInfo.NodeP2PIds))
 		assert.Equal(t, capIds(want.DonInfo.CapabilityConfigurations), capIds(got.DonInfo.CapabilityConfigurations))
-
 	})
 }
 
@@ -223,8 +221,8 @@ func newNode(t *testing.T, cfg minimalNodeCfg) deployment.Node {
 }
 
 type setupUpdateDonTestConfig struct {
-	dons []kslib.DonInfo
-	nops []keystone.NOP
+	dons []internal.DonInfo
+	nops []internal.NOP
 }
 
 type setupUpdateDonTestResult struct {
@@ -236,10 +234,9 @@ func registerTestDon(t *testing.T, lggr logger.Logger, cfg setupUpdateDonTestCon
 	t.Helper()
 	req := newSetupTestRegistryRequest(t, cfg.dons, cfg.nops)
 	return kstest.SetupTestRegistry(t, lggr, req)
-
 }
 
-func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keystone.NOP) *kstest.SetupTestRegistryRequest {
+func newSetupTestRegistryRequest(t *testing.T, dons []internal.DonInfo, nops []internal.NOP) *kstest.SetupTestRegistryRequest {
 	t.Helper()
 	nodes := make(map[string]deployment.Node)
 	for _, don := range dons {
@@ -258,7 +255,7 @@ func newSetupTestRegistryRequest(t *testing.T, dons []kslib.DonInfo, nops []keys
 	return req
 }
 
-func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]deployment.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
+func makeNopToNodes(t *testing.T, nops []internal.NOP, nodes map[string]deployment.Node) map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc {
 	nopToNodes := make(map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc)
 
 	for _, nop := range nops {
@@ -282,7 +279,7 @@ func makeNopToNodes(t *testing.T, nops []keystone.NOP, nodes map[string]deployme
 	return nopToNodes
 }
 
-func makeP2PToCapabilities(t *testing.T, dons []kslib.DonInfo) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
+func makeP2PToCapabilities(t *testing.T, dons []internal.DonInfo) map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability {
 	p2pToCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 	for _, don := range dons {
 		for _, node := range don.Nodes {
@@ -296,7 +293,7 @@ func makeP2PToCapabilities(t *testing.T, dons []kslib.DonInfo) map[p2pkey.PeerID
 	return p2pToCapabilities
 }
 
-func makeTestDon(t *testing.T, dons []kslib.DonInfo) []kstest.Don {
+func makeTestDon(t *testing.T, dons []internal.DonInfo) []kstest.Don {
 	out := make([]kstest.Don, len(dons))
 	for i, don := range dons {
 		out[i] = testDon(t, don)
@@ -304,7 +301,7 @@ func makeTestDon(t *testing.T, dons []kslib.DonInfo) []kstest.Don {
 	return out
 }
 
-func testDon(t *testing.T, don kslib.DonInfo) kstest.Don {
+func testDon(t *testing.T, don internal.DonInfo) kstest.Don {
 	var p2pids []p2pkey.PeerID
 	for _, node := range don.Nodes {
 		// all chain configs are the same wrt admin address & node keys

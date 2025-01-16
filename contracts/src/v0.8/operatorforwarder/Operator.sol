@@ -6,10 +6,10 @@ import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {IAuthorizedReceiver} from "./interfaces/IAuthorizedReceiver.sol";
-import {OperatorInterface} from "../interfaces/OperatorInterface.sol";
+import {OperatorInterface} from "./interfaces/OperatorInterface.sol";
 import {IOwnable} from "../shared/interfaces/IOwnable.sol";
 import {IWithdrawal} from "./interfaces/IWithdrawal.sol";
-import {OracleInterface} from "../interfaces/OracleInterface.sol";
+import {OracleInterface} from "./interfaces/OracleInterface.sol";
 import {SafeCast} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/SafeCast.sol";
 
 // @title The Chainlink Operator contract

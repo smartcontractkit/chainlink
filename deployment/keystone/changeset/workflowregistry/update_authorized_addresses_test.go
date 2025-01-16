@@ -16,7 +16,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 )
@@ -25,13 +24,13 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	lggr := logger.Test(t)
 
 	chainSel := chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
-	resp := kstest.SetupTestWorkflowRegistry(t, lggr, chainSel)
+	resp := workflowregistry.SetupTestWorkflowRegistry(t, lggr, chainSel)
 	registry := resp.Registry
 
-	dons, err := registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err := registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, authorizedAddresses)
 
 	env := deployment.Environment{
 		Logger: lggr,
@@ -52,11 +51,11 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dons, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 1)
-	assert.Equal(t, dons[0], common.HexToAddress(addr))
+	assert.Len(t, authorizedAddresses, 1)
+	assert.Equal(t, authorizedAddresses[0], common.HexToAddress(addr))
 
 	_, err = workflowregistry.UpdateAuthorizedAddresses(
 		env,
@@ -68,10 +67,10 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dons, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 0)
+	assert.Empty(t, authorizedAddresses)
 }
 
 func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Ownable2Step} from "../../../../shared/access/Ownable2Step.sol";
 import {RMNHome} from "../../../rmn/RMNHome.sol";
@@ -13,7 +13,7 @@ contract RMNHome_revokeCandidate is RMNHomeTestSetup {
     bytes32 digest = s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
     s_rmnHome.promoteCandidateAndRevokeActive(digest, ZERO_DIGEST);
 
-    config.dynamicConfig.sourceChains[1].f--;
+    config.dynamicConfig.sourceChains[1].fObserve--;
     s_rmnHome.setCandidate(config.staticConfig, config.dynamicConfig, ZERO_DIGEST);
   }
 

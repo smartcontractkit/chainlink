@@ -2,6 +2,7 @@ package test_env
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -193,7 +194,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	}
 
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
-		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
+		return errors.New("chainlink nodes are nil, unable to cleanup chainlink nodes")
 	}
 
 	te.logWhetherAllContainersAreRunning()

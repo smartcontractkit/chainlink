@@ -935,7 +935,7 @@ func (w *WorkflowSpec) SDKSpec(ctx context.Context) (sdk.WorkflowSpec, error) {
 	}
 	spec, rawSpec, cid, err := workflowSpecFactory.Spec(ctx, w.Workflow, w.Config)
 	if err != nil {
-		return sdk.WorkflowSpec{}, err
+		return sdk.WorkflowSpec{}, fmt.Errorf("spec factory failed: %w", err)
 	}
 	w.sdkWorkflow = &spec
 	w.rawSpec = rawSpec

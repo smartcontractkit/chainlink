@@ -33,7 +33,7 @@ import (
 func Test_OutOfOrderExecution(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
-	tenv, _ := testsetups.NewIntegrationEnvironment(
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		changeset.WithUSDC(),
 		changeset.WithUSDCAttestationMissing(),
@@ -86,7 +86,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 			},
 		},
 	)
-	require.NoError(t, changeset.AddLanesForAll(e, state))
+	changeset.AddLanesForAll(t, &tenv, state)
 
 	tokenTransfer := []router.ClientEVMTokenAmount{
 		{

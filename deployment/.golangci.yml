@@ -8,7 +8,6 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - fatcontext
     - ginkgolinter
     - gocritic
@@ -167,6 +166,9 @@ linters-settings:
     require-explanation: true
 issues:
   exclude-rules:
+    - text: "^var-naming: don't use an underscore in package name"
+      linters:
+          - revive
     - path: memory/(.+)\.go
       linters:
         - revive

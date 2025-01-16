@@ -28,14 +28,14 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	var tokenPriceExpiry = 5 * time.Second
-	e, _ := testsetups.NewIntegrationEnvironment(t,
+	e, _, _ := testsetups.NewIntegrationEnvironment(t,
 		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
 			return params
 		}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	require.NoError(t, changeset.AddLanesForAll(e.Env, state))
+	changeset.AddLanesForAll(t, &e, state)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")

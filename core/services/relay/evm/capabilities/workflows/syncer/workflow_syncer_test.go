@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -119,6 +120,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "someurl",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
@@ -151,7 +153,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 	require.Eventually(t, func() bool {
 		numEvents := len(testEventHandler.GetEvents())
 		return numEvents == numberWorkflows
-	}, 5*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
@@ -170,6 +172,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 
@@ -216,7 +219,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 		}
 
 		return false
-	}, 50*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func Test_InitialStateSync(t *testing.T) {
@@ -245,6 +248,7 @@ func Test_InitialStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "someurl",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
@@ -276,7 +280,7 @@ func Test_InitialStateSync(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
-	}, 5*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, syncer.WorkflowRegisteredEvent, event.GetEventType())
@@ -300,6 +304,7 @@ func Test_SecretsWorker(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: giveSecretsURL,
+			BinaryURL:  "someurl",
 		}
 		giveContents = "contents"
 		wantContents = "updated contents"
@@ -380,7 +385,7 @@ func Test_SecretsWorker(t *testing.T) {
 		lggr.Debugf("got secrets %v", secrets)
 		require.NoError(t, err)
 		return secrets == wantContents
-	}, 15*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
@@ -459,7 +464,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err := orm.GetWorkflowSpec(ctx, owner, "test-wf")
 		return err == nil
-	}, 15*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 type mockService struct{}
@@ -567,7 +572,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		owner := strings.ToLower(backendTH.ContractsOwner.From.Hex()[2:])
 		_, err = orm.GetWorkflowSpec(ctx, owner, "test-wf")
 		return err == nil
-	}, 15*time.Second, time.Second)
+	}, tests.WaitTimeout(t), time.Second)
 }
 
 func updateAuthorizedAddress(

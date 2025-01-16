@@ -38,27 +38,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
 
       - name: Get image tag
         id: get-image-tag
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_EVENT_NUMBER: ${{ github.event.number }}
+          GH_INPUTS_BUILD_PUBLISH: ${{ inputs.build-publish }}
+          LABEL_HAS_BUILD_PUBLISH: ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }}
         run: |
           short_sha=$(git rev-parse --short HEAD)
           echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
-          if [[ ${{ github.event_name }} == 'push' ]]; then
+          if [[ $GH_EVENT_NAME == 'push' ]]; then
             echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
             echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
-          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
+          elif [[ $GH_EVENT_NAME == 'workflow_dispatch' ]]; then
             echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ "${{ inputs.build-publish }}" == 'false' ]]; then
+              if [[ "$GH_INPUTS_BUILD_PUBLISH" == 'false' ]]; then
                 echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
               else
                 echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           else
-            if [[ ${{ github.event_name }} == "pull_request" ]]; then
-              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
+            if [[ $GH_EVENT_NAME == "pull_request" ]]; then
+              echo "image-tag=pr-${GH_EVENT_NUMBER}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ $LABEL_HAS_BUILD_PUBLISH == "true" ]]; then
                 echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
               fi
             fi
@@ -77,17 +83,33 @@ jobs:
         include:
           - runner: ubuntu-latest
             goarch: amd64
-            dist_name: linux_amd64_v1
+            dist_name: linux_amd64
 
           - runner: ubuntu-24.04-4cores-16GB-ARM
             goarch: arm64
-            dist_name: linux_arm64_v8.0
+            dist_name: linux_arm64
     steps:
-      - name: Checkout repository
+      - name: Checkout chainlink repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
+
+      - name: Setup Github Token
+        id: token
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Checkout capabilities repository
+        uses: actions/checkout@v4.2.1
+        with:
+          repository: smartcontractkit/capabilities
+          token: ${{ steps.token.outputs.access-token }}
+          path: capabilities
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
@@ -98,9 +120,9 @@ jobs:
           role-session-name: "split-${{ matrix.goarch }}"
 
       - id: cache
-        uses: actions/cache@v4.1.1
+        uses: actions/cache@v4
         with:
-          path: dist/${{ matrix.dist_name }}
+          path: ./dist/${{ matrix.dist_name }}
           key: chainlink-${{ matrix.goarch }}-${{ github.sha }}
 
       - name: Build images for ${{ matrix.goarch }}
@@ -124,6 +146,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4.2.1
         with:
+          persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
 
       - name: Configure aws credentials
@@ -134,15 +157,15 @@ jobs:
           mask-aws-account-id: true
           role-session-name: "merge"
 
-      - uses: actions/cache/restore@v4.1.1
+      - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_amd64_v1
+          path: ./dist/linux_amd64
           key: chainlink-amd64-${{ github.sha }}
           fail-on-cache-miss: true
 
-      - uses: actions/cache/restore@v4.1.1
+      - uses: actions/cache/restore@v4
         with:
-          path: dist/linux_arm64_v8.0
+          path: ./dist/linux_arm64
           key: chainlink-arm64-${{ github.sha }}
           fail-on-cache-miss: true
 

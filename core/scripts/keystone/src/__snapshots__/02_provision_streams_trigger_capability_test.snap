@@ -1,0 +1,50 @@
+
+[TestCreateMercuryV3Job - 1]
+
+type = "offchainreporting2"
+schemaVersion = 1
+name = "mercury-BTC/USD"
+p2pv2Bootstrappers = ["crib-henry-keystone-node1.main.stage.cldev.sh"]
+forwardingAllowed = false
+maxTaskDuration = "1s"
+contractID = "0x0700000000000000000000000000000000000000"
+feedID = "0x0100000000000000000000000000000000000000000000000000000000000000"
+contractConfigTrackerPollInterval = "1s"
+ocrKeyBundleID = "ocr_key_bundle_id"
+relay = "evm"
+pluginType = "mercury"
+transmitterID = "node_csa_key"
+observationSource = """
+    price              [type=bridge name="bridge_name" timeout="50ms" requestData=""];
+
+    benchmark_price  [type=jsonparse path="result,mid" index=0];
+    price -> benchmark_price;
+
+    bid_price [type=jsonparse path="result,bid" index=1];
+    price -> bid_price;
+
+    ask_price [type=jsonparse path="result,ask" index=2];
+    price -> ask_price;
+"""
+
+[relayConfig]
+enableTriggerCapability = true
+chainID = "123456"
+
+---
+
+[TestCreateMercuryBootstrapJob - 1]
+
+type                              = "bootstrap"
+relay                             = "evm"
+schemaVersion                     = 1
+name                              = "boot-BTC/USD"
+contractID                        = "0x0700000000000000000000000000000000000000"
+feedID                            = "0x0100000000000000000000000000000000000000000000000000000000000000"
+contractConfigTrackerPollInterval = "1s"
+
+[relayConfig]
+chainID = 123456
+enableTriggerCapability = true
+
+---

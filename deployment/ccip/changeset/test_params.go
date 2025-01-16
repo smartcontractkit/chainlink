@@ -4,7 +4,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+)
+
+const (
+	TestNodeOperator = "NodeOperator"
 )
 
 func NewTestRMNStaticConfig() rmn_home.RMNHomeStaticConfig {
@@ -25,7 +29,7 @@ func NewTestNodeOperator(admin common.Address) []capabilities_registry.Capabilit
 	return []capabilities_registry.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: admin,
-			Name:  "NodeOperator",
+			Name:  TestNodeOperator,
 		},
 	}
 }
