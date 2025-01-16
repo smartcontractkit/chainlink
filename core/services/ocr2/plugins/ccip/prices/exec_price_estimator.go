@@ -6,6 +6,9 @@ import (
 	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
@@ -51,7 +54,7 @@ func (g ExecGasPriceEstimator) Median(ctx context.Context, gasPrices []*big.Int)
 }
 
 func (g ExecGasPriceEstimator) Deviates(ctx context.Context, p1 *big.Int, p2 *big.Int) (bool, error) {
-	return ccipcalc.Deviates(p1, p2, g.deviationPPB), nil
+	return ccipcalc.DeviatesOnGasCurve(p1, p2, g.deviationPPB), nil
 }
 
 func (g ExecGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {

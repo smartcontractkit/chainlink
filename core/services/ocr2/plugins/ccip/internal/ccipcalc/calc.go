@@ -1,6 +1,7 @@
 package ccipcalc
 
 import (
+	"math"
 	"math/big"
 	"sort"
 
@@ -62,6 +63,31 @@ func Deviates(x1, x2 *big.Int, ppb int64) bool {
 		diff.Div(diff, x1)
 	}
 	return diff.CmpAbs(big.NewInt(ppb)) > 0 // abs(diff) > ppb
+}
+
+// DeviatesOnGasCurve calculates a deviation threshold on the fly using xNew. For now it's only used for gas price
+// deviation calculation. It's important to make sure the order of xNew and xOld is correct when passed into this
+// function to get an accurate deviation threshold.
+func DeviatesOnGasCurve(xNew, xOld *big.Int, ppb int64) bool {
+	// If ppb from config is not equal to 4000000000, do not apply the gas curve. This is a temporary gating mechanism
+	// that ensures we only apply the gas curve deviation logic to eth-bound price updates.
+	if ppb != 4000000000 {
+		return Deviates(xOld, xNew, ppb)
+	}
+
+	xNewFloat := new(big.Float).SetInt(xNew)
+	xNewFloat64, _ := xNewFloat.Float64()
+
+	// Calculate the deviation threshold percentage with xNew using the formula: y = (5.64e10) / (x^0.654)
+	const constantFactor = 5.64e10
+	const exponent = 0.654
+	xNewPower := math.Pow(xNewFloat64, exponent)
+	threshold := constantFactor / xNewPower
+
+	// Convert percentage to PPB
+	thresholdPPB := int64(threshold * 1e7)
+
+	return Deviates(xOld, xNew, thresholdPPB)
 }
 
 func MergeEpochAndRound(epoch uint32, round uint8) uint64 {

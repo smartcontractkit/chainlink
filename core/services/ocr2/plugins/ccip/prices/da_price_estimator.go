@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -134,7 +135,7 @@ func (g DAGasPriceEstimator) Deviates(ctx context.Context, p1, p2 *big.Int) (boo
 		return execDeviates, nil
 	}
 
-	return ccipcalc.Deviates(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
+	return ccipcalc.DeviatesOnGasCurve(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
 }
 
 func (g DAGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
