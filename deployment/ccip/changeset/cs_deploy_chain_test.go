@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -44,9 +45,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -101,7 +102,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)

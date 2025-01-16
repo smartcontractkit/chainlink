@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -142,7 +143,7 @@ func TestRMNCurseConfigValidate(t *testing.T) {
 }
 
 func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -166,7 +167,7 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 	verifyNoActiveCurseOnAllChains(t, &e)
 }
 
-func transferRMNContractToMCMS(t *testing.T, e *DeployedEnv, state CCIPOnChainState, timelocksPerChain map[uint64]*proposalutils.TimelockExecutionContracts) {
+func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state CCIPOnChainState, timelocksPerChain map[uint64]*proposalutils.TimelockExecutionContracts) {
 	contractsByChain := make(map[uint64][]common.Address)
 	rmnRemoteAddressesByChain := buildRMNRemoteAddressPerChain(e.Env, state)
 	for chainSelector, rmnRemoteAddress := range rmnRemoteAddressesByChain {
@@ -189,7 +190,7 @@ func transferRMNContractToMCMS(t *testing.T, e *DeployedEnv, state CCIPOnChainSt
 }
 
 func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -232,7 +233,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -248,7 +249,7 @@ func runRmnCurseConfigValidateTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -268,7 +269,7 @@ func runRmnCurseTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -291,7 +292,7 @@ func runRmnCurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -319,7 +320,7 @@ func runRmnUncurseIdempotentTest(t *testing.T, tc CurseTestCase) {
 }
 
 func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 
 	mapIDToSelector := func(id uint64) uint64 {
 		return e.Env.AllChainSelectors()[id]
@@ -351,7 +352,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 }
 
-func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, mapIDToSelector mapIDToSelectorFunc) {
+func verifyTestCaseAssertions(t *testing.T, e *testhelpers.DeployedEnv, tc CurseTestCase, mapIDToSelector mapIDToSelectorFunc) {
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -367,7 +368,7 @@ func verifyTestCaseAssertions(t *testing.T, e *DeployedEnv, tc CurseTestCase, ma
 	}
 }
 
-func verifyNoActiveCurseOnAllChains(t *testing.T, e *DeployedEnv) {
+func verifyNoActiveCurseOnAllChains(t *testing.T, e *testhelpers.DeployedEnv) {
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/stretchr/testify/require"
@@ -26,9 +27,9 @@ func Test_ActiveCandidate(t *testing.T) {
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
-	tenv, _ := NewMemoryEnvironment(t,
-		WithTestConfigNumOfChains(2),
-		WithTestConfigNumOfNodes(4))
+	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithNumOfNodes(4))
 	state, err := LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
@@ -59,11 +60,11 @@ func Test_ActiveCandidate(t *testing.T) {
 				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 					source: {
 						TokenPrices: map[common.Address]*big.Int{
-							sourceState.LinkToken.Address(): DefaultLinkPrice,
-							sourceState.Weth9.Address():     DefaultWethPrice,
+							sourceState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+							sourceState.Weth9.Address():     testhelpers.DefaultWethPrice,
 						},
 						GasPrices: map[uint64]*big.Int{
-							dest: DefaultGasPrice,
+							dest: testhelpers.DefaultGasPrice,
 						},
 					},
 				},
@@ -135,7 +136,7 @@ func Test_ActiveCandidate(t *testing.T) {
 		latesthdr, err := tenv.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
-		msgSentEvent := TestSendRequest(t, tenv.Env, state, source, dest, false, router.ClientEVM2AnyMessage{
+		msgSentEvent := testhelpers.TestSendRequest(t, tenv.Env, state, source, dest, false, router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello world"),
 			TokenAmounts: nil,
@@ -147,13 +148,13 @@ func Test_ActiveCandidate(t *testing.T) {
 			startBlocks = map[uint64]*uint64{
 				dest: &block,
 			}
-			expectedSeqNum = map[SourceDestPair]uint64{
+			expectedSeqNum = map[testhelpers.SourceDestPair]uint64{
 				{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
 				}: msgSentEvent.SequenceNumber,
 			}
-			expectedSeqNumExec = map[SourceDestPair][]uint64{
+			expectedSeqNumExec = map[testhelpers.SourceDestPair][]uint64{
 				{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
@@ -162,8 +163,8 @@ func Test_ActiveCandidate(t *testing.T) {
 		)
 
 		// Confirm execution of the message
-		ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state, expectedSeqNum, startBlocks)
-		ConfirmExecWithSeqNrsForAll(t, tenv.Env, state, expectedSeqNumExec, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, tenv.Env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmExecWithSeqNrsForAll(t, tenv.Env, state, expectedSeqNumExec, startBlocks)
 	}
 
 	// send a message from source to dest and ensure that it gets executed

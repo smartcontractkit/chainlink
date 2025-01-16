@@ -1,4 +1,4 @@
-package changeset
+package testhelpers
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -44,7 +45,7 @@ type TestConfigs struct {
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts      bool
 	PrerequisiteDeploymentOnly bool
-	V1_5Cfg                    V1_5DeploymentConfig
+	V1_5Cfg                    changeset.V1_5DeploymentConfig
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -53,7 +54,7 @@ type TestConfigs struct {
 	IsUSDC                     bool
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
-	OCRConfigOverride          func(*CCIPOCRParams)
+	OCRConfigOverride          func(*changeset.CCIPOCRParams)
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
@@ -101,13 +102,13 @@ func DefaultTestConfigs() *TestConfigs {
 
 type TestOps func(testCfg *TestConfigs)
 
-func WithTestConfigMultiCall3() TestOps {
+func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
 	}
 }
 
-func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) TestOps {
+func WithPrerequisiteDeploymentOnly(v1_5Cfg *changeset.V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
 		if v1_5Cfg != nil {
@@ -116,70 +117,70 @@ func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) Tes
 	}
 }
 
-func WithTestConfigChainIDs(chainIDs []uint64) TestOps {
+func WithChainIDs(chainIDs []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ChainIDs = chainIDs
 	}
 }
 
-func WithTestConfigJobsOnly() TestOps {
+func WithJobsOnly() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = true
 	}
 }
 
-func WithTestConfigNoJobsAndContracts() TestOps {
+func WithNoJobsAndContracts() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = false
 	}
 }
 
-func WithTestConfigRMNEnabled(numOfNode int) TestOps {
+func WithRMNEnabled(numOfNode int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.RMNEnabled = true
 		testCfg.NumOfRMNNodes = numOfNode
 	}
 }
 
-func WithTestConfigOCRConfigOverride(override func(*CCIPOCRParams)) TestOps {
+func WithOCRConfigOverride(override func(*changeset.CCIPOCRParams)) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.OCRConfigOverride = override
 	}
 }
 
-func WithTestConfigUSDCAttestationMissing() TestOps {
+func WithUSDCAttestationMissing() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDCAttestationMissing = true
 	}
 }
 
-func WithTestConfigUSDC() TestOps {
+func WithUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
 	}
 }
 
-func WithTestConfigNumOfChains(numChains int) TestOps {
+func WithNumOfChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Chains = numChains
 	}
 }
 
-func WithTestConfigNumOfUsersPerChain(numUsers int) TestOps {
+func WithNumOfUsersPerChain(numUsers int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
 	}
 }
 
-func WithTestConfigNumOfNodes(numNodes int) TestOps {
+func WithNumOfNodes(numNodes int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Nodes = numNodes
 	}
 }
 
-func WithTestConfigNumOfBootstrapNodes(numBootstraps int) TestOps {
+func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Bootstraps = numBootstraps
 	}
@@ -205,7 +206,7 @@ type DeployedEnv struct {
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	state, err := LoadOnchainState(d.Env)
+	state, err := changeset.LoadOnchainState(d.Env)
 	require.NoError(t, err)
 	for chain, chainState := range state.Chains {
 		timelocks[chain] = &proposalutils.TimelockExecutionContracts{
@@ -218,7 +219,7 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
 	ctx := testcontext.Get(t)
-	out, err := CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
+	out, err := changeset.CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
 	require.NoError(t, err)
 	for nodeID, jobs := range out.JobSpecs {
 		for _, job := range jobs {
@@ -354,21 +355,21 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
 	for _, chain := range allChains {
-		var opts []PrerequisiteOpt
+		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
 			if tc.IsUSDC {
-				opts = append(opts, WithUSDCEnabled())
+				opts = append(opts, changeset.WithUSDCEnabled())
 			}
 			if tc.IsMultiCall3 {
-				opts = append(opts, WithMultiCall3Enabled())
+				opts = append(opts, changeset.WithMultiCall3Enabled())
 			}
 		}
-		if tc.V1_5Cfg != (V1_5DeploymentConfig{}) {
-			opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		if tc.V1_5Cfg != (changeset.V1_5DeploymentConfig{}) {
+			opts = append(opts, changeset.WithLegacyDeploymentEnabled(tc.V1_5Cfg))
 		}
-		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
 		})
@@ -380,8 +381,8 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			Config:    allChains,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
-			Config: DeployPrerequisiteConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
@@ -422,18 +423,18 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	var prereqCfg []changeset.DeployPrerequisiteConfigPerChain
 	for _, chain := range allChains {
-		var opts []PrerequisiteOpt
+		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
 			if tc.IsUSDC {
-				opts = append(opts, WithUSDCEnabled())
+				opts = append(opts, changeset.WithUSDCEnabled())
 			}
 			if tc.IsMultiCall3 {
-				opts = append(opts, WithMultiCall3Enabled())
+				opts = append(opts, changeset.WithMultiCall3Enabled())
 			}
 		}
-		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
 		})
@@ -446,8 +447,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 			Config:    allChains,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisitesChangeset),
-			Config: DeployPrerequisiteConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
@@ -462,8 +463,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetRMNRemoteOnRMNProxyChangeset),
-			Config: SetRMNRemoteOnRMNProxyConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
+			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
 			},
 		},
@@ -481,8 +482,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
@@ -493,8 +494,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContractsChangeset),
-			Config: DeployChainContractsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    allChains,
 				HomeChainSelector: e.HomeChainSel,
 			},
@@ -502,13 +503,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	})
 	require.NoError(t, err)
 
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	// Assert link present
 	require.NotNil(t, state.Chains[e.FeedChainSel].LinkToken)
 	require.NotNil(t, state.Chains[e.FeedChainSel].Weth9)
 
-	tokenConfig := NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
+	tokenConfig := changeset.NewTestTokenConfig(state.Chains[e.FeedChainSel].USDFeeds)
 	var tokenDataProviders []pluginconfig.TokenDataObserverConfig
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -533,8 +534,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			}})
 	}
 	// Build the per chain config.
-	ocrConfigs := make(map[uint64]CCIPOCRParams)
-	chainConfigs := make(map[uint64]ChainConfig)
+	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
+	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -544,12 +545,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DeriveCCIPOCRParams(WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
-			WithDefaultExecuteOffChainConfig(tokenDataProviders),
-			WithOCRParamOverride(tc.OCRConfigOverride),
+		ocrParams := changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
+			changeset.WithDefaultExecuteOffChainConfig(tokenDataProviders),
+			changeset.WithOCRParamOverride(tc.OCRConfigOverride),
 		)
 		ocrConfigs[chain] = ocrParams
-		chainConfigs[chain] = ChainConfig{
+		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
@@ -563,21 +564,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
 		{
 			// Add the chain configs for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(UpdateChainConfigChangeset),
-			Config: UpdateChainConfigConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
+			Config: changeset.UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   chainConfigs,
 			},
 		},
 		{
 			// Add the DONs and candidate commit OCR instances for the chain.
-			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
-			Config: AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			Config: changeset.AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
 				},
-				PluginInfo: SetCandidatePluginInfo{
+				PluginInfo: changeset.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: ocrConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
@@ -585,13 +586,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		},
 		{
 			// Add the exec OCR instances for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
-			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase: SetCandidateConfigBase{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
+			Config: changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					FeedChainSelector: e.FeedChainSel,
 				},
-				PluginInfo: []SetCandidatePluginInfo{
+				PluginInfo: []changeset.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: ocrConfigs,
 						PluginType:                      types.PluginTypeCCIPExec,
@@ -601,10 +602,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		},
 		{
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(PromoteCandidateChangeset),
-			Config: PromoteCandidateChangesetConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
+			Config: changeset.PromoteCandidateChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
-				PluginInfo: []PromoteCandidatePluginInfo{
+				PluginInfo: []changeset.PromoteCandidatePluginInfo{
 					{
 						PluginType:           types.PluginTypeCCIPCommit,
 						RemoteChainSelectors: allChains,
@@ -618,21 +619,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		},
 		{
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(SetOCR3OffRampChangeset),
-			Config: SetOCR3OffRampConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
+			Config: changeset.SetOCR3OffRampConfig{
 				HomeChainSel:    e.HomeChainSel,
 				RemoteChainSels: allChains,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(CCIPCapabilityJobspecChangeset),
+			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
 		},
 	})
 	require.NoError(t, err)
 
 	ReplayLogs(t, e.Env.Offchain, e.ReplayBlocks)
 
-	state, err = LoadOnchainState(e.Env)
+	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)

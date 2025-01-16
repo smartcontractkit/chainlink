@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
@@ -32,7 +33,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			ctx := testcontext.Get(t)
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
-			tenv, _ := NewMemoryEnvironment(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -106,7 +107,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -176,7 +177,7 @@ func TestUpdateFQDests(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -220,10 +221,10 @@ func TestUpdateFQDests(t *testing.T) {
 			// Assert the fq configuration is as we expect.
 			source2destCfg, err := state.Chains[source].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, dest)
 			require.NoError(t, err)
-			AssertEqualFeeConfig(t, fqCfg1, source2destCfg)
+			testhelpers.AssertEqualFeeConfig(t, fqCfg1, source2destCfg)
 			dest2sourceCfg, err := state.Chains[dest].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, source)
 			require.NoError(t, err)
-			AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
+			testhelpers.AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
 		})
 	}
 }
@@ -244,7 +245,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -320,7 +321,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv, _ := NewMemoryEnvironment(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

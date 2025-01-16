@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -29,9 +30,9 @@ func TestDeployHomeChain(t *testing.T) {
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	homeChainCfg := DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
-		RMNStaticConfig:  NewTestRMNStaticConfig(),
-		RMNDynamicConfig: NewTestRMNDynamicConfig(),
-		NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 			"NodeOperator": p2pIds,
 		},
@@ -62,7 +63,7 @@ func TestDeployHomeChain(t *testing.T) {
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
@@ -117,7 +118,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 }
 
 func TestRemoveDons(t *testing.T) {
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	homeChain := s.Chains[e.HomeChainSel]
