@@ -1,15 +1,14 @@
 package launcher
 
 import (
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func Test_ccipDeployment_Transitions(t *testing.T) {

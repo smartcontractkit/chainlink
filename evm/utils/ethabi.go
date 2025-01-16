@@ -3,13 +3,13 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
 
@@ -222,7 +222,7 @@ func EVMWordSignedBigInt(val *big.Int) ([]byte, error) {
 // a signed representation. Returns error on overflow.
 func EVMWordBigInt(val *big.Int) ([]byte, error) {
 	if val.Sign() == -1 {
-		return nil, pkgerrors.New("Uint256 cannot be negative")
+		return nil, errors.New("Uint256 cannot be negative")
 	}
 	bytes := val.Bytes()
 	if len(bytes) > EVMWordByteLen {

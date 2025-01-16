@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"strings"
 	"sync/atomic"
@@ -15,9 +16,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestKeccak256(t *testing.T) {
@@ -53,7 +52,7 @@ func TestUtils_IsEmptyAddress(t *testing.T) {
 		want bool
 	}{
 		{"zero address", common.Address{}, true},
-		{"non-zero address", testutils.NewAddress(), false},
+		{"non-zero address", common.BigToAddress(big.NewInt(12345 + math.MaxInt32)), false},
 	}
 
 	for _, test := range tests {
