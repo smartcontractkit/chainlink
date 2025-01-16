@@ -569,7 +569,7 @@ func deployChainContractsSolana(
 		return err
 	}
 
-	var tokenPoolProgram solana.PublicKey
+	// var tokenPoolProgram solana.PublicKey
 	if chainState.SolTokenPool.IsZero() {
 		programID, err := chain.DeployProgram(e.Logger, "token_pool")
 		if err != nil {
@@ -577,7 +577,7 @@ func deployChainContractsSolana(
 		}
 		tv := deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+		// tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
@@ -605,8 +605,6 @@ func deployChainContractsSolana(
 					GetEvmSourceChainStatePDA(ccipRouterProgram, chain.Selector), // TODO: where to get EVM source chain state PDA? Is it the home chain?
 					GetEvmDestChainStatePDA(ccipRouterProgram, chain.Selector),   // TODO: where to get EVM dest chain state PDA? Is it the home chain?
 					GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
-					// token pool
-					tokenPoolProgram,
 					// token
 					solana.Token2022ProgramID,
 					solana.TokenProgramID,
