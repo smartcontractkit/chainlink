@@ -7,9 +7,13 @@ runs:
     - name: Get CCIP Revision
       id: get_ccip_chains_solana_revision
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         # get the version set up in the gomod file
         short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | sed 's/^v//' | awk -F- '{print $NF}')
+
+        echo "CCIP_SHORT_REVISION" >> $GITHUB_ENV
 
         # the checkout action doesn't support short SHA
         long_revision=$(gh api /repos/smartcontractkit/chainlink-ccip/commits/$short_revision | jq -r .sha)
@@ -67,4 +71,4 @@ runs:
       run: |
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
-        echo ${{ env.CCIP_REVISION }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev
+        echo ${{ env.CCIP_SHORT_REVISION }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev
