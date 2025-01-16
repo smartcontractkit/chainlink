@@ -1273,6 +1273,11 @@ func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Dura
 	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
 	chStopInFlight = r.GetChStopInflight()
 	// TODO: Is mutex really needed to wrap ws and http?
+	// TODO: Is this why we're not setting TD?
+	// TODO: Try exporting StateMu ;P
+	r.StateMu.Lock()
+	defer r.StateMu.Unlock()
+	// TODO: But.. does this need to be ioncluded with chStopInFlight?
 	if r.ws != nil {
 		cp := *r.ws
 		ws = &cp
