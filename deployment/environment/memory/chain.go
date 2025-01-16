@@ -247,6 +247,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	}
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
+	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
 
 	return url, wsURL, nil
 }

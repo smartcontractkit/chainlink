@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -588,41 +587,32 @@ func deployChainContractsSolana(
 
 	// initialize this last with every address we need
 	if chainState.SolAddressLookupTable.IsZero() {
-		maxRetries := 5
-		var table solana.PublicKey
-		for i := 0; i < maxRetries; i++ {
-			table, err = solCommonUtil.SetupLookupTable(
-				e.GetContext(),
-				chain.Client,
-				*chain.DeployerKey,
-				[]solana.PublicKey{
-					// system
-					solana.SystemProgramID,
-					solana.ComputeBudget,
-					solana.SysVarInstructionsPubkey,
-					// router
-					ccipRouterProgram,
-					GetRouterConfigPDA(ccipRouterProgram),
-					GetRouterStatePDA(ccipRouterProgram),
-					GetEvmSourceChainStatePDA(ccipRouterProgram, chain.Selector), // TODO: where to get EVM source chain state PDA? Is it the home chain?
-					GetEvmDestChainStatePDA(ccipRouterProgram, chain.Selector),   // TODO: where to get EVM dest chain state PDA? Is it the home chain?
-					GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
-					// token pool
-					tokenPoolProgram,
-					// token
-					solana.Token2022ProgramID,
-					solana.TokenProgramID,
-					solana.SPLAssociatedTokenAccountProgramID,
-				})
-			if err != nil {
-				if maxRetries > 0 {
-					e.Logger.Errorw("Failed to create lookup table, retrying", "err", err)
-					time.Sleep(5 * time.Second)
-					maxRetries--
-					continue
-				}
-				return fmt.Errorf("failed to create lookup table: %w", err)
-			}
+		table, err := solCommonUtil.SetupLookupTable(
+			e.GetContext(),
+			chain.Client,
+			*chain.DeployerKey,
+			[]solana.PublicKey{
+				// system
+				solana.SystemProgramID,
+				solana.ComputeBudget,
+				solana.SysVarInstructionsPubkey,
+				// router
+				ccipRouterProgram,
+				GetRouterConfigPDA(ccipRouterProgram),
+				GetRouterStatePDA(ccipRouterProgram),
+				GetEvmSourceChainStatePDA(ccipRouterProgram, chain.Selector), // TODO: where to get EVM source chain state PDA? Is it the home chain?
+				GetEvmDestChainStatePDA(ccipRouterProgram, chain.Selector),   // TODO: where to get EVM dest chain state PDA? Is it the home chain?
+				GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
+				// token pool
+				tokenPoolProgram,
+				// token
+				solana.Token2022ProgramID,
+				solana.TokenProgramID,
+				solana.SPLAssociatedTokenAccountProgramID,
+			})
+		if err != nil {
+			return fmt.Errorf("failed to create lookup table: %w", err)
+
 		}
 		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
 		if err != nil {

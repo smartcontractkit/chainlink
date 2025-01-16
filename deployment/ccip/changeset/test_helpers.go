@@ -1261,9 +1261,9 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
-	tv := deployment.NewTypeAndVersion("SolCcipRouter", deployment.Version1_0_0)
+	tv := deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
-	tv = deployment.NewTypeAndVersion("SolTokenPool", deployment.Version1_0_0)
+	tv = deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
 
 	require.NoError(t, err)
