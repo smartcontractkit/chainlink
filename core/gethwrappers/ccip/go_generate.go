@@ -25,6 +25,7 @@ package ccip
 
 // Helpers
 //go:generate go run ../generation/wrap.go ccip MaybeRevertMessageReceiver maybe_revert_message_receiver
+//go:generate go run ../generation/wrap.go ccip CCIPDummyReceiver ccip_dummy_receiver
 //go:generate go run ../generation/wrap.go ccip PingPongDemo ping_pong_demo
 //go:generate go run ../generation/wrap.go ccip MessageHasher message_hasher
 //go:generate go run ../generation/wrap.go ccip MultiOCR3Helper multi_ocr3_helper
