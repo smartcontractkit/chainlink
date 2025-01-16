@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -131,7 +130,7 @@ func NewRPCClient(
 	}
 
 	r.Adapter = multinode.NewAdapter[RPCClient, *evmtypes.Head](
-		cfg, r, client.QueryTimeout, lggr, latestBlock, latestFinalizedBlock)
+		cfg, r, QueryTimeout, lggr, latestBlock, latestFinalizedBlock)
 
 	r.cfg = cfg
 	r.name = name
