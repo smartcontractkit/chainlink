@@ -91,24 +91,26 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Struct to hold the fee & validation configs for a destination chain.
   struct DestChainConfig {
-    bool isEnabled; // ──────────────────────────╮ Whether this destination chain is enabled.
-    uint16 maxNumberOfTokensPerMsg; //           │ Maximum number of distinct ERC20 tokens transferred per message.
-    uint32 maxDataBytes; //                      │ Maximum data payload size in bytes.
-    uint32 maxPerMsgGasLimit; //                 │ Maximum gas limit for messages targeting EVMs.
-    uint32 destGasOverhead; //                   │ Gas charged on top of the gasLimit to cover destination chain costs.
-    uint16 destGasPerPayloadByte; //             │ Destination chain gas charged each byte of `data` payload.
-    uint32 destDataAvailabilityOverheadGas; //   │ Data availability gas charged for overhead costs e.g. for OCR.
-    uint16 destGasPerDataAvailabilityByte; //    │ Gas units charged per byte of message data that needs availability.
-    uint16 destDataAvailabilityMultiplierBps; // │ Multiplier for data availability gas, multiples of bps, or 0.0001.
+    bool isEnabled; // ─────────────────────────╮ Whether this destination chain is enabled.
+    uint16 maxNumberOfTokensPerMsg; //          │ Maximum number of distinct ERC20 tokens transferred per message.
+    uint32 maxDataBytes; //                     │ Maximum data payload size in bytes.
+    uint32 maxPerMsgGasLimit; //                │ Maximum gas limit for messages targeting EVMs.
+    uint32 destGasOverhead; //                  │ Gas charged on top of the gasLimit to cover destination chain costs.
+    uint8 destGasPerPayloadByteBase; //         │ Default dest-chain gas charged each byte of `data` payload.
+    uint8 destGasPerPayloadByteHigh; //         │ High dest-chain gas charged each byte of `data` payload, used to account for eip-7623.
+    uint16 destGasPerPayloadByteThreshold; //   │ The value at which the billing switches from destGasPerPayloadByteBase to destGasPerPayloadByteHigh.
+    uint32 destDataAvailabilityOverheadGas; //  │ Data availability gas charged for overhead costs e.g. for OCR.
+    uint16 destGasPerDataAvailabilityByte; //   │ Gas units charged per byte of message data that needs availability.
+    uint16 destDataAvailabilityMultiplierBps; //│ Multiplier for data availability gas, multiples of bps, or 0.0001.
+    bytes4 chainFamilySelector; //              │ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
+    bool enforceOutOfOrder; // ─────────────────╯ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
     // The following three properties are defaults, they can be overridden by setting the TokenTransferFeeConfig for a token.
-    uint16 defaultTokenFeeUSDCents; //           │ Default token fee charged per token transfer.
-    uint32 defaultTokenDestGasOverhead; // ──────╯ Default gas charged to execute a token transfer on the destination chain.
-    uint32 defaultTxGasLimit; //──────────╮ Default gas limit for a tx.
-    uint64 gasMultiplierWeiPerEth; //     │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint32 networkFeeUSDCents; //         │ Flat network fee to charge for messages, multiples of 0.01 USD.
-    uint32 gasPriceStalenessThreshold; // │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
-    bool enforceOutOfOrder; //            │ Whether to enforce the allowOutOfOrderExecution extraArg value to be true.
-    bytes4 chainFamilySelector; // ───────╯ Selector that identifies the destination chain's family. Used to determine the correct validations to perform for the dest chain.
+    uint16 defaultTokenFeeUSDCents; // ────╮ Default token fee charged per token transfer.
+    uint32 defaultTokenDestGasOverhead; // │ Default gas charged to execute a token transfer on the destination chain.
+    uint32 defaultTxGasLimit; //           │ Default gas limit for a tx.
+    uint64 gasMultiplierWeiPerEth; //      │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
+    uint32 gasPriceStalenessThreshold; //  │ The amount of time a gas price can be stale before it is considered invalid (0 means disabled).
+    uint32 networkFeeUSDCents; // ─────────╯ Flat network fee to charge for messages, multiples of 0.01 USD.
   }
 
   /// @dev Struct to hold the configs and its destination chain selector. Same as DestChainConfig but with the
@@ -563,25 +565,33 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // If message-only and no token transfers, a flat network fee is charged.
     // If there are token transfers, premiumFee is calculated from token transfer fee.
     // If there are both token transfers and message, premiumFee is only calculated from token transfer fee.
-    uint256 premiumFee = 0;
+    uint256 premiumFeeUSDWei = 0;
     uint32 tokenTransferGas = 0;
     uint32 tokenTransferBytesOverhead = 0;
     if (numberOfTokens > 0) {
-      (premiumFee, tokenTransferGas, tokenTransferBytesOverhead) =
-        _getTokenTransferCost(destChainConfig, destChainSelector, message.feeToken, feeTokenPrice, message.tokenAmounts);
+      (premiumFeeUSDWei, tokenTransferGas, tokenTransferBytesOverhead) = _getTokenTransferCost(
+        destChainConfig.defaultTokenFeeUSDCents,
+        destChainConfig.defaultTokenDestGasOverhead,
+        destChainSelector,
+        message.feeToken,
+        feeTokenPrice,
+        message.tokenAmounts
+      );
     } else {
       // Convert USD cents with 2 decimals to 18 decimals.
-      premiumFee = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
+      premiumFeeUSDWei = uint256(destChainConfig.networkFeeUSDCents) * 1e16;
     }
+    // Apply the premium multiplier for the fee token, making it 36 decimals
+    premiumFeeUSDWei *= s_premiumMultiplierWeiPerEth[message.feeToken];
 
     // Calculate data availability cost in USD with 36 decimals. Data availability cost exists on rollups that need to
     // post transaction calldata onto another storage layer, e.g. Eth mainnet, incurring additional storage gas costs.
-    uint256 dataAvailabilityCost = 0;
+    uint256 dataAvailabilityCostUSD36Decimals = 0;
 
     // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (destChainConfig.destDataAvailabilityMultiplierBps > 0) {
-      dataAvailabilityCost = _getDataAvailabilityCost(
+      dataAvailabilityCostUSD36Decimals = _getDataAvailabilityCost(
         destChainConfig,
         // Parse the data availability gas price stored in the higher-order 112 bits of the encoded gas price.
         uint112(packedGasPrice >> Internal.GAS_PRICE_BITS),
@@ -591,25 +601,42 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       );
     }
 
-    // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, the gas of passing message data to receiver, and token transfer
-    // gas together. We then multiply this gas total with the gas multiplier and gas price, converting it into USD with
-    // 36 decimals. uint112(packedGasPrice) = executionGasPrice
+    // Calculate the calldata, taking into account EIP-7623. We charge destGasPerPayloadByteBase for the calldata cost
+    // up to destGasPerPayloadByteThreshold, even when the total calldata length exceeds the threshold. This is safe
+    // because we also charge for execution gas on top of this. When correct values are chosen, the execution gas we
+    // charge is always higher than the difference between the base and high calldata costs for the first
+    // destGasPerPayloadByteThreshold bytes. Since we don't pay for execution gas in EIP-7623, this execution gas is
+    // effectively used to cover the higher calldata costs for the first destGasPerPayloadByteThreshold bytes.
+    // The threshold should be adjusted based on expected execution cost and, potentially, to discourage large payloads.
+    // Example: 16 base, 40 high, 100k execution cost. 100k/(40-16) = max 4.16kb as the threshold. Take 4kb threshold.
+    // Calldata length = 5000
+    // Our calculations: 1000 * 40 + 4000 * 16 = 104k calldata cost + 100k execution cost = 204k calculated cost.
+    // Actual cost: 5000 * 40 = 200k
+    // The difference is 4k in favour of CCIP. The lower the threshold, the more premium is charged for large payloads.
+    uint256 calldataLength = message.data.length + tokenTransferBytesOverhead;
+    uint256 destCallDataCost = calldataLength * destChainConfig.destGasPerPayloadByteBase;
+    if (calldataLength > destChainConfig.destGasPerPayloadByteThreshold) {
+      destCallDataCost = destChainConfig.destGasPerPayloadByteBase * destChainConfig.destGasPerPayloadByteThreshold
+        + (calldataLength - destChainConfig.destGasPerPayloadByteThreshold) * destChainConfig.destGasPerPayloadByteHigh;
+    }
 
-    // NOTE: Fee logic is currently only supported for EVM-Chains, and the gas price is assumed to be in wei.
-    // fee logic for other chains should be implemented in the future.
-    uint256 executionCost = uint112(packedGasPrice)
-      * (
-        destChainConfig.destGasOverhead
-          + ((message.data.length + tokenTransferBytesOverhead) * destChainConfig.destGasPerPayloadByte) + tokenTransferGas
-          + _parseEVMExtraArgsFromBytes(message.extraArgs, destChainConfig).gasLimit
-      ) * destChainConfig.gasMultiplierWeiPerEth;
+    // We add the destination chain CCIP overhead (commit, exec), the token transfer gas, the calldata cost and the msg
+    // gas limit to get the total gas the tx costs to execute on the destination chain.
+    uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
+      + _parseEVMExtraArgsFromBytes(
+        message.extraArgs,
+        destChainConfig.defaultTxGasLimit,
+        destChainConfig.maxPerMsgGasLimit,
+        destChainConfig.enforceOutOfOrder
+      ).gasLimit;
 
-    // Calculate number of fee tokens to charge.
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
-    // Result of the division is the number of smallest token denominations.
-    return ((premiumFee * s_premiumMultiplierWeiPerEth[message.feeToken]) + executionCost + dataAvailabilityCost)
-      / feeTokenPrice;
+    // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
+    // uint112(packedGasPrice) = executionGasPrice
+    return (
+      totalDestChainGas * uint112(packedGasPrice) * destChainConfig.gasMultiplierWeiPerEth + premiumFeeUSDWei
+        + dataAvailabilityCostUSD36Decimals
+    ) / feeTokenPrice;
   }
 
   /// @notice Sets the fee configuration for a token.
@@ -650,7 +677,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev Assumes that tokenAmounts are validated to be listed tokens elsewhere.
   /// @dev Splitting one token transfer into multiple transfers is discouraged, as it will result in a transferFee
   /// equal or greater than the same amount aggregated/de-duped.
-  /// @param destChainConfig the config configured for the destination chain selector.
+  /// @param defaultTokenFeeUSDCents the default token fee in USD cents.
+  /// @param defaultTokenDestGasOverhead the default token destination gas overhead.
   /// @param destChainSelector the destination chain selector.
   /// @param feeToken address of the feeToken.
   /// @param feeTokenPrice price of feeToken in USD with 18 decimals.
@@ -659,7 +687,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @return tokenTransferGas total execution gas of the token transfers.
   /// @return tokenTransferBytesOverhead additional token transfer data passed to destination, e.g. USDC attestation.
   function _getTokenTransferCost(
-    DestChainConfig memory destChainConfig,
+    uint256 defaultTokenFeeUSDCents,
+    uint32 defaultTokenDestGasOverhead,
     uint64 destChainSelector,
     address feeToken,
     uint224 feeTokenPrice,
@@ -673,8 +702,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       // If the token has no specific overrides configured, we use the global defaults.
       if (!transferFeeConfig.isEnabled) {
-        tokenTransferFeeUSDWei += uint256(destChainConfig.defaultTokenFeeUSDCents) * 1e16;
-        tokenTransferGas += destChainConfig.defaultTokenDestGasOverhead;
+        tokenTransferFeeUSDWei += defaultTokenFeeUSDCents * 1e16;
+        tokenTransferGas += defaultTokenDestGasOverhead;
         tokenTransferBytesOverhead += Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES;
         continue;
       }
@@ -856,21 +885,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
   /// @param extraArgs The extra args bytes.
-  /// @param destChainConfig Dest chain config to validate against.
   /// @return evmExtraArgs The EVMExtraArgs struct (latest version).
   function _parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
+    uint32 defaultTxGasLimit,
+    uint256 maxPerMsgGasLimit,
+    bool enforceOutOfOrder
   ) internal pure returns (Client.EVMExtraArgsV2 memory) {
-    Client.EVMExtraArgsV2 memory evmExtraArgs =
-      _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
+    Client.EVMExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
 
-    if (evmExtraArgs.gasLimit > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+    if (evmExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
 
     // If the chain enforces out of order execution, the extra args must allow it, otherwise revert. We cannot assume
     // the user intended to use OOO on any chain that requires it as it may lead to unexpected behavior. Therefore we
     // revert instead of assuming the user intended to use OOO.
-    if (destChainConfig.enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
+    if (enforceOutOfOrder && !evmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
 

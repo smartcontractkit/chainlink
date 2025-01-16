@@ -1,5 +1,5 @@
 ## Baseline performance test on simulated environment (with chaos)
-## 40 chains / 400 lanes
+## 30 chains / 300 lanes
 ## historyDepth 200 / finalityDepth 200
 ## block_time = 1s
 ## throughput 1msg / 5s
@@ -7,8 +7,15 @@
 ##
 ## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:ccip-develop  \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
-##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml \
-##      secret_toml=./testconfig/tomls/secrets.toml
+##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml
+
+## Adjust this value depending on what you want to test.
+# Using releases and git tag requires changing the image name to the correct one in `~/.testsecrets`, e.g.
+# E2E_TEST_CHAINLINK_IMAGE="public.ecr.aws/w0i8p0z9/chainlink-ccip"
+# If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
+# E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip"
+[CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+version = "2.14.0-ccip1.5.0"
 
 [CCIP]
 [CCIP.ContractVersions]
@@ -19,10 +26,10 @@ TokenPool = '1.4.0'
 CommitStore = '1.2.0'
 
 [CCIP.Env]
-TTL = '8h'
+TTL = '10h'
 
 [CCIP.Env.Network]
-selected_networks= ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
+selected_networks = ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
 
 [CCIP.Env.Network.EVMNetworks.PRIVATE-CHAIN-1]
 evm_name = 'private-chain-1'
@@ -66,7 +73,7 @@ block_time = 1
 [CCIP.Env.NewCLCluster]
 NoOfNodes = 17
 NodeMemory = '10Gi'
-NodeCPU = '6'
+NodeCPU = '4'
 DBMemory = '16Gi'
 DBCPU = '4'
 DBStorageClass = 'gp3'
@@ -124,6 +131,8 @@ DeltaReconcile = '5s'
 """
 
 CommonChainConfigTOML = """
+LogPollInterval = '1s'
+
 [HeadTracker]
 HistoryDepth = 200
 
@@ -139,9 +148,9 @@ KeepEnvAlive = true
 NoOfCommitNodes = 16
 PhaseTimeout = '40m'
 NodeFunding = 1000.0
-NoOfRoutersPerPair = 2
-NoOfNetworks = 40
-MaxNoOfLanes = 400
+NoOfRoutersPerPair = 1
+NoOfNetworks = 30
+MaxNoOfLanes = 300
 
 [CCIP.Groups.load.OffRampConfig]
 BatchGasLimit = 11000000
@@ -150,11 +159,11 @@ BatchGasLimit = 11000000
 TimeoutForPriceUpdate = '15m'
 NoOfTokensPerChain = 10
 NoOfTokensWithDynamicPrice = 10
-DynamicPriceUpdateInterval ='15s'
+DynamicPriceUpdateInterval = '15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
-TestDuration = '4h'
+TestDuration = '6h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true
@@ -162,7 +171,7 @@ NetworkChaosDelay = '100ms'
 
 # to represent 20%, 60%, 15%, 5% of the total messages
 [CCIP.Groups.load.LoadProfile.MsgProfile]
-Frequencies = [4,12,3,1]
+Frequencies = [4, 12, 3, 1]
 
 [[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
 MsgType = 'Token'

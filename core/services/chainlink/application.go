@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,10 +21,12 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -79,6 +82,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+const HeartbeatPeriod = time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -192,6 +197,60 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 }
 
+type Heartbeat struct {
+	commonservices.Service
+	eng *commonservices.Engine
+
+	beat time.Duration
+}
+
+func NewHeartbeat(lggr logger.Logger) Heartbeat {
+	h := Heartbeat{
+		beat: HeartbeatPeriod,
+	}
+	h.Service, h.eng = commonservices.Config{
+		Name:  "Heartbeat",
+		Start: h.start,
+	}.NewServiceEngine(lggr)
+	return h
+}
+
+func (h *Heartbeat) start(_ context.Context) error {
+	// Setup beholder resources
+	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
+	if err != nil {
+		return err
+	}
+	count, err := beholder.GetMeter().Int64Gauge("heartbeat_count")
+	if err != nil {
+		return err
+	}
+
+	cme := custmsg.NewLabeler()
+
+	// Define tick functions
+	beatFn := func(ctx context.Context) {
+		// TODO allow override of tracer provider into engine for beholder
+		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
+		defer innerSpan.End()
+
+		gauge.Record(ctx, 1)
+		count.Record(ctx, 1)
+
+		err = cme.Emit(ctx, "heartbeat")
+		if err != nil {
+			h.eng.Errorw("heartbeat emit failed", "err", err)
+		}
+	}
+
+	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
+	return nil
+}
+
+func (h *Heartbeat) getBeat() time.Duration {
+	return h.beat
+}
+
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -199,6 +258,10 @@ type ApplicationOpts struct {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
+
+	heartbeat := NewHeartbeat(opts.Logger)
+	srvcs = append(srvcs, &heartbeat)
+
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators

@@ -3,10 +3,12 @@ package common
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/tls"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -69,11 +71,17 @@ func SetupEnv(overrideNonce bool) Environment {
 		panic("need account key")
 	}
 
-	ec, err := ethclient.Dial(ethURL)
+	insecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY") == "true"
+	tr := &http.Transport{
+		// User enables this at their own risk!
+		// #nosec G402
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+	}
+	httpClient := &http.Client{Transport: tr}
+	rpcConfig := rpc.WithHTTPClient(httpClient)
+	jsonRPCClient, err := rpc.DialOptions(context.Background(), ethURL, rpcConfig)
 	PanicErr(err)
-
-	jsonRPCClient, err := rpc.Dial(ethURL)
-	PanicErr(err)
+	ec := ethclient.NewClient(jsonRPCClient)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
@@ -290,6 +298,11 @@ func TenderlySimLink(simID string) string {
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
 func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) (receipt *types.Receipt) {
+	if transaction == nil {
+		fmt.Println("No transaction to confirm")
+		return
+	}
+
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
 	receipt, err := bind.WaitMined(context, client, transaction)
 	PanicErr(err)

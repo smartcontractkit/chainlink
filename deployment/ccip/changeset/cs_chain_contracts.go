@@ -792,8 +792,14 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-			return err
+		if cfg.TestRouter {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
+				return err
+			}
+		} else {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+				return err
+			}
 		}
 
 		for source := range update.OffRampUpdates {
@@ -1115,7 +1121,9 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           1,
-		DestGasPerPayloadByte:             ccipevm.CalldataGasPerByte,
+		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 		DestDataAvailabilityOverheadGas:   100,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,

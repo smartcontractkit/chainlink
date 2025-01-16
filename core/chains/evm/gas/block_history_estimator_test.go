@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -2318,7 +2318,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei)", attempts[2].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
+			require.ErrorIs(t, err, fees.ErrConnectivity)
 		})
 	})
 
@@ -2352,7 +2352,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei)", attempts[1].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
+			require.ErrorIs(t, err, fees.ErrConnectivity)
 		})
 
 		attempts = []gas.EvmPriorAttempt{
@@ -2370,7 +2370,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei)", attempts[0].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
+			require.ErrorIs(t, err, fees.ErrConnectivity)
 		})
 	})
 
@@ -2429,7 +2429,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei)", attempts[1].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
+			require.ErrorIs(t, err, fees.ErrConnectivity)
 
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 2
@@ -2438,7 +2438,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 			err = bhe.HaltBumping(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=2%% (percentile tip cap: 2 wei)", attempts[0].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
+			require.ErrorIs(t, err, fees.ErrConnectivity)
 		})
 
 		t.Run("passes check if, for at least one block, feecap < tipcap+basefee, even if percentile is not reached", func(t *testing.T) {
@@ -2500,7 +2500,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		}
 		_, _, err = bhe.BumpLegacyGas(ctx, assets.NewWeiI(42), 100000, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
+		assert.True(t, pkgerrors.Is(err, fees.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei)", attempts[0].TxHash))
 	})
 
@@ -2628,7 +2628,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		_, err = bhe.BumpDynamicFee(tests.Context(t), originalFee, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
+		assert.True(t, pkgerrors.Is(err, fees.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei)", attempts[0].TxHash))
 	})
 

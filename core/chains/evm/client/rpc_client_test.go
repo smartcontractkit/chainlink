@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
@@ -92,7 +91,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 	t.Run("WS and HTTP URL cannot be both empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
 		observedLggr := logger.Test(t)
-		rpcClient := client.NewRPCClient(nodePoolCfgHeadPolling, observedLggr, nil, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpcClient := client.NewRPCClient(nodePoolCfgHeadPolling, observedLggr, nil, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		require.Equal(t, errors.New("cannot dial rpc client when both ws and http info are missing"), rpcClient.Dial(ctx))
 	})
 
@@ -100,7 +99,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
@@ -150,7 +149,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -193,7 +192,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		}
 
 		server := createRPCServer()
-		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, server.URL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, server.URL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
@@ -232,7 +231,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		var wg sync.WaitGroup
@@ -255,7 +254,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
@@ -271,7 +270,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, observedLggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, observedLggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, _, err := rpc.SubscribeToHeads(ctx)
@@ -281,7 +280,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 	t.Run("Closed rpc client should remove existing SubscribeToHeads subscription with WS", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -293,7 +292,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -305,7 +304,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgHeadPolling, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 
@@ -316,7 +315,7 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfgWSSub, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		_, sub, err := rpc.SubscribeToHeads(ctx)
@@ -346,7 +345,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	t.Run("Failed SubscribeFilterLogs when WSURL is empty", func(t *testing.T) {
 		// ws is optional when LogBroadcaster is disabled, however SubscribeFilterLogs will return error if ws is missing
 		observedLggr := logger.Test(t)
-		rpcClient := client.NewRPCClient(nodePoolCfg, observedLggr, nil, &url.URL{}, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpcClient := client.NewRPCClient(nodePoolCfg, observedLggr, nil, &url.URL{}, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		require.Nil(t, rpcClient.Dial(ctx))
 
 		_, err := rpcClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -358,7 +357,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(nodePoolCfg, observedLggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, observedLggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -375,7 +374,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			return resp
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -404,7 +403,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			return
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, chaintype.ChainSei)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		ch := make(chan types.Log)
@@ -499,7 +498,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 			return
 		})
 		wsURL := server.WSURL()
-		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainSei)
+		seiRPC := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, client.QueryTimeout, client.QueryTimeout, chaintype.ChainSei)
 		defer seiRPC.Close()
 		require.NoError(t, seiRPC.Dial(ctx))
 		logs, err := seiRPC.FilterLogs(ctx, ethereum.FilterQuery{})
@@ -509,7 +508,7 @@ func TestRPCClientFilterLogs(t *testing.T) {
 		}
 
 		// non sei should return index as is
-		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, wsURL, nil, "rpc", 1, chainID, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		logs, err = rpc.FilterLogs(ctx, ethereum.FilterQuery{})
@@ -558,7 +557,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	}
 
 	server := createRPCServer()
-	rpc := client.NewRPCClient(nodePoolCfg, lggr, server.URL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, "")
+	rpc := client.NewRPCClient(nodePoolCfg, lggr, server.URL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, "")
 	require.NoError(t, rpc.Dial(ctx))
 	defer rpc.Close()
 	server.Head.Store(&evmtypes.Head{Number: 128})
@@ -750,7 +749,7 @@ func TestAstarCustomFinality(t *testing.T) {
 
 	const expectedFinalizedBlockNumber = int64(4)
 	const expectedFinalizedBlockHash = "0x7441e97acf83f555e0deefef86db636bc8a37eb84747603412884e4df4d22804"
-	rpcClient := client.NewRPCClient(nodePoolCfg, logger.Test(t), wsURL, nil, "rpc", 1, chainId, multinode.Primary, commonclient.QueryTimeout, commonclient.QueryTimeout, chaintype.ChainAstar)
+	rpcClient := client.NewRPCClient(nodePoolCfg, logger.Test(t), wsURL, nil, "rpc", 1, chainId, multinode.Primary, client.QueryTimeout, client.QueryTimeout, chaintype.ChainAstar)
 	defer rpcClient.Close()
 	err := rpcClient.Dial(tests.Context(t))
 	require.NoError(t, err)

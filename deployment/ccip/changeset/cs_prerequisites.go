@@ -52,10 +52,10 @@ func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfi
 type DeployPrerequisiteContractsOpts struct {
 	USDCEnabled         bool
 	Multicall3Enabled   bool
-	LegacyDeploymentCfg *LegacyDeploymentConfig
+	LegacyDeploymentCfg *V1_5DeploymentConfig
 }
 
-type LegacyDeploymentConfig struct {
+type V1_5DeploymentConfig struct {
 	RMNConfig                  *rmn_contract.RMNConfig
 	PriceRegStalenessThreshold uint32
 }
@@ -98,7 +98,7 @@ func WithMultiCall3Enabled() PrerequisiteOpt {
 	}
 }
 
-func WithLegacyDeploymentEnabled(cfg LegacyDeploymentConfig) PrerequisiteOpt {
+func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 	return func(o *DeployPrerequisiteContractsOpts) {
 		if cfg.PriceRegStalenessThreshold == 0 {
 			panic("PriceRegStalenessThreshold must be set")
@@ -171,7 +171,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					}
 				})
 			if err != nil {
-				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", err)
+				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
 				return err
 			}
 			rmnAddr = rmn.Address
@@ -407,13 +407,17 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	// Only applicable if setting up for 1.5 version, remove this once we have fully migrated to 1.6
 	if deployOpts.LegacyDeploymentCfg != nil {
 		if chainState.PriceRegistry == nil {
+			linkAddr, err1 := chainState.LinkTokenAddress()
+			if err1 != nil {
+				return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err1)
+			}
 			_, err := deployment.DeployContract(lggr, chain, ab,
 				func(chain deployment.Chain) deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry] {
 					priceRegAddr, tx2, priceRegAddrC, err2 := price_registry_1_2_0.DeployPriceRegistry(
 						chain.DeployerKey,
 						chain.Client,
 						nil,
-						[]common.Address{weth9Contract.Address(), chainState.LinkToken.Address()},
+						[]common.Address{weth9Contract.Address(), linkAddr},
 						deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
 					)
 					return deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
