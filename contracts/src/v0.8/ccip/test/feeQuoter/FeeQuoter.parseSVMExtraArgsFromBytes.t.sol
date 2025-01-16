@@ -58,30 +58,12 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
     );
   }
 
-  function test_SVMExtraArgsDefault() public view {
-    // We pass only the 4-byte tag
-    bytes memory tagOnly = abi.encodeWithSelector(Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG);
-
-    // We expect defaults in the struct
-    Client.SVMExtraArgsV1 memory expectedOutputArgs = Client.SVMExtraArgsV1({
-      computeUnits: s_destChainConfig.defaultTxGasLimit,
-      accountIsWritableBitmap: 0,
-      tokenReceiver: bytes32(0),
-      allowOutOfOrderExecution: true,
-      accounts: new bytes32[](0)
-    });
-
-    vm.assertEq(
-      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes(tagOnly, s_destChainConfig)), abi.encode(expectedOutputArgs)
-    );
-  }
-
   // Reverts
 
-  function test_parseSVMExtraArgsFromBytes_RevertWhen_ExtraArgDataIsShort() public {
+  function test_parseSVMExtraArgsFromBytes_RevertWhen_InvalidExtraArgsTag() public {
     bytes memory inputExtraArgs = new bytes(0);
 
-    vm.expectRevert(FeeQuoter.InvalidExtraArgsData.selector);
+    vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
     s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
   }
 

@@ -37,8 +37,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error DestinationChainNotEnabled(uint64 destChainSelector);
   error ExtraArgOutOfOrderExecutionMustBeTrue();
   error InvalidExtraArgsTag();
-  error InvalidExtraArgsData();
-  error EmptyExtraArgsData();
   error SourceTokenDataTooLarge(address token);
   error InvalidDestChainConfig(uint64 destChainSelector);
   error MessageFeeTooHigh(uint256 msgFeeJuels, uint256 maxFeeJuelsPerMsg);
@@ -882,9 +880,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 gasLimit
   ) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      Internal._validateEVMAddress(destAddress);
-      return;
-    } else if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      return Internal._validateEVMAddress(destAddress);
+    }
+    if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       bytes32 svmAddress = Internal._validateSVMAddress(destAddress);
       if (gasLimit > 0 && svmAddress == bytes32(0)) {
         revert Internal.InvalidSVMAddress(destAddress);
@@ -905,7 +903,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         destChainConfig.maxPerMsgGasLimit,
         destChainConfig.enforceOutOfOrder
       ).gasLimit;
-    } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+    }
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       return _parseSVMExtraArgsFromBytes(
         extraArgs,
         destChainConfig.defaultTxGasLimit,
@@ -923,29 +922,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 maxPerMsgGasLimit,
     bool enforcedOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
-    if (extraArgs.length < 4) {
-      revert InvalidExtraArgsData();
-    }
-
     bytes4 tag = bytes4(extraArgs[:4]);
     if (tag != Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG) {
       revert InvalidExtraArgsTag();
     }
 
-    // If we have more than 4 bytes, decode the SVMExtraArgsV1 struct.
-    // Otherwise, we default the struct fields.
-    if (extraArgs.length > 4) {
-      svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
-    } else {
-      // We only have the tag and no additional data, so define a default struct
-      svmExtraArgs = Client.SVMExtraArgsV1({
-        computeUnits: defaultTxGasLimit,
-        accountIsWritableBitmap: 0,
-        tokenReceiver: bytes32(0),
-        allowOutOfOrderExecution: true,
-        accounts: new bytes32[](0)
-      });
-    }
+    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
 
     if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
@@ -1081,19 +1063,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
-    } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(
+    }
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      bytes32 tokenReceiver = _parseSVMExtraArgsFromBytes(
         extraArgs,
         destChainConfig.defaultTxGasLimit,
         destChainConfig.maxPerMsgGasLimit,
         destChainConfig.enforceOutOfOrder
-      );
-      if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
+      ).tokenReceiver;
+      if (isMessageWithTokenTransfer && tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
 
-      // On SVM OOO execution is enabled for all messages.
-      return (Client._svmArgsToBytes(parsedExtraArgs), true);
+      // ExtraArgs are required on SVM, meaning the supplied extraArgs are either invalid and we would have reverted
+      // or we have valid extraArgs and we can return them without having to re-encode them.
+      return (extraArgs, true);
     }
     revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }

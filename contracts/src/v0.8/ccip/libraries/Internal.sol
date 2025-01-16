@@ -167,16 +167,14 @@ library Internal {
   /// @notice This methods provides validation for parsing abi encoded addresses by ensuring the address is within the
   /// EVM address space. If it isn't it will revert with an InvalidEVMAddress error, which we can catch and handle
   /// more gracefully than a revert from abi.decode.
-  /// @return The address if it is valid, the function will revert otherwise.
   function _validateEVMAddress(
     bytes memory encodedAddress
-  ) internal pure returns (address) {
+  ) internal pure {
     if (encodedAddress.length != 32) revert InvalidEVMAddress(encodedAddress);
     uint256 encodedAddressUint = abi.decode(encodedAddress, (uint256));
     if (encodedAddressUint > type(uint160).max || encodedAddressUint < PRECOMPILE_SPACE) {
       revert InvalidEVMAddress(encodedAddress);
     }
-    return address(uint160(encodedAddressUint));
   }
 
   function _validateSVMAddress(
