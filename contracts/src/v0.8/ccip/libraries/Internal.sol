@@ -177,12 +177,13 @@ library Internal {
     }
   }
 
-  function _validateSVMAddress(
-    bytes memory encodedAddress
-  ) internal pure returns (bytes32) {
+  function _validateSVMAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
     if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
-    bytes32 encodedAddressBytes32 = abi.decode(encodedAddress, (bytes32));
-    return encodedAddressBytes32;
+    if (mustBeNonZero) {
+      if (abi.decode(encodedAddress, (bytes32)) == bytes32(0)) {
+        revert InvalidSVMAddress(encodedAddress);
+      }
+    }
   }
 
   /// @notice Enum listing the possible message execution states within the offRamp contract.

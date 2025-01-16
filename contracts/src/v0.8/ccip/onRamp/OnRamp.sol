@@ -221,7 +221,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
 
     // Convert message fee to juels and retrieve converted args.
     // Validate pool return data after it is populated (view function - no state changes).
-    // Using newMessage.data prevents a stack too deep error.
     bool isOutOfOrderExecution;
     bytes memory convertedExtraArgs;
     bytes[] memory destExecDataPerToken;

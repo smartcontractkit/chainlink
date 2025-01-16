@@ -883,11 +883,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return Internal._validateEVMAddress(destAddress);
     }
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      bytes32 svmAddress = Internal._validateSVMAddress(destAddress);
-      if (gasLimit > 0 && svmAddress == bytes32(0)) {
-        revert Internal.InvalidSVMAddress(destAddress);
-      }
-      return;
+      return Internal._validateSVMAddress(destAddress, gasLimit > 0);
     }
     revert InvalidChainFamilySelector(chainFamilySelector);
   }
