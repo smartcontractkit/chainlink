@@ -1,8 +1,6 @@
 package ccipevm
 
 import (
-	"errors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -13,5 +11,6 @@ func NewExtraArgsCodec() ExtraArgsCodec {
 }
 
 func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	return nil, errors.New("not implemented")
+	// Not implemented but will not return error
+	return nil, nil
 }
