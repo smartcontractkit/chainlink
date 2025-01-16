@@ -11,9 +11,15 @@ contract CCIPDummyReceiver is CCIPReceiver {
     address router
   ) CCIPReceiver(router) {}
 
+  function ccipReceive(
+    Client.Any2EVMMessage calldata message
+  ) external override onlyRouter {
+    _ccipReceive(message);
+  }
+
   function _ccipReceive(
     Client.Any2EVMMessage memory message
-  ) internal virtual override {
+  ) internal override {
     emit MessageReceived(message.messageId, message.sourceChainSelector, message.data);
   }
 }
