@@ -554,7 +554,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				ocrParams.CommitOffChainConfig.RMNEnabled = true
 			}
 		}
-		ocrParams := changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
+		ocrParams := changeset.DeriveCCIPOCRParams(
+			changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
 			changeset.WithDefaultExecuteOffChainConfig(tokenDataProviders),
 			changeset.WithOCRParamOverride(ocrOverride),
 		)
