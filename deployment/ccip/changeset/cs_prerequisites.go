@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
@@ -373,7 +374,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 	}
 	if deployOpts.USDCEnabled {
-		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		token, pool, messenger, transmitter, err1 := testhelpers.DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
 		}
