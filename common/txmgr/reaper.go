@@ -7,14 +7,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // Reaper handles periodic database cleanup for Txm
-type Reaper[CHAIN_ID types.ID] struct {
-	store          txmgrtypes.TxHistoryReaper[CHAIN_ID]
-	txConfig       txmgrtypes.ReaperTransactionsConfig
+type Reaper[CHAIN_ID chains.ID] struct {
+	store          types.TxHistoryReaper[CHAIN_ID]
+	txConfig       types.ReaperTransactionsConfig
 	chainID        CHAIN_ID
 	log            logger.Logger
 	latestBlockNum atomic.Int64
@@ -24,7 +25,7 @@ type Reaper[CHAIN_ID types.ID] struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], txConfig txmgrtypes.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
+func NewReaper[CHAIN_ID chains.ID](lggr logger.Logger, store types.TxHistoryReaper[CHAIN_ID], txConfig types.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
 	r := &Reaper[CHAIN_ID]{
 		store,
 		txConfig,

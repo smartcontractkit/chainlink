@@ -3,16 +3,16 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 )
 
 // StuckTxDetector is used by the Confirmer to determine if any unconfirmed transactions are terminally stuck
 type StuckTxDetector[
-	CHAIN_ID types.ID, // CHAIN_ID - chain id type
-	ADDR types.Hashable, // ADDR - chain address type
-	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
-	SEQ types.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
+	CHAIN_ID chains.ID, // CHAIN_ID - chain id type
+	ADDR chains.Hashable, // ADDR - chain address type
+	TX_HASH, BLOCK_HASH chains.Hashable, // various chain hash types
+	SEQ chains.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
 	FEE fees.Fee, // FEE - chain fee type
 ] interface {
 	// Uses either a chain specific API or heuristic to determine if any unconfirmed transactions are terminally stuck. Returns only one transaction per enabled address.

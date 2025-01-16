@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 const HeadsBufferSize = 10
 
 // HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
-type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+type HeadTracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	services.Service
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H) (err error)
@@ -45,10 +45,10 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface 
 }
 
 type headTracker[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S types.Subscription,
-	ID types.ID,
-	BLOCK_HASH types.Hashable,
+	HTH types.Head[BLOCK_HASH, ID],
+	S chains.Subscription,
+	ID chains.ID,
+	BLOCK_HASH chains.Hashable,
 ] struct {
 	services.Service
 	eng *services.Engine
@@ -57,10 +57,10 @@ type headTracker[
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *mailbox.Monitor
-	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
-	chainID         types.ID
-	config          htrktypes.Config
-	htConfig        htrktypes.HeadTrackerConfig
+	client          types.Client[HTH, S, ID, BLOCK_HASH]
+	chainID         chains.ID
+	config          types.Config
+	htConfig        types.HeadTrackerConfig
 
 	backfillMB   *mailbox.Mailbox[HTH]
 	broadcastMB  *mailbox.Mailbox[HTH]
@@ -70,15 +70,15 @@ type headTracker[
 
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
 func NewHeadTracker[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S types.Subscription,
-	ID types.ID,
-	BLOCK_HASH types.Hashable,
+	HTH types.Head[BLOCK_HASH, ID],
+	S chains.Subscription,
+	ID chains.ID,
+	BLOCK_HASH chains.Hashable,
 ](
 	lggr logger.Logger,
-	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
-	config htrktypes.Config,
-	htConfig htrktypes.HeadTrackerConfig,
+	client types.Client[HTH, S, ID, BLOCK_HASH],
+	config types.Config,
+	htConfig types.HeadTrackerConfig,
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver HeadSaver[HTH, BLOCK_HASH],
 	mailMon *mailbox.Monitor,
@@ -454,7 +454,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	return
 }
 
-type FinalizedMissingError[BLOCK_HASH types.Hashable] struct {
+type FinalizedMissingError[BLOCK_HASH chains.Hashable] struct {
 	Finalized, Canonical BLOCK_HASH
 }
 

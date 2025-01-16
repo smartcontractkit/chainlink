@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 const (
@@ -37,12 +37,12 @@ const (
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type Resender[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -61,12 +61,12 @@ type Resender[
 }
 
 func NewResender[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
 	lggr logger.Logger,
@@ -214,10 +214,10 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logStuckAt
 }
 
 func findOldestUnconfirmedAttempt[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool) {
 	var oldestAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]

@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 )
 
 var (
@@ -30,10 +30,10 @@ var (
 )
 
 // HeadHandler is a callback that handles incoming heads
-type HeadHandler[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] func(ctx context.Context, header H) error
+type HeadHandler[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] func(ctx context.Context, header H) error
 
 // HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
-type HeadListener[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+type HeadListener[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	services.Service
 
 	// ListenForNewHeads runs the listen loop (not thread safe)
@@ -50,34 +50,34 @@ type HeadListener[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface
 }
 
 type headListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S types.Subscription,
-	ID types.ID,
-	BLOCK_HASH types.Hashable,
+	HTH types.Head[BLOCK_HASH, ID],
+	S chains.Subscription,
+	ID chains.ID,
+	BLOCK_HASH chains.Hashable,
 ] struct {
 	services.Service
 	eng *services.Engine
 
-	config           htrktypes.Config
-	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	config           types.Config
+	client           types.Client[HTH, S, ID, BLOCK_HASH]
 	onSubscription   func(context.Context)
 	handleNewHead    HeadHandler[HTH, BLOCK_HASH]
 	chHeaders        <-chan HTH
-	headSubscription types.Subscription
+	headSubscription chains.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
 }
 
 func NewHeadListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
-	S types.Subscription,
-	ID types.ID,
-	BLOCK_HASH types.Hashable,
-	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH],
+	HTH types.Head[BLOCK_HASH, ID],
+	S chains.Subscription,
+	ID chains.ID,
+	BLOCK_HASH chains.Hashable,
+	CLIENT types.Client[HTH, S, ID, BLOCK_HASH],
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config htrktypes.Config,
+	config types.Config,
 	onSubscription func(context.Context),
 	handleNewHead HeadHandler[HTH, BLOCK_HASH],
 ) HeadListener[HTH, BLOCK_HASH] {

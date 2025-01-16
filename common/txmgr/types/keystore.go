@@ -3,17 +3,17 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
 // KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore[
 	// Account Address type.
-	ADDR types.Hashable,
+	ADDR chains.Hashable,
 	// Chain ID type
-	CHAIN_ID types.ID,
+	CHAIN_ID chains.ID,
 	// Chain's sequence type. For example, EVM chains use nonce, bitcoin uses UTXO.
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 ] interface {
 	CheckEnabled(ctx context.Context, address ADDR, chainID CHAIN_ID) error
 	EnabledAddressesForChain(ctx context.Context, chainId CHAIN_ID) ([]ADDR, error)

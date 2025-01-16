@@ -7,20 +7,20 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 )
 
 // TxmClient is a superset of all the methods needed for the txm
 type TxmClient[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
@@ -35,11 +35,11 @@ type TxmClient[
 
 // TransactionClient contains the methods for building, simulating, broadcasting transactions
 type TransactionClient[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
@@ -78,9 +78,9 @@ type TransactionClient[
 
 // ChainClient contains the interfaces for reading chain parameters (chain id, sequences, etc)
 type ChainClient[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	SEQ chains.Sequence,
 ] interface {
 	ConfiguredChainID() CHAIN_ID
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)

@@ -6,20 +6,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 )
 
 // TxAttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
 // and returns a signed TxAttempt
 // it is able to estimate fees and sign transactions
 type TxAttemptBuilder[
-	CHAIN_ID types.ID, // CHAIN_ID - chain id type
-	HEAD types.Head[BLOCK_HASH], // HEAD - chain head type
-	ADDR types.Hashable, // ADDR - chain address type
-	TX_HASH, BLOCK_HASH types.Hashable, // various chain hash types
-	SEQ types.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
+	CHAIN_ID chains.ID, // CHAIN_ID - chain id type
+	HEAD chains.Head[BLOCK_HASH], // HEAD - chain head type
+	ADDR chains.Hashable, // ADDR - chain address type
+	TX_HASH, BLOCK_HASH chains.Hashable, // various chain hash types
+	SEQ chains.Sequence, // SEQ - chain sequence type (nonce, utxo, etc)
 	FEE fees.Fee, // FEE - chain fee type
 ] interface {
 	// interfaces for running the underlying estimator

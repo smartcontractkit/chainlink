@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 const (
@@ -33,17 +33,17 @@ const (
 // Since such Txs can still have attempts on chain's mempool, these could still be confirmed.
 // This tracker just tracks such Txs for some time, in case they get confirmed as-is.
 type Tracker[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	services.StateMachine
-	txStore  txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	txStore  types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID  CHAIN_ID
 	lggr     logger.Logger
 
@@ -61,16 +61,16 @@ type Tracker[
 }
 
 func NewTracker[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ],
 	chainID CHAIN_ID,
 	lggr logger.Logger,
 ) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
@@ -298,7 +298,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	errMsg string) error {
 	tx.Error.SetValid(errMsg)
 

@@ -11,12 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
 const TrackableCallbackTimeout = 2 * time.Second
 
-type callbackSet[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] map[int]HeadTrackable[H, BLOCK_HASH]
+type callbackSet[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] map[int]HeadTrackable[H, BLOCK_HASH]
 
 func (set callbackSet[H, BLOCK_HASH]) values() []HeadTrackable[H, BLOCK_HASH] {
 	var values []HeadTrackable[H, BLOCK_HASH]
@@ -28,20 +28,20 @@ func (set callbackSet[H, BLOCK_HASH]) values() []HeadTrackable[H, BLOCK_HASH] {
 
 // HeadTrackable is implemented by the core txm to be able to receive head events from any chain.
 // Chain implementations should notify head events to the core txm via this interface.
-type HeadTrackable[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+type HeadTrackable[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	// OnNewLongestChain sends a new head when it becomes available. Subscribers can recursively trace the parent
 	// of the head to the finalized block back.
 	OnNewLongestChain(ctx context.Context, head H)
 }
 
 // HeadBroadcaster relays new Heads to all subscribers.
-type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+type HeadBroadcaster[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	services.Service
 	BroadcastNewLongestChain(H)
 	Subscribe(callback HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func())
 }
 
-type headBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+type headBroadcaster[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] struct {
 	services.Service
 	eng *services.Engine
 
@@ -54,8 +54,8 @@ type headBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster[
-	H types.Head[BLOCK_HASH],
-	BLOCK_HASH types.Hashable,
+	H chains.Head[BLOCK_HASH],
+	BLOCK_HASH chains.Hashable,
 ](
 	lggr logger.Logger,
 ) HeadBroadcaster[H, BLOCK_HASH] {

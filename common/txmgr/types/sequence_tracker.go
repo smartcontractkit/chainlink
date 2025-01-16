@@ -4,14 +4,15 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+
+	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
 type SequenceTracker[
 	// Represents an account address, in native chain format.
-	ADDR types.Hashable,
+	ADDR chains.Hashable,
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 ] interface {
 	// Load the next sequence needed for transactions for all enabled addresses
 	LoadNextSequences(context.Context, []ADDR)

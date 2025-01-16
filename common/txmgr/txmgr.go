@@ -17,10 +17,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 // For more information about the Txm architecture, see the design doc:
@@ -34,12 +34,12 @@ type NewErrorClassifier func(err error) txmgrtypes.ErrorClassifier
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
 type TxManager[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
@@ -75,13 +75,13 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	services.StateMachine
@@ -123,13 +123,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
 	chainId CHAIN_ID,
@@ -677,11 +677,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 }
 
 type NullTxManager[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	ErrMsg string

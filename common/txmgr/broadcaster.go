@@ -20,9 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 const (
@@ -61,26 +61,26 @@ var (
 
 var ErrTxRemoved = errors.New("tx removed")
 
-type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
+type ProcessUnstartedTxs[ADDR chains.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
-	BuildChecker(spec txmgrtypes.TransmitCheckerSpec[ADDR]) (TransmitChecker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	BuildChecker(spec types.TransmitCheckerSpec[ADDR]) (TransmitChecker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
 type TransmitChecker[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 
@@ -88,7 +88,7 @@ type TransmitChecker[
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
-	Check(ctx context.Context, l logger.SugaredLogger, tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], a txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	Check(ctx context.Context, l logger.SugaredLogger, tx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], a types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -105,27 +105,27 @@ type TransmitChecker[
 // - transition of txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved tx_attempt
 type Broadcaster[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	services.StateMachine
 	lggr    logger.SugaredLogger
-	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	client  txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	sequenceTracker txmgrtypes.SequenceTracker[ADDR, SEQ]
+	txStore types.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	client  types.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	sequenceTracker types.SequenceTracker[ADDR, SEQ]
 	resumeCallback  ResumeCallback
 	chainID         CHAIN_ID
 	chainType       string
-	config          txmgrtypes.BroadcasterChainConfig
-	feeConfig       txmgrtypes.BroadcasterFeeConfig
-	txConfig        txmgrtypes.BroadcasterTransactionsConfig
-	listenerConfig  txmgrtypes.BroadcasterListenerConfig
+	config          types.BroadcasterChainConfig
+	feeConfig       types.BroadcasterFeeConfig
+	txConfig        types.BroadcasterTransactionsConfig
+	listenerConfig  types.BroadcasterListenerConfig
 
 	// autoSyncSequence, if set, will cause Broadcaster to fast-forward the sequence
 	// when Start is called
@@ -133,7 +133,7 @@ type Broadcaster[
 
 	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
 
-	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks               types.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -151,23 +151,23 @@ type Broadcaster[
 }
 
 func NewBroadcaster[
-	CHAIN_ID types.ID,
-	HEAD types.Head[BLOCK_HASH],
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	HEAD chains.Head[BLOCK_HASH],
+	ADDR chains.Hashable,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
-	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	config txmgrtypes.BroadcasterChainConfig,
-	feeConfig txmgrtypes.BroadcasterFeeConfig,
-	txConfig txmgrtypes.BroadcasterTransactionsConfig,
-	listenerConfig txmgrtypes.BroadcasterListenerConfig,
-	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	sequenceTracker txmgrtypes.SequenceTracker[ADDR, SEQ],
+	txStore types.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	client types.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	config types.BroadcasterChainConfig,
+	feeConfig types.BroadcasterFeeConfig,
+	txConfig types.BroadcasterTransactionsConfig,
+	listenerConfig types.BroadcasterListenerConfig,
+	keystore types.KeyStore[ADDR, CHAIN_ID, SEQ],
+	txAttemptBuilder types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	sequenceTracker types.SequenceTracker[ADDR, SEQ],
 	lggr logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
@@ -428,7 +428,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	return nil, false
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleUnstartedTx(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (error, bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleUnstartedTx(ctx context.Context, etx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (error, bool) {
 	if etx.State != TxUnstarted {
 		return fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", etx.ID, etx.State), false
 	}
@@ -483,7 +483,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retryCount int) (error, bool) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retryCount int) (error, bool) {
 	if etx.State != TxInProgress {
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
@@ -549,7 +549,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// and hand off to the confirmer to get the receipt (or mark as
 		// failed).
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, txmgrtypes.TxAttemptBroadcast)
+		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, types.TxAttemptBroadcast)
 		if err != nil {
 			return err, true
 		}
@@ -613,7 +613,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 			// transaction to have been accepted. In this case, the right thing to
 			// do is assume success and hand off to Confirmer
 
-			err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, txmgrtypes.TxAttemptBroadcast)
+			err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, types.TxAttemptBroadcast)
 			if err != nil {
 				return err, true
 			}
@@ -631,7 +631,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
 	// Only check if sequence was incremented if broadcast was successful, otherwise return the existing err type
 	if errType != multinode.Successful {
 		return errType, err
@@ -671,7 +671,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) nextUnstartedTransactionWithSequence(fromAddress ADDR) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) nextUnstartedTransactionWithSequence(fromAddress ADDR) (*types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 	etx, err := eb.txStore.FindNextUnstartedTransactionFromAddress(ctx, fromAddress, eb.chainID)
@@ -692,7 +692,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 }
 
 // replaceAttemptWithBumpedGas performs the replacement of the existing tx attempt with a new bumped fee attempt.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
 	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
 	if eb.chainType != hederaChainType {
 		logger.With(lgr,
@@ -720,7 +720,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 }
 
 // replaceAttemptWithNewEstimation performs the replacement of the existing tx attempt with a new estimated fee attempt.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt *types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
 	newEstimatedAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, fees.OptForceRefetch)
 	if err != nil {
 		return &newEstimatedAttempt, retryable, err
@@ -734,7 +734,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 	return &newEstimatedAttempt, true, err
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 	if etx.State != TxInProgress && etx.State != TxUnstarted {
@@ -771,7 +771,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) save
 	return eb.txStore.UpdateTxFatalErrorAndDeleteAttempts(ctx, etx)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID types.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast[CHAIN_ID chains.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }

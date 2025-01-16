@@ -6,10 +6,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+
+	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
-type Finalizer[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]] interface {
+type Finalizer[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]] interface {
 	// interfaces for running the underlying estimator
 	services.Service
 	DeliverLatestHead(head HEAD) bool

@@ -8,24 +8,24 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 )
 
 // TxStore is a superset of all the needed persistence layer methods
 type TxStore[
 	// Represents an account address, in native chain format.
-	ADDR types.Hashable,
+	ADDR chains.Hashable,
 	// Represents a chain id to be used for the chain.
-	CHAIN_ID types.ID,
+	CHAIN_ID chains.ID,
 	// Represents a unique Tx Hash for a chain
-	TX_HASH types.Hashable,
+	TX_HASH chains.Hashable,
 	// Represents a unique Block Hash for a chain
-	BLOCK_HASH types.Hashable,
+	BLOCK_HASH chains.Hashable,
 	// Represents a onchain receipt object that a chain's RPC returns
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ types.Sequence,
+	SEQ chains.Sequence,
 	// Represents the chain specific fee type
 	FEE fees.Fee,
 ] interface {
@@ -56,11 +56,11 @@ type TxStore[
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts
 type TransactionStore[
-	ADDR types.Hashable,
-	CHAIN_ID types.ID,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	ADDR chains.Hashable,
+	CHAIN_ID chains.ID,
+	TX_HASH chains.Hashable,
+	BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
 	CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (count uint32, err error)
@@ -111,7 +111,7 @@ type TransactionStore[
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }
 
-type TxHistoryReaper[CHAIN_ID types.ID] interface {
+type TxHistoryReaper[CHAIN_ID chains.ID] interface {
 	ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error
 }
 
@@ -126,7 +126,7 @@ type ReceiptPlus[R any] struct {
 	FailOnRevert bool      `db:"fail_on_revert"`
 }
 
-type ChainReceipt[TX_HASH, BLOCK_HASH types.Hashable] interface {
+type ChainReceipt[TX_HASH, BLOCK_HASH chains.Hashable] interface {
 	GetStatus() uint64
 	GetTxHash() TX_HASH
 	GetBlockNumber() *big.Int

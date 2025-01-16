@@ -6,14 +6,14 @@ import (
 
 	"github.com/google/uuid"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
-var _ txmgrtypes.TxStrategy = SendEveryStrategy{}
+var _ types.TxStrategy = SendEveryStrategy{}
 
 // NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
 // queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy txmgrtypes.TxStrategy) {
+func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy types.TxStrategy) {
 	if queueSize > 0 {
 		strategy = NewDropOldestStrategy(subject, queueSize)
 	} else {
@@ -23,7 +23,7 @@ func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy txmgrt
 }
 
 // NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
-func NewSendEveryStrategy() txmgrtypes.TxStrategy {
+func NewSendEveryStrategy() types.TxStrategy {
 	return SendEveryStrategy{}
 }
 
@@ -31,11 +31,11 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) ([]int64, error) {
+func (SendEveryStrategy) PruneQueue(ctx context.Context, pruneService types.UnstartedTxQueuePruner) ([]int64, error) {
 	return nil, nil
 }
 
-var _ txmgrtypes.TxStrategy = DropOldestStrategy{}
+var _ types.TxStrategy = DropOldestStrategy{}
 
 // DropOldestStrategy will send the newest N transactions, older ones will be
 // removed from the queue
@@ -54,7 +54,7 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (ids []int64, err error) {
+func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService types.UnstartedTxQueuePruner) (ids []int64, err error) {
 	// NOTE: We prune one less than the queue size to prevent the queue from exceeding the max queue size. Which could occur if a new transaction is added to the queue right after we prune.
 	ids, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize-1, s.subject)
 	if err != nil {

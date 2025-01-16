@@ -1,4 +1,4 @@
-package types
+package chains
 
 // Subscription represents an event subscription where events are
 // delivered on a data channel.

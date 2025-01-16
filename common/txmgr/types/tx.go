@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fees"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -64,7 +64,7 @@ func (s TxAttemptState) String() (str string) {
 	return txAttemptStateStrings[0]
 }
 
-type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+type TxRequest[ADDR chains.Hashable, TX_HASH chains.Hashable] struct {
 	// IdempotencyKey is a globally unique ID set by the caller, to prevent accidental creation of duplicated Txs during retries or crash recovery.
 	// If this field is set, the TXM will first search existing Txs with this field.
 	// If found, it will return the existing Tx, without creating a new one. TXM will not validate or ensure that existing Tx is same as the incoming TxRequest.
@@ -97,7 +97,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
 // on chain.
-type TransmitCheckerSpec[ADDR types.Hashable] struct {
+type TransmitCheckerSpec[ADDR chains.Hashable] struct {
 	// CheckerType is the type of check that should be performed. Empty indicates no check.
 	CheckerType TransmitCheckerType `json:",omitempty"`
 
@@ -116,7 +116,7 @@ type TransmitCheckerType string
 
 // TxMeta contains fields of the transaction metadata
 // Not all fields are guaranteed to be present
-type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+type TxMeta[ADDR chains.Hashable, TX_HASH chains.Hashable] struct {
 	JobID *int32 `json:"JobID,omitempty"`
 
 	// Pipeline fields
@@ -166,10 +166,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 type TxAttempt[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	ID    int64
@@ -193,10 +193,10 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() stri
 }
 
 type Tx[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	CHAIN_ID chains.ID,
+	ADDR chains.Hashable,
+	TX_HASH, BLOCK_HASH chains.Hashable,
+	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	ID             int64

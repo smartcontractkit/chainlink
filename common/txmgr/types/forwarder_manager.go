@@ -5,10 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
-type ForwarderManager[ADDR types.Hashable] interface {
+type ForwarderManager[ADDR chains.Hashable] interface {
 	services.Service
 	ForwarderFor(ctx context.Context, addr ADDR) (forwarder ADDR, err error)
 	ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator ADDR) (forwarder ADDR, err error)
