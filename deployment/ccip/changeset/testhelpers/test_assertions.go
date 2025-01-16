@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -676,7 +676,7 @@ func AssertTimelockOwnership(
 			state.Chains[chain].NonceManager.Address(),
 			state.Chains[chain].RMNRemote.Address(),
 		} {
-			owner, _, err := changeset2.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
+			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
 		}
@@ -689,7 +689,7 @@ func AssertTimelockOwnership(
 		state.Chains[e.HomeChainSel].CCIPHome.Address(),
 		state.Chains[e.HomeChainSel].RMNHome.Address(),
 	} {
-		owner, _, err := changeset2.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
+		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
 	}
