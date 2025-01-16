@@ -99,8 +99,8 @@ contract FeeQuoterHelper is FeeQuoter {
     return _processChainFamilySelector(chainFamilySelector, isMessageWithTokenTransfer, extraArgs);
   }
 
-  function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) external pure {
-    _validateDestFamilyAddress(chainFamilySelector, destAddress);
+  function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress, uint256 gasLimit) external pure {
+    _validateDestFamilyAddress(chainFamilySelector, destAddress, gasLimit);
   }
 
   function calculateRebasedValue(

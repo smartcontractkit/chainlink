@@ -184,9 +184,6 @@ library Internal {
   ) internal pure returns (bytes32) {
     if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
     bytes32 encodedAddressBytes32 = abi.decode(encodedAddress, (bytes32));
-    if (encodedAddressBytes32 == bytes32(0)) {
-      revert InvalidSVMAddress(encodedAddress);
-    }
     return encodedAddressBytes32;
   }
 

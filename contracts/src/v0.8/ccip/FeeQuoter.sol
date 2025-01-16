@@ -876,12 +876,15 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @param chainFamilySelector Tag to identify the target family.
   /// @param destAddress Dest address to validate.
   /// @dev precondition - assumes the family tag is correct and validated.
-  function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) internal pure {
+  function _validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress, uint256 gasLimit) internal pure {
     if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
       Internal._validateEVMAddress(destAddress);
       return;
     } else if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      Internal._validateSVMAddress(destAddress);
+      bytes32 svmAddress = Internal._validateSVMAddress(destAddress);
+      if (gasLimit > 0 && svmAddress == bytes32(0)) {
+        revert Internal.InvalidSVMAddress(destAddress);
+      }
       return;
     }
     revert InvalidChainFamilySelector(chainFamilySelector);
@@ -942,10 +945,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
-    }
-
-    if (svmExtraArgs.computeUnits == 0) {
-      svmExtraArgs.computeUnits = defaultTxGasLimit;
     }
 
     if (svmExtraArgs.computeUnits > maxPerMsgGasLimit) {
@@ -1025,9 +1024,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     if (numberOfTokens > uint256(destChainConfig.maxNumberOfTokensPerMsg)) {
       revert UnsupportedNumberOfTokens(numberOfTokens, destChainConfig.maxNumberOfTokensPerMsg);
     }
-    if (gasLimit > 0) {
-      _validateDestFamilyAddress(destChainConfig.chainFamilySelector, receiver);
-    }
+    _validateDestFamilyAddress(destChainConfig.chainFamilySelector, receiver, gasLimit);
   }
 
   /// @inheritdoc IFeeQuoter
