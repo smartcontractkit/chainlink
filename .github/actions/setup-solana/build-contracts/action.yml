@@ -10,12 +10,12 @@ runs:
       run: |
         revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | sed 's/^v//' | awk -F- '{print $NF}')
         echo "CCIP_REVISION=${revision}" >> $GITHUB_ENV
-
     - name: Checkout chainlink-ccip
       uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
       with:
         repository: smartcontractkit/chainlink-ccip
         ref: ${{ env.CCIP_REVISION }}
+        fetch-depth: 0 
         path: chainlink-ccip
     - name: Get Anchor Version
       id: get_anchor_version
