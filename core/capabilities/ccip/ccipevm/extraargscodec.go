@@ -1,8 +1,13 @@
 package ccipevm
 
 import (
+	"fmt"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
+
+const evmExtraArgsKey = "gasLimit"
 
 type ExtraArgsCodec struct{}
 
@@ -12,5 +17,23 @@ func NewExtraArgsCodec() ExtraArgsCodec {
 
 func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	// Not implemented but will not return error
-	return nil, nil
+	family, err := chain_selectors.GetSelectorFamily(uint64(sourceChainSelector))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode extra data, %w", err)
+	}
+
+	extraDataMap := make(map[string]any)
+	switch family {
+	case chain_selectors.FamilyEVM:
+		v2, err1 := decodeExtraArgsV1V2(extraArgs)
+		if err1 != nil {
+			return nil, err1
+		}
+
+		extraDataMap[evmExtraArgsKey] = v2
+	case chain_selectors.FamilySolana:
+		// TODO add svm args type decoding logic once on-chain work is finished
+	}
+
+	return extraDataMap, nil
 }
