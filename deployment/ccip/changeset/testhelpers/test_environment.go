@@ -545,9 +545,18 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
+		ocrOverride := tc.OCRConfigOverride
+		if tc.RMNEnabled {
+			ocrOverride = func(ocrParams *changeset.CCIPOCRParams) {
+				if tc.OCRConfigOverride != nil {
+					tc.OCRConfigOverride(ocrParams)
+				}
+				ocrParams.CommitOffChainConfig.RMNEnabled = true
+			}
+		}
 		ocrParams := changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
 			changeset.WithDefaultExecuteOffChainConfig(tokenDataProviders),
-			changeset.WithOCRParamOverride(tc.OCRConfigOverride),
+			changeset.WithOCRParamOverride(ocrOverride),
 		)
 		ocrConfigs[chain] = ocrParams
 		chainConfigs[chain] = changeset.ChainConfig{
