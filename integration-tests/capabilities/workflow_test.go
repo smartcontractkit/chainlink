@@ -367,6 +367,7 @@ func TestWorkflow(t *testing.T) {
 		))
 
 		forwarderInstance, err := forwarder.Deploy(sc)
+		fmt.Printf("Deployed forawrder contract: %s", forwarderInstance.Address.String())
 		require.NoError(t, err)
 
 		workflowRegistryAddr, tx, workflow_registryInstance, err := workflow_registry.DeployWorkflowRegistry(sc.NewTXOpts(), sc.Client)
@@ -562,6 +563,22 @@ func TestWorkflow(t *testing.T) {
 		)
 		_, decodeErr = sc.Decode(tx, err)
 		require.NoError(t, decodeErr)
+
+		// just wait for contracts to be indexed by Blockscout and then verify
+		time.Sleep(20 * time.Second)
+
+		err = blockchain.VerifyContract(bc, feedsConsumerAddress.String(),
+			"../../contracts",
+			"src/v0.8/keystone/KeystoneFeedsConsumer.sol",
+			"KeystoneFeedsConsumer",
+		)
+		require.NoError(t, err)
+		err = blockchain.VerifyContract(bc, forwarderInstance.Address.String(),
+			"../../contracts",
+			"src/v0.8/keystone/KeystoneForwarder.sol",
+			"KeystoneForwarder",
+		)
+		require.NoError(t, err)
 
 		fmt.Println("Deployed feeds_consumer contract at", feedsConsumerAddress.Hex())
 
