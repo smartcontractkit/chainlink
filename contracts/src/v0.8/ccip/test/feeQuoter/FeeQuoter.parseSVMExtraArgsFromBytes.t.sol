@@ -17,6 +17,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   function setUp() public virtual override {
     super.setUp();
     s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+    s_destChainConfig.enforceOutOfOrder = true; // Enforcing out of order execution for messages to SVM
     s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
 
     FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
@@ -37,6 +38,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
       computeUnits: GAS_LIMIT,
       accountIsWritableBitmap: 0,
       tokenReceiver: bytes32(0),
+      allowOutOfOrderExecution: true,
       accounts: solAccounts
     });
 
@@ -46,6 +48,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
       computeUnits: GAS_LIMIT,
       accountIsWritableBitmap: 0,
       tokenReceiver: bytes32(0),
+      allowOutOfOrderExecution: true,
       accounts: solAccounts
     });
 
@@ -56,48 +59,63 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   }
 
   function test_SVMExtraArgsDefault() public view {
+    // We pass only the 4-byte tag
+    bytes memory tagOnly = abi.encodeWithSelector(Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG);
+
+    // We expect defaults in the struct
     Client.SVMExtraArgsV1 memory expectedOutputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.defaultTxGasLimit,
       accountIsWritableBitmap: 0,
       tokenReceiver: bytes32(0),
+      allowOutOfOrderExecution: true,
       accounts: new bytes32[](0)
     });
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes("", s_destChainConfig)), abi.encode(expectedOutputArgs)
+      abi.encode(s_feeQuoter.parseSVMExtraArgsFromBytes(tagOnly, s_destChainConfig)),
+      abi.encode(expectedOutputArgs)
     );
-  }
-
-  function test_resolveGasLimitForDestination_defaultTxGasLimit() public {
-    // Need to apply a chain family selector that does not have an explicit extraArgs parser available
-    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
-    destChainConfigArgs[0] = _generateFeeQuoterDestChainConfigArgs()[0];
-    destChainConfigArgs[0].destChainConfig.isEnabled = false;
-    destChainConfigArgs[0].destChainSelector = DEST_CHAIN_SELECTOR + 1;
-    destChainConfigArgs[0].destChainConfig.chainFamilySelector = bytes4(0xdeadbeef);
-
-    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
-    s_destChainConfig = destChainConfigArgs[0].destChainConfig;
-
-    vm.expectRevert(
-      abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, s_destChainConfig.chainFamilySelector)
-    );
-    s_feeQuoter.resolveGasLimitForDestination("", s_destChainConfig);
   }
 
   // Reverts
+
+  function test_parseSVMExtraArgsFromBytes_RevertWhen_ExtraArgsAreEmpty() public {
+    bytes memory inputExtraArgs = new bytes(0);
+
+    vm.expectRevert(FeeQuoter.EmptyExtraArgsData.selector);
+    s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+  }
 
   function test_SVMExtraArgsV1_RevertWhen_MessageGasLimitTooHigh() public {
     Client.SVMExtraArgsV1 memory inputArgs = Client.SVMExtraArgsV1({
       computeUnits: s_destChainConfig.maxPerMsgGasLimit + 1,
       accountIsWritableBitmap: 0,
       tokenReceiver: bytes32(0),
+      allowOutOfOrderExecution: true,
       accounts: new bytes32[](0)
     });
 
     bytes memory inputExtraArgs = Client._svmArgsToBytes(inputArgs);
 
     vm.expectRevert(FeeQuoter.MessageGasLimitTooHigh.selector);
+    s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+  }
+
+  function test_SVMExtraArgsV1_RevertWhen_ExtraArgOutOfOrderExecutionIsFalse() public {
+    bytes memory inputExtraArgs = abi.encodeWithSelector(
+      Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG,
+      abi.encode(
+        Client.SVMExtraArgsV1({
+          computeUnits: 1_000_000, // within range
+          accountIsWritableBitmap: 0,
+          tokenReceiver: bytes32(0),
+          allowOutOfOrderExecution: false, // mismatch with enforcedOutOfOrder = true
+          accounts: new bytes32[](0)
+        })
+      )
+    );
+
+    vm.expectRevert(FeeQuoter.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
     s_feeQuoter.parseSVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
   }
 }

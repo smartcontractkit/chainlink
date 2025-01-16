@@ -57,6 +57,7 @@ library Client {
   struct SVMExtraArgsV1 {
     uint32 computeUnits;
     uint64 accountIsWritableBitmap;
+    bool allowOutOfOrderExecution;
     bytes32 tokenReceiver;
     bytes32[] accounts;
   }

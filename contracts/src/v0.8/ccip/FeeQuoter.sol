@@ -38,6 +38,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error ExtraArgOutOfOrderExecutionMustBeTrue();
   error InvalidExtraArgsTag();
   error InvalidExtraArgsData();
+  error EmptyExtraArgsData();
   error SourceTokenDataTooLarge(address token);
   error InvalidDestChainConfig(uint64 destChainSelector);
   error MessageFeeTooHigh(uint256 msgFeeJuels, uint256 maxFeeJuelsPerMsg);
@@ -554,17 +555,16 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
-    if (destChainConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
     if (!s_feeTokens.contains(message.feeToken)) revert FeeTokenNotSupported(message.feeToken);
 
     uint256 numberOfTokens = message.tokenAmounts.length;
     uint256 gasLimit = _resolveGasLimitForDestination(message.extraArgs, destChainConfig);
 
-    _validateMessage(v.destChainConfig, message.data.length, v.numberOfTokens, v.gasLimit, message.receiver);
+    _validateMessage(destChainConfig, message.data.length, numberOfTokens, gasLimit, message.receiver);
 
     // The below call asserts that feeToken is a supported token.
-    v.feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
-    v.packedGasPrice = _getValidatedGasPrice(destChainSelector, v.destChainConfig.gasPriceStalenessThreshold);
+    uint224 feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
+    uint256 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
     // If message-only and no token transfers, a flat network fee is charged.
@@ -628,12 +628,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // We add the destination chain CCIP overhead (commit, exec), the token transfer gas, the calldata cost and the msg
     // gas limit to get the total gas the tx costs to execute on the destination chain.
     uint256 totalDestChainGas = destChainConfig.destGasOverhead + tokenTransferGas + destCallDataCost
-      + _parseEVMExtraArgsFromBytes(
-        message.extraArgs,
-        destChainConfig.defaultTxGasLimit,
-        destChainConfig.maxPerMsgGasLimit,
-        destChainConfig.enforceOutOfOrder
-      ).gasLimit;
+      + gasLimit;
 
     // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
     // The result is the fee in the feeTokens smallest denominations (e.g. wei for ETH).
@@ -898,9 +893,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     DestChainConfig memory destChainConfig
   ) internal pure returns (uint256) {
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig).gasLimit;
+      return _parseEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder).gasLimit;
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig).computeUnits;
+      return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder).computeUnits;
     }
     revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
@@ -908,20 +903,50 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Parse and validate the SVM specific Extra Args Bytes.
   function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
+    uint32 defaultTxGasLimit,
+    uint256 maxPerMsgGasLimit,
+    bool enforcedOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
-    if (extraArgs.length == 0) {
-      svmExtraArgs.computeUnits = destChainConfig.defaultTxGasLimit;
-      return svmExtraArgs;
+
+    if (extraArgs.length < 4) {
+      revert InvalidExtraArgsData();
     }
 
-    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
+    bytes4 tag = bytes4(extraArgs[:4]);
+    if (tag != Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG) {
+      revert InvalidExtraArgsTag();
+    }
 
-    // Check that compute units is within the allowed range.
-    if (svmExtraArgs.computeUnits > uint256(destChainConfig.maxPerMsgGasLimit)) revert MessageGasLimitTooHigh();
+    // If we have more than 4 bytes, decode the SVMExtraArgsV1 struct.
+    // Otherwise, we default the struct fields.
+    if (extraArgs.length > 4) {
+      svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
+    } else {
+      // We only have the tag and no additional data, so define a default struct
+      svmExtraArgs = Client.SVMExtraArgsV1({
+        computeUnits: defaultTxGasLimit,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: true,
+        accounts: new bytes32[](0)
+      });
+    }
+
+    if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
+      revert ExtraArgOutOfOrderExecutionMustBeTrue();
+    }
+
+    if (svmExtraArgs.computeUnits == 0) {
+      svmExtraArgs.computeUnits = defaultTxGasLimit;
+    }
+
+    if (svmExtraArgs.computeUnits > maxPerMsgGasLimit) {
+      revert MessageGasLimitTooHigh();
+    }
 
     return svmExtraArgs;
   }
+
 
   /// @dev Convert the extra args bytes into a struct with validations against the dest chain config.
   /// @param extraArgs The extra args bytes.
@@ -1049,7 +1074,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     } else if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig);
+      Client.SVMExtraArgsV1 memory parsedExtraArgs = _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
       if (isMessageWithTokenTransfer && parsedExtraArgs.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }

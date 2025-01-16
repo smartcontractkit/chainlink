@@ -143,6 +143,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
         computeUnits: 0,
         accountIsWritableBitmap: 0,
         tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: true,
         accounts: new bytes32[](0)
       })
     );
