@@ -44,6 +44,7 @@ type TestConfigs struct {
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts      bool
 	PrerequisiteDeploymentOnly bool
+	V1_5Cfg                    V1_5DeploymentConfig
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -106,9 +107,12 @@ func WithMultiCall3() TestOps {
 	}
 }
 
-func WithPrerequisiteDeployment() TestOps {
+func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
+		if v1_5Cfg != nil {
+			testCfg.V1_5Cfg = *v1_5Cfg
+		}
 	}
 }
 
@@ -361,10 +365,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 				opts = append(opts, WithMultiCall3Enabled())
 			}
 		}
-		// no RMNConfig will ensure that mock RMN is deployed
-		opts = append(opts, WithLegacyDeploymentEnabled(LegacyDeploymentConfig{
-			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
-		}))
+		if tc.V1_5Cfg != (V1_5DeploymentConfig{}) {
+			opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		}
 		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
@@ -541,7 +544,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			CallProxy: state.Chains[chain].CallProxy,
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, state.Chains[chain].LinkToken, state.Chains[chain].Weth9)
-		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders)
+		ocrParams := DefaultOCRParams(e.FeedChainSel, tokenInfo, tokenDataProviders, true, true)
 		if tc.OCRConfigOverride != nil {
 			ocrParams = tc.OCRConfigOverride(ocrParams)
 		}
@@ -570,9 +573,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// Add the DONs and candidate commit OCR instances for the chain.
 			Changeset: commonchangeset.WrapChangeSet(AddDonAndSetCandidateChangeset),
 			Config: AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase{
-					HomeChainSelector:               e.HomeChainSel,
-					FeedChainSelector:               e.FeedChainSel,
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+				},
+				PluginInfo: SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: ocrConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
@@ -582,30 +587,33 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// Add the exec OCR instances for the new chains.
 			Changeset: commonchangeset.WrapChangeSet(SetCandidateChangeset),
 			Config: SetCandidateChangesetConfig{
-				SetCandidateConfigBase{
-					HomeChainSelector:               e.HomeChainSel,
-					FeedChainSelector:               e.FeedChainSel,
-					OCRConfigPerRemoteChainSelector: ocrConfigs,
-					PluginType:                      types.PluginTypeCCIPExec,
+				SetCandidateConfigBase: SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+				},
+				PluginInfo: []SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigs,
+						PluginType:                      types.PluginTypeCCIPExec,
+					},
 				},
 			},
 		},
 		{
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				RemoteChainSelectors: allChains,
-				PluginType:           types.PluginTypeCCIPCommit,
-			},
-		},
-		{
-			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(PromoteAllCandidatesChangeset),
-			Config: PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    e.HomeChainSel,
-				RemoteChainSelectors: allChains,
-				PluginType:           types.PluginTypeCCIPExec,
+			Changeset: commonchangeset.WrapChangeSet(PromoteCandidateChangeset),
+			Config: PromoteCandidateChangesetConfig{
+				HomeChainSelector: e.HomeChainSel,
+				PluginInfo: []PromoteCandidatePluginInfo{
+					{
+						PluginType:           types.PluginTypeCCIPCommit,
+						RemoteChainSelectors: allChains,
+					},
+					{
+						PluginType:           types.PluginTypeCCIPExec,
+						RemoteChainSelectors: allChains,
+					},
+				},
 			},
 		},
 		{

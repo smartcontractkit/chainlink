@@ -11,8 +11,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -80,7 +80,7 @@ func (r *Resolver) Chain(ctx context.Context,
 		id, err := loader.GetChainByID(ctx, string(args.ID))
 		if err != nil {
 			if errors.Is(err, chains.ErrNotFound) {
-				return NewChainPayload(commonTypes.ChainStatusWithID{}, chains.ErrNotFound), nil
+				return NewChainPayload(chainlink.NetworkChainStatus{}, chains.ErrNotFound), nil
 			}
 			return nil, err
 		}
@@ -91,7 +91,7 @@ func (r *Resolver) Chain(ctx context.Context,
 	id, err := loader.GetChainByRelayID(ctx, relayID.Name())
 	if err != nil {
 		if errors.Is(err, chains.ErrNotFound) {
-			return NewChainPayload(commonTypes.ChainStatusWithID{}, chains.ErrNotFound), nil
+			return NewChainPayload(chainlink.NetworkChainStatus{}, chains.ErrNotFound), nil
 		}
 		return nil, err
 	}
@@ -111,21 +111,21 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	var chains []commonTypes.ChainStatusWithID
 	relayersMap, err := r.App.GetRelayers().GetIDToRelayerMap()
 	if err != nil {
 		return nil, err
 	}
 
+	chains := make([]chainlink.NetworkChainStatus, 0, len(relayersMap))
 	for k, v := range relayersMap {
 		s, err := v.GetChainStatus(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		chains = append(chains, commonTypes.ChainStatusWithID{
+		chains = append(chains, chainlink.NetworkChainStatus{
 			ChainStatus: s,
-			RelayID:     k,
+			Network:     k.Network,
 		})
 	}
 
@@ -136,10 +136,10 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	}
 
 	// bound the chain results
-	if offset >= len(chains) {
+	if offset >= count {
 		return nil, fmt.Errorf("offset %d out of range", offset)
 	}
-	end := len(chains)
+	end := count
 	if limit > 0 && offset+limit < end {
 		end = offset + limit
 	}
@@ -148,7 +148,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	return NewChainsPayload(chains[offset:end], int32(count)), nil
 }
 
-func sortByNetworkAndID(chains []commonTypes.ChainStatusWithID) {
+func sortByNetworkAndID(chains []chainlink.NetworkChainStatus) {
 	sort.SliceStable(chains, func(i, j int) bool {
 		if chains[i].Network == chains[j].Network {
 			return chains[i].ID < chains[j].ID
