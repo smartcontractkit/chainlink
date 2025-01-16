@@ -32,7 +32,7 @@ func Test_AddChain(t *testing.T) {
 		t,
 		ccipcs.WithChains(numChains),
 		ccipcs.WithNodes(4),
-		ccipcs.WithPrerequisiteDeployment(),
+		ccipcs.WithPrerequisiteDeployment(nil),
 		ccipcs.WithUsersPerChain(usersPerChain),
 		ccipcs.WithNoJobsAndContracts(),
 		ccipcs.WithOCRConfigOverride(func(params ccipcs.CCIPOCRParams) ccipcs.CCIPOCRParams {
