@@ -83,6 +83,21 @@ func (c *DeployLaneConfig) Validate(e deployment.Environment, state changeset.CC
 	return nil
 }
 
+func (c *DeployLaneConfig) populateAddresses(state changeset.CCIPOnChainState) error {
+	sourceChainState := state.Chains[c.SourceChainSelector]
+	srcLink, err := sourceChainState.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get LINK token address for source chain %d: %w", c.SourceChainSelector, err)
+	}
+	c.OnRampStaticCfg.LinkToken = srcLink
+	c.OnRampStaticCfg.RmnProxy = sourceChainState.RMNProxy.Address()
+	c.OnRampStaticCfg.TokenAdminRegistry = sourceChainState.TokenAdminRegistry.Address()
+
+	c.OnRampDynamicCfg.Router = sourceChainState.Router.Address()
+	c.OnRampDynamicCfg.PriceRegistry = sourceChainState.PriceRegistry.Address()
+	return nil
+}
+
 func DeployLanes(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
@@ -90,6 +105,12 @@ func DeployLanes(env deployment.Environment, c DeployLanesConfig) (deployment.Ch
 	}
 	if err := c.Validate(env, state); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
+	}
+	// populate addresses from the state
+	for i := range c.Configs {
+		if err := c.Configs[i].populateAddresses(state); err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	for _, cfg := range c.Configs {
