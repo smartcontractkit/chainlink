@@ -8,7 +8,7 @@ runs:
       id: get_ccip_chains_solana_revision
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # get the version set up in the gomod file
         short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | sed 's/^v//' | awk -F- '{print $NF}')
