@@ -5,22 +5,7 @@
   "author": "Chainlink devs",
   "license": "BUSL-1.1",
   "private": false,
-  "scripts": {
-    "test": "hardhat test --parallel",
-    "size": "hardhat size-contracts",
-    "clean": "hardhat clean",
-    "compile:native": "./../../../scripts/native_solc_compile_all",
-    "compile": "hardhat compile",
-    "coverage": "hardhat coverage",
-    "prepublishOnly": "pnpm compile && ./../../../scripts/prepublish_generate_abi_folder",
-    "publish-beta": "pnpm publish --tag beta",
-    "publish-prod": "pnpm publish --tag latest",
-    "solhint": "solhint --config ./../../../.solhint.json --max-warnings 0 \"./**/*.sol\"",
-    "solhint-test": "solhint --config \"./../../../.solhint-test.json\"  --ignore-path \"./../../../.solhintignore-test\" --max-warnings 0 \"./**/*.sol\""
-  },
   "files": [
-    "LICENSE.md",
-    "*.sol",
     "**/*.sol",
     "abi/v0.8"
   ],

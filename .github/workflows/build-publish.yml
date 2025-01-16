@@ -45,10 +45,12 @@ jobs:
         uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # v0.1.0
       - name: Fail if CCIP release has wrong version
         if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
+        env:
+          GIT_TAG_TYPE: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
         run: |
           version=$(jq -r '.version' ./package.json)
           echo "Package version: $version"
-          echo "Git tag type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}"
+          echo "Git tag type: ${GIT_TAG_TYPE}"
           if [[ $version != *"-ccip"* ]]; then
             echo "Error: Version '$version' does not match required CCIP format."
             exit 1
