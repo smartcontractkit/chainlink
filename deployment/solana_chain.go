@@ -16,6 +16,7 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -151,4 +152,48 @@ func (c SolChain) GetAddressLookupTable(ctx context.Context, lookupTablePublicKe
 	}
 
 	return lookupTableState.Addresses, nil
+}
+
+// GetTokenProgramID returns the program ID for the given token program name
+func GetTokenProgramID(programName string) (solana.PublicKey, error) {
+	tokenPrograms := map[string]solana.PublicKey{
+		"spl-token":      solana.TokenProgramID,
+		"spl-token-2022": solana.Token2022ProgramID,
+	}
+
+	programID, ok := tokenPrograms[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: spl-token, spl-token-2022", programName)
+	}
+	return programID, nil
+}
+
+// GetPoolType returns the token pool type constant for the given string
+func GetPoolType(poolType string) (token_pool.PoolType, error) {
+	poolTypes := map[string]token_pool.PoolType{
+		"LockAndRelease": token_pool.LockAndRelease_PoolType,
+		"BurnAndMint":    token_pool.BurnAndMint_PoolType,
+	}
+
+	poolTypeConstant, ok := poolTypes[poolType]
+	if !ok {
+		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
+	}
+	return poolTypeConstant, nil
+}
+
+func FindTokenAddress(e Environment, chainSelector uint64, tokenName string) (solana.PublicKey, error) {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if err != nil {
+		return solana.PublicKey{}, err
+	}
+
+	tv := NewTypeAndVersion(ContractType(tokenName), Version1_0_0)
+	for address, tvStr := range addresses {
+		switch tvStr {
+		case tv:
+			return solana.MustPublicKeyFromBase58(address), nil
+		}
+	}
+	return solana.PublicKey{}, fmt.Errorf("token address not found in address book: %s", tokenName)
 }

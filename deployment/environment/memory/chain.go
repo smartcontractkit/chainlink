@@ -202,6 +202,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 
 		programIds := map[string]string{
 			"ccip_router": solTestConfig.CcipRouterProgram.String(),
+			"token_pool":  solTestConfig.CcipTokenPoolProgram.String(),
 		}
 
 		bcInput := &blockchain.Input{
