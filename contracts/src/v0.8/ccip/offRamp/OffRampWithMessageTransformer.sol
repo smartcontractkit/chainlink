@@ -28,6 +28,9 @@ contract OffRampWithMessageTransformer is OffRamp {
   function setMessageTransformer(
     address messageTransformerAddr
   ) external onlyOwner {
+    if (address(messageTransformerAddr) == address(0)) {
+      revert ZeroAddressNotAllowed();
+    }
     s_messageTransformer = messageTransformerAddr;
   }
 
