@@ -8,55 +8,53 @@ import {BurnToAddressMintTokenPoolSetup} from "./BurnToAddressMintTokenPoolSetup
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 
 contract BurnToAddressMintTokenPool_lockOrBurn is BurnToAddressMintTokenPoolSetup {
+  uint256 public constant AMOUNT = 1e24;
+
   function test_LockOrBurn() public {
-    uint256 burnAmount = 1e24;
+    s_pool.setOutstandingTokens(AMOUNT);
 
-    s_pool.setMintedTokens(burnAmount);
-
-    deal(address(s_burnMintERC20), address(s_pool), burnAmount);
-    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), burnAmount);
+    deal(address(s_burnMintERC20), address(s_pool), AMOUNT);
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), AMOUNT);
 
     vm.startPrank(s_burnMintOnRamp);
 
     vm.expectEmit();
-    emit IERC20.Transfer(address(s_pool), BURN_ADDRESS, burnAmount);
+    emit IERC20.Transfer(address(s_pool), BURN_ADDRESS, AMOUNT);
 
-    vm.expectCall(address(s_burnMintERC20), abi.encodeWithSelector(IERC20.transfer.selector, BURN_ADDRESS, burnAmount));
+    vm.expectCall(address(s_burnMintERC20), abi.encodeWithSelector(IERC20.transfer.selector, BURN_ADDRESS, AMOUNT));
 
     s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: OWNER,
         receiver: bytes(""),
-        amount: burnAmount,
+        amount: AMOUNT,
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         localToken: address(s_burnMintERC20)
       })
     );
 
-    assertEq(s_burnMintERC20.balanceOf(s_pool.getBurnAddress()), burnAmount);
+    assertEq(s_burnMintERC20.balanceOf(s_pool.getBurnAddress()), AMOUNT);
     assertEq(s_burnMintERC20.balanceOf(address(s_pool)), 0);
-    assertEq(s_pool.getMintedTokens(), 0);
+    assertEq(s_pool.getOutstandingTokens(), 0);
   }
 
   // Reverts
 
-  function test_LockOrBurn_RevertWhen_InsufficientMintedTokens() public {
-    uint256 burnAmount = 1e24;
+  function test_LockOrBurn_RevertWhen_InsufficientOutstandingTokens() public {
+    s_pool.setOutstandingTokens(AMOUNT - 1);
 
-    s_pool.setMintedTokens(burnAmount - 1);
-
-    deal(address(s_burnMintERC20), address(s_pool), burnAmount);
-    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), burnAmount);
+    deal(address(s_burnMintERC20), address(s_pool), AMOUNT);
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), AMOUNT);
 
     vm.startPrank(s_burnMintOnRamp);
 
-    vm.expectRevert(BurnToAddressMintTokenPool.InsufficientMintedTokens.selector);
+    vm.expectRevert(BurnToAddressMintTokenPool.InsufficientOutstandingTokens.selector);
 
     s_pool.lockOrBurn(
       Pool.LockOrBurnInV1({
         originalSender: OWNER,
         receiver: bytes(""),
-        amount: burnAmount,
+        amount: AMOUNT,
         remoteChainSelector: DEST_CHAIN_SELECTOR,
         localToken: address(s_burnMintERC20)
       })

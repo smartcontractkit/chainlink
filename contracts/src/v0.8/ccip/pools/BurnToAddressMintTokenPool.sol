@@ -18,9 +18,9 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
-  event MintedTokensSet(uint256 newMintedTokenAmount, uint256 oldMintedTokenAmount);
+  event OutstandingTokensSet(uint256 newMintedTokenAmount, uint256 oldMintedTokenAmount);
 
-  error InsufficientMintedTokens();
+  error InsufficientOutstandingTokens();
 
   string public constant override typeAndVersion = "BurnToAddressTokenPool 1.5.1";
 
@@ -32,8 +32,8 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   /// @notice Minted Tokens is a safety mechanism to ensure that more tokens cannot be sent out of the bridge
   /// than were originally sent in via CCIP. On incoming messages the value is increased, and on outgoing messages,
   /// the value is decreased. For pools with existing tokens in circulation, the value may not be known at deployment
-  /// time, and thus should be set later using the setMintedTokens() function.
-  uint256 internal s_mintedTokens;
+  /// time, and thus should be set later using the setoutstandingTokens() function.
+  uint256 internal s_outstandingTokens;
 
   /// @dev Since burnAddress is expected to make the tokens unrecoverable, no check for the zero address needs to be
   /// performed, as it is a valid input.
@@ -53,7 +53,9 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
-    s_mintedTokens += releaseOrMintIn.amount;
+    // When minting tokens, the local outstanding supply increases. These tokens will be burned
+    // when they are sent back to the pool on an outgoing message.
+    s_outstandingTokens += releaseOrMintIn.amount;
 
     return super.releaseOrMint(releaseOrMintIn);
   }
@@ -64,11 +66,13 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   function _burn(
     uint256 amount
   ) internal virtual override {
-    if (amount > s_mintedTokens) {
-      revert InsufficientMintedTokens();
+    if (amount > s_outstandingTokens) {
+      revert InsufficientOutstandingTokens();
     }
 
-    s_mintedTokens -= amount;
+    // When tokens are burned, the amount outstanding decreases. This ensures that more tokens cannot be sent out
+    // of the bridge than were originally sent in via CCIP.
+    s_outstandingTokens -= amount;
 
     getToken().safeTransfer(i_burnAddress, amount);
   }
@@ -80,20 +84,20 @@ contract BurnToAddressMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersio
   }
 
   /// @notice Return the amount of tokens which were minted by this contract and not yet burned.
-  /// @return mintedTokens The amount of tokens which were minted by this token pool and not yet burned.
-  function getMintedTokens() public view returns (uint256 mintedTokens) {
-    return s_mintedTokens;
+  /// @return outstandingTokens The amount of tokens which were minted by this token pool and not yet burned.
+  function getOutstandingTokens() public view returns (uint256 outstandingTokens) {
+    return s_outstandingTokens;
   }
 
   /// @notice Set the amount of tokens which were minted by this contract and not yet burned.
   /// @param amount The new amount of tokens which were minted by this token pool and not yet burned.
-  function setMintedTokens(
+  function setOutstandingTokens(
     uint256 amount
   ) external onlyOwner {
-    uint256 currentMintedTokens = s_mintedTokens;
+    uint256 currentOutstandingTokens = s_outstandingTokens;
 
-    s_mintedTokens = amount;
+    s_outstandingTokens = amount;
 
-    emit MintedTokensSet(amount, currentMintedTokens);
+    emit OutstandingTokensSet(amount, currentOutstandingTokens);
   }
 }

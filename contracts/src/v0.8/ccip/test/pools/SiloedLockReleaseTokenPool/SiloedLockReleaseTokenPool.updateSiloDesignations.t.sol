@@ -61,4 +61,13 @@ contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseT
       removableChainSelectors, new SiloedLockReleaseTokenPool.SiloConfigUpdate[](0)
     );
   }
+
+  function test_updateSiloDesignations_RevertWhen_InvalidChainSelector() public {
+    SiloedLockReleaseTokenPool.SiloConfigUpdate[] memory adds = new SiloedLockReleaseTokenPool.SiloConfigUpdate[](1);
+    adds[0] = SiloedLockReleaseTokenPool.SiloConfigUpdate({remoteChainSelector: 0, rebalancer: OWNER});
+
+    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidChainSelector.selector, 0));
+
+    s_siloedLockReleaseTokenPool.updateSiloDesignations(new uint64[](0), adds);
+  }
 }

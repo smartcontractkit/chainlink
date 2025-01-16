@@ -16,6 +16,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   error InsufficientLiquidity(uint256 availableLiquidity, uint256 requestedAmount);
   error ChainNotSiloed(uint64 remoteChainSelector);
+  error InvalidChainSelector(uint64 remoteChainSelector);
 
   event LiquidityAdded(uint64 remoteChainSelector, address indexed provider, uint256 amount);
   event LiquidityRemoved(uint64 remoteChainSelector, address indexed provider, uint256 amount);
@@ -99,8 +100,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     if (localAmount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, localAmount);
 
     // Tracking balances independently by chain is a security measure to prevent liquidity for one chain from being
-    // released by another chain. Since all tokens are stored locally, and not isolated by contract,
-    // it must be ensured that the remoteChainSelector can be trusted.
+    // released by another chain.
     if (remoteConfig.isSiloed) {
       remoteConfig.tokenBalance -= localAmount;
     } else {
@@ -166,6 +166,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     }
 
     for (uint256 i = 0; i < adds.length; ++i) {
+      // Since the zero chain selector is used to designate unsiloed chains, it should never be used for siloed chains.
+      if (adds[i].remoteChainSelector == 0) {
+        revert InvalidChainSelector(0);
+      }
+
       SiloConfig memory newConfig = SiloConfig({tokenBalance: 0, rebalancer: adds[i].rebalancer, isSiloed: true});
 
       s_chainConfigs[adds[i].remoteChainSelector] = newConfig;

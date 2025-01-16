@@ -30,6 +30,6 @@ contract BurnToAddressMintTokenPool_releaseOrMint is BurnToAddressMintTokenPoolS
     );
 
     assertEq(s_burnMintERC20.balanceOf(receiver), amount);
-    assertEq(s_pool.getMintedTokens(), amount);
+    assertEq(s_pool.getOutstandingTokens(), amount);
   }
 }
