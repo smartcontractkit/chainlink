@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
@@ -29,7 +30,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	onChainState, err := changeset.LoadOnchainState(testEnv.Env)
 	require.NoError(t, err)
 
-	changeset.AddLanesForAll(t, &testEnv, onChainState)
+	testhelpers.AddLanesForAll(t, &testEnv, onChainState)
 
 	srcToken, _ := setupTokens(
 		t,
@@ -82,7 +83,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				Receiver:  common.LeftPadBytes(onChainState.Chains[chains[1]].Receiver.Address().Bytes(), 32),
 				Data:      []byte(strings.Repeat("0", int(chain0DestConfig.MaxDataBytes))),
 				FeeToken:  common.HexToAddress("0x0"),
-				ExtraArgs: changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
+				ExtraArgs: testhelpers.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit), true),
 			},
 		},
 		//{ // TODO: exec plugin never executed this message. CCIP-4471
@@ -136,7 +137,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 				Data:         []byte("abc"),
 				TokenAmounts: []router.ClientEVMTokenAmount{},
 				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    changeset.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit)+1, true),
+				ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(uint64(chain0DestConfig.MaxPerMsgGasLimit)+1, true),
 			},
 			expRevert: true,
 		},
@@ -145,18 +146,18 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 	for _, msg := range testMsgs {
 		t.Logf("Sending msg: %s", msg.name)
 		require.NotEqual(t, msg.fromChain, msg.toChain, "fromChain and toChain cannot be the same")
 		startBlocks[msg.toChain] = nil
-		msgSentEvent, err := changeset.DoSendRequest(
+		msgSentEvent, err := testhelpers.DoSendRequest(
 			t, testEnv.Env, onChainState,
-			changeset.WithSourceChain(msg.fromChain),
-			changeset.WithDestChain(msg.toChain),
-			changeset.WithTestRouter(false),
-			changeset.WithEvm2AnyMessage(msg.msg))
+			testhelpers.WithSourceChain(msg.fromChain),
+			testhelpers.WithDestChain(msg.toChain),
+			testhelpers.WithTestRouter(false),
+			testhelpers.WithEvm2AnyMessage(msg.msg))
 
 		if msg.expRevert {
 			t.Logf("Message reverted as expected")
@@ -168,19 +169,19 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 
 		t.Logf("Message not reverted as expected")
 
-		expectedSeqNum[changeset.SourceDestPair{
+		expectedSeqNum[testhelpers.SourceDestPair{
 			SourceChainSelector: msg.fromChain,
 			DestChainSelector:   msg.toChain,
 		}] = msgSentEvent.SequenceNumber
 
-		expectedSeqNumExec[changeset.SourceDestPair{
+		expectedSeqNumExec[testhelpers.SourceDestPair{
 			SourceChainSelector: msg.fromChain,
 			DestChainSelector:   msg.toChain,
 		}] = []uint64{msgSentEvent.SequenceNumber}
 	}
 
 	// Wait for all commit reports to land.
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, testEnv.Env, onChainState, expectedSeqNum, startBlocks)
 	// Wait for all exec reports to land
-	changeset.ConfirmExecWithSeqNrsForAll(t, testEnv.Env, onChainState, expectedSeqNumExec, startBlocks)
+	testhelpers.ConfirmExecWithSeqNrsForAll(t, testEnv.Env, onChainState, expectedSeqNumExec, startBlocks)
 }

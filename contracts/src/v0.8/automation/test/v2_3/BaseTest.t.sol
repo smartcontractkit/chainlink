@@ -367,6 +367,54 @@ contract BaseTest is Test {
     _handleTransmit(ids, registry, bytes4(0));
   }
 
+  function _batchTransmitWithBadTriggers(uint256[] memory ids, bool[] memory goodTriggers, Registry registry) internal {
+    bytes memory reportBytes;
+    {
+      uint256[] memory upkeepIds = new uint256[](ids.length);
+      uint256[] memory gasLimits = new uint256[](ids.length);
+      bytes[] memory performDatas = new bytes[](ids.length);
+      bytes[] memory triggers = new bytes[](ids.length);
+      for (uint256 i = 0; i < ids.length; i++) {
+        upkeepIds[i] = ids[i];
+        gasLimits[i] = registry.getUpkeep(ids[i]).performGas;
+        performDatas[i] = new bytes(0);
+        uint8 triggerType = registry.getTriggerType(ids[i]);
+        if (triggerType == 0) {
+          uint256 j = 0;
+          if (goodTriggers[i]) {
+            j = 1;
+          }
+          triggers[i] = _encodeConditionalTrigger(
+            AutoBase.ConditionalTrigger(uint32(block.number - j), blockhash(block.number - j))
+          );
+        } else {
+          revert("not implemented");
+        }
+      }
+
+      AutoBase.Report memory report = AutoBase.Report(
+        uint256(1000000000),
+        uint256(2000000000),
+        upkeepIds,
+        gasLimits,
+        triggers,
+        performDatas
+      );
+
+      reportBytes = _encodeReport(report);
+    }
+    (, , bytes32 configDigest) = registry.latestConfigDetails();
+    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
+    uint256[] memory signerPKs = new uint256[](2);
+    signerPKs[0] = SIGNING_KEY0;
+    signerPKs[1] = SIGNING_KEY1;
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 vs) = _signReport(reportBytes, reportContext, signerPKs);
+
+    vm.startPrank(TRANSMITTERS[0]);
+    registry.transmit(reportContext, reportBytes, rs, ss, vs);
+    vm.stopPrank();
+  }
+
   // tests single upkeep, expects revert
   function _transmitAndExpectRevert(uint256 id, Registry registry, bytes4 selector) internal {
     uint256[] memory ids = new uint256[](1);
