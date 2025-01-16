@@ -22,7 +22,7 @@ contract OffRampWithMessageTransformer_setMessageTransformer is OffRampSetup {
     );
   }
 
-  function test_setMessageTransformer() public {
+  function test_SetMessageTransformer() public {
     assertEq(s_offRampWithMessageTransformer.getMessageTransformer(), address(s_inboundMessageTransformer));
     IMessageTransformer newMessageTransformer = new MessageTransformerHelper();
     s_offRampWithMessageTransformer.setMessageTransformer(address(newMessageTransformer));

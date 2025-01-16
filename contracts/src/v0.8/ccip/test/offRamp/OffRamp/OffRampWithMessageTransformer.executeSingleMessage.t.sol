@@ -53,7 +53,7 @@ contract OffRampWithMessageTransformer_executeSingleMessage is OffRampSetup {
     vm.startPrank(address(s_offRampWithMessageTransformer));
   }
 
-  function test_executeSingleMessage() public {
+  function test_ExecuteSingleMessage() public {
     s_receiver = new LogMessageDataReceiver();
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);

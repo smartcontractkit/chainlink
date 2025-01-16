@@ -52,7 +52,7 @@ contract OnRampWithMessageTransformer_executeSingleMessage is OnRampSetup {
     vm.startPrank(address(s_sourceRouter));
   }
 
-  function test_forwardFromRouter() public {
+  function test_ForwardFromRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     // transformedMessage is used to assert that message was transformed as expected by IMessageTransformer
     Client.EVM2AnyMessage memory transformedMessage = _generateEmptyMessage();
