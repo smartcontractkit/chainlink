@@ -602,12 +602,14 @@ func deployChainContractsSolana(
 					ccipRouterProgram,
 					GetRouterConfigPDA(ccipRouterProgram),
 					GetRouterStatePDA(ccipRouterProgram),
-					GetExternalExecutionConfigPDA(ccipRouterProgram),
-					GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+					GetEvmSourceChainStatePDA(ccipRouterProgram, chain.Selector), // TODO: where to get EVM source chain state PDA? Is it the home chain?
+					GetEvmDestChainStatePDA(ccipRouterProgram, chain.Selector),   // TODO: where to get EVM dest chain state PDA? Is it the home chain?
+					GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
 					// token pool
 					tokenPoolProgram,
 					// token
 					solana.Token2022ProgramID,
+					solana.TokenProgramID,
 					solana.SPLAssociatedTokenAccountProgramID,
 				})
 			if err != nil {
