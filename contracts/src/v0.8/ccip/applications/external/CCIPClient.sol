@@ -80,7 +80,9 @@ contract CCIPClient is CCIPReceiver {
 
   /// @notice Update the address of the token used to pay for CCIP fees.
   /// @param token the token address, the zero address should be used if fees should be paid with native tokens
-  function updateFeeToken(address token) external onlyOwner {
+  function updateFeeToken(
+    address token
+  ) external onlyOwner {
     // If the current fee token is not-native, zero out the allowance to the router for safety
     if (address(s_feeToken) != address(0)) {
       s_feeToken.safeApprove(getRouter(), 0);

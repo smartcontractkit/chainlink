@@ -20,7 +20,9 @@ contract CCIPSender is CCIPBase {
 
   event MessageSent(bytes32 messageId);
 
-  constructor(address router) CCIPBase(router) {}
+  constructor(
+    address router
+  ) CCIPBase(router) {}
 
   /// @notice sends a message through CCIP to the router
   /// @param destChainSelector A CCIP-Specific and unique chain identifier

@@ -15,7 +15,9 @@ contract ConformingReceiver is CCIPReceiver {
     emit MessageReceived();
   }
 
-  modifier isValidChain(uint64 chainSelector) virtual override {
+  modifier isValidChain(
+    uint64 chainSelector
+  ) virtual override {
     _;
   }
 

@@ -8,8 +8,9 @@ import {CCIPBase} from "./CCIPBase.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title CCIPReceiver
 /// @notice This contract is capable of receiving incoming messages from the CCIP Router.
@@ -33,7 +34,9 @@ contract CCIPReceiver is CCIPBase {
   // When a message is retried or abandoned it is removed from this set.
   EnumerableSet.Bytes32Set internal s_failedMessages;
 
-  constructor(address router) CCIPBase(router) {}
+  constructor(
+    address router
+  ) CCIPBase(router) {}
 
   // ================================================================
   // │                  Incoming Message Processing                 |
@@ -80,7 +83,9 @@ contract CCIPReceiver is CCIPBase {
   /// @dev Since the function invoked _retryFailedMessage(), which is marked onlyOwner, this may only be called by the
   /// Owner as well. The function will revert if the messageId was not already stored as failed during initial execution
   /// @param messageId the unique ID of the CCIP-message which failed initial-execution.
-  function retryFailedMessage(bytes32 messageId) external virtual {
+  function retryFailedMessage(
+    bytes32 messageId
+  ) external virtual {
     if (!s_failedMessages.contains(messageId)) revert MessageNotFailed(messageId);
 
     // Allow developer to implement arbitrary functionality on retried messages, such as just releasing the associated
@@ -100,7 +105,9 @@ contract CCIPReceiver is CCIPBase {
   /// @notice A function that should contain any special logic needed to "retry" processing of a previously failed message.
   /// @dev If the owner wants to retrieve tokens without special logic, then abandonFailedMessage(), withdrawNativeTokens(), or withdrawTokens() should be used instead
   /// This function is marked onlyOwner, but is virtual. Allowing permissionless execution is not recommended but may be allowed if function is overridden
-  function _retryFailedMessage(Client.Any2EVMMessage memory message) internal virtual onlyOwner {
+  function _retryFailedMessage(
+    Client.Any2EVMMessage memory message
+  ) internal virtual onlyOwner {
     this.processMessage(message);
   }
 
@@ -122,7 +129,6 @@ contract CCIPReceiver is CCIPBase {
 
     emit MessageAbandoned(messageId, receiver);
   }
-
 
   /// @notice IERC165 supports an interfaceId.
   /// @param interfaceId The interfaceId to check.
@@ -146,7 +152,9 @@ contract CCIPReceiver is CCIPBase {
 
   /// @param messageId the ID of the message delivered by the CCIP Router
   /// @return Any2EVMMessage a standard CCIP message for EVM-compatible networks
-  function getMessageContents(bytes32 messageId) public view returns (Client.Any2EVMMessage memory) {
+  function getMessageContents(
+    bytes32 messageId
+  ) public view returns (Client.Any2EVMMessage memory) {
     return s_messageContents[messageId];
   }
 
@@ -154,7 +162,9 @@ contract CCIPReceiver is CCIPBase {
   /// @dev Querying this function with message which was successfully retried or abandoned will return false
   /// @param messageId the ID of the message delivered by the CCIP Router
   /// @return bool Whether the previously-delivered message failed to process.
-  function isFailedMessage(bytes32 messageId) public view returns (bool) {
+  function isFailedMessage(
+    bytes32 messageId
+  ) public view returns (bool) {
     return s_failedMessages.contains(messageId);
   }
 

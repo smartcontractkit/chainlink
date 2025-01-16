@@ -36,30 +36,30 @@ abstract contract CCIPBase is OwnerIsCreator {
 
   struct ApprovedSenderUpdate {
     uint64 destChainSelector; // ChainSelector for a source chain that is allowed to call this dapp
-    bytes sender; //             The sender address on source chain that is allowed to call, ABI encoded in the case of a remote EVM chain
+    bytes sender; // The sender address on source chain that is allowed to call, ABI encoded in the case of a remote EVM chain
   }
 
   struct ChainUpdate {
     uint64 chainSelector; // ─╮ The unique CCIP specific identifier for a chain to send/receive messages
     bool allowed; //   ───────╯ Whether the chain should be enabled
-    bytes recipient; //         Address on the remote chain which should receive incoming messages from this. The
-    //                          should only be one per-chain
-    bytes extraArgsBytes; //    Additional arguments to pass with the message including manually specifying gas limit
-      //                          and and whether to allow out-of-order execution
+    bytes recipient; // Address on the remote chain which should receive incoming messages from this. There should only be one per-chain
+    bytes extraArgsBytes; // Additional arguments to pass with the message including manually specifying gas limit and and whether to allow out-of-order execution
   }
 
-  struct ChainConfig {
-    bytes recipient; //      The address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
+  struct RemoteChainConfig {
+    bytes recipient; // The address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
     bytes extraArgsBytes; // Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
-    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support work-flows where Dapps
-      //                        may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
+    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support work-flows where Dapps 
+    // may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
   }
 
   address internal s_ccipRouter;
 
-  mapping(uint64 destChainSelector => ChainConfig) public s_chainConfigs;
+  mapping(uint64 destChainSelector => RemoteChainConfig) public s_chainConfigs;
 
-  constructor(address router) {
+  constructor(
+    address router
+  ) {
     if (router == address(0)) revert ZeroAddressNotAllowed();
     s_ccipRouter = router;
   }
@@ -73,10 +73,12 @@ abstract contract CCIPBase is OwnerIsCreator {
     return s_ccipRouter;
   }
 
-  /// @notice only calls from the set router are accepted.
-  modifier onlyRouter() {
-    if (msg.sender != getRouter()) revert InvalidRouter(msg.sender);
-    _;
+  /// @notice Return the recipient and extra args configs for a remote chain selector
+  /// @param remoteChainSelector the unique CCIP specific identifier for a chain to send/receive messages
+  /// @return recipient the address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
+  /// @return extraArgsBytes Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
+  function getRemoteChainConfig(uint64 remoteChainSelector) external view returns (bytes memory recipient, bytes memory extraArgsBytes) {
+    return (s_chainConfigs[remoteChainSelector].recipient, s_chainConfigs[remoteChainSelector].extraArgsBytes);
   }
 
   // ================================================================
@@ -146,7 +148,9 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @notice Updates the address of the CCIP router to send/receive messages.
   /// @dev function will can only be called by the owner, and should only be used in emergencies if the current CCIP Router is deprecated.
   /// @param newRouter the address of the new router, cannot be the zero address.
-  function updateRouter(address newRouter) external onlyOwner {
+  function updateRouter(
+    address newRouter
+  ) external onlyOwner {
     if (newRouter == address(0)) revert ZeroAddressNotAllowed();
 
     // Store the old router in memory to emit event
@@ -158,7 +162,9 @@ abstract contract CCIPBase is OwnerIsCreator {
   }
 
   /// @notice Enable a remote-chain to send and receive messages to/from this contract via CCIP
-  function applyChainUpdates(ChainUpdate[] calldata chains) external onlyOwner {
+  function applyChainUpdates(
+    ChainUpdate[] calldata chains
+  ) external onlyOwner {
     for (uint256 i = 0; i < chains.length; ++i) {
       ChainUpdate memory chain = chains[i];
 
@@ -179,9 +185,17 @@ abstract contract CCIPBase is OwnerIsCreator {
     }
   }
 
+  /// @notice only calls from the set router are accepted.
+  modifier onlyRouter() {
+    if (msg.sender != getRouter()) revert InvalidRouter(msg.sender);
+    _;
+  }
+
   /// @notice Reverts if the specified chainSelector is not approved to send/receive messages to/from this contract
   /// @param chainSelector the CCIP specific chain selector for a given remote-chain.
-  modifier isValidChain(uint64 chainSelector) virtual {
+  modifier isValidChain(
+    uint64 chainSelector
+  ) virtual {
     if (s_chainConfigs[chainSelector].recipient.length == 0) revert InvalidChain(chainSelector);
     _;
   }

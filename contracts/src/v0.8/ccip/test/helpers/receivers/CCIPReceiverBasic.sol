@@ -10,7 +10,9 @@ import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts
 
 /// @title CCIPReceiver - Base contract for CCIP applications that can receive messages.
 contract CCIPReceiverBasic is CCIPBase, IAny2EVMMessageReceiver, IERC165 {
-  constructor(address router) CCIPBase(router) {}
+  constructor(
+    address router
+  ) CCIPBase(router) {}
 
   function typeAndVersion() external pure virtual returns (string memory) {
     return "CCIPReceiverBasic 1.6.0-dev";
@@ -26,16 +28,22 @@ contract CCIPReceiverBasic is CCIPBase, IAny2EVMMessageReceiver, IERC165 {
   /// If this returns true, tokens are transferred and ccipReceive is called atomically.
   /// Additionally, if the receiver address does not have code associated with
   /// it at the time of execution (EXTCODESIZE returns 0), only tokens will be transferred.
-  function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+  function supportsInterface(
+    bytes4 interfaceId
+  ) public view virtual override returns (bool) {
     return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
   /// @inheritdoc IAny2EVMMessageReceiver
-  function ccipReceive(Client.Any2EVMMessage calldata message) external virtual override onlyRouter {
+  function ccipReceive(
+    Client.Any2EVMMessage calldata message
+  ) external virtual override onlyRouter {
     _ccipReceive(message);
   }
 
   /// @notice Override this function in your implementation.
   /// @param message Any2EVMMessage
-  function _ccipReceive(Client.Any2EVMMessage memory message) internal virtual {}
+  function _ccipReceive(
+    Client.Any2EVMMessage memory message
+  ) internal virtual {}
 }

@@ -64,7 +64,9 @@ contract TokenProxy is OwnerIsCreator {
 
   /// @notice Validates the message content.
   /// @dev Only allows a single token to be sent, and no data.
-  function _validateMessage(Client.EVM2AnyMessage calldata message) internal view {
+  function _validateMessage(
+    Client.EVM2AnyMessage calldata message
+  ) internal view {
     if (message.tokenAmounts.length != 1 || message.tokenAmounts[0].token != i_token) revert InvalidToken();
     if (message.data.length > 0) revert NoDataAllowed();
 

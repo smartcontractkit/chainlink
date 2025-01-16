@@ -23,7 +23,9 @@ contract SelfFundedPingPong is PingPongDemo {
     s_countIncrBeforeFunding = roundTripsBeforeFunding * 2;
   }
 
-  function _respond(uint256 pingPongCount) internal override {
+  function _respond(
+    uint256 pingPongCount
+  ) internal override {
     if (pingPongCount & 1 == 1) {
       emit Ping(pingPongCount);
     } else {
@@ -45,7 +47,9 @@ contract SelfFundedPingPong is PingPongDemo {
   /// @notice A function that is responsible for funding this contract.
   /// The contract can only be funded if it is set as a nop in the target onRamp.
   /// In case your contract is not a nop you can prevent this function from being called by setting s_countIncrBeforeFunding=0.
-  function fundPingPong(uint256 pingPongCount) public {
+  function fundPingPong(
+    uint256 pingPongCount
+  ) public {
     // If selfFunding is disabled, or ping pong count has not reached s_countIncrPerFunding, do not attempt funding.
     if (s_countIncrBeforeFunding == 0 || pingPongCount < s_countIncrBeforeFunding) return;
 
@@ -61,7 +65,9 @@ contract SelfFundedPingPong is PingPongDemo {
     return s_countIncrBeforeFunding;
   }
 
-  function setCountIncrBeforeFunding(uint8 countIncrBeforeFunding) external onlyOwner {
+  function setCountIncrBeforeFunding(
+    uint8 countIncrBeforeFunding
+  ) external onlyOwner {
     s_countIncrBeforeFunding = countIncrBeforeFunding;
     emit CountIncrBeforeFundingSet(countIncrBeforeFunding);
   }

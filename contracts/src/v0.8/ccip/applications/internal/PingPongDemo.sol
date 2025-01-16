@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import {Client} from "../../libraries/Client.sol";
 import {CCIPClient} from "../external/CCIPClient.sol";
 
+import {FeeQuoter} from "../../FeeQuoter.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 import {OnRamp} from "../../onRamp/OnRamp.sol";
-import {FeeQuoter} from "../../FeeQuoter.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
@@ -41,7 +41,9 @@ contract PingPongDemo is CCIPClient {
     _respond(1);
   }
 
-  function _respond(uint256 pingPongCount) internal virtual {
+  function _respond(
+    uint256 pingPongCount
+  ) internal virtual {
     if (pingPongCount & 1 == 1) {
       emit Ping(pingPongCount);
     } else {
@@ -83,7 +85,9 @@ contract PingPongDemo is CCIPClient {
     s_chainConfigs[counterpartChainSelector].recipient = abi.encode(counterpartAddress);
   }
 
-  function setPaused(bool pause) external onlyOwner {
+  function setPaused(
+    bool pause
+  ) external onlyOwner {
     s_isPaused = pause;
   }
 
@@ -107,7 +111,9 @@ contract PingPongDemo is CCIPClient {
     return s_allowOutOfOrderExecution;
   }
 
-  function setOutOfOrderExecution(bool outOfOrderExecution) external virtual onlyOwner {
+  function setOutOfOrderExecution(
+    bool outOfOrderExecution
+  ) external virtual onlyOwner {
     // An additional storage slot is used for code simplicity. The current storage value can be
     // retrieved by parsing the extraArgsBytes field of the chain configuration, but this is not recommended
     // as it is more expensive and error-prone by requiring additional parsing logic in raw assembly.
