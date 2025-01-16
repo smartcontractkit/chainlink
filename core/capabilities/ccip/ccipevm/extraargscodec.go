@@ -4,8 +4,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-const evmExtraArgsKey = "gasLimit"
-
 type ExtraArgsCodec struct{}
 
 func NewExtraArgsCodec() ExtraArgsCodec {
