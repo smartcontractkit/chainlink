@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"testing"

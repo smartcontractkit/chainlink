@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"testing"
@@ -9,10 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 )
 
-func TestSmokeState(t *testing.T) {
+func TestSmokeView(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	state, err := changeset.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-	_, err = state.View(tenv.Env.AllChainSelectors())
+	_, err := changeset.ViewCCIP(tenv.Env)
 	require.NoError(t, err)
 }
