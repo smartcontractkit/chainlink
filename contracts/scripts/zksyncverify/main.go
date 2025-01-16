@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/AlekSi/pointer"
+	"github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -30,12 +31,12 @@ func getTransaction(rpcClient *rpc.Client, txHash string) (*CustomTx, error) {
 
 	data, ok := result["input"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing or invalid 'input' field in transaction result")
+		return nil, errors.New("missing or invalid 'input' field in transaction result")
 	}
 
 	hash, ok := result["hash"].(string)
 	if !ok {
-		return nil, fmt.Errorf("missing or invalid 'hash' field in transaction result")
+		return nil, errors.New("missing or invalid 'hash' field in transaction result")
 	}
 
 	tx := &CustomTx{
