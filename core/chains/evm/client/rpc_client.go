@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -99,8 +100,9 @@ type RPCClient struct {
 	chainType                  chaintype.ChainType
 	clientErrors               config.ClientErrors
 
-	ws   *rawclient
-	http *rawclient
+	rawClientLock sync.RWMutex
+	ws            *rawclient
+	http          *rawclient
 
 	*multinode.Adapter[RPCClient, *evmtypes.Head]
 }
@@ -415,6 +417,7 @@ func latestFinalizedBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtype
 	return
 }
 
+// SubscribeToHeads Implement custom SubscribeToheads method to override the adaptor.
 func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub multinode.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
@@ -1271,13 +1274,9 @@ func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context,
 
 func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
+	r.rawClientLock.Lock()
+	defer r.rawClientLock.Unlock()
 	chStopInFlight = r.GetChStopInflight()
-	// TODO: Is mutex really needed to wrap ws and http?
-	// TODO: Is this why we're not setting TD?
-	// TODO: Try exporting StateMu ;P
-	r.StateMu.Lock()
-	defer r.StateMu.Unlock()
-	// TODO: But.. does this need to be ioncluded with chStopInFlight?
 	if r.ws != nil {
 		cp := *r.ws
 		ws = &cp
