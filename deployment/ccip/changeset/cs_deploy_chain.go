@@ -480,67 +480,7 @@ func checkRouterInitialized(e deployment.Environment, chain deployment.SolChain,
 	return routerConfigInfo != nil && len(routerConfigInfo.Value.Data.GetBinary()) > 0, nil
 }
 
-func deployChainContractsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	ab deployment.AddressBook,
-) error {
-	state, err := LoadOnchainStateSolana(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return err
-	}
-	chainState, chainExists := state.SolChains[chain.Selector]
-	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
-	}
-	linkTokenContract := chainState.LinkToken
-	e.Logger.Infow("link token", "addr", linkTokenContract.String())
-
-	if chainState.SolAddressLookupTable.IsZero() {
-		table, err := solCommonUtil.CreateLookupTable(context.Background(), chain.Client, *chain.DeployerKey)
-		if err != nil {
-			// TODO: return error, this just unblocks tests
-			e.Logger.Debugf("failed to create lookup table: %v", err)
-		}
-		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	}
-
-	var ccipRouterProgram solana.PublicKey
-	if chainState.SolCcipRouter.IsZero() {
-		//deploy router
-		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
-		if err != nil {
-			return fmt.Errorf("failed to deploy program: %w", err)
-		}
-
-		tv := deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-
-		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing router", "addr", chainState.SolCcipRouter.String())
-		ccipRouterProgram = chainState.SolCcipRouter
-	}
-	ccip_router.SetProgramID(ccipRouterProgram)
-
-	// check if solana router is initialised
-	initialized, err := checkRouterInitialized(e, chain, ccipRouterProgram)
-	if err != nil {
-		return err
-	}
-	if initialized {
-		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
-		return nil
-	}
-
+func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -572,9 +512,90 @@ func deployChainContractsSolana(
 	if err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
+	return nil
+}
 
-	//TODO: deploy token pool contract
-	//TODO: log errors
+func deployChainContractsSolana(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ab deployment.AddressBook,
+) error {
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	linkTokenContract := chainState.LinkToken
+	e.Logger.Infow("link token", "addr", linkTokenContract.String())
 
+	if chainState.SolAddressLookupTable.IsZero() {
+		table, err := solCommonUtil.CreateLookupTable(context.Background(), chain.Client, *chain.DeployerKey)
+		if err != nil {
+			// TODO: return error, this just unblocks tests
+			e.Logger.Debugf("failed to create lookup table: %v", err)
+		}
+		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+
+	// ROUTER DEPLOY AND INITIALIZE
+	var ccipRouterProgram solana.PublicKey
+	if chainState.SolCcipRouter.IsZero() {
+		//deploy router
+		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %w", err)
+		}
+
+		tv := deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+
+		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	} else {
+		e.Logger.Infow("Using existing router", "addr", chainState.SolCcipRouter.String())
+		ccipRouterProgram = chainState.SolCcipRouter
+	}
+	ccip_router.SetProgramID(ccipRouterProgram)
+
+	// check if solana router is initialised
+	initialized, err := checkRouterInitialized(e, chain, ccipRouterProgram)
+	if err != nil {
+		return err
+	}
+	if initialized {
+		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
+		return nil
+	}
+	err = initialzeRouter(e, chain, ccipRouterProgram)
+	if err != nil {
+		return err
+	}
+
+	// var tokenPoolProgram solana.PublicKey
+	if chainState.SolTokenPool.IsZero() {
+		programID, err := chain.DeployProgram(e.Logger, "token_pool")
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %w", err)
+		}
+		tv := deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		// tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+	// token pool initialization happens for a specific token
+	// should we initialize LINK and WSOL token pools here ?
 	return nil
 }

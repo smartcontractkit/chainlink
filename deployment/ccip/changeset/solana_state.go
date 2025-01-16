@@ -14,6 +14,7 @@ import (
 var (
 	SolCcipRouter         deployment.ContractType = "SolCcipRouter"
 	SolAddressLookupTable deployment.ContractType = "SolAddressLookupTable"
+	SolTokenPool          deployment.ContractType = "SolTokenPool"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -21,6 +22,7 @@ var (
 type SolCCIPChainState struct {
 	LinkToken             solana.PublicKey
 	SolCcipRouter         solana.PublicKey
+	SolTokenPool          solana.PublicKey
 	Timelock              solana.PublicKey
 	SolAddressLookupTable solana.PublicKey // for chain writer
 }
@@ -61,6 +63,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SolAddressLookupTable = pub
+		case deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0).String():
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.SolTokenPool = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
