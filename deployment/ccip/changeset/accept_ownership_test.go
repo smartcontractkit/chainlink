@@ -8,13 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	t.Parallel()
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -52,7 +53,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 }
 
 func genTestTransferOwnershipConfig(
-	e DeployedEnv,
+	e testhelpers.DeployedEnv,
 	chains []uint64,
 	state CCIPOnChainState,
 ) commonchangeset.TransferToMCMSWithTimelockConfig {
@@ -93,7 +94,7 @@ func genTestTransferOwnershipConfig(
 // to the appropriate timelock contract on each chain.
 func assertTimelockOwnership(
 	t *testing.T,
-	e DeployedEnv,
+	e testhelpers.DeployedEnv,
 	chains []uint64,
 	state CCIPOnChainState,
 ) {

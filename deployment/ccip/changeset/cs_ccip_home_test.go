@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -26,8 +27,8 @@ import (
 )
 
 func TestInvalidOCR3Params(t *testing.T) {
-	e, _ := NewMemoryEnvironment(t,
-		WithTestConfigPrerequisiteDeploymentOnly(nil))
+	e, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithPrerequisiteDeploymentOnly(nil))
 	chain1 := e.Env.AllChainSelectors()[0]
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -38,11 +39,11 @@ func TestInvalidOCR3Params(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
 			},
 		},
@@ -100,9 +101,9 @@ func Test_PromoteCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t,
-				WithTestConfigNumOfChains(2),
-				WithTestConfigNumOfNodes(4))
+			tenv, _ := testhelpers.NewMemoryEnvironment(t,
+				testhelpers.WithNumOfChains(2),
+				testhelpers.WithNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -196,9 +197,9 @@ func Test_SetCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t,
-				WithTestConfigNumOfChains(2),
-				WithTestConfigNumOfNodes(4))
+			tenv, _ := testhelpers.NewMemoryEnvironment(t,
+				testhelpers.WithNumOfChains(2),
+				testhelpers.WithNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -309,9 +310,9 @@ func Test_RevokeCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t,
-				WithTestConfigNumOfChains(2),
-				WithTestConfigNumOfNodes(4))
+			tenv, _ := testhelpers.NewMemoryEnvironment(t,
+				testhelpers.WithNumOfChains(2),
+				testhelpers.WithNumOfNodes(4))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
@@ -449,7 +450,7 @@ func Test_RevokeCandidate(t *testing.T) {
 
 func transferToTimelock(
 	t *testing.T,
-	tenv DeployedEnv,
+	tenv testhelpers.DeployedEnv,
 	state CCIPOnChainState,
 	source,
 	dest uint64) {
@@ -492,7 +493,7 @@ func Test_UpdateChainConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv, _ := NewMemoryEnvironment(t, WithTestConfigNumOfChains(3))
+			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 			state, err := LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 

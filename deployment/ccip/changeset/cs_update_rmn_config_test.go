@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -65,7 +66,7 @@ func TestUpdateRMNConfig(t *testing.T) {
 }
 
 func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 
 	state, err := LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -220,7 +221,7 @@ func buildRMNRemoteAddressPerChain(e deployment.Environment, state CCIPOnChainSt
 
 func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
-	e, _ := NewMemoryEnvironment(t, WithTestConfigNoJobsAndContracts())
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	allChains := e.Env.AllChainSelectors()
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var err error
@@ -281,9 +282,9 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(DeployHomeChainChangeset),
 			Config: DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},

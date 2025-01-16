@@ -1,4 +1,4 @@
-package changeset
+package testhelpers
 
 import (
 	"context"
@@ -101,13 +101,13 @@ func DefaultTestConfigs() *TestConfigs {
 
 type TestOps func(testCfg *TestConfigs)
 
-func WithTestConfigMultiCall3() TestOps {
+func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsMultiCall3 = true
 	}
 }
 
-func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) TestOps {
+func WithPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
 		if v1_5Cfg != nil {
@@ -116,70 +116,70 @@ func WithTestConfigPrerequisiteDeploymentOnly(v1_5Cfg *V1_5DeploymentConfig) Tes
 	}
 }
 
-func WithTestConfigChainIDs(chainIDs []uint64) TestOps {
+func WithChainIDs(chainIDs []uint64) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ChainIDs = chainIDs
 	}
 }
 
-func WithTestConfigJobsOnly() TestOps {
+func WithJobsOnly() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = true
 	}
 }
 
-func WithTestConfigNoJobsAndContracts() TestOps {
+func WithNoJobsAndContracts() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.CreateJobAndContracts = false
 		testCfg.CreateJob = false
 	}
 }
 
-func WithTestConfigRMNEnabled(numOfNode int) TestOps {
+func WithRMNEnabled(numOfNode int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.RMNEnabled = true
 		testCfg.NumOfRMNNodes = numOfNode
 	}
 }
 
-func WithTestConfigOCRConfigOverride(override func(*CCIPOCRParams)) TestOps {
+func WithOCRConfigOverride(override func(*CCIPOCRParams)) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.OCRConfigOverride = override
 	}
 }
 
-func WithTestConfigUSDCAttestationMissing() TestOps {
+func WithUSDCAttestationMissing() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDCAttestationMissing = true
 	}
 }
 
-func WithTestConfigUSDC() TestOps {
+func WithUSDC() TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.IsUSDC = true
 	}
 }
 
-func WithTestConfigNumOfChains(numChains int) TestOps {
+func WithNumOfChains(numChains int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Chains = numChains
 	}
 }
 
-func WithTestConfigNumOfUsersPerChain(numUsers int) TestOps {
+func WithNumOfUsersPerChain(numUsers int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
 	}
 }
 
-func WithTestConfigNumOfNodes(numNodes int) TestOps {
+func WithNumOfNodes(numNodes int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Nodes = numNodes
 	}
 }
 
-func WithTestConfigNumOfBootstrapNodes(numBootstraps int) TestOps {
+func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.Bootstraps = numBootstraps
 	}

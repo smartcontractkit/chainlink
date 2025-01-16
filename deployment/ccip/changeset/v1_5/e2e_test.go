@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
@@ -18,9 +20,9 @@ import (
 // This test only works if the destination chain id is 1337
 // Otherwise it shows error for offchain and onchain config digest mismatch
 func TestE2ELegacy(t *testing.T) {
-	e, _ := changeset.NewMemoryEnvironment(
+	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
-		changeset.WithTestConfigPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
+		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 			RMNConfig: &rmn_contract.RMNConfig{
 				BlessWeightThreshold: 2,
@@ -36,8 +38,8 @@ func TestE2ELegacy(t *testing.T) {
 				},
 			},
 		}),
-		changeset.WithTestConfigNumOfChains(3),
-		changeset.WithTestConfigChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
@@ -46,14 +48,14 @@ func TestE2ELegacy(t *testing.T) {
 	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
 	srcChain := e.Env.Chains[src]
 	destChain := e.Env.Chains[dest]
-	pairs := []changeset.SourceDestPair{
+	pairs := []testhelpers.SourceDestPair{
 		{SourceChainSelector: src, DestChainSelector: dest},
 	}
-	e.Env = AddLanes(t, e.Env, state, pairs)
+	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
 	// permabless the commit stores
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(PermaBlessCommitStoreCS),
+			Changeset: commonchangeset.WrapChangeSet(PermaBlessCommitStoreChangeset),
 			Config: PermaBlessCommitStoreConfig{
 				Configs: map[uint64]PermaBlessCommitStoreConfigPerDest{
 					dest: {
@@ -72,11 +74,11 @@ func TestE2ELegacy(t *testing.T) {
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	sentEvent, err := SendRequest(t, e.Env, state,
-		changeset.WithSourceChain(src),
-		changeset.WithDestChain(dest),
-		changeset.WithTestRouter(false),
-		changeset.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+	sentEvent, err := v1_5.SendRequest(t, e.Env, state,
+		testhelpers.WithSourceChain(src),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(false),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
@@ -88,6 +90,6 @@ func TestE2ELegacy(t *testing.T) {
 	require.NotNil(t, sentEvent)
 	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
 	require.NoError(t, err)
-	WaitForCommit(t, srcChain, destChain, state.Chains[dest].CommitStore[src], sentEvent.Message.SequenceNumber)
-	WaitForExecute(t, srcChain, destChain, state.Chains[dest].EVM2EVMOffRamp[src], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+	v1_5.WaitForCommit(t, srcChain, destChain, state.Chains[dest].CommitStore[src], sentEvent.Message.SequenceNumber)
+	v1_5.WaitForExecute(t, srcChain, destChain, state.Chains[dest].EVM2EVMOffRamp[src], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 }

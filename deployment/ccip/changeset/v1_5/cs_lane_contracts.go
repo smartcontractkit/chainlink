@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanes
+var _ deployment.ChangeSet[DeployLanesConfig] = DeployLanesChangeset
 
 type DeployLanesConfig struct {
 	Configs []DeployLaneConfig
@@ -98,7 +98,7 @@ func (c *DeployLaneConfig) populateAddresses(state changeset.CCIPOnChainState) e
 	return nil
 }
 
-func DeployLanes(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
+func DeployLanesChangeset(env deployment.Environment, c DeployLanesConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)
