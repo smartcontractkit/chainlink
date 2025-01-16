@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -294,13 +294,13 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		_, _, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
-		require.ErrorIs(t, err, commonfee.ErrFeeLimitTooLow)
+		require.ErrorIs(t, err, fees.ErrFeeLimitTooLow)
 
 		// expect dynamic fee data
 		dynamicFees = true
 		estimator = gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		_, _, err = estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
-		require.ErrorIs(t, err, commonfee.ErrFeeLimitTooLow)
+		require.ErrorIs(t, err, fees.ErrFeeLimitTooLow)
 	})
 
 	t.Run("GetFee, estimate gas limit enabled, buffer exceeds provided limit, fallsback to provided limit", func(t *testing.T) {

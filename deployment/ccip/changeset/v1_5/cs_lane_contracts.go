@@ -275,7 +275,7 @@ func arePrerequisitesMet(chainState changeset.CCIPChainState, chain deployment.C
 	if chainState.Weth9 == nil {
 		return fmt.Errorf("WETH9 not found for chain %s", chain.String())
 	}
-	if chainState.LinkToken == nil {
+	if _, err := chainState.LinkTokenAddress(); err != nil {
 		return fmt.Errorf("LINK token not found for chain %s", chain.String())
 	}
 	if chainState.TokenAdminRegistry == nil {

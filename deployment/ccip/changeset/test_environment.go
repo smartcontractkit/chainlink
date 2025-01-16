@@ -44,6 +44,7 @@ type TestConfigs struct {
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts      bool
 	PrerequisiteDeploymentOnly bool
+	V1_5Cfg                    V1_5DeploymentConfig
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -106,9 +107,12 @@ func WithMultiCall3() TestOps {
 	}
 }
 
-func WithPrerequisiteDeployment() TestOps {
+func WithPrerequisiteDeployment(v1_5Cfg *V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
+		if v1_5Cfg != nil {
+			testCfg.V1_5Cfg = *v1_5Cfg
+		}
 	}
 }
 
@@ -361,10 +365,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 				opts = append(opts, WithMultiCall3Enabled())
 			}
 		}
-		// no RMNConfig will ensure that mock RMN is deployed
-		opts = append(opts, WithLegacyDeploymentEnabled(LegacyDeploymentConfig{
-			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
-		}))
+		if tc.V1_5Cfg != (V1_5DeploymentConfig{}) {
+			opts = append(opts, WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		}
 		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
