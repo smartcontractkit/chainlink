@@ -393,29 +393,6 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 	}
 }
 
-func latestBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
-	return rawRPC.BlockByNumber(ctx, nil)
-}
-
-func latestFinalizedBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
-	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
-	ctx, cancel, _, _, _ := rawRPC.acquireQueryCtx(ctx, rawRPC.rpcTimeout)
-	defer cancel()
-	if rawRPC.chainType == chaintype.ChainAstar {
-		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
-		err = rawRPC.astarLatestFinalizedBlock(ctx, &head)
-	} else {
-		err = rawRPC.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
-	}
-
-	if head == nil {
-		err = rawRPC.wrapRPCClientError(ethereum.NotFound)
-		return
-	}
-	head.EVMChainID = ubig.New(rawRPC.chainID)
-	return
-}
-
 // SubscribeToHeads Implement custom SubscribeToheads method to override the adaptor.
 func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub multinode.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
@@ -610,6 +587,29 @@ func (r *RPCClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	)
 
 	return
+}
+
+func latestFinalizedBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
+	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
+	ctx, cancel, _, _, _ := rawRPC.acquireQueryCtx(ctx, rawRPC.rpcTimeout)
+	defer cancel()
+	if rawRPC.chainType == chaintype.ChainAstar {
+		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
+		err = rawRPC.astarLatestFinalizedBlock(ctx, &head)
+	} else {
+		err = rawRPC.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
+	}
+
+	if head == nil {
+		err = rawRPC.wrapRPCClientError(ethereum.NotFound)
+		return
+	}
+	head.EVMChainID = ubig.New(rawRPC.chainID)
+	return
+}
+
+func latestBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
+	return rawRPC.BlockByNumber(ctx, nil)
 }
 
 func (r *RPCClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {

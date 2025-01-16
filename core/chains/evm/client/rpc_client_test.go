@@ -124,7 +124,6 @@ func TestRPCClient_SubscribeToHeads(t *testing.T) {
 		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(128), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
-		// TODO: Why is TotalDifficulty not being updated?
 		assert.Equal(t, big.NewInt(500), latest.TotalDifficulty)
 
 		assertHighestUserObservations := func(highestUserObservations multinode.ChainInfo) {
