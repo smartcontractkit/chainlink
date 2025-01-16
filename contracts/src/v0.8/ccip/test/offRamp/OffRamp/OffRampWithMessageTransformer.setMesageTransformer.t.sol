@@ -22,7 +22,7 @@ contract OffRampWithMessageTransformer_setMessageTransformer is OffRampSetup {
     );
   }
 
-  function test_SetMessageTransformer() public {
+  function test_setMessageTransformer() public {
     assertEq(s_offRampWithMessageTransformer.getMessageTransformer(), address(s_inboundMessageTransformer));
     IMessageTransformer newMessageTransformer = new MessageTransformerHelper();
     s_offRampWithMessageTransformer.setMessageTransformer(address(newMessageTransformer));
@@ -30,7 +30,7 @@ contract OffRampWithMessageTransformer_setMessageTransformer is OffRampSetup {
     assertNotEq(address(s_inboundMessageTransformer), address(newMessageTransformer));
   }
 
-  function test_RevertWhen_ZeroAddress() public {
+  function test_setMessageTransformer_RevertWhen_ZeroAddress() public {
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);
     s_offRampWithMessageTransformer.setMessageTransformer(address(0));
   }

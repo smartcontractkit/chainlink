@@ -53,7 +53,7 @@ contract OffRampWithMessageTransformer_executeSingleMessage is OffRampSetup {
     vm.startPrank(address(s_offRampWithMessageTransformer));
   }
 
-  function test_ExecuteSingleMessage() public {
+  function test_executeSingleMessage() public {
     s_receiver = new LogMessageDataReceiver();
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
@@ -66,7 +66,7 @@ contract OffRampWithMessageTransformer_executeSingleMessage is OffRampSetup {
     );
   }
 
-  function test_RevertWhen_UnknownChain() public {
+  function test_executeSingleMessage_RevertWhen_UnknownChain() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
     // Fail with any error (UnknownChain in this case) to check if OffRamp wraps the error with MessageTransformError during the revert

@@ -52,7 +52,7 @@ contract OnRampWithMessageTransformer_executeSingleMessage is OnRampSetup {
     vm.startPrank(address(s_sourceRouter));
   }
 
-  function test_ForwardFromRouter() public {
+  function test_forwardFromRouter() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     // transformedMessage is used to assert that message was transformed as expected by IMessageTransformer
     Client.EVM2AnyMessage memory transformedMessage = _generateEmptyMessage();
@@ -63,7 +63,7 @@ contract OnRampWithMessageTransformer_executeSingleMessage is OnRampSetup {
     s_onRampWithMessageTransformer.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
   }
 
-  function test_RevertWhen_UnknownChain() public {
+  function test_forwardFromRouter_RevertWhen_UnknownChain() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     // Fail with any error (UnknownChain in this case) to check if OnRamp wraps the error with MessageTransformError during the revert
     s_messageTransformer.setShouldRevert(true);
