@@ -21,8 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -235,7 +234,7 @@ func (b *BlockHistoryEstimator) HealthReport() map[string]error {
 	return map[string]error{b.Name(): b.Healthy()}
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...fees.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
 		gasPrice = b.getGasPrice()
 	})
@@ -303,7 +302,7 @@ func (b *BlockHistoryEstimator) setMaxPercentileTipCap(tipCap *assets.Wei) {
 func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.haltBumping(attempts); err != nil {
-			if errors.Is(err, commonfee.ErrConnectivity) {
+			if errors.Is(err, fees.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
@@ -365,7 +364,7 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 		}
 		if !attemptEip1559 {
 			if attempt.GasPrice.Cmp(maxGasPrice) > 0 {
-				return fmt.Errorf("transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s): %w", attempt.TxHash, attempt.GasPrice, percentile, maxGasPrice, commonfee.ErrConnectivity)
+				return fmt.Errorf("transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s): %w", attempt.TxHash, attempt.GasPrice, percentile, maxGasPrice, fees.ErrConnectivity)
 			}
 			continue
 		}
@@ -382,7 +381,7 @@ func (b *BlockHistoryEstimator) haltBumping(attempts []EvmPriorAttempt) error {
 			}
 		}
 		if sufficientFeeCap && attempt.DynamicFee.GasTipCap.Cmp(maxTipCap) > 0 {
-			return fmt.Errorf("transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s): %w", attempt.TxHash, attempt.DynamicFee.GasTipCap, percentile, maxTipCap, commonfee.ErrConnectivity)
+			return fmt.Errorf("transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s): %w", attempt.TxHash, attempt.DynamicFee.GasTipCap, percentile, maxTipCap, fees.ErrConnectivity)
 		}
 	}
 	return nil
@@ -461,7 +460,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipC
 func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.haltBumping(attempts); err != nil {
-			if errors.Is(err, commonfee.ErrConnectivity) {
+			if errors.Is(err, fees.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()

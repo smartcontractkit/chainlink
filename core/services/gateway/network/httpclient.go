@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -25,6 +26,9 @@ type HTTPClientConfig struct {
 	BlockedIPsCIDR   []string
 	AllowedPorts     []int
 	AllowedSchemes   []string
+
+	// for testing
+	allowedIPs []string
 }
 
 var (
@@ -71,10 +75,13 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 	safeConfig := safeurl.
 		GetConfigBuilder().
 		SetTimeout(config.DefaultTimeout).
+		SetAllowedIPs(config.allowedIPs...).
 		SetAllowedPorts(config.AllowedPorts...).
 		SetAllowedSchemes(config.AllowedSchemes...).
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
+		SetCheckRedirect(disableRedirects).
+		EnableDebugLogging(true).
 		Build()
 
 	return &httpClient{
@@ -82,6 +89,10 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		client: safeurl.Client(safeConfig),
 		lggr:   lggr,
 	}, nil
+}
+
+func disableRedirects(req *http.Request, via []*http.Request) error {
+	return errors.New("redirects are not allowed")
 }
 
 func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {

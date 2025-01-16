@@ -8,11 +8,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
+
+const QueryTimeout = 10 * time.Second
 
 func NewEvmClient(cfg evmconfig.NodePool, chainCfg multinode.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) (Client, error) {
 	var primaries []multinode.Node[*big.Int, *RPCClient]
@@ -42,8 +43,8 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg multinode.ChainConfig, client
 
 func getRPCTimeouts(chainType chaintype.ChainType) (largePayload, defaultTimeout time.Duration) {
 	if chaintype.ChainHedera == chainType {
-		return 30 * time.Second, commonclient.QueryTimeout
+		return 30 * time.Second, QueryTimeout
 	}
 
-	return commonclient.QueryTimeout, commonclient.QueryTimeout
+	return QueryTimeout, QueryTimeout
 }

@@ -588,6 +588,12 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			expectedID:        int64(1),
 			expectedChainType: proto.ChainType_CHAIN_TYPE_APTOS,
 		},
+		{
+			name:              "Tron Chain Type",
+			chainType:         feeds.ChainTypeTron,
+			expectedID:        int64(1),
+			expectedChainType: proto.ChainType_CHAIN_TYPE_TRON,
+		},
 	}
 
 	for _, tt := range tests {
@@ -754,6 +760,11 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			name:              "Aptos Chain Type",
 			chainType:         feeds.ChainTypeAptos,
 			expectedChainType: proto.ChainType_CHAIN_TYPE_APTOS,
+		},
+		{
+			name:              "Tron Chain Type",
+			chainType:         feeds.ChainTypeTron,
+			expectedChainType: proto.ChainType_CHAIN_TYPE_TRON,
 		},
 	}
 
@@ -1721,6 +1732,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			name:      "Aptos Chain Type",
 			chainType: feeds.ChainTypeAptos,
 			protoType: proto.ChainType_CHAIN_TYPE_APTOS,
+		},
+		{
+			name:      "Tron Chain Type",
+			chainType: feeds.ChainTypeTron,
+			protoType: proto.ChainType_CHAIN_TYPE_TRON,
 		},
 	}
 

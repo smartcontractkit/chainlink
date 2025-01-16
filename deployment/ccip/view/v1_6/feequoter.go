@@ -33,7 +33,9 @@ type FeeQuoterDestChainConfig struct {
 	MaxDataBytes                      uint32 `json:"maxDataBytes,omitempty"`
 	MaxPerMsgGasLimit                 uint32 `json:"maxPerMsgGasLimit,omitempty"`
 	DestGasOverhead                   uint32 `json:"destGasOverhead,omitempty"`
-	DestGasPerPayloadByte             uint16 `json:"destGasPerPayloadByte,omitempty"`
+	DestGasPerPayloadByteBase         uint8  `json:"destGasPerPayloadByteBase,omitempty"`
+	DestGasPerPayloadByteHigh         uint8  `json:"destGasPerPayloadByteHigh,omitempty"`
+	DestGasPerPayloadByteThreshold    uint16 `json:"destGasPerPayloadByteThreshold,omitempty"`
 	DestDataAvailabilityOverheadGas   uint32 `json:"destDataAvailabilityOverheadGas,omitempty"`
 	DestGasPerDataAvailabilityByte    uint16 `json:"destGasPerDataAvailabilityByte,omitempty"`
 	DestDataAvailabilityMultiplierBps uint16 `json:"destDataAvailabilityMultiplierBps,omitempty"`
@@ -99,7 +101,9 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 			MaxDataBytes:                      destChainConfig.MaxDataBytes,
 			MaxPerMsgGasLimit:                 destChainConfig.MaxPerMsgGasLimit,
 			DestGasOverhead:                   destChainConfig.DestGasOverhead,
-			DestGasPerPayloadByte:             destChainConfig.DestGasPerPayloadByte,
+			DestGasPerPayloadByteBase:         destChainConfig.DestGasPerPayloadByteBase,
+			DestGasPerPayloadByteHigh:         destChainConfig.DestGasPerPayloadByteHigh,
+			DestGasPerPayloadByteThreshold:    destChainConfig.DestGasPerPayloadByteThreshold,
 			DestDataAvailabilityOverheadGas:   destChainConfig.DestDataAvailabilityOverheadGas,
 			DestGasPerDataAvailabilityByte:    destChainConfig.DestGasPerDataAvailabilityByte,
 			DestDataAvailabilityMultiplierBps: destChainConfig.DestDataAvailabilityMultiplierBps,

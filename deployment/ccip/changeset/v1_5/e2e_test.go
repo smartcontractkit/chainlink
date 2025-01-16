@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
@@ -17,7 +20,22 @@ import (
 func TestE2ELegacy(t *testing.T) {
 	e, _ := changeset.NewMemoryEnvironment(
 		t,
-		changeset.WithPrerequisiteDeployment(),
+		changeset.WithPrerequisiteDeployment(&changeset.V1_5DeploymentConfig{
+			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+			RMNConfig: &rmn_contract.RMNConfig{
+				BlessWeightThreshold: 2,
+				CurseWeightThreshold: 2,
+				// setting dummy voters, we will permabless this later
+				Voters: []rmn_contract.RMNVoter{
+					{
+						BlessWeight:   2,
+						CurseWeight:   2,
+						BlessVoteAddr: utils.RandomAddress(),
+						CurseVoteAddr: utils.RandomAddress(),
+					},
+				},
+			},
+		}),
 		changeset.WithChains(3),
 		changeset.WithChainIds([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -32,6 +50,25 @@ func TestE2ELegacy(t *testing.T) {
 		{SourceChainSelector: src, DestChainSelector: dest},
 	}
 	e.Env = AddLanes(t, e.Env, state, pairs)
+	// permabless the commit stores
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(PermaBlessCommitStoreCS),
+			Config: PermaBlessCommitStoreConfig{
+				Configs: map[uint64]PermaBlessCommitStoreConfigPerDest{
+					dest: {
+						Sources: []PermaBlessConfigPerSourceChain{
+							{
+								SourceChainSelector: src,
+								PermaBless:          true,
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

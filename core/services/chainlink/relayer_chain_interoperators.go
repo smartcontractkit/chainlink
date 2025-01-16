@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
-	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -52,9 +51,15 @@ type LegacyChainer interface {
 	LegacyCosmosChains() LegacyCosmosContainer
 }
 
+// NetworkChainStatus is a ChainStatus from a particlar Network.
+type NetworkChainStatus struct {
+	Network string
+	types.ChainStatus
+}
+
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
 }
 
 // NodesStatuser is an interface for node configuration and state.
@@ -279,9 +284,9 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id ty
 	return lr.GetChainStatus(ctx)
 }
 
-func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error) {
 	var (
-		stats    []commonTypes.ChainStatusWithID
+		stats    []NetworkChainStatus
 		totalErr error
 	)
 	rs.mu.Lock()
@@ -301,7 +306,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 			totalErr = errors.Join(totalErr, err)
 			continue
 		}
-		stats = append(stats, commonTypes.ChainStatusWithID{ChainStatus: stat, RelayID: rid})
+		stats = append(stats, NetworkChainStatus{ChainStatus: stat, Network: rid.Network})
 	}
 
 	if totalErr != nil {

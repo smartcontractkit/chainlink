@@ -2,14 +2,17 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -173,7 +176,8 @@ func BuildSetOCR3ConfigArgs(
 
 		// we expect only an active config and no candidate config.
 		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
-			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d", donID)
+			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
+				donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 		}
 
 		activeConfig := ocrConfig.ActiveConfig
@@ -203,8 +207,8 @@ func BuildOCR3ConfigForCCIPHome(
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
 	ocrParams types2.OCRParameters,
-	commitOffchainCfg pluginconfig.CommitOffchainConfig,
-	execOffchainCfg pluginconfig.ExecuteOffchainConfig,
+	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
+	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -228,10 +232,20 @@ func BuildOCR3ConfigForCCIPHome(
 
 	// Add DON on capability registry contract
 	ocr3Configs := make(map[types.PluginType]ccip_home.CCIPHomeOCR3Config)
-	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+	pluginTypes := make([]types.PluginType, 0)
+	if commitOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPCommit)
+	}
+	if execOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPExec)
+	}
+	for _, pluginType := range pluginTypes {
 		var encodedOffchainConfig []byte
 		var err2 error
 		if pluginType == types.PluginTypeCCIPCommit {
+			if commitOffchainCfg == nil {
+				return nil, errors.New("commitOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
 				TokenPriceBatchWriteFrequency:      commitOffchainCfg.TokenPriceBatchWriteFrequency,
@@ -245,6 +259,9 @@ func BuildOCR3ConfigForCCIPHome(
 				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
 			})
 		} else {
+			if execOffchainCfg == nil {
+				return nil, errors.New("execOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             execOffchainCfg.BatchGasLimit,
 				RelativeBoostPerWaitHour:  execOffchainCfg.RelativeBoostPerWaitHour,
@@ -258,7 +275,7 @@ func BuildOCR3ConfigForCCIPHome(
 		if err2 != nil {
 			return nil, err2
 		}
-		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		signers, transmitters, configF, onchainConfig, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
 			ocrSecrets.EphemeralSk,
 			ocrSecrets.SharedSecret,
 			ocrParams.DeltaProgress,
@@ -297,7 +314,18 @@ func BuildOCR3ConfigForCCIPHome(
 			}
 			transmittersBytes[i] = parsed
 		}
-
+		// validate ocr3 params correctness
+		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     configF,
+			OnchainConfig:         onchainConfig,
+			OffchainConfigVersion: offchainConfigVersion,
+			OffchainConfig:        offchainConfig,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
+		}
 		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
 			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{
