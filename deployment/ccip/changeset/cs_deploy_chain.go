@@ -594,11 +594,11 @@ func deployChainContractsSolana(
 				chain.Client,
 				*chain.DeployerKey,
 				[]solana.PublicKey{
-					//system
+					// system
 					solana.SystemProgramID,
 					solana.ComputeBudget,
 					solana.SysVarInstructionsPubkey,
-					//router
+					// router
 					ccipRouterProgram,
 					GetRouterConfigPDA(ccipRouterProgram),
 					GetRouterStatePDA(ccipRouterProgram),
@@ -616,7 +616,7 @@ func deployChainContractsSolana(
 				if maxRetries > 0 {
 					e.Logger.Errorw("Failed to create lookup table, retrying", "err", err)
 					time.Sleep(5 * time.Second)
-					maxRetries -= 1
+					maxRetries--
 					continue
 				}
 				return fmt.Errorf("failed to create lookup table: %w", err)
