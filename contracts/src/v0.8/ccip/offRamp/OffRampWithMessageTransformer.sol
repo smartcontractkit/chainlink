@@ -21,10 +21,14 @@ contract OffRampWithMessageTransformer is OffRamp {
     s_messageTransformer = messageTransformerAddr;
   }
 
+  /// @notice Get the address of the message transformer
+  /// @return messageTransformerAddr The address of the message transformer
   function getMessageTransformer() external view returns (address) {
     return s_messageTransformer;
   }
 
+  /// @notice Set the address of the message transformer
+  /// @param messageTransformerAddr The address of the message transformer
   function setMessageTransformer(
     address messageTransformerAddr
   ) external onlyOwner {
@@ -34,6 +38,7 @@ contract OffRampWithMessageTransformer is OffRamp {
     s_messageTransformer = messageTransformerAddr;
   }
 
+  /// @inheritdoc OffRamp
   function _beforeExecuteSingleMessage(
     Internal.Any2EVMRampMessage memory message
   ) internal override returns (Internal.Any2EVMRampMessage memory) {

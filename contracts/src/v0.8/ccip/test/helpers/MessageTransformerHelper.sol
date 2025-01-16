@@ -4,12 +4,13 @@ pragma solidity 0.8.26;
 import {IMessageTransformer} from "../../interfaces/IMessageTransformer.sol";
 import {Internal} from "../../libraries/Internal.sol";
 
-// This helper is used to test the On/OffRamps
+// @dev This helper is used to test the On/OffRamps
 contract MessageTransformerHelper is IMessageTransformer {
   error UnknownChain();
 
   bool public s_shouldRevert;
 
+  /// @dev Set whether the transformer should revert
   function setShouldRevert(
     bool _shouldRevert
   ) external {

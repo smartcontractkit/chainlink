@@ -23,10 +23,14 @@ contract OnRampWithMessageTransformer is OnRamp {
     s_messageTransformer = messageTransformerAddr;
   }
 
+  /// @notice Get the address of the message transformer
+  /// @return messageTransformerAddr The address of the message transformer
   function getMessageTransformer() external view returns (address) {
     return s_messageTransformer;
   }
 
+  /// @notice Set the address of the message transformer
+  /// @param messageTransformerAddr The address of the message transformer
   function setMessageTransformer(
     address messageTransformerAddr
   ) external onlyOwner {
@@ -36,6 +40,7 @@ contract OnRampWithMessageTransformer is OnRamp {
     s_messageTransformer = messageTransformerAddr;
   }
 
+  /// @inheritdoc OnRamp
   function _postProcessMessage(
     Internal.EVM2AnyRampMessage memory message
   ) internal override returns (Internal.EVM2AnyRampMessage memory) {

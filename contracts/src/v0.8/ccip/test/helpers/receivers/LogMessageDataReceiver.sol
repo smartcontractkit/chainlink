@@ -6,6 +6,7 @@ import {Client} from "../../../libraries/Client.sol";
 
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
+/// @dev A contract that logs the data of a CCIP message received
 contract LogMessageDataReceiver is IAny2EVMMessageReceiver, IERC165 {
   event MessageReceived(bytes data);
 
@@ -18,6 +19,8 @@ contract LogMessageDataReceiver is IAny2EVMMessageReceiver, IERC165 {
     return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
+  /// @dev Logs the data of the message received
+  /// @param message The message received
   function ccipReceive(
     Client.Any2EVMMessage calldata message
   ) external override {
