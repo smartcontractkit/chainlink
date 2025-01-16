@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -50,10 +51,7 @@ func TestDeploySolanaToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// solana test
-	addrs, err := e.ExistingAddresses.AddressesForChain(solChain1)
-	require.NoError(t, err)
-	require.NotEmpty(t, addrs)
-	tokenAddress, err := changeset.FindTokenAddress(addrs, "spl-token-2022")
+	tokenAddress, err := deployment.FindTokenAddress(e, solChain1, "spl-token-2022")
 	require.NoError(t, err)
 	toAddressBase58 := solana.MustPublicKeyFromBase58(e.SolChains[solChain1].DeployerKey.PublicKey().String())
 	ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, toAddressBase58)
