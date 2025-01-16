@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -26,10 +27,10 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChain
+var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
 
-// DeployHomeChain is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
-func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
+// DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
+func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)

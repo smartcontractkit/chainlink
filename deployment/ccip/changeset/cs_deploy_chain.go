@@ -23,18 +23,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContracts
+var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
-// DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
+// DeployChainContractsChangeset deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
-// DeployChainContracts is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
+// DeployChainContractsChangeset is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
 // changeset again with the same input to retry the failed deployment.
 // Caller should update the environment's address book with the returned addresses.
 // Points to note :
 // In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
-func DeployChainContracts(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}

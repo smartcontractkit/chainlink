@@ -1,4 +1,4 @@
-package changeset
+package testhelpers
 
 import (
 	"context"
@@ -19,6 +19,8 @@ import (
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -29,7 +31,7 @@ import (
 func ConfirmGasPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	gasPrice *big.Int,
 ) {
@@ -82,7 +84,7 @@ func ConfirmGasPriceUpdated(
 func ConfirmTokenPriceUpdatedForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
@@ -167,7 +169,7 @@ type SourceDestPair struct {
 func ConfirmCommitForAllWithExpectedSeqNums(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair]uint64,
 	startBlocks map[uint64]*uint64,
 ) {
@@ -267,7 +269,7 @@ func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
 func ConfirmMultipleCommits(
 	t *testing.T,
 	chains map[uint64]deployment.Chain,
-	state map[uint64]CCIPChainState,
+	state map[uint64]changeset.CCIPChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
 	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
@@ -413,7 +415,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 func ConfirmExecWithSeqNrsForAll(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	expectedSeqNums map[SourceDestPair][]uint64,
 	startBlocks map[uint64]*uint64,
 ) (executionStates map[SourceDestPair]map[uint64]int) {
@@ -655,4 +657,40 @@ func AssertEqualFeeConfig(t *testing.T, want, have fee_quoter.FeeQuoterDestChain
 	assert.Equal(t, want.MaxDataBytes, have.MaxDataBytes)
 	assert.Equal(t, want.MaxNumberOfTokensPerMsg, have.MaxNumberOfTokensPerMsg)
 	assert.Equal(t, want.MaxPerMsgGasLimit, have.MaxPerMsgGasLimit)
+}
+
+// AssertTimelockOwnership asserts that the ownership of the contracts has been transferred
+// to the appropriate timelock contract on each chain.
+func AssertTimelockOwnership(
+	t *testing.T,
+	e DeployedEnv,
+	chains []uint64,
+	state changeset.CCIPOnChainState,
+) {
+	// check that the ownership has been transferred correctly
+	for _, chain := range chains {
+		for _, contract := range []common.Address{
+			state.Chains[chain].OnRamp.Address(),
+			state.Chains[chain].OffRamp.Address(),
+			state.Chains[chain].FeeQuoter.Address(),
+			state.Chains[chain].NonceManager.Address(),
+			state.Chains[chain].RMNRemote.Address(),
+		} {
+			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[chain].Client)
+			require.NoError(t, err)
+			require.Equal(t, state.Chains[chain].Timelock.Address(), owner)
+		}
+	}
+
+	// check home chain contracts ownership
+	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	for _, contract := range []common.Address{
+		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		state.Chains[e.HomeChainSel].CCIPHome.Address(),
+		state.Chains[e.HomeChainSel].RMNHome.Address(),
+	} {
+		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.Chains[e.HomeChainSel].Client)
+		require.NoError(t, err)
+		require.Equal(t, homeChainTimelockAddress, owner)
+	}
 }

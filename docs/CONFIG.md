@@ -1900,15 +1900,26 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 ## Mercury.Transmitter
 ```toml
 [Mercury.Transmitter]
-TransmitQueueMaxSize = 10_000 # Default
+Protocol = "wsrpc" # Default
+TransmitQueueMaxSize = 100_000 # Default
 TransmitTimeout = "5s" # Default
 TransmitConcurrency = 100 # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
+### Protocol
+```toml
+Protocol = "wsrpc" # Default
+```
+Protocol is the protocol to use for the transmitter.
+
+Options are either:
+- "wsrpc" for the legacy websocket protocol
+- "grpc" for the gRPC protocol
+
 ### TransmitQueueMaxSize
 ```toml
-TransmitQueueMaxSize = 10_000 # Default
+TransmitQueueMaxSize = 100_000 # Default
 ```
 TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 per OCR instance. If the queue is full, the transmitter will start dropping

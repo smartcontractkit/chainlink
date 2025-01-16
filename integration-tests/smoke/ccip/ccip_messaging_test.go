@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -27,7 +28,7 @@ import (
 type testCaseSetup struct {
 	t                      *testing.T
 	sender                 []byte
-	deployedEnv            changeset.DeployedEnv
+	deployedEnv            testhelpers.DeployedEnv
 	onchainState           changeset.CCIPOnChainState
 	sourceChain, destChain uint64
 }
@@ -46,7 +47,7 @@ type messagingTestCaseOutput struct {
 
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
-	ctx := changeset.Context(t)
+	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -63,7 +64,7 @@ func Test_CCIPMessaging(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 	// connect a single lane, source to dest
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 
 	var (
 		replayed bool
@@ -88,8 +89,8 @@ func Test_CCIPMessaging(t *testing.T) {
 		},
 			common.HexToAddress("0xdead"),
 			[]byte("hello eoa"),
-			nil,                               // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+			nil,                                 // default extraArgs
+			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 		)
 	})
 
@@ -102,8 +103,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 			state.Chains[destChain].FeeQuoter.Address(),
 			[]byte("hello FeeQuoter"),
-			nil,                               // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
+			nil,                                 // default extraArgs
+			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
@@ -119,7 +120,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver"),
 			nil, // default extraArgs
-			changeset.EXECUTION_STATE_SUCCESS,
+			testhelpers.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
 				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 					Context: ctx,
@@ -143,8 +144,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 			state.Chains[destChain].Receiver.Address(),
 			[]byte("hello CCIPReceiver with low exec gas"),
-			changeset.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-			changeset.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
+			testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
+			testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
 		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
@@ -162,7 +163,7 @@ func manuallyExecute(
 	destChain uint64,
 	out messagingTestCaseOutput,
 	sourceChain uint64,
-	e changeset.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	sender []byte,
 ) {
 	merkleRoot := getMerkleRoot(
@@ -229,7 +230,7 @@ func manuallyExecute(
 
 	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
 	require.NoError(t, err)
-	require.Equal(t, uint8(changeset.EXECUTION_STATE_SUCCESS), newExecutionState)
+	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_SUCCESS), newExecutionState)
 }
 
 func getMerkleRoot(
@@ -285,12 +286,12 @@ func getMessageHash(
 	return iter.Event.MessageHash
 }
 
-func sleepAndReplay(t *testing.T, e changeset.DeployedEnv, sourceChain, destChain uint64) {
+func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
 	replayBlocks[sourceChain] = 1
 	replayBlocks[destChain] = 1
-	changeset.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
 
 func runMessagingTestCase(
@@ -309,20 +310,20 @@ func runMessagingTestCase(
 	require.Equal(tc.t, tc.nonce, latestNonce)
 
 	startBlocks := make(map[uint64]*uint64)
-	msgSentEvent := changeset.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := testhelpers.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         msgData,
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    extraArgs,
 	})
-	expectedSeqNum := map[changeset.SourceDestPair]uint64{
+	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
 		{
 			SourceChainSelector: tc.sourceChain,
 			DestChainSelector:   tc.destChain,
 		}: msgSentEvent.SequenceNumber,
 	}
-	expectedSeqNumExec := map[changeset.SourceDestPair][]uint64{
+	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{
 		{
 			SourceChainSelector: tc.sourceChain,
 			DestChainSelector:   tc.destChain,
@@ -336,20 +337,20 @@ func runMessagingTestCase(
 		out.replayed = true
 	}
 
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	execStates := changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
 
 	require.Equalf(
 		tc.t,
 		expectedExecutionState,
-		execStates[changeset.SourceDestPair{
+		execStates[testhelpers.SourceDestPair{
 			SourceChainSelector: tc.sourceChain,
 			DestChainSelector:   tc.destChain,
 		}][msgSentEvent.SequenceNumber],
 		"wrong execution state for seq nr %d, expected %d, got %d",
 		msgSentEvent.SequenceNumber,
 		expectedExecutionState,
-		execStates[changeset.SourceDestPair{
+		execStates[testhelpers.SourceDestPair{
 			SourceChainSelector: tc.sourceChain,
 			DestChainSelector:   tc.destChain,
 		}][msgSentEvent.SequenceNumber],

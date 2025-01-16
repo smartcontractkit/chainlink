@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
@@ -245,7 +246,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("Running RMN test case: %s", tc.name)
 
 	envWithRMN, rmnCluster, _ := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithRMNEnabled(len(tc.rmnNodes)),
+		testhelpers.WithRMNEnabled(len(tc.rmnNodes)),
 	)
 	t.Logf("envWithRmn: %#v", envWithRMN)
 
@@ -286,7 +287,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	_, err = changeset.PromoteCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		DigestToPromote:   candidateDigest,
 	})
@@ -319,8 +320,8 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
-	changeset.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
-	changeset.AddLanesForAll(t, &envWithRMN, onChainState)
+	testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+	testhelpers.AddLanesForAll(t, &envWithRMN, onChainState)
 	disabledNodes := tc.disableOraclesIfThisIsACursingTestCase(ctx, t, envWithRMN)
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
@@ -332,7 +333,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	tc.enableOracles(ctx, t, envWithRMN, disabledNodes)
 
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
+	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
 	for k, v := range seqNumCommit {
 		cursedSubjectsOfDest, exists := tc.pf.cursedSubjectsPerChainSel[k.DestChainSelector]
 		shouldSkip := exists && (slices.Contains(cursedSubjectsOfDest, globalCurse) ||
@@ -354,13 +355,13 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	commitReportReceived := make(chan struct{})
 	go func() {
 		if len(expectedSeqNum) > 0 {
-			changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, expectedSeqNum, startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 
 		if len(seqNumCommit) > 0 && len(seqNumCommit) > len(expectedSeqNum) {
 			// wait for a duration and assert that commit reports were not delivered for cursed source chains
-			changeset.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
+			testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, envWithRMN.Env, onChainState, seqNumCommit, startBlocks)
 			commitReportReceived <- struct{}{}
 		}
 	}()
@@ -392,7 +393,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	if tc.waitForExec {
 		t.Logf("⌛ Waiting for exec reports...")
-		changeset.ConfirmExecWithSeqNrsForAll(t, envWithRMN.Env, onChainState, seqNumExec, startBlocks)
+		testhelpers.ConfirmExecWithSeqNrsForAll(t, envWithRMN.Env, onChainState, seqNumExec, startBlocks)
 		t.Logf("✅ Exec report")
 	}
 }
@@ -464,7 +465,7 @@ type testCasePopulatedFields struct {
 	revokedCursedSubjectsPerChainSel map[uint64]map[uint64]time.Duration
 }
 
-func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN changeset.DeployedEnv, rmnCluster devenv.RMNCluster) {
+func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
 	require.GreaterOrEqual(t, len(envWithRMN.Env.Chains), 2, "test assumes at least two chains")
 	for _, chain := range envWithRMN.Env.Chains {
 		tc.pf.chainSelectors = append(tc.pf.chainSelectors, chain.Selector)
@@ -553,7 +554,7 @@ func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNClus
 	}
 }
 
-func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context, t *testing.T, envWithRMN changeset.DeployedEnv) []string {
+func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context, t *testing.T, envWithRMN testhelpers.DeployedEnv) []string {
 	disabledNodes := make([]string, 0)
 
 	if len(tc.cursedSubjectsPerChain) > 0 {
@@ -574,28 +575,28 @@ func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context
 	return disabledNodes
 }
 
-func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) (map[uint64]*uint64, map[changeset.SourceDestPair]uint64, map[changeset.SourceDestPair][]uint64) {
+func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) (map[uint64]*uint64, map[testhelpers.SourceDestPair]uint64, map[testhelpers.SourceDestPair][]uint64) {
 	startBlocks := make(map[uint64]*uint64)
-	seqNumCommit := make(map[changeset.SourceDestPair]uint64)
-	seqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	seqNumCommit := make(map[testhelpers.SourceDestPair]uint64)
+	seqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 
 	for _, msg := range tc.messagesToSend {
 		fromChain := tc.pf.chainSelectors[msg.fromChainIdx]
 		toChain := tc.pf.chainSelectors[msg.toChainIdx]
 
 		for i := 0; i < msg.count; i++ {
-			msgSentEvent := changeset.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
+			msgSentEvent := testhelpers.TestSendRequest(t, envWithRMN.Env, onChainState, fromChain, toChain, false, router.ClientEVM2AnyMessage{
 				Receiver:     common.LeftPadBytes(onChainState.Chains[toChain].Receiver.Address().Bytes(), 32),
 				Data:         []byte("hello world"),
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
 			})
-			seqNumCommit[changeset.SourceDestPair{
+			seqNumCommit[testhelpers.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = msgSentEvent.SequenceNumber
-			seqNumExec[changeset.SourceDestPair{
+			seqNumExec[testhelpers.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,
 			}] = []uint64{msgSentEvent.SequenceNumber}
@@ -609,7 +610,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 	return startBlocks, seqNumCommit, seqNumExec
 }
 
-func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -644,7 +645,7 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 	}
 }
 
-func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN changeset.DeployedEnv) {
+func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg *errgroup.Group, t *testing.T, onChainState changeset.CCIPOnChainState, envWithRMN testhelpers.DeployedEnv) {
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		remoteSel := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		chState, ok := onChainState.Chains[remoteSel]
@@ -700,7 +701,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 	}
 }
 
-func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRMN changeset.DeployedEnv, nodeIDs []string) {
+func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRMN testhelpers.DeployedEnv, nodeIDs []string) {
 	for _, n := range nodeIDs {
 		_, err := envWithRMN.Env.Offchain.EnableNode(ctx, &node.EnableNodeRequest{Id: n})
 		require.NoError(t, err)
