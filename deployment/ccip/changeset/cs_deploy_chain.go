@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -533,27 +532,6 @@ func deployChainContractsSolana(
 	linkTokenContract := chainState.LinkToken
 	e.Logger.Infow("link token", "addr", linkTokenContract.String())
 
-	if chainState.SolAddressLookupTable.IsZero() {
-		maxRetries := 5
-		var table solana.PublicKey
-		for i := 0; i < maxRetries; i++ {
-			table, err = solCommonUtil.CreateLookupTable(context.Background(), chain.Client, *chain.DeployerKey)
-			if err != nil {
-				if maxRetries > 0 {
-					e.Logger.Errorw("Failed to create lookup table, retrying", "err", err)
-					time.Sleep(5 * time.Second)
-					maxRetries -= 1
-					continue
-				}
-				return fmt.Errorf("failed to create lookup table: %w", err)
-			}
-		}
-		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	}
-
 	// ROUTER DEPLOY AND INITIALIZE
 	var ccipRouterProgram solana.PublicKey
 	if chainState.SolCcipRouter.IsZero() {
@@ -591,7 +569,7 @@ func deployChainContractsSolana(
 		return err
 	}
 
-	// var tokenPoolProgram solana.PublicKey
+	var tokenPoolProgram solana.PublicKey
 	if chainState.SolTokenPool.IsZero() {
 		programID, err := chain.DeployProgram(e.Logger, "token_pool")
 		if err != nil {
@@ -599,8 +577,50 @@ func deployChainContractsSolana(
 		}
 		tv := deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		// tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+
+	// initialize this last with every address we need
+	if chainState.SolAddressLookupTable.IsZero() {
+		maxRetries := 5
+		var table solana.PublicKey
+		for i := 0; i < maxRetries; i++ {
+			table, err = solCommonUtil.SetupLookupTable(
+				e.GetContext(),
+				chain.Client,
+				*chain.DeployerKey,
+				[]solana.PublicKey{
+					//system
+					solana.SystemProgramID,
+					solana.ComputeBudget,
+					solana.SysVarInstructionsPubkey,
+					//router
+					ccipRouterProgram,
+					GetRouterConfigPDA(ccipRouterProgram),
+					GetRouterStatePDA(ccipRouterProgram),
+					GetExternalExecutionConfigPDA(ccipRouterProgram),
+					GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+					// token pool
+					tokenPoolProgram,
+					// token
+					solana.Token2022ProgramID,
+					solana.SPLAssociatedTokenAccountProgramID,
+				})
+			if err != nil {
+				if maxRetries > 0 {
+					e.Logger.Errorw("Failed to create lookup table, retrying", "err", err)
+					time.Sleep(5 * time.Second)
+					maxRetries -= 1
+					continue
+				}
+				return fmt.Errorf("failed to create lookup table: %w", err)
+			}
+		}
+		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
