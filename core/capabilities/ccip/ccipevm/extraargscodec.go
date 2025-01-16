@@ -17,7 +17,6 @@ func NewExtraArgsCodec() ExtraArgsCodec {
 }
 
 func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	// Not implemented but will not return error
 	family, err := chain_selectors.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode extra data, %w", err)
