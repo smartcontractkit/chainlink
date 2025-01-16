@@ -1,4 +1,4 @@
-package v1_5
+package v1_5_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
+	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
@@ -55,11 +56,11 @@ func TestE2ELegacy(t *testing.T) {
 	// permabless the commit stores
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(PermaBlessCommitStoreChangeset),
-			Config: PermaBlessCommitStoreConfig{
-				Configs: map[uint64]PermaBlessCommitStoreConfigPerDest{
+			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
+			Config: v1_5changeset.PermaBlessCommitStoreConfig{
+				Configs: map[uint64]v1_5changeset.PermaBlessCommitStoreConfigPerDest{
 					dest: {
-						Sources: []PermaBlessConfigPerSourceChain{
+						Sources: []v1_5changeset.PermaBlessConfigPerSourceChain{
 							{
 								SourceChainSelector: src,
 								PermaBless:          true,

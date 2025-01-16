@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -44,9 +45,9 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
 			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-				NodeOperators:    changeset.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -179,11 +180,11 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 								from: {
 									TokenPrices: map[common.Address]*big.Int{
-										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
-										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
+										stateChain1.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+										stateChain1.Weth9.Address():     testhelpers.DefaultWethPrice,
 									},
 									GasPrices: map[uint64]*big.Int{
-										to: changeset.DefaultGasPrice,
+										to: testhelpers.DefaultGasPrice,
 									},
 								},
 							},
