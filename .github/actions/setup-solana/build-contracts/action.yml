@@ -62,3 +62,4 @@ runs:
       run: |
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        echo ${{ env.CCIP_REVISION }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev
