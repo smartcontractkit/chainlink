@@ -13,5 +13,6 @@ type Eth interface {
 	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
 	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)
 	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignMessage(ctx context.Context, address common.Address, message []byte) ([]byte, error)
 	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
 }
