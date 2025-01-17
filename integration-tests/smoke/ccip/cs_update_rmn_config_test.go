@@ -120,7 +120,7 @@ func TestSetDynamicConfig(t *testing.T) {
 			},
 			OffchainConfig: []byte(""),
 		},
-		CurrentDigest: active,
+		ActiveDigest: active,
 	}
 
 	_, err = changeset.SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
@@ -165,7 +165,7 @@ func TestRevokeConfig(t *testing.T) {
 
 	revokeCandidateConfig := changeset.RevokeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
-		ConfigDigest:      candidate,
+		CandidateDigest:   candidate,
 	}
 
 	_, err = changeset.RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
