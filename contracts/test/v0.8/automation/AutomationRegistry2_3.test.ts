@@ -117,7 +117,7 @@ const emptyBytes = '0x'
 const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-const transmitGasOverhead = 1_040_000
+const transmitGasOverhead = 1_080_000
 const checkGasOverhead = 600_000
 
 const stalenessSeconds = BigNumber.from(43820)
@@ -165,7 +165,6 @@ let registry: IAutomationRegistry // default registry, used for most tests
 let arbRegistry: IAutomationRegistry // arbitrum registry
 let opRegistry: IAutomationRegistry // optimism registry
 let mgRegistry: IAutomationRegistry // "migrate registry" used in migration tests
-let blankRegistry: IAutomationRegistry // used to test initial configurations
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 let mock: UpkeepMock
@@ -402,7 +401,6 @@ describe('AutomationRegistry2_3', () => {
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
   let streamsLookupUpkeepId: BigNumber // streams lookup upkeep
-  const numUpkeeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -1017,7 +1015,6 @@ describe('AutomationRegistry2_3', () => {
     arbRegistry = await deployRegistry23(...registryParams)
     opRegistry = await deployRegistry23(...registryParams)
     mgRegistry = await deployRegistry23(...registryParams)
-    blankRegistry = await deployRegistry23(...registryParams)
 
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
     registryLogOverhead = await registry.getLogGasOverhead()

@@ -31,13 +31,13 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDests
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSources
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRamps
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDests
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRamp
-	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesCS
-	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersCS
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDestsChangeset
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSourcesChangeset
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRampsChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDestsChangeset
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRampChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesChangeset
+	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -107,7 +107,7 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfig) (deployment.ChangesetOutput, error) {
+func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManagerConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -272,10 +272,10 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// UpdateOnRampsDests updates the onramp destinations for each onramp
+// UpdateOnRampsDestsChangeset updates the onramp destinations for each onramp
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
-func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
+func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -437,7 +437,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 	return nil
 }
 
-func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
+func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -559,7 +559,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
+func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -680,8 +680,8 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// UpdateOffRampSources updates the offramp sources for each offramp.
-func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
+// UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
+func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -834,14 +834,14 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// UpdateRouterRamps updates the on/offramps
+// UpdateRouterRampsChangeset updates the on/offramps
 // in either the router or test router for a series of chains. Use cases include:
 // - Ramp upgrade. After deploying new ramps you can enable them on the test router and
 // ensure it works e2e. Then enable the ramps on the real router.
 // - New chain support. When adding a new chain, you can enable the new destination
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
-func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
+func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -964,13 +964,13 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+// SetOCR3OffRampChangeset will set the OCR3 offramp for the given chain.
 // to the active configuration on CCIPHome. This
 // is used to complete the candidate->active promotion cycle, it's
 // run after the candidate is confirmed to be working correctly.
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
-func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

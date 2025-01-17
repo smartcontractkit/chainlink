@@ -39,7 +39,7 @@ var (
 	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
-	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
+	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
 type tokenInfo interface {
@@ -171,14 +171,66 @@ func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIP
 	return nil
 }
 
-// DefaultOCRParams returns the default OCR parameters for a chain,
-// except for a few values which must be parameterized (passed as arguments).
-func DefaultOCRParams(
-	feedChainSel uint64,
-	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
-	tokenDataObservers []pluginconfig.TokenDataObserverConfig,
-	commit bool,
-	exec bool,
+type CCIPOCROpts func(params *CCIPOCRParams)
+
+// WithOCRParamOverride can be used if you want to override the default OCR parameters with your custom function.
+func WithOCRParamOverride(override func(params *CCIPOCRParams)) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if override != nil {
+			override(params)
+		}
+	}
+}
+
+// WithDefaultCommitOffChainConfig can be used to add token info to the existing commit off-chain config. If no commit off-chain config is set, it will be created with default values.
+func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if params.CommitOffChainConfig == nil {
+			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
+				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+				TokenInfo:                          tokenInfo,
+				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
+				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+				MaxReportTransmissionCheckAttempts: 5,
+				RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
+				RMNSignaturesTimeout:               30 * time.Minute,
+				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+			}
+		} else {
+			if params.CommitOffChainConfig.TokenInfo == nil {
+				params.CommitOffChainConfig.TokenInfo = make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
+			}
+			for k, v := range tokenInfo {
+				params.CommitOffChainConfig.TokenInfo[k] = v
+			}
+		}
+	}
+}
+
+// WithDefaultExecuteOffChainConfig can be used to add token data observers to the execute off-chain config. If no execute off-chain config is set, it will be created with default values.
+func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserverConfig) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if params.ExecuteOffChainConfig == nil {
+			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
+				BatchGasLimit:             internal.BatchGasLimit,
+				RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
+				InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
+				RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
+				MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
+				BatchingStrategyID:        internal.BatchingStrategyID,
+				TokenDataObservers:        tokenDataObservers,
+			}
+		} else if tokenDataObservers != nil {
+			params.ExecuteOffChainConfig.TokenDataObservers = append(params.ExecuteOffChainConfig.TokenDataObservers, tokenDataObservers...)
+		}
+	}
+}
+
+// DeriveCCIPOCRParams derives the default OCR parameters for a chain, with the option to override them.
+func DeriveCCIPOCRParams(
+	opts ...CCIPOCROpts,
 ) CCIPOCRParams {
 	params := CCIPOCRParams{
 		OCRParameters: commontypes.OCRParameters{
@@ -196,30 +248,8 @@ func DefaultOCRParams(
 			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
 		},
 	}
-	if exec {
-		params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-			BatchGasLimit:             internal.BatchGasLimit,
-			RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
-			InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
-			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
-			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
-			BatchingStrategyID:        internal.BatchingStrategyID,
-			TokenDataObservers:        tokenDataObservers,
-		}
-	}
-	if commit {
-		params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
-			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
-			TokenInfo:                          tokenInfo,
-			PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
-			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
-			MaxReportTransmissionCheckAttempts: 5,
-			RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
-			RMNSignaturesTimeout:               30 * time.Minute,
-			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
-			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
-		}
+	for _, opt := range opts {
+		opt(&params)
 	}
 	return params
 }
@@ -1217,7 +1247,7 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}

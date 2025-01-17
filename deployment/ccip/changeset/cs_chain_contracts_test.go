@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"testing"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
@@ -32,8 +34,8 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			ctx := testcontext.Get(t)
 			// Default env just has 2 chains with all contracts
 			// deployed but no lanes.
-			tenv, _ := NewMemoryEnvironment(t)
-			state, err := LoadOnchainState(tenv.Env)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.Chains)
@@ -45,17 +47,17 @@ func TestUpdateOnRampsDests(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *MCMSConfig
+			var mcmsConfig *changeset.MCMSConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &MCMSConfig{
+				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
 				}
 			}
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateOnRampsDests),
-					Config: UpdateOnRampDestsConfig{
-						UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+					Config: changeset.UpdateOnRampDestsConfig{
+						UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 							source: {
 								dest: {
 									IsEnabled:        true,
@@ -106,8 +108,8 @@ func TestUpdateOffRampsSources(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
-			state, err := LoadOnchainState(tenv.Env)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.Chains)
@@ -119,17 +121,17 @@ func TestUpdateOffRampsSources(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *MCMSConfig
+			var mcmsConfig *changeset.MCMSConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &MCMSConfig{
+				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
 				}
 			}
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateOffRampSources),
-					Config: UpdateOffRampSourcesConfig{
-						UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+					Config: changeset.UpdateOffRampSourcesConfig{
+						UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 							source: {
 								dest: {
 									IsEnabled:  true,
@@ -176,8 +178,8 @@ func TestUpdateFQDests(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
-			state, err := LoadOnchainState(tenv.Env)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.Chains)
@@ -189,20 +191,20 @@ func TestUpdateFQDests(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *MCMSConfig
+			var mcmsConfig *changeset.MCMSConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &MCMSConfig{
+				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
 				}
 			}
 
-			fqCfg1 := DefaultFeeQuoterDestChainConfig()
-			fqCfg2 := DefaultFeeQuoterDestChainConfig()
+			fqCfg1 := changeset.DefaultFeeQuoterDestChainConfig()
+			fqCfg2 := changeset.DefaultFeeQuoterDestChainConfig()
 			fqCfg2.DestGasOverhead = 1000
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateFeeQuoterDests),
-					Config: UpdateFeeQuoterDestsConfig{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+					Config: changeset.UpdateFeeQuoterDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 							source: {
 								dest: fqCfg1,
@@ -220,10 +222,10 @@ func TestUpdateFQDests(t *testing.T) {
 			// Assert the fq configuration is as we expect.
 			source2destCfg, err := state.Chains[source].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, dest)
 			require.NoError(t, err)
-			AssertEqualFeeConfig(t, fqCfg1, source2destCfg)
+			testhelpers.AssertEqualFeeConfig(t, fqCfg1, source2destCfg)
 			dest2sourceCfg, err := state.Chains[dest].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, source)
 			require.NoError(t, err)
-			AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
+			testhelpers.AssertEqualFeeConfig(t, fqCfg2, dest2sourceCfg)
 		})
 	}
 }
@@ -244,8 +246,8 @@ func TestUpdateRouterRamps(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testcontext.Get(t)
-			tenv, _ := NewMemoryEnvironment(t)
-			state, err := LoadOnchainState(tenv.Env)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.Chains)
@@ -257,9 +259,9 @@ func TestUpdateRouterRamps(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *MCMSConfig
+			var mcmsConfig *changeset.MCMSConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &MCMSConfig{
+				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
 				}
 			}
@@ -267,10 +269,10 @@ func TestUpdateRouterRamps(t *testing.T) {
 			// Updates test router.
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateRouterRamps),
-					Config: UpdateRouterRampsConfig{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+					Config: changeset.UpdateRouterRampsConfig{
 						TestRouter: true,
-						UpdatesByChain: map[uint64]RouterUpdates{
+						UpdatesByChain: map[uint64]changeset.RouterUpdates{
 							source: {
 								OffRampUpdates: map[uint64]bool{
 									dest: true,
@@ -320,8 +322,8 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tenv, _ := NewMemoryEnvironment(t)
-			state, err := LoadOnchainState(tenv.Env)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
 
 			allChains := maps.Keys(tenv.Env.Chains)
@@ -333,18 +335,18 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *MCMSConfig
+			var mcmsConfig *changeset.MCMSConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &MCMSConfig{
+				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
 				}
 			}
 
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
-					Changeset: commonchangeset.WrapChangeSet(UpdateNonceManagersCS),
-					Config: UpdateNonceManagerConfig{
-						UpdatesByChain: map[uint64]NonceManagerUpdate{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersChangeset),
+					Config: changeset.UpdateNonceManagerConfig{
+						UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
 							source: {
 								RemovedAuthCallers: []common.Address{state.Chains[source].OnRamp.Address()},
 							},

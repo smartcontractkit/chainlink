@@ -21,6 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc"
+
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
@@ -48,33 +52,81 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
-var _ pb.MercuryServer = &mercuryServer{}
+var _ pb.MercuryServer = &wsrpcMercuryServer{}
 
-type request struct {
+type mercuryServer struct {
+	rpc.UnimplementedTransmitterServer
+	privKey ed25519.PrivateKey
+	reqsCh  chan *rpc.TransmitRequest
+	t       *testing.T
+}
+
+func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
+	// Set up the grpc server
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("[MAIN] failed to listen: %v", err)
+	}
+	serverURL = lis.Addr().String()
+	sMtls, err := mtls.NewTransportCredentials(srv.privKey, pubKeys)
+	require.NoError(t, err)
+	s := grpc.NewServer(grpc.Creds(sMtls))
+
+	// Register mercury implementation with the wsrpc server
+	rpc.RegisterTransmitterServer(s, srv)
+
+	// Start serving
+	go func() {
+		s.Serve(lis) //nolint:errcheck // don't care about errors in tests
+	}()
+
+	t.Cleanup(s.Stop)
+
+	return
+}
+
+func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan *rpc.TransmitRequest) *mercuryServer {
+	return &mercuryServer{rpc.UnimplementedTransmitterServer{}, privKey, reqsCh, t}
+}
+
+func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
+	s.reqsCh <- req
+
+	return &rpc.TransmitResponse{
+		Code:  1,
+		Error: "",
+	}, nil
+}
+
+func (s *mercuryServer) LatestReport(ctx context.Context, lrr *rpc.LatestReportRequest) (*rpc.LatestReportResponse, error) {
+	panic("should not be called")
+}
+
+type wsrpcMercuryServer struct {
+	privKey ed25519.PrivateKey
+	reqsCh  chan wsrpcRequest
+	t       *testing.T
+}
+
+type wsrpcRequest struct {
 	pk  credentials.StaticSizedPublicKey
 	req *pb.TransmitRequest
 }
 
-func (r request) TransmitterID() ocr2types.Account {
+func (r wsrpcRequest) TransmitterID() ocr2types.Account {
 	return ocr2types.Account(fmt.Sprintf("%x", r.pk))
 }
 
-type mercuryServer struct {
-	privKey ed25519.PrivateKey
-	reqsCh  chan request
-	t       *testing.T
+func NewWSRPCMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan wsrpcRequest) *wsrpcMercuryServer {
+	return &wsrpcMercuryServer{privKey, reqsCh, t}
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t}
-}
-
-func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+func (s *wsrpcMercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not extract public key")
 	}
-	r := request{p.PublicKey, req}
+	r := wsrpcRequest{p.PublicKey, req}
 	s.reqsCh <- r
 
 	return &pb.TransmitResponse{
@@ -83,11 +135,11 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 	}, nil
 }
 
-func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+func (s *wsrpcMercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
 	panic("should not be called")
 }
 
-func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
+func startWSRPCMercuryServer(t *testing.T, srv *wsrpcMercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
 	// Set up the wsrpc server
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -147,6 +199,7 @@ func setupNode(
 	dbName string,
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
+	transmissionMode string,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -186,6 +239,9 @@ func setupNode(
 		// [Mercury]
 		c.Mercury.VerboseLogging = ptr(true)
 		c.Mercury.Transmitter.TransmitConcurrency = ptr(uint32(5)) // Avoid a ridiculous number of goroutines
+		if transmissionMode != "" {
+			c.Mercury.Transmitter.Protocol = ptr(transmissionMode)
+		}
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)

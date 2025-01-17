@@ -21,35 +21,37 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
-func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) deployment.Environment {
+func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployLanes),
-			Config: DeployLanesConfig{
+			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.DeployLanesChangeset),
+			Config: v1_5changeset.DeployLanesConfig{
 				Configs: addLanesCfg,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetOCR2ConfigForTest),
-			Config: OCR2Config{
+			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+			Config: v1_5changeset.OCR2Config{
 				CommitConfigs: commitOCR2Configs,
 				ExecConfigs:   execOCR2Configs,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(JobSpecsForLanes),
-			Config: JobSpecsForLanesConfig{
+			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+			Config: v1_5changeset.JobSpecsForLanesConfig{
 				Configs: jobspecs,
 			},
 		},
@@ -58,16 +60,16 @@ func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChai
 	return e
 }
 
-func LaneConfigsForChains(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, pairs []changeset.SourceDestPair) (
-	[]DeployLaneConfig,
-	[]CommitOCR2ConfigParams,
-	[]ExecuteOCR2ConfigParams,
-	[]JobSpecInput,
+func LaneConfigsForChains(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) (
+	[]v1_5changeset.DeployLaneConfig,
+	[]v1_5changeset.CommitOCR2ConfigParams,
+	[]v1_5changeset.ExecuteOCR2ConfigParams,
+	[]v1_5changeset.JobSpecInput,
 ) {
-	var addLanesCfg []DeployLaneConfig
-	var commitOCR2Configs []CommitOCR2ConfigParams
-	var execOCR2Configs []ExecuteOCR2ConfigParams
-	var jobSpecs []JobSpecInput
+	addLanesCfg := make([]v1_5changeset.DeployLaneConfig, 0)
+	commitOCR2Configs := make([]v1_5changeset.CommitOCR2ConfigParams, 0)
+	execOCR2Configs := make([]v1_5changeset.ExecuteOCR2ConfigParams, 0)
+	jobSpecs := make([]v1_5changeset.JobSpecInput, 0)
 	for _, pair := range pairs {
 		dest := pair.DestChainSelector
 		src := pair.SourceChainSelector
@@ -91,7 +93,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		require.NoError(t, err)
 		destEVMChainId, err := strconv.ParseUint(destEVMChainIdStr, 10, 64)
 		require.NoError(t, err)
-		jobSpecs = append(jobSpecs, JobSpecInput{
+		jobSpecs = append(jobSpecs, v1_5changeset.JobSpecInput{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			DestEVMChainID:           destEVMChainId,
@@ -100,7 +102,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 		})
 		srcLinkTokenAddr, err := sourceChainState.LinkTokenAddress()
 		require.NoError(t, err)
-		addLanesCfg = append(addLanesCfg, DeployLaneConfig{
+		addLanesCfg = append(addLanesCfg, v1_5changeset.DeployLaneConfig{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OnRampStaticCfg: evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
@@ -157,13 +159,13 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			OnRampNopsAndWeight: []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
 			OnRampRateLimiterCfg: evm_2_evm_onramp.RateLimiterConfig{
 				IsEnabled: true,
-				Capacity:  testhelpers.LinkUSDValue(100),
-				Rate:      testhelpers.LinkUSDValue(1),
+				Capacity:  plugintesthelpers.LinkUSDValue(100),
+				Rate:      plugintesthelpers.LinkUSDValue(1),
 			},
 			OffRampRateLimiterCfg: evm_2_evm_offramp.RateLimiterConfig{
 				IsEnabled: true,
-				Capacity:  testhelpers.LinkUSDValue(100),
-				Rate:      testhelpers.LinkUSDValue(1),
+				Capacity:  plugintesthelpers.LinkUSDValue(100),
+				Rate:      plugintesthelpers.LinkUSDValue(1),
 			},
 			InitialTokenPrices: []price_registry_1_2_0.InternalTokenPriceUpdate{
 				{
@@ -182,7 +184,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 				},
 			},
 		})
-		commitOCR2Configs = append(commitOCR2Configs, CommitOCR2ConfigParams{
+		commitOCR2Configs = append(commitOCR2Configs, v1_5changeset.CommitOCR2ConfigParams{
 			SourceChainSelector:      src,
 			DestinationChainSelector: dest,
 			OCR2ConfigParams:         DefaultOCRParams(),
@@ -194,7 +196,7 @@ func LaneConfigsForChains(t *testing.T, env deployment.Environment, state change
 			InflightCacheExpiry:      *config.MustNewDuration(5 * time.Second),
 			PriceReportingDisabled:   false,
 		})
-		execOCR2Configs = append(execOCR2Configs, ExecuteOCR2ConfigParams{
+		execOCR2Configs = append(execOCR2Configs, v1_5changeset.ExecuteOCR2ConfigParams{
 			DestinationChainSelector:    dest,
 			SourceChainSelector:         src,
 			DestOptimisticConfirmations: 1,
@@ -271,9 +273,9 @@ func SendRequest(
 	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
-	opts ...changeset.SendReqOpts,
+	opts ...testhelpers.SendReqOpts,
 ) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
-	cfg := &changeset.CCIPSendReqConfig{}
+	cfg := &testhelpers.CCIPSendReqConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -283,7 +285,7 @@ func SendRequest(
 	}
 	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
-	tx, blockNum, err := changeset.CCIPSendRequest(e, state, cfg)
+	tx, blockNum, err := testhelpers.CCIPSendRequest(e, state, cfg)
 	if err != nil {
 		return nil, err
 	}

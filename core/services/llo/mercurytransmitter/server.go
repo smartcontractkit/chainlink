@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -92,7 +92,7 @@ type server struct {
 
 	transmitTimeout time.Duration
 
-	c  wsrpc.Client
+	c  grpc.Client
 	pm *persistenceManager
 	q  TransmitQueue
 
@@ -121,7 +121,7 @@ type QueueConfig interface {
 	TransmitTimeout() commonconfig.Duration
 }
 
-func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client wsrpc.Client, orm ORM, serverURL string) *server {
+func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
 	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
 	donIDStr := fmt.Sprintf("%d", pm.DonID())
 	var codecLggr logger.Logger
@@ -248,7 +248,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 			s.transmitThreadBusyCountInc()
 			defer s.transmitThreadBusyCountDec()
 
-			req, res, err := func(ctx context.Context) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
+			req, res, err := func(ctx context.Context) (*rpc.TransmitRequest, *rpc.TransmitResponse, error) {
 				ctx, cancelFn := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
 				defer cancelFn()
 				return s.transmit(ctx, t)
@@ -308,7 +308,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 	}
 }
 
-func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
+func (s *server) transmit(ctx context.Context, t *Transmission) (*rpc.TransmitRequest, *rpc.TransmitResponse, error) {
 	var payload []byte
 	var err error
 
@@ -325,7 +325,7 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitReq
 		return nil, nil, fmt.Errorf("Transmit: encode failed; %w", err)
 	}
 
-	req := &pb.TransmitRequest{
+	req := &rpc.TransmitRequest{
 		Payload:      payload,
 		ReportFormat: uint32(t.Report.Info.ReportFormat),
 	}
