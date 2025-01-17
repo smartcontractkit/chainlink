@@ -1124,8 +1124,8 @@ github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20241220173418-
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20241220173418-09e17ddbeb20/go.mod h1:4JqpgFy01LaqG1yM2iFTzwX3ZgcAvW9WdstBZQgPHzU=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2LpSQR9U1gEbRV6PfAkiFdINmQ8nVnXIAQ=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250103164418-319e58e52798 h1:Ea+cqrzM2EVVwcYTVtvlEZHlulo1xUOcKhY1zf9/hfU=
-github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250103164418-319e58e52798/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250114010532-74b7a72c2706 h1:DJhniirSjGGUcNHRgapJGLPw7T4fhUjvZQEjwPsOtQ4=
+github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250114010532-74b7a72c2706/go.mod h1:52U0UH8K0Qwu+HB1LMc+5V27ru2Tgy29YPT+2HkMevY=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8 h1:tNS7U9lrxkFvEuyxQv11HHOiV9LPDGC9wYEy+yM/Jv4=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20241202202529-2033490e77b8/go.mod h1:EBrEgcdIbwepqguClkv8Ohy7CbyWSJaE4EC9aBJlQK0=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
