@@ -38,7 +38,7 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	op, err := AddCapabilities(lggr, req.ContractSet, req.Chain, capabilities, req.UseMCMS)
+	op, err := AddCapabilities(lggr, req.ContractSet.CapabilitiesRegistry, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}

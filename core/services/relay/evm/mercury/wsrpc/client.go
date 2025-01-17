@@ -16,10 +16,13 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -395,4 +398,25 @@ func (w *client) RawClient() pb.MercuryClient {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.rawClient
+}
+
+var _ grpc.Client = GRPCCompatibilityWrapper{}
+
+type GRPCCompatibilityWrapper struct {
+	Client
+}
+
+func (w GRPCCompatibilityWrapper) Transmit(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
+	req := &pb.TransmitRequest{
+		Payload:      in.Payload,
+		ReportFormat: in.ReportFormat,
+	}
+	resp, err := w.Client.Transmit(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &rpc.TransmitResponse{
+		Code:  resp.Code,
+		Error: resp.Error,
+	}, nil
 }

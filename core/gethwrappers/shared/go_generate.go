@@ -3,6 +3,7 @@
 package gethwrappers
 
 //go:generate go run ../generation/wrap.go shared BurnMintERC677 burn_mint_erc677
+//go:generate go run ../generation/wrap.go shared ERC677 erc677
 //go:generate go run ../generation/wrap.go shared LinkToken link_token
 //go:generate go run ../generation/wrap.go shared BurnMintERC20 burn_mint_erc20
 //go:generate go run ../generation/wrap.go shared WERC20Mock werc20_mock

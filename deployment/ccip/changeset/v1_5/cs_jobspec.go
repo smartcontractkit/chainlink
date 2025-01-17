@@ -10,6 +10,8 @@ import (
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
+var _ deployment.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
+
 type JobSpecsForLanesConfig struct {
 	Configs []JobSpecInput
 }
@@ -55,7 +57,7 @@ func (j JobSpecInput) Validate() error {
 	return nil
 }
 
-func JobSpecsForLanes(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
+func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
 	}

@@ -8,7 +8,6 @@ import (
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -28,7 +27,7 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		keyOrder[key.String()] = ix
 	}
 
-	var cs []types.ChainStatusWithID
+	var cs []chainlink.NetworkChainStatus
 	relayersMap, err := b.app.GetRelayers().GetIDToRelayerMap()
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
@@ -41,9 +40,9 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		}
 
 		if slices.Contains(chainIDs, s.ID) {
-			cs = append(cs, types.ChainStatusWithID{
+			cs = append(cs, chainlink.NetworkChainStatus{
 				ChainStatus: s,
-				RelayID:     k,
+				Network:     k.Network,
 			})
 		}
 	}
@@ -94,9 +93,9 @@ func (b *chainBatcher) loadByRelayIDs(ctx context.Context, keys dataloader.Keys)
 			continue
 		}
 
-		results = append(results, &dataloader.Result{Data: types.ChainStatusWithID{
+		results = append(results, &dataloader.Result{Data: chainlink.NetworkChainStatus{
 			ChainStatus: status,
-			RelayID:     relay,
+			Network:     relay.Network,
 		}, Error: err})
 	}
 

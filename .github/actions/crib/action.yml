@@ -21,9 +21,6 @@ inputs:
   api-gw-host-k8s:
     description: "API Gateway Host for K8s"
     required: true
-  k8s-api-endpoint:
-    description: "Kubernetes API endpoint"
-    required: true
   k8s-cluster-name:
     description: "Kubernetes cluster name"
     required: true
@@ -64,7 +61,12 @@ inputs:
     description: "Whether to run integration tests"
     required: false
     default: "true"
-
+  main-dns-zone:
+    description:
+      "The DNS zone is used for exposing services. It is required when using the
+      dynamic local proxy to prevent sending requests and exposing sensitive
+      information to random external endpoints. This ensures that the dynamic
+      local proxy is used only for the specific DNS zone."
 runs:
   using: "composite"
   steps:
@@ -110,7 +112,7 @@ runs:
         aws-role-duration-seconds: "1800"
 
     - name: Deploy and validate CRIB Environment for Core
-      uses: smartcontractkit/.github/actions/crib-deploy-environment@815e0d550527897746e889441407926d7e28169c # crib-deploy-environment@7.4.0
+      uses: smartcontractkit/.github/actions/crib-deploy-environment@265e28cc322771651688493303785323e3482b15 # crib-deploy-environment@8.2.1
       id: deploy-crib
       with:
         github-token: ${{ steps.token.outputs.access-token }}
@@ -118,7 +120,6 @@ runs:
         aws-region: ${{ inputs.aws-region }}
         aws-role-arn: ${{ inputs.aws-role-arn }}
         ingress-base-domain: ${{ inputs.ingress-base-domain }}
-        k8s-api-endpoint: ${{ inputs.k8s-api-endpoint }}
         k8s-cluster-name: ${{ inputs.k8s-cluster-name }}
         chainlink-team: releng
         chainlink-product: crib
@@ -127,6 +128,7 @@ runs:
         product-image: ${{ inputs.crib-chainlink-docker-image-name }}
         product-image-tag: ${{ inputs.crib-chainlink-docker-image-tag }}
         ns-ttl: ${{ inputs.crib-cleanup-ttl }}
+        main-dns-zone: ${{ inputs.main-dns-zone }}
 
     - name: Set up Go
       uses: ./.github/actions/setup-go

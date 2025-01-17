@@ -1124,6 +1124,34 @@ runner-test-matrix:
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
 
+  - id: ccip-smoke-lbtc-32bytes-destination-pool-data
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E CCIP Tests
+      - Merge Queue E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/lbtc_mock_deployment_with_32bytes_data.toml
+
+  - id: ccip-smoke-lbtc-non32bytes-destination-pool-data
+    path: integration-tests/ccip-tests/smoke/ccip_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E CCIP Tests
+      - Merge Queue E2E CCIP Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ccip-tests/smoke && go test ccip_test.go -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
+    test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/lbtc_mock_deployment_with_non32bytes_data.toml
+
   - id: ccip-smoke-db-compatibility
     path: integration-tests/ccip-tests/smoke/ccip_test.go
     test_env_type: docker
