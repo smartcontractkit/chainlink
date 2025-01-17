@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {PingPongDemo} from "../../../applications/internal/PingPongDemo.sol";
-import {Internal} from "../../../libraries/Internal.sol";
-import {OnRamp} from "../../../onRamp/OnRamp.sol";
-
+import {PingPongDemo} from "../../../../applications/internal/PingPongDemo.sol";
+import {Internal} from "../../../../libraries/Internal.sol";
+import {OnRamp} from "../../../../onRamp/OnRamp.sol";
 import {PingPongDappSetup} from "./PingPongDappSetup.t.sol";
 
 contract PingPong_startPingPong is PingPongDappSetup {

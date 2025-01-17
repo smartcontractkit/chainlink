@@ -29,7 +29,7 @@ contract CCIPSender_withdrawToekns is CCIPReceiverSetup {
     s_receiver.ccipReceive(
       Client.Any2EVMMessage({
         messageId: messageId,
-        sourceChainSelector: sourceChainSelector,
+        sourceChainSelector: s_sourceChainSelector,
         sender: abi.encode(address(1)),
         data: "",
         destTokenAmounts: destTokenAmounts
@@ -42,7 +42,7 @@ contract CCIPSender_withdrawToekns is CCIPReceiverSetup {
     // There's no way to check that a function internally will revert from a top-level test, so we need to check state differences
     Client.Any2EVMMessage memory failedMessage = s_receiver.getMessageContents(messageId);
     assertEq(failedMessage.sender, abi.encode(address(1)));
-    assertEq(failedMessage.sourceChainSelector, sourceChainSelector);
+    assertEq(failedMessage.sourceChainSelector, s_sourceChainSelector);
     assertEq(failedMessage.destTokenAmounts[0].token, token);
     assertEq(failedMessage.destTokenAmounts[0].amount, amount);
 

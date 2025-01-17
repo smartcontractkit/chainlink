@@ -49,8 +49,8 @@ abstract contract CCIPBase is OwnerIsCreator {
   struct RemoteChainConfig {
     bytes recipient; // The address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
     bytes extraArgsBytes; // Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
-    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support work-flows where Dapps 
-    // may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
+    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support work-flows where Dapps
+      // may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
   }
 
   address internal s_ccipRouter;
@@ -77,7 +77,9 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @param remoteChainSelector the unique CCIP specific identifier for a chain to send/receive messages
   /// @return recipient the address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
   /// @return extraArgsBytes Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
-  function getRemoteChainConfig(uint64 remoteChainSelector) external view returns (bytes memory recipient, bytes memory extraArgsBytes) {
+  function getRemoteChainConfig(
+    uint64 remoteChainSelector
+  ) external view returns (bytes memory recipient, bytes memory extraArgsBytes) {
     return (s_chainConfigs[remoteChainSelector].recipient, s_chainConfigs[remoteChainSelector].extraArgsBytes);
   }
 

@@ -11,7 +11,7 @@ import {OnRampSetup} from "../../../OnRamp/OnRamp/OnRampSetup.t.sol";
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract CCIPSender_ccipSend is OnRampSetup {
-  bytes32 constant MESSAGE_ID = keccak256("FAKE_MESSAGE_ID");
+  bytes32 public constant MESSAGE_ID = keccak256("FAKE_MESSAGE_ID");
 
   CCIPSender internal s_sender;
 

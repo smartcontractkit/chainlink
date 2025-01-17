@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IRouterClient} from "../../../interfaces/IRouterClient.sol";
-import {Client} from "../../../libraries/Client.sol";
+import {IRouterClient} from "../../../../interfaces/IRouterClient.sol";
+
+import {Client} from "../../../../libraries/Client.sol";
 import {EtherSenderReceiverTestSetup} from "./EtherSenderReceiverTestSetup.t.sol";
 
 contract EtherSenderReceiverTest_getFee is EtherSenderReceiverTestSetup {

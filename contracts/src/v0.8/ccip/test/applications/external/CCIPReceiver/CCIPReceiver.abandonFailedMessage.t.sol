@@ -31,7 +31,7 @@ contract CCIPReceiver_abandonFailedMessage is CCIPReceiverSetup {
     s_receiver.ccipReceive(
       Client.Any2EVMMessage({
         messageId: messageId,
-        sourceChainSelector: sourceChainSelector,
+        sourceChainSelector: s_sourceChainSelector,
         sender: abi.encode(address(s_receiver)),
         data: "",
         destTokenAmounts: destTokenAmounts

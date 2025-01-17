@@ -8,7 +8,7 @@ contract CCIPReceiver_ApplyChainUpdates is CCIPReceiverSetup {
   function test_applyChainUpdate() public {
     CCIPBase.ChainUpdate[] memory chainUpdates = new CCIPBase.ChainUpdate[](1);
     chainUpdates[0] = CCIPBase.ChainUpdate({
-      chainSelector: sourceChainSelector,
+      chainSelector: s_sourceChainSelector,
       allowed: true,
       recipient: "RECEIVER",
       extraArgsBytes: ""
@@ -21,7 +21,7 @@ contract CCIPReceiver_ApplyChainUpdates is CCIPReceiverSetup {
   function test_applyChainUpdates_RevertWhen_ZeroAddressNotAllowed() public {
     CCIPBase.ChainUpdate[] memory chainUpdates = new CCIPBase.ChainUpdate[](1);
     chainUpdates[0] =
-      CCIPBase.ChainUpdate({chainSelector: sourceChainSelector, allowed: true, recipient: "", extraArgsBytes: ""});
+      CCIPBase.ChainUpdate({chainSelector: s_sourceChainSelector, allowed: true, recipient: "", extraArgsBytes: ""});
 
     // Revert because the recipient of an allowed chain is the zero address, which is prohibited
     vm.expectRevert(abi.encodeWithSelector(CCIPBase.ZeroAddressNotAllowed.selector));

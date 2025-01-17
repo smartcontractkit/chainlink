@@ -2,28 +2,27 @@
 pragma solidity ^0.8.0;
 
 import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
+
 import {OnRampSetup} from "../../../OnRamp/OnRamp/OnRampSetup.t.sol";
 import {CCIPReceiverReverting} from "../../../helpers/receivers/CCIPReceiverReverting.sol";
 
-contract CCIPReceiverSetup is OnRampSetup {
-  event MessageFailed(bytes32 indexed messageId, bytes reason);
-  event MessageSucceeded(bytes32 indexed messageId);
-  event MessageRecovered(bytes32 indexed messageId);
-
+contract CCIPBase_getRemoteChainConfig is OnRampSetup {
   CCIPReceiverReverting internal s_receiver;
   uint64 internal s_sourceChainSelector = 7331;
+  bytes public constant RANDOM_BYTES = "RANDOM_BYTES";
+  bytes public constant RANDOM_ADDR = "RANDOM_ADDR";
 
   function setUp() public virtual override {
     OnRampSetup.setUp();
 
-    s_receiver = new CCIPReceiverReverting(address(s_destRouter));
+    s_receiver = new CCIPReceiverReverting(address(this));
 
     CCIPBase.ChainUpdate[] memory chainUpdates = new CCIPBase.ChainUpdate[](1);
     chainUpdates[0] = CCIPBase.ChainUpdate({
       chainSelector: s_sourceChainSelector,
       allowed: true,
-      recipient: abi.encode(address(s_receiver)),
-      extraArgsBytes: ""
+      recipient: RANDOM_ADDR,
+      extraArgsBytes: RANDOM_BYTES
     });
     s_receiver.applyChainUpdates(chainUpdates);
 
@@ -32,5 +31,12 @@ contract CCIPReceiverSetup is OnRampSetup {
       CCIPBase.ApprovedSenderUpdate({destChainSelector: s_sourceChainSelector, sender: abi.encode(address(s_receiver))});
 
     s_receiver.updateApprovedSenders(senderUpdates, new CCIPBase.ApprovedSenderUpdate[](0));
+  }
+
+  function test_getRemoteChainConfig() public view {
+    (bytes memory recipient, bytes memory extraArgsBytes) = s_receiver.getRemoteChainConfig(s_sourceChainSelector);
+
+    assertEq(recipient, RANDOM_ADDR);
+    assertEq(extraArgsBytes, RANDOM_BYTES);
   }
 }

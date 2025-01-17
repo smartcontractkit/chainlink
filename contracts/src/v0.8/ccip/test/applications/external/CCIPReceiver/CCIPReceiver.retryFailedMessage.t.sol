@@ -28,7 +28,7 @@ contract CCIPSender_retryFailedMessage is CCIPReceiverSetup {
     s_receiver.ccipReceive(
       Client.Any2EVMMessage({
         messageId: messageId,
-        sourceChainSelector: sourceChainSelector,
+        sourceChainSelector: s_sourceChainSelector,
         sender: abi.encode(address(1)),
         data: "",
         destTokenAmounts: destTokenAmounts
@@ -41,7 +41,7 @@ contract CCIPSender_retryFailedMessage is CCIPReceiverSetup {
     // There's no way to check that a function internally will revert from a top-level test, so we need to check state differences
     Client.Any2EVMMessage memory failedMessage = s_receiver.getMessageContents(messageId);
     assertEq(failedMessage.sender, abi.encode(address(1)));
-    assertEq(failedMessage.sourceChainSelector, sourceChainSelector);
+    assertEq(failedMessage.sourceChainSelector, s_sourceChainSelector);
     assertEq(failedMessage.destTokenAmounts[0].token, token);
     assertEq(failedMessage.destTokenAmounts[0].amount, amount);
 
@@ -54,7 +54,7 @@ contract CCIPSender_retryFailedMessage is CCIPReceiverSetup {
     CCIPBase.ApprovedSenderUpdate[] memory senderUpdates = new CCIPBase.ApprovedSenderUpdate[](1);
 
     senderUpdates[0] =
-      CCIPBase.ApprovedSenderUpdate({destChainSelector: sourceChainSelector, sender: abi.encode(address(1))});
+      CCIPBase.ApprovedSenderUpdate({destChainSelector: s_sourceChainSelector, sender: abi.encode(address(1))});
 
     s_receiver.updateApprovedSenders(senderUpdates, new CCIPBase.ApprovedSenderUpdate[](0));
 
