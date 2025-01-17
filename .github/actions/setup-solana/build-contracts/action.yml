@@ -9,6 +9,7 @@ runs:
       with:
         repository: smartcontractkit/chainlink-ccip
         path: chainlink-ccip
+        fetch-depth: 0
     - name: Checkout branch based on CCIP Revision
       id: get_checkout_ccip_chains_solana_revision
       shell: bash
