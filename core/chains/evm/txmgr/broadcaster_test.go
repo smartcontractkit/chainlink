@@ -29,10 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commmonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -1717,7 +1716,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_GasEstimationError(t *testing.T) 
 		dbEtx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxFatalError, dbEtx.State)
-		require.Equal(t, commmonfee.ErrFeeLimitTooLow.Error(), dbEtx.Error.String)
+		require.Equal(t, fees.ErrFeeLimitTooLow.Error(), dbEtx.Error.String)
 	})
 }
 

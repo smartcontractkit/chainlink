@@ -19,10 +19,14 @@ func NewEngineRegistry() *EngineRegistry {
 }
 
 // Add adds an engine to the registry.
-func (r *EngineRegistry) Add(id string, engine services.Service) {
+func (r *EngineRegistry) Add(id string, engine services.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if _, found := r.engines[id]; found {
+		return errors.New("attempting to register duplicate engine")
+	}
 	r.engines[id] = engine
+	return nil
 }
 
 // Get retrieves an engine from the registry.
