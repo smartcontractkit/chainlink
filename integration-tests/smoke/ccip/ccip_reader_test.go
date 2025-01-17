@@ -291,7 +291,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
-		ccipevm.NewExtraArgsCodec(),
+		ccipevm.NewExtraDataCodec(),
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1411,7 +1411,7 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraArgsCodec()
+	edc := ccipevm.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, edc)
 
 	return reader
@@ -1527,7 +1527,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraArgsCodec()
+	edc := ccipevm.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, edc)
 
 	t.Cleanup(func() {
