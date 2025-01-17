@@ -93,7 +93,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test cs_update_rmn_config_test.go -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/ && go test cs_update_rmn_config_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/cs_rmn_curse_uncurse_test.go:*
     path: integration-tests/smoke/ccip/cs_rmn_curse_uncurse_test.go
@@ -101,7 +101,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/ && go test cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
 
   # END: CCIP tests
