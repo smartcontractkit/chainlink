@@ -481,7 +481,7 @@ func (m *mockService) Name() string { return "svc" }
 
 type mockEngineFactory struct{}
 
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
+func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name string, hexName string, config []byte, binary []byte) (services.Service, error) {
 	return &mockService{}, nil
 }
 
