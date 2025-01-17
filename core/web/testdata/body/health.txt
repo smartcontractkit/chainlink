@@ -16,6 +16,7 @@ ok EVM.0.Txm.Confirmer
 ok EVM.0.Txm.Finalizer
 ok EVM.0.Txm.WrappedEvmEstimator
 ok HeadReporter
+ok Heartbeat
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool

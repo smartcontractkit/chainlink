@@ -2,13 +2,17 @@ WorkflowRegistry.registerWorkflow
 ├── when the caller is not an authorized address
 │   └── it should revert
 └── when the caller is an authorized address
-    └── when the registry is locked
+    ├── when the registry is locked
     │   └── it should revert
     └── when the registry is not locked
-        └── when the donID is not allowed
+        ├── when the donID is not allowed
         │   └── it should revert
         └── when the donID is allowed
+            ├── when the workflow name is empty
+            │   └── it should revert
             ├── when the workflow name is too long
+            │   └── it should revert
+            ├── when the binaryURL is empty
             │   └── it should revert
             ├── when the binaryURL is too long
             │   └── it should revert

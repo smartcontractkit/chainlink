@@ -490,12 +490,20 @@ packages:
       PriceRegistryReader:
         config:
           filename: price_registry_reader_mock.go
+      FeeEstimatorConfigReader:
+        config:
+          filename: fee_estimator_config_mock.go
       TokenPoolReader:
         config:
           filename: token_pool_reader_mock.go
       USDCReader:
         config:
           filename: usdc_reader_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig:
+    interfaces:
+      GasPriceInterceptor:
+        config:
+          filename: gas_price_interceptor_mock.go
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader:
     config:
       filename: token_pool_batched_reader_mock.go

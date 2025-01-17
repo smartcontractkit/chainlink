@@ -178,17 +178,17 @@ func TestORM_InsertTransmitRequest_MultipleServerURLs(t *testing.T) {
 	transmissions, err := orm.GetTransmitRequests(ctx, sURL, jobID)
 	require.NoError(t, err)
 	require.Len(t, transmissions, 1)
-	assert.Equal(t, transmissions[0], &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]})
+	assert.Equal(t, &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]}, transmissions[0])
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL2, jobID)
 	require.NoError(t, err)
 	require.Len(t, transmissions, 1)
-	assert.Equal(t, transmissions[0], &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]})
+	assert.Equal(t, &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]}, transmissions[0])
 
 	transmissions, err = orm.GetTransmitRequests(ctx, sURL3, jobID)
 	require.NoError(t, err)
 	require.Len(t, transmissions, 1)
-	assert.Equal(t, transmissions[0], &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]})
+	assert.Equal(t, &Transmission{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]}, transmissions[0])
 
 	l, err := orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)

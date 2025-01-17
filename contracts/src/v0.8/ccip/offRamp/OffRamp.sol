@@ -544,6 +544,14 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   ) internal returns (Internal.MessageExecutionState executionState, bytes memory) {
     try this.executeSingleMessage(message, offchainTokenData, tokenGasOverrides) {}
     catch (bytes memory err) {
+      if (msg.sender == Internal.GAS_ESTIMATION_SENDER) {
+        if (
+          CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG == bytes4(err)
+            || CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG == bytes4(err)
+        ) {
+          revert InsufficientGasForCallWithExact();
+        }
+      }
       // return the message execution state as FAILURE and the revert data.
       // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES.
       return (Internal.MessageExecutionState.FAILURE, err);

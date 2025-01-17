@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -38,9 +40,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
 	}
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
@@ -48,12 +50,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -68,14 +70,14 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
-			Config: DeployPrerequisiteConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    selectors,
 				HomeChainSelector: homeChainSel,
 			},
@@ -84,7 +86,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// load onchain state
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated
@@ -116,9 +118,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	snap, err := state.View(e.Env.AllChainSelectors())
 	require.NoError(t, err)

@@ -40,7 +40,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 	}
 	owner, err := c.Owner(nil)
 	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract: %w", err)
+		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract %s: %w", c.Address(), err)
 	}
 	return owner, c, nil
 }
