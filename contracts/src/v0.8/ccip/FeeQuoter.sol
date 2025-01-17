@@ -904,10 +904,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       return _parseSVMExtraArgsFromBytes(
-        extraArgs,
-        destChainConfig.defaultTxGasLimit,
-        destChainConfig.maxPerMsgGasLimit,
-        destChainConfig.enforceOutOfOrder
+        extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder
       ).computeUnits;
     }
     revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
@@ -916,11 +913,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Parse and validate the SVM specific Extra Args Bytes.
   function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
-    uint32 defaultTxGasLimit,
     uint256 maxPerMsgGasLimit,
     bool enforcedOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
-    if (extraArgs.length < 4) {
+    if (extraArgs.length == 0) {
       revert InvalidExtraArgsData();
     }
 
@@ -929,20 +925,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       revert InvalidExtraArgsTag();
     }
 
-    // If we have more than 4 bytes, decode the SVMExtraArgsV1 struct.
-    // Otherwise, we default the struct fields.
-    if (extraArgs.length > 4) {
-      svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
-    } else {
-      // We only have the tag and no additional data, so define a default struct
-      return svmExtraArgs = Client.SVMExtraArgsV1({
-        computeUnits: defaultTxGasLimit,
-        accountIsWritableBitmap: 0,
-        tokenReceiver: bytes32(0),
-        allowOutOfOrderExecution: true,
-        accounts: new bytes32[](0)
-      });
-    }
+    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
 
     if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
@@ -1080,10 +1063,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       bytes32 tokenReceiver = _parseSVMExtraArgsFromBytes(
-        extraArgs,
-        destChainConfig.defaultTxGasLimit,
-        destChainConfig.maxPerMsgGasLimit,
-        destChainConfig.enforceOutOfOrder
+        extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder
       ).tokenReceiver;
       if (isMessageWithTokenTransfer && tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
