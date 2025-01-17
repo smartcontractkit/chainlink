@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
-import {OnRampSetup} from "../../../OnRamp/OnRamp/OnRampSetup.t.sol";
+import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
 import {CCIPReceiverReverting} from "../../../helpers/receivers/CCIPReceiverReverting.sol";
 
 contract CCIPReceiverSetup is OnRampSetup {
