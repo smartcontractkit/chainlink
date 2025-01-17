@@ -7,4 +7,4 @@ runs:
     - name: Build Solana contracts
       id: build_solana_contracts
       shell: bash
-      run: ./deployment/ccip/changeset/internal/build_solana.sh
+      run: ./deployment/ccip/changeset/internal/build_solana_contracts.sh
