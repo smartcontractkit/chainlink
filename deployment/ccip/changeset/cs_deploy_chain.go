@@ -534,7 +534,7 @@ func deployChainContractsSolana(
 	// ROUTER DEPLOY AND INITIALIZE
 	var ccipRouterProgram solana.PublicKey
 	if chainState.SolCcipRouter.IsZero() {
-		//deploy router
+		// deploy router
 		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
@@ -600,8 +600,6 @@ func deployChainContractsSolana(
 				ccipRouterProgram,
 				GetRouterConfigPDA(ccipRouterProgram),
 				GetRouterStatePDA(ccipRouterProgram),
-				GetEvmSourceChainStatePDA(ccipRouterProgram, chain.Selector), // TODO: where to get EVM source chain state PDA? Is it the home chain?
-				GetEvmDestChainStatePDA(ccipRouterProgram, chain.Selector),   // TODO: where to get EVM dest chain state PDA? Is it the home chain?
 				GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
 				// token pool
 				tokenPoolProgram,

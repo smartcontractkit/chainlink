@@ -51,6 +51,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+
+	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_receiver"
 )
 
 const (
@@ -1265,6 +1268,8 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
 	tv = deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
+	tv = deployment.NewTypeAndVersion(SolCcipReceiver, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
 
 	require.NoError(t, err)
 }
@@ -1276,5 +1281,21 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
 		require.False(t, solState.SolChains[sel].SolCcipRouter.IsZero())
 		require.False(t, solState.SolChains[sel].SolAddressLookupTable.IsZero())
+	}
+}
+
+func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
+	state, err := LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for solSelector, solState := range state.SolChains {
+		instruction, ixErr := ccip_receiver.NewInitializeInstruction(
+			GetReceiverTargetAccountPDA(solState.SolCcipReceiver),
+			GetReceiverExternalExecutionConfigPDA(solState.SolCcipReceiver),
+			e.SolChains[solSelector].DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		require.NoError(t, ixErr)
+		e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
+		ccip_receiver.SetProgramID(solState.SolCcipReceiver)
 	}
 }

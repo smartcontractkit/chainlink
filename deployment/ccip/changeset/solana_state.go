@@ -15,6 +15,7 @@ var (
 	SolCcipRouter         deployment.ContractType = "SolCcipRouter"
 	SolAddressLookupTable deployment.ContractType = "SolAddressLookupTable"
 	SolTokenPool          deployment.ContractType = "SolTokenPool"
+	SolCcipReceiver       deployment.ContractType = "SolCcipReceiver"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -25,6 +26,7 @@ type SolCCIPChainState struct {
 	SolTokenPool          solana.PublicKey
 	Timelock              solana.PublicKey
 	SolAddressLookupTable solana.PublicKey // for chain writer
+	SolCcipReceiver       solana.PublicKey // for tests only
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -66,6 +68,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SolTokenPool = pub
+		case deployment.NewTypeAndVersion(SolCcipReceiver, deployment.Version1_0_0).String():
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.SolCcipReceiver = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
@@ -154,5 +159,15 @@ func GetEvmDestChainStatePDA(ccipRouterProgramID solana.PublicKey, evmChainSelec
 		},
 		ccipRouterProgramID,
 	)
+	return pda
+}
+
+func GetReceiverTargetAccountPDA(ccipReceiverProgram solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, ccipReceiverProgram)
+	return pda
+}
+
+func GetReceiverExternalExecutionConfigPDA(ccipReceiverProgram solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, ccipReceiverProgram)
 	return pda
 }
