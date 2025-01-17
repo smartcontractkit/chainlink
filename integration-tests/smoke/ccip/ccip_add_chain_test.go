@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -28,17 +29,16 @@ func Test_AddChain(t *testing.T) {
 
 	// Set up an env with 4 chains but initially
 	// only deploy and configure 3 of them.
-	e, tEnv := ccipcs.NewMemoryEnvironment(
+	e, tEnv := testhelpers.NewMemoryEnvironment(
 		t,
-		ccipcs.WithChains(numChains),
-		ccipcs.WithNodes(4),
-		ccipcs.WithPrerequisiteDeployment(nil),
-		ccipcs.WithUsersPerChain(usersPerChain),
-		ccipcs.WithNoJobsAndContracts(),
-		ccipcs.WithOCRConfigOverride(func(params ccipcs.CCIPOCRParams) ccipcs.CCIPOCRParams {
+		testhelpers.WithNumOfChains(numChains),
+		testhelpers.WithNumOfNodes(4),
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+		testhelpers.WithNumOfUsersPerChain(usersPerChain),
+		testhelpers.WithNoJobsAndContracts(),
+		testhelpers.WithOCRConfigOverride(func(params *ccipcs.CCIPOCRParams) {
 			// Only 1 boost (=OCR round) is enough to cover the fee
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
-			return params
 		}),
 	)
 
@@ -74,7 +74,7 @@ func Test_AddChain(t *testing.T) {
 			if source == dest {
 				continue
 			}
-			ccipcs.AddLaneWithDefaultPricesAndFeeQuoterConfig(
+			testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
 				t,
 				&e,
 				state,
@@ -99,12 +99,12 @@ func Test_AddChain(t *testing.T) {
 		sources []uint64,
 		dests []uint64,
 		testRouter bool,
-	) (gasPricePreUpdate map[ccipcs.SourceDestPair]*big.Int, startBlocks map[uint64]*uint64) {
+	) (gasPricePreUpdate map[testhelpers.SourceDestPair]*big.Int, startBlocks map[uint64]*uint64) {
 		startBlocks = make(map[uint64]*uint64)
-		gasPricePreUpdate = make(map[ccipcs.SourceDestPair]*big.Int)
+		gasPricePreUpdate = make(map[testhelpers.SourceDestPair]*big.Int)
 		var (
-			expectedSeqNum     = make(map[ccipcs.SourceDestPair]uint64)
-			expectedSeqNumExec = make(map[ccipcs.SourceDestPair][]uint64)
+			expectedSeqNum     = make(map[testhelpers.SourceDestPair]uint64)
+			expectedSeqNumExec = make(map[testhelpers.SourceDestPair][]uint64)
 		)
 		for _, source := range sources {
 			for _, dest := range dests {
@@ -116,7 +116,7 @@ func Test_AddChain(t *testing.T) {
 					Context: tests.Context(t),
 				}, dest)
 				require.NoError(t, err)
-				gasPricePreUpdate[ccipcs.SourceDestPair{
+				gasPricePreUpdate[testhelpers.SourceDestPair{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
 				}] = gp.Value
@@ -124,7 +124,7 @@ func Test_AddChain(t *testing.T) {
 				latesthdr, err := e.Env.Chains[dest].Client.HeaderByNumber(testcontext.Get(t), nil)
 				require.NoError(t, err)
 				block := latesthdr.Number.Uint64()
-				msgSentEvent := ccipcs.TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
+				msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, source, dest, testRouter, router.ClientEVM2AnyMessage{
 					Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 					Data:         []byte("hello world"),
 					TokenAmounts: nil,
@@ -133,14 +133,14 @@ func Test_AddChain(t *testing.T) {
 				})
 
 				startBlocks[dest] = &block
-				expectedSeqNum[ccipcs.SourceDestPair{
+				expectedSeqNum[testhelpers.SourceDestPair{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
 				}] = msgSentEvent.SequenceNumber
-				expectedSeqNumExec[ccipcs.SourceDestPair{
+				expectedSeqNumExec[testhelpers.SourceDestPair{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
-				}] = append(expectedSeqNumExec[ccipcs.SourceDestPair{
+				}] = append(expectedSeqNumExec[testhelpers.SourceDestPair{
 					SourceChainSelector: source,
 					DestChainSelector:   dest,
 				}], msgSentEvent.SequenceNumber)
@@ -148,8 +148,8 @@ func Test_AddChain(t *testing.T) {
 		}
 
 		// Confirm execution of the message
-		ccipcs.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-		ccipcs.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+		testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 		return gasPricePreUpdate, startBlocks
 	}
 
@@ -435,12 +435,12 @@ func Test_AddChain(t *testing.T) {
 // This only touches the newChain and does not touch the sources.
 func setupInboundWiring(
 	t *testing.T,
-	e ccipcs.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	sources []uint64,
 	newChains []uint64,
 	testRouterEnabled,
 	mcmsEnabled bool,
-) ccipcs.DeployedEnv {
+) testhelpers.DeployedEnv {
 	var mcmsConfig *ccipcs.MCMSConfig
 	if mcmsEnabled {
 		mcmsConfig = &ccipcs.MCMSConfig{
@@ -451,14 +451,14 @@ func setupInboundWiring(
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOffRampSources),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOffRampSourcesChangeset),
 			Config: ccipcs.UpdateOffRampSourcesConfig{
 				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRamps),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
 			Config: ccipcs.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
@@ -476,12 +476,12 @@ func setupInboundWiring(
 // Therefore any requests to newChain will not be processed until the inbound wiring is set up.
 func setupOutboundWiring(
 	t *testing.T,
-	e ccipcs.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	sources []uint64,
 	newChains []uint64,
 	testRouterEnabled,
 	mcmsEnabled bool,
-) ccipcs.DeployedEnv {
+) testhelpers.DeployedEnv {
 	var mcmsConfig *ccipcs.MCMSConfig
 	if mcmsEnabled {
 		mcmsConfig = &ccipcs.MCMSConfig{
@@ -492,28 +492,28 @@ func setupOutboundWiring(
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOnRampsDests),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOnRampsDestsChangeset),
 			Config: ccipcs.UpdateOnRampDestsConfig{
 				UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterPricesCS),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterPricesChangeset),
 			Config: ccipcs.UpdateFeeQuoterPricesConfig{
 				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
 				MCMS:          mcmsConfig,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterDests),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterDestsChangeset),
 			Config: ccipcs.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRamps),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
 			Config: ccipcs.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
@@ -529,8 +529,8 @@ func setupOutboundWiring(
 // setupChain will deploy the ccip chain contracts to the provided chains.
 // Based on the flags provided, it will also deploy the jobs and home chain contracts.
 // mcmsEnabled should be set to true if the home chain contracts have been transferred to MCMS.
-func setupChain(t *testing.T, e ccipcs.DeployedEnv, tEnv ccipcs.TestEnvironment, chains []uint64, deployJobs, deployHomeChain, mcmsEnabled bool) ccipcs.DeployedEnv {
-	e = ccipcs.AddCCIPContractsToEnvironment(
+func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEnvironment, chains []uint64, deployJobs, deployHomeChain, mcmsEnabled bool) testhelpers.DeployedEnv {
+	e = testhelpers.AddCCIPContractsToEnvironment(
 		t,
 		chains,
 		tEnv,
@@ -543,7 +543,7 @@ func setupChain(t *testing.T, e ccipcs.DeployedEnv, tEnv ccipcs.TestEnvironment,
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.SetRMNRemoteOnRMNProxy),
+			Changeset: commonchangeset.WrapChangeSet(ccipcs.SetRMNRemoteOnRMNProxyChangeset),
 			Config: ccipcs.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chains,
 			},
@@ -703,7 +703,7 @@ func feeQuoterPricesByChain(t *testing.T, dests []uint64, sources []uint64) (pri
 		}
 		for _, dest := range dests {
 			require.NotEqual(t, source, dest)
-			prices[source].GasPrices[dest] = ccipcs.DefaultGasPrice
+			prices[source].GasPrices[dest] = testhelpers.DefaultGasPrice
 		}
 	}
 	return
@@ -773,7 +773,7 @@ func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state ccipcs.CC
 
 func transferToMCMSAndRenounceTimelockDeployer(
 	t *testing.T,
-	e ccipcs.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	chains []uint64,
 	state ccipcs.CCIPOnChainState,
 	onlyChainContracts bool,
@@ -813,7 +813,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 }
 
 func genTestTransferOwnershipConfig(
-	e ccipcs.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	chains []uint64,
 	state ccipcs.CCIPOnChainState,
 ) commonchangeset.TransferToMCMSWithTimelockConfig {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -33,9 +34,9 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithUsersPerChain(3),
-		changeset.WithChains(3),
-		changeset.WithUSDC(),
+		testhelpers.WithNumOfUsersPerChain(3),
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithUSDC(),
 	)
 
 	e := tenv.Env
@@ -51,13 +52,13 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	ownerChainC := e.Chains[chainC].DeployerKey
 	ownerChainB := e.Chains[chainB].DeployerKey
 
-	aChainUSDC, cChainUSDC, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
+	aChainUSDC, cChainUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainA, chainC, state)
 	require.NoError(t, err)
 
-	bChainUSDC, _, err := changeset.ConfigureUSDCTokenPools(lggr, e.Chains, chainB, chainC, state)
+	bChainUSDC, _, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, chainB, chainC, state)
 	require.NoError(t, err)
 
-	aChainToken, _, cChainToken, _, err := changeset.DeployTransferableToken(
+	aChainToken, _, cChainToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		chainA,
@@ -71,21 +72,21 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add all lanes
-	changeset.AddLanesForAll(t, &tenv, state)
+	testhelpers.AddLanesForAll(t, &tenv, state)
 
-	changeset.MintAndAllow(
+	testhelpers.MintAndAllow(
 		t,
 		e,
 		state,
-		map[uint64][]changeset.MintTokenInfo{
+		map[uint64][]testhelpers.MintTokenInfo{
 			chainA: {
-				changeset.NewMintTokenInfo(ownerChainA, aChainUSDC, aChainToken),
+				testhelpers.NewMintTokenInfo(ownerChainA, aChainUSDC, aChainToken),
 			},
 			chainB: {
-				changeset.NewMintTokenInfo(ownerChainB, bChainUSDC),
+				testhelpers.NewMintTokenInfo(ownerChainB, bChainUSDC),
 			},
 			chainC: {
-				changeset.NewMintTokenInfo(ownerChainC, cChainUSDC, cChainToken),
+				testhelpers.NewMintTokenInfo(ownerChainC, cChainUSDC, cChainToken),
 			},
 		},
 	)
@@ -96,7 +97,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
 	tinyOneCoin := new(big.Int).SetUint64(1)
 
-	tcs := []changeset.TestTransferRequest{
+	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:        "single USDC token transfer to EOA",
 			Receiver:    utils.RandomAddress(),
@@ -110,7 +111,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				aChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "multiple USDC tokens within the same message",
@@ -131,7 +132,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				// 2 coins because of the same Receiver
 				aChainUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC token together with another token transferred to EOA",
@@ -152,7 +153,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				cChainUSDC.Address():  tinyOneCoin,
 				cChainToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
@@ -169,7 +170,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				cChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
@@ -186,8 +187,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				bChainUSDC.Address(): new(big.Int).SetUint64(0),
 			},
-			ExtraArgs:      changeset.MakeEVMExtraArgsV2(1, false),
-			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,
+			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
@@ -204,14 +205,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				cChainUSDC.Address(): tinyOneCoin,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		changeset.TransferMultiple(ctx, t, e, state, tcs)
+		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
-	err = changeset.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		e.Chains,
 		state.Chains,
@@ -221,16 +222,16 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := changeset.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e,
 		state,
-		changeset.SeqNumberRangeToSlice(expectedSeqNums),
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
 }
 
 func updateFeeQuoters(
@@ -242,17 +243,17 @@ func updateFeeQuoters(
 ) error {
 	updateFeeQtrGrp := errgroup.Group{}
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		err1 := changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+		err1 := testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
 		if err1 != nil {
 			return err1
 		}
-		return changeset.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainB, cChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainB, cChainUSDC)
 	})
 	return updateFeeQtrGrp.Wait()
 }

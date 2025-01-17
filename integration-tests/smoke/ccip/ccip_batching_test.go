@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -30,7 +31,7 @@ const (
 )
 
 type batchTestSetup struct {
-	e            changeset.DeployedEnv
+	e            testhelpers.DeployedEnv
 	state        changeset.CCIPOnChainState
 	sourceChain1 uint64
 	sourceChain2 uint64
@@ -41,9 +42,9 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithMultiCall3(),
-		changeset.WithChains(3),
-		changeset.WithUsersPerChain(2),
+		testhelpers.WithMultiCall3(),
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithNumOfUsersPerChain(2),
 	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -63,8 +64,8 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 	)
 
 	// connect sourceChain1 and sourceChain2 to destChain
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain1, destChain, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain2, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain1, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain2, destChain, false)
 
 	return batchTestSetup{e, state, sourceChain1, sourceChain2, destChain}
 }
@@ -72,7 +73,7 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	t.Parallel()
 
-	ctx := changeset.Context(t)
+	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 
@@ -120,7 +121,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 		}
 	}
 
-	_, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
+	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Env.Chains[sourceChain],
 		e.Env.Chains[destChain],
@@ -141,7 +142,7 @@ func Test_CCIPBatching_MultiSource(t *testing.T) {
 	t.Parallel()
 
 	// Setup 3 chains, with 2 lanes going to the dest.
-	ctx := changeset.Context(t)
+	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 
@@ -259,7 +260,7 @@ func Test_CCIPBatching_MultiSource(t *testing.T) {
 	// assert that all states are successful
 	for _, states := range execStates {
 		for _, state := range states {
-			require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+			require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state)
 		}
 	}
 }
@@ -268,7 +269,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	t.Parallel()
 
 	// Setup 3 chains, with 2 lanes going to the dest.
-	ctx := changeset.Context(t)
+	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
 
@@ -296,7 +297,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = changeset.ConfirmCommitWithExpectedSeqNumRange(
+	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Env.Chains[sourceChain],
 		e.Env.Chains[destChain],
@@ -307,7 +308,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	)
 	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 
-	states, err := changeset.ConfirmExecWithSeqNrs(
+	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
 		e.Env.Chains[sourceChain],
 		e.Env.Chains[destChain],
@@ -318,7 +319,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	require.NoError(t, err)
 	// assert that all states are successful
 	for _, state := range states {
-		require.Equal(t, changeset.EXECUTION_STATE_SUCCESS, state)
+		require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state)
 	}
 }
 
@@ -329,7 +330,7 @@ type outputErr[T any] struct {
 
 func assertExecAsync(
 	t *testing.T,
-	e changeset.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	state changeset.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
@@ -338,7 +339,7 @@ func assertExecAsync(
 	errs chan<- outputErr[map[uint64]int],
 ) {
 	defer wg.Done()
-	states, err := changeset.ConfirmExecWithSeqNrs(
+	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
@@ -352,7 +353,7 @@ func assertExecAsync(
 
 func assertCommitReportsAsync(
 	t *testing.T,
-	e changeset.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	state changeset.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
@@ -362,7 +363,7 @@ func assertCommitReportsAsync(
 	errs chan<- outputErr[*offramp.OffRampCommitReportAccepted],
 ) {
 	defer wg.Done()
-	commitReport, err := changeset.ConfirmCommitWithExpectedSeqNumRange(
+	commitReport, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		e.Env.Chains[sourceChainSelector],
 		e.Env.Chains[destChainSelector],
@@ -378,7 +379,7 @@ func assertCommitReportsAsync(
 func sendMessagesAsync(
 	ctx context.Context,
 	t *testing.T,
-	e changeset.DeployedEnv,
+	e testhelpers.DeployedEnv,
 	state changeset.CCIPOnChainState,
 	sourceChainSelector,
 	destChainSelector uint64,
@@ -498,7 +499,7 @@ func genMessages(
 			Data:         []byte(fmt.Sprintf("hello world %d", i)),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    changeset.MakeEVMExtraArgsV2(50_000, false),
+			ExtraArgs:    testhelpers.MakeEVMExtraArgsV2(50_000, false),
 		}
 
 		fee, err := sourceRouter.GetFee(&bind.CallOpts{Context: ctx}, destChainSelector, msg)
@@ -508,7 +509,7 @@ func genMessages(
 
 		totalValue.Add(totalValue, fee)
 
-		calldata, err := changeset.CCIPSendCalldata(destChainSelector, msg)
+		calldata, err := testhelpers.CCIPSendCalldata(destChainSelector, msg)
 		if err != nil {
 			return nil, nil, fmt.Errorf("generate calldata: %w", err)
 		}

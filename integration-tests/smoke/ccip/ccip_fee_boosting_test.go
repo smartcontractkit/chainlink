@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
@@ -36,7 +37,7 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
 			// Only 1 boost (=OCR round) is enough to cover the fee
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
 			// Disable token price updates
@@ -45,7 +46,6 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
 			// Disable token price updates
 			params.CommitOffChainConfig.TokenInfo = nil
-			return params
 		}),
 	)
 
@@ -81,9 +81,9 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		)
 	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
 
-	changeset.AddLane(t, &e, sourceChain, destChain, false,
+	testhelpers.AddLane(t, &e, sourceChain, destChain, false,
 		map[uint64]*big.Int{
-			destChain: changeset.ToPackedFee(adjustedGasPriceDest, big.NewInt(0)),
+			destChain: testhelpers.ToPackedFee(adjustedGasPriceDest, big.NewInt(0)),
 		},
 		map[common.Address]*big.Int{
 			state.Chains[sourceChain].LinkToken.Address(): linkPrice,
@@ -94,7 +94,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	// Update token prices in destination chain FeeQuoter
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					destChain: {
@@ -110,13 +110,13 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	require.NoError(t, err)
 
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 
 	latesthdr, err := e.Env.Chains[sourceChain].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	block := latesthdr.Number.Uint64()
-	msgSentEvent := changeset.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[destChain].Receiver.Address().Bytes(), 32),
 		Data:         []byte("message that needs fee boosting"),
 		TokenAmounts: nil,
@@ -124,18 +124,18 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		ExtraArgs:    nil,
 	})
 	startBlocks[sourceChain] = &block
-	expectedSeqNum[changeset.SourceDestPair{
+	expectedSeqNum[testhelpers.SourceDestPair{
 		SourceChainSelector: sourceChain,
 		DestChainSelector:   destChain,
 	}] = msgSentEvent.SequenceNumber
-	expectedSeqNumExec[changeset.SourceDestPair{
+	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: sourceChain,
 		DestChainSelector:   destChain,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 			Config: changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					sourceChain: {
@@ -151,7 +151,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 
 	// Confirm gas prices are updated
 	srcFeeQuoter := state.Chains[sourceChain].FeeQuoter
-	err = changeset.ConfirmGasPriceUpdated(t, e.Env.Chains[destChain], srcFeeQuoter, 0, originalGasPriceDestUSD)
+	err = testhelpers.ConfirmGasPriceUpdated(t, e.Env.Chains[destChain], srcFeeQuoter, 0, originalGasPriceDestUSD)
 	require.NoError(t, err)
 
 	// Confirm that fee boosting will be triggered
@@ -162,11 +162,11 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	replayBlocks := make(map[uint64]uint64)
 	replayBlocks[sourceChain] = 1
 	replayBlocks[destChain] = 1
-	changeset.ReplayLogs(t, e.Env.Offchain, replayBlocks)
+	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 
 	// Confirm that the message is committed and executed
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
-	changeset.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }
 
 // TODO: Find a more accurate way to determine if fee boosting will be triggered
