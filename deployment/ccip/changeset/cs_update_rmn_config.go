@@ -526,7 +526,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
 	}
 
-	deployer, err := deployerGroup.getDeployer(cfg.HomeChainSelector)
+	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -537,7 +537,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
 	}
 
-	return deployerGroup.enact("Set RMNHome dynamic config")
+	return deployerGroup.Enact("Set RMNHome dynamic config")
 }
 
 type RevokeCandidateConfig struct {
@@ -596,7 +596,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
 	}
 
-	deployer, err := deployerGroup.getDeployer(cfg.HomeChainSelector)
+	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -606,7 +606,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
 	}
 
-	return deployerGroup.enact("Revoke candidate config")
+	return deployerGroup.Enact("Revoke candidate config")
 }
 
 func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {

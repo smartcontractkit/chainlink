@@ -1,4 +1,4 @@
-package changeset_test
+package rmn_test
 
 import (
 	"testing"
@@ -69,18 +69,18 @@ func TestUpdateRMNConfig(t *testing.T) {
 }
 
 func TestSetDynamicConfig(t *testing.T) {
-	e, _ := NewMemoryEnvironment(t)
-	state, err := LoadOnchainState(e.Env)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
-	nops := []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3}
+	nops := []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
 	for _, nop := range nops {
 		nodes = append(nodes, nop.ToRMNHomeNode())
 	}
 
-	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := changeset.SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          nodes,
@@ -92,24 +92,24 @@ func TestSetDynamicConfig(t *testing.T) {
 		},
 	}
 
-	_, err = SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	_, err = changeset.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
 	require.NoError(t, err)
 
 	candidate, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
 
-	promoteCandidateConfig := PromoteRMNHomeCandidateConfig{
+	promoteCandidateConfig := changeset.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		DigestToPromote:   candidate,
 	}
 
-	_, err = PromoteCandidateConfigChangeset(e.Env, promoteCandidateConfig)
+	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(e.Env, promoteCandidateConfig)
 	require.NoError(t, err)
 
 	active, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	setDynamicConfig := SetRMNHomeDynamicConfigConfig{
+	setDynamicConfig := changeset.SetRMNHomeDynamicConfigConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
 			SourceChains: []rmn_home.RMNHomeSourceChain{
@@ -123,7 +123,7 @@ func TestSetDynamicConfig(t *testing.T) {
 		CurrentDigest: active,
 	}
 
-	_, err = SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
+	_, err = changeset.SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
 	require.NoError(t, err)
 
 	dynamicConfig, err := rmnHome.GetConfig(nil, active)
@@ -134,18 +134,18 @@ func TestSetDynamicConfig(t *testing.T) {
 }
 
 func TestRevokeConfig(t *testing.T) {
-	e, _ := NewMemoryEnvironment(t)
-	state, err := LoadOnchainState(e.Env)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
-	nops := []RMNNopConfig{rmn_staging_1, rmn_staging_2, rmn_staging_3}
+	nops := []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
 	for _, nop := range nops {
 		nodes = append(nodes, nop.ToRMNHomeNode())
 	}
 
-	setRMNHomeCandidateConfig := SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := changeset.SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          nodes,
@@ -157,18 +157,18 @@ func TestRevokeConfig(t *testing.T) {
 		},
 	}
 
-	_, err = SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	_, err = changeset.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
 	require.NoError(t, err)
 
 	candidate, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
 
-	revokeCandidateConfig := RevokeCandidateConfig{
+	revokeCandidateConfig := changeset.RevokeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		ConfigDigest:      candidate,
 	}
 
-	_, err = RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
+	_, err = changeset.RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
 	require.NoError(t, err)
 
 	newCandidate, err := rmnHome.GetCandidateDigest(nil)

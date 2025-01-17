@@ -1,4 +1,4 @@
-package changeset_test
+package rmn_test
 
 import (
 	"testing"
