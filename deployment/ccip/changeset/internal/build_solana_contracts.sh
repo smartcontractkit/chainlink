@@ -3,15 +3,16 @@
 # Note: this version of the script expects anchor to be installed
 
 # Get the root project directory
-DEPLOYMENT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)
-INTERNAL_FOLDER="$DEPLOYMENT_ROOT/ccip/changeset/internal"
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && while [[ $PWD != "/" && ${PWD##*/} != "chainlink" ]]; do cd ..; done && pwd)
+DEPLOYMENT_FOLDER="$ROOT/deployment"
+INTERNAL_FOLDER="$DEPLOYMENT_FOLDER/ccip/changeset/internal"
 TEMP_FOLDER="$INTERNAL_FOLDER/.tmp-solana-ccip-repo"
 CONTRACTS_FOLDER=$INTERNAL_FOLDER/solana_contracts
 
-cd $DEPLOYMENT_ROOT
+cd $DEPLOYMENT_FOLDER
 
 # extract the chainlink-ccip revision from go.mod
-CCIP_VERSION=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" $DEPLOYMENT_ROOT/go.mod | awk '{print $2}' | cut -d'-' -f3)
+CCIP_VERSION=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" $DEPLOYMENT_FOLDER/go.mod | awk '{print $2}' | cut -d'-' -f3)
 
 echo "chainlink-CCIP version: $CCIP_VERSION"
 
