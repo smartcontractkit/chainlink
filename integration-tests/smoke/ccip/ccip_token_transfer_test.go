@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -23,7 +24,7 @@ func TestTokenTransfer(t *testing.T) {
 	ctx := tests.Context(t)
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithUsersPerChain(3))
+		testhelpers.WithNumOfUsersPerChain(3))
 
 	e := tenv.Env
 	state, err := changeset.LoadOnchainState(e)
@@ -43,7 +44,7 @@ func TestTokenTransfer(t *testing.T) {
 	oneE18 := new(big.Int).SetUint64(1e18)
 
 	// Deploy tokens and pool by CCIP Owner
-	srcToken, _, destToken, _, err := changeset.DeployTransferableToken(
+	srcToken, _, destToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
@@ -57,7 +58,7 @@ func TestTokenTransfer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Deploy Self Serve tokens and pool
-	selfServeSrcToken, _, selfServeDestToken, _, err := changeset.DeployTransferableToken(
+	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		sourceChain,
@@ -69,25 +70,25 @@ func TestTokenTransfer(t *testing.T) {
 		"SELF_SERVE_TOKEN",
 	)
 	require.NoError(t, err)
-	changeset.AddLanesForAll(t, &tenv, state)
+	testhelpers.AddLanesForAll(t, &tenv, state)
 
-	changeset.MintAndAllow(
+	testhelpers.MintAndAllow(
 		t,
 		e,
 		state,
-		map[uint64][]changeset.MintTokenInfo{
+		map[uint64][]testhelpers.MintTokenInfo{
 			sourceChain: {
-				changeset.NewMintTokenInfo(selfServeSrcTokenPoolDeployer, selfServeSrcToken),
-				changeset.NewMintTokenInfo(ownerSourceChain, srcToken),
+				testhelpers.NewMintTokenInfo(selfServeSrcTokenPoolDeployer, selfServeSrcToken),
+				testhelpers.NewMintTokenInfo(ownerSourceChain, srcToken),
 			},
 			destChain: {
-				changeset.NewMintTokenInfo(selfServeDestTokenPoolDeployer, selfServeDestToken),
-				changeset.NewMintTokenInfo(ownerDestChain, destToken),
+				testhelpers.NewMintTokenInfo(selfServeDestTokenPoolDeployer, selfServeDestToken),
+				testhelpers.NewMintTokenInfo(ownerDestChain, destToken),
 			},
 		},
 	)
 
-	tcs := []changeset.TestTransferRequest{
+	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:        "Send token to EOA",
 			SourceChain: sourceChain,
@@ -102,7 +103,7 @@ func TestTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "Send token to contract",
@@ -118,7 +119,7 @@ func TestTokenTransfer(t *testing.T) {
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				destToken.Address(): oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "Send N tokens to contract",
@@ -139,12 +140,12 @@ func TestTokenTransfer(t *testing.T) {
 				},
 			},
 			Receiver:  state.Chains[sourceChain].Receiver.Address(),
-			ExtraArgs: changeset.MakeEVMExtraArgsV2(300_000, false),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
 				srcToken.Address():          oneE18,
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
@@ -161,12 +162,12 @@ func TestTokenTransfer(t *testing.T) {
 				},
 			},
 			Receiver:  utils.RandomAddress(),
-			ExtraArgs: changeset.MakeEVMExtraArgsV2(1, false),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): oneE18,
 				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_SUCCESS,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
@@ -184,19 +185,19 @@ func TestTokenTransfer(t *testing.T) {
 			},
 			Receiver:  state.Chains[sourceChain].Receiver.Address(),
 			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
-			ExtraArgs: changeset.MakeEVMExtraArgsV2(1, false),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedTokenBalances: map[common.Address]*big.Int{
 				selfServeSrcToken.Address(): big.NewInt(0),
 				srcToken.Address():          big.NewInt(0),
 			},
-			ExpectedStatus: changeset.EXECUTION_STATE_FAILURE,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
 		},
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
-		changeset.TransferMultiple(ctx, t, e, state, tcs)
+		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
-	err = changeset.ConfirmMultipleCommits(
+	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		e.Chains,
 		state.Chains,
@@ -206,14 +207,14 @@ func TestTokenTransfer(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	execStates := changeset.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e,
 		state,
-		changeset.SeqNumberRangeToSlice(expectedSeqNums),
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	changeset.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
 }

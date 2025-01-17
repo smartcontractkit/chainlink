@@ -55,13 +55,13 @@ runner-test-matrix:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 12m -test.parallel=2 -count=1 -json
 
-  - id: contracts/ccipreader_test.go:*
-    path: integration-tests/contracts/ccipreader_test.go
+  - id: smoke/ccip/ccip_reader_test.go:*
+    path: integration-tests/smoke/ccip/ccip_reader_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip/ccip_usdc_test.go

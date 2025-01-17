@@ -2,34 +2,41 @@ package changeset
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
 var (
-	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisites
+	_ deployment.ChangeSet[DeployPrerequisiteConfig] = DeployPrerequisitesChangeset
 )
 
-// DeployPrerequisites deploys the pre-requisite contracts for CCIP
+// DeployPrerequisitesChangeset deploys the pre-requisite contracts for CCIP
 // pre-requisite contracts are the contracts which can be reused from previous versions of CCIP
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)
 // Caller should update the environment's address book with the returned addresses.
-func DeployPrerequisites(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
+func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
@@ -236,7 +243,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			if rmnOwner != chain.DeployerKey.From {
 				lggr.Warnw(
 					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
-						"run SetRMNRemoteOnRMNProxy to update RMN with a proposal",
+						"run SetRMNRemoteOnRMNProxyChangeset to update RMN with a proposal",
 					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
 			} else {
 				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
@@ -373,7 +380,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 	}
 	if deployOpts.USDCEnabled {
-		token, pool, messenger, transmitter, err1 := DeployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
+		token, pool, messenger, transmitter, err1 := deployUSDC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
 		if err1 != nil {
 			return err1
 		}
@@ -434,4 +441,120 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 		}
 	}
 	return nil
+}
+
+func deployUSDC(
+	lggr logger.Logger,
+	chain deployment.Chain,
+	addresses deployment.AddressBook,
+	rmnProxy common.Address,
+	router common.Address,
+) (
+	*burn_mint_erc677.BurnMintERC677,
+	*usdc_token_pool.USDCTokenPool,
+	*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger,
+	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
+	error,
+) {
+	token, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				USDCName,
+				string(USDCSymbol),
+				UsdcDecimals,
+				big.NewInt(0),
+			)
+			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				Address:  tokenAddress,
+				Contract: tokenContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token", "chain", chain.String(), "err", err)
+		return nil, nil, nil, nil, err
+	}
+
+	tx, err := token.Contract.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	if err != nil {
+		lggr.Errorw("Failed to grant mint role", "chain", chain.String(), "token", token.Contract.Address(), "err", err)
+		return nil, nil, nil, nil, err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	transmitter, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+			transmitterAddress, tx, transmitterContract, err2 := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				reader.AllAvailableDomains()[chain.Selector],
+				token.Address,
+			)
+			return deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
+				Address:  transmitterAddress,
+				Contract: transmitterContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy mock USDC transmitter", "chain", chain.String(), "err", err)
+		return nil, nil, nil, nil, err
+	}
+
+	messenger, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+			messengerAddress, tx, messengerContract, err2 := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				transmitter.Address,
+			)
+			return deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
+				Address:  messengerAddress,
+				Contract: messengerContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token messenger", "chain", chain.String(), "err", err)
+		return nil, nil, nil, nil, err
+	}
+
+	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
+		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
+				chain.DeployerKey,
+				chain.Client,
+				messenger.Address,
+				token.Address,
+				[]common.Address{},
+				rmnProxy,
+				router,
+			)
+			return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
+				Address:  tokenPoolAddress,
+				Contract: tokenPoolContract,
+				Tx:       tx,
+				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0),
+				Err:      err2,
+			}
+		})
+	if err != nil {
+		lggr.Errorw("Failed to deploy USDC token pool", "chain", chain.String(), "err", err)
+		return nil, nil, nil, nil, err
+	}
+
+	return token.Contract, tokenPool.Contract, messenger.Contract, transmitter.Contract, nil
 }
