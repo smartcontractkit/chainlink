@@ -30,7 +30,7 @@ const (
 	// Price Feed Descriptions
 	AvaxUSD = "AVAX / USD"
 	LinkUSD = "LINK / USD"
-	WethUSD = "WETH / USD"
+	EthUSD  = "ETH / USD"
 
 	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
 	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
@@ -49,7 +49,7 @@ var (
 		MockWETHAggregatorDescription: WethSymbol,
 		LinkUSD:                       LinkSymbol,
 		AvaxUSD:                       WAVAXSymbol,
-		WethUSD:                       WethSymbol,
+		EthUSD:                        WethSymbol,
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
 		LinkSymbol: MockLinkAggregatorDescription,
