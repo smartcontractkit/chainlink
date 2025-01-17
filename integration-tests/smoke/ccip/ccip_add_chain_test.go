@@ -570,11 +570,14 @@ func assertChainWiringInbound(
 		}
 
 		// check that the offRamp has the existing chain enabled as a source.
+		// in addition, check that the onRamp set in the source chain config
+		// matches the address of the onRamp on the existing chain.
 		dcc, err := state.Chains[newChain].OffRamp.GetSourceChainConfig(&bind.CallOpts{
 			Context: tests.Context(t),
 		}, existingChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
+		require.Equal(t, dcc.OnRamp, common.LeftPadBytes(state.Chains[existingChain].OnRamp.Address().Bytes(), 32))
 
 		// check that the router has the existing chain enabled as a source.
 		routerOffRamps, err := rtr.GetOffRamps(&bind.CallOpts{
