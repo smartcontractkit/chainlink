@@ -468,7 +468,7 @@ func (c SetRMNRemoteConfig) Validate() error {
 type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
-	CurrentDigest     [32]byte
+	ActiveDigest     [32]byte
 	MCMS              *MCMSConfig
 }
 
