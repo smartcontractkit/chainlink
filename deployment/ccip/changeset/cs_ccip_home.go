@@ -89,7 +89,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		}
 		var linkTokenInfo tokenInfo
 		linkTokenInfo = onchainState.LinkToken
-		if linkTokenInfo == nil {
+		if onchainState.LinkToken == nil {
 			linkTokenInfo = onchainState.StaticLinkToken
 		}
 		tokenInfos = append(tokenInfos, linkTokenInfo)
