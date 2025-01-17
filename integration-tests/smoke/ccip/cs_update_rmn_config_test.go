@@ -1,4 +1,4 @@
-package rmn_test
+package smoke
 
 import (
 	"testing"
