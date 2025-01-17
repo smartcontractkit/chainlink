@@ -3,8 +3,8 @@ pragma solidity ^0.8.0;
 
 import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
 
-import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
 import {CCIPReceiverReverting} from "../../../helpers/receivers/CCIPReceiverReverting.sol";
+import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract CCIPBase_getRemoteChainConfig is OnRampSetup {
   CCIPReceiverReverting internal s_receiver;
