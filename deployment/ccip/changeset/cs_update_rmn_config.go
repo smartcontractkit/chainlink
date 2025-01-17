@@ -568,7 +568,7 @@ func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
 	}
 
 	if currentDigest != c.ConfigDigest {
-		return fmt.Errorf("config digest (%x) does not match provided digest (%x)", currentDigest[:], c.ConfigDigest[:])
+		return fmt.Errorf("onchain candidate digest (%x) does not match provided digest (%x)", currentDigest[:], c.ConfigDigest[:])
 	}
 
 	return nil
