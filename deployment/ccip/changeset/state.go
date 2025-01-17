@@ -569,7 +569,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
-		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(CCIPReceiverWithMsgData, deployment.Version1_0_0).String():
 			mr, err := ccip_dummy_receiver.NewCCIPDummyReceiver(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
