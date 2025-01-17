@@ -82,7 +82,7 @@ type TestCase struct {
 	TestSetup
 	Replayed               bool
 	Nonce                  uint64
-	Receiver               common.Address
+	Receiver               []byte
 	MsgData                []byte
 	ExtraArgs              []byte
 	ExpectedExecutionState int
