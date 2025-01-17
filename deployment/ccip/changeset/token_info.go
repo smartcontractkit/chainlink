@@ -48,7 +48,7 @@ var (
 		MockLinkAggregatorDescription: LinkSymbol,
 		MockWETHAggregatorDescription: WethSymbol,
 		LinkUSD:                       LinkSymbol,
-		AvaxUSD:                       WethSymbol, // For now setting it to Weth as we are referring all wrapped natives as WETH
+		AvaxUSD:                       WAVAXSymbol,
 		WethUSD:                       WethSymbol,
 	}
 	MockSymbolToDescription = map[TokenSymbol]string{
