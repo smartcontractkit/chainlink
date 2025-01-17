@@ -87,7 +87,12 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		tokenInfos = append(tokenInfos, onchainState.LinkToken)
+		var linkTokenInfo tokenInfo
+		linkTokenInfo = onchainState.LinkToken
+		if linkTokenInfo == nil {
+			linkTokenInfo = onchainState.StaticLinkToken
+		}
+		tokenInfos = append(tokenInfos, linkTokenInfo)
 		tokenInfos = append(tokenInfos, onchainState.Weth9)
 		symbol, decimal, err := findTokenInfo(tokenInfos, token)
 		if err != nil {
