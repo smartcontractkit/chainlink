@@ -185,6 +185,72 @@ func Test_CCIPMessaging(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
+func Test_CCIPMessaging_Solana(t *testing.T) {
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	ctx := testhelpers.Context(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	sourceChain := allChainSelectors[0]
+	destChain := allSolChainSelectors[1]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		nonce    uint64
+		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out      messagingTestCaseOutput
+		setup    = testCaseSetup{
+			t:            t,
+			sender:       sender,
+			deployedEnv:  e,
+			onchainState: state,
+			sourceChain:  sourceChain,
+			destChain:    destChain,
+		}
+	)
+
+	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		require.NoError(t, err)
+		receiver := state.SolChains[destChain].Receiver.Bytes()
+		out = runMessagingTestCase(
+			messagingTestCase{
+				testCaseSetup: setup,
+				replayed:      replayed,
+				nonce:         nonce,
+			},
+			receiver,
+			[]byte("hello CCIPReceiver"),
+			nil, // default extraArgs
+			testhelpers.EXECUTION_STATE_SUCCESS,
+			func(t *testing.T) {
+				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+					Context: ctx,
+					Start:   latestHead.Number.Uint64(),
+				})
+				require.NoError(t, err)
+				require.True(t, iter.Next())
+				// MessageReceived doesn't emit the data unfortunately, so can't check that.
+			},
+		)
+	})
+
+	fmt.Printf("out: %v\n", out)
+}
+
 type monitorState struct {
 	reExecutionsObserved atomic.Int32
 }
