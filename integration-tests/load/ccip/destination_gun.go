@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"math/big"
 	"math/rand"
 	"time"
@@ -28,7 +29,7 @@ type SeqNumRange struct {
 type DestinationGun struct {
 	l             logger.Logger
 	env           deployment.Environment
-	seqNums       map[ccipchangeset.SourceDestPair]SeqNumRange
+	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
@@ -37,11 +38,11 @@ type DestinationGun struct {
 }
 
 func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
-	seqNums := make(map[ccipchangeset.SourceDestPair]SeqNumRange)
+	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 
 		// query for the actual sequence number
-		seqNums[ccipchangeset.SourceDestPair{
+		seqNums[testhelpers.SourceDestPair{
 			SourceChainSelector: cs,
 			DestChainSelector:   chainSelector,
 		}] = SeqNumRange{
@@ -104,7 +105,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		m.l.Errorw("Failed setting loki labels", "error", err)
 	}
 
-	csPair := ccipchangeset.SourceDestPair{
+	csPair := testhelpers.SourceDestPair{
 		SourceChainSelector: src,
 		DestChainSelector:   m.chainSelector,
 	}

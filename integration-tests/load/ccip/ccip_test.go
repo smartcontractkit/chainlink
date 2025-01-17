@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"math/big"
 	"sync"
 	"testing"
@@ -118,8 +119,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	_, err = p.Run(true)
 
 	// wait for offchain to complete handling load fully
-	execExpectedSeqNums := make(map[ccipchangeset.SourceDestPair][]uint64)
-	commitExepectedSeqNums := make(map[ccipchangeset.SourceDestPair]uint64)
+	execExpectedSeqNums := make(map[testhelpers.SourceDestPair][]uint64)
+	commitExepectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	for _, gun := range gunMap {
 		for csPair := range gun.seqNums {
 			commitExepectedSeqNums[csPair] = gun.seqNums[csPair].End.Load()
@@ -128,8 +129,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			}
 		}
 	}
-	ccipchangeset.ConfirmCommitForAllWithExpectedSeqNums(t, *env, state, commitExepectedSeqNums, startBlocks)
-	ccipchangeset.ConfirmExecWithSeqNrsForAll(t, *env, state, execExpectedSeqNums, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, *env, state, commitExepectedSeqNums, startBlocks)
+	testhelpers.ConfirmExecWithSeqNrsForAll(t, *env, state, execExpectedSeqNums, startBlocks)
 
 	// todo: create channels that subscribe to these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
 	lokiLabels := map[string]string{}
@@ -184,7 +185,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			wg.Add(1)
 			go func(srcSelector uint64, startBlock *uint64, filterOpts *bind.FilterOpts) {
 				defer wg.Done()
-				csPair := ccipchangeset.SourceDestPair{
+				csPair := testhelpers.SourceDestPair{
 					SourceChainSelector: srcSelector,
 					DestChainSelector:   chainSelector,
 				}
