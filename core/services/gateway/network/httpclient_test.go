@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -36,7 +37,7 @@ func TestHTTPClient_Send(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
-					require.NoError(t, err2)
+					assert.NoError(t, err2)
 				}))
 			},
 			request: HTTPRequest{
@@ -431,7 +432,7 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 		config := HTTPClientConfig{}
 		config.ApplyDefaults()
 		require.Equal(t, defaultMaxResponseBytes, config.MaxResponseBytes) // 30MB
-		require.Equal(t, 0*time.Second, config.DefaultTimeout)
+		require.Equal(t, defaultTimout, config.DefaultTimeout)
 		require.Equal(t, defaultAllowedPorts, config.AllowedPorts)
 		require.Equal(t, defaultAllowedSchemes, config.AllowedSchemes)
 	})
