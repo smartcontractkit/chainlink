@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Note: this version of the script expects anchor to be installed
 
 # Get the root project directory
