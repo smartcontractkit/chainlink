@@ -34,9 +34,11 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error DataFeedValueOutOfUint224Range();
   error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
   error MessageGasLimitTooHigh();
+  error MessageComputeUnitLimitTooHigh();
   error DestinationChainNotEnabled(uint64 destChainSelector);
   error ExtraArgOutOfOrderExecutionMustBeTrue();
   error InvalidExtraArgsTag();
+  error InvalidExtraArgsData();
   error SourceTokenDataTooLarge(address token);
   error InvalidDestChainConfig(uint64 destChainSelector);
   error MessageFeeTooHigh(uint256 msgFeeJuels, uint256 maxFeeJuelsPerMsg);
@@ -562,7 +564,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     // The below call asserts that feeToken is a supported token.
     uint224 feeTokenPrice = _getValidatedTokenPrice(message.feeToken);
-    uint256 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
+    uint224 packedGasPrice = _getValidatedGasPrice(destChainSelector, destChainConfig.gasPriceStalenessThreshold);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
     // If message-only and no token transfers, a flat network fee is charged.
@@ -918,19 +920,36 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint256 maxPerMsgGasLimit,
     bool enforcedOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
+    if (extraArgs.length < 4) {
+      revert InvalidExtraArgsData();
+    }
+
     bytes4 tag = bytes4(extraArgs[:4]);
     if (tag != Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG) {
       revert InvalidExtraArgsTag();
     }
 
-    svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
+    // If we have more than 4 bytes, decode the SVMExtraArgsV1 struct.
+    // Otherwise, we default the struct fields.
+    if (extraArgs.length > 4) {
+      svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
+    } else {
+      // We only have the tag and no additional data, so define a default struct
+      return svmExtraArgs = Client.SVMExtraArgsV1({
+        computeUnits: defaultTxGasLimit,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: true,
+        accounts: new bytes32[](0)
+      });
+    }
 
     if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
 
     if (svmExtraArgs.computeUnits > maxPerMsgGasLimit) {
-      revert MessageGasLimitTooHigh();
+      revert MessageComputeUnitLimitTooHigh();
     }
 
     return svmExtraArgs;
@@ -982,7 +1001,6 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       // Clients may still include it but it will be ignored.
       return Client.EVMExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
     }
-
     revert InvalidExtraArgsTag();
   }
 
@@ -1054,7 +1072,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   ) internal view returns (bytes memory, bool) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      // Since the message is called after getFee, which will already validate the params, no validation is necessary.
+      // Since the message is called after getFee, which already validates the params, no validation is necessary.
       Client.EVMExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
@@ -1103,12 +1121,13 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         }
       }
 
+      // We pass '1' here so that SVM validation requires a non-zero token address.
+      // The 'gasLimit' parameter isn't actually used for gas in this context; it simply
+      // signals that the address must not be zero on SVM.
       _validateDestFamilyAddress(chainFamilySelector, onRampTokenTransfers[i].destTokenAddress, 1);
       FeeQuoter.TokenTransferFeeConfig memory tokenTransferFeeConfig =
         s_tokenTransferFeeConfig[destChainSelector][sourceToken];
 
-      // NOTE: Only EVM chains' gas model is supported for now, additional fee logic for non-EVM chains will
-      // be required in the future with parsing based on chain family selector.
       uint32 destGasAmount = tokenTransferFeeConfig.isEnabled
         ? tokenTransferFeeConfig.destGasOverhead
         : s_destChainConfigs[destChainSelector].defaultTokenDestGasOverhead;
