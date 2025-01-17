@@ -468,7 +468,7 @@ func (c SetRMNRemoteConfig) Validate() error {
 type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
-	ActiveDigest     [32]byte
+	ActiveDigest      [32]byte
 	MCMS              *MCMSConfig
 }
 
@@ -493,8 +493,8 @@ func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error 
 		return fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", e.Chains[c.HomeChainSelector].String(), err)
 	}
 
-	if currentDigest != c.CurrentDigest {
-		return fmt.Errorf("onchain active digest (%x) does not match provided digest (%x)", currentDigest[:], c.CurrentDigest[:])
+	if currentDigest != c.ActiveDigest {
+		return fmt.Errorf("onchain active digest (%x) does not match provided digest (%x)", currentDigest[:], c.ActiveDigest[:])
 	}
 
 	if len(c.RMNDynamicConfig.OffchainConfig) != 0 {
@@ -531,7 +531,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, err
 	}
 
-	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.CurrentDigest)
+	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.ActiveDigest)
 
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
@@ -542,7 +542,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
-	CandidateDigest      [32]byte
+	CandidateDigest   [32]byte
 	MCMS              *MCMSConfig
 }
 
@@ -567,8 +567,8 @@ func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", e.Chains[c.HomeChainSelector].String(), err)
 	}
 
-	if currentDigest != c.ConfigDigest {
-		return fmt.Errorf("onchain candidate digest (%x) does not match provided digest (%x)", currentDigest[:], c.ConfigDigest[:])
+	if currentDigest != c.CandidateDigest {
+		return fmt.Errorf("onchain candidate digest (%x) does not match provided digest (%x)", currentDigest[:], c.CandidateDigest[:])
 	}
 
 	return nil
@@ -601,7 +601,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, err
 	}
 
-	_, err = rmnHome.RevokeCandidate(deployer, cfg.ConfigDigest)
+	_, err = rmnHome.RevokeCandidate(deployer, cfg.CandidateDigest)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
 	}
