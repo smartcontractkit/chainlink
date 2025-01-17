@@ -167,7 +167,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	for selector := range e.Chains {
 		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
 			changeset.WithDefaultExecuteOffChainConfig(nil),
-			nil,
 		)
 	}
 
