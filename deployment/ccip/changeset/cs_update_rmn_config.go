@@ -542,7 +542,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
-	ConfigDigest      [32]byte
+	CandidateDigest      [32]byte
 	MCMS              *MCMSConfig
 }
 
