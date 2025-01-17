@@ -19,12 +19,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 )
 
 const (
@@ -102,6 +102,7 @@ type Transmitter interface {
 var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
+	Protocol() string
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 	TransmitConcurrency() uint32
@@ -129,7 +130,7 @@ type Opts struct {
 	Registerer     prometheus.Registerer
 	VerboseLogging bool
 	Cfg            Config
-	Clients        map[string]wsrpc.Client
+	Clients        map[string]grpc.Client
 	FromAccount    ed25519.PublicKey
 	DonID          uint32
 	ORM            ORM
