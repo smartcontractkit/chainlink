@@ -21,11 +21,25 @@ import (
 
 type FetcherService struct {
 	services.StateMachine
-	lggr            logger.Logger
-	och             *webapi.OutgoingConnectorHandler
-	wrapper         gatewayConnector
-	maxArtifactSize uint64
+	lggr    logger.Logger
+	och     *webapi.OutgoingConnectorHandler
+	wrapper gatewayConnector
+	limits  *ArtifactConfig
 }
+
+type ArtifactConfig struct {
+	MaxConfigSize  uint64
+	MaxSecretsSize uint64
+	MaxBinarySize  uint64
+}
+
+type ArtifactType string
+
+var (
+	ArtifactTypeConfig  ArtifactType = "config"
+	ArtifactTypeSecrets ArtifactType = "secrets"
+	ArtifactTypeBinary  ArtifactType = "binary"
+)
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
@@ -33,7 +47,11 @@ type gatewayConnector interface {
 
 func WithMaxArtifactSize(maxArtifactSize uint64) func(*FetcherService) {
 	return func(fs *FetcherService) {
-		fs.maxArtifactSize = maxArtifactSize
+		fs.limits = &ArtifactConfig{
+			MaxConfigSize:  maxArtifactSize,
+			MaxSecretsSize: maxArtifactSize,
+			MaxBinarySize:  maxArtifactSize,
+		}
 	}
 }
 
@@ -96,16 +114,54 @@ func hash(url string) string {
 }
 
 func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
-	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
+	return s.fetch(ctx, url, 0)
+}
 
-	if s.maxArtifactSize > 0 && s.maxArtifactSize > math.MaxUint32 {
-		return nil, fmt.Errorf("max artifact size is greater than maximum allowed size %d", math.MaxUint32)
+type FetchMaxCmd struct {
+	URL          string       `json:"url"`
+	ArtifactType ArtifactType `json:"artifactType"`
+}
+
+type MaxFetcher interface {
+	FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error)
+}
+
+func (s *FetcherService) FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error) {
+	if s.limits == nil {
+		s.lggr.Warn("FetcherService limits not set, allowing http client to set default limits")
+		return s.fetch(ctx, cmd.URL, 0)
 	}
 
+	var (
+		n   uint32
+		err error
+	)
+	switch cmd.ArtifactType {
+	case ArtifactTypeConfig:
+		n, err = safeSetUint32(s.limits.MaxConfigSize)
+	case ArtifactTypeSecrets:
+		n, err = safeSetUint32(s.limits.MaxSecretsSize)
+	case ArtifactTypeBinary:
+		n, err = safeSetUint32(s.limits.MaxBinarySize)
+	default:
+		err = fmt.Errorf("unknown artifact type: %s", cmd.ArtifactType)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to set fetch limit : %w", err)
+	}
+
+	s.lggr.Debugw("fetching artifact with max size", "url", cmd.URL, "artifactType", cmd.ArtifactType, "maxSize", n)
+
+	return s.fetch(ctx, cmd.URL, n)
+}
+
+func (s *FetcherService) fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
+	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
 	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
 		URL:              url,
 		Method:           http.MethodGet,
-		MaxResponseBytes: uint32(s.maxArtifactSize),
+		MaxResponseBytes: n,
 	})
 	if err != nil {
 		return nil, err
@@ -131,4 +187,11 @@ func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) 
 	}
 
 	return payload.Body, nil
+}
+
+func safeSetUint32(n uint64) (uint32, error) {
+	if n > math.MaxUint32 {
+		return 0, fmt.Errorf("value %d is too large to fit in a uint32", n)
+	}
+	return uint32(n), nil
 }

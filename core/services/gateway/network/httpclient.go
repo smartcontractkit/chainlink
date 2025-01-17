@@ -55,11 +55,13 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 }
 
 type HTTPRequest struct {
-	Method           string
-	URL              string
-	Headers          map[string]string
-	Body             []byte
-	Timeout          time.Duration
+	Method  string
+	URL     string
+	Headers map[string]string
+	Body    []byte
+	Timeout time.Duration
+
+	// Maximum number of bytes to read from the response body.  If 0, the default value is used.
 	MaxResponseBytes uint32
 }
 

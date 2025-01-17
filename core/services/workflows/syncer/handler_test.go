@@ -40,12 +40,12 @@ type mockFetcher struct {
 	responseMap map[string]mockFetchResp
 }
 
-func (m *mockFetcher) Fetch(_ context.Context, url string) ([]byte, error) {
-	return m.responseMap[url].Body, m.responseMap[url].Err
+func (m *mockFetcher) FetchMax(_ context.Context, cmd FetchMaxCmd) ([]byte, error) {
+	return m.responseMap[cmd.URL].Body, m.responseMap[cmd.URL].Err
 }
 
-func newMockFetcher(m map[string]mockFetchResp) FetcherFunc {
-	return (&mockFetcher{responseMap: m}).Fetch
+func newMockFetcher(m map[string]mockFetchResp) MaxFetcher {
+	return (&mockFetcher{responseMap: m})
 }
 
 type mockEngine struct {
@@ -70,6 +70,12 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
+type mockFetcherFunc func(ctx context.Context, cmd FetchMaxCmd) ([]byte, error)
+
+func (m mockFetcherFunc) FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error) {
+	return m(ctx, cmd)
+}
+
 func Test_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
@@ -89,9 +95,9 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := mockFetcherFunc(func(_ context.Context, _ FetchMaxCmd) ([]byte, error) {
 			return []byte("contents"), nil
-		}
+		})
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
 		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{})
@@ -104,9 +110,9 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 
 		giveEvent := WorkflowRegistryEvent{}
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := mockFetcherFunc(func(_ context.Context, _ FetchMaxCmd) ([]byte, error) {
 			return []byte("contents"), nil
-		}
+		})
 
 		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{})
 		err := h.Handle(ctx, giveEvent)
@@ -153,9 +159,9 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := mockFetcherFunc(func(_ context.Context, _ FetchMaxCmd) ([]byte, error) {
 			return nil, assert.AnError
-		}
+		})
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{})
 		err = h.Handle(ctx, giveEvent)
@@ -179,9 +185,9 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := mockFetcherFunc(func(_ context.Context, _ FetchMaxCmd) ([]byte, error) {
 			return []byte("contents"), nil
-		}
+		})
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
 		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{})
@@ -420,7 +426,7 @@ type testCase struct {
 	GiveConfig      []byte
 	ConfigURL       string
 	WFOwner         []byte
-	fetcher         FetcherFunc
+	fetcher         MaxFetcher
 	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
 	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
 	engineFactoryFn func(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error)
@@ -813,7 +819,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	h := NewEventHandler(
 		lggr,
 		orm,
-		fetcher.Fetch,
+		fetcher,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
 		custmsg.NewLabeler(),
@@ -875,7 +881,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	h := NewEventHandler(
 		lggr,
 		orm,
-		fetcher.Fetch,
+		fetcher,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
 		custmsg.NewLabeler(),
@@ -938,7 +944,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	h := NewEventHandler(
 		lggr,
 		orm,
-		fetcher.Fetch,
+		fetcher,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
 		custmsg.NewLabeler(),

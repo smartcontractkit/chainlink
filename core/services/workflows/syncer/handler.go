@@ -135,7 +135,7 @@ type engineFactoryFn func(ctx context.Context, wfid string, owner string, name s
 type eventHandler struct {
 	lggr                     logger.Logger
 	orm                      WorkflowRegistryDS
-	fetcher                  FetcherFunc
+	maxFetcher               MaxFetcher
 	workflowStore            store.Store
 	capRegistry              core.CapabilitiesRegistry
 	engineRegistry           *EngineRegistry
@@ -166,11 +166,17 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	}
 }
 
+func WithMaxFetcher(mf MaxFetcher) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.maxFetcher = mf
+	}
+}
+
 // NewEventHandler returns a new eventHandler instance.
 func NewEventHandler(
 	lggr logger.Logger,
 	orm ORM,
-	gateway FetcherFunc,
+	gateway MaxFetcher,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
 	emitter custmsg.MessageEmitter,
@@ -181,8 +187,8 @@ func NewEventHandler(
 	eh := &eventHandler{
 		lggr:                     lggr,
 		orm:                      orm,
-		fetcher:                  gateway,
 		workflowStore:            workflowStore,
+		maxFetcher:               gateway,
 		capRegistry:              capRegistry,
 		engineRegistry:           NewEngineRegistry(),
 		emitter:                  emitter,
@@ -411,7 +417,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// Always fetch secrets from the SecretsURL
 	var secrets []byte
 	if payload.SecretsURL != "" {
-		secrets, err = h.fetcher(ctx, payload.SecretsURL)
+		secrets, err = h.maxFetcher.FetchMax(ctx, FetchMaxCmd{URL: payload.SecretsURL, ArtifactType: ArtifactTypeSecrets})
 		if err != nil {
 			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, err)
 		}
@@ -514,7 +520,7 @@ func (h *eventHandler) getWorkflowArtifacts(
 		binary, decodedBinary, config []byte
 		err                           error
 	)
-	if binary, err = h.fetcher(ctx, payload.BinaryURL); err != nil {
+	if binary, err = h.maxFetcher.FetchMax(ctx, FetchMaxCmd{URL: payload.BinaryURL, ArtifactType: ArtifactTypeBinary}); err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
 
@@ -523,7 +529,7 @@ func (h *eventHandler) getWorkflowArtifacts(
 	}
 
 	if payload.ConfigURL != "" {
-		if config, err = h.fetcher(ctx, payload.ConfigURL); err != nil {
+		if config, err = h.maxFetcher.FetchMax(ctx, FetchMaxCmd{URL: payload.ConfigURL, ArtifactType: ArtifactTypeConfig}); err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
 		}
 	}
@@ -679,7 +685,7 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 	}
 
 	// Fetch the contents of the secrets file from the url via the fetcher
-	secrets, err := h.fetcher(ctx, url)
+	secrets, err := h.maxFetcher.FetchMax(ctx, FetchMaxCmd{URL: url, ArtifactType: ArtifactTypeSecrets})
 	if err != nil {
 		return "", err
 	}
