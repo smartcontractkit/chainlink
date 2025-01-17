@@ -9,7 +9,6 @@ runs:
       shell: bash
       run: |
         # TODO get the short revision from the go.mod file
-
         short_revision=8973fd0c912b
 
         # TODO map from the short to the long revision value, the checkout action doesn't support short revisions
