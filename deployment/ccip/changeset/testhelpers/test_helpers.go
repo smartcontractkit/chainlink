@@ -360,7 +360,7 @@ func DoSendRequest(
 	}
 
 	require.True(t, it.Next())
-	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
+	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		it.Event.Message.Header.MessageId[:],
 		cfg.SourceChain,
 		cfg.DestChain,
@@ -368,6 +368,7 @@ func DoSendRequest(
 		it.Event.SequenceNumber,
 		it.Event.Message.Header.Nonce,
 		it.Event.Message.Sender.String(),
+		cfg.IsTestRouter,
 	)
 	return it.Event, nil
 }

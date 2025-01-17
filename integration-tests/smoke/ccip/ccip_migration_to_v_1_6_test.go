@@ -23,7 +23,7 @@ import (
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
-	t.Skipf("CCIP-4868 -This test needs to be investigated for flakiness")
+	// t.Skipf("CCIP-4868 -This test needs to be investigated for flakiness")
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
@@ -238,6 +238,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		DestChainSelector:   dest,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
+	testhelpers.ReplayLogs(t, e.Env.Offchain, map[uint64]uint64{
+		src1: msgSentEvent.Raw.BlockNumber,
+	})
 	// Wait for all exec reports to land
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
