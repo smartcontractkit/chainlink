@@ -882,10 +882,6 @@ func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.L
 		return nil, err
 	}
 
-	if len(logs) == 0 {
-		return blocks, nil
-	}
-
 	for i, log := range logs {
 		if log.BlockHash != blocks[i].BlockHash {
 			return nil, fmt.Errorf("finalized log produced by tx %s has block hash %s that does not match fetched block's hash %s: %w", log.TxHash, log.BlockHash, blocks[i].BlockHash, commontypes.ErrFinalityViolated)
