@@ -494,7 +494,7 @@ func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error 
 	}
 
 	if currentDigest != c.CurrentDigest {
-		return fmt.Errorf("current digest (%x) does not match provided digest (%x)", currentDigest[:], c.CurrentDigest[:])
+		return fmt.Errorf("onchain active digest (%x) does not match provided digest (%x)", currentDigest[:], c.CurrentDigest[:])
 	}
 
 	if len(c.RMNDynamicConfig.OffchainConfig) != 0 {
