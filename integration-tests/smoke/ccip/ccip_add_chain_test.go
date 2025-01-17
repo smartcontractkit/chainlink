@@ -779,7 +779,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	onlyChainContracts bool,
 ) {
 	apps := make([]commonchangeset.ChangesetApplication, 0, len(chains)+1)
-	cfg := genTestTransferOwnershipConfig(e, chains, state)
+	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state)
 	if onlyChainContracts {
 		// filter out the home chain contracts from e.HomeChainSel
 		var homeChainContracts = map[common.Address]struct{}{
@@ -810,42 +810,4 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
-}
-
-func genTestTransferOwnershipConfig(
-	e testhelpers.DeployedEnv,
-	chains []uint64,
-	state ccipcs.CCIPOnChainState,
-) commonchangeset.TransferToMCMSWithTimelockConfig {
-	var (
-		timelocksPerChain = make(map[uint64]common.Address)
-		contracts         = make(map[uint64][]common.Address)
-	)
-
-	// chain contracts
-	for _, chain := range chains {
-		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
-		contracts[chain] = []common.Address{
-			state.Chains[chain].OnRamp.Address(),
-			state.Chains[chain].OffRamp.Address(),
-			state.Chains[chain].FeeQuoter.Address(),
-			state.Chains[chain].NonceManager.Address(),
-			state.Chains[chain].RMNRemote.Address(),
-			state.Chains[chain].TestRouter.Address(),
-			state.Chains[chain].Router.Address(),
-		}
-	}
-
-	// home chain
-	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
-	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
-	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
-		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
-		state.Chains[e.HomeChainSel].CCIPHome.Address(),
-		state.Chains[e.HomeChainSel].RMNHome.Address(),
-	)
-
-	return commonchangeset.TransferToMCMSWithTimelockConfig{
-		ContractsByChain: contracts,
-	}
 }
