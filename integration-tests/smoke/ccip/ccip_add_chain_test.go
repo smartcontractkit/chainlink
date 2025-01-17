@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -153,8 +152,6 @@ func Test_AddChain(t *testing.T) {
 		return gasPricePreUpdate, startBlocks
 	}
 
-	// wait for plugins to come up.
-	time.Sleep(30 * time.Second)
 	sendMsgs(toDeploy, toDeploy, false)
 
 	/////////////////////////////////////
@@ -554,9 +551,9 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 	return e
 }
 
-// assertChainWiringInbound checks that the new chain has the existing chains enabled as sources.
-// It only checks the inbound wiring on the new chain.
-// It doesn't check that the existing chains have the new chain enabled as a dest.
+// assertChainWiringInbound checks that the newChain has the existingChains enabled as sources.
+// It only checks the inbound wiring on the newChain.
+// It doesn't check that the existingChains have the newChain enabled as a dest.
 func assertChainWiringInbound(
 	t *testing.T,
 	state ccipcs.CCIPOnChainState,
@@ -597,9 +594,9 @@ func assertChainWiringInbound(
 	}
 }
 
-// assertChainWiringOutbound checks that the new chain can be requested from the existing chains.
-// This only checks the outbound wiring on the existing chains.
-// It doesn't check that the new chain can process the requests.
+// assertChainWiringOutbound checks that newChain can be requested from existingChains.
+// This only checks the outbound wiring on existingChains.
+// It doesn't check that the newChain can process the requests.
 func assertChainWiringOutbound(
 	t *testing.T,
 	state ccipcs.CCIPOnChainState,
