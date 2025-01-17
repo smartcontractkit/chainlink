@@ -83,6 +83,10 @@ func (k KeyV2) Raw() Raw {
 	return Raw(*k.privateKey)
 }
 
+func (k KeyV2) PrivateKey() ed25519.PrivateKey {
+	return *k.privateKey
+}
+
 func (k KeyV2) String() string {
 	return fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", k.PublicKey)
 }

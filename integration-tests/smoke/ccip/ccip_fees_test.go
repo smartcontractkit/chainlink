@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
@@ -27,7 +28,7 @@ import (
 func setupTokens(
 	t *testing.T,
 	state changeset.CCIPOnChainState,
-	tenv changeset.DeployedEnv,
+	tenv testhelpers.DeployedEnv,
 	src, dest uint64,
 	transferTokenMintAmount,
 	feeTokenMintAmount *big.Int,
@@ -39,7 +40,7 @@ func setupTokens(
 	e := tenv.Env
 
 	// Deploy the token to test transferring
-	srcToken, _, dstToken, _, err := changeset.DeployTransferableToken(
+	srcToken, _, dstToken, _, err := testhelpers.DeployTransferableToken(
 		lggr,
 		tenv.Env.Chains,
 		src,
@@ -103,7 +104,7 @@ func Test_CCIPFees(t *testing.T) {
 	t.Parallel()
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		changeset.WithMultiCall3(),
+		testhelpers.WithMultiCall3(),
 	)
 	e := tenv.Env
 
@@ -127,10 +128,10 @@ func Test_CCIPFees(t *testing.T) {
 	)
 
 	// Ensure capreg logs are up to date.
-	changeset.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
+	testhelpers.ReplayLogs(t, e.Offchain, tenv.ReplayBlocks)
 
 	// Add all lanes
-	changeset.AddLanesForAll(t, &tenv, state)
+	testhelpers.AddLanesForAll(t, &tenv, state)
 
 	t.Run("Send programmable token transfer pay with Link token", func(t *testing.T) {
 		runFeeTokenTestCase(feeTokenTestCase{
@@ -222,10 +223,10 @@ func Test_CCIPFees(t *testing.T) {
 			ExtraArgs: nil,
 		}
 
-		_, _, err = changeset.CCIPSendRequest(
+		_, _, err = testhelpers.CCIPSendRequest(
 			e,
 			state,
-			&changeset.CCIPSendReqConfig{
+			&testhelpers.CCIPSendReqConfig{
 				Sender:         e.Chains[sourceChain].DeployerKey,
 				IsTestRouter:   true,
 				SourceChain:    sourceChain,
@@ -291,7 +292,7 @@ func Test_CCIPFees(t *testing.T) {
 type feeTokenTestCase struct {
 	t                  *testing.T
 	src, dst           uint64
-	env                changeset.DeployedEnv
+	env                testhelpers.DeployedEnv
 	srcToken, dstToken *burn_mint_erc677.BurnMintERC677
 	tokenAmounts       []router.ClientEVMTokenAmount
 	feeToken           common.Address
@@ -304,8 +305,8 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	ctx := tests.Context(tc.t)
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
-	expectedSeqNum := make(map[changeset.SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[changeset.SourceDestPair][]uint64)
+	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)
+	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 
 	srcChain := tc.env.Env.Chains[tc.src]
 	dstChain := tc.env.Env.Chains[tc.dst]
@@ -374,7 +375,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	tc.t.Logf("fee token balance before: %s, fee token enabled: %s",
 		feeTokenBalanceBefore.String(), tc.feeToken.String())
 
-	msgSentEvent := changeset.TestSendRequest(
+	msgSentEvent := testhelpers.TestSendRequest(
 		tc.t,
 		tc.env.Env,
 		state,
@@ -390,11 +391,11 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 		},
 	)
 
-	expectedSeqNum[changeset.SourceDestPair{
+	expectedSeqNum[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
 	}] = msgSentEvent.SequenceNumber
-	expectedSeqNumExec[changeset.SourceDestPair{
+	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: tc.src,
 		DestChainSelector:   tc.dst,
 	}] = []uint64{msgSentEvent.SequenceNumber}
@@ -427,7 +428,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	)
 
 	// Wait for all commit reports to land.
-	changeset.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env.Env, state, expectedSeqNum, startBlocks)
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.env.Env, state, expectedSeqNum, startBlocks)
 
 	// After commit is reported on all chains, token prices should be updated in FeeQuoter.
 	linkAddress := state.Chains[tc.dst].LinkToken.Address()
@@ -439,7 +440,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	require.Equal(tc.t, changeset.MockLinkPrice, timestampedPrice.Value)
 
 	// Wait for all exec reports to land
-	changeset.ConfirmExecWithSeqNrsForAll(tc.t, tc.env.Env, state, expectedSeqNumExec, startBlocks)
+	testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.env.Env, state, expectedSeqNumExec, startBlocks)
 
 	if tc.assertTokenBalance {
 		require.Len(tc.t, tc.tokenAmounts, 1)

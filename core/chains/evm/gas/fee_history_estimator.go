@@ -17,8 +17,7 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -162,7 +161,7 @@ func (f *FeeHistoryEstimator) run() {
 }
 
 // GetLegacyGas will fetch the cached gas price value.
-func (f *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxPrice *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
+func (f *FeeHistoryEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxPrice *assets.Wei, opts ...fees.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = gasLimit
 	if gasPrice, err = f.getGasPrice(); err != nil {
 		return
@@ -315,7 +314,7 @@ func (f *FeeHistoryEstimator) BumpLegacyGas(ctx context.Context, originalGasPric
 	// Sanitize original fee input
 	if originalGasPrice == nil || originalGasPrice.Cmp(maxPrice) >= 0 {
 		return nil, 0, fmt.Errorf("%w: error while retrieving original gas price: originalGasPrice: %s. Maximum price configured: %s",
-			commonfee.ErrBump, originalGasPrice, maxPrice)
+			fees.ErrBump, originalGasPrice, maxPrice)
 	}
 
 	currentGasPrice, err := f.RefreshGasPrice()
@@ -364,7 +363,7 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 		((originalFee.GasTipCap.Cmp(originalFee.GasFeeCap)) > 0) ||
 		(originalFee.GasFeeCap.Cmp(maxPrice) >= 0) {
 		return bumped, fmt.Errorf("%w: error while retrieving original dynamic fees: (originalFeePerGas: %s - originalPriorityFeePerGas: %s). Maximum price configured: %s",
-			commonfee.ErrBump, originalFee.GasFeeCap, originalFee.GasTipCap, maxPrice)
+			fees.ErrBump, originalFee.GasFeeCap, originalFee.GasTipCap, maxPrice)
 	}
 
 	currentDynamicPrice, err := f.getDynamicPrice()
@@ -387,7 +386,7 @@ func (f *FeeHistoryEstimator) BumpDynamicFee(ctx context.Context, originalFee Dy
 
 	if bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
 		return bumped, fmt.Errorf("%w: bumpedMaxPriorityFeePerGas: %s is above market's %sth percentile: %s, bumping is halted",
-			commonfee.ErrConnectivity, bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
+			fees.ErrConnectivity, bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 	}
 
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.GasFeeCap, currentDynamicPrice.GasFeeCap, bumpedMaxFeePerGas, maxPrice)
@@ -421,7 +420,7 @@ func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *
 	if bumpedFee.Cmp(originalFee) == 0 ||
 		bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
 		return nil, fmt.Errorf("%w: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
-			commonfee.ErrBump, bumpedFee, strconv.Itoa(MinimumBumpPercentage), originalFee, maxPrice)
+			fees.ErrBump, bumpedFee, strconv.Itoa(MinimumBumpPercentage), originalFee, maxPrice)
 	}
 	return bumpedFee, nil
 }

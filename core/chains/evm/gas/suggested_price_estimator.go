@@ -13,11 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
-	"github.com/smartcontractkit/chainlink/v2/common/fee"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -172,17 +171,17 @@ func (*SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, 
 	return
 }
 
-func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, GasLimit uint64, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
-	chainSpecificGasLimit = GasLimit
+func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, opts ...fees.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
+	chainSpecificGasLimit = gasLimit
 	ok := o.IfStarted(func() {
-		if slices.Contains(opts, feetypes.OptForceRefetch) {
+		if slices.Contains(opts, fees.OptForceRefetch) {
 			err = o.forceRefresh(ctx)
 		}
 		if gasPrice = o.getGasPrice(); gasPrice == nil {
 			err = pkgerrors.New("failed to estimate gas; gas price not set")
 			return
 		}
-		o.logger.Debugw("GetLegacyGas", "GasPrice", gasPrice, "GasLimit", GasLimit)
+		o.logger.Debugw("GetLegacyGas", "GasPrice", gasPrice, "GasLimit", gasLimit)
 	})
 	if !ok {
 		return nil, 0, pkgerrors.New("estimator is not started")
@@ -227,7 +226,7 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 	// Add a buffer on top of the gas price returned by the RPC.
 	// Bump logic when using the suggested gas price from an RPC is realistically only needed when there is increased volatility in gas price.
 	// This buffer is a precaution to increase the chance of getting this tx on chain
-	bufferedPrice := fee.MaxBumpedFee(newGasPrice.ToInt(), o.cfg.BumpPercent(), o.cfg.BumpMin().ToInt())
+	bufferedPrice := fees.MaxBumpedFee(newGasPrice.ToInt(), o.cfg.BumpPercent(), o.cfg.BumpMin().ToInt())
 	// If the new suggested price is less than or equal to the max and the buffer puts the new price over the max, return the max price instead
 	// The buffer is added on top of the suggested price during bumping as just a precaution. It is better to resubmit the transaction with the max gas price instead of erroring.
 	newGasPrice = assets.NewWei(bigmath.Min(bufferedPrice, maxGasPriceWei.ToInt()))

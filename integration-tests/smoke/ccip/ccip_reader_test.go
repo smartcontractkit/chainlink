@@ -1,4 +1,4 @@
-package contracts
+package smoke
 
 import (
 	"context"
@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
@@ -590,15 +591,15 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
-	env, _ := changeset.NewMemoryEnvironment(t)
+	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
 	destChain, srcChain := selectors[0], selectors[1]
 
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, destChain, srcChain, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, srcChain, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, destChain, srcChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, srcChain, destChain, false)
 
 	reader := testSetupRealContracts(
 		ctx,
@@ -619,8 +620,8 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	maxExpectedSeqNum := uint64(10)
 	var i uint64
 	for i = 1; i < maxExpectedSeqNum; i++ {
-		msg := changeset.DefaultRouterMessage(state.Chains[destChain].Receiver.Address())
-		msgSentEvent := changeset.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
+		msg := testhelpers.DefaultRouterMessage(state.Chains[destChain].Receiver.Address())
+		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
 		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
 		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain), cs(destChain))
@@ -700,15 +701,15 @@ func TestCCIPReader_Nonces(t *testing.T) {
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env, _ := changeset.NewMemoryEnvironment(t)
+	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
 
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
 
 	// Change the gas price for chain2
 	feeQuoter := state.Chains[chain1].FeeQuoter
@@ -756,15 +757,15 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 func Test_LinkPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env, _ := changeset.NewMemoryEnvironment(t)
+	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
 
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
 
 	reader := testSetupRealContracts(
 		ctx,
@@ -785,22 +786,22 @@ func Test_LinkPriceUSD(t *testing.T) {
 	linkPriceUSD, err := reader.LinkPriceUSD(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, linkPriceUSD.Int)
-	require.Equal(t, changeset.DefaultLinkPrice, linkPriceUSD.Int)
+	require.Equal(t, testhelpers.DefaultLinkPrice, linkPriceUSD.Int)
 }
 
 func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env, _ := changeset.NewMemoryEnvironment(t, changeset.WithChains(4))
+	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(4))
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
 	destChain, chain1, chain2, chain3 := selectors[0], selectors[1], selectors[2], selectors[3]
 
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, destChain, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, destChain, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain3, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, destChain, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain3, destChain, false)
 
 	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
 	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
@@ -850,15 +851,15 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	env, _ := changeset.NewMemoryEnvironment(t)
+	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 
 	selectors := env.Env.AllChainSelectors()
 	chain1, chain2 := selectors[0], selectors[1]
 
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
-	changeset.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, chain2, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, chain1, false)
 
 	reader := testSetupRealContracts(
 		ctx,
@@ -884,7 +885,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 
 	// Only chainD has reader contracts bound
 	require.Len(t, prices, 1)
-	require.Equal(t, changeset.DefaultWethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
+	require.Equal(t, testhelpers.DefaultWethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
 }
 
 // Benchmark Results:
@@ -1341,7 +1342,7 @@ func testSetupRealContracts(
 	destChain uint64,
 	toBindContracts map[cciptypes.ChainSelector][]types.BoundContract,
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
-	env changeset.DeployedEnv,
+	env testhelpers.DeployedEnv,
 ) ccipreaderpkg.CCIPReader {
 	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
