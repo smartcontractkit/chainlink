@@ -42,6 +42,10 @@ type mercuryTransmitterConfig struct {
 	c toml.MercuryTransmitter
 }
 
+func (m *mercuryTransmitterConfig) Protocol() string {
+	return *m.c.Protocol
+}
+
 func (m *mercuryTransmitterConfig) TransmitQueueMaxSize() uint32 {
 	return *m.c.TransmitQueueMaxSize
 }

@@ -31,10 +31,10 @@ type DeployerGroup struct {
 //	deployerGroup := NewDeployerGroup(e, state, mcmConfig)
 //	selector := 0
 //	# Get the right deployer key for the chain
-//	deployer := deployerGroup.getDeployer(selector)
+//	deployer := deployerGroup.GetDeployer(selector)
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
-//	deployerGroup.enact("Curse RMNRemote")
+//	deployerGroup.Enact("Curse RMNRemote")
 func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) *DeployerGroup {
 	return &DeployerGroup{
 		e:            e,
@@ -44,7 +44,7 @@ func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfi
 	}
 }
 
-func (d *DeployerGroup) getDeployer(chain uint64) (*bind.TransactOpts, error) {
+func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 	txOpts := d.e.Chains[chain].DeployerKey
 	if d.mcmConfig != nil {
 		txOpts = deployment.SimTransactOpts()
@@ -102,7 +102,7 @@ func (d *DeployerGroup) getDeployer(chain uint64) (*bind.TransactOpts, error) {
 	return sim, nil
 }
 
-func (d *DeployerGroup) enact(deploymentDescription string) (deployment.ChangesetOutput, error) {
+func (d *DeployerGroup) Enact(deploymentDescription string) (deployment.ChangesetOutput, error) {
 	if d.mcmConfig != nil {
 		return d.enactMcms(deploymentDescription)
 	}
@@ -127,9 +127,9 @@ func (d *DeployerGroup) enactMcms(deploymentDescription string) (deployment.Chan
 		})
 	}
 
-	timelocksPerChain := buildTimelockAddressPerChain(d.e, d.state)
+	timelocksPerChain := BuildTimelockAddressPerChain(d.e, d.state)
 
-	proposerMCMSes := buildProposerPerChain(d.e, d.state)
+	proposerMCMSes := BuildProposerPerChain(d.e, d.state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -165,7 +165,7 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 	return deployment.ChangesetOutput{}, nil
 }
 
-func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
+func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*proposalutils.TimelockExecutionContracts {
 	timelocksPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
 	for _, chain := range e.Chains {
 		timelocksPerChain[chain.Selector] = &proposalutils.TimelockExecutionContracts{
@@ -176,8 +176,8 @@ func buildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 	return timelocksPerChain
 }
 
-func buildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
-	timelocksPerChain := buildTimelockPerChain(e, state)
+func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
+	timelocksPerChain := BuildTimelockPerChain(e, state)
 	timelockAddressPerChain := make(map[uint64]common.Address)
 	for chain, timelock := range timelocksPerChain {
 		timelockAddressPerChain[chain] = timelock.Timelock.Address()
@@ -185,7 +185,7 @@ func buildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainSta
 	return timelockAddressPerChain
 }
 
-func buildProposerPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*gethwrappers.ManyChainMultiSig {
+func BuildProposerPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*gethwrappers.ManyChainMultiSig {
 	proposerPerChain := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for _, chain := range e.Chains {
 		proposerPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm

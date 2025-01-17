@@ -1,4 +1,4 @@
-package changeset
+package testhelpers
 
 import (
 	"context"
@@ -18,8 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -105,11 +107,16 @@ func DeployTestContracts(t *testing.T,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) deployment.CapabilityRegistryConfig {
-	capReg, err := deployCapReg(lggr,
-		// deploying cap reg for the first time on a blank chain state
-		CCIPOnChainState{
-			Chains: make(map[uint64]CCIPChainState),
-		}, ab, chains[homeChainSel])
+	capReg, err := deployment.DeployContract(lggr, chains[homeChainSel], ab,
+		func(chain deployment.Chain) deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
+			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
+				chain.DeployerKey,
+				chain.Client,
+			)
+			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
+				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+			}
+		})
 	require.NoError(t, err)
 
 	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
@@ -178,7 +185,7 @@ func mockAttestationResponse(isFaulty bool) *httptest.Server {
 
 func CCIPSendRequest(
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	msg := router.ClientEVM2AnyMessage{
@@ -266,7 +273,7 @@ func CCIPSendCalldata(
 func TestSendRequest(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
@@ -325,7 +332,7 @@ func WithDestChain(destChain uint64) SendReqOpts {
 func DoSendRequest(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	opts ...SendReqOpts,
 ) (*onramp.OnRampCCIPMessageSent, error) {
 	cfg := &CCIPSendReqConfig{}
@@ -353,7 +360,7 @@ func DoSendRequest(
 	}
 
 	require.True(t, it.Next())
-	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s",
+	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		it.Event.Message.Header.MessageId[:],
 		cfg.SourceChain,
 		cfg.DestChain,
@@ -361,6 +368,7 @@ func DoSendRequest(
 		it.Event.SequenceNumber,
 		it.Event.Message.Header.Nonce,
 		it.Event.Message.Sender.String(),
+		cfg.IsTestRouter,
 	)
 	return it.Event, nil
 }
@@ -390,13 +398,21 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) {
+func AddLane(
+	t *testing.T,
+	e *DeployedEnv,
+	from, to uint64,
+	isTestRouter bool,
+	gasprice map[uint64]*big.Int,
+	tokenPrices map[common.Address]*big.Int,
+	fqCfg fee_quoter.FeeQuoterDestChainConfig,
+) {
 	var err error
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateOnRampsDests),
-			Config: UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					from: {
 						to: {
 							IsEnabled:        true,
@@ -408,9 +424,9 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterPricesCS),
-			Config: UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			Config: changeset.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
 						GasPrices:   gasprice,
@@ -419,8 +435,8 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateFeeQuoterDests),
-			Config: UpdateFeeQuoterDestsConfig{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
@@ -429,9 +445,9 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateOffRampSources),
-			Config: UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+			Config: changeset.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					to: {
 						from: {
 							IsEnabled:  true,
@@ -442,10 +458,10 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 			},
 		},
 		{
-			Changeset: commoncs.WrapChangeSet(UpdateRouterRamps),
-			Config: UpdateRouterRampsConfig{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]RouterUpdates{
+				UpdatesByChain: map[uint64]changeset.RouterUpdates{
 					// onRamp update on source chain
 					from: {
 						OnRampUpdates: map[uint64]bool{
@@ -465,20 +481,24 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 	require.NoError(t, err)
 }
 
-func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state CCIPOnChainState, from, to uint64, isTestRouter bool) {
+func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
 	stateChainFrom := state.Chains[from]
-	AddLane(t, e, from, to, isTestRouter,
+	AddLane(
+		t,
+		e,
+		from, to,
+		isTestRouter,
 		map[uint64]*big.Int{
 			to: DefaultGasPrice,
 		}, map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, DefaultFeeQuoterDestChainConfig())
+		}, changeset.DefaultFeeQuoterDestChainConfig())
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
-func AddLanesForAll(t *testing.T, e *DeployedEnv, state CCIPOnChainState) {
+func AddLanesForAll(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState) {
 	for source := range e.Env.Chains {
 		for dest := range e.Env.Chains {
 			if source != dest {
@@ -493,31 +513,6 @@ func ToPackedFee(execFee, daFee *big.Int) *big.Int {
 	return new(big.Int).Or(daShifted, execFee)
 }
 
-const (
-	// MockLinkAggregatorDescription This is the description of the MockV3Aggregator.sol contract
-	//nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
-	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
-	// MockWETHAggregatorDescription WETH use description from MockETHUSDAggregator.sol
-	//nolint:lll
-	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
-	MockWETHAggregatorDescription = "MockETHUSDAggregator"
-)
-
-var (
-	MockLinkPrice = deployment.E18Mult(500)
-	MockWethPrice = big.NewInt(9e8)
-	// MockDescriptionToTokenSymbol maps a mock feed description to token descriptor
-	MockDescriptionToTokenSymbol = map[string]TokenSymbol{
-		MockLinkAggregatorDescription: LinkSymbol,
-		MockWETHAggregatorDescription: WethSymbol,
-	}
-	MockSymbolToDescription = map[TokenSymbol]string{
-		LinkSymbol: MockLinkAggregatorDescription,
-		WethSymbol: MockWETHAggregatorDescription,
-	}
-)
-
 func DeployFeeds(
 	lggr logger.Logger,
 	ab deployment.AddressBook,
@@ -525,13 +520,13 @@ func DeployFeeds(
 	linkPrice *big.Int,
 	wethPrice *big.Int,
 ) (map[string]common.Address, error) {
-	linkTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
+	linkTV := deployment.NewTypeAndVersion(changeset.PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
 			chain.DeployerKey,
 			chain.Client,
-			LinkDecimals, // decimals
-			linkPrice,    // initialAnswer
+			changeset.LinkDecimals, // decimals
+			linkPrice,              // initialAnswer
 		)
 		aggregatorCr, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkFeed, chain.Client)
 
@@ -553,12 +548,12 @@ func DeployFeeds(
 		}
 	}
 
-	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, LinkSymbol)
+	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, changeset.LinkSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, WethSymbol)
+	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, changeset.WethSymbol)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +571,7 @@ func deploySingleFeed(
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 	deployFunc func(deployment.Chain) deployment.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface],
-	symbol TokenSymbol,
+	symbol changeset.TokenSymbol,
 ) (common.Address, string, error) {
 	// tokenTV := deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0)
 	mockTokenFeed, err := deployment.DeployContract(lggr, chain, ab, deployFunc)
@@ -593,7 +588,7 @@ func deploySingleFeed(
 		return common.Address{}, "", err
 	}
 
-	if desc != MockSymbolToDescription[symbol] {
+	if desc != changeset.MockSymbolToDescription[symbol] {
 		lggr.Errorw("Unexpected description for token", "symbol", symbol, "desc", desc)
 		return common.Address{}, "", fmt.Errorf("unexpected description: %s", desc)
 	}
@@ -601,7 +596,7 @@ func deploySingleFeed(
 	return mockTokenFeed.Address, desc, nil
 }
 
-func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
+func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
 	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
 	require.NoError(t, err)
 	startBlock := latesthdr.Number.Uint64()
@@ -645,7 +640,7 @@ func DeployTransferableToken(
 	chains map[uint64]deployment.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	addresses deployment.AddressBook,
 	token string,
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
@@ -689,7 +684,7 @@ func deployTokenPoolsInParallel(
 	chains map[uint64]deployment.Chain,
 	src, dst uint64,
 	srcActor, dstActor *bind.TransactOpts,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	addresses deployment.AddressBook,
 	token string,
 ) (
@@ -833,7 +828,7 @@ func setTokenPoolCounterPart(chain deployment.Chain, tokenPool *burn_mint_token_
 
 func attachTokenToTheRegistry(
 	chain deployment.Chain,
-	state CCIPChainState,
+	state changeset.CCIPChainState,
 	owner *bind.TransactOpts,
 	token common.Address,
 	tokenPool common.Address,
@@ -889,10 +884,10 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 	for address, v := range chainAddresses {
-		if deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0) == v {
+		if deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0) == v {
 			rmnAddress = address
 		}
-		if deployment.NewTypeAndVersion(Router, deployment.Version1_2_0) == v {
+		if deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0) == v {
 			routerAddress = address
 		}
 		if rmnAddress != "" && routerAddress != "" {
@@ -913,7 +908,7 @@ func deployTransferTokenOneEnd(
 				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0), Err: err2,
+				Address: tokenAddress, Contract: token, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0), Err: err2,
 			}
 		})
 	if err != nil {
@@ -942,7 +937,7 @@ func deployTransferTokenOneEnd(
 				common.HexToAddress(routerAddress),
 			)
 			return deployment.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
-				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
+				Address: tokenPoolAddress, Contract: tokenPoolContract, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 			}
 		})
 	if err != nil {
@@ -971,7 +966,7 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 func MintAndAllow(
 	t *testing.T,
 	e deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	tokenMap map[uint64][]MintTokenInfo,
 ) {
 	configurePoolGrp := errgroup.Group{}
@@ -1014,7 +1009,7 @@ func Transfer(
 	ctx context.Context,
 	t *testing.T,
 	env deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
@@ -1060,7 +1055,7 @@ func TransferMultiple(
 	ctx context.Context,
 	t *testing.T,
 	env deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	requests []TestTransferRequest,
 ) (
 	map[uint64]*uint64,
@@ -1114,7 +1109,7 @@ func TransferAndWaitForSuccess(
 	ctx context.Context,
 	t *testing.T,
 	env deployment.Environment,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
@@ -1251,5 +1246,43 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
+	}
+}
+
+func GenTestTransferOwnershipConfig(
+	e DeployedEnv,
+	chains []uint64,
+	state changeset.CCIPOnChainState,
+) commoncs.TransferToMCMSWithTimelockConfig {
+	var (
+		timelocksPerChain = make(map[uint64]common.Address)
+		contracts         = make(map[uint64][]common.Address)
+	)
+
+	// chain contracts
+	for _, chain := range chains {
+		timelocksPerChain[chain] = state.Chains[chain].Timelock.Address()
+		contracts[chain] = []common.Address{
+			state.Chains[chain].OnRamp.Address(),
+			state.Chains[chain].OffRamp.Address(),
+			state.Chains[chain].FeeQuoter.Address(),
+			state.Chains[chain].NonceManager.Address(),
+			state.Chains[chain].RMNRemote.Address(),
+			state.Chains[chain].TestRouter.Address(),
+			state.Chains[chain].Router.Address(),
+		}
+	}
+
+	// home chain
+	homeChainTimelockAddress := state.Chains[e.HomeChainSel].Timelock.Address()
+	timelocksPerChain[e.HomeChainSel] = homeChainTimelockAddress
+	contracts[e.HomeChainSel] = append(contracts[e.HomeChainSel],
+		state.Chains[e.HomeChainSel].CapabilityRegistry.Address(),
+		state.Chains[e.HomeChainSel].CCIPHome.Address(),
+		state.Chains[e.HomeChainSel].RMNHome.Address(),
+	)
+
+	return commoncs.TransferToMCMSWithTimelockConfig{
+		ContractsByChain: contracts,
 	}
 }
