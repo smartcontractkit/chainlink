@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_dummy_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -79,10 +80,11 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter          deployment.ContractType = "TestRouter"
-	Multicall3          deployment.ContractType = "Multicall3"
-	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	TestRouter              deployment.ContractType = "TestRouter"
+	Multicall3              deployment.ContractType = "Multicall3"
+	CCIPReceiver            deployment.ContractType = "CCIPReceiver"
+	CCIPReceiverWithMsgData deployment.ContractType = "CCIPReceiverWithMsgData"
+	USDCMockTransmitter     deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
 	BurnMintToken      deployment.ContractType = "BurnMintToken"
@@ -127,6 +129,7 @@ type CCIPChainState struct {
 
 	// Test contracts
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
+	ReceiverWithMsgData    *ccip_dummy_receiver.CCIPDummyReceiver
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
@@ -566,6 +569,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
+			mr, err := ccip_dummy_receiver.NewCCIPDummyReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.ReceiverWithMsgData = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
