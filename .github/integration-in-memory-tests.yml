@@ -95,21 +95,21 @@ runner-test-matrix:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=1 -json
 
-  - id: smoke/ccip/cs_update_rmn_config_test.go:*
-    path: integration-tests/smoke/ccip/cs_update_rmn_config_test.go
+  - id: smoke/ccip/ccop_cs_update_rmn_config_test.go:*
+    path: integration-tests/smoke/ccip/ccop_cs_update_rmn_config_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/ && go test cs_update_rmn_config_test.go -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/ && go test ccop_cs_update_rmn_config_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
-  - id: smoke/ccip/cs_rmn_curse_uncurse_test.go:*
-    path: integration-tests/smoke/ccip/cs_rmn_curse_uncurse_test.go
+  - id: smoke/ccip/ccop_cs_rmn_curse_uncurse_test.go:*
+    path: integration-tests/smoke/ccip/ccop_cs_rmn_curse_uncurse_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/ && go test cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/ && go test ccop_cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
 
   # END: CCIP tests
