@@ -30,6 +30,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
 	selectors = append(selectors, evmSelectors...)
 	selectors = append(selectors, solChainSelectors...)
@@ -46,8 +47,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			ChainSelector: chain,
 		})
 	}
-
-	SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -107,7 +106,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
 
-	solState, err := LoadOnchainStateSolana(e)
+	solState, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	for _, sel := range solChainSelectors {
 		require.NotNil(t, solState.SolChains[sel].LinkToken)

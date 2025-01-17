@@ -196,19 +196,15 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 
 	port := freeport.GetOne(t)
 
-	programIds := map[string]string{
-		"ccip_router": solTestConfig.CcipRouterProgram.String(),
-	}
-
 	bcInput := &blockchain.Input{
 		Type:         "solana",
 		ChainID:      strconv.FormatUint(chainID, 10),
 		PublicKey:    adminKey.PublicKey().String(),
 		Port:         strconv.Itoa(port),
 		ContractsDir: ProgramsPath,
-		// TODO: this should be solTestConfig.CCIPRouterProgram
-		// TODO: make this a function
-		SolanaPrograms: programIds,
+		SolanaPrograms: map[string]string{
+			"ccip_router": solTestConfig.CcipRouterProgram.String(),
+		},
 	}
 	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err)
