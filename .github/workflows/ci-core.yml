@@ -112,9 +112,17 @@ jobs:
       - name: Resolve affected files to affected modules
         id: resolved-modules
         shell: bash
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
         run: |
-          # Ensure the step uses `with.list-files: json` to get the list of files in JSON format
-          bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}'
+          # if scheduled, run for all modules. Otherwise, run for only affected modules.
+          if [[ "$GH_EVENT_NAME" == "schedule" ]]; then
+            json_array=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "module_names=$json_array" >> "$GITHUB_OUTPUT"            
+          else
+            # Ensure the step uses `with.list-files: json` to get the list of files in JSON format
+            bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}'
+          fi
   
   golangci:
     name: GolangCI Lint
