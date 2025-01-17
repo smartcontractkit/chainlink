@@ -45,13 +45,9 @@ type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func WithMaxArtifactSize(maxArtifactSize uint64) func(*FetcherService) {
+func WithMaxArtifactSize(cfg ArtifactConfig) func(*FetcherService) {
 	return func(fs *FetcherService) {
-		fs.limits = &ArtifactConfig{
-			MaxConfigSize:  maxArtifactSize,
-			MaxSecretsSize: maxArtifactSize,
-			MaxBinarySize:  maxArtifactSize,
-		}
+		fs.limits = &cfg
 	}
 }
 

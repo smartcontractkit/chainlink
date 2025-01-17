@@ -115,8 +115,16 @@ func (c *capabilitiesWorkflowRegistry) Address() string {
 	return *c.c.Address
 }
 
-func (c *capabilitiesWorkflowRegistry) MaxArtifactsSize() utils.FileSize {
-	return *c.c.MaxArtifactsSize
+func (c *capabilitiesWorkflowRegistry) MaxEncryptedSecretsSize() utils.FileSize {
+	return *c.c.MaxEncryptedSecretsSize
+}
+
+func (c *capabilitiesWorkflowRegistry) MaxBinarySize() utils.FileSize {
+	return *c.c.MaxBinarySize
+}
+
+func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
+	return *c.c.MaxConfigSize
 }
 
 type gatewayConnector struct {

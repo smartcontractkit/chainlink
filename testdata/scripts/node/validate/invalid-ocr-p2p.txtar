@@ -315,7 +315,9 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
-MaxArtifactSize = '10mb'
+MaxBinarySize = '10mb'
+MaxEncryptedSecretsSize = '5mb'
+MaxConfigSize = '5mb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
