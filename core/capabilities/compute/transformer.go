@@ -87,7 +87,7 @@ func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func
 		if err != nil {
 			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
-		if td < 0 || td > t.config.MaxTimeout {
+		if td <= 0 || td > t.config.MaxTimeout {
 			td = t.config.MaxTimeout
 		}
 		mc.Timeout = &td
