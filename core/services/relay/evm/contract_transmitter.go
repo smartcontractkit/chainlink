@@ -17,6 +17,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -35,7 +37,9 @@ type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
 
+	// Dual transmission
 	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
+	SecondaryFromAddress(context.Context) (gethcommon.Address, error)
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -87,6 +91,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	ks                  keystore.Eth
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -246,8 +251,28 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *contractTransmitter) Close() error                    { return nil }
+func (oc *contractTransmitter) getKeyState(ctx context.Context, address common.Address) (ethkey.State, error) {
+	k, err := oc.ks.Get(ctx, address.String())
+	if err != nil {
+		return ethkey.State{}, err
+	}
+	return oc.ks.GetStateForKey(ctx, k)
+}
+
+func (oc *contractTransmitter) Start(ctx context.Context) error {
+	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	if err != nil {
+		return err
+	}
+	return primaryState.Tag("primary")
+}
+func (oc *contractTransmitter) Close() error {
+	primaryState, err := oc.getKeyState(context.Background(), oc.transmitter.FromAddress(context.Background()))
+	if err != nil {
+		return err
+	}
+	return primaryState.Untag("primary")
+}
 
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *contractTransmitter) Ready() error { return nil }

@@ -18,6 +18,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
@@ -36,6 +38,7 @@ type dualContractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	ks                  keystore.Eth
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -56,6 +59,7 @@ func NewOCRDualContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	ethKeystore keystore.Eth,
 	opts ...OCRTransmitterOption,
 ) (*dualContractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -71,7 +75,8 @@ func NewOCRDualContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                logger.Named(lggr, "OCRDualContractTransmitter"),
+		lggr:                logger.Named(lggr, "OCR2DualContractTransmitter"),
+		ks:                  ethKeystore,
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -173,8 +178,60 @@ func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Ac
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *dualContractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *dualContractTransmitter) Close() error                    { return nil }
+func (oc *dualContractTransmitter) getKeyState(ctx context.Context, address common.Address) (ethkey.State, error) {
+	k, err := oc.ks.Get(ctx, address.String())
+	if err != nil {
+		return ethkey.State{}, err
+	}
+	return oc.ks.GetStateForKey(ctx, k)
+}
+
+func (oc *dualContractTransmitter) markAddresses(ctx context.Context) error {
+	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	if err != nil {
+		return err
+	}
+	if err = primaryState.Tag("primary"); err != nil {
+		return err
+	}
+
+	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	if err != nil {
+		return err
+	}
+	secondaryState, err := oc.getKeyState(ctx, secondaryAddress)
+	if err != nil {
+		return err
+	}
+	return secondaryState.Tag("secondary")
+}
+
+func (oc *dualContractTransmitter) unmarkAddresses(ctx context.Context) error {
+	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	if err != nil {
+		return err
+	}
+	if err = primaryState.Untag("primary"); err != nil {
+		return err
+	}
+
+	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	if err != nil {
+		return err
+	}
+	secondaryState, err := oc.getKeyState(ctx, secondaryAddress)
+	if err != nil {
+		return err
+	}
+	return secondaryState.Untag("secondary")
+}
+
+func (oc *dualContractTransmitter) Start(ctx context.Context) error {
+	return oc.markAddresses(ctx)
+}
+func (oc *dualContractTransmitter) Close() error {
+	return oc.unmarkAddresses(context.Background())
+}
 
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *dualContractTransmitter) Ready() error { return nil }
