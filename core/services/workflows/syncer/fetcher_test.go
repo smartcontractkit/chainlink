@@ -137,6 +137,71 @@ func TestNewFetcherService(t *testing.T) {
 	})
 }
 
+func Test_getMaxBytes(t *testing.T) {
+	type testCase struct {
+		name             string
+		giveArtifactType ArtifactType
+		giveConfig       *ArtifactConfig
+		wantN            uint32
+		wantErr          string
+	}
+
+	tests := []testCase{
+		{
+			name:             "OK-config",
+			giveArtifactType: ArtifactTypeConfig,
+			wantN:            100,
+		},
+		{
+			name:             "OK-secrets",
+			giveArtifactType: ArtifactTypeSecrets,
+			wantN:            200,
+		},
+		{
+			name:             "OK-binary",
+			giveArtifactType: ArtifactTypeBinary,
+			wantN:            300,
+		},
+		{
+			name:  "OK-default",
+			wantN: defaultMaxArtifactSizeBytes,
+		},
+		{
+			name:             "NOK-value_too_large",
+			giveArtifactType: ArtifactTypeConfig,
+			giveConfig: &ArtifactConfig{
+				MaxConfigSize: 4294967296,
+			},
+			wantErr: "value 4294967296 is too large to fit in a uint32",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			limits := &ArtifactConfig{
+				MaxConfigSize:  100,
+				MaxSecretsSize: 200,
+				MaxBinarySize:  300,
+			}
+
+			if test.giveConfig != nil {
+				limits = test.giveConfig
+			}
+
+			fetcher := &FetcherService{limits: limits}
+			n, err := fetcher.getMaxBytes(test.giveArtifactType)
+			if test.wantErr != "" {
+				require.Error(t, err, test.wantErr)
+				require.ErrorContains(t, err, test.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, test.wantN, n)
+		})
+	}
+}
+
 // gatewayResponse creates an unsigned gateway response with a status code of 200 and a response body.
 func gatewayResponse(t *testing.T, msgID string, donID string) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}

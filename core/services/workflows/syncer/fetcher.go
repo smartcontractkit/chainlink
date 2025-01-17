@@ -39,7 +39,10 @@ var (
 	ArtifactTypeConfig  ArtifactType = "config"
 	ArtifactTypeSecrets ArtifactType = "secrets"
 	ArtifactTypeBinary  ArtifactType = "binary"
+	ArtifactTypeUnknown ArtifactType = "unknown"
 )
+
+const defaultMaxArtifactSizeBytes = uint32(10 * 1024 * 1024) // 10MB
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
@@ -109,10 +112,6 @@ func hash(url string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
-	return s.fetch(ctx, url, 0)
-}
-
 type FetchMaxCmd struct {
 	URL          string       `json:"url"`
 	ArtifactType ArtifactType `json:"artifactType"`
@@ -123,33 +122,15 @@ type MaxFetcher interface {
 }
 
 func (s *FetcherService) FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error) {
-	if s.limits == nil {
-		s.lggr.Warn("FetcherService limits not set, allowing http client to set default limits")
-		return s.fetch(ctx, cmd.URL, 0)
-	}
-
-	var (
-		n   uint32
-		err error
-	)
-	switch cmd.ArtifactType {
-	case ArtifactTypeConfig:
-		n, err = safeSetUint32(s.limits.MaxConfigSize)
-	case ArtifactTypeSecrets:
-		n, err = safeSetUint32(s.limits.MaxSecretsSize)
-	case ArtifactTypeBinary:
-		n, err = safeSetUint32(s.limits.MaxBinarySize)
-	default:
-		err = fmt.Errorf("unknown artifact type: %s", cmd.ArtifactType)
-	}
-
+	n, err := s.getMaxBytes(cmd.ArtifactType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set fetch limit : %w", err)
+		return nil, fmt.Errorf("failed to get max bytes for fetch: %w", err)
 	}
-
-	s.lggr.Debugw("fetching artifact with max size", "url", cmd.URL, "artifactType", cmd.ArtifactType, "maxSize", n)
-
 	return s.fetch(ctx, cmd.URL, n)
+}
+
+func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
+	return s.FetchMax(ctx, FetchMaxCmd{URL: url})
 }
 
 func (s *FetcherService) fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
@@ -183,6 +164,24 @@ func (s *FetcherService) fetch(ctx context.Context, url string, n uint32) ([]byt
 	}
 
 	return payload.Body, nil
+}
+
+func (s *FetcherService) getMaxBytes(artifactType ArtifactType) (uint32, error) {
+	switch artifactType {
+	case ArtifactTypeConfig:
+		if s.limits != nil && s.limits.MaxConfigSize > 0 {
+			return safeSetUint32(s.limits.MaxConfigSize)
+		}
+	case ArtifactTypeSecrets:
+		if s.limits != nil && s.limits.MaxSecretsSize > 0 {
+			return safeSetUint32(s.limits.MaxSecretsSize)
+		}
+	case ArtifactTypeBinary:
+		if s.limits != nil && s.limits.MaxBinarySize > 0 {
+			return safeSetUint32(s.limits.MaxBinarySize)
+		}
+	}
+	return defaultMaxArtifactSizeBytes, nil
 }
 
 func safeSetUint32(n uint64) (uint32, error) {
