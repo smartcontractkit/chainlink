@@ -349,6 +349,9 @@ ResendAfterThreshold = '1h0m0s'
 [EVM.Transactions.AutoPurge]
 Enabled = false
 
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 

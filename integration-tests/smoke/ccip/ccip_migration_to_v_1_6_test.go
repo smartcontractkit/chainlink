@@ -1,8 +1,9 @@
-package smoke
+package ccip
 
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,6 @@ import (
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
-	t.Skipf("CCIP-4868 -This test needs to be investigated for flakiness")
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
@@ -151,7 +151,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
 	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, true, true, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
@@ -216,6 +216,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	block := latesthdr.Number.Uint64()
 	startBlocks[dest] = &block
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
+	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	msgSentEvent, err := testhelpers.DoSendRequest(
 		t, e.Env, state,
 		testhelpers.WithSourceChain(src1),
@@ -237,8 +238,18 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		SourceChainSelector: src1,
 		DestChainSelector:   dest,
 	}] = []uint64{msgSentEvent.SequenceNumber}
+	expectedSeqNums[testhelpers.SourceDestPair{
+		SourceChainSelector: src1,
+		DestChainSelector:   dest,
+	}] = msgSentEvent.SequenceNumber
 
-	// Wait for all exec reports to land
+	// This sleep is needed so that plugins come up and start indexing logs.
+	// Otherwise test will flake.
+	time.Sleep(15 * time.Second)
+	testhelpers.ReplayLogs(t, e.Env.Offchain, map[uint64]uint64{
+		src1: msgSentEvent.Raw.BlockNumber,
+	})
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
 	// send a message from real router, the send requested event should be received in 1.5 onRamp
