@@ -112,8 +112,15 @@ func (l *LoadArgs) scheduleForDest(destNetworkName string) []*wasp.Segment {
 	// if found, use that frequency for the destination network
 	// otherwise, use the default frequency
 	if l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination != nil {
+		l.lggr.Debug().
+			Interface("FrequencyByDestination", l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination).
+			Msg("LoadProfile provided")
 		for networkName, freq := range l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination {
-			if strings.Contains(destNetworkName, networkName) {
+			l.lggr.Debug().Str("Destination", destNetworkName).Str("NetworkName", networkName).Msg("Checking frequency for destination")
+			if strings.EqualFold(destNetworkName, networkName) {
+				l.lggr.Info().Str("Destination", destNetworkName).
+					Ints64("RequestPerUnitTime", freq.RequestPerUnitTime).
+					Msg("Using frequency for destination")
 				return WaspSchedule(
 					freq.RequestPerUnitTime,
 					l.TestCfg.TestGroupInput.LoadProfile.TestDuration,
@@ -269,7 +276,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		ccipLoad := NewCCIPLoad(
 			l.TestCfg.Test, lane, l.TestCfg.TestGroupInput.PhaseTimeout.Duration(),
 			100000, l.TestCfg.TestGroupInput.LoadProfile.MsgProfile, sendMaxData,
-			l.TestCfg.TestGroupInput.LoadProfile.SkipRequestIfAnotherRequestTriggeredWithin,
+			l.TestCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
 		ccipLoad.BeforeAllCall()
 		// if it's not multicall set the tokens to nil to free up some space,

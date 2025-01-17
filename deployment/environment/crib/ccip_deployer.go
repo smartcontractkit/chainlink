@@ -13,8 +13,10 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -24,7 +26,7 @@ import (
 )
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
-// Afterwards, we call DeployHomeChain changeset with nodeinfo ( the peer id and all)
+// Afterwards, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -41,12 +43,12 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
 			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-				NodeOperators:    changeset.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -118,7 +120,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// Setup because we only need to deploy the contracts and distribute job specs
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfig),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
 			Config: changeset.UpdateChainConfigConfig{
 				HomeChainSelector: homeChainSel,
 				RemoteChainAdds:   chainConfigs,
@@ -129,7 +131,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    chainSelectors,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
 			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
@@ -139,20 +141,20 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    chainSelectors,
 				HomeChainSelector: homeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxy),
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
 			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chainSelectors,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
+			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
 			Config:    struct{}{},
 		},
 	})
@@ -163,11 +165,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
 	for selector := range e.Chains {
-		//tokenConfig := changeset.NewTestTokenConfig(state.Chains[feedChainSel].USDFeeds)
-		ocrConfigPerSelector[selector] = changeset.DefaultOCRParams(
-			selector,
-			//tokenConfig.GetTokenInfo(lggr, state.Chains[selector].LinkToken, state.Chains[selector].Weth9),
-			nil,
+		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
+			changeset.WithDefaultExecuteOffChainConfig(nil),
 			nil,
 		)
 	}
@@ -177,9 +176,11 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			// Add the DONs and candidate commit OCR instances for the chain.
 			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
 			Config: changeset.AddDonAndSetCandidateChangesetConfig{
-				changeset.SetCandidateConfigBase{
-					HomeChainSelector:               homeChainSel,
-					FeedChainSelector:               feedChainSel,
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: changeset.SetCandidatePluginInfo{
 					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
@@ -189,35 +190,38 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			// Add the exec OCR instances for the new chains.
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
 			Config: changeset.SetCandidateChangesetConfig{
-				changeset.SetCandidateConfigBase{
-					HomeChainSelector:               homeChainSel,
-					FeedChainSelector:               feedChainSel,
-					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
-					PluginType:                      types.PluginTypeCCIPExec,
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: []changeset.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						PluginType:                      types.PluginTypeCCIPCommit,
+					},
 				},
 			},
 		},
 		{
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteAllCandidatesChangeset),
-			Config: changeset.PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    homeChainSel,
-				RemoteChainSelectors: chainSelectors,
-				PluginType:           types.PluginTypeCCIPCommit,
-			},
-		},
-		{
-			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteAllCandidatesChangeset),
-			Config: changeset.PromoteCandidatesChangesetConfig{
-				HomeChainSelector:    homeChainSel,
-				RemoteChainSelectors: chainSelectors,
-				PluginType:           types.PluginTypeCCIPExec,
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
+			Config: changeset.PromoteCandidateChangesetConfig{
+				HomeChainSelector: homeChainSel,
+				PluginInfo: []changeset.PromoteCandidatePluginInfo{
+					{
+						RemoteChainSelectors: chainSelectors,
+						PluginType:           types.PluginTypeCCIPCommit,
+					},
+					{
+						RemoteChainSelectors: chainSelectors,
+						PluginType:           types.PluginTypeCCIPExec,
+					},
+				},
 			},
 		},
 		{
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRamp),
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
 			Config: changeset.SetOCR3OffRampConfig{
 				HomeChainSel:    homeChainSel,
 				RemoteChainSels: chainSelectors,
@@ -233,7 +237,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				stateChain1 := state.Chains[src]
 				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 						Config: changeset.UpdateOnRampDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 								src: {
@@ -246,23 +250,23 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 						Config: changeset.UpdateFeeQuoterPricesConfig{
 							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 								src: {
 									TokenPrices: map[common.Address]*big.Int{
-										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
-										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
+										stateChain1.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+										stateChain1.Weth9.Address():     testhelpers.DefaultWethPrice,
 									},
 									GasPrices: map[uint64]*big.Int{
-										dst: changeset.DefaultGasPrice,
+										dst: testhelpers.DefaultGasPrice,
 									},
 								},
 							},
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDests),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
 						Config: changeset.UpdateFeeQuoterDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 								src: {
@@ -272,7 +276,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 						Config: changeset.UpdateOffRampSourcesConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 								dst: {
@@ -284,8 +288,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
 						Config: changeset.UpdateRouterRampsConfig{
+							TestRouter: true,
 							UpdatesByChain: map[uint64]changeset.RouterUpdates{
 								src: {
 									OffRampUpdates: map[uint64]bool{
@@ -324,7 +329,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
 	}
-
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
 		NodeIDs:     e.NodeIDs,

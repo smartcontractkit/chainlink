@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -52,23 +53,23 @@ import (
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
-	changeset.DeployedEnv
+	testhelpers.DeployedEnv
 	testEnv         *test_env.CLClusterTestEnv
 	DON             *devenv.DON
-	GenericTCConfig *changeset.TestConfigs
+	GenericTCConfig *testhelpers.TestConfigs
 	devEnvTestCfg   tc.TestConfig
 	devEnvCfg       *devenv.EnvironmentConfig
 }
 
-func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
+func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env changeset.DeployedEnv) {
+func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.DeployedEnv) {
 	l.DeployedEnv = env
 }
 
-func (l *DeployedLocalDevEnvironment) TestConfigs() *changeset.TestConfigs {
+func (l *DeployedLocalDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
 	return l.GenericTCConfig
 }
 
@@ -91,7 +92,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
@@ -152,8 +153,8 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 // if CCIP_V16_TEST_ENV is set to 'docker', it creates a docker environment with test config provided under testconfig/ccip/ccip.toml
 // It also creates a RMN cluster if the test config has RMN enabled
 // It returns the deployed environment and RMN cluster ( in case of RMN enabled)
-func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster, changeset.TestEnvironment) {
-	testCfg := changeset.DefaultTestConfigs()
+func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testhelpers.DeployedEnv, devenv.RMNCluster, testhelpers.TestEnvironment) {
+	testCfg := testhelpers.DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
 	}
@@ -161,21 +162,21 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	switch testCfg.Type {
-	case changeset.Memory:
-		dEnv, memEnv := changeset.NewMemoryEnvironment(t, opts...)
+	case testhelpers.Memory:
+		dEnv, memEnv := testhelpers.NewMemoryEnvironment(t, opts...)
 		return dEnv, devenv.RMNCluster{}, memEnv
-	case changeset.Docker:
+	case testhelpers.Docker:
 		dockerEnv := &DeployedLocalDevEnvironment{
 			GenericTCConfig: testCfg,
 		}
 		if testCfg.PrerequisiteDeploymentOnly {
-			deployedEnv := changeset.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.RMNEnabled {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
@@ -194,25 +195,25 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 			return deployedEnv, *rmnCluster, dockerEnv
 		}
 		if testCfg.CreateJobAndContracts {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.CreateJob {
-			deployedEnv := changeset.NewEnvironmentWithJobs(t, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobs(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
-		deployedEnv := changeset.NewEnvironment(t, dockerEnv)
+		deployedEnv := testhelpers.NewEnvironment(t, dockerEnv)
 		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 		return deployedEnv, devenv.RMNCluster{}, dockerEnv
 	default:
-		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
+		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), testhelpers.Memory, testhelpers.Docker)
 	}
-	return changeset.DeployedEnv{}, devenv.RMNCluster{}, nil
+	return testhelpers.DeployedEnv{}, devenv.RMNCluster{}, nil
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
@@ -243,7 +244,7 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)

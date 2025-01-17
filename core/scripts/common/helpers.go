@@ -298,6 +298,11 @@ func TenderlySimLink(simID string) string {
 
 // ConfirmTXMined confirms that the given transaction is mined and prints useful execution information.
 func ConfirmTXMined(context context.Context, client *ethclient.Client, transaction *types.Transaction, chainID int64, txInfo ...string) (receipt *types.Receipt) {
+	if transaction == nil {
+		fmt.Println("No transaction to confirm")
+		return
+	}
+
 	fmt.Println("Executing TX", ExplorerLink(chainID, transaction.Hash()), txInfo)
 	receipt, err := bind.WaitMined(context, client, transaction)
 	PanicErr(err)

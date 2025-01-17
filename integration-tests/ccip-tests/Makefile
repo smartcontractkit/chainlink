@@ -1,5 +1,5 @@
 ## To Override the default config:
-# example usage: make set_config override_toml=../config/config.toml network_config_toml=../config/network.toml
+# example usage: make set_config override_toml=../config/config.toml
 .PHONY: set_config
 set_config:
 	if [ -s "$(override_toml)" ]; then \
@@ -12,10 +12,6 @@ set_config:
       		echo "No override config found, using default config"; \
         	echo  > ./testconfig/override/.env; \
 	fi
-	if [ -s "$(network_config_toml)" ]; then \
-  	  echo "Overriding network config with $(network_config_toml)"; \
-      echo "export BASE64_NETWORK_CONFIG=$$(base64 -i $(network_config_toml))" >> ./testconfig/override/.env; \
-    fi
 
 	@echo "Checking for test secrets file in ~/.testsecrets...";
 	@if [ ! -f ~/.testsecrets ]; then \
@@ -71,3 +67,10 @@ test_smoke_ccip_default: set_config
 .PHONY: build_ccip_image
 build_ccip_image:
 	docker build -f ../../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../../
+
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_ccip_image image=chainlink-ccip tag=latest
+.PHONY: build_ccip_debug_image
+build_ccip_debug_image:
+	docker build -f ../../core/chainlink.debug.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../../

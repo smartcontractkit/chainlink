@@ -310,6 +310,7 @@ func reqRespRow(p Props) []dashboard.Option {
 	return []dashboard.Option{
 		dashboard.Row(
 			"Requests/Responses",
+			row.Collapse(),
 			row.WithStat(
 				"Stats",
 				stat.DataSource(p.LokiDataSource),

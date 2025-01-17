@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
@@ -22,19 +23,18 @@ import (
 // Test_CCIPGasPriceUpdates tests that chain fee price updates are propagated correctly when
 // price reaches some deviation threshold or when the price has expired.
 func Test_CCIPGasPriceUpdates(t *testing.T) {
-	ctx := changeset.Context(t)
+	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 
 	var gasPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		changeset.WithOCRConfigOverride(func(params changeset.CCIPOCRParams) changeset.CCIPOCRParams {
+		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
 			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
-			return params
 		}),
 	)
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	changeset.AddLanesForAll(t, &e, state)
+	testhelpers.AddLanesForAll(t, &e, state)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	assert.GreaterOrEqual(t, len(allChainSelectors), 2, "test requires at least 2 chains")

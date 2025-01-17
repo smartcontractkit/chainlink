@@ -13,9 +13,9 @@ WorkflowRegistry.updateWorkflow
             └── when the caller is the workflow owner
                 ├── when an existing workflow is not found with the given workflow name
                 │   └── it should revert
-                ├── when the new workflowID is the same as the existing workflowID
-                │   └── it should revert
                 ├── when none of the URLs are updated
+                │   └── it should revert
+                ├── when the binaryURL is empty
                 │   └── it should revert
                 ├── when the binaryURL is too long
                 │   └── it should revert

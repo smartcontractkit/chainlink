@@ -84,9 +84,6 @@ type OnChainConfig = Parameters<IAutomationRegistry['setConfigTypeSafe']>[3]
 let registryConditionalOverhead: BigNumber
 let registryLogOverhead: BigNumber
 let registryPerSignerGasOverhead: BigNumber
-// let registryPerPerformByteGasOverhead: BigNumber
-// let registryTransmitCalldataFixedBytesOverhead: BigNumber
-// let registryTransmitCalldataPerSignerBytesOverhead: BigNumber
 let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
@@ -1618,7 +1615,6 @@ describe('ZKSyncAutomationRegistry2_3', () => {
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
             flatFeeMilliCents,
-            // pubdataGas.mul(gasPrice),
           ).total.toString(),
           totalPayment.toString(),
         )
@@ -1630,7 +1626,6 @@ describe('ZKSyncAutomationRegistry2_3', () => {
             BigNumber.from('1'), // Not the config multiplier, but the actual gas used
             paymentPremiumPPB,
             flatFeeMilliCents,
-            // pubdataGas.mul(gasPrice),
           ).premium.toString(),
           premium.toString(),
         )
@@ -1661,7 +1656,6 @@ describe('ZKSyncAutomationRegistry2_3', () => {
             gasCeilingMultiplier, // Should be same with exisitng multiplier
             paymentPremiumPPB,
             flatFeeMilliCents,
-            // pubdataGas.mul(gasPrice),
           ).total.toString(),
           totalPayment.toString(),
         )
