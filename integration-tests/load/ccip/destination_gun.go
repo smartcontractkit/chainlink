@@ -3,8 +3,14 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -12,10 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"go.uber.org/atomic"
-	"math/big"
-	"math/rand"
-	"time"
 )
 
 type SeqNumRange struct {

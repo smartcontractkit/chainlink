@@ -1,18 +1,20 @@
 package ccip
 
 import (
+	"math/big"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	crib "github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
 )
 
 var (

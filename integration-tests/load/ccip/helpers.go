@@ -2,10 +2,12 @@ package ccip
 
 import (
 	"fmt"
+	"time"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	"time"
 )
 
 const (

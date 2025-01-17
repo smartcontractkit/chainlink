@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
