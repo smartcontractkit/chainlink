@@ -102,14 +102,15 @@ ok Solana.Bar.RelayerService
 ok Solana.Bar.RelayerService.PluginRelayerClient
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain
+ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor
+ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer
-ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm
 ok StarkNet.Baz.RelayerService
 ok StarkNet.Baz.RelayerService.PluginRelayerClient
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
+ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
-ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm
 ok TelemetryManager
 ok WorkflowDBStore
 
@@ -392,18 +393,27 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor",
       "attributes": {
-        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm",
       "attributes": {
-        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm",
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -446,18 +456,18 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
+      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm",
       "attributes": {
-        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
+        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm",
+      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
       "attributes": {
-        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm",
+        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
         "status": "passing",
         "output": ""
       }
