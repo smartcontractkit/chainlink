@@ -83,8 +83,8 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250116172409-449ce8337199
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250115203616-a2ea5e50b260
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250121160515-90cd5f22a133
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d
@@ -408,7 +408,8 @@ replace (
 	// replicating the replace directive on cosmos SDK
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
-	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
+	github.com/smartcontractkit/chainlink-framework/chains => github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250116172409-449ce8337199
 
-	github.com/smartcontractkit/chainlink-framework/chains => /Users/pavelraykov/Pavel_dev/chainlink-framework/chains
+	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
+//github.com/smartcontractkit/chainlink-framework/chains => /Users/pavelraykov/Pavel_dev/chainlink-framework/chains
 )
