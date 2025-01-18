@@ -37,7 +37,7 @@ import (
 const DefaultChainNamePrefix = "chain-"
 
 type NetworkSetup struct {
-	PrivateKeys      []string `toml:"private_keys" validate:"required"`
+	PrivateKeys []string `toml:"private_keys" validate:"required"`
 }
 
 type CommonConfig struct {
