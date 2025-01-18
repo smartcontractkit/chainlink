@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -56,26 +56,26 @@ type CTFV2Conf struct {
 
 // DeployedLocalAnvilDevEnvironment is a helper struct for setting up a local anvil dev environment with docker using ctf v2
 type DeployedLocalAnvilDevEnvironment struct {
-	changeset.DeployedEnv
+	testhelpers.DeployedEnv
 	bcs             []*blockchain.Output
 	DON             *devenv.DON
 	devEnvTestCfg   tc.TestConfig
-	GenericTCConfig *changeset.TestConfigs
+	GenericTCConfig *testhelpers.TestConfigs
 	devEnvCfg       *devenv.EnvironmentConfig
 	in              *CTFV2Conf
 	pvtKeys         []string
 	MockAdapter     *fake.Output
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
+func (l *DeployedLocalAnvilDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) UpdateDeployedEnvironment(env changeset.DeployedEnv) {
+func (l *DeployedLocalAnvilDevEnvironment) UpdateDeployedEnvironment(env testhelpers.DeployedEnv) {
 	l.DeployedEnv = env
 }
 
-func (l *DeployedLocalAnvilDevEnvironment) TestConfigs() *changeset.TestConfigs {
+func (l *DeployedLocalAnvilDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
 	return l.GenericTCConfig
 }
 
@@ -100,7 +100,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
