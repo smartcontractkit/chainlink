@@ -34,6 +34,10 @@ func TestAddTokenPool(t *testing.T) {
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	SavePreloadedSolAddresses(t, e, solChain1)
+	tokenAdmin1, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	tokenAdmin2, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		// I CANNOT LOAD STATE IF I DEPLOY a random token, because load token expects to understand every address ?
 		// {
@@ -105,6 +109,25 @@ func TestAddTokenPool(t *testing.T) {
 				},
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
+			Config: RegisterTokenAdminRegistryConfig{
+				ChainSelector:       solChain1,
+				TokenName:           "LinkToken",
+				TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
+				AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
+				RegisterType:        ViaGetCcipAdminInstruction,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
+			Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:               solChain1,
+				TokenName:                   "LinkToken",
+				TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
+				NewTokenPoolAdminPrivateKey: tokenAdmin2.String(),
+			},
+		},
 	})
 	require.NoError(t, err)
 
@@ -119,4 +142,117 @@ func TestAddTokenPool(t *testing.T) {
 	require.NoError(t, solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, poolConfig, solRpc.CommitmentConfirmed, &configAccount))
 	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, poolSigner)
 	require.Equal(t, poolTokenAccount, configAccount.PoolTokenAccount)
+}
+
+func TestTokenAdminRegistry(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		SolChains:  1,
+		Nodes:      4,
+	})
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChain1 := e.AllChainSelectorsSolana()[0]
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	p2pIds := nodes.NonBootstraps().PeerIDs()
+	SavePreloadedSolAddresses(t, e, solChain1)
+	tokenAdmin1, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	tokenAdmin2, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	poolLookup, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    []uint64{solChain1},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    []uint64{solChain1},
+				HomeChainSelector: homeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddTokenPool),
+			Config: AddTokenPoolConfig{
+				ChainSelector:    solChain1,
+				TokenName:        "LinkToken",
+				TokenProgramName: "spl-token-2022",
+				PoolType:         "LockAndRelease",
+				RampAuthority:    e.SolChains[solChain1].DeployerKey.PublicKey().String(),
+				Authority:        e.SolChains[solChain1].DeployerKey.PublicKey().String(),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForChain),
+			Config: SetupTokenPoolForChainConfig{
+				ChainSelector:       solChain1,
+				RemoteChainSelector: homeChainSel,
+				TokenName:           "LinkToken",
+				TokenProgramName:    "spl-token-2022",
+				RemoteConfig: token_pool.RemoteConfig{
+					PoolAddress:  []byte{1, 2, 3},
+					TokenAddress: []byte{4, 5, 6},
+					Decimals:     9,
+				},
+				InboundRateLimit: token_pool.RateLimitConfig{
+					Enabled:  true,
+					Capacity: uint64(1000),
+					Rate:     1,
+				},
+				OutboundRateLimit: token_pool.RateLimitConfig{
+					Enabled:  false,
+					Capacity: 0,
+					Rate:     0,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
+			Config: RegisterTokenAdminRegistryConfig{
+				ChainSelector:       solChain1,
+				TokenName:           "LinkToken",
+				TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
+				AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
+				RegisterType:        ViaOwnerInstruction,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
+			Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:               solChain1,
+				TokenName:                   "LinkToken",
+				TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
+				NewTokenPoolAdminPrivateKey: tokenAdmin2.String(),
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(UpdateTokenPool),
+			Config: UpdateTokenPoolConfig{
+				ChainSelector:       solChain1,
+				TokenName:           "LinkToken",
+				AuthorityPrivateKey: tokenAdmin2.String(),
+				PoolLookupTable:     poolLookup.PublicKey().String(),
+			},
+		},
+	})
+	require.NoError(t, err)
 }

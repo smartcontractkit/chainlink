@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
@@ -182,5 +184,197 @@ func SetupTokenPoolForChain(e deployment.Environment, cfg SetupTokenPoolForChain
 }
 
 // Add billing changesets
-// Everything required for router
 // Add logs
+
+type RegisterTokenAdminRegistryType int
+
+const (
+	ViaGetCcipAdminInstruction RegisterTokenAdminRegistryType = iota
+	ViaOwnerInstruction
+)
+
+type RegisterTokenAdminRegistryConfig struct {
+	ChainSelector       uint64
+	TokenName           string
+	TokenPoolAdmin      string
+	AuthorityPrivateKey string
+	RegisterType        RegisterTokenAdminRegistryType
+}
+
+var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
+
+func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	if chainState.SolTokenPool.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+	}
+
+	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	// Convert string addresses to public keys
+	authorityPrivKey := solana.MustPrivateKeyFromBase58(cfg.AuthorityPrivateKey)
+	var instruction *ccip_router.Instruction
+
+	if cfg.RegisterType == ViaGetCcipAdminInstruction {
+		tokenPoolAdminPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPoolAdmin)
+		instruction, err = ccip_router.NewRegisterTokenAdminRegistryViaGetCcipAdminInstruction(
+			tokenPubKey,
+			tokenPoolAdminPubKey,
+			GetRouterConfigPDA(chainState.SolCcipRouter),
+			GetTokenAdminRegistryPDA(chainState.SolCcipRouter, tokenPubKey),
+			authorityPrivKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	} else if cfg.RegisterType == ViaOwnerInstruction {
+		instruction, err = ccip_router.NewRegisterTokenAdminRegistryViaOwnerInstruction(
+			GetTokenAdminRegistryPDA(chainState.SolCcipRouter, tokenPubKey),
+			tokenPubKey,
+			authorityPrivKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	} else {
+		return deployment.ChangesetOutput{}, fmt.Errorf("Unsupported RegisterType")
+	}
+
+	instructions := []solana.Instruction{instruction}
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(authorityPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+type TransferAndAcceptAdminRoleTokenAdminRegistryConfig struct {
+	ChainSelector               uint64
+	TokenName                   string
+	TokenPoolAdminPrivateKey    string
+	NewTokenPoolAdminPrivateKey string
+}
+
+var _ deployment.ChangeSet[TransferAndAcceptAdminRoleTokenAdminRegistryConfig] = TransferAndAcceptAdminRoleTokenAdminRegistry
+
+func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferAndAcceptAdminRoleTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	if chainState.SolTokenPool.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+	}
+
+	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	// Convert string addresses to public keys
+	tokenPoolAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.TokenPoolAdminPrivateKey)
+	newTokenPoolAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.NewTokenPoolAdminPrivateKey)
+	ix1, err := ccip_router.NewTransferAdminRoleTokenAdminRegistryInstruction(
+		tokenPubKey,
+		newTokenPoolAdminPrivKey.PublicKey(),
+		GetTokenAdminRegistryPDA(chainState.SolCcipRouter, tokenPubKey),
+		tokenPoolAdminPrivKey.PublicKey(),
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	ix2, err := ccip_router.NewAcceptAdminRoleTokenAdminRegistryInstruction(
+		tokenPubKey,
+		GetTokenAdminRegistryPDA(chainState.SolCcipRouter, tokenPubKey),
+		newTokenPoolAdminPrivKey.PublicKey(),
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	instructions := []solana.Instruction{ix1, ix2}
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenPoolAdminPrivKey, newTokenPoolAdminPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+type UpdateTokenPoolConfig struct {
+	ChainSelector       uint64
+	TokenName           string
+	AuthorityPrivateKey string
+	PoolLookupTable     string
+}
+
+var _ deployment.ChangeSet[UpdateTokenPoolConfig] = UpdateTokenPool
+
+func UpdateTokenPool(e deployment.Environment, cfg UpdateTokenPoolConfig) (deployment.ChangesetOutput, error) {
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	if chainState.SolTokenPool.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+	}
+
+	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	// Convert string addresses to public keys
+	authorityPrivKey := solana.MustPrivateKeyFromBase58(cfg.AuthorityPrivateKey)
+	lookupTablePubKey := solana.MustPublicKeyFromBase58(cfg.PoolLookupTable)
+	base := ccip_router.NewSetPoolInstruction(
+		tokenPubKey,
+		lookupTablePubKey,
+		GetTokenAdminRegistryPDA(chainState.SolCcipRouter, tokenPubKey),
+		authorityPrivKey.PublicKey(),
+	)
+	base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
+	instruction, err := base.ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	instructions := []solana.Instruction{instruction}
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(authorityPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}

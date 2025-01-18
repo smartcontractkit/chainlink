@@ -171,3 +171,8 @@ func GetReceiverExternalExecutionConfigPDA(ccipReceiverProgram solana.PublicKey)
 	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, ccipReceiverProgram)
 	return pda
 }
+
+func GetTokenAdminRegistryPDA(ccipRouterProgramID, tokenMint solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("token_admin_registry"), tokenMint.Bytes()}, ccipRouterProgramID)
+	return pda
+}
