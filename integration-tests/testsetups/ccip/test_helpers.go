@@ -212,12 +212,12 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
 		return deployedEnv, devenv.RMNCluster{}, dockerEnv
-	case changeset.AnvilDocker:
+	case testhelpers.AnvilDocker:
 		anvilDockerEnv := &DeployedLocalAnvilDevEnvironment{
 			GenericTCConfig: testCfg,
 		}
 		if testCfg.RMNEnabled {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
 			l := logging.GetTestLogger(t)
 			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustGetNetworksToRPCMap(anvilDockerEnv.bcs))
 			require.NotNil(t, anvilDockerEnv.devEnvTestCfg.CCIP)
@@ -235,16 +235,16 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 			return deployedEnv, *rmnCluster, anvilDockerEnv
 		}
 		if testCfg.CreateJobAndContracts {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, anvilDockerEnv)
 			anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 		}
 		if testCfg.CreateJob {
-			deployedEnv := changeset.NewEnvironmentWithJobs(t, anvilDockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobs(t, anvilDockerEnv)
 			anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
 			return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 		}
-		deployedEnv := changeset.NewEnvironment(t, anvilDockerEnv)
+		deployedEnv := testhelpers.NewEnvironment(t, anvilDockerEnv)
 		anvilDockerEnv.UpdateDeployedEnvironment(deployedEnv)
 		return deployedEnv, devenv.RMNCluster{}, anvilDockerEnv
 	default:
