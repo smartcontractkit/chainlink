@@ -4,25 +4,24 @@ description: Build Solana contracts
 runs:
   using: composite
   steps:
-    - name: Get CCIP Revision
-      id: get_ccip_chains_solana_revision
-      shell: bash
-      run: |
-        # TODO get the short revision from the go.mod file
-        short_revision=8973fd0c912b
-
-        # TODO map from the short to the long revision value, the checkout action doesn't support short revisions
-        long_revision=8973fd0c912b8f5bd12283dca7e599d0241b424f
-
-        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
-        echo "CHAINLINK_CCIP_COMMIT_LONG=${long_revision}" >> $GITHUB_ENV
     - name: Checkout chainlink-ccip
       uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
       with:
         repository: smartcontractkit/chainlink-ccip
-        ref: ${{ env.CHAINLINK_CCIP_COMMIT_LONG }}
-        fetch-depth: 0 
         path: chainlink-ccip
+        fetch-depth: 0
+    - name: Checkout branch based on CCIP Revision
+      id: get_checkout_ccip_chains_solana_revision
+      shell: bash
+      run: |
+        # get the short revision of the chainlink-ccip solana contracts dependency from the go.mod file
+        short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | cut -d'-' -f3)
+
+        # since the github action checkout action doesn't support short revisions, we have to do it manually
+        cd chainlink-ccip
+        git checkout $short_revision
+
+        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
     - name: Get Anchor Version
       id: get_anchor_version
       shell: bash
@@ -66,5 +65,9 @@ runs:
     - name: move built contracts to test folder
       shell: bash
       run: |
+        # copy the built contracts so they can be used in the chainlink tests
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+
+        # save the revision of the built chainlink-ccip solana contracts
+        echo ${{ env.CHAINLINK_CCIP_COMMIT_SHORT }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev
