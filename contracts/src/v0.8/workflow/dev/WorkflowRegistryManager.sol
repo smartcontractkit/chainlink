@@ -39,12 +39,13 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   uint32 private s_latestVersionNumber = 0;
 
   // Errors
+  error ContractAlreadyRegistered(address contractAddress, uint64 chainID);
   error InvalidContractAddress(address invalidAddress);
   error InvalidContractType(address invalidAddress);
   error NoActiveVersionAvailable();
   error NoVersionsRegistered();
-  error VersionNotRegistered(uint32 versionNumber);
   error VersionAlreadyActive(uint32 versionNumber);
+  error VersionNotRegistered(uint32 versionNumber);
   // Events
 
   event VersionAdded(address indexed contractAddress, uint64 chainID, uint32 deployedAt, uint32 version);
@@ -63,6 +64,12 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param autoActivate A boolean indicating whether the new version should be activated immediately.
   /// @custom:throws InvalidContractType if the provided contract address is zero or not a WorkflowRegistry.
   function addVersion(address contractAddress, uint64 chainID, uint32 deployedAt, bool autoActivate) external onlyOwner {
+    // Check if the contract is already registered. If it is, you can just activate that existing version.
+    bytes32 key = keccak256(abi.encodePacked(contractAddress, chainID));
+    if (s_versionNumberByAddressAndChainID[key] != 0) {
+      revert ContractAlreadyRegistered(contractAddress, chainID);
+    }
+
     string memory typeVer = _getTypeAndVersionForContract(contractAddress);
     uint32 latestVersionNumber = ++s_latestVersionNumber;
 
@@ -74,7 +81,6 @@ contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
     });
 
     // Store the version number associated with the hash of contract address and chainID
-    bytes32 key = keccak256(abi.encodePacked(contractAddress, chainID));
     s_versionNumberByAddressAndChainID[key] = latestVersionNumber;
 
     if (autoActivate) {

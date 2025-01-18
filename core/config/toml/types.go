@@ -1327,12 +1327,16 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
+	Protocol             *string
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
+	if v := f.Protocol; v != nil {
+		m.Protocol = v
+	}
 	if v := f.TransmitQueueMaxSize; v != nil {
 		m.TransmitQueueMaxSize = v
 	}

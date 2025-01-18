@@ -18,6 +18,7 @@ func main() {
 		src.NewProvisionKeystoneCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 		src.NewToolkit(),
+		src.NewGenerateLocalOCR3ConfigCommand(),
 	}
 
 	commandsList := func(commands []command) string {

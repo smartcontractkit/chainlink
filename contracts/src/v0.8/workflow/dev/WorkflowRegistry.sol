@@ -89,6 +89,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   event RegistryUnlockedV1(address unlockedBy);
 
   error AddressNotAuthorized(address caller);
+  error BinaryURLRequired();
   error CallerIsNotWorkflowOwner(address caller);
   error DONNotAllowed(uint32 donID);
   error InvalidWorkflowID();
@@ -99,7 +100,7 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   error WorkflowContentNotUpdated();
   error WorkflowDoesNotExist();
   error WorkflowIDAlreadyExists();
-  error WorkflowIDNotUpdated();
+  error WorkflowNameRequired();
   error WorkflowNameTooLong(uint256 providedLength, uint8 maxAllowedLength);
 
   modifier registryNotLocked() {
@@ -119,10 +120,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param allowed True if they should be added to the allowlist, false to remove them.
   function updateAllowedDONs(uint32[] calldata donIDs, bool allowed) external onlyOwner registryNotLocked {
     uint256 length = donIDs.length;
-    for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
+    if (allowed) {
+      for (uint256 i = 0; i < length; ++i) {
         s_allowedDONs.add(donIDs[i]);
-      } else {
+      }
+    } else {
+      for (uint256 i = 0; i < length; ++i) {
         s_allowedDONs.remove(donIDs[i]);
       }
     }
@@ -136,10 +139,12 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   /// @param allowed True if they should be added to whitelist, false to remove them.
   function updateAuthorizedAddresses(address[] calldata addresses, bool allowed) external onlyOwner registryNotLocked {
     uint256 length = addresses.length;
-    for (uint256 i = 0; i < length; ++i) {
-      if (allowed) {
+    if (allowed) {
+      for (uint256 i = 0; i < length; ++i) {
         s_authorizedAddresses.add(addresses[i]);
-      } else {
+      }
+    } else {
+      for (uint256 i = 0; i < length; ++i) {
         s_authorizedAddresses.remove(addresses[i]);
       }
     }
@@ -285,11 +290,6 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
 
     // Store the old workflowID for event emission.
     bytes32 currentWorkflowID = workflow.workflowID;
-
-    // Condition to revert: WorkflowID must change, and at least one URL must change
-    if (currentWorkflowID == newWorkflowID) {
-      revert WorkflowIDNotUpdated();
-    }
 
     // Determine which URLs have changed
     bool sameBinaryURL = Strings.equal(workflow.binaryURL, binaryURL);
@@ -489,20 +489,16 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
       revert WorkflowAlreadyInDesiredStatus();
     }
 
-    // Check if the DON ID is allowed when activating a workflow
+    // Emit the appropriate event based on newStatus
     if (newStatus == WorkflowStatus.ACTIVE) {
       _validatePermissions(donID, msg.sender);
+      emit WorkflowActivatedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
+    } else if (newStatus == WorkflowStatus.PAUSED) {
+      emit WorkflowPausedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
     }
 
     // Update the workflow status
     workflow.status = newStatus;
-
-    // Emit the appropriate event based on newStatus
-    if (newStatus == WorkflowStatus.PAUSED) {
-      emit WorkflowPausedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
-    } else if (newStatus == WorkflowStatus.ACTIVE) {
-      emit WorkflowActivatedV1(workflow.workflowID, msg.sender, donID, workflow.workflowName);
-    }
   }
 
   /// @dev Internal function to retrieve a workflow from storage.
@@ -669,6 +665,10 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
     uint256 configURLLength,
     uint256 secretsURLLength
   ) internal pure {
+    if (binaryURLLength == 0) {
+      revert BinaryURLRequired();
+    }
+
     if (binaryURLLength > MAX_URL_LENGTH) {
       revert URLTooLong(binaryURLLength, MAX_URL_LENGTH);
     }
@@ -688,6 +688,10 @@ contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   function _validateWorkflowName(
     uint256 workflowNameLength
   ) internal pure {
+    if (workflowNameLength == 0) {
+      revert WorkflowNameRequired();
+    }
+
     if (workflowNameLength > MAX_WORKFLOW_NAME_LENGTH) {
       revert WorkflowNameTooLong(workflowNameLength, MAX_WORKFLOW_NAME_LENGTH);
     }

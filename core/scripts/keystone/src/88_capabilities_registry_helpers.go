@@ -554,13 +554,23 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
 	}
 
+	epk := strings.TrimPrefix(p.EncryptionPublicKey, "0x")
+	epkB, err := hex.DecodeString(epk)
+	if err != nil {
+		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryptionPublicKey: %w", err)
+	}
+
+	var epkb [32]byte
+	copy(epkb[:], epkB)
+
 	var sigb [32]byte
 	copy(sigb[:], signerB)
 
 	return kcr.CapabilitiesRegistryNodeParams{
-		NodeOperatorId: nopID,
-		P2pId:          peerIDB,
-		Signer:         sigb,
+		NodeOperatorId:      nopID,
+		P2pId:               peerIDB,
+		Signer:              sigb,
+		EncryptionPublicKey: epkb,
 	}, nil
 }
 

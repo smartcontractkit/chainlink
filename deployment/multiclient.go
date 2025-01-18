@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -88,6 +89,26 @@ func (mc *MultiClient) SendTransaction(ctx context.Context, tx *types.Transactio
 	})
 }
 
+func (mc *MultiClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := mc.retryWithBackups("CallContract", func(client *ethclient.Client) error {
+		var err error
+		result, err = client.CallContract(ctx, msg, blockNumber)
+		return err
+	})
+	return result, err
+}
+
+func (mc *MultiClient) CallContractAtHash(ctx context.Context, msg ethereum.CallMsg, blockHash common.Hash) ([]byte, error) {
+	var result []byte
+	err := mc.retryWithBackups("CallContractAtHash", func(client *ethclient.Client) error {
+		var err error
+		result, err = client.CallContractAtHash(ctx, msg, blockHash)
+		return err
+	})
+	return result, err
+}
+
 func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	var code []byte
 	err := mc.retryWithBackups("CodeAt", func(client *ethclient.Client) error {
@@ -98,11 +119,31 @@ func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, block
 	return code, err
 }
 
+func (mc *MultiClient) CodeAtHash(ctx context.Context, account common.Address, blockHash common.Hash) ([]byte, error) {
+	var code []byte
+	err := mc.retryWithBackups("CodeAtHash", func(client *ethclient.Client) error {
+		var err error
+		code, err = client.CodeAtHash(ctx, account, blockHash)
+		return err
+	})
+	return code, err
+}
+
 func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address, block *big.Int) (uint64, error) {
 	var count uint64
 	err := mc.retryWithBackups("NonceAt", func(client *ethclient.Client) error {
 		var err error
 		count, err = client.NonceAt(ctx, account, block)
+		return err
+	})
+	return count, err
+}
+
+func (mc *MultiClient) NonceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (uint64, error) {
+	var count uint64
+	err := mc.retryWithBackups("NonceAtHash", func(client *ethclient.Client) error {
+		var err error
+		count, err = client.NonceAtHash(ctx, account, blockHash)
 		return err
 	})
 	return count, err
