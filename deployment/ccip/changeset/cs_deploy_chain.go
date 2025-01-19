@@ -129,7 +129,7 @@ func deployChainContractsForChains(
 	chainsToDeploy []uint64) error {
 	existingEVMState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", err)
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 
@@ -147,7 +147,7 @@ func deployChainContractsForChains(
 
 	existingSolState, err := LoadOnchainStateSolana(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain solanastate", err)
+		e.Logger.Errorw("Failed to load existing onchain solanastate", "err", err)
 		return err
 	}
 
@@ -511,7 +511,7 @@ func deployChainContractsSolana(
 
 	var ccipRouterProgram solana.PublicKey
 	if chainState.SolCcipRouter.IsZero() {
-		//deploy router
+		// deploy router
 		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)

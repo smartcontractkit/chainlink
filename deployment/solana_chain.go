@@ -56,7 +56,15 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
+var allowedPrograms = map[string]bool{
+	"ccip_router": true,
+	// Add other valid program names here
+}
+
 func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
+	if !allowedPrograms[programName] {
+		return "", fmt.Errorf("program %s not in allowed list", programName)
+	}
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
 	if _, err := os.Stat(programFile); err != nil {
 		return "", fmt.Errorf("program file not found: %w", err)

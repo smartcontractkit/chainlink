@@ -63,19 +63,19 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 }
 
 // GetRouterConfigPDA returns the PDA for the "config" account.
-func GetRouterConfigPDA(ccipRouterProgramId solana.PublicKey) solana.PublicKey {
+func GetRouterConfigPDA(ccipRouterProgramID solana.PublicKey) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{[]byte("config")},
-		ccipRouterProgramId,
+		ccipRouterProgramID,
 	)
 	return pda
 }
 
 // GetRouterStatePDA returns the PDA for the "state" account.
-func GetRouterStatePDA(ccipRouterProgramId solana.PublicKey) solana.PublicKey {
+func GetRouterStatePDA(ccipRouterProgramID solana.PublicKey) solana.PublicKey {
 	pda, _, _ := solana.FindProgramAddress(
 		[][]byte{[]byte("state")},
-		ccipRouterProgramId,
+		ccipRouterProgramID,
 	)
 	return pda
 }
