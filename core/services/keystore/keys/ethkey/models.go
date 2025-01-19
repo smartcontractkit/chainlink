@@ -2,7 +2,7 @@ package ethkey
 
 import (
 	"errors"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -10,17 +10,27 @@ import (
 )
 
 type State struct {
-	ID         int32
-	Address    types.EIP55Address
-	EVMChainID big.Big
-	Disabled   bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	lastUsed   time.Time
-	tags       map[string]int // tags is an internal field and ought not be persisted to the database.
-	// Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2(aka primary and secondary transmitter)
-	// This functionality should be removed after we completely switch to TXMv2
+	ID            int32
+	Address       types.EIP55Address
+	EVMChainID    big.Big
+	Disabled      bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	lastUsed      time.Time
+	ResourceMutex ResourceMutex // ResourceMutex is an internal field and ought not be persisted to the database.
+	// Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
 }
+
+type ResourceMutex struct {
+	mu          sync.Mutex
+	activeCount map[ServiceType]int // Tracks active users per service type
+}
+type ServiceType int
+
+const (
+	TXMv1 ServiceType = iota
+	TXMv2
+)
 
 func (s State) KeyID() string {
 	return s.Address.Hex()
@@ -36,45 +46,50 @@ func (s *State) WasUsed() {
 	s.lastUsed = time.Now()
 }
 
-// Tag Adds a process to the list of processes that have are using
-func (s *State) Tag(label string) error {
-	if label == "" {
-		return errors.New("cannot add usage: label string is empty")
-	}
-	label = strings.ToLower(label)
+// TryLock attempts to lock the resource for the specified service type.
+// It returns an error if the resource is locked by a different service type.
+func (rm *ResourceMutex) TryLock(serviceType ServiceType) error {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if _, exists := s.tags[label]; exists {
-		s.tags[label]++
-	} else {
-		s.tags[label] = 1
-	}
-	return nil
-}
-
-// Untag removes a process from the list of processes that have used the key
-func (s *State) Untag(label string) error {
-	if label == "" {
-		return errors.New("cannot remove usage: label string is empty")
-	}
-	label = strings.ToLower(label)
-
-	if count, exists := s.tags[label]; exists {
-		if count > 1 {
-			s.tags[label]--
-		} else {
-			delete(s.tags, label)
+	// Check if other service types are using the resource
+	for otherServiceType, count := range rm.activeCount {
+		if otherServiceType != serviceType && count > 0 {
+			return errors.New("resource is locked by another service type")
 		}
-		return nil
+	}
+
+	// Increment active count for the current service type
+	rm.activeCount[serviceType]++
+	return nil
+}
+
+// Unlock releases the lock for the service type
+func (rm *ResourceMutex) Unlock(serviceType ServiceType) error {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	// Check if the service type has an active lock
+	if rm.activeCount[serviceType] == 0 {
+		return errors.New("no active lock for this service type")
+	}
+
+	// Decrement active count for the service type
+	rm.activeCount[serviceType]--
+	if rm.activeCount[serviceType] == 0 {
+		delete(rm.activeCount, serviceType)
 	}
 	return nil
 }
 
-// HasTag checks if the key is used by the given process
-func (s *State) HasTag(label string) (bool, error) {
-	if label == "" {
-		return false, errors.New("cannot check usage: label string is empty")
+// IsLocked checks if the resource is locked by any service or a specific service type.
+func (rm *ResourceMutex) IsLocked(serviceType ServiceType) (bool, error) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	// Check if the resource is locked by the given service type
+	if count, exists := rm.activeCount[serviceType]; exists && count > 0 {
+		return true, nil
 	}
-	label = strings.ToLower(label)
-	_, exists := s.tags[label]
-	return exists, nil
+	return false, nil
 }

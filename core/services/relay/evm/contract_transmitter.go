@@ -260,18 +260,20 @@ func (oc *contractTransmitter) getKeyState(ctx context.Context, address common.A
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error {
+	//Lock the transmitters to TXMv1
 	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
 	if err != nil {
 		return err
 	}
-	return primaryState.Tag("primary")
+	return primaryState.ResourceMutex.TryLock(ethkey.TXMv1)
 }
 func (oc *contractTransmitter) Close() error {
+	//Unlock the transmitters to TXMv1
 	primaryState, err := oc.getKeyState(context.Background(), oc.transmitter.FromAddress(context.Background()))
 	if err != nil {
 		return err
 	}
-	return primaryState.Untag("primary")
+	return primaryState.ResourceMutex.Unlock(ethkey.TXMv1)
 }
 
 // Has no state/lifecycle so it's always healthy and ready

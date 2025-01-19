@@ -186,14 +186,15 @@ func (oc *dualContractTransmitter) getKeyState(ctx context.Context, address comm
 	return oc.ks.GetStateForKey(ctx, k)
 }
 
-func (oc *dualContractTransmitter) markAddresses(ctx context.Context) error {
+func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
 	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
 	if err != nil {
 		return err
 	}
-	if err = primaryState.Tag("primary"); err != nil {
+	if err = primaryState.ResourceMutex.TryLock(ethkey.TXMv1); err != nil {
 		return err
 	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryState.KeyID())
 
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
@@ -203,18 +204,24 @@ func (oc *dualContractTransmitter) markAddresses(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return secondaryState.Tag("secondary")
+
+	err = secondaryState.ResourceMutex.TryLock(ethkey.TXMv2)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryState.KeyID())
+	return nil
 }
 
-func (oc *dualContractTransmitter) unmarkAddresses(ctx context.Context) error {
+func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error {
 	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
 	if err != nil {
 		return err
 	}
-	if err = primaryState.Untag("primary"); err != nil {
+	if err = primaryState.ResourceMutex.Unlock(ethkey.TXMv1); err != nil {
 		return err
 	}
-
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryState.KeyID())
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
 		return err
@@ -223,14 +230,19 @@ func (oc *dualContractTransmitter) unmarkAddresses(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return secondaryState.Untag("secondary")
+	err = secondaryState.ResourceMutex.Unlock(ethkey.TXMv2)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv2", secondaryState.KeyID())
+	return nil
 }
 
 func (oc *dualContractTransmitter) Start(ctx context.Context) error {
-	return oc.markAddresses(ctx)
+	return oc.lockTransmitters(ctx)
 }
 func (oc *dualContractTransmitter) Close() error {
-	return oc.unmarkAddresses(context.Background())
+	return oc.unlockTransmitters(context.Background())
 }
 
 // Has no state/lifecycle so it's always healthy and ready

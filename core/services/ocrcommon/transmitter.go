@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -101,16 +102,16 @@ func NewOCR2FeedsTransmitter(
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
-	if isUsed, err := isKeyUsedBy(ctx, keystore, effectiveTransmitterAddress, "secondary"); err != nil {
+	if hasLock, err := keyHasLock(ctx, keystore, effectiveTransmitterAddress, ethkey.TXMv2); err != nil {
 		return nil, err
-	} else if isUsed {
+	} else if hasLock {
 		return nil, errors.Errorf("key %s is used as a secondary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
 	}
 
 	if dualTransmissionConfig != nil {
-		if isUsed, err := isKeyUsedBy(ctx, keystore, dualTransmissionConfig.TransmitterAddress, "primary"); err != nil {
+		if hasLock, err := keyHasLock(ctx, keystore, dualTransmissionConfig.TransmitterAddress, ethkey.TXMv1); err != nil {
 			return nil, err
-		} else if isUsed {
+		} else if hasLock {
 			return nil, errors.Errorf("key %s is used as a primary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
 		}
 		return &ocr2FeedsDualTransmission{
@@ -250,7 +251,7 @@ func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
-func isKeyUsedBy(ctx context.Context, ks keystore.Eth, address common.Address, process string) (bool, error) {
+func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, process ethkey.ServiceType) (bool, error) {
 	key, err := ks.Get(ctx, address.String())
 	if err != nil {
 		return false, err
@@ -261,7 +262,7 @@ func isKeyUsedBy(ctx context.Context, ks keystore.Eth, address common.Address, p
 		return false, err
 	}
 
-	isUsed, err := state.HasTag(process)
+	isUsed, err := state.ResourceMutex.IsLocked(process)
 	if err != nil {
 		return false, err
 	}

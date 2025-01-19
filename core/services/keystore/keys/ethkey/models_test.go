@@ -6,73 +6,87 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestState_AddUsage(t *testing.T) {
-	state := State{
-		tags: make(map[string]int),
-	}
+func TestResourceMutex_LockUnlock(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
 
-	err := state.Tag("process1")
+	err := rm.TryLock(TXMv1)
 	require.NoError(t, err)
-	require.Equal(t, 1, state.tags["process1"])
 
-	err = state.Tag("process1")
+	err = rm.Unlock(TXMv1)
 	require.NoError(t, err)
-	require.Equal(t, 2, state.tags["process1"])
-
-	err = state.Tag("")
-	require.Error(t, err)
-	require.Equal(t, "cannot add usage: label string is empty", err.Error())
 }
 
-func TestState_RemoveUsage(t *testing.T) {
-	state := State{
-		tags: map[string]int{
-			"process1": 2,
-			"process2": 1,
-		},
-	}
+func TestResourceMutex_LockByDifferentServiceType(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
 
-	err := state.Untag("process1")
+	err := rm.TryLock(TXMv1)
 	require.NoError(t, err)
-	require.Equal(t, 1, state.tags["process1"])
 
-	err = state.Untag("process1")
-	require.NoError(t, err)
-	_, exists := state.tags["process1"]
-	require.False(t, exists)
-
-	err = state.Untag("process2")
-	require.NoError(t, err)
-	_, exists = state.tags["process2"]
-	require.False(t, exists)
-
-	err = state.Untag("")
+	err = rm.TryLock(TXMv2)
 	require.Error(t, err)
-	require.Equal(t, "cannot remove usage: label string is empty", err.Error())
+	require.Equal(t, "resource is locked by another service type", err.Error())
 }
 
-func TestState_HasTag(t *testing.T) {
-	state := State{
-		tags: map[string]int{
-			"process1": 2,
-			"process2": 1,
-		},
-	}
+func TestResourceMutex_UnlockWithoutLock(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
 
-	hasTag, err := state.HasTag("process1")
-	require.NoError(t, err)
-	require.True(t, hasTag)
-
-	hasTag, err = state.HasTag("process2")
-	require.NoError(t, err)
-	require.True(t, hasTag)
-
-	hasTag, err = state.HasTag("process3")
-	require.NoError(t, err)
-	require.False(t, hasTag)
-
-	hasTag, err = state.HasTag("")
+	err := rm.Unlock(TXMv1)
 	require.Error(t, err)
-	require.False(t, hasTag)
-	require.Equal(t, "cannot check usage: label string is empty", err.Error())
+	require.Equal(t, "no active lock for this service type", err.Error())
+}
+
+func TestResourceMutex_MultipleLocks(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+
+	err := rm.TryLock(TXMv1)
+	require.NoError(t, err)
+
+	err = rm.TryLock(TXMv1)
+	require.NoError(t, err)
+
+	err = rm.Unlock(TXMv1)
+	require.NoError(t, err)
+
+	err = rm.Unlock(TXMv1)
+	require.NoError(t, err)
+}
+
+func TestIsLocked_WhenResourceIsLockedByServiceType(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm.activeCount[TXMv1] = 1
+
+	locked, err := rm.IsLocked(TXMv1)
+	require.NoError(t, err)
+	require.True(t, locked)
+}
+
+func TestIsLocked_WhenResourceIsNotLockedByServiceType(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+
+	locked, err := rm.IsLocked(TXMv1)
+	require.NoError(t, err)
+	require.False(t, locked)
+}
+
+func TestIsLocked_WhenResourceIsLockedByDifferentServiceType(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm.activeCount[TXMv2] = 1
+
+	locked, err := rm.IsLocked(TXMv1)
+	require.NoError(t, err)
+	require.False(t, locked)
+}
+
+func TestIsLocked_WhenResourceIsLockedByMultipleServiceTypes(t *testing.T) {
+	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm.activeCount[TXMv1] = 1
+	rm.activeCount[TXMv2] = 1
+
+	locked, err := rm.IsLocked(TXMv1)
+	require.NoError(t, err)
+	require.True(t, locked)
+
+	locked, err = rm.IsLocked(TXMv2)
+	require.NoError(t, err)
+	require.True(t, locked)
 }

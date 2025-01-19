@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -346,20 +347,20 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 
 				//Check if secondary transmitter address is used as primary somewhere else
-				isUsed, err := checkIfKeyIsUsedBy(ctx, tx.keyStore.Eth(), dtTransmitterAddress, "primary")
+				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), dtTransmitterAddress, ethkey.TXMv1)
 				if err != nil {
 					return err
-				} else if isUsed {
+				} else if hasLock {
 					return errors.Errorf("key %s cannot be a secondary transmitter address because it's used a primary transmitter in another job", dtTransmitterAddress)
 				}
 
 			}
 
 			//Check if primary transmitter address is used as secondary somewhere else
-			isUsed, err := checkIfKeyIsUsedBy(ctx, tx.keyStore.Eth(), jb.OCR2OracleSpec.TransmitterID.String, "secondary")
+			hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), jb.OCR2OracleSpec.TransmitterID.String, ethkey.TXMv2)
 			if err != nil {
 				return err
-			} else if isUsed {
+			} else if hasLock {
 				return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
 			}
 
@@ -1766,7 +1767,7 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 	return nil
 }
 
-func checkIfKeyIsUsedBy(ctx context.Context, ks keystore.Eth, address string, usage string) (bool, error) {
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address string, usage ethkey.ServiceType) (bool, error) {
 	k, err := ks.Get(ctx, address)
 	if err != nil {
 		return false, err
@@ -1776,5 +1777,5 @@ func checkIfKeyIsUsedBy(ctx context.Context, ks keystore.Eth, address string, us
 		return false, err
 	}
 
-	return state.HasTag(usage)
+	return state.ResourceMutex.IsLocked(usage)
 }
