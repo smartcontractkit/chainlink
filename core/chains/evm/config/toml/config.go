@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/txpool/legacypool"
 	"github.com/pelletier/go-toml/v2"
@@ -471,6 +472,27 @@ func (c *Chain) ValidateConfig() (err error) {
 	return
 }
 
+func (c *Transactions) ValidateConfig() (err error) {
+	if c.TransactionManagerV2.Enabled != nil && *c.TransactionManagerV2.Enabled &&
+		c.TransactionManagerV2.DualBroadcast != nil && *c.TransactionManagerV2.DualBroadcast {
+		if c.TransactionManagerV2.CustomURL == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "TransactionManagerV2.CustomURL", Msg: "must be set if DualBroadcast is enabled"})
+		}
+		if c.AutoPurge.Enabled != nil && !*c.AutoPurge.Enabled {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "AutoPurge.Enabled", Value: false, Msg: "cannot be false if DualBroadcast is enabled"})
+		}
+		if c.AutoPurge.DetectionApiUrl == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "AutoPurge.DetectionApiUrl", Msg: "must be set if DualBroadcast is enabled"})
+		}
+		if c.AutoPurge.Threshold == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "AutoPurge.Threshold", Msg: "needs to be set if auto-purge feature is enabled"})
+		} else if *c.AutoPurge.Threshold == 0 {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "AutoPurge.Threshold", Value: 0, Msg: "cannot be 0 if auto-purge feature is enabled"})
+		}
+	}
+	return
+}
+
 type Transactions struct {
 	Enabled              *bool
 	ForwardersEnabled    *bool
@@ -480,7 +502,8 @@ type Transactions struct {
 	ReaperThreshold      *commonconfig.Duration
 	ResendAfterThreshold *commonconfig.Duration
 
-	AutoPurge AutoPurgeConfig `toml:",omitempty"`
+	AutoPurge            AutoPurgeConfig            `toml:",omitempty"`
+	TransactionManagerV2 TransactionManagerV2Config `toml:",omitempty"`
 }
 
 func (t *Transactions) setFrom(f *Transactions) {
@@ -506,6 +529,7 @@ func (t *Transactions) setFrom(f *Transactions) {
 		t.ResendAfterThreshold = v
 	}
 	t.AutoPurge.setFrom(&f.AutoPurge)
+	t.TransactionManagerV2.setFrom(&f.TransactionManagerV2)
 }
 
 type AutoPurgeConfig struct {
@@ -528,6 +552,41 @@ func (a *AutoPurgeConfig) setFrom(f *AutoPurgeConfig) {
 	if v := f.DetectionApiUrl; v != nil {
 		a.DetectionApiUrl = v
 	}
+}
+
+type TransactionManagerV2Config struct {
+	Enabled       *bool                  `toml:",omitempty"`
+	BlockTime     *commonconfig.Duration `toml:",omitempty"`
+	CustomURL     *commonconfig.URL      `toml:",omitempty"`
+	DualBroadcast *bool                  `toml:",omitempty"`
+}
+
+func (t *TransactionManagerV2Config) setFrom(f *TransactionManagerV2Config) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
+	if v := f.BlockTime; v != nil {
+		t.BlockTime = f.BlockTime
+	}
+	if v := f.CustomURL; v != nil {
+		t.CustomURL = f.CustomURL
+	}
+	if v := f.DualBroadcast; v != nil {
+		t.DualBroadcast = f.DualBroadcast
+	}
+}
+
+func (t *TransactionManagerV2Config) ValidateConfig() (err error) {
+	if t.Enabled != nil && *t.Enabled {
+		if t.BlockTime == nil {
+			err = multierr.Append(err, commonconfig.ErrMissing{Name: "BlockTime", Msg: "must be set if TransactionManagerV2 feature is enabled"})
+			return
+		}
+		if t.BlockTime.Duration() < 2*time.Second {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "BlockTime", Msg: "must be equal to or greater than 2 seconds"})
+		}
+	}
+	return
 }
 
 type OCR2 struct {

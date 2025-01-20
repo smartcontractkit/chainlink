@@ -82,8 +82,27 @@ contract FeeQuoterHelper is FeeQuoter {
     );
   }
 
-  function validateDestFamilyAddress(bytes4 chainFamilySelector, bytes memory destAddress) external pure {
-    _validateDestFamilyAddress(chainFamilySelector, destAddress);
+  function parseSVMExtraArgsFromBytes(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) external pure returns (Client.SVMExtraArgsV1 memory) {
+    return _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
+  }
+
+  function processChainFamilySelector(
+    uint64 chainFamilySelector,
+    bool isMessageWithTokenTransfer,
+    bytes calldata extraArgs
+  ) external view returns (bytes memory, bool) {
+    return _processChainFamilySelector(chainFamilySelector, isMessageWithTokenTransfer, extraArgs);
+  }
+
+  function validateDestFamilyAddress(
+    bytes4 chainFamilySelector,
+    bytes memory destAddress,
+    uint256 gasLimit
+  ) external pure {
+    _validateDestFamilyAddress(chainFamilySelector, destAddress, gasLimit);
   }
 
   function calculateRebasedValue(
@@ -92,5 +111,12 @@ contract FeeQuoterHelper is FeeQuoter {
     uint256 feedValue
   ) external pure returns (uint224) {
     return _calculateRebasedValue(dataFeedDecimal, tokenDecimal, feedValue);
+  }
+
+  function resolveGasLimitForDestination(
+    bytes calldata extraArgs,
+    DestChainConfig memory destChainConfig
+  ) external pure returns (uint256 gasLimit) {
+    return _resolveGasLimitForDestination(extraArgs, destChainConfig);
   }
 }
