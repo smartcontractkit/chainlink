@@ -88,4 +88,21 @@ contract MessageHasher {
   ) public pure returns (Client.EVMExtraArgsV2 memory) {
     return Client.EVMExtraArgsV2(gasLimit, allowOutOfOrderExecution);
   }
+
+  function encodeSVMExtraArgsV1(
+    Client.SVMExtraArgsV1 memory extraArgs
+  ) public pure returns (bytes memory) {
+    return Client._svmArgsToBytes(extraArgs);
+  }
+
+  function decodeSVMExtraArgsV1(
+    uint32 computeUnits,
+    uint64 accountIsWritableBitmap,
+    bool allowOutOfOrderExecution,
+    bytes32 tokenReceiver,
+    bytes32[] memory accounts
+  ) public pure returns (Client.SVMExtraArgsV1 memory) {
+    return
+      Client.SVMExtraArgsV1(computeUnits, accountIsWritableBitmap, allowOutOfOrderExecution, tokenReceiver, accounts);
+  }
 }
