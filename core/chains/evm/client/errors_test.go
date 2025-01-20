@@ -181,6 +181,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error terminally underpriced", true, "tomlConfig"},
 			{"gas price less than block base fee", true, "aStar"},
 			{"[Request ID: e4d09e44-19a4-4eb7-babe-270db4c2ebc9] Gas price '830000000000' is below configured minimum gas price '950000000000'", true, "hedera"},
+			{"Gas limit too low", true, "monad"},
 		}
 
 		for _, test := range tests {
