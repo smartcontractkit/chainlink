@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.19;
 
 import {EfficientCall} from "@zksync/contracts/system-contracts/contracts/libraries/EfficientCall.sol";
 import {ISystemContext} from "@zksync/contracts/gas-bound-caller/contracts/ISystemContext.sol";
@@ -33,7 +33,10 @@ library CallWithExactGasZKSync {
   /// @param _maxtotalgas the maximum amount of gas that can be spent by the call.
   /// @param _data The calldata for the call.
   /// @param _maxReturnBytes the maximum amount of bytes that can be returned by the call.
-  function _callWithExactGas(
+  /// @return success whether the call succeeded
+  /// @return retData the return data from the call, capped at maxReturnBytes bytes
+  /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
+  function _callWithExactGasSafeReturnData(
     address _to,
     uint256 _maxTotalGas,
     bytes calldata _data,

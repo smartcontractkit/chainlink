@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.19;
 
 import {FunctionsRouter} from "../v1_0_0/FunctionsRouter.sol";
 import {CallWithExactGasZKSync} from "../../shared/call/CallWithExactGasZKSync.sol";
@@ -42,7 +42,7 @@ contract ZKSyncFunctionsRouter is FunctionsRouter {
     );
 
     // 3. Use our library to enforce an exact gas call
-    (bool success, uint256 gasUsed, bytes memory returnData) = CallWithExactGasZKSync._callWithExactGas(
+    (bool success, uint256 gasUsed, bytes memory returnData) = CallWithExactGasZKSync._callWithExactGasSafeReturnData(
       client,
       callbackGasLimit,
       encodedCallback,

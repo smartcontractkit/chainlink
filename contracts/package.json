@@ -75,7 +75,7 @@
     "moment": "^2.30.1",
     "prettier": "^3.3.3",
     "prettier-plugin-solidity": "^1.4.1",
-    "solhint": "^5.0.5",
+    "solhint": "^5.0.3",
     "solhint-plugin-chainlink-solidity": "git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1",
     "solhint-plugin-prettier": "^0.1.0",
     "ts-node": "^10.9.2",
