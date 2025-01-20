@@ -1,4 +1,4 @@
-ChainID = '81457'
+ChainID = '168587773'
 FinalityDepth = 200
 FinalityTagEnabled = true
 ChainType = 'optimismBedrock'
@@ -35,3 +35,7 @@ FinalityTagBypass = false
 PollFailureThreshold = 4
 # polls every 4sec to check if there is a block produced, since blockRate is ~3sec
 PollInterval = '4s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

@@ -31,3 +31,7 @@ FinalityTagBypass = false
 [NodePool]
 PollFailureThreshold = 2
 PollInterval = '3s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

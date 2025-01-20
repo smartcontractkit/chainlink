@@ -1,9 +1,7 @@
-ChainID = '168587773'
+ChainID = '34443'
 FinalityDepth = 200
 FinalityTagEnabled = true
 ChainType = 'optimismBedrock'
-# block rate is ~2sec, so this ensures blocks are polled correctly
-LogPollInterval = '2s'
 
 [GasEstimator]
 EIP1559DynamicFees = true
@@ -31,7 +29,9 @@ HistoryDepth = 300
 FinalityTagBypass = false
 
 [NodePool]
-# 4 block sync time between nodes to ensure they aren't labelled unreachable too soon
-PollFailureThreshold = 4
-# polls every 4sec to check if there is a block produced, since blockRate is ~3sec
-PollInterval = '4s'
+PollFailureThreshold = 2
+PollInterval = '3s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
