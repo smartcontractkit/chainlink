@@ -9,10 +9,10 @@ The actual CCIP contracts code currently lives in the `contracts/src/*/ccip` dir
 ## Directory Structure
 
 ```
-release-ccip/
+ccip/
 ├── .changeset/     # Contains changesets for versioning
-├── CHANGELOG.md    # Auto-generated changelog
-└── package.json    # CCIP-specific package configuration for versioning
+├── CHANGELOG.md    # Auto-generated changelog from changesets
+└── package.json    # @chainlink/contracts-ccip package configuration for versioning
 ```
 
 ## Create a Changeset
