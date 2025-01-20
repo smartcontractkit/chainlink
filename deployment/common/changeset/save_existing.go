@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[ExistingContractsConfig] = SaveExistingContracts
+	_ deployment.ChangeSet[ExistingContractsConfig] = SaveExistingContractsChangeset
 )
 
 type Contract struct {
@@ -42,9 +42,9 @@ func (cfg ExistingContractsConfig) Validate() error {
 	return nil
 }
 
-// SaveExistingContracts saves the existing contracts to the address book.
+// SaveExistingContractsChangeset saves the existing contracts to the address book.
 // Caller should update the environment's address book with the returned addresses.
-func SaveExistingContracts(env deployment.Environment, cfg ExistingContractsConfig) (deployment.ChangesetOutput, error) {
+func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingContractsConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)

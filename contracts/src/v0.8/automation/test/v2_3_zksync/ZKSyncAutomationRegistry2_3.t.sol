@@ -1655,6 +1655,140 @@ contract Transmit is SetUp {
     vm.stopPrank();
   }
 
+  struct PaymentReceipt {
+    uint96 gasChargeInBillingToken;
+    uint96 premiumInBillingToken;
+    uint96 gasReimbursementInJuels;
+    uint96 premiumInJuels;
+    IERC20 billingToken;
+    uint96 linkUSD;
+    uint96 nativeUSD;
+    uint96 billingUSD;
+  }
+  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
+  event UpkeepCharged(uint256 indexed id, PaymentReceipt receipt);
+  event UpkeepPerformed(
+    uint256 indexed id,
+    bool indexed success,
+    uint96 totalPayment,
+    uint256 gasUsed,
+    uint256 gasOverhead,
+    bytes trigger
+  );
+  function test_whenFirstUpkeepFails_subsequentUpkeepsPerformZK() external {
+    // the first and second upkeeps use LINK as billing token and the third uses WETH
+    // the first upkeep fails the pre perform check due to incorrect block number in its trigger
+    // the second and third upkeep perform
+    // the first upkeep should not be charged and the second and third upkeep should be charged
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(linkUpkeepID2);
+    prevUpkeepBalances[2] = registry.getBalance(nativeUpkeepID);
+    uint256[] memory prevTokenBalances = new uint256[](2);
+    prevTokenBalances[0] = linkToken.balanceOf(address(registry));
+    prevTokenBalances[1] = weth.balanceOf(address(registry));
+    uint256[] memory prevReserveBalances = new uint256[](2);
+    prevReserveBalances[0] = registry.getReserveAmount(address(linkToken));
+    prevReserveBalances[1] = registry.getReserveAmount(address(weth));
+    uint256[] memory upkeepIDs = new uint256[](3);
+    upkeepIDs[0] = linkUpkeepID;
+    upkeepIDs[1] = linkUpkeepID2;
+    upkeepIDs[2] = nativeUpkeepID;
+
+    // do the transmit
+    vm.expectEmit();
+    emit ReorgedUpkeepReport(linkUpkeepID, abi.encode(block.number, blockhash(block.number)));
+    vm.expectEmit(true, false, false, false);
+    emit UpkeepCharged(linkUpkeepID2, PaymentReceipt(0, 0, 0, 0, linkToken, 0, 0, 0));
+    vm.expectEmit(true, true, false, false);
+    emit UpkeepPerformed(linkUpkeepID2, true, 0, 0, 0, bytes(""));
+    vm.expectEmit(true, false, false, false);
+    emit UpkeepCharged(nativeUpkeepID, PaymentReceipt(0, 0, 0, 0, linkToken, 0, 0, 0));
+    vm.expectEmit(true, true, false, false);
+    emit UpkeepPerformed(nativeUpkeepID, true, 0, 0, 0, bytes(""));
+    bool[] memory goodTriggers = new bool[](3);
+    goodTriggers[0] = false;
+    goodTriggers[1] = true;
+    goodTriggers[2] = true;
+    _batchTransmitWithBadTriggers(upkeepIDs, goodTriggers, registry);
+
+    // assert upkeep balances
+    // the first upkeep fails and the second and third upkeep succeeds
+    require(prevUpkeepBalances[0] == registry.getBalance(linkUpkeepID), "link upkeep balance should remain the same");
+    require(prevUpkeepBalances[1] > registry.getBalance(linkUpkeepID2), "link upkeep 2 balance should have decreased");
+    require(prevUpkeepBalances[2] > registry.getBalance(nativeUpkeepID), "native upkeep balance should have decreased");
+    // assert token balances have not changed
+    assertEq(prevTokenBalances[0], linkToken.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[1], weth.balanceOf(address(registry)));
+    // assert reserve amounts have adjusted accordingly
+    require(
+      prevReserveBalances[0] < registry.getReserveAmount(address(linkToken)),
+      "link reserve amount should have increased"
+    ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
+    require(
+      prevReserveBalances[1] > registry.getReserveAmount(address(weth)),
+      "native reserve amount should have decreased"
+    );
+  }
+
+  function test_whenSecondUpkeepFails_FirstAndThirdUpkeepsPerform() external {
+    // the first upkeep uses WETH as billing token and the second and third use LINK
+    // the first upkeep succeeds
+    // the second upkeep fails pre perform check due to incorrect block number in its trigger
+    // the third upkeep succeeds
+    // the second upkeep should not be charged and the first and third upkeep should be charged
+    uint256[] memory prevUpkeepBalances = new uint256[](3);
+    prevUpkeepBalances[0] = registry.getBalance(nativeUpkeepID);
+    prevUpkeepBalances[1] = registry.getBalance(linkUpkeepID);
+    prevUpkeepBalances[2] = registry.getBalance(linkUpkeepID2);
+    uint256[] memory prevTokenBalances = new uint256[](2);
+    prevTokenBalances[0] = weth.balanceOf(address(registry));
+    prevTokenBalances[1] = linkToken.balanceOf(address(registry));
+    uint256[] memory prevReserveBalances = new uint256[](2);
+    prevReserveBalances[0] = registry.getReserveAmount(address(weth));
+    prevReserveBalances[1] = registry.getReserveAmount(address(linkToken));
+    uint256[] memory upkeepIDs = new uint256[](3);
+    upkeepIDs[0] = nativeUpkeepID;
+    upkeepIDs[1] = linkUpkeepID;
+    upkeepIDs[2] = linkUpkeepID2;
+
+    // do the transmit
+    // expect this event first because all the upkeeps will be checked first before they are performed and charged
+    vm.expectEmit();
+    emit ReorgedUpkeepReport(linkUpkeepID, abi.encode(block.number, blockhash(block.number)));
+    vm.expectEmit(true, false, false, false);
+    emit UpkeepCharged(nativeUpkeepID, PaymentReceipt(0, 0, 0, 0, linkToken, 0, 0, 0));
+    vm.expectEmit(true, true, false, false);
+    emit UpkeepPerformed(nativeUpkeepID, true, 0, 0, 0, bytes(""));
+    vm.expectEmit(true, false, false, false);
+    emit UpkeepCharged(linkUpkeepID2, PaymentReceipt(0, 0, 0, 0, linkToken, 0, 0, 0));
+    vm.expectEmit(true, true, false, false);
+    emit UpkeepPerformed(linkUpkeepID2, true, 0, 0, 0, bytes(""));
+    bool[] memory goodTriggers = new bool[](3);
+    goodTriggers[0] = true;
+    goodTriggers[1] = false;
+    goodTriggers[2] = true;
+    _batchTransmitWithBadTriggers(upkeepIDs, goodTriggers, registry);
+
+    // assert upkeep balances
+    // the first upkeep fails and the second and third upkeep succeeds
+    require(prevUpkeepBalances[0] > registry.getBalance(nativeUpkeepID), "native upkeep balance should have decreased");
+    require(prevUpkeepBalances[1] == registry.getBalance(linkUpkeepID), "link upkeep balance should remain the same");
+    require(prevUpkeepBalances[2] > registry.getBalance(linkUpkeepID2), "link upkeep 2 balance should have decreased");
+    // assert token balances have not changed
+    assertEq(prevTokenBalances[0], weth.balanceOf(address(registry)));
+    assertEq(prevTokenBalances[1], linkToken.balanceOf(address(registry)));
+    // assert reserve amounts have adjusted accordingly
+    require(
+      prevReserveBalances[0] > registry.getReserveAmount(address(weth)),
+      "native reserve amount should have decreased"
+    ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
+    require(
+      prevReserveBalances[1] < registry.getReserveAmount(address(linkToken)),
+      "link reserve amount should have increased"
+    );
+  }
+
   function test_handlesMixedBatchOfBillingTokens() external {
     uint256[] memory prevUpkeepBalances = new uint256[](3);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
@@ -1698,7 +1832,7 @@ contract Transmit is SetUp {
     // assert reserve amounts have adjusted accordingly
     require(
       prevReserveBalances[0] < registry.getReserveAmount(address(linkToken)),
-      "usd reserve amount should have increased"
+      "link reserve amount should have increased"
     ); // link reserve amount increases in value equal to the decrease of the other reserve amounts
     require(
       prevReserveBalances[1] > registry.getReserveAmount(address(usdToken18)),
