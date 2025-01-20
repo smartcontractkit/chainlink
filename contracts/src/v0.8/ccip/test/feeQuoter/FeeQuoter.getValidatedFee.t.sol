@@ -205,12 +205,23 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  // Reverts
+  function test_SolChainFamilySelector() public {
+    // Update config to enforce allowOutOfOrderExecution = true.
+    vm.stopPrank();
+    vm.startPrank(OWNER);
 
-  function test_RevertWhen_DestinationChainNotEnabled() public {
-    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.DestinationChainNotEnabled.selector, DEST_CHAIN_SELECTOR + 1));
-    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR + 1, _generateEmptyMessage());
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+    vm.stopPrank();
+
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage2SVM();
+
+    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
+
+  // Reverts
 
   function test_RevertWhen_EnforceOutOfOrder() public {
     // Update config to enforce allowOutOfOrderExecution = true.

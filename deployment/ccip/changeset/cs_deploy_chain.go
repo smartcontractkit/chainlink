@@ -337,7 +337,7 @@ func deployChainContracts(
 					},
 					onramp.OnRampDynamicConfig{
 						FeeQuoter:     feeQuoterContract.Address(),
-						FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
+						FeeAggregator: chain.DeployerKey.From, // TODO real fee aggregator, using deployer key for now
 					},
 					[]onramp.OnRampDestChainConfigArgs{},
 				)

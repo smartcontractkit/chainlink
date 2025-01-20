@@ -664,6 +664,9 @@ func TestConfig_Marshal(t *testing.T) {
 					AutoPurge: evmcfg.AutoPurgeConfig{
 						Enabled: ptr(false),
 					},
+					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
+						Enabled: ptr(false),
+					},
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -1132,6 +1135,9 @@ ResendAfterThreshold = '1h0m0s'
 [EVM.Transactions.AutoPurge]
 Enabled = false
 
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -1407,6 +1413,15 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].Order == nil {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.CustomURL == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commoncfg.URL)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
