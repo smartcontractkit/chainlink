@@ -427,7 +427,8 @@ func adulteratedPassword(password string) string {
 
 type ResourceMutex struct {
 	mu          sync.Mutex
-	activeCount map[ServiceType]int // Tracks active users per service type
+	serviceType ServiceType
+	count       int // Tracks active users per service type
 }
 type ServiceType int
 
@@ -442,15 +443,17 @@ func (rm *ResourceMutex) TryLock(serviceType ServiceType) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
+	if rm.count == 0 {
+		rm.serviceType = serviceType
+	}
+
 	// Check if other service types are using the resource
-	for otherServiceType, count := range rm.activeCount {
-		if otherServiceType != serviceType && count > 0 {
-			return errors.New("resource is locked by another service type")
-		}
+	if rm.serviceType != serviceType && rm.count > 0 {
+		return errors.New("resource is locked by another service type")
 	}
 
 	// Increment active count for the current service type
-	rm.activeCount[serviceType]++
+	rm.count++
 	return nil
 }
 
@@ -460,32 +463,31 @@ func (rm *ResourceMutex) Unlock(serviceType ServiceType) error {
 	defer rm.mu.Unlock()
 
 	// Check if the service type has an active lock
-	if rm.activeCount[serviceType] == 0 {
+	if rm.count == 0 {
+		return errors.New("no active lock")
+	}
+
+	if rm.serviceType != serviceType {
 		return errors.New("no active lock for this service type")
 	}
 
 	// Decrement active count for the service type
-	rm.activeCount[serviceType]--
-	if rm.activeCount[serviceType] == 0 {
-		delete(rm.activeCount, serviceType)
-	}
+	rm.count--
 	return nil
 }
 
-// IsLocked checks if the resource is locked by any service or a specific service type.
+// IsLocked checks if the resource is locked by a specific service type.
 func (rm *ResourceMutex) IsLocked(serviceType ServiceType) (bool, error) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	// Check if the resource is locked by the given service type
-	if count, exists := rm.activeCount[serviceType]; exists && count > 0 {
-		return true, nil
+	if rm.count == 0 || rm.serviceType != serviceType {
+		return false, nil
 	}
-	return false, nil
+
+	return true, nil
 }
 
 func NewResourceMutex() *ResourceMutex {
-	return &ResourceMutex{
-		activeCount: make(map[ServiceType]int),
-	}
+	return &ResourceMutex{}
 }

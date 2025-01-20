@@ -163,7 +163,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 }
 
 func TestResourceMutex_LockUnlock(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm := &ResourceMutex{}
 
 	err := rm.TryLock(TXMv1)
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func TestResourceMutex_LockUnlock(t *testing.T) {
 }
 
 func TestResourceMutex_LockByDifferentServiceType(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm := &ResourceMutex{}
 
 	err := rm.TryLock(TXMv1)
 	require.NoError(t, err)
@@ -184,15 +184,20 @@ func TestResourceMutex_LockByDifferentServiceType(t *testing.T) {
 }
 
 func TestResourceMutex_UnlockWithoutLock(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm := &ResourceMutex{}
 
 	err := rm.Unlock(TXMv1)
+	require.Error(t, err)
+	require.Equal(t, "no active lock", err.Error())
+
+	require.NoError(t, rm.TryLock(TXMv1))
+	err = rm.Unlock(TXMv2)
 	require.Error(t, err)
 	require.Equal(t, "no active lock for this service type", err.Error())
 }
 
 func TestResourceMutex_MultipleLocks(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm := &ResourceMutex{}
 
 	err := rm.TryLock(TXMv1)
 	require.NoError(t, err)
@@ -208,8 +213,7 @@ func TestResourceMutex_MultipleLocks(t *testing.T) {
 }
 
 func TestIsLocked_WhenResourceIsLockedByServiceType(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
-	rm.activeCount[TXMv1] = 1
+	rm := &ResourceMutex{serviceType: TXMv1, count: 1}
 
 	locked, err := rm.IsLocked(TXMv1)
 	require.NoError(t, err)
@@ -217,7 +221,7 @@ func TestIsLocked_WhenResourceIsLockedByServiceType(t *testing.T) {
 }
 
 func TestIsLocked_WhenResourceIsNotLockedByServiceType(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
+	rm := &ResourceMutex{}
 
 	locked, err := rm.IsLocked(TXMv1)
 	require.NoError(t, err)
@@ -225,24 +229,9 @@ func TestIsLocked_WhenResourceIsNotLockedByServiceType(t *testing.T) {
 }
 
 func TestIsLocked_WhenResourceIsLockedByDifferentServiceType(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
-	rm.activeCount[TXMv2] = 1
+	rm := &ResourceMutex{serviceType: TXMv2, count: 1}
 
 	locked, err := rm.IsLocked(TXMv1)
 	require.NoError(t, err)
 	require.False(t, locked)
-}
-
-func TestIsLocked_WhenResourceIsLockedByMultipleServiceTypes(t *testing.T) {
-	rm := &ResourceMutex{activeCount: make(map[ServiceType]int)}
-	rm.activeCount[TXMv1] = 1
-	rm.activeCount[TXMv2] = 1
-
-	locked, err := rm.IsLocked(TXMv1)
-	require.NoError(t, err)
-	require.True(t, locked)
-
-	locked, err = rm.IsLocked(TXMv2)
-	require.NoError(t, err)
-	require.True(t, locked)
 }

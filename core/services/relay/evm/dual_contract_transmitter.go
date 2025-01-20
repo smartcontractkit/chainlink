@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -189,17 +190,17 @@ func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
 
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
-		return err
+		return multierr.Append(err, rmPrimary.Unlock(keystore.TXMv1))
 	}
 
 	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
 	if err != nil {
-		return err
+		return multierr.Append(err, rmPrimary.Unlock(keystore.TXMv1))
 	}
 
 	err = rmSecondary.TryLock(keystore.TXMv2)
 	if err != nil {
-		return err
+		return multierr.Append(err, rmPrimary.Unlock(keystore.TXMv1))
 	}
 	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryAddress.String())
 	return nil
