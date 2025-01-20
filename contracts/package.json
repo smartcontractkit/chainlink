@@ -25,7 +25,8 @@
   "files": [
     "src/v0.8",
     "abi/v0.8",
-    "!src/*/ccip/**"
+    "!src/*/ccip/**",
+    "!src/*/liquiditymanager/**"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
