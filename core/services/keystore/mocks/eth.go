@@ -702,6 +702,65 @@ func (_c *Eth_GetAll_Call) RunAndReturn(run func(context.Context) ([]ethkey.KeyV
 	return _c
 }
 
+// GetResourceMutex provides a mock function with given fields: ctx, address
+func (_m *Eth) GetResourceMutex(ctx context.Context, address common.Address) (*ethkey.ResourceMutex, error) {
+	ret := _m.Called(ctx, address)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceMutex")
+	}
+
+	var r0 *ethkey.ResourceMutex
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*ethkey.ResourceMutex, error)); ok {
+		return rf(ctx, address)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *ethkey.ResourceMutex); ok {
+		r0 = rf(ctx, address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ethkey.ResourceMutex)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address) error); ok {
+		r1 = rf(ctx, address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Eth_GetResourceMutex_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceMutex'
+type Eth_GetResourceMutex_Call struct {
+	*mock.Call
+}
+
+// GetResourceMutex is a helper method to define mock.On call
+//   - ctx context.Context
+//   - address common.Address
+func (_e *Eth_Expecter) GetResourceMutex(ctx interface{}, address interface{}) *Eth_GetResourceMutex_Call {
+	return &Eth_GetResourceMutex_Call{Call: _e.mock.On("GetResourceMutex", ctx, address)}
+}
+
+func (_c *Eth_GetResourceMutex_Call) Run(run func(ctx context.Context, address common.Address)) *Eth_GetResourceMutex_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(common.Address))
+	})
+	return _c
+}
+
+func (_c *Eth_GetResourceMutex_Call) Return(_a0 *ethkey.ResourceMutex, _a1 error) *Eth_GetResourceMutex_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Eth_GetResourceMutex_Call) RunAndReturn(run func(context.Context, common.Address) (*ethkey.ResourceMutex, error)) *Eth_GetResourceMutex_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetRoundRobinAddress provides a mock function with given fields: ctx, chainID, addresses
 func (_m *Eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (common.Address, error) {
 	_va := make([]interface{}, len(addresses))
