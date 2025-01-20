@@ -484,15 +484,15 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 				Config:                         regCap.Config,
 				CapabilitiesRegistryCapability: regCap.Capability,
 			}
-			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
+			lggr.Debugw("hashed capability id", "capability", regCap, "id", id)
 			registerCaps = append(registerCaps, registerCap)
 		}
 		resp.DonToCapabilities[don] = registerCaps
 	}
 
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
-	for cap := range uniqueCaps {
-		capabilities = append(capabilities, cap)
+	for uniqueCap := range uniqueCaps {
+		capabilities = append(capabilities, uniqueCap)
 	}
 	if len(capabilities) == 0 {
 		lggr.Warn("no new capabilities to register")
