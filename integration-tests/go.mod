@@ -58,7 +58,6 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/subosito/gotenv v1.6.0
-	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.34.0
 	github.com/umbracle/ethgo v0.1.3
 	go.uber.org/atomic v1.11.0
@@ -454,6 +453,7 @@ require (
 	github.com/supranational/blst v0.3.13 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
+	github.com/test-go/testify v1.1.4 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect

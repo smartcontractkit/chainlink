@@ -14,7 +14,7 @@ import (
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"

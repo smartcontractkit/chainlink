@@ -38,7 +38,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.13
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/stretchr/testify v1.10.0
-	github.com/test-go/testify v1.1.4
 	github.com/testcontainers/testcontainers-go v0.34.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
@@ -48,7 +47,6 @@ require (
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/guregu/null.v4 v4.0.0
-	gotest.tools/v3 v3.5.1
 )
 
 require (
@@ -442,6 +440,7 @@ require (
 	github.com/supranational/blst v0.3.13 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
+	github.com/test-go/testify v1.1.4 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tidwall/gjson v1.17.0 // indirect
