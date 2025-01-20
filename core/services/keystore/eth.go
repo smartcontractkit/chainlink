@@ -65,8 +65,8 @@ type eth struct {
 
 // GetResourceMutex gets the resource mutex associates with the address if no resource mutex is found a new one is created
 func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) (*ResourceMutex, error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
