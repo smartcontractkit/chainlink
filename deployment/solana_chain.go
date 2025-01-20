@@ -90,7 +90,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 		// Keypairs wont be created for devenvs
 		logger.Infow("Deploying new program",
 			"programFile", programFile)
-		cmd = exec.Command("solana", baseArgs...)
+		cmd = exec.Command("solana", baseArgs...) // #nosec G204
 	}
 
 	// Capture the command output
