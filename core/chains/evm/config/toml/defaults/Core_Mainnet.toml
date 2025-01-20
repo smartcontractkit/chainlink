@@ -6,4 +6,4 @@ LogPollInterval = '3s' # block rate 3s
 [GasEstimator]
 EIP1559DynamicFees = false
 Mode = 'FeeHistory'
-PriceDefault = '30 gwei' # currently set to 35 gwei, may change in the future so using FeeHistory mode
+PriceDefault = '30 gwei' # currently set to 30 gwei, may change in the future so using FeeHistory mode
