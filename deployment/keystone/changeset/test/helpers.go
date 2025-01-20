@@ -165,7 +165,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.OCR3Cap, Config: *ocr3CapCfg},
+			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
 		},
 	}
 	cwDon := internal.DonCapabilities{
@@ -177,7 +177,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.WriteChainCap, Config: *writerChainCapCfg},
+			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
 		},
 	}
 	assetDon := internal.DonCapabilities{
@@ -189,7 +189,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.StreamTriggerCap, Config: *streamTriggerChainCapCfg},
+			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
 		},
 	}
 

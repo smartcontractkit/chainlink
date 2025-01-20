@@ -112,7 +112,7 @@ func TestUpdateDon(t *testing.T) {
 				{
 					Name:         "don 1",
 					Nodes:        []deployment.Node{node_1, node_2, node_3, node_4},
-					Capabilities: []internal.DONCapabilityWithConfig{{Capability: initialCap, Config: *initialCapCfg}},
+					Capabilities: []internal.DONCapabilityWithConfig{{Capability: initialCap, Config: initialCapCfg}},
 				},
 			},
 			nops: []internal.NOP{
@@ -322,11 +322,11 @@ func testDon(t *testing.T, don internal.DonInfo) kstest.Don {
 
 	var capabilityConfigs []internal.CapabilityConfig
 	for i := range don.Capabilities {
-		cap := &don.Capabilities[i]
-		cfg, err := proto.Marshal(&cap.Config)
+		donCap := &don.Capabilities[i]
+		cfg, err := proto.Marshal(donCap.Config)
 		require.NoError(t, err)
 		capabilityConfigs = append(capabilityConfigs, internal.CapabilityConfig{
-			Capability: cap.Capability, Config: cfg,
+			Capability: donCap.Capability, Config: cfg,
 		})
 	}
 	return kstest.Don{

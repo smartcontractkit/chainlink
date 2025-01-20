@@ -137,7 +137,7 @@ type DonCapabilities struct {
 
 type DONCapabilityWithConfig struct {
 	Capability kcr.CapabilitiesRegistryCapability
-	Config     capabilitiespb.CapabilityConfig
+	Config     *capabilitiespb.CapabilityConfig
 }
 
 func (v DonCapabilities) Validate() error {

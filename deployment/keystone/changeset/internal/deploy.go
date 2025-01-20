@@ -469,20 +469,20 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	for don, caps := range req.DonToCapabilities {
 		var registerCaps []RegisteredCapability
 		for i := range caps {
-			cap := &caps[i]
-			id, ok := uniqueCaps[cap.Capability]
+			regCap := &caps[i]
+			id, ok := uniqueCaps[regCap.Capability]
 			if !ok {
 				var err error
-				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.Capability.LabelledName, cap.Capability.Version)
+				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, regCap.Capability.LabelledName, regCap.Capability.Version)
 				if err != nil {
-					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", regCap, err)
 				}
-				uniqueCaps[cap.Capability] = id
+				uniqueCaps[regCap.Capability] = id
 			}
 			registerCap := RegisteredCapability{
 				ID:                             id,
-				Config:                         &cap.Config,
-				CapabilitiesRegistryCapability: cap.Capability,
+				Config:                         regCap.Config,
+				CapabilitiesRegistryCapability: regCap.Capability,
 			}
 			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
 			registerCaps = append(registerCaps, registerCap)
