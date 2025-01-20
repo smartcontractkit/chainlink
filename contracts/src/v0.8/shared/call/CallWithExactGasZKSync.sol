@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {EfficientCall} from "@zksync/contracts/system-contracts/contracts/libraries/EfficientCall.sol";
 import {ISystemContext} from "@zksync/contracts/gas-bound-caller/contracts/ISystemContext.sol";
