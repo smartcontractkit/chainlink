@@ -8,6 +8,7 @@ LogBroadcasterEnabled = false
 FinalityTagEnabled = false
 # finality_depth * block_time / 60 secs = < 1 min (finality time)
 NoNewFinalizedHeadsThreshold = '1m'
+NoNewHeadsThreshold = '1m'
 
 [GasEstimator]
 EIP1559DynamicFees = false
