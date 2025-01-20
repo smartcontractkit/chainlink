@@ -78,7 +78,7 @@ jobs:
           restore-build-cache-only: "false"
 
       - name: Setup Solana
-        uses: ./.github/actions/setup-
+        uses: ./.github/actions/setup-solana
 
       - name: Build Solana artifacts
         uses: ./.github/actions/setup-solana/build-contracts
