@@ -79,7 +79,7 @@ library CallWithExactGasZKSync {
 
     // limit our paddedReturndataLen to maxReturnBytes bytes
     if (paddedReturndataLen > _maxReturnBytes) {
-      paddedReturndataLen := _maxReturnBytes;
+      paddedReturndataLen = _maxReturnBytes;
     }
 
     uint256 pubdataPublishedAfter = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
