@@ -3,6 +3,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -45,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -738,11 +740,25 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
-		clients := make(map[string]wsrpc.Client)
+		clients := make(map[string]grpc.Client)
 		for _, server := range lloCfg.GetServers() {
-			client, err2 := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-			if err2 != nil {
-				return nil, err2
+			var client grpc.Client
+			switch r.mercuryCfg.Transmitter().Protocol() {
+			case "grpc":
+				client = grpc.NewClient(grpc.ClientOpts{
+					Logger:        r.lggr,
+					ClientPrivKey: privKey.PrivateKey(),
+					ServerPubKey:  ed25519.PublicKey(server.PubKey),
+					ServerURL:     server.URL,
+				})
+			case "wsrpc":
+				wsrpcClient, checkoutErr := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
+				if checkoutErr != nil {
+					return nil, checkoutErr
+				}
+				client = wsrpc.GRPCCompatibilityWrapper{Client: wsrpcClient}
+			default:
+				return nil, fmt.Errorf("unsupported protocol %q", r.mercuryCfg.Transmitter().Protocol())
 			}
 			clients[server.URL] = client
 		}

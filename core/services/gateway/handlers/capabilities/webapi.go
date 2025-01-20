@@ -1,5 +1,7 @@
 package capabilities
 
+import "errors"
+
 type Request struct {
 	URL       string            `json:"url"`                 // URL to query, only http and https protocols are supported.
 	Method    string            `json:"method,omitempty"`    // HTTP verb, defaults to GET.
@@ -14,6 +16,25 @@ type Response struct {
 	StatusCode     int               `json:"statusCode,omitempty"`   // HTTP status code
 	Headers        map[string]string `json:"headers,omitempty"`      // HTTP headers
 	Body           []byte            `json:"body,omitempty"`         // HTTP response body
+}
+
+// Validate ensures the Response struct is consistent.
+func (r Response) Validate() error {
+	if r.ExecutionError {
+		if r.ErrorMessage == "" {
+			return errors.New("executionError is true but errorMessage is empty")
+		}
+		if r.StatusCode != 0 || len(r.Headers) > 0 || len(r.Body) > 0 {
+			return errors.New("executionError is true but response details (statusCode, headers, body) are populated")
+		}
+		return nil
+	}
+
+	if r.StatusCode < 100 || r.StatusCode > 599 {
+		return errors.New("statusCode must be a valid HTTP status code (100-599)")
+	}
+
+	return nil
 }
 
 type TriggerResponsePayload struct {
