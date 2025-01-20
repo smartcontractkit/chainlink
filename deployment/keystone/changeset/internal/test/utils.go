@@ -219,12 +219,10 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 	for _, c := range capabilities {
 		id, cached := cc.nameToId[internal.CapabilityID(c)]
 		if cached {
-			cfgB, err := internal.GetDefaultCapConfig(c)
-			require.NoError(t, err)
 			out = append(out, internal.RegisteredCapability{
 				CapabilitiesRegistryCapability: c,
 				ID:                             id,
-				Config:                         cfgB,
+				Config:                         internal.GetDefaultCapConfig(c),
 			})
 			continue
 		}
@@ -250,12 +248,10 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 		capb := capb
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capb.LabelledName, capb.Version)
 		require.NoError(t, err)
-		cfgB, err := internal.GetDefaultCapConfig(capb)
-		require.NoError(t, err)
 		out = append(out, internal.RegisteredCapability{
 			CapabilitiesRegistryCapability: capb,
 			ID:                             id,
-			Config:                         cfgB,
+			Config:                         internal.GetDefaultCapConfig(capb),
 		})
 		// cache the id
 		cc.nameToId[internal.CapabilityID(capb)] = id

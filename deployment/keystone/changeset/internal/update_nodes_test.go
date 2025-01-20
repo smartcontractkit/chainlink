@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -463,8 +462,6 @@ func TestUpdateNodes(t *testing.T) {
 					},
 				},
 			}
-			phonyCapCfgBytes, err := proto.Marshal(phonyCapCfg)
-			require.NoError(t, err)
 			initMap := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 			for p2pID := range tt.args.req.P2pToUpdates {
 				initMap[p2pID] = []kcr.CapabilitiesRegistryCapability{phonyCap}
@@ -489,7 +486,7 @@ func TestUpdateNodes(t *testing.T) {
 					expectedUpdatedCaps[p2p] = expectedCaps
 				} else {
 					expectedUpdatedCaps[p2p] = []internal.RegisteredCapability{
-						{CapabilitiesRegistryCapability: phonyCap, ID: id, Config: phonyCapCfgBytes},
+						{CapabilitiesRegistryCapability: phonyCap, ID: id, Config: phonyCapCfg},
 					}
 				}
 			}

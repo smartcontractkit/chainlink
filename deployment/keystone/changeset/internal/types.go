@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -136,7 +137,7 @@ type DonCapabilities struct {
 
 type DONCapabilityWithConfig struct {
 	Capability kcr.CapabilitiesRegistryCapability
-	Config     []byte
+	Config     capabilitiespb.CapabilityConfig
 }
 
 func (v DonCapabilities) Validate() error {

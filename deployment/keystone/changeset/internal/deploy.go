@@ -424,7 +424,7 @@ type RegisterCapabilitiesResponse struct {
 type RegisteredCapability struct {
 	capabilities_registry.CapabilitiesRegistryCapability
 	ID     [32]byte
-	Config []byte
+	Config *capabilitiespb.CapabilityConfig
 }
 
 func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
@@ -439,14 +439,10 @@ func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.Capabiliti
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required for capability %v", capReg)
 	}
-	cfgB, err := proto.Marshal(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal config for capability %v: %w", capReg, err)
-	}
 	return &RegisteredCapability{
 		CapabilitiesRegistryCapability: *capReg,
 		ID:                             id,
-		Config:                         cfgB,
+		Config:                         cfg,
 	}, nil
 }
 
@@ -472,7 +468,8 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	uniqueCaps := make(map[capabilities_registry.CapabilitiesRegistryCapability][32]byte)
 	for don, caps := range req.DonToCapabilities {
 		var registerCaps []RegisteredCapability
-		for _, cap := range caps {
+		for i := range caps {
+			cap := &caps[i]
 			id, ok := uniqueCaps[cap.Capability]
 			if !ok {
 				var err error
@@ -484,7 +481,7 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 			}
 			registerCap := RegisteredCapability{
 				ID:                             id,
-				Config:                         cap.Config,
+				Config:                         &cap.Config,
 				CapabilitiesRegistryCapability: cap.Capability,
 			}
 			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
@@ -899,9 +896,13 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			if regCap.Config == nil {
 				return nil, fmt.Errorf("config not found for capability %v", regCap)
 			}
+			cfgB, capErr := proto.Marshal(regCap.Config)
+			if capErr != nil {
+				return nil, fmt.Errorf("failed to marshal config for capability %v: %w", regCap, capErr)
+			}
 			cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 				CapabilityId: regCap.ID,
-				Config:       regCap.Config,
+				Config:       cfgB,
 			})
 		}
 
@@ -1046,7 +1047,7 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 	return opMap, nil
 }
 
-func GetDefaultCapConfig(capability capabilities_registry.CapabilitiesRegistryCapability) ([]byte, error) {
+func GetDefaultCapConfig(capability capabilities_registry.CapabilitiesRegistryCapability) *capabilitiespb.CapabilityConfig {
 	defaultCfg := &capabilitiespb.CapabilityConfig{
 		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 	}
@@ -1068,5 +1069,5 @@ func GetDefaultCapConfig(capability capabilities_registry.CapabilitiesRegistryCa
 	case uint8(2): // consensus
 	default:
 	}
-	return proto.Marshal(defaultCfg)
+	return defaultCfg
 }

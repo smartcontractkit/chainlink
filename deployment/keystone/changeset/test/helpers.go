@@ -150,12 +150,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
-	ocr3CapCfg, err := internal.GetDefaultCapConfig(internal.OCR3Cap)
-	require.NoError(t, err)
-	writerChainCapCfg, err := internal.GetDefaultCapConfig(internal.WriteChainCap)
-	require.NoError(t, err)
-	streamTriggerChainCapCfg, err := internal.GetDefaultCapConfig(internal.StreamTriggerCap)
-	require.NoError(t, err)
+	ocr3CapCfg := internal.GetDefaultCapConfig(internal.OCR3Cap)
+	writerChainCapCfg := internal.GetDefaultCapConfig(internal.WriteChainCap)
+	streamTriggerChainCapCfg := internal.GetDefaultCapConfig(internal.StreamTriggerCap)
 
 	// TODO: partition nodes into multiple nops
 
@@ -168,7 +165,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
+			{Capability: internal.OCR3Cap, Config: *ocr3CapCfg},
 		},
 	}
 	cwDon := internal.DonCapabilities{
@@ -180,7 +177,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
+			{Capability: internal.WriteChainCap, Config: *writerChainCapCfg},
 		},
 	}
 	assetDon := internal.DonCapabilities{
@@ -192,7 +189,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
-			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
+			{Capability: internal.StreamTriggerCap, Config: *streamTriggerChainCapCfg},
 		},
 	}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -29,9 +30,11 @@ func TestUpdateDon(t *testing.T) {
 		}
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
-	capACfg, err := internal.GetDefaultCapConfig(capA)
+	capACfg := internal.GetDefaultCapConfig(capA)
+	capACfgB, err := proto.Marshal(capACfg)
 	require.NoError(t, err)
-	capBCfg, err := internal.GetDefaultCapConfig(capB)
+	capBCfg := internal.GetDefaultCapConfig(capB)
+	capBCfgB, err := proto.Marshal(capBCfg)
 	require.NoError(t, err)
 
 	t.Run("no mcms", func(t *testing.T) {
@@ -59,10 +62,10 @@ func TestUpdateDon(t *testing.T) {
 				P2PIDs:           p2pIDs,
 				CapabilityConfigs: []changeset.CapabilityConfig{
 					{
-						Capability: capA, Config: capACfg,
+						Capability: capA, Config: capACfgB,
 					},
 					{
-						Capability: capB, Config: capBCfg,
+						Capability: capB, Config: capBCfgB,
 					},
 				},
 			}
@@ -99,11 +102,11 @@ func TestUpdateDon(t *testing.T) {
 			CapabilityConfigs: []changeset.CapabilityConfig{
 				{
 					Capability: capA,
-					Config:     capACfg,
+					Config:     capACfgB,
 				},
 				{
 					Capability: capB,
-					Config:     capBCfg,
+					Config:     capBCfgB,
 				},
 			},
 			MCMSConfig: &changeset.MCMSConfig{MinDuration: 0},
