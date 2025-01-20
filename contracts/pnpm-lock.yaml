@@ -145,7 +145,7 @@ importers:
         specifier: ^1.4.2
         version: 1.4.2(prettier@3.5.0)
       solhint:
-        specifier: ^5.0.5
+        specifier: ^5.0.3
         version: 5.0.5
       solhint-plugin-chainlink-solidity:
         specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1
