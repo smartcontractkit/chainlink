@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -37,6 +36,10 @@ const (
 	Memory      EnvType = "in-memory"
 	Docker      EnvType = "docker"
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
+
+	GasPriceDeviationPPB    = 1000
+	DAGasPriceDeviationPPB  = 0
+	OptimisticConfirmations = 1
 )
 
 type TestConfigs struct {
@@ -496,11 +499,18 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		})
 	}
+	allContractParams := make(map[uint64]changeset.ContractParams)
+	for _, chain := range allChains {
+		allContractParams[chain] = changeset.ContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
 	apps = append(apps, commonchangeset.ChangesetApplication{
 		Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 		Config: changeset.DeployChainContractsConfig{
-			ChainSelectors:    allChains,
-			HomeChainSelector: e.HomeChainSel,
+			HomeChainSelector:      e.HomeChainSel,
+			ContractParamsPerChain: allContractParams,
 		},
 	})
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
@@ -567,9 +577,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: internal.OptimisticConfirmations,
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: OptimisticConfirmations,
 			},
 		}
 	}

@@ -49,10 +49,6 @@ const (
 	MaxDurationObservation                  = 5 * time.Second
 	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
-
-	GasPriceDeviationPPB    = 1000
-	DAGasPriceDeviationPPB  = 0
-	OptimisticConfirmations = 1
 )
 
 var (
