@@ -83,10 +83,10 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250130125138-3df261e09ddc
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250203160922-fbdf168bb92a
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250130175645-f9ffc7ee5eab
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250205171936-649f95193678
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250205171936-649f95193678
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250203204555-c245a7640475
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250205221351-c3ca04743e06
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
@@ -129,11 +129,6 @@ require (
 )
 
 require (
-	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250128162345-af4c8fd4481a // indirect
-)
-
-require (
 	cel.dev/expr v0.17.0 // indirect
 	cloud.google.com/go/auth v0.9.9 // indirect
 	cloud.google.com/go/storage v1.45.0 // indirect
@@ -167,6 +162,7 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -330,6 +326,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250128162345-af4c8fd4481a // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
