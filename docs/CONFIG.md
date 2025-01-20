@@ -7577,7 +7577,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
+NewHeadsPollInterval = '4s'
 
 [OCR]
 ContractConfirmations = 4
