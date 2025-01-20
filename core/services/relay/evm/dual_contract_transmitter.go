@@ -18,10 +18,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // TODO: Remove when new dual transmitter contracts are merged
@@ -176,14 +174,6 @@ func (oc *dualContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Contex
 // FromAccount returns the account from which the transmitter invokes the contract
 func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
-}
-
-func (oc *dualContractTransmitter) getKeyState(ctx context.Context, address common.Address) (ethkey.State, error) {
-	k, err := oc.ks.Get(ctx, address.String())
-	if err != nil {
-		return ethkey.State{}, err
-	}
-	return oc.ks.GetStateForKey(ctx, k)
 }
 
 func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {

@@ -252,7 +252,7 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 }
 
 func (oc *contractTransmitter) Start(ctx context.Context) error {
-	//Lock the transmitters to TXMv1
+	// Lock the transmitters to TXMv1
 	rm, err := oc.ks.GetResourceMutex(ctx, oc.transmitter.FromAddress(ctx))
 	if err != nil {
 		return err
