@@ -260,7 +260,7 @@ func (oc *contractTransmitter) Start(ctx context.Context) error {
 	return rm.TryLock(keystore.TXMv1)
 }
 func (oc *contractTransmitter) Close() error {
-	//Unlock the transmitters to TXMv1
+	// Unlock the transmitters to TXMv1
 	rm, err := oc.ks.GetResourceMutex(context.Background(), oc.transmitter.FromAddress(context.Background()))
 	if err != nil {
 		return err
