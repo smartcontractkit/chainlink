@@ -213,8 +213,13 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 		}
 		offchainPublicKeys[node.OffchainPublicKey] = struct{}{}
 	}
-	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
 
+	homeChain, ok := state.Chains[c.HomeChainSelector]
+	if !ok {
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
+	}
+
+	rmnHome := homeChain.RMNHome
 	if rmnHome == nil {
 		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
 	}
@@ -243,7 +248,13 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 		return err
 	}
 
-	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+	homeChain, ok := state.Chains[c.HomeChainSelector]
+
+	if !ok {
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
+	}
+
+	rmnHome := homeChain.RMNHome
 	if rmnHome == nil {
 		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
 	}
