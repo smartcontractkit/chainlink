@@ -8,8 +8,8 @@ import {BlockhashStore} from "../dev/BlockhashStore.sol";
 import {VRFV2PlusClient} from "../dev/libraries/VRFV2PlusClient.sol";
 import {ExposedVRFCoordinatorV2_5} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
 import {VRFV2PlusConsumerExample} from "../dev/testhelpers/VRFV2PlusConsumerExample.sol";
-import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
-import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
+import {MockLinkToken} from "../../functions/tests/v1_X/testhelpers/MockLinkToken.sol";
+import {MockV3Aggregator} from "../../shared/mocks/MockV3Aggregator.sol";
 import "./BaseTest.t.sol";
 
 contract FixtureVRFCoordinatorV2_5 is BaseTest, VRF {

@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {ILiquidityContainer} from "../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {ITokenMessenger} from "../USDC/ITokenMessenger.sol";
 
-import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSender.sol";
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
 import {USDCTokenPool} from "../USDC/USDCTokenPool.sol";
@@ -207,31 +206,6 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
     i_token.safeTransfer(msg.sender, amount);
 
     emit ILiquidityContainer.LiquidityRemoved(msg.sender, amount);
-  }
-
-  /// @notice This function can be used to transfer liquidity from an older version of the pool to this pool. To do so
-  /// this pool must be the owner of the old pool. Since the pool uses two-step ownership transfer, the old pool must
-  /// first propose the ownership transfer, and then this pool must accept it. This function can only be called after
-  /// the ownership transfer has been proposed, as it will accept it and then make the call to withdrawLiquidity
-  /// @dev When upgrading a LockRelease pool, this function can be called at the same time as the pool is changed in the
-  /// TokenAdminRegistry. This allows for a smooth transition of both liquidity and transactions to the new pool.
-  /// Alternatively, when no multicall is available, a portion of the funds can be transferred to the new pool before
-  /// changing which pool CCIP uses, to ensure both pools can operate. Then the pool should be changed in the
-  /// TokenAdminRegistry, which will activate the new pool. All new transactions will use the new pool and its
-  /// liquidity.
-  /// @param from The address of the old pool.
-  /// @param remoteChainSelector The chain for which liquidity is being transferred.
-  function transferLiquidity(address from, uint64 remoteChainSelector) external onlyOwner {
-    Ownable2StepMsgSender(from).acceptOwnership();
-
-    // Withdraw all available liquidity from the old pool. No check is needed for pending migrations, as the old pool
-    // will revert if the migration has begun.
-    uint256 withdrawAmount = HybridLockReleaseUSDCTokenPool(from).getLockedTokensForChain(remoteChainSelector);
-    HybridLockReleaseUSDCTokenPool(from).withdrawLiquidity(remoteChainSelector, withdrawAmount);
-
-    s_lockedTokensByChainSelector[remoteChainSelector] += withdrawAmount;
-
-    emit LiquidityTransferred(from, remoteChainSelector, withdrawAmount);
   }
 
   // ================================================================

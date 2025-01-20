@@ -9,16 +9,16 @@ import (
 
 func TestNode_OCRConfigForChainSelector(t *testing.T) {
 	var m = map[chain_selectors.ChainDetails]OCRConfig{
-		chain_selectors.ChainDetails{
+		{
 			ChainSelector: chain_selectors.APTOS_TESTNET.Selector,
 			ChainName:     chain_selectors.APTOS_TESTNET.Name,
-		}: OCRConfig{
+		}: {
 			KeyBundleID: "aptos bundle 1",
 		},
-		chain_selectors.ChainDetails{
+		{
 			ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
 			ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
-		}: OCRConfig{
+		}: {
 			KeyBundleID: "arb bundle 1",
 		},
 	}

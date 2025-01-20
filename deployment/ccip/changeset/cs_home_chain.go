@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -26,10 +27,10 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChain
+var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
 
-// DeployHomeChain is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
-func DeployHomeChain(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
+// DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
+func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
@@ -61,23 +62,23 @@ type DeployHomeChainConfig struct {
 
 func (c DeployHomeChainConfig) Validate() error {
 	if c.HomeChainSel == 0 {
-		return fmt.Errorf("home chain selector must be set")
+		return errors.New("home chain selector must be set")
 	}
 	if c.RMNDynamicConfig.OffchainConfig == nil {
-		return fmt.Errorf("offchain config for RMNHomeDynamicConfig must be set")
+		return errors.New("offchain config for RMNHomeDynamicConfig must be set")
 	}
 	if c.RMNStaticConfig.OffchainConfig == nil {
-		return fmt.Errorf("offchain config for RMNHomeStaticConfig must be set")
+		return errors.New("offchain config for RMNHomeStaticConfig must be set")
 	}
 	if len(c.NodeOperators) == 0 {
-		return fmt.Errorf("node operators must be set")
+		return errors.New("node operators must be set")
 	}
 	for _, nop := range c.NodeOperators {
 		if nop.Admin == (common.Address{}) {
-			return fmt.Errorf("node operator admin address must be set")
+			return errors.New("node operator admin address must be set")
 		}
 		if nop.Name == "" {
-			return fmt.Errorf("node operator name must be set")
+			return errors.New("node operator name must be set")
 		}
 		if len(c.NodeP2PIDsPerNodeOpAdmin[nop.Name]) == 0 {
 			return fmt.Errorf("node operator %s must have node p2p ids provided", nop.Name)
@@ -338,14 +339,14 @@ func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
 		return fmt.Errorf("home chain selector must be set %w", err)
 	}
 	if len(c.DonIDs) == 0 {
-		return fmt.Errorf("don ids must be set")
+		return errors.New("don ids must be set")
 	}
 	// Cap reg must exist
 	if homeChain.CapabilityRegistry == nil {
-		return fmt.Errorf("cap reg does not exist")
+		return errors.New("cap reg does not exist")
 	}
 	if homeChain.CCIPHome == nil {
-		return fmt.Errorf("ccip home does not exist")
+		return errors.New("ccip home does not exist")
 	}
 	if err := internal.DONIdExists(homeChain.CapabilityRegistry, c.DonIDs); err != nil {
 		return err

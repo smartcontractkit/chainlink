@@ -41,7 +41,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		// we have to keep track of the existing capabilities to add to the new ones
 		var p2pIDs []p2pkey.PeerID
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			p2pIDs = append(p2pIDs, k)
@@ -49,7 +49,6 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		}
 
 		t.Run("fails if update drops existing capabilities", func(t *testing.T) {
-
 			cfg := changeset.UpdateNodeCapabilitiesRequest{
 				RegistryChainSel:  te.RegistrySelector,
 				P2pToCapabilities: newCapabilities,
@@ -73,7 +72,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 
 			csOut, err := changeset.UpdateNodeCapabilities(te.Env, &cfg)
 			require.NoError(t, err)
-			require.Len(t, csOut.Proposals, 0)
+			require.Empty(t, csOut.Proposals)
 			require.Nil(t, csOut.AddressBook)
 
 			validateCapabilityUpdates(t, te, capabiltiesToSet)
@@ -92,7 +91,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		// we have to keep track of the existing capabilities to add to the new ones
 		var p2pIDs []p2pkey.PeerID
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			p2pIDs = append(p2pIDs, k)
@@ -135,9 +134,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		})
 		require.NoError(t, err)
 		validateCapabilityUpdates(t, te, capabiltiesToSet)
-
 	})
-
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates

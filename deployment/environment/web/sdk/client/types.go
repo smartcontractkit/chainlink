@@ -3,7 +3,7 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"reflect"
 )
 
@@ -47,7 +47,7 @@ type JobProposalApprovalSuccessSpec struct {
 
 func DecodeInput(in, out any) error {
 	if reflect.TypeOf(out).Kind() != reflect.Ptr || reflect.ValueOf(out).IsNil() {
-		return fmt.Errorf("out type must be a non-nil pointer")
+		return errors.New("out type must be a non-nil pointer")
 	}
 	jsonBytes, err := json.Marshal(in)
 	if err != nil {

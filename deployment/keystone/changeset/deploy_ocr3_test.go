@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -43,7 +42,7 @@ func TestDeployOCR3(t *testing.T) {
 	// nothing on chain 1
 	require.NotEqual(t, registrySel, env.AllChainSelectors()[1])
 	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
-	assert.Len(t, oaddrs, 0)
+	assert.Empty(t, oaddrs)
 }
 
 func TestConfigureOCR3(t *testing.T) {
@@ -55,7 +54,6 @@ func TestConfigureOCR3(t *testing.T) {
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
-
 		te := test.SetupTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{N: 4},
 			AssetDonConfig:  test.DonConfig{N: 4},
@@ -295,5 +293,4 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-
 }

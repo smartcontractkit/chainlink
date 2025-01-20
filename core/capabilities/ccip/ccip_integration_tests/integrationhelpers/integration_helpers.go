@@ -420,7 +420,7 @@ func GenerateRMNHomeConfigs(
 		SourceChains: []rmn_home.RMNHomeSourceChain{
 			{
 				ChainSelector:       chainSelector,
-				F:                   f,
+				FObserve:            f,
 				ObserverNodesBitmap: observerBitmap,
 			},
 		},

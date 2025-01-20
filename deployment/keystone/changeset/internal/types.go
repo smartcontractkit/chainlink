@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -14,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -81,9 +82,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 		EthAddress:            string(evmCC.TransmitAccount),
 		P2PPeerID:             strings.TrimPrefix(o.PeerID.String(), "p2p_"),
 		OCR2BundleID:          evmCC.KeyBundleID,
-		OCR2OffchainPublicKey: fmt.Sprintf("%x", evmCC.OffchainPublicKey[:]),
+		OCR2OffchainPublicKey: hex.EncodeToString(evmCC.OffchainPublicKey[:]),
 		OCR2OnchainPublicKey:  fmt.Sprintf("%x", evmCC.OnchainPublicKey[:]),
-		OCR2ConfigPublicKey:   fmt.Sprintf("%x", evmCC.ConfigEncryptionPublicKey[:]),
+		OCR2ConfigPublicKey:   hex.EncodeToString(evmCC.ConfigEncryptionPublicKey[:]),
 		CSAPublicKey:          o.CSAKey,
 		// default value of encryption public key is the CSA public key
 		// TODO: DEVSVCS-760
@@ -266,7 +267,7 @@ func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*Reg
 		}
 	}
 	if don == nil {
-		return nil, fmt.Errorf("don not found in registry")
+		return nil, errors.New("don not found in registry")
 	}
 	return &RegisteredDon{
 		Name:  cfg.Name,
@@ -286,11 +287,10 @@ func (d RegisteredDon) Signers(chainFamily string) []common.Address {
 		}
 		var found bool
 		var registryChainDetails chainsel.ChainDetails
-		for details, _ := range n.SelToOCRConfig {
+		for details := range n.SelToOCRConfig {
 			if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil && family == chainFamily {
 				found = true
 				registryChainDetails = details
-
 			}
 		}
 		if !found {
@@ -319,7 +319,6 @@ func joinInfoAndNodes(donInfos map[string]kcr.CapabilitiesRegistryDONInfo, dons 
 	}
 	var out []RegisteredDon
 	for donName, info := range donInfos {
-
 		ocr2nodes, ok := nodes[donName]
 		if !ok {
 			return nil, fmt.Errorf("nodes not found for don %s", donName)

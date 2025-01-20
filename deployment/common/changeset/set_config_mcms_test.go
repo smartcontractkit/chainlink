@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -24,7 +25,6 @@ import (
 
 // setupSetConfigTestEnv deploys all required contracts for the setConfig MCMS contract call.
 func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
-
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
 		Nodes:  1,
@@ -53,7 +53,6 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 
 // TestSetConfigMCMSVariants tests the SetConfigMCMS changeset variants.
 func TestSetConfigMCMSVariants(t *testing.T) {
-
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -62,7 +61,6 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 		{
 			name: "MCMS disabled",
 			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
-
 				return []commonchangeset.ChangesetApplication{
 					{
 						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),

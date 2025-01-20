@@ -5,7 +5,9 @@ WorkflowRegistryManager.addVersion
     ├── when the contract address is invalid
     │   └── it should revert
     └── when the contract address is valid
-        ├── when the contract type is invalid
+        ├── when the contract is already registered
+        │   └── it should revert
+        └── when the contract type is invalid
         │   └── it should revert
         └── when the contract type is valid
             ├── when autoActivate is true

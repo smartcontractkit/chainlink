@@ -16,7 +16,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
     (bytes32 priorActiveDigest,) = s_rmnHome.getConfigDigests();
 
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[1].f--;
+    config.dynamicConfig.sourceChains[1].fObserve--;
 
     (, bytes32 candidateConfigDigest) = s_rmnHome.getConfigDigests();
 
@@ -27,7 +27,9 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
 
     (RMNHome.VersionedConfig memory storedVersionedConfig, bool ok) = s_rmnHome.getConfig(candidateConfigDigest);
     assertTrue(ok);
-    assertEq(storedVersionedConfig.dynamicConfig.sourceChains[0].f, config.dynamicConfig.sourceChains[0].f);
+    assertEq(
+      storedVersionedConfig.dynamicConfig.sourceChains[0].fObserve, config.dynamicConfig.sourceChains[0].fObserve
+    );
 
     // Asser the digests don't change when updating the dynamic config
     (bytes32 activeDigest, bytes32 candidateDigest) = s_rmnHome.getConfigDigests();
@@ -38,7 +40,7 @@ contract RMNHome_setDynamicConfig is RMNHomeTestSetup {
   // Asserts the validation function is being called
   function test_RevertWhen_setDynamicConfig_MinObserversTooHigh() public {
     Config memory config = _getBaseConfig();
-    config.dynamicConfig.sourceChains[0].f++;
+    config.dynamicConfig.sourceChains[0].fObserve++;
 
     vm.expectRevert(abi.encodeWithSelector(RMNHome.DigestNotFound.selector, ZERO_DIGEST));
     s_rmnHome.setDynamicConfig(config.dynamicConfig, ZERO_DIGEST);

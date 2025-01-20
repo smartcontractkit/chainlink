@@ -280,6 +280,10 @@ func (c EvmCall) String() string {
 	return fmt.Sprintf("%s: %s(%+v)", c.contractAddress.String(), c.methodName, c.args)
 }
 
+func (c EvmCall) ContractAddress() common.Address {
+	return c.contractAddress
+}
+
 func EVMCallsToString(calls []EvmCall) string {
 	callString := ""
 	for _, call := range calls {

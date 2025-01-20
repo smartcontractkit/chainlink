@@ -219,13 +219,13 @@ func TestBackfillTransactions(t *testing.T) {
 	ctx := tests.Context(t)
 	client := mocks.NewClient(t)
 	ab := mocks.NewAttemptBuilder(t)
-	storage := mocks.NewTxStore(t)
+	txStore := mocks.NewTxStore(t)
 	config := Config{}
 	address := testutils.NewAddress()
 	keystore := mocks.NewKeystore(t)
 
 	t.Run("fails if latest nonce fetching fails", func(t *testing.T) {
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, nil, config, keystore)
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(uint64(0), errors.New("latest nonce fail")).Once()
 		bo, err := txm.backfillTransactions(ctx, address)
 		require.Error(t, err)
@@ -234,13 +234,94 @@ func TestBackfillTransactions(t *testing.T) {
 	})
 
 	t.Run("fails if MarkConfirmedAndReorgedTransactions fails", func(t *testing.T) {
-		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, storage, nil, config, keystore)
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(uint64(0), nil).Once()
-		storage.On("MarkConfirmedAndReorgedTransactions", mock.Anything, mock.Anything, address).
+		txStore.On("MarkConfirmedAndReorgedTransactions", mock.Anything, mock.Anything, address).
 			Return([]*types.Transaction{}, []uint64{}, errors.New("marking transactions confirmed failed")).Once()
 		bo, err := txm.backfillTransactions(ctx, address)
 		require.Error(t, err)
 		assert.False(t, bo)
 		require.ErrorContains(t, err, "marking transactions confirmed failed")
+	})
+
+	t.Run("fills nonce gap", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
+		require.NoError(t, txStore.Add(address))
+		ab := mocks.NewAttemptBuilder(t)
+		c := Config{EIP1559: false, BlockTime: 10 * time.Minute, RetryBlockThreshold: 10, EmptyTxLimitDefault: 22000}
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
+		emptyMetrics, err := NewTxmMetrics(testutils.FixtureChainID)
+		require.NoError(t, err)
+		txm.metrics = emptyMetrics
+
+		// Add a new transaction that will be assigned with nonce = 1. Nonce = 0 is not being tracked by the txStore. This will trigger a nonce gap.
+		txRequest := &types.TxRequest{
+			ChainID:     testutils.FixtureChainID,
+			FromAddress: address,
+			ToAddress:   testutils.NewAddress(),
+		}
+		_, err = txm.CreateTransaction(tests.Context(t), txRequest)
+		require.NoError(t, err)
+		_, err = txStore.UpdateUnstartedTransactionWithNonce(tests.Context(t), address, 1) // Create nonce gap
+		require.NoError(t, err)
+
+		// During backfill we observe nonce has changed. The transaction with nonce = 1 should be marked unconfirmed.
+		// For nonce = 0 there are no transactions stored in txStore, which results in a nonce gap.
+		// TXM creates a new empty transaction and fills the gap.
+		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(uint64(0), nil).Once()
+		attempt := &types.Attempt{
+			TxID:     1,
+			Fee:      gas.EvmFee{GasPrice: assets.NewWeiI(1)},
+			GasLimit: 22000,
+		}
+		ab.On("NewAttempt", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(attempt, nil).Once()
+		client.On("SendTransaction", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		bo, err := txm.backfillTransactions(ctx, address)
+		require.NoError(t, err)
+		assert.False(t, bo)
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Nonce gap at nonce: %d - address: %v. Creating a new transaction", 0, address))
+		_, count, err := txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 0, address)
+		require.NoError(t, err)
+		assert.Equal(t, 2, count)
+	})
+
+	t.Run("retries attempt after threshold", func(t *testing.T) {
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
+		require.NoError(t, txStore.Add(address))
+		ab := mocks.NewAttemptBuilder(t)
+		c := Config{EIP1559: false, BlockTime: 1 * time.Second, RetryBlockThreshold: 1, EmptyTxLimitDefault: 22000}
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
+		emptyMetrics, err := NewTxmMetrics(testutils.FixtureChainID)
+		require.NoError(t, err)
+		txm.metrics = emptyMetrics
+
+		IDK := "IDK"
+		txRequest := &types.TxRequest{
+			Data:              []byte{100, 200},
+			IdempotencyKey:    &IDK,
+			ChainID:           testutils.FixtureChainID,
+			FromAddress:       address,
+			ToAddress:         testutils.NewAddress(),
+			SpecifiedGasLimit: 22000,
+		}
+		tx, err := txm.CreateTransaction(tests.Context(t), txRequest)
+		require.NoError(t, err)
+		_, err = txStore.UpdateUnstartedTransactionWithNonce(tests.Context(t), address, 0)
+		require.NoError(t, err)
+
+		attempt := &types.Attempt{
+			TxID:     tx.ID,
+			Fee:      gas.EvmFee{GasPrice: assets.NewWeiI(1)},
+			GasLimit: 22000,
+		}
+		ab.On("NewAttempt", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(attempt, nil).Once()
+
+		client.On("NonceAt", mock.Anything, address, mock.Anything).Return(uint64(0), nil).Once()
+		client.On("SendTransaction", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		_, err = txm.backfillTransactions(tests.Context(t), address)
+		require.NoError(t, err)
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Rebroadcasting attempt for txID: %d", attempt.TxID))
 	})
 }

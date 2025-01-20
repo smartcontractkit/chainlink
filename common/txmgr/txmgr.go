@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jpillora/backoff"
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -16,9 +17,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -40,7 +40,7 @@ type TxManager[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
 	services.Service
@@ -72,7 +72,7 @@ type TxmV2Wrapper[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	services.Service
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
@@ -96,7 +96,7 @@ type Txm[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	services.StateMachine
 	logger                  logger.SugaredLogger
@@ -145,7 +145,7 @@ func NewTxm[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ](
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
@@ -387,7 +387,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -406,7 +406,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -425,7 +425,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -719,7 +719,7 @@ type NullTxManager[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	ErrMsg string
 }
@@ -834,4 +834,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue
 	)
 
 	return tx, nil
+}
+
+// newRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func newRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
 }

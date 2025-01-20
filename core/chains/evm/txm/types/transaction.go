@@ -143,7 +143,6 @@ type TxRequest struct {
 
 	Meta             *sqlutil.JSON // TODO: *TxMeta after migration
 	ForwarderAddress common.Address
-	// QueueingTxStrategy QueueingTxStrategy
 
 	// Pipeline variables - if you aren't calling this from chain tx task within
 	// the pipeline, you don't need these variables

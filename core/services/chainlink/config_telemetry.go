@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -42,9 +43,13 @@ func (b *telemetryConfig) OtelExporterGRPCEndpoint() string {
 //
 // These can be overridden by the TOML if the user so chooses
 func (b *telemetryConfig) ResourceAttributes() map[string]string {
+	sha, ver := static.Short()
+
 	defaults := map[string]string{
-		"service.name":    "chainlink",
-		"service.version": static.Version,
+		"service.name":         "chainlink",
+		"service.version":      static.Version,
+		"service.sha":          static.Sha,
+		"service.shortversion": fmt.Sprintf("%s@%s", ver, sha),
 	}
 
 	for k, v := range b.s.ResourceAttributes {

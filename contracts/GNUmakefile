@@ -39,11 +39,11 @@ abigen: ## Build & install abigen.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.43.2
+	go install github.com/vektra/mockery/v2@v2.50.0
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --version nightly-aa69ed1e46dd61fbf9d73399396a4db4dd527431
+	foundryup --install v0.3.0
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry

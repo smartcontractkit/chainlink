@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -8,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
+
+var _ deployment.ChangeSet[JobSpecsForLanesConfig] = JobSpecsForLanesChangeset
 
 type JobSpecsForLanesConfig struct {
 	Configs []JobSpecInput
@@ -41,20 +44,20 @@ func (j JobSpecInput) Validate() error {
 		return fmt.Errorf("DestinationChainSelector is invalid: %w", err)
 	}
 	if j.TokenPricesUSDPipeline == "" && j.PriceGetterConfigJson == "" {
-		return fmt.Errorf("TokenPricesUSDPipeline or PriceGetterConfigJson is required")
+		return errors.New("TokenPricesUSDPipeline or PriceGetterConfigJson is required")
 	}
 	if j.USDCCfg != nil {
 		if err := j.USDCCfg.ValidateUSDCConfig(); err != nil {
 			return fmt.Errorf("USDCCfg is invalid: %w", err)
 		}
 		if j.USDCAttestationAPI == "" {
-			return fmt.Errorf("USDCAttestationAPI is required")
+			return errors.New("USDCAttestationAPI is required")
 		}
 	}
 	return nil
 }
 
-func JobSpecsForLanes(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
+func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid JobSpecsForLanesConfig: %w", err)
 	}

@@ -22,7 +22,7 @@ before(async () => {
     roles.defaultAccount,
   )
   brokenFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/Broken.sol:Broken',
+    'src/v0.8/operatorforwarder/test/Broken.sol:Broken',
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(

@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 )
@@ -77,7 +78,7 @@ type RMNHomeDynamicConfig struct {
 
 type RMNHomeSourceChain struct {
 	ChainSelector       uint64   `json:"selector"`
-	F                   uint64   `json:"f"`
+	FObserve            uint64   `json:"fObserve"`
 	ObserverNodesBitmap *big.Int `json:"observerNodesBitmap"`
 }
 
@@ -145,7 +146,7 @@ func mapSourceChains(chains []rmn_home.RMNHomeSourceChain) []RMNHomeSourceChain 
 	for i, chain := range chains {
 		result[i] = RMNHomeSourceChain{
 			ChainSelector:       chain.ChainSelector,
-			F:                   chain.F,
+			FObserve:            chain.FObserve,
 			ObserverNodesBitmap: chain.ObserverNodesBitmap,
 		}
 	}

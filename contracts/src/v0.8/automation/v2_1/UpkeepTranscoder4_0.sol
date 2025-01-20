@@ -3,7 +3,7 @@
 pragma solidity 0.8.16;
 
 import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 
@@ -52,7 +52,7 @@ struct UpkeepV20 {
  * @notice UpkeepTranscoder allows converting upkeep data from previous keeper registry versions 1.2, 1.3, and
  * 2.0 to registry 2.1
  */
-contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInterface {
+contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, ITypeAndVersion {
   error InvalidTranscoding();
 
   /**

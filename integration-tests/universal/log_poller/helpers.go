@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
+	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

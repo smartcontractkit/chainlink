@@ -1796,11 +1796,16 @@ func TestORM_FindAttemptsRequiringReceiptFetch(t *testing.T) {
 		// Terminally stuck transaction with receipt should NOT be picked up for receipt fetch
 		stuckTx := mustInsertTerminallyStuckTxWithAttempt(t, txStore, fromAddress, 1, blockNum)
 		mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), stuckTx.TxAttempts[0].Hash)
+		// Fatal transactions with nil nonce and stored attempts should NOT be picked up for receipt fetch
+		fatalTxWithAttempt := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+		attempt := newBroadcastLegacyEthTxAttempt(t, fatalTxWithAttempt.ID)
+		err := txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
 
 		// Confirmed transaction without receipt should be picked up for receipt fetch
 		confirmedTx := mustInsertConfirmedEthTx(t, txStore, 0, fromAddress)
-		attempt := newBroadcastLegacyEthTxAttempt(t, confirmedTx.ID)
-		err := txStore.InsertTxAttempt(ctx, &attempt)
+		attempt = newBroadcastLegacyEthTxAttempt(t, confirmedTx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
 
 		attempts, err := txStore.FindAttemptsRequiringReceiptFetch(ctx, testutils.FixtureChainID)
@@ -1823,6 +1828,12 @@ func TestORM_FindAttemptsRequiringReceiptFetch(t *testing.T) {
 		// Terminally stuck transaction with receipt should NOT be picked up for receipt fetch
 		stuckTxWithReceipt := mustInsertTerminallyStuckTxWithAttempt(t, txStore, fromAddress, 1, blockNum)
 		mustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), stuckTxWithReceipt.TxAttempts[0].Hash)
+		// Fatal transactions with nil nonce and stored attempts should NOT be picked up for receipt fetch
+		fatalTxWithAttempt := mustInsertFatalErrorEthTx(t, txStore, fromAddress)
+		attempt := newBroadcastLegacyEthTxAttempt(t, fatalTxWithAttempt.ID)
+		err := txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+
 		// Terminally stuck transaction without receipt should be picked up for receipt fetch
 		stuckTxWoutReceipt := mustInsertTerminallyStuckTxWithAttempt(t, txStore, fromAddress, 0, blockNum)
 
@@ -2006,6 +2017,41 @@ func TestORM_DeleteReceiptsByTxHash(t *testing.T) {
 	etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
 	require.NoError(t, err)
 	require.Len(t, etx2.TxAttempts[0].Receipts, 1)
+}
+
+func TestORM_Abandon(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	txStore := cltest.NewTestTxStore(t, db)
+	ctx := tests.Context(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	etx1 := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, testutils.FixtureChainID)
+	etx2 := mustInsertInProgressEthTxWithAttempt(t, txStore, 1, fromAddress)
+	etx3 := mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 0, fromAddress, txmgrtypes.TxAttemptBroadcast)
+
+	err := txStore.Abandon(ctx, testutils.FixtureChainID, fromAddress)
+	require.NoError(t, err)
+
+	// transactions marked as fatal error with abandon reason, nil sequence, and no attempts
+	etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
+	require.NoError(t, err)
+	require.Equal(t, txmgrcommon.TxFatalError, etx1.State)
+	require.Nil(t, etx1.Sequence)
+	require.Empty(t, etx1.TxAttempts)
+
+	etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
+	require.NoError(t, err)
+	require.Equal(t, txmgrcommon.TxFatalError, etx2.State)
+	require.Nil(t, etx2.Sequence)
+	require.Empty(t, etx2.TxAttempts)
+
+	etx3, err = txStore.FindTxWithAttempts(ctx, etx3.ID)
+	require.NoError(t, err)
+	require.Equal(t, txmgrcommon.TxFatalError, etx3.State)
+	require.Nil(t, etx3.Sequence)
+	require.Empty(t, etx3.TxAttempts)
 }
 
 func mustInsertTerminallyStuckTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonceInt int64, broadcastBeforeBlockNum int64) txmgr.Tx {
