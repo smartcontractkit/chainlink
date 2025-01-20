@@ -73,7 +73,7 @@ compileContract test/helpers/MessageHasher
 compileContract test/helpers/USDCReaderTester
 compileContract test/helpers/ReportCodec
 compileContract test/helpers/receivers/MaybeRevertMessageReceiver
-compileContract test/helpers/receivers/CCIPDummyReceiver
+compileContract test/helpers/receivers/LogMessageDataReceiver
 compileContract test/helpers/MultiOCR3Helper
 compileContract test/mocks/MockE2EUSDCTokenMessenger
 compileContract test/mocks/MockE2EUSDCTransmitter

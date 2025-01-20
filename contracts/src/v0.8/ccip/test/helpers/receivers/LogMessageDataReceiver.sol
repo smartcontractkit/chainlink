@@ -2,12 +2,14 @@
 pragma solidity ^0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../../interfaces/IAny2EVMMessageReceiver.sol";
+import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
 import {Client} from "../../../libraries/Client.sol";
 
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 /// @dev A contract that logs the data of a CCIP message received
-contract LogMessageDataReceiver is IAny2EVMMessageReceiver, IERC165 {
+contract LogMessageDataReceiver is IAny2EVMMessageReceiver, ITypeAndVersion, IERC165 {
   event MessageReceived(bytes data);
 
   /// @notice IERC165 supports an interfaceId
@@ -17,6 +19,10 @@ contract LogMessageDataReceiver is IAny2EVMMessageReceiver, IERC165 {
     bytes4 interfaceId
   ) public pure override returns (bool) {
     return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId;
+  }
+
+    function typeAndVersion() external pure override returns (string memory) {
+    return "LogMessageDataReceiver 1.0.0";
   }
 
   /// @dev Logs the data of the message received
