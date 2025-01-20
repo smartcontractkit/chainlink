@@ -2,16 +2,17 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
 	TokenPriceBatchWriteFrequency           = 30 * time.Minute
 	BatchGasLimit                           = 6_500_000
-	RelativeBoostPerWaitHour                = 10000.5
+	RelativeBoostPerWaitHour                = 0.5
 	InflightCacheExpiry                     = 10 * time.Minute
 	RootSnoozeTime                          = 30 * time.Minute
 	BatchingStrategyID                      = 0
@@ -48,6 +49,10 @@ const (
 	MaxDurationObservation                  = 5 * time.Second
 	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
 	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
+
+	GasPriceDeviationPPB    = 1000
+	DAGasPriceDeviationPPB  = 0
+	OptimisticConfirmations = 1
 )
 
 var (
@@ -124,6 +129,12 @@ func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHom
 			if err != nil {
 				return 0, fmt.Errorf("get all commit configs from cciphome: %w", err)
 			}
+			if configs.ActiveConfig.ConfigDigest == [32]byte{} && configs.CandidateConfig.ConfigDigest == [32]byte{} {
+				configs, err = ccipHome.GetAllConfigs(nil, don.Id, uint8(types.PluginTypeCCIPExec))
+				if err != nil {
+					return 0, fmt.Errorf("get all exec configs from cciphome: %w", err)
+				}
+			}
 			if configs.ActiveConfig.Config.ChainSelector == chainSelector || configs.CandidateConfig.Config.ChainSelector == chainSelector {
 				donIDs = append(donIDs, don.Id)
 			}
@@ -165,7 +176,8 @@ func BuildSetOCR3ConfigArgs(
 
 		// we expect only an active config and no candidate config.
 		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
-			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d", donID)
+			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
+				donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 		}
 
 		activeConfig := ocrConfig.ActiveConfig
@@ -188,255 +200,6 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
-func SetupExecDON(
-	lggr logger.Logger,
-	donID uint32,
-	execConfig ccip_home.CCIPHomeOCR3Config,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	home deployment.Chain,
-	nodes deployment.Nodes,
-	ccipHome *ccip_home.CCIPHome,
-) error {
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		execConfig.PluginType,
-		execConfig,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack set candidate call: %w", err)
-	}
-
-	// set candidate call
-	tx, err := capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedSetCandidateCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ exec config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm update don w/ exec config: %w", err)
-	}
-	lggr.Infow("Updated DON with exec config", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
-
-	execCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get exec candidate digest 1st time: %w", err)
-	}
-
-	if execCandidateDigest == [32]byte{} {
-		return fmt.Errorf("candidate digest is empty, expected nonempty")
-	}
-	lggr.Infow("Got exec candidate digest", "chain", home.String(), "donID", donID, "execCandidateDigest", execCandidateDigest)
-	// promote candidate call
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
-		"promoteCandidateAndRevokeActive",
-		donID,
-		execConfig.PluginType,
-		execCandidateDigest,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack promotion call: %w", err)
-	}
-
-	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedPromotionCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ exec config: %w", err)
-	}
-	bn, err := deployment.ConfirmIfNoError(home, tx, err)
-	if err != nil {
-		return fmt.Errorf("confirm update don w/ exec config: %w", err)
-	}
-	if bn == 0 {
-		return fmt.Errorf("UpdateDON tx not confirmed")
-	}
-	lggr.Infow("Promoted exec candidate", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
-	// check if candidate digest is promoted
-	pEvent, err := ccipHome.FilterConfigPromoted(&bind.FilterOpts{
-		Context: context.Background(),
-		Start:   bn,
-	}, [][32]byte{execCandidateDigest})
-	if err != nil {
-		return fmt.Errorf("filter exec config promoted: %w", err)
-	}
-	if !pEvent.Next() {
-		return fmt.Errorf("exec config not promoted")
-	}
-	// check that candidate digest is empty.
-	execCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, execConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get exec candidate digest 2nd time: %w", err)
-	}
-
-	if execCandidateDigest != [32]byte{} {
-		return fmt.Errorf("candidate digest is nonempty after promotion, expected empty")
-	}
-
-	// check that active digest is non-empty.
-	execActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(types.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get active exec digest: %w", err)
-	}
-
-	if execActiveDigest == [32]byte{} {
-		return fmt.Errorf("active exec digest is empty, expected nonempty")
-	}
-
-	execConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(types.PluginTypeCCIPExec))
-	if err != nil {
-		return fmt.Errorf("get all exec configs 2nd time: %w", err)
-	}
-
-	// log the above info
-	lggr.Infow("completed exec DON creation and promotion",
-		"donID", donID,
-		"execCandidateDigest", execCandidateDigest,
-		"execActiveDigest", execActiveDigest,
-		"execCandidateDigestFromGetAllConfigs", execConfigs.CandidateConfig.ConfigDigest,
-		"execActiveDigestFromGetAllConfigs", execConfigs.ActiveConfig.ConfigDigest,
-	)
-
-	return nil
-}
-
-func SetupCommitDON(
-	lggr logger.Logger,
-	donID uint32,
-	commitConfig ccip_home.CCIPHomeOCR3Config,
-	capReg *capabilities_registry.CapabilitiesRegistry,
-	home deployment.Chain,
-	nodes deployment.Nodes,
-	ccipHome *ccip_home.CCIPHome,
-) error {
-	encodedSetCandidateCall, err := CCIPHomeABI.Pack(
-		"setCandidate",
-		donID,
-		commitConfig.PluginType,
-		commitConfig,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack set candidate call: %w", err)
-	}
-	tx, err := capReg.AddDON(home.DeployerKey, nodes.PeerIDs(), []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-		{
-			CapabilityId: CCIPCapabilityID,
-			Config:       encodedSetCandidateCall,
-		},
-	}, false, false, nodes.DefaultF())
-	if err != nil {
-		return fmt.Errorf("add don w/ commit config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm add don w/ commit config: %w", err)
-	}
-	lggr.Debugw("Added DON with commit config", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "setCandidateCall", encodedSetCandidateCall)
-	commitCandidateDigest, err := ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest: %w", err)
-	}
-
-	if commitCandidateDigest == [32]byte{} {
-		return fmt.Errorf("candidate digest is empty, expected nonempty")
-	}
-	lggr.Debugw("Got commit candidate digest", "chain", home.String(), "donID", donID, "commitCandidateDigest", commitCandidateDigest)
-
-	encodedPromotionCall, err := CCIPHomeABI.Pack(
-		"promoteCandidateAndRevokeActive",
-		donID,
-		commitConfig.PluginType,
-		commitCandidateDigest,
-		[32]byte{},
-	)
-	if err != nil {
-		return fmt.Errorf("pack promotion call: %w", err)
-	}
-
-	tx, err = capReg.UpdateDON(
-		home.DeployerKey,
-		donID,
-		nodes.PeerIDs(),
-		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-			{
-				CapabilityId: CCIPCapabilityID,
-				Config:       encodedPromotionCall,
-			},
-		},
-		false,
-		nodes.DefaultF(),
-	)
-	if err != nil {
-		return fmt.Errorf("update don w/ commit config: %w", err)
-	}
-
-	if _, err := deployment.ConfirmIfNoError(home, tx, err); err != nil {
-		return fmt.Errorf("confirm update don w/ commit config: %w", err)
-	}
-	lggr.Debugw("Promoted commit candidate", "chain", home.String(), "donID", donID, "txHash", tx.Hash().Hex(), "promotionCall", encodedPromotionCall)
-
-	// check that candidate digest is empty.
-	commitCandidateDigest, err = ccipHome.GetCandidateDigest(nil, donID, commitConfig.PluginType)
-	if err != nil {
-		return fmt.Errorf("get commit candidate digest 2nd time: %w", err)
-	}
-
-	if commitCandidateDigest != [32]byte{} {
-		return fmt.Errorf("candidate digest is nonempty after promotion, expected empty")
-	}
-
-	// check that active digest is non-empty.
-	commitActiveDigest, err := ccipHome.GetActiveDigest(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get active commit digest: %w", err)
-	}
-
-	if commitActiveDigest == [32]byte{} {
-		return fmt.Errorf("active commit digest is empty, expected nonempty")
-	}
-
-	commitConfigs, err := ccipHome.GetAllConfigs(nil, donID, uint8(types.PluginTypeCCIPCommit))
-	if err != nil {
-		return fmt.Errorf("get all commit configs 2nd time: %w", err)
-	}
-
-	// log the above information
-	lggr.Infow("completed commit DON creation and promotion",
-		"donID", donID,
-		"commitCandidateDigest", commitCandidateDigest,
-		"commitActiveDigest", commitActiveDigest,
-		"commitCandidateDigestFromGetAllConfigs", commitConfigs.CandidateConfig.ConfigDigest,
-		"commitActiveDigestFromGetAllConfigs", commitConfigs.ActiveConfig.ConfigDigest,
-	)
-
-	return nil
-}
-
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
 	offRamp *offramp.OffRamp,
@@ -444,8 +207,8 @@ func BuildOCR3ConfigForCCIPHome(
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
 	ocrParams types2.OCRParameters,
-	commitOffchainCfg pluginconfig.CommitOffchainConfig,
-	execOffchainCfg pluginconfig.ExecuteOffchainConfig,
+	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
+	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
@@ -469,10 +232,20 @@ func BuildOCR3ConfigForCCIPHome(
 
 	// Add DON on capability registry contract
 	ocr3Configs := make(map[types.PluginType]ccip_home.CCIPHomeOCR3Config)
-	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+	pluginTypes := make([]types.PluginType, 0)
+	if commitOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPCommit)
+	}
+	if execOffchainCfg != nil {
+		pluginTypes = append(pluginTypes, types.PluginTypeCCIPExec)
+	}
+	for _, pluginType := range pluginTypes {
 		var encodedOffchainConfig []byte
 		var err2 error
 		if pluginType == types.PluginTypeCCIPCommit {
+			if commitOffchainCfg == nil {
+				return nil, errors.New("commitOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
 				RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
 				TokenPriceBatchWriteFrequency:      commitOffchainCfg.TokenPriceBatchWriteFrequency,
@@ -486,6 +259,9 @@ func BuildOCR3ConfigForCCIPHome(
 				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
 			})
 		} else {
+			if execOffchainCfg == nil {
+				return nil, errors.New("execOffchainCfg is nil")
+			}
 			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             execOffchainCfg.BatchGasLimit,
 				RelativeBoostPerWaitHour:  execOffchainCfg.RelativeBoostPerWaitHour,
@@ -499,7 +275,7 @@ func BuildOCR3ConfigForCCIPHome(
 		if err2 != nil {
 			return nil, err2
 		}
-		signers, transmitters, configF, _, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
+		signers, transmitters, configF, onchainConfig, offchainConfigVersion, offchainConfig, err2 := ocr3confighelper.ContractSetConfigArgsDeterministic(
 			ocrSecrets.EphemeralSk,
 			ocrSecrets.SharedSecret,
 			ocrParams.DeltaProgress,
@@ -538,7 +314,18 @@ func BuildOCR3ConfigForCCIPHome(
 			}
 			transmittersBytes[i] = parsed
 		}
-
+		// validate ocr3 params correctness
+		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     configF,
+			OnchainConfig:         onchainConfig,
+			OffchainConfigVersion: offchainConfigVersion,
+			OffchainConfig:        offchainConfig,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate ocr3 params: %w", err)
+		}
 		var ocrNodes []ccip_home.CCIPHomeOCR3Node
 		for i := range nodes {
 			ocrNodes = append(ocrNodes, ccip_home.CCIPHomeOCR3Node{

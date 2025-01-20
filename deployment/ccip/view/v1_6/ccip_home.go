@@ -1,6 +1,7 @@
 package v1_6
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -8,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 // https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/libraries/Internal.sol#L190
@@ -33,7 +34,7 @@ type CCIPHomeView struct {
 
 func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *ccip_home.CCIPHome) (CCIPHomeView, error) {
 	if ch == nil {
-		return CCIPHomeView{}, fmt.Errorf("cannot generate view for nil CCIPHome")
+		return CCIPHomeView{}, errors.New("cannot generate view for nil CCIPHome")
 	}
 	meta, err := types.NewContractMetaData(ch, ch.Address())
 	if err != nil {

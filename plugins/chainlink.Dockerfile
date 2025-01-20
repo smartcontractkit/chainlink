@@ -12,12 +12,18 @@ RUN go mod download
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 
+# Flags for Go Delve debugger
+ARG GO_GCFLAGS
+
 COPY . .
 
 RUN apt-get update && apt-get install -y jq
 
+# Install Delve for debugging
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 # Build the golang binaries
-RUN make install-chainlink
+RUN make GO_GCFLAGS="${GO_GCFLAGS}" install-chainlink
 
 # Install medianpoc binary
 RUN make install-medianpoc
@@ -52,6 +58,7 @@ WORKDIR /chainlink-starknet/relayer
 COPY --from=buildgo /chainlink-starknet/relayer .
 RUN go install ./pkg/chainlink/cmd/chainlink-starknet
 
+
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
 
@@ -64,6 +71,9 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
   && apt-get update && apt-get install -y postgresql-client-16 \
   && apt-get clean all
+
+# Copy Delve debugger from build stage
+COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/

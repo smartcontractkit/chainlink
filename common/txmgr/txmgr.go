@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jpillora/backoff"
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -16,9 +17,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	iutils "github.com/smartcontractkit/chainlink/v2/common/internal/utils"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -40,7 +40,7 @@ type TxManager[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
 	services.Service
@@ -65,6 +65,20 @@ type TxManager[
 	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
 }
 
+type TxmV2Wrapper[
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
+	FEE fees.Fee,
+] interface {
+	services.Service
+	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
+	Reset(addr ADDR, abandon bool) error
+}
+
 type reset struct {
 	// f is the function to execute between stopping/starting the
 	// Broadcaster and Confirmer
@@ -82,7 +96,7 @@ type Txm[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	services.StateMachine
 	logger                  logger.SugaredLogger
@@ -112,6 +126,7 @@ type Txm[
 	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	newErrorClassifier NewErrorClassifier
+	txmv2wrapper       TxmV2Wrapper[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -130,7 +145,7 @@ func NewTxm[
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ](
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
@@ -147,6 +162,7 @@ func NewTxm[
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	finalizer txmgrtypes.Finalizer[BLOCK_HASH, HEAD],
 	newErrorClassifierFunc NewErrorClassifier,
+	txmv2wrapper TxmV2Wrapper[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		logger:             logger.Sugared(lggr),
@@ -169,6 +185,7 @@ func NewTxm[
 		tracker:            tracker,
 		newErrorClassifier: newErrorClassifierFunc,
 		finalizer:          finalizer,
+		txmv2wrapper:       txmv2wrapper,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -207,6 +224,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 			return fmt.Errorf("Txm: Finalizer failed to start: %w", err)
 		}
 
+		if b.txmv2wrapper != nil {
+			if err := ms.Start(ctx, b.txmv2wrapper); err != nil {
+				return fmt.Errorf("Txm: Txmv2 failed to start: %w", err)
+			}
+		}
+
 		b.logger.Info("Txm starting runLoop")
 		b.wg.Add(1)
 		go b.runLoop()
@@ -237,6 +260,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 		f := func() {
 			if abandon {
 				err = b.abandon(addr)
+				if b.txmv2wrapper != nil {
+					if err2 := b.txmv2wrapper.Reset(addr, abandon); err2 != nil {
+						b.logger.Error("failed to abandon transactions for dual broadcast", "err", err2)
+					}
+				}
 			}
 		}
 
@@ -359,7 +387,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -378,7 +406,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -397,7 +425,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		go func() {
 			defer wg.Done()
 			// Retry indefinitely on failure
-			backoff := iutils.NewRedialBackoff()
+			backoff := newRedialBackoff()
 			for {
 				select {
 				case <-time.After(backoff.Duration()):
@@ -460,6 +488,12 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Finalizer: %v", err), "err", err)
 			}
+			if b.txmv2wrapper != nil {
+				err = b.txmv2wrapper.Close()
+				if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+					b.logger.Errorw(fmt.Sprintf("Failed to Close Finalizer: %v", err), "err", err)
+				}
+			}
 			return
 		case <-keysChanged:
 			// This check prevents the weird edge-case where you can select
@@ -513,11 +547,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	// Check for existing Tx with IdempotencyKey. If found, return the Tx and do nothing
 	// Skipping CreateTransaction to avoid double send
+	if b.txmv2wrapper != nil && txRequest.Meta != nil && txRequest.Meta.DualBroadcast != nil && *txRequest.Meta.DualBroadcast {
+		return b.txmv2wrapper.CreateTransaction(ctx, txRequest)
+	}
 	if txRequest.IdempotencyKey != nil {
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil {
-			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
+			return tx, fmt.Errorf("failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
 			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
@@ -682,7 +719,7 @@ type NullTxManager[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] struct {
 	ErrMsg string
 }
@@ -797,4 +834,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueue
 	)
 
 	return tx, nil
+}
+
+// newRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func newRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
 }

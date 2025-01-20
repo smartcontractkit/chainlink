@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IBurnMintERC20} from "../../shared/token/ERC20/IBurnMintERC20.sol";
 
@@ -35,7 +35,7 @@ abstract contract BurnMintTokenPoolAbstract is TokenPool {
   /// @dev The _validateReleaseOrMint check is an essential security check
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
-  ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
     // Calculate the local amount

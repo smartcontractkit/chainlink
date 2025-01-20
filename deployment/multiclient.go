@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -88,11 +89,41 @@ func (mc *MultiClient) SendTransaction(ctx context.Context, tx *types.Transactio
 	})
 }
 
+func (mc *MultiClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	var result []byte
+	err := mc.retryWithBackups("CallContract", func(client *ethclient.Client) error {
+		var err error
+		result, err = client.CallContract(ctx, msg, blockNumber)
+		return err
+	})
+	return result, err
+}
+
+func (mc *MultiClient) CallContractAtHash(ctx context.Context, msg ethereum.CallMsg, blockHash common.Hash) ([]byte, error) {
+	var result []byte
+	err := mc.retryWithBackups("CallContractAtHash", func(client *ethclient.Client) error {
+		var err error
+		result, err = client.CallContractAtHash(ctx, msg, blockHash)
+		return err
+	})
+	return result, err
+}
+
 func (mc *MultiClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	var code []byte
 	err := mc.retryWithBackups("CodeAt", func(client *ethclient.Client) error {
 		var err error
 		code, err = client.CodeAt(ctx, account, blockNumber)
+		return err
+	})
+	return code, err
+}
+
+func (mc *MultiClient) CodeAtHash(ctx context.Context, account common.Address, blockHash common.Hash) ([]byte, error) {
+	var code []byte
+	err := mc.retryWithBackups("CodeAtHash", func(client *ethclient.Client) error {
+		var err error
+		code, err = client.CodeAtHash(ctx, account, blockHash)
 		return err
 	})
 	return code, err
@@ -108,17 +139,27 @@ func (mc *MultiClient) NonceAt(ctx context.Context, account common.Address, bloc
 	return count, err
 }
 
+func (mc *MultiClient) NonceAtHash(ctx context.Context, account common.Address, blockHash common.Hash) (uint64, error) {
+	var count uint64
+	err := mc.retryWithBackups("NonceAtHash", func(client *ethclient.Client) error {
+		var err error
+		count, err = client.NonceAtHash(ctx, account, blockHash)
+		return err
+	})
+	return count, err
+}
+
 func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	mc.lggr.Debugf("Waiting for tx %s to be mined", tx.Hash().Hex())
+	mc.lggr.Debugf("Waiting for tx %s to be mined for chain %s", tx.Hash().Hex(), mc.chainName)
 	// no retries here because we want to wait for the tx to be mined
 	resultCh := make(chan *types.Receipt)
 	doneCh := make(chan struct{})
 
 	waitMined := func(client *ethclient.Client, tx *types.Transaction) {
-		mc.lggr.Debugf("Waiting for tx %s to be mined with client %v", tx.Hash().Hex(), client)
+		mc.lggr.Debugf("Waiting for tx %s to be mined with chain %s", tx.Hash().Hex(), mc.chainName)
 		receipt, err := bind.WaitMined(ctx, client, tx)
 		if err != nil {
-			mc.lggr.Warnf("WaitMined error %v with client %v", err, client)
+			mc.lggr.Warnf("WaitMined error %v with chain %s", err, mc.chainName)
 			return
 		}
 		select {
@@ -135,6 +176,7 @@ func (mc *MultiClient) WaitMined(ctx context.Context, tx *types.Transaction) (*t
 	select {
 	case receipt = <-resultCh:
 		close(doneCh)
+		mc.lggr.Debugf("Tx %s mined with chain %s", tx.Hash().Hex(), mc.chainName)
 		return receipt, nil
 	case <-ctx.Done():
 		mc.lggr.Warnf("WaitMined context done %v", ctx.Err())

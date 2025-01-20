@@ -236,7 +236,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		}
 		res, err := func(ctx context.Context) (*pb.TransmitResponse, error) {
 			ctx, cancel := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
-			cancel()
+			defer cancel()
 			return s.c.Transmit(ctx, t.Req)
 		}(ctx)
 		if ctx.Err() != nil {
@@ -289,7 +289,6 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 const TransmitQueueMaxSize = 10_000 // hardcode this for legacy transmitter since we want the config var to apply only to LLO
 
 func newServer(lggr logger.Logger, cfg TransmitterConfig, client wsrpc.Client, pm *PersistenceManager, serverURL, feedIDHex string) *server {
-
 	return &server{
 		logger.Sugared(lggr),
 		cfg.TransmitTimeout().Duration(),

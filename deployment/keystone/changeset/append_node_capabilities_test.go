@@ -10,7 +10,8 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -29,15 +30,15 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
 	t.Run("no mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			newCapabilities[k] = caps
@@ -51,23 +52,23 @@ func TestAppendNodeCapabilities(t *testing.T) {
 
 			csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
 			require.NoError(t, err)
-			require.Len(t, csOut.Proposals, 0)
+			require.Empty(t, csOut.Proposals)
 			require.Nil(t, csOut.AddressBook)
 
 			validateCapabilityAppends(t, te, newCapabilities)
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+		te := test.SetupTestEnv(t, test.TestConfig{
+			WFDonConfig:     test.DonConfig{N: 4},
+			AssetDonConfig:  test.DonConfig{N: 4},
+			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id, _ := range te.WFNodes {
+		for id := range te.WFNodes {
 			k, err := p2pkey.MakePeerID(id)
 			require.NoError(t, err)
 			newCapabilities[k] = caps
@@ -104,11 +105,10 @@ func TestAppendNodeCapabilities(t *testing.T) {
 		require.NoError(t, err)
 		validateCapabilityAppends(t, te, newCapabilities)
 	})
-
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateCapabilityAppends(t *testing.T, te TestEnv, appended map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
+func validateCapabilityAppends(t *testing.T, te test.TestEnv, appended map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
 	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {CCIPHome} from "../../../capability/CCIPHome.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {CCIPHomeTestSetup} from "./CCIPHomeTestSetup.t.sol";
 
 contract CCIPHome_getAllConfigs is CCIPHomeTestSetup {
-  function test_getAllConfigs_success() public {
+  function test_getAllConfigs() public {
     CCIPHome.OCR3Config memory config = _getBaseConfig(Internal.OCRPluginType.Commit);
     bytes32 firstDigest = s_ccipHome.setCandidate(DEFAULT_DON_ID, DEFAULT_PLUGIN_TYPE, config, ZERO_DIGEST);
 

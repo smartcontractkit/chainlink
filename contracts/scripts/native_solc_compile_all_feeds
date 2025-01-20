@@ -31,5 +31,5 @@ compileContract () {
 
 # Aggregators
 compileContract shared/interfaces/AggregatorV2V3Interface.sol
-compileContract Chainlink.sol
-compileContract ChainlinkClient.sol
+compileContract operatorforwarder/Chainlink.sol
+compileContract operatorforwarder/ChainlinkClient.sol

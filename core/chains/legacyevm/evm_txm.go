@@ -17,7 +17,6 @@ import (
 func newEvmTxm(
 	ds sqlutil.DataSource,
 	cfg evmconfig.EVM,
-	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
 	listenerConfig txmgr.ListenerConfig,
 	client evmclient.Client,
@@ -25,16 +24,11 @@ func newEvmTxm(
 	logPoller logpoller.LogPoller,
 	opts ChainRelayOpts,
 	headTracker httypes.HeadTracker,
-	clientsByChainID map[string]rollups.DAClient,
-) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
+) (txm txmgr.TxManager,
 	err error,
 ) {
 	chainID := cfg.ChainID()
-	if !evmRPCEnabled {
-		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
-		return txm, nil, nil
-	}
 
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
@@ -45,16 +39,25 @@ func newEvmTxm(
 		"limitDefault", cfg.GasEstimator().LimitDefault(),
 	)
 
-	// build estimator from factory
-	if opts.GenGasEstimator == nil {
-		if estimator, err = gas.NewEstimator(lggr, client, cfg.ChainType(), chainID, cfg.GasEstimator(), clientsByChainID); err != nil {
-			return nil, nil, fmt.Errorf("failed to initialize estimator: %w", err)
-		}
-	} else {
-		estimator = opts.GenGasEstimator(chainID)
-	}
-
 	if opts.GenTxManager == nil {
+		var txmv2 txmgr.TxManager
+		if cfg.Transactions().TransactionManagerV2().Enabled() {
+			txmv2, err = txmgr.NewTxmV2(
+				ds,
+				cfg,
+				txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
+				cfg.Transactions(),
+				cfg.Transactions().TransactionManagerV2(),
+				client,
+				lggr,
+				logPoller,
+				opts.KeyStore,
+				estimator,
+			)
+			if cfg.Transactions().TransactionManagerV2().DualBroadcast() != nil && *cfg.Transactions().TransactionManagerV2().DualBroadcast() {
+				return txmv2, err
+			}
+		}
 		txm, err = txmgr.NewTxm(
 			ds,
 			cfg,
@@ -68,9 +71,30 @@ func newEvmTxm(
 			logPoller,
 			opts.KeyStore,
 			estimator,
-			headTracker)
+			headTracker,
+			txmv2)
 	} else {
 		txm = opts.GenTxManager(chainID)
+	}
+	return
+}
+
+func newGasEstimator(
+	cfg evmconfig.EVM,
+	client evmclient.Client,
+	lggr logger.Logger,
+	opts ChainRelayOpts,
+	clientsByChainID map[string]rollups.DAClient,
+) (estimator gas.EvmFeeEstimator, err error) {
+	lggr = lggr.Named("Txm")
+	chainID := cfg.ChainID()
+	// build estimator from factory
+	if opts.GenGasEstimator == nil {
+		if estimator, err = gas.NewEstimator(lggr, client, cfg.ChainType(), chainID, cfg.GasEstimator(), clientsByChainID); err != nil {
+			return nil, fmt.Errorf("failed to initialize estimator: %w", err)
+		}
+	} else {
+		estimator = opts.GenGasEstimator(chainID)
 	}
 	return
 }

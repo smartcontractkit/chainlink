@@ -1,0 +1,4 @@
+vendor
+# secret files in config
+**/**/network_config.toml
+**/**/secrets.toml

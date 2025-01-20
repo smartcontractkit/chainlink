@@ -16,6 +16,7 @@ type GeneralConfig interface {
 	SolanaConfigs() solcfg.TOMLConfigs
 	StarknetConfigs() stkcfg.TOMLConfigs
 	AptosConfigs() RawConfigs
+	TronConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 }

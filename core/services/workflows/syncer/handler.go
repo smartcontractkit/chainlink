@@ -3,6 +3,7 @@ package syncer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -223,7 +224,7 @@ func (h *eventHandler) refreshSecrets(ctx context.Context, workflowOwner, workfl
 	return updatedSecrets, nil
 }
 
-func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowName, workflowID string) (map[string]string, error) {
+func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
 	secretsURLHash, secretsPayload, err := h.orm.GetContentsByWorkflowID(ctx, workflowID)
 	if err != nil {
 		// The workflow record was found, but secrets_id was empty.
@@ -237,15 +238,16 @@ func (h *eventHandler) SecretsFor(ctx context.Context, workflowOwner, workflowNa
 
 	lastFetchedAt, ok := h.lastFetchedAtMap.Get(secretsURLHash)
 	if !ok || h.clock.Now().Sub(lastFetchedAt) > h.secretsFreshnessDuration {
-		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, workflowName, workflowID, secretsURLHash)
+		updatedSecrets, innerErr := h.refreshSecrets(ctx, workflowOwner, hexWorkflowName, workflowID, secretsURLHash)
 		if innerErr != nil {
 			msg := fmt.Sprintf("could not refresh secrets: proceeding with stale secrets for workflowID %s: %s", workflowID, innerErr)
 			h.lggr.Error(msg)
+
 			logCustMsg(
 				ctx,
 				h.emitter.With(
 					platform.KeyWorkflowID, workflowID,
-					platform.KeyWorkflowName, workflowName,
+					platform.KeyWorkflowName, decodedWorkflowName,
 					platform.KeyWorkflowOwner, workflowOwner,
 				),
 				msg,
@@ -482,7 +484,11 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	h.engineRegistry.Add(wfID, engine)
+	// This shouldn't happen because we call the handler serially and
+	// check for running engines above, see the call to engineRegistry.IsRunning.
+	if err := h.engineRegistry.Add(wfID, engine); err != nil {
+		return fmt.Errorf("invariant violation: %w", err)
+	}
 
 	return nil
 }
@@ -493,34 +499,35 @@ func (h *eventHandler) getWorkflowArtifacts(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) ([]byte, []byte, error) {
-	spec, err := h.orm.GetWorkflowSpecByID(ctx, hex.EncodeToString(payload.WorkflowID[:]))
-	if err != nil {
-		binary, err2 := h.fetcher(ctx, payload.BinaryURL)
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
+	// Check if the workflow spec is already stored in the database
+	if spec, err := h.orm.GetWorkflowSpecByID(ctx, hex.EncodeToString(payload.WorkflowID[:])); err == nil {
+		// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
+		decodedBinary, err := hex.DecodeString(spec.Workflow)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
 		}
-
-		decodedBinary, err2 := base64.StdEncoding.DecodeString(string(binary))
-		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
-		}
-
-		var config []byte
-		if payload.ConfigURL != "" {
-			config, err2 = h.fetcher(ctx, payload.ConfigURL)
-			if err2 != nil {
-				return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
-			}
-		}
-		return decodedBinary, config, nil
+		return decodedBinary, []byte(spec.Config), nil
 	}
 
-	// there is no update in the BinaryURL or ConfigURL, lets decode the stored artifacts
-	decodedBinary, err := hex.DecodeString(spec.Workflow)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode stored workflow spec: %w", err)
+	// Fetch the binary and config files from the specified URLs.
+	var (
+		binary, decodedBinary, config []byte
+		err                           error
+	)
+	if binary, err = h.fetcher(ctx, payload.BinaryURL); err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
-	return decodedBinary, []byte(spec.Config), nil
+
+	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode binary: %w", err)
+	}
+
+	if payload.ConfigURL != "" {
+		if config, err = h.fetcher(ctx, payload.ConfigURL); err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
+		}
+	}
+	return decodedBinary, config, nil
 }
 
 func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
@@ -531,16 +538,20 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	}
 
 	cfg := workflows.Config{
-		Lggr:           h.lggr,
-		Workflow:       *sdkSpec,
-		WorkflowID:     id,
-		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
-		Registry:       h.capRegistry,
-		Store:          h.workflowStore,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: h,
+		Lggr:          h.lggr,
+		Workflow:      *sdkSpec,
+		WorkflowID:    id,
+		WorkflowOwner: owner, // this gets hex encoded in the engine.
+		WorkflowName:  name,
+		// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
+		// A name is used internally that is first hashed to avoid collisions,
+		// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
+		WorkflowNameTransform: pkgworkflows.HashTruncateName(name),
+		Registry:              h.capRegistry,
+		Store:                 h.workflowStore,
+		Config:                config,
+		Binary:                binary,
+		SecretsFetcher:        h,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }
@@ -642,9 +653,15 @@ func (h *eventHandler) workflowDeletedEvent(
 		return err
 	}
 
-	if err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName); err != nil {
+	err := h.orm.DeleteWorkflowSpec(ctx, hex.EncodeToString(payload.WorkflowOwner), payload.WorkflowName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			h.lggr.Warnw("workflow spec not found", "workflowID", hex.EncodeToString(payload.WorkflowID[:]))
+			return nil
+		}
 		return fmt.Errorf("failed to delete workflow spec: %w", err)
 	}
+
 	return nil
 }
 

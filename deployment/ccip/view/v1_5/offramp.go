@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -15,7 +16,7 @@ type OffRampView struct {
 
 func GenerateOffRampView(r *evm_2_evm_offramp.EVM2EVMOffRamp) (OffRampView, error) {
 	if r == nil {
-		return OffRampView{}, fmt.Errorf("cannot generate view for nil OffRamp")
+		return OffRampView{}, errors.New("cannot generate view for nil OffRamp")
 	}
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {

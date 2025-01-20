@@ -4,15 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"strconv"
 	"strings"
 	"time"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
+
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 
@@ -167,7 +170,7 @@ type Node struct {
 	NodeId      string                    // node id returned by job distributor after node is registered with it
 	JDId        string                    // job distributor id returned by node after Job distributor is created in node
 	Name        string                    // name of the node
-	AccountAddr map[uint64]string         // chain selector to node's account address mapping for supported chains
+	AccountAddr map[uint64]string         // chain id to node's account address mapping for supported chains
 	gqlClient   client.Client             // graphql client to interact with the node
 	restClient  *clclient.ChainlinkClient // rest client to interact with the node
 	labels      []*ptypes.Label           // labels with which the node is registered with the job distributor
@@ -395,7 +398,7 @@ func (n *Node) CreateJobDistributor(ctx context.Context, jd JobDistributor) (str
 	// create the job distributor in the node with the csa key
 	resp, err := n.gqlClient.ListJobDistributors(ctx)
 	if err != nil {
-		return "", fmt.Errorf("could not list job distrubutors: %w", err)
+		return "", fmt.Errorf("could not list job distributors: %w", err)
 	}
 	if len(resp.FeedsManagers.Results) > 0 {
 		for _, fm := range resp.FeedsManagers.Results {

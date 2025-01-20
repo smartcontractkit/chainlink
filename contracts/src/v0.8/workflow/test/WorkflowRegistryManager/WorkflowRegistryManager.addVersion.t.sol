@@ -21,21 +21,29 @@ contract WorkflowRegistryManager_addVersion is WorkflowRegistryManagerSetup {
 
   // whenTheCallerIsTheOwner
   function test_RevertWhen_TheContractAddressIsInvalid() external {
-    // Deploy a random contract
-    MockContract mockContract = new MockContract();
-
-    // Add it to the WorkflowRegistryManager
-    vm.prank(s_owner);
-    vm.expectRevert(abi.encodeWithSelector(WorkflowRegistryManager.InvalidContractType.selector, address(mockContract)));
-    s_registryManager.addVersion(address(mockContract), s_chainID, s_deployedAt, true);
-  }
-
-  // whenTheCallerIsTheOwner
-  function test_RevertWhen_TheContractAddressIsValid() external {
     // Add a 0 address to the WorkflowRegistryManager
     vm.prank(s_owner);
     vm.expectRevert(abi.encodeWithSelector(WorkflowRegistryManager.InvalidContractAddress.selector, address(0)));
     s_registryManager.addVersion(address(0), s_chainID, s_deployedAt, true);
+  }
+
+  // whenTheCallerIsTheOwner whenTheContractAddressIsValid
+  function test_RevertWhen_TheContractIsAlreadyRegistered() external {
+    // Deploy a MockWorkflowRegistryContract contract
+    MockWorkflowRegistryContract mockWfrContract = new MockWorkflowRegistryContract();
+
+    // Add it to the WorkflowRegistryManager
+    vm.prank(s_owner);
+    s_registryManager.addVersion(address(mockWfrContract), s_chainID, s_deployedAt, true);
+
+    // Try to add it again
+    vm.prank(s_owner);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        WorkflowRegistryManager.ContractAlreadyRegistered.selector, address(mockWfrContract), s_chainID
+      )
+    );
+    s_registryManager.addVersion(address(mockWfrContract), s_chainID, s_deployedAt, true);
   }
 
   // whenTheCallerIsTheOwner whenTheContractAddressIsValid

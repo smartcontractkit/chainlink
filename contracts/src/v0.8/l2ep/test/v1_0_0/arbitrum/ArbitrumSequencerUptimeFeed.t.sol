@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {SimpleWriteAccessController} from "../../../../shared/access/SimpleWriteAccessController.sol";
 import {ArbitrumSequencerUptimeFeed} from "../../../arbitrum/ArbitrumSequencerUptimeFeed.sol";
 import {MockAggregatorV2V3} from "../../mocks/MockAggregatorV2V3.sol";
-import {FeedConsumer} from "../../../../tests/FeedConsumer.sol";
+import {FeedConsumer} from "../../FeedConsumer.sol";
 import {Flags} from "../../../Flags.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
 

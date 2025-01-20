@@ -36,11 +36,11 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 	// Just using the ownership interface from here.
 	c, err := burn_mint_erc677.NewBurnMintERC677(addr, client)
 	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to create contract: %v", err)
+		return common.Address{}, nil, fmt.Errorf("failed to create contract: %w", err)
 	}
 	owner, err := c.Owner(nil)
 	if err != nil {
-		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract: %v", err)
+		return common.Address{}, nil, fmt.Errorf("failed to get owner of contract %s: %w", c.Address(), err)
 	}
 	return owner, c, nil
 }
@@ -52,13 +52,13 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 			// Note this also assures non-zero addresses.
 			if exists, err := deployment.AddressBookContains(e.ExistingAddresses, chainSelector, contract.String()); err != nil || !exists {
 				if err != nil {
-					return fmt.Errorf("failed to check address book: %v", err)
+					return fmt.Errorf("failed to check address book: %w", err)
 				}
 				return fmt.Errorf("contract %s not found in address book", contract)
 			}
 			owner, _, err := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
 			if err != nil {
-				return fmt.Errorf("failed to load ownable: %v", err)
+				return fmt.Errorf("failed to load ownable: %w", err)
 			}
 			if owner != e.Chains[chainSelector].DeployerKey.From {
 				return fmt.Errorf("contract %s is not owned by the deployer key", contract)
@@ -66,10 +66,10 @@ func (t TransferToMCMSWithTimelockConfig) Validate(e deployment.Environment) err
 		}
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock); err != nil {
-			return fmt.Errorf("timelock not present on the chain %v", err)
+			return fmt.Errorf("timelock not present on the chain %w", err)
 		}
 		if _, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig); err != nil {
-			return fmt.Errorf("mcms proposer not present on the chain %v", err)
+			return fmt.Errorf("mcms proposer not present on the chain %w", err)
 		}
 	}
 
@@ -101,7 +101,7 @@ func TransferToMCMSWithTimelock(
 		timelocksByChain[chainSelector] = common.HexToAddress(timelockAddr)
 		proposer, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(proposerAddr), e.Chains[chainSelector].Client)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %v", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create proposer mcms: %w", err)
 		}
 		proposersByChain[chainSelector] = proposer
 
@@ -118,7 +118,7 @@ func TransferToMCMSWithTimelock(
 			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
 			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %v", contract, err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
 			}
 			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
 			if err != nil {
@@ -218,25 +218,55 @@ type RenounceTimelockDeployerConfig struct {
 	ChainSel uint64
 }
 
+func (cfg RenounceTimelockDeployerConfig) Validate(e deployment.Environment) error {
+	if err := deployment.IsValidChainSelector(cfg.ChainSel); err != nil {
+		return fmt.Errorf("invalid chain selector: %w", err)
+	}
+
+	_, ok := e.Chains[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("chain selector: %d not found in environment", cfg.ChainSel)
+	}
+
+	// MCMS should already exists
+	state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	if err != nil {
+		return err
+	}
+
+	contract, ok := state[cfg.ChainSel]
+	if !ok {
+		return fmt.Errorf("mcms contracts not found on chain %d", cfg.ChainSel)
+	}
+	if contract.Timelock == nil {
+		return fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
+	}
+
+	return nil
+}
+
 // RenounceTimelockDeployer revokes the deployer key from administering the contract.
 func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDeployerConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
 	contracts, err := MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	tl := contracts[cfg.ChainSel].Timelock
-	if tl == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not found on chain %d", cfg.ChainSel)
-	}
-	admin, err := tl.ADMINROLE(&bind.CallOpts{})
+	admin, err := tl.ADMINROLE(&bind.CallOpts{Context: e.GetContext()})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get admin role: %w", err)
 	}
-	tx, err := tl.RenounceRole(e.Chains[cfg.ChainSel].DeployerKey, admin, e.Chains[cfg.ChainSel].DeployerKey.From)
+
+	chain := e.Chains[cfg.ChainSel]
+	tx, err := tl.RenounceRole(chain.DeployerKey, admin, chain.DeployerKey.From)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
 	}
-	if _, err := deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())

@@ -7,18 +7,30 @@ import (
 	"math/big"
 
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
-type ToCalldataFunc func(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any
+type ToCalldataFunc func(
+	rawReportCtx [2][32]byte,
+	report ocr3types.ReportWithInfo[[]byte],
+	rs, ss [][32]byte,
+	vs [32]byte,
+) (any, error)
 
-func ToCommitCalldata(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte, vs [32]byte) any {
+func ToCommitCalldata(
+	rawReportCtx [2][32]byte,
+	report ocr3types.ReportWithInfo[[]byte],
+	rs, ss [][32]byte,
+	vs [32]byte,
+) (any, error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -36,14 +48,19 @@ func ToCommitCalldata(rawReportCtx [2][32]byte, report []byte, rs, ss [][32]byte
 		RawVs         [32]byte
 	}{
 		ReportContext: rawReportCtx,
-		Report:        report,
+		Report:        report.Report,
 		Rs:            rs,
 		Ss:            ss,
 		RawVs:         vs,
-	}
+	}, nil
 }
 
-func ToExecCalldata(rawReportCtx [2][32]byte, report []byte, _, _ [][32]byte, _ [32]byte) any {
+func ToExecCalldata(
+	rawReportCtx [2][32]byte,
+	report ocr3types.ReportWithInfo[[]byte],
+	_, _ [][32]byte,
+	_ [32]byte,
+) (any, error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -53,18 +70,29 @@ func ToExecCalldata(rawReportCtx [2][32]byte, report []byte, _, _ [][32]byte, _ 
 	// WARNING: Be careful if you change the data types.
 	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
 	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
+	var info ccipocr3.ExecuteReportInfo
+	if len(report.Info) != 0 {
+		var err error
+		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return struct {
 		ReportContext [2][32]byte
 		Report        []byte
+		Info          ccipocr3.ExecuteReportInfo
 	}{
 		ReportContext: rawReportCtx,
-		Report:        report,
-	}
+		Report:        report.Report,
+		Info:          info,
+	}, nil
 }
 
-var _ ocr3types.ContractTransmitter[[]byte] = &commitTransmitter[[]byte]{}
+var _ ocr3types.ContractTransmitter[[]byte] = &commitTransmitter{}
 
-type commitTransmitter[RI any] struct {
+type commitTransmitter struct {
 	cw             commontypes.ContractWriter
 	fromAccount    ocrtypes.Account
 	contractName   string
@@ -73,15 +101,15 @@ type commitTransmitter[RI any] struct {
 	toCalldataFn   ToCalldataFunc
 }
 
-func XXXNewContractTransmitterTestsOnly[RI any](
+func XXXNewContractTransmitterTestsOnly(
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	contractName string,
 	method string,
 	offrampAddress string,
 	toCalldataFn ToCalldataFunc,
-) ocr3types.ContractTransmitter[RI] {
-	return &commitTransmitter[RI]{
+) ocr3types.ContractTransmitter[[]byte] {
+	return &commitTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   contractName,
@@ -91,12 +119,12 @@ func XXXNewContractTransmitterTestsOnly[RI any](
 	}
 }
 
-func NewCommitContractTransmitter[RI any](
+func NewCommitContractTransmitter(
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
-) ocr3types.ContractTransmitter[RI] {
-	return &commitTransmitter[RI]{
+) ocr3types.ContractTransmitter[[]byte] {
+	return &commitTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   consts.ContractNameOffRamp,
@@ -106,12 +134,12 @@ func NewCommitContractTransmitter[RI any](
 	}
 }
 
-func NewExecContractTransmitter[RI any](
+func NewExecContractTransmitter(
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
-) ocr3types.ContractTransmitter[RI] {
-	return &commitTransmitter[RI]{
+) ocr3types.ContractTransmitter[[]byte] {
+	return &commitTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   consts.ContractNameOffRamp,
@@ -122,16 +150,16 @@ func NewExecContractTransmitter[RI any](
 }
 
 // FromAccount implements ocr3types.ContractTransmitter.
-func (c *commitTransmitter[RI]) FromAccount(context.Context) (ocrtypes.Account, error) {
+func (c *commitTransmitter) FromAccount(context.Context) (ocrtypes.Account, error) {
 	return c.fromAccount, nil
 }
 
 // Transmit implements ocr3types.ContractTransmitter.
-func (c *commitTransmitter[RI]) Transmit(
+func (c *commitTransmitter) Transmit(
 	ctx context.Context,
 	configDigest ocrtypes.ConfigDigest,
 	seqNr uint64,
-	reportWithInfo ocr3types.ReportWithInfo[RI],
+	reportWithInfo ocr3types.ReportWithInfo[[]byte],
 	sigs []ocrtypes.AttributedOnchainSignature,
 ) error {
 	var rs [][32]byte
@@ -160,7 +188,10 @@ func (c *commitTransmitter[RI]) Transmit(
 	}
 
 	// chain writer takes in the raw calldata and packs it on its own.
-	args := c.toCalldataFn(rawReportCtx, reportWithInfo.Report, rs, ss, vs)
+	args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs)
+	if err != nil {
+		return fmt.Errorf("failed to generate call data: %w", err)
+	}
 
 	// TODO: no meta fields yet, what should we add?
 	// probably whats in the info part of the report?

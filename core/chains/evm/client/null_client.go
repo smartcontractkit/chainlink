@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -122,9 +122,9 @@ func (nc *NullClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.H
 	return nil, nil
 }
 
-func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, sender common.Address) (commonclient.SendTxReturnCode, error) {
+func (nc *NullClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, sender common.Address) (multinode.SendTxReturnCode, error) {
 	nc.lggr.Debug("SendTransactionReturnCode")
-	return commonclient.Successful, nil
+	return multinode.Successful, nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../KeeperBase.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
+import "../../shared/interfaces/ITypeAndVersion.sol";
 import "../../shared/interfaces/AggregatorV3Interface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/v1_2/KeeperRegistryInterface1_2.sol";
@@ -31,7 +31,7 @@ struct Upkeep {
  * contracts. Clients must support the Upkeep interface.
  */
 contract KeeperRegistry1_2 is
-  TypeAndVersionInterface,
+  ITypeAndVersion,
   ConfirmedOwner,
   KeeperBase,
   ReentrancyGuard,

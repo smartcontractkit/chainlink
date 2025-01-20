@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -15,7 +15,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     super.setUp();
   }
 
-  function test_processMessageArgs_WithLinkTokenAmount_Success() public view {
+  function test_processMessageArgs_WithLinkTokenAmount() public view {
     (
       uint256 msgFeeJuels,
       /* bool isOutOfOrderExecution */
@@ -36,7 +36,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     assertEq(msgFeeJuels, MAX_MSG_FEES_JUELS);
   }
 
-  function test_processMessageArgs_WithConvertedTokenAmount_Success() public view {
+  function test_processMessageArgs_WithConvertedTokenAmount() public view {
     address feeToken = s_sourceTokens[1];
     uint256 feeTokenAmount = 10_000 gwei;
     uint256 expectedConvertedAmount = s_feeQuoter.convertTokenAmount(feeToken, feeTokenAmount, s_sourceTokens[0]);
@@ -60,7 +60,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     assertEq(msgFeeJuels, expectedConvertedAmount);
   }
 
-  function test_processMessageArgs_WithEmptyEVMExtraArgs_Success() public view {
+  function test_processMessageArgs_WithEmptyEVMExtraArgs() public view {
     (
       /* uint256 msgFeeJuels */
       ,
@@ -80,7 +80,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     assertEq(convertedExtraArgs, Client._argsToBytes(s_feeQuoter.parseEVMExtraArgsFromBytes("", DEST_CHAIN_SELECTOR)));
   }
 
-  function test_processMessageArgs_WithEVMExtraArgsV1_Success() public view {
+  function test_processMessageArgs_WithEVMExtraArgsV1() public view {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 1000}));
 
     (
@@ -104,7 +104,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_WitEVMExtraArgsV2_Success() public view {
+  function test_processMessageArgs_WitEVMExtraArgsV2() public view {
     bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 0, allowOutOfOrderExecution: true}));
 
     (
@@ -128,9 +128,50 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
+  function test_processMessageArgs_WithSVMExtraArgsV1() public {
+    // Apply the chain update to set the chain family selector to SOL
+    FeeQuoter.DestChainConfig memory s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
+    destChainConfigs[0] =
+      FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_destChainConfig});
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
+
+    bytes memory extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({
+        computeUnits: 0,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: true,
+        accounts: new bytes32[](0)
+      })
+    );
+
+    (
+      /* uint256 msgFeeJuels */
+      ,
+      bool isOutOfOrderExecution,
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      extraArgs,
+      new Internal.EVM2AnyTokenTransfer[](0),
+      new Client.EVMTokenAmount[](0)
+    );
+
+    assertTrue(isOutOfOrderExecution);
+    assertEq(
+      convertedExtraArgs, Client._svmArgsToBytes(s_feeQuoter.parseSVMExtraArgsFromBytes(extraArgs, s_destChainConfig))
+    );
+  }
+
   // Reverts
 
-  function test_processMessageArgs_MessageFeeTooHigh_Revert() public {
+  function test_RevertWhen_processMessageArgs_MessageFeeTooHigh() public {
     vm.expectRevert(
       abi.encodeWithSelector(FeeQuoter.MessageFeeTooHigh.selector, MAX_MSG_FEES_JUELS + 1, MAX_MSG_FEES_JUELS)
     );
@@ -145,7 +186,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_InvalidExtraArgs_Revert() public {
+  function test_RevertWhen_processMessageArgs_InvalidExtraArgs() public {
     vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
 
     s_feeQuoter.processMessageArgs(
@@ -158,7 +199,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_MalformedEVMExtraArgs_Revert() public {
+  function test_RevertWhen_processMessageArgs_MalformedEVMExtraArgs() public {
     // abi.decode error
     vm.expectRevert();
 
@@ -172,7 +213,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_WithCorrectPoolReturnData_Success() public view {
+  function test_processMessageArgs_WithCorrectPoolReturnData() public view {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
     sourceTokenAmounts[0].token = s_sourceTokens[0];
@@ -199,7 +240,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     }
   }
 
-  function test_processMessageArgs_TokenAmountArraysMismatching_Revert() public {
+  function test_RevertWhen_processMessageArgs_TokenAmountArraysMismatching() public {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
     sourceTokenAmounts[0].token = s_sourceTokens[0];
@@ -220,7 +261,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_applyTokensTransferFeeConfigUpdates_InvalidFeeRange_Revert() public {
+  function test_RevertWhen_applyTokensTransferFeeConfigUpdates_InvalidFeeRange() public {
     address sourceETH = s_sourceTokens[1];
 
     // Set token config to allow larger data
@@ -243,7 +284,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_SourceTokenDataTooLarge_Revert() public {
+  function test_RevertWhen_processMessageArgs_SourceTokenDataTooLarge() public {
     address sourceETH = s_sourceTokens[1];
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);
@@ -300,7 +341,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
-  function test_processMessageArgs_InvalidEVMAddressDestToken_Revert() public {
+  function test_RevertWhen_processMessageArgs_InvalidEVMAddressDestToken() public {
     bytes memory nonEvmAddress = abi.encode(type(uint208).max);
 
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](1);

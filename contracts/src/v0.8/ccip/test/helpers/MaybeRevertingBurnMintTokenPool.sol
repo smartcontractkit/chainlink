@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
@@ -60,7 +60,7 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
   /// @notice Reverts depending on the value of `s_revertReason`
   function releaseOrMint(
     Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
-  ) external virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
     bytes memory revertReason = s_revertReason;

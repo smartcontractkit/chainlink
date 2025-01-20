@@ -36,6 +36,7 @@ type Query {
     aptosKeys: AptosKeysPayload!
     cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
+    tronKeys: TronKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!

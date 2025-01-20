@@ -263,6 +263,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			ccipevm.NewExtraArgsCodec(),
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -271,7 +272,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			rmnCrypto,
 		)
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter[[]byte](destChainWriter,
+		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)
@@ -285,6 +286,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			ccipevm.NewExtraArgsCodec(),
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),
@@ -292,7 +294,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			chainWriters,
 		)
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter[[]byte](destChainWriter,
+		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)

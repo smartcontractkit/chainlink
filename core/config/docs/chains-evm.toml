@@ -106,6 +106,8 @@ LogBroadcasterEnabled = true # Default
 NoNewFinalizedHeadsThreshold = '0' # Default
 
 [EVM.Transactions]
+# Enabled is a feature flag for the Transaction Manager. This flag also enables or disables the gas estimator since it is dependent on the TXM to start it.
+Enabled = true # Default
 # ForwardersEnabled enables or disables sending transactions through forwarder contracts.
 ForwardersEnabled = false # Default
 # MaxInFlight controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
@@ -138,6 +140,16 @@ DetectionApiUrl = 'https://example.api.io' # Example
 Threshold = 5 # Example
 # MinAttempts configures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain. Ensure the gas estimator configs take more bump attempts before reaching the configured max gas price.
 MinAttempts = 3 # Example
+
+[EVM.Transactions.TransactionManagerV2]
+# Enabled enables TransactionManagerV2.
+Enabled = false # Default
+# BlockTime controls the frequency of the backfill loop of TransactionManagerV2. 
+BlockTime = '10s' # Example
+# CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+CustomURL = 'https://example.api.io' # Example
+# DualBroadcast enables DualBroadcast functionality.
+DualBroadcast = false # Example
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.

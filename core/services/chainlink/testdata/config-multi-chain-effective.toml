@@ -235,7 +235,8 @@ LatestReportDeadline = '5s'
 CertFile = ''
 
 [Mercury.Transmitter]
-TransmitQueueMaxSize = 10000
+Protocol = 'wsrpc'
+TransmitQueueMaxSize = 100000
 TransmitTimeout = '5s'
 TransmitConcurrency = 100
 
@@ -320,6 +321,7 @@ FinalizedBlockOffset = 12
 NoNewFinalizedHeadsThreshold = '9m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -328,6 +330,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]
@@ -430,6 +435,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 250
@@ -438,6 +444,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]
@@ -534,6 +543,7 @@ FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '6m0s'
 
 [EVM.Transactions]
+Enabled = true
 ForwardersEnabled = false
 MaxInFlight = 16
 MaxQueued = 5000
@@ -542,6 +552,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]
@@ -659,6 +672,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'confirmed'
@@ -704,6 +718,7 @@ OCR2CacheTTL = '1m0s'
 TxTimeout = '1m0s'
 TxRetryTimeout = '10s'
 TxConfirmTimeout = '30s'
+TxExpirationRebroadcast = false
 TxRetentionTimeout = '0s'
 SkipPreflight = true
 Commitment = 'confirmed'

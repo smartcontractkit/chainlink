@@ -4,6 +4,7 @@ COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -38,7 +39,7 @@ docs: ## Install and run pkgsite to view Go docs
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
-	go install $(GOFLAGS) .
+	go install $(GCFLAGS) $(GOFLAGS) .
 
 .PHONY: install-chainlink-cover
 install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
@@ -63,6 +64,17 @@ install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 .PHONY: install-ocr3-capability
 install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
+
+.PHONY: install-plugins
+install-plugins: ## Build & install LOOPP binaries for products and chains.
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
+	go install ./cmd/chainlink-feeds
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
+	go install ./mercury/cmd/chainlink-mercury
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
+	go install ./pkg/solana/cmd/chainlink-solana
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
+	go install ./pkg/chainlink/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -97,7 +109,7 @@ abigen: ## Build & install abigen.
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
 	gomods -w go generate -x ./...
-	mockery
+	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
 rm-mocked:
@@ -145,7 +157,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.46.3
+	go install github.com/vektra/mockery/v2@v2.50.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -173,7 +185,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.61.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.62.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:
@@ -182,7 +194,7 @@ modgraph:
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
-	go test -short ./... | grep -v "no test files" | grep -v "\(cached\)"
+	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
 help:
 	@echo ""
