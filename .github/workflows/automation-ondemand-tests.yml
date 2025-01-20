@@ -168,7 +168,7 @@ jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fb79097de87a6391457ccc36f82387746d1cef55
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@61acf908014e2fe42c04f2a507c79f97eb5f8c4d
     with:
       test_path: .github/e2e-tests.yml
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}

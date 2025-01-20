@@ -584,7 +584,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			key, ok := MockDescriptionToTokenSymbol[desc]
+			key, ok := DescriptionToTokenSymbol[desc]
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
