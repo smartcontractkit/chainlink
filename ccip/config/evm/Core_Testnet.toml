@@ -7,4 +7,4 @@ LogPollInterval = '3s' # block rate 3s
 [EVM.GasEstimator]
 EIP1559DynamicFees = false
 Mode = 'FeeHistory'
-PriceDefault = '35 gwei' # harcoded
+PriceDefault = '35 gwei' # currently set to 35 gwei, may change in the future so using FeeHistory mode
