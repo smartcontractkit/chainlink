@@ -2278,6 +2278,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		require.NoError(t, err)
 
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(transmitterID.String())
+		jb.Name = null.StringFrom(uuid.NewString())
 
 		require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	})
@@ -2304,6 +2305,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		require.NoError(t, err)
 
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(transmitterID.String())
+		jb.Name = null.StringFrom(uuid.NewString())
 
 		require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	})
@@ -2331,6 +2333,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		require.NoError(t, err)
 
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(dtTransmitterAddress.Address.String())
+		jb.Name = null.StringFrom(uuid.NewString())
 
 		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "cannot be a secondary transmitter address because it's used a primary transmitter in another job")
 	})
