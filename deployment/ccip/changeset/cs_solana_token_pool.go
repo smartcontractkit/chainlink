@@ -9,10 +9,24 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 
+	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
+const (
+	ViaGetCcipAdminInstruction RegisterTokenAdminRegistryType = iota
+	ViaOwnerInstruction
+)
+
+var _ deployment.ChangeSet[AddTokenPoolConfig] = AddTokenPool
+var _ deployment.ChangeSet[SetupTokenPoolForChainConfig] = SetupTokenPoolForChain
+var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
+var _ deployment.ChangeSet[TransferAndAcceptAdminRoleTokenAdminRegistryConfig] = TransferAndAcceptAdminRoleTokenAdminRegistry
+var _ deployment.ChangeSet[UpdateTokenPoolConfig] = UpdateTokenPool
+
+// ADD TOKEN POOL
 type AddTokenPoolConfig struct {
 	ChainSelector    uint64
 	PoolType         string
@@ -21,8 +35,6 @@ type AddTokenPoolConfig struct {
 	TokenName        string
 	TokenProgramName string
 }
-
-var _ deployment.ChangeSet[AddTokenPoolConfig] = AddTokenPool
 
 func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
@@ -100,6 +112,7 @@ func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.
 	return deployment.ChangesetOutput{}, nil
 }
 
+// SETUP TOKEN POOL FOR CHAIN
 type SetupTokenPoolForChainConfig struct {
 	ChainSelector       uint64
 	RemoteChainSelector uint64
@@ -110,8 +123,6 @@ type SetupTokenPoolForChainConfig struct {
 	InboundRateLimit  token_pool.RateLimitConfig
 	OutboundRateLimit token_pool.RateLimitConfig
 }
-
-var _ deployment.ChangeSet[SetupTokenPoolForChainConfig] = SetupTokenPoolForChain
 
 func SetupTokenPoolForChain(e deployment.Environment, cfg SetupTokenPoolForChainConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
@@ -183,16 +194,8 @@ func SetupTokenPoolForChain(e deployment.Environment, cfg SetupTokenPoolForChain
 	return deployment.ChangesetOutput{}, nil
 }
 
-// Add billing changesets
-// Add logs
-
+// TOKEN ADMIN REGISTRY
 type RegisterTokenAdminRegistryType int
-
-const (
-	ViaGetCcipAdminInstruction RegisterTokenAdminRegistryType = iota
-	ViaOwnerInstruction
-)
-
 type RegisterTokenAdminRegistryConfig struct {
 	ChainSelector       uint64
 	TokenName           string
@@ -200,8 +203,6 @@ type RegisterTokenAdminRegistryConfig struct {
 	AuthorityPrivateKey string
 	RegisterType        RegisterTokenAdminRegistryType
 }
-
-var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
 
 func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
@@ -271,8 +272,6 @@ type TransferAndAcceptAdminRoleTokenAdminRegistryConfig struct {
 	NewTokenPoolAdminPrivateKey string
 }
 
-var _ deployment.ChangeSet[TransferAndAcceptAdminRoleTokenAdminRegistryConfig] = TransferAndAcceptAdminRoleTokenAdminRegistry
-
 func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferAndAcceptAdminRoleTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
@@ -325,14 +324,13 @@ func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg 
 	return deployment.ChangesetOutput{}, nil
 }
 
+// UPDATE TOKEN POOL
 type UpdateTokenPoolConfig struct {
 	ChainSelector       uint64
 	TokenName           string
 	AuthorityPrivateKey string
 	PoolLookupTable     string
 }
-
-var _ deployment.ChangeSet[UpdateTokenPoolConfig] = UpdateTokenPool
 
 func UpdateTokenPool(e deployment.Environment, cfg UpdateTokenPoolConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
@@ -373,6 +371,79 @@ func UpdateTokenPool(e deployment.Environment, cfg UpdateTokenPoolConfig) (deplo
 
 	instructions := []solana.Instruction{instruction}
 	err = chain.Confirm(instructions, solCommonUtil.AddSigners(authorityPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+// BILLING
+type AddBillingTokenPoolConfig struct {
+	ChainSelector    uint64
+	TokenName        string
+	TokenProgramName string
+	Config           ccip_router.BillingTokenConfig
+}
+
+func AddBillingTokenPool(e deployment.Environment, cfg AddBillingTokenPoolConfig) (deployment.ChangesetOutput, error) {
+
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	if chainState.SolCcipRouter.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+	}
+	ccip_router.SetProgramID(chainState.SolCcipRouter)
+	tokenPubKey, _ := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
+	fmt.Println("tokenPubKey", tokenPubKey.String())
+
+	billingConfigPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	fmt.Println("billingConfigPDA", billingConfigPDA.String())
+
+	billingSignerPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("fee_billing_signer")}, chainState.SolCcipRouter)
+	fmt.Println("billingSignerPDA", billingSignerPDA.String())
+
+	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, billingSignerPDA)
+	fmt.Println("token2022Receiver", token2022Receiver.String())
+
+	tokenProgramId, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	fmt.Println("tokenProgramId", tokenProgramId.String())
+
+	routerConfigPDA := GetRouterConfigPDA(chainState.SolCcipRouter)
+	fmt.Println("routerConfigPDA", routerConfigPDA.String())
+
+	fmt.Println("deployerKey", chain.DeployerKey.PublicKey().String())
+	fmt.Println("ata.ProgramID", ata.ProgramID)
+
+	cfg.Config.Mint = tokenPubKey
+
+	ixConfig, cerr := ccip_router.NewAddBillingTokenConfigInstruction(
+		cfg.Config,
+		routerConfigPDA,
+		billingConfigPDA,
+		tokenProgramId,
+		tokenPubKey,
+		token2022Receiver,
+		chain.DeployerKey.PublicKey(),
+		billingSignerPDA,
+		ata.ProgramID,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if cerr != nil {
+		return deployment.ChangesetOutput{}, cerr
+	}
+
+	instructions := []solana.Instruction{ixConfig}
+	err = chain.Confirm(instructions)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

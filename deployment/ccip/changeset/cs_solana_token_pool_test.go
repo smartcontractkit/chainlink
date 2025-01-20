@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -34,10 +37,18 @@ func TestAddTokenPool(t *testing.T) {
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	SavePreloadedSolAddresses(t, e, solChain1)
-	tokenAdmin1, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
-	tokenAdmin2, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
+	// tokenAdmin1, err := solana.NewRandomPrivateKey()
+	// require.NoError(t, err)
+	// tokenAdmin2, err := solana.NewRandomPrivateKey()
+	// require.NoError(t, err)
+
+	// Any nonzero timestamp is valid (for now)
+	validTimestamp := int64(100)
+	value := [28]uint8{}
+	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+	require.True(t, ok)
+	bigNum.FillBytes(value[:])
+
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		// I CANNOT LOAD STATE IF I DEPLOY a random token, because load token expects to understand every address ?
 		// {
@@ -110,24 +121,40 @@ func TestAddTokenPool(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
-			Config: RegisterTokenAdminRegistryConfig{
-				ChainSelector:       solChain1,
-				TokenName:           "LinkToken",
-				TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
-				AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
-				RegisterType:        ViaGetCcipAdminInstruction,
-			},
+			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenPool),
+			Config: AddBillingTokenPoolConfig{
+				ChainSelector:    solChain1,
+				TokenName:        "LinkToken",
+				TokenProgramName: "spl-token-2022",
+				Config: ccip_router.BillingTokenConfig{
+					Enabled: true,
+					// Mint:    token2022.mint,
+					UsdPerToken: ccip_router.TimestampedPackedU224{
+						Value:     value,
+						Timestamp: validTimestamp,
+					},
+					PremiumMultiplierWeiPerEth: 11000000,
+				}},
 		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
-			Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
-				ChainSelector:               solChain1,
-				TokenName:                   "LinkToken",
-				TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
-				NewTokenPoolAdminPrivateKey: tokenAdmin2.String(),
-			},
-		},
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
+		// 	Config: RegisterTokenAdminRegistryConfig{
+		// 		ChainSelector:       solChain1,
+		// 		TokenName:           "LinkToken",
+		// 		TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
+		// 		AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
+		// 		RegisterType:        ViaGetCcipAdminInstruction,
+		// 	},
+		// },
+		// {
+		// 	Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
+		// 	Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
+		// 		ChainSelector:               solChain1,
+		// 		TokenName:                   "LinkToken",
+		// 		TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
+		// 		NewTokenPoolAdminPrivateKey: tokenAdmin2.String(),
+		// 	},
+		// },
 	})
 	require.NoError(t, err)
 
@@ -142,6 +169,13 @@ func TestAddTokenPool(t *testing.T) {
 	require.NoError(t, solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, poolConfig, solRpc.CommitmentConfirmed, &configAccount))
 	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, poolSigner)
 	require.Equal(t, poolTokenAccount, configAccount.PoolTokenAccount)
+
+	state, _ := LoadOnchainStateSolana(e)
+	chainState := state.SolChains[solChain1]
+	tokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
+	aerr := solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, tokenBillingPDA, solRpc.CommitmentConfirmed, &token0ConfigAccount)
+	require.NoError(t, aerr)
 }
 
 func TestTokenAdminRegistry(t *testing.T) {
