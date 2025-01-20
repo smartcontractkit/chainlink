@@ -251,29 +251,21 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *contractTransmitter) getKeyState(ctx context.Context, address common.Address) (ethkey.State, error) {
-	k, err := oc.ks.Get(ctx, address.String())
-	if err != nil {
-		return ethkey.State{}, err
-	}
-	return oc.ks.GetStateForKey(ctx, k)
-}
-
 func (oc *contractTransmitter) Start(ctx context.Context) error {
 	//Lock the transmitters to TXMv1
-	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	rm, err := oc.ks.GetResourceMutex(ctx, oc.transmitter.FromAddress(ctx))
 	if err != nil {
 		return err
 	}
-	return primaryState.ResourceMutex.TryLock(ethkey.TXMv1)
+	return rm.TryLock(ethkey.TXMv1)
 }
 func (oc *contractTransmitter) Close() error {
 	//Unlock the transmitters to TXMv1
-	primaryState, err := oc.getKeyState(context.Background(), oc.transmitter.FromAddress(context.Background()))
+	rm, err := oc.ks.GetResourceMutex(context.Background(), oc.transmitter.FromAddress(context.Background()))
 	if err != nil {
 		return err
 	}
-	return primaryState.ResourceMutex.Unlock(ethkey.TXMv1)
+	return rm.Unlock(ethkey.TXMv1)
 }
 
 // Has no state/lifecycle so it's always healthy and ready

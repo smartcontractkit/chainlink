@@ -251,21 +251,11 @@ func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
-func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, process ethkey.ServiceType) (bool, error) {
-	key, err := ks.Get(ctx, address.String())
+func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, service ethkey.ServiceType) (bool, error) {
+	rm, err := ks.GetResourceMutex(ctx, address)
 	if err != nil {
 		return false, err
 	}
 
-	state, err := ks.GetStateForKey(ctx, key)
-	if err != nil {
-		return false, err
-	}
-
-	isUsed, err := state.ResourceMutex.IsLocked(process)
-	if err != nil {
-		return false, err
-	}
-
-	return isUsed, nil
+	return rm.IsLocked(service)
 }

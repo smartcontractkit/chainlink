@@ -187,54 +187,57 @@ func (oc *dualContractTransmitter) getKeyState(ctx context.Context, address comm
 }
 
 func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
-	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	primaryAddress := oc.transmitter.FromAddress(ctx)
+	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
 	if err != nil {
 		return err
 	}
-	if err = primaryState.ResourceMutex.TryLock(ethkey.TXMv1); err != nil {
+	if err = rmPrimary.TryLock(ethkey.TXMv1); err != nil {
 		return err
 	}
-	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryState.KeyID())
+	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
 
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
 		return err
 	}
-	secondaryState, err := oc.getKeyState(ctx, secondaryAddress)
+
+	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
 	if err != nil {
 		return err
 	}
 
-	err = secondaryState.ResourceMutex.TryLock(ethkey.TXMv2)
+	err = rmSecondary.TryLock(ethkey.TXMv2)
 	if err != nil {
 		return err
 	}
-	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryState.KeyID())
+	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryAddress.String())
 	return nil
 }
 
 func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error {
-	primaryState, err := oc.getKeyState(ctx, oc.transmitter.FromAddress(ctx))
+	primaryAddress := oc.transmitter.FromAddress(ctx)
+	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
 	if err != nil {
 		return err
 	}
-	if err = primaryState.ResourceMutex.Unlock(ethkey.TXMv1); err != nil {
+	if err = rmPrimary.Unlock(ethkey.TXMv1); err != nil {
 		return err
 	}
-	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryState.KeyID())
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryAddress.String())
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
 		return err
 	}
-	secondaryState, err := oc.getKeyState(ctx, secondaryAddress)
+	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
 	if err != nil {
 		return err
 	}
-	err = secondaryState.ResourceMutex.Unlock(ethkey.TXMv2)
+	err = rmSecondary.Unlock(ethkey.TXMv2)
 	if err != nil {
 		return err
 	}
-	oc.lggr.Debugf("Key %s has been unlocked for TXMv2", secondaryState.KeyID())
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv2", secondaryAddress.String())
 	return nil
 }
 

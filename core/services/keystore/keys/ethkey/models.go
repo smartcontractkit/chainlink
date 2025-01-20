@@ -10,15 +10,13 @@ import (
 )
 
 type State struct {
-	ID            int32
-	Address       types.EIP55Address
-	EVMChainID    big.Big
-	Disabled      bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	lastUsed      time.Time
-	ResourceMutex ResourceMutex // ResourceMutex is an internal field and ought not be persisted to the database.
-	// Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
+	ID         int32
+	Address    types.EIP55Address
+	EVMChainID big.Big
+	Disabled   bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	lastUsed   time.Time
 }
 
 type ResourceMutex struct {
@@ -92,4 +90,10 @@ func (rm *ResourceMutex) IsLocked(serviceType ServiceType) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func NewResourceMutex() *ResourceMutex {
+	return &ResourceMutex{
+		activeCount: make(map[ServiceType]int),
+	}
 }

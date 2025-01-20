@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -30,6 +32,10 @@ var sampleAddressPrimary = testutils.NewAddress()
 type mockDualTransmitter struct {
 	lastPrimaryPayload   []byte
 	lastSecondaryPayload []byte
+}
+
+func (m *mockDualTransmitter) SecondaryFromAddress(ctx context.Context) (gethcommon.Address, error) {
+	return gethcommon.Address{}, nil
 }
 
 func (*mockDualTransmitter) FromAddress(ctx context.Context) gethcommon.Address {
@@ -49,6 +55,8 @@ func (m *mockDualTransmitter) CreateSecondaryEthTransaction(ctx context.Context,
 func TestDualContractTransmitter(t *testing.T) {
 	t.Parallel()
 
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
 	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
@@ -64,8 +72,7 @@ func TestDualContractTransmitter(t *testing.T) {
 	reportToEvmTxMeta := func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}
-	ot, err := NewOCRDualContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockDualTransmitter{}, lp, lggr,
-		WithReportToEthMetadata(reportToEvmTxMeta))
+	ot, err := NewOCRDualContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockDualTransmitter{}, lp, lggr, keyStore.Eth(), WithReportToEthMetadata(reportToEvmTxMeta))
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -145,6 +152,8 @@ func Test_dualContractTransmitter_Transmit_SignaturesAreTransmitted(t *testing.T
 }
 
 func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitter Transmitter, ops ...OCRTransmitterOption) *dualContractTransmitter {
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	require.NoError(t, err)
 	lp := lpmocks.NewLogPoller(t)
@@ -157,6 +166,7 @@ func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitte
 		transmitter,
 		lp,
 		logger.TestLogger(t),
+		keyStore.Eth(),
 		ops...,
 	)
 	require.NoError(t, err)

@@ -347,7 +347,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 
 				//Check if secondary transmitter address is used as primary somewhere else
-				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), dtTransmitterAddress, ethkey.TXMv1)
+				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), ethkey.TXMv1)
 				if err != nil {
 					return err
 				} else if hasLock {
@@ -356,12 +356,14 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 
 			}
 
-			//Check if primary transmitter address is used as secondary somewhere else
-			hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), jb.OCR2OracleSpec.TransmitterID.String, ethkey.TXMv2)
-			if err != nil {
-				return err
-			} else if hasLock {
-				return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
+			//Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
+			if jb.OCR2OracleSpec.PluginType != types.Mercury {
+				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), ethkey.TXMv2)
+				if err != nil {
+					return err
+				} else if hasLock {
+					return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
+				}
 			}
 
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
@@ -1767,15 +1769,11 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 	return nil
 }
 
-func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address string, usage ethkey.ServiceType) (bool, error) {
-	k, err := ks.Get(ctx, address)
-	if err != nil {
-		return false, err
-	}
-	state, err := ks.GetStateForKey(ctx, k)
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage ethkey.ServiceType) (bool, error) {
+	rm, err := ks.GetResourceMutex(ctx, address)
 	if err != nil {
 		return false, err
 	}
 
-	return state.ResourceMutex.IsLocked(usage)
+	return rm.IsLocked(usage)
 }
