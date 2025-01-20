@@ -38,8 +38,6 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
-			// Only 1 boost (=OCR round) is enough to cover the fee
-			// 10/60 = 0.1667 boost per minute
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
 			// Disable token price updates
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
