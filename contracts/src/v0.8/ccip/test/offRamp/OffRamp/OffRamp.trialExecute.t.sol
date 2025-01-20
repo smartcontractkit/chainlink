@@ -159,7 +159,7 @@ contract OffRamp_trialExecute is OffRampSetup {
 
       changePrank(Internal.GAS_ESTIMATION_SENDER);
 
-      vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InsufficientGasForToCompleteTx.selector, sigs[i]));
+      vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InsufficientGasToCompleteTx.selector, sigs[i]));
       s_offRamp.trialExecute(message, offchainTokenData, new uint32[](0));
     }
   }
