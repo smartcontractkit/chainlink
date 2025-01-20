@@ -192,7 +192,7 @@ func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = rmPrimary.TryLock(ethkey.TXMv1); err != nil {
+	if err = rmPrimary.TryLock(keystore.TXMv1); err != nil {
 		return err
 	}
 	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
@@ -207,7 +207,7 @@ func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
 		return err
 	}
 
-	err = rmSecondary.TryLock(ethkey.TXMv2)
+	err = rmSecondary.TryLock(keystore.TXMv2)
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error
 	if err != nil {
 		return err
 	}
-	if err = rmPrimary.Unlock(ethkey.TXMv1); err != nil {
+	if err = rmPrimary.Unlock(keystore.TXMv1); err != nil {
 		return err
 	}
 	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryAddress.String())
@@ -233,7 +233,7 @@ func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error
 	if err != nil {
 		return err
 	}
-	err = rmSecondary.Unlock(ethkey.TXMv2)
+	err = rmSecondary.Unlock(keystore.TXMv2)
 	if err != nil {
 		return err
 	}

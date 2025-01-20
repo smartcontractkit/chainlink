@@ -10,6 +10,8 @@ import (
 
 	ethkey "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -703,23 +705,23 @@ func (_c *Eth_GetAll_Call) RunAndReturn(run func(context.Context) ([]ethkey.KeyV
 }
 
 // GetResourceMutex provides a mock function with given fields: ctx, address
-func (_m *Eth) GetResourceMutex(ctx context.Context, address common.Address) (*ethkey.ResourceMutex, error) {
+func (_m *Eth) GetResourceMutex(ctx context.Context, address common.Address) (*keystore.ResourceMutex, error) {
 	ret := _m.Called(ctx, address)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetResourceMutex")
 	}
 
-	var r0 *ethkey.ResourceMutex
+	var r0 *keystore.ResourceMutex
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*ethkey.ResourceMutex, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*keystore.ResourceMutex, error)); ok {
 		return rf(ctx, address)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *ethkey.ResourceMutex); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *keystore.ResourceMutex); ok {
 		r0 = rf(ctx, address)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*ethkey.ResourceMutex)
+			r0 = ret.Get(0).(*keystore.ResourceMutex)
 		}
 	}
 
@@ -751,12 +753,12 @@ func (_c *Eth_GetResourceMutex_Call) Run(run func(ctx context.Context, address c
 	return _c
 }
 
-func (_c *Eth_GetResourceMutex_Call) Return(_a0 *ethkey.ResourceMutex, _a1 error) *Eth_GetResourceMutex_Call {
+func (_c *Eth_GetResourceMutex_Call) Return(_a0 *keystore.ResourceMutex, _a1 error) *Eth_GetResourceMutex_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Eth_GetResourceMutex_Call) RunAndReturn(run func(context.Context, common.Address) (*ethkey.ResourceMutex, error)) *Eth_GetResourceMutex_Call {
+func (_c *Eth_GetResourceMutex_Call) RunAndReturn(run func(context.Context, common.Address) (*keystore.ResourceMutex, error)) *Eth_GetResourceMutex_Call {
 	_c.Call.Return(run)
 	return _c
 }

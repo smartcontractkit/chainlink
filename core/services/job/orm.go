@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -347,7 +346,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 
 				//Check if secondary transmitter address is used as primary somewhere else
-				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), ethkey.TXMv1)
+				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), keystore.TXMv1)
 				if err != nil {
 					return err
 				} else if hasLock {
@@ -358,7 +357,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 
 			//Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
 			if jb.OCR2OracleSpec.PluginType != types.Mercury {
-				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), ethkey.TXMv2)
+				hasLock, err := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), keystore.TXMv2)
 				if err != nil {
 					return err
 				} else if hasLock {
@@ -1769,7 +1768,7 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 	return nil
 }
 
-func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage ethkey.ServiceType) (bool, error) {
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage keystore.ServiceType) (bool, error) {
 	rm, err := ks.GetResourceMutex(ctx, address)
 	if err != nil {
 		return false, err

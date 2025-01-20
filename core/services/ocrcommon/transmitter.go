@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -94,22 +93,22 @@ func NewOCR2FeedsTransmitter(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore keystore.Eth,
+	ks keystore.Eth,
 	dualTransmissionConfig *types2.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
-	if keystore == nil {
+	if ks == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
-	if hasLock, err := keyHasLock(ctx, keystore, effectiveTransmitterAddress, ethkey.TXMv2); err != nil {
+	if hasLock, err := keyHasLock(ctx, ks, effectiveTransmitterAddress, keystore.TXMv2); err != nil {
 		return nil, err
 	} else if hasLock {
 		return nil, errors.Errorf("key %s is used as a secondary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
 	}
 
 	if dualTransmissionConfig != nil {
-		if hasLock, err := keyHasLock(ctx, keystore, dualTransmissionConfig.TransmitterAddress, ethkey.TXMv1); err != nil {
+		if hasLock, err := keyHasLock(ctx, ks, dualTransmissionConfig.TransmitterAddress, keystore.TXMv1); err != nil {
 			return nil, err
 		} else if hasLock {
 			return nil, errors.Errorf("key %s is used as a primary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
@@ -124,7 +123,7 @@ func NewOCR2FeedsTransmitter(
 			strategy:                           strategy,
 			checker:                            checker,
 			chainID:                            chainID,
-			keystore:                           keystore,
+			keystore:                           ks,
 			secondaryContractAddress:           dualTransmissionConfig.ContractAddress,
 			secondaryFromAddress:               dualTransmissionConfig.TransmitterAddress,
 			secondaryMeta:                      dualTransmissionConfig.Meta,
@@ -141,7 +140,7 @@ func NewOCR2FeedsTransmitter(
 			strategy:                    strategy,
 			checker:                     checker,
 			chainID:                     chainID,
-			keystore:                    keystore,
+			keystore:                    ks,
 		},
 	}, nil
 }
@@ -251,7 +250,7 @@ func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
-func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, service ethkey.ServiceType) (bool, error) {
+func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, service keystore.ServiceType) (bool, error) {
 	rm, err := ks.GetResourceMutex(ctx, address)
 	if err != nil {
 		return false, err

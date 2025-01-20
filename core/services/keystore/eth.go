@@ -48,7 +48,7 @@ type Eth interface {
 	GetStateForKey(ctx context.Context, key ethkey.KeyV2) (ethkey.State, error)
 	GetStatesForChain(ctx context.Context, chainID *big.Int) ([]ethkey.State, error)
 	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)
-	GetResourceMutex(ctx context.Context, address common.Address) (*ethkey.ResourceMutex, error)
+	GetResourceMutex(ctx context.Context, address common.Address) (*ResourceMutex, error)
 
 	XXXTestingOnlySetState(ctx context.Context, keyState ethkey.State)
 	XXXTestingOnlyAdd(ctx context.Context, key ethkey.KeyV2)
@@ -60,11 +60,11 @@ type eth struct {
 	ds            sqlutil.DataSource
 	subscribers   [](chan struct{})
 	subscribersMu *sync.RWMutex
-	resourceMutex map[common.Address]*ethkey.ResourceMutex // ResourceMutex is an internal field and ought not be persisted to the database. Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
+	resourceMutex map[common.Address]*ResourceMutex // ResourceMutex is an internal field and ought not be persisted to the database. Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
 }
 
 // GetResourceMutex gets the resource mutex associates with the address if no resource mutex is found a new one is created
-func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) (*ethkey.ResourceMutex, error) {
+func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) (*ResourceMutex, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -72,12 +72,12 @@ func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) (*e
 	}
 
 	if ks.resourceMutex == nil {
-		ks.resourceMutex = make(map[common.Address]*ethkey.ResourceMutex)
+		ks.resourceMutex = make(map[common.Address]*ResourceMutex)
 	}
 
 	_, exists := ks.resourceMutex[address]
 	if !exists {
-		ks.resourceMutex[address] = ethkey.NewResourceMutex()
+		ks.resourceMutex[address] = NewResourceMutex()
 	}
 	return ks.resourceMutex[address], nil
 }

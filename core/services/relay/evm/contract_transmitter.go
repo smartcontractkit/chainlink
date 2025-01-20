@@ -17,13 +17,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ContractTransmitter interface {
@@ -108,6 +106,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	ks keystore.Eth,
 	opts ...OCRTransmitterOption,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -123,6 +122,7 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
+		ks:                  ks,
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -257,7 +257,7 @@ func (oc *contractTransmitter) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return rm.TryLock(ethkey.TXMv1)
+	return rm.TryLock(keystore.TXMv1)
 }
 func (oc *contractTransmitter) Close() error {
 	//Unlock the transmitters to TXMv1
@@ -265,7 +265,7 @@ func (oc *contractTransmitter) Close() error {
 	if err != nil {
 		return err
 	}
-	return rm.Unlock(ethkey.TXMv1)
+	return rm.Unlock(keystore.TXMv1)
 }
 
 // Has no state/lifecycle so it's always healthy and ready

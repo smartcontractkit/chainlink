@@ -952,6 +952,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		ethKeystore,
 		ocrTransmitterOpts...,
 	)
 }
