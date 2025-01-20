@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"encoding/binary"
 	"math/big"
 	"testing"
 
@@ -37,17 +38,6 @@ func TestAddTokenPool(t *testing.T) {
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	SavePreloadedSolAddresses(t, e, solChain1)
-	// tokenAdmin1, err := solana.NewRandomPrivateKey()
-	// require.NoError(t, err)
-	// tokenAdmin2, err := solana.NewRandomPrivateKey()
-	// require.NoError(t, err)
-
-	// Any nonzero timestamp is valid (for now)
-	validTimestamp := int64(100)
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	require.True(t, ok)
-	bigNum.FillBytes(value[:])
 
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		// I CANNOT LOAD STATE IF I DEPLOY a random token, because load token expects to understand every address ?
@@ -97,8 +87,8 @@ func TestAddTokenPool(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForChain),
-			Config: SetupTokenPoolForChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForRemoteChain),
+			Config: SetupTokenPoolForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "LinkToken",
@@ -120,8 +110,74 @@ func TestAddTokenPool(t *testing.T) {
 				},
 			},
 		},
+	})
+	require.NoError(t, err)
+
+	// solana test
+	tokenPubKey, err := deployment.FindTokenAddress(e, solChain1, "LinkToken")
+	require.NoError(t, err)
+
+	// pool stuff
+	poolConfig, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey)
+	require.NoError(t, err)
+	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(tokenPubKey)
+	require.NoError(t, err)
+	var configAccount token_pool.Config
+	require.NoError(t, solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, poolConfig, solRpc.CommitmentConfirmed, &configAccount))
+	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, poolSigner)
+	require.Equal(t, poolTokenAccount, configAccount.PoolTokenAccount)
+}
+
+func TestBilling(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Bootstraps: 1,
+		Chains:     1,
+		SolChains:  1,
+		Nodes:      4,
+	})
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChain1 := e.AllChainSelectorsSolana()[0]
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	require.NoError(t, err)
+	p2pIds := nodes.NonBootstraps().PeerIDs()
+	SavePreloadedSolAddresses(t, e, solChain1)
+
+	// Any nonzero timestamp is valid (for now)
+	validTimestamp := int64(100)
+	value := [28]uint8{}
+	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+	require.True(t, ok)
+	bigNum.FillBytes(value[:])
+
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenPool),
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    []uint64{solChain1},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
+			Config: DeployHomeChainConfig{
+				HomeChainSel:     homeChainSel,
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					"NodeOperator": p2pIds,
+				},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
+			Config: DeployChainContractsConfig{
+				ChainSelectors:    []uint64{solChain1},
+				HomeChainSelector: homeChainSel,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddBillingToken),
 			Config: AddBillingTokenPoolConfig{
 				ChainSelector:    solChain1,
 				TokenName:        "LinkToken",
@@ -136,45 +192,71 @@ func TestAddTokenPool(t *testing.T) {
 					PremiumMultiplierWeiPerEth: 11000000,
 				}},
 		},
-		// {
-		// 	Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
-		// 	Config: RegisterTokenAdminRegistryConfig{
-		// 		ChainSelector:       solChain1,
-		// 		TokenName:           "LinkToken",
-		// 		TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
-		// 		AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
-		// 		RegisterType:        ViaGetCcipAdminInstruction,
-		// 	},
-		// },
-		// {
-		// 	Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
-		// 	Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
-		// 		ChainSelector:               solChain1,
-		// 		TokenName:                   "LinkToken",
-		// 		TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
-		// 		NewTokenPoolAdminPrivateKey: tokenAdmin2.String(),
-		// 	},
-		// },
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddBillingToken),
+			Config: AddBillingTokenPoolConfig{
+				ChainSelector:    solChain1,
+				TokenName:        "",
+				TokenProgramName: "spl-token",
+				TokenPubKey:      solana.SolMint.String(),
+				Config: ccip_router.BillingTokenConfig{
+					Enabled: true,
+					// Mint:    token2022.mint,
+					UsdPerToken: ccip_router.TimestampedPackedU224{
+						Value:     value,
+						Timestamp: validTimestamp,
+					},
+					PremiumMultiplierWeiPerEth: 11000000,
+				}},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenForRemoteChain),
+			Config: BillingTokenForRemoteChainConfig{
+				ChainSelector:       solChain1,
+				RemoteChainSelector: homeChainSel,
+				TokenName:           "LinkToken",
+				TokenProgramName:    "spl-token-2022",
+				Config:              ccip_router.TokenBilling{},
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenForRemoteChain),
+			Config: BillingTokenForRemoteChainConfig{
+				ChainSelector:       solChain1,
+				RemoteChainSelector: homeChainSel,
+				TokenName:           "",
+				TokenProgramName:    "spl-token",
+				TokenPubKey:         solana.SolMint.String(),
+				Config:              ccip_router.TokenBilling{},
+			},
+		},
 	})
 	require.NoError(t, err)
 
 	// solana test
 	tokenPubKey, err := deployment.FindTokenAddress(e, solChain1, "LinkToken")
 	require.NoError(t, err)
-	poolConfig, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey)
-	require.NoError(t, err)
-	poolSigner, err := solTokenUtil.TokenPoolSignerAddress(tokenPubKey)
-	require.NoError(t, err)
-	var configAccount token_pool.Config
-	require.NoError(t, solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, poolConfig, solRpc.CommitmentConfirmed, &configAccount))
-	poolTokenAccount, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenPubKey, poolSigner)
-	require.Equal(t, poolTokenAccount, configAccount.PoolTokenAccount)
 
 	state, _ := LoadOnchainStateSolana(e)
 	chainState := state.SolChains[solChain1]
-	tokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
-	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
-	aerr := solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, tokenBillingPDA, solRpc.CommitmentConfirmed, &token0ConfigAccount)
+	linkTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	var linkTokenConfigAccountPDA ccip_router.BillingTokenConfigWrapper
+	aerr := solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, linkTokenBillingPDA, solRpc.CommitmentConfirmed, &linkTokenConfigAccountPDA)
+	require.NoError(t, aerr)
+
+	solTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, solana.SolMint.Bytes()}, chainState.SolCcipRouter)
+	var solTokenConfigAccountPDA ccip_router.BillingTokenConfigWrapper
+	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, solTokenBillingPDA, solRpc.CommitmentConfirmed, &solTokenConfigAccountPDA)
+	require.NoError(t, aerr)
+
+	linkTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	var linkTokenRemoteConfigAccountPDA ccip_router.PerChainPerTokenConfig
+	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, linkTokenRemoteBillingPDA, solRpc.CommitmentConfirmed, &linkTokenRemoteConfigAccountPDA)
+	require.NoError(t, aerr)
+
+	solTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), solana.SolMint.Bytes()}, chainState.SolCcipRouter)
+	var solTokenRemoteConfigAccountPDA ccip_router.PerChainPerTokenConfig
+	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, solTokenRemoteBillingPDA, solRpc.CommitmentConfirmed, &solTokenRemoteConfigAccountPDA)
 	require.NoError(t, aerr)
 }
 
@@ -236,8 +318,8 @@ func TestTokenAdminRegistry(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForChain),
-			Config: SetupTokenPoolForChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForRemoteChain),
+			Config: SetupTokenPoolForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "LinkToken",
