@@ -92,12 +92,6 @@ func (m *testWorkflowRegistryContractLoader) LoadWorkflows(ctx context.Context, 
 	}, nil
 }
 
-type mockFetcher func(ctx context.Context, cmd syncer.FetchMaxCmd) ([]byte, error)
-
-func (m mockFetcher) FetchMax(ctx context.Context, cmd syncer.FetchMaxCmd) ([]byte, error) {
-	return m(ctx, cmd)
-}
-
 func Test_EventHandlerStateSync(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
@@ -314,9 +308,9 @@ func Test_SecretsWorker(t *testing.T) {
 		}
 		giveContents = "contents"
 		wantContents = "updated contents"
-		fetcherFn    = mockFetcher(func(_ context.Context, _ syncer.FetchMaxCmd) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(wantContents), nil
-		})
+		}
 	)
 
 	defer giveTicker.Stop()
@@ -413,9 +407,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = mockFetcher(func(_ context.Context, _ syncer.FetchMaxCmd) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
-		})
+		}
 	)
 
 	defer giveTicker.Stop()
@@ -510,9 +504,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = mockFetcher(func(_ context.Context, _ syncer.FetchMaxCmd) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
-		})
+		}
 	)
 
 	defer giveTicker.Stop()

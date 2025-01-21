@@ -36,7 +36,7 @@ var (
 	defaultAllowedPorts     = []int{80, 443}
 	defaultAllowedSchemes   = []string{"http", "https"}
 	defaultMaxResponseBytes = uint32(26.4 * utils.KB)
-	defaultTimout           = 5 * time.Second
+	defaultTimeout          = 5 * time.Second
 )
 
 func (c *HTTPClientConfig) ApplyDefaults() {
@@ -53,7 +53,7 @@ func (c *HTTPClientConfig) ApplyDefaults() {
 	}
 
 	if c.DefaultTimeout == 0 {
-		c.DefaultTimeout = defaultTimout
+		c.DefaultTimeout = defaultTimeout
 	}
 
 	// safeurl automatically blocks internal IPs so no need
@@ -68,6 +68,7 @@ type HTTPRequest struct {
 	Timeout time.Duration
 
 	// Maximum number of bytes to read from the response body.  If 0, the default value is used.
+	// Does not override a request specific value gte 0.
 	MaxResponseBytes uint32
 }
 
@@ -99,13 +100,11 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		EnableDebugLogging(true).
 		Build()
 
-	c := &httpClient{
+	return &httpClient{
 		config: config,
 		client: safeurl.Client(safeConfig),
 		lggr:   lggr,
-	}
-
-	return c, nil
+	}, nil
 }
 
 func disableRedirects(req *http.Request, via []*http.Request) error {

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
 	"strings"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FetcherService struct {
@@ -25,47 +23,17 @@ type FetcherService struct {
 	lggr    logger.Logger
 	och     *webapi.OutgoingConnectorHandler
 	wrapper gatewayConnector
-	limits  *ArtifactConfig
 }
-
-type ArtifactConfig struct {
-	MaxConfigSize  uint64
-	MaxSecretsSize uint64
-	MaxBinarySize  uint64
-}
-
-type ArtifactType string
-
-var (
-	ArtifactTypeConfig  ArtifactType = "config"
-	ArtifactTypeSecrets ArtifactType = "secrets"
-	ArtifactTypeBinary  ArtifactType = "binary"
-	ArtifactTypeUnknown ArtifactType = "unknown"
-)
-
-// By default, if type is unknown, the largest artifact size is 26.4KB.  Configure the artifact size
-// via the ArtifactConfig to override this default.
-const defaultMaxArtifactSizeBytes = uint32(26.4 * utils.KB)
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func WithMaxArtifactSize(cfg ArtifactConfig) func(*FetcherService) {
-	return func(fs *FetcherService) {
-		fs.limits = &cfg
-	}
-}
-
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, opts ...func(*FetcherService)) *FetcherService {
-	fs := &FetcherService{
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector) *FetcherService {
+	return &FetcherService{
 		lggr:    lggr.Named("FetcherService"),
 		wrapper: wrapper,
 	}
-	for _, opt := range opts {
-		opt(fs)
-	}
-	return fs
 }
 
 func (s *FetcherService) Start(ctx context.Context) error {
@@ -115,28 +83,10 @@ func hash(url string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-type FetchMaxCmd struct {
-	URL          string       `json:"url"`
-	ArtifactType ArtifactType `json:"artifactType"`
-}
-
-type MaxFetcher interface {
-	FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error)
-}
-
-func (s *FetcherService) FetchMax(ctx context.Context, cmd FetchMaxCmd) ([]byte, error) {
-	n, err := s.getMaxBytes(cmd.ArtifactType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get max bytes for fetch: %w", err)
-	}
-	return s.fetch(ctx, cmd.URL, n)
-}
-
-func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
-	return s.FetchMax(ctx, FetchMaxCmd{URL: url})
-}
-
-func (s *FetcherService) fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
+// Fetch fetches the given URL and returns the response body.  n is the maximum number of bytes to
+// read from the response body.  Set n to zero to use the default size limit specified by the
+// configured gateway's http client, if any.
+func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
 	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
 	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
 		URL:              url,
@@ -167,29 +117,4 @@ func (s *FetcherService) fetch(ctx context.Context, url string, n uint32) ([]byt
 	}
 
 	return payload.Body, nil
-}
-
-func (s *FetcherService) getMaxBytes(artifactType ArtifactType) (uint32, error) {
-	switch artifactType {
-	case ArtifactTypeConfig:
-		if s.limits != nil && s.limits.MaxConfigSize > 0 {
-			return safeSetUint32(s.limits.MaxConfigSize)
-		}
-	case ArtifactTypeSecrets:
-		if s.limits != nil && s.limits.MaxSecretsSize > 0 {
-			return safeSetUint32(s.limits.MaxSecretsSize)
-		}
-	case ArtifactTypeBinary:
-		if s.limits != nil && s.limits.MaxBinarySize > 0 {
-			return safeSetUint32(s.limits.MaxBinarySize)
-		}
-	}
-	return defaultMaxArtifactSizeBytes, nil
-}
-
-func safeSetUint32(n uint64) (uint32, error) {
-	if n > math.MaxUint32 {
-		return 0, fmt.Errorf("value %d is too large to fit in a uint32", n)
-	}
-	return uint32(n), nil
 }

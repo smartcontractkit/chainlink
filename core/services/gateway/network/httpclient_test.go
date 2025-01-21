@@ -432,7 +432,7 @@ func Test_ConfigApplyDefaults(t *testing.T) {
 		config := HTTPClientConfig{}
 		config.ApplyDefaults()
 		require.Equal(t, defaultMaxResponseBytes, config.MaxResponseBytes) // 30MB
-		require.Equal(t, defaultTimout, config.DefaultTimeout)
+		require.Equal(t, defaultTimeout, config.DefaultTimeout)
 		require.Equal(t, defaultAllowedPorts, config.AllowedPorts)
 		require.Equal(t, defaultAllowedSchemes, config.AllowedSchemes)
 	})
