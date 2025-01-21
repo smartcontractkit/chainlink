@@ -21,7 +21,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
-	"github.com/mr-tron/base58"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -99,10 +98,7 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 	}
 
 	// Convert private key bytes to JSON array
-	privateKeyBytes, err := base58.Decode(privateKey.String())
-	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to decode private key: %w", err)
-	}
+	privateKeyBytes := []byte(privateKey)
 
 	// Convert bytes to array of integers for JSON
 	intArray := make([]int, len(privateKeyBytes))

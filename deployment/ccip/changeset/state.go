@@ -744,7 +744,7 @@ func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		if chainState.SolCcipRouter.IsZero() {
+		if chainState.Router.IsZero() {
 			// should not be possible, but a defensive check.
 			return errors.New("CCIP router contract does not exist")
 		}

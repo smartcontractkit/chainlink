@@ -61,7 +61,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 			},
 			{
 				Address:        solAddr1,
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.SolCcipRouter, deployment.Version1_0_0),
+				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0),
 				ChainSelector:  solChain,
 			},
 			{
@@ -83,6 +83,6 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
 	require.Equal(t, state.Chains[chain2].RegistryModule.Address(), common.BigToAddress(big.NewInt(4)))
 	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
-	require.Equal(t, state.SolChains[solChain].SolCcipRouter.String(), solAddr1)
+	require.Equal(t, state.SolChains[solChain].Router.String(), solAddr1)
 	require.Equal(t, state.SolChains[solChain].LinkToken.String(), solAddr2)
 }

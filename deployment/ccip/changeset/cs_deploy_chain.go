@@ -538,14 +538,14 @@ func deployChainContractsSolana(
 
 	// ROUTER DEPLOY AND INITIALIZE
 	var ccipRouterProgram solana.PublicKey
-	if chainState.SolCcipRouter.IsZero() {
+	if chainState.Router.IsZero() {
 		// deploy router
 		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
 
-		tv := deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(Router, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 
 		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
@@ -554,8 +554,8 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to save address: %w", err)
 		}
 	} else {
-		e.Logger.Infow("Using existing router", "addr", chainState.SolCcipRouter.String())
-		ccipRouterProgram = chainState.SolCcipRouter
+		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
+		ccipRouterProgram = chainState.Router
 	}
 	ccip_router.SetProgramID(ccipRouterProgram)
 
@@ -573,12 +573,12 @@ func deployChainContractsSolana(
 	}
 
 	var tokenPoolProgram solana.PublicKey
-	if chainState.SolTokenPool.IsZero() {
+	if chainState.TokenPool.IsZero() {
 		programID, err := chain.DeployProgram(e.Logger, "token_pool")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
-		tv := deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
@@ -586,12 +586,12 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to save address: %w", err)
 		}
 	} else {
-		e.Logger.Infow("Using existing token pool", "addr", chainState.SolTokenPool.String())
-		tokenPoolProgram = chainState.SolTokenPool
+		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
+		tokenPoolProgram = chainState.TokenPool
 	}
 
 	// initialize this last with every address we need
-	if chainState.SolAddressLookupTable.IsZero() {
+	if chainState.AddressLookupTable.IsZero() {
 		table, err := solCommonUtil.SetupLookupTable(
 			e.GetContext(),
 			chain.Client,
@@ -606,6 +606,8 @@ func deployChainContractsSolana(
 				GetRouterConfigPDA(ccipRouterProgram),
 				GetRouterStatePDA(ccipRouterProgram),
 				GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
+				GetExternalExecutionConfigPDA(ccipRouterProgram),
+				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
 				// token pool
 				tokenPoolProgram,
 				// token
@@ -617,7 +619,7 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to create lookup table: %w", err)
 
 		}
-		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0))
+		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0))
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}

@@ -255,16 +255,16 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
 		}
-		if chainState.SolCcipRouter.IsZero() {
+		if chainState.Router.IsZero() {
 			return fmt.Errorf("missing router for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.SolCcipRouter); err != nil {
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return err
 		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
-				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.SolCcipRouter)
+				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.Router)
 			}
 			// TODO SOLANA_CCIP
 			// sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
@@ -1017,7 +1017,7 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
 
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.SolCcipRouter); err != nil {
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return err
 		}
 	case chain_selectors.FamilyEVM:

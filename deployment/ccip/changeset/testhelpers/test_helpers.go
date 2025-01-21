@@ -1255,11 +1255,11 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
-	tv := deployment.NewTypeAndVersion(changeset.SolCcipRouter, deployment.Version1_0_0)
+	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
-	tv = deployment.NewTypeAndVersion(changeset.SolTokenPool, deployment.Version1_0_0)
+	tv = deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
-	tv = deployment.NewTypeAndVersion(changeset.SolCcipReceiver, deployment.Version1_0_0)
+	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
 
 	require.NoError(t, err)
@@ -1270,8 +1270,8 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 	require.NoError(t, err)
 	for _, sel := range solChainSelectors {
 		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
-		require.False(t, solState.SolChains[sel].SolCcipRouter.IsZero())
-		require.False(t, solState.SolChains[sel].SolAddressLookupTable.IsZero())
+		require.False(t, solState.SolChains[sel].Router.IsZero())
+		require.False(t, solState.SolChains[sel].AddressLookupTable.IsZero())
 	}
 }
 
@@ -1280,14 +1280,14 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 	require.NoError(t, err)
 	for solSelector, solState := range state.SolChains {
 		instruction, ixErr := ccip_receiver.NewInitializeInstruction(
-			changeset.GetReceiverTargetAccountPDA(solState.SolCcipReceiver),
-			changeset.GetReceiverExternalExecutionConfigPDA(solState.SolCcipReceiver),
+			changeset.GetReceiverTargetAccountPDA(solState.Receiver),
+			changeset.GetReceiverExternalExecutionConfigPDA(solState.Receiver),
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		require.NoError(t, ixErr)
 		e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
-		ccip_receiver.SetProgramID(solState.SolCcipReceiver)
+		ccip_receiver.SetProgramID(solState.Receiver)
 	}
 }
 

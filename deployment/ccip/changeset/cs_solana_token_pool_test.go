@@ -241,22 +241,22 @@ func TestBilling(t *testing.T) {
 
 	state, _ := changeset.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[solChain1]
-	linkTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	linkTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.Router)
 	var linkTokenConfigAccountPDA ccip_router.BillingTokenConfigWrapper
 	aerr := solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, linkTokenBillingPDA, solRpc.CommitmentConfirmed, &linkTokenConfigAccountPDA)
 	require.NoError(t, aerr)
 
-	solTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, solana.SolMint.Bytes()}, chainState.SolCcipRouter)
+	solTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, solana.SolMint.Bytes()}, chainState.Router)
 	var solTokenConfigAccountPDA ccip_router.BillingTokenConfigWrapper
 	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, solTokenBillingPDA, solRpc.CommitmentConfirmed, &solTokenConfigAccountPDA)
 	require.NoError(t, aerr)
 
-	linkTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), tokenPubKey.Bytes()}, chainState.SolCcipRouter)
+	linkTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), tokenPubKey.Bytes()}, chainState.Router)
 	var linkTokenRemoteConfigAccountPDA ccip_router.PerChainPerTokenConfig
 	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, linkTokenRemoteBillingPDA, solRpc.CommitmentConfirmed, &linkTokenRemoteConfigAccountPDA)
 	require.NoError(t, aerr)
 
-	solTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), solana.SolMint.Bytes()}, chainState.SolCcipRouter)
+	solTokenRemoteBillingPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("ccip_tokenpool_billing"), binary.LittleEndian.AppendUint64([]byte{}, homeChainSel), solana.SolMint.Bytes()}, chainState.Router)
 	var solTokenRemoteConfigAccountPDA ccip_router.PerChainPerTokenConfig
 	aerr = solCommonUtil.GetAccountDataBorshInto(context.Background(), e.SolChains[solChain1].Client, solTokenRemoteBillingPDA, solRpc.CommitmentConfirmed, &solTokenRemoteConfigAccountPDA)
 	require.NoError(t, aerr)

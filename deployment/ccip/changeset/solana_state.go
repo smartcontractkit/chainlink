@@ -12,21 +12,20 @@ import (
 )
 
 var (
-	SolCcipRouter         deployment.ContractType = "SolCcipRouter"
-	SolAddressLookupTable deployment.ContractType = "SolAddressLookupTable"
-	SolTokenPool          deployment.ContractType = "SolTokenPool"
-	SolCcipReceiver       deployment.ContractType = "SolCcipReceiver"
+	AddressLookupTable deployment.ContractType = "AddressLookupTable"
+	TokenPool          deployment.ContractType = "TokenPool"
+	Receiver           deployment.ContractType = "Receiver"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type SolCCIPChainState struct {
-	LinkToken             solana.PublicKey
-	SolCcipRouter         solana.PublicKey
-	SolTokenPool          solana.PublicKey
-	Timelock              solana.PublicKey
-	SolAddressLookupTable solana.PublicKey // for chain writer
-	SolCcipReceiver       solana.PublicKey // for tests only
+	LinkToken          solana.PublicKey
+	Router             solana.PublicKey
+	TokenPool          solana.PublicKey
+	Timelock           solana.PublicKey
+	AddressLookupTable solana.PublicKey // for chain writer
+	Receiver           solana.PublicKey // for tests only
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -59,18 +58,18 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.LinkToken = pub
-		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(Router, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.SolCcipRouter = pub
-		case deployment.NewTypeAndVersion(SolAddressLookupTable, deployment.Version1_0_0).String():
+			state.Router = pub
+		case deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.SolAddressLookupTable = pub
-		case deployment.NewTypeAndVersion(SolTokenPool, deployment.Version1_0_0).String():
+			state.AddressLookupTable = pub
+		case deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.SolTokenPool = pub
-		case deployment.NewTypeAndVersion(SolCcipReceiver, deployment.Version1_0_0).String():
+			state.TokenPool = pub
+		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.SolCcipReceiver = pub
+			state.Receiver = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
