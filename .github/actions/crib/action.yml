@@ -134,6 +134,7 @@ runs:
         product-dir: ${{ inputs.crib-product-dir }}
         command: ${{ inputs.crib-command }}
         crib-alert-slack-webhook: ${{ inputs.crib-alert-slack-webhook }}
+        crib-repo-ref: 'main'
         product-image: ${{ inputs.crib-chainlink-docker-image-name }}
         product-image-tag: ${{ inputs.crib-chainlink-docker-image-tag }}
         ns-ttl: ${{ inputs.crib-cleanup-ttl }}
