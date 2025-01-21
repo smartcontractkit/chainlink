@@ -30,6 +30,9 @@ ResendAfterThreshold = '1m'
 [Transactions.AutoPurge]
 Enabled = false
 
+[Transactions.TransactionManagerV2]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
