@@ -111,6 +111,7 @@ type Transactions interface {
 	MaxInFlight() uint32
 	MaxQueued() uint64
 	AutoPurge() AutoPurgeConfig
+	TransactionManagerV2() TransactionManagerV2
 }
 
 type AutoPurgeConfig interface {
@@ -118,6 +119,13 @@ type AutoPurgeConfig interface {
 	Threshold() *uint32
 	MinAttempts() *uint32
 	DetectionApiUrl() *url.URL
+}
+
+type TransactionManagerV2 interface {
+	Enabled() bool
+	BlockTime() *time.Duration
+	CustomURL() *url.URL
+	DualBroadcast() *bool
 }
 
 type GasEstimator interface {

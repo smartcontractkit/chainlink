@@ -2419,3 +2419,35 @@ func TestSelectOldestBlock(t *testing.T) {
 		require.Equal(t, block.BlockHash, common.HexToHash("0x1233"))
 	})
 }
+
+func TestSelectLatestFinalizedBlock(t *testing.T) {
+	t.Run("If finalized block is not present in DB return error", func(t *testing.T) {
+		th := SetupTH(t, lpOpts)
+		o1 := th.ORM
+		o2 := th.ORM2
+		ctx := testutils.Context(t)
+		// o2's chain does not have finalized block
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1231"), 11, time.Now(), 9))
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1234"), 10, time.Now(), 8))
+		// o1 has finalized blocks
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 11, time.Now(), 10))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1232"), 10, time.Now(), 10))
+		result, err := o2.SelectLatestFinalizedBlock(ctx)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		require.Nil(t, result)
+	})
+	t.Run("Returns latest finalized block even if there is no exact match by block number", func(t *testing.T) {
+		th := SetupTH(t, lpOpts)
+		o1 := th.ORM
+		ctx := testutils.Context(t)
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 12, time.Now(), 10))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1232"), 11, time.Now(), 9))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1231"), 5, time.Now(), 4))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1230"), 4, time.Now(), 4))
+		result, err := o1.SelectLatestFinalizedBlock(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, int64(5), result.BlockNumber)
+		require.Equal(t, common.HexToHash("0x1231"), result.BlockHash)
+	})
+}

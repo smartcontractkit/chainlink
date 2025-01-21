@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -88,7 +87,12 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		tokenInfos = append(tokenInfos, onchainState.LinkToken)
+		var linkTokenInfo tokenInfo
+		linkTokenInfo = onchainState.LinkToken
+		if onchainState.LinkToken == nil {
+			linkTokenInfo = onchainState.StaticLinkToken
+		}
+		tokenInfos = append(tokenInfos, linkTokenInfo)
 		tokenInfos = append(tokenInfos, onchainState.Weth9)
 		symbol, decimal, err := findTokenInfo(tokenInfos, token)
 		if err != nil {
@@ -193,7 +197,7 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
 				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 				MaxReportTransmissionCheckAttempts: 5,
-				RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
+				RMNEnabled:                         false,
 				RMNSignaturesTimeout:               30 * time.Minute,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
