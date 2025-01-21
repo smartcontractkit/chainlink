@@ -29,7 +29,6 @@ func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.
 		go func(sel uint64, chain deployment.Chain) {
 			defer wg.Done()
 			for _, n := range nodeInfo {
-
 				chainID, err := chainsel.ChainIdFromSelector(sel)
 				if err != nil {
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
