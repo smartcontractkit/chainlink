@@ -8,4 +8,5 @@ type LoadConfig struct {
 	RequestFrequency          *string
 	EnabledDestionationChains *[]uint64
 	CribEnvDirectory          *string
+	TestDuration              *string
 }

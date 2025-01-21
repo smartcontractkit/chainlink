@@ -197,7 +197,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				PluginInfo: []changeset.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
-						PluginType:                      types.PluginTypeCCIPCommit,
+						PluginType:                      types.PluginTypeCCIPExec,
 					},
 				},
 			},
@@ -229,7 +229,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		},
 	})
 
-	// todo: parallelize
 	// Add all lanes
 	for src := range e.Chains {
 		for dst := range e.Chains {
@@ -290,7 +289,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 					{
 						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
 						Config: changeset.UpdateRouterRampsConfig{
-							TestRouter: true,
 							UpdatesByChain: map[uint64]changeset.RouterUpdates{
 								src: {
 									OffRampUpdates: map[uint64]bool{

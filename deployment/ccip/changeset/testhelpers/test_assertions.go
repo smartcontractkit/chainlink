@@ -231,21 +231,21 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 	)
 }
 
-type commitReportTracker struct {
+type CommitReportTracker struct {
 	seenMessages map[uint64]map[uint64]bool
 }
 
-func newCommitReportTracker(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRange) commitReportTracker {
+func NewCommitReportTracker(sourceChainSelector uint64, seqNrs ccipocr3.SeqNumRange) CommitReportTracker {
 	seenMessages := make(map[uint64]map[uint64]bool)
 	seenMessages[sourceChainSelector] = make(map[uint64]bool)
 
 	for i := seqNrs.Start(); i <= seqNrs.End(); i++ {
 		seenMessages[sourceChainSelector][uint64(i)] = false
 	}
-	return commitReportTracker{seenMessages: seenMessages}
+	return CommitReportTracker{seenMessages: seenMessages}
 }
 
-func (c *commitReportTracker) visitCommitReport(sourceChainSelector uint64, minSeqNr uint64, maxSeqNr uint64) {
+func (c *CommitReportTracker) visitCommitReport(sourceChainSelector uint64, minSeqNr uint64, maxSeqNr uint64) {
 	if _, ok := c.seenMessages[sourceChainSelector]; !ok {
 		return
 	}
@@ -255,7 +255,7 @@ func (c *commitReportTracker) visitCommitReport(sourceChainSelector uint64, minS
 	}
 }
 
-func (c *commitReportTracker) allCommited(sourceChainSelector uint64) bool {
+func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 	for _, v := range c.seenMessages[sourceChainSelector] {
 		if !v {
 			return false
@@ -319,7 +319,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
 	}
 
-	seenMessages := newCommitReportTracker(src.Selector, expectedSeqNumRange)
+	seenMessages := NewCommitReportTracker(src.Selector, expectedSeqNumRange)
 
 	defer subscription.Unsubscribe()
 	var duration time.Duration
