@@ -178,32 +178,14 @@ func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Ac
 }
 
 func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
-	primaryAddress := oc.transmitter.FromAddress(ctx)
-	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
+	err := oc.lockPrimary(ctx)
 	if err != nil {
 		return err
 	}
-
-	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	err = oc.lockSecondary(ctx)
 	if err != nil {
-		return err
+		return multierr.Append(err, oc.unlockPrimary(ctx))
 	}
-
-	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
-	if err != nil {
-		return err
-	}
-
-	if err = rmPrimary.TryLock(keystore.TXMv1); err != nil {
-		return err
-	}
-	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
-
-	err = rmSecondary.TryLock(keystore.TXMv2)
-	if err != nil {
-		return multierr.Append(err, rmPrimary.Unlock(keystore.TXMv1))
-	}
-	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryAddress.String())
 	return nil
 }
 
@@ -238,6 +220,36 @@ func (oc *dualContractTransmitter) unlockSecondary(ctx context.Context) error {
 		return err
 	}
 	oc.lggr.Debugf("Key %s has been unlocked for TXMv2", secondaryAddress.String())
+	return nil
+}
+
+func (oc *dualContractTransmitter) lockPrimary(ctx context.Context) error {
+	primaryAddress := oc.transmitter.FromAddress(ctx)
+	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmPrimary.TryLock(keystore.TXMv1)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
+	return nil
+}
+func (oc *dualContractTransmitter) lockSecondary(ctx context.Context) error {
+	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	if err != nil {
+		return err
+	}
+	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmSecondary.TryLock(keystore.TXMv2)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryAddress.String())
 	return nil
 }
 
