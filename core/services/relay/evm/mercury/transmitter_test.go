@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -28,12 +29,12 @@ import (
 
 type mockCfg struct{}
 
-func (m mockCfg) Protocol() string {
-	return ""
+func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
+	return config.MercuryTransmitterProtocolGRPC
 }
 
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
-	return 10_000
+	return 100_000
 }
 
 func (m mockCfg) TransmitTimeout() commonconfig.Duration {

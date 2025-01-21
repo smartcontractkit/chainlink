@@ -1,10 +1,9 @@
-package smoke
+package ccip
 
 import (
 	"context"
 	"errors"
 	"math/big"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -239,7 +238,6 @@ const (
 )
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
-	require.NoError(t, os.Setenv("ENABLE_RMN", "true"))
 	require.NoError(t, tc.validate())
 
 	ctx := testcontext.Get(t)

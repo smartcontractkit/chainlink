@@ -548,8 +548,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         if (
           CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG == bytes4(err)
             || CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG == bytes4(err)
+            || ERC165CheckerReverting.InsufficientGasForStaticCall.selector == bytes4(err)
         ) {
-          revert InsufficientGasForCallWithExact();
+          revert InsufficientGasToCompleteTx(bytes4(err));
         }
       }
       // return the message execution state as FAILURE and the revert data.

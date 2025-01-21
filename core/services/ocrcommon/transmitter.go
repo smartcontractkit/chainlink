@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -27,6 +28,7 @@ type Transmitter interface {
 	FromAddress(context.Context) common.Address
 
 	CreateSecondaryEthTransaction(context.Context, []byte, *txmgr.TxMeta) error
+	SecondaryFromAddress(context.Context) (common.Address, error)
 }
 
 type transmitter struct {
@@ -82,6 +84,7 @@ type ocr2FeedsTransmitter struct {
 // NewOCR2FeedsTransmitter creates a new eth transmitter that handles OCR2 Feeds specific logic surrounding forwarders.
 // ocr2FeedsTransmitter validates forwarders before every transmission, enabling smooth onchain config changes without job restarts.
 func NewOCR2FeedsTransmitter(
+	ctx context.Context,
 	txm txManagerOCR2,
 	fromAddresses []common.Address,
 	ocr2Aggregator common.Address,
@@ -90,15 +93,26 @@ func NewOCR2FeedsTransmitter(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore roundRobinKeystore,
+	ks keystore.Eth,
 	dualTransmissionConfig *types2.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
-	if keystore == nil {
+	if ks == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
+	if hasLock, err := keyHasLock(ctx, ks, effectiveTransmitterAddress, keystore.TXMv2); err != nil {
+		return nil, err
+	} else if hasLock {
+		return nil, errors.Errorf("key %s is used as a secondary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
+	}
+
 	if dualTransmissionConfig != nil {
+		if hasLock, err := keyHasLock(ctx, ks, dualTransmissionConfig.TransmitterAddress, keystore.TXMv1); err != nil {
+			return nil, err
+		} else if hasLock {
+			return nil, errors.Errorf("key %s is used as a primary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
+		}
 		return &ocr2FeedsDualTransmission{
 			ocr2Aggregator:                     ocr2Aggregator,
 			txm:                                txm,
@@ -109,7 +123,7 @@ func NewOCR2FeedsTransmitter(
 			strategy:                           strategy,
 			checker:                            checker,
 			chainID:                            chainID,
-			keystore:                           keystore,
+			keystore:                           ks,
 			secondaryContractAddress:           dualTransmissionConfig.ContractAddress,
 			secondaryFromAddress:               dualTransmissionConfig.TransmitterAddress,
 			secondaryMeta:                      dualTransmissionConfig.Meta,
@@ -126,7 +140,7 @@ func NewOCR2FeedsTransmitter(
 			strategy:                    strategy,
 			checker:                     checker,
 			chainID:                     chainID,
-			keystore:                    keystore,
+			keystore:                    ks,
 		},
 	}, nil
 }
@@ -152,6 +166,9 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 
 func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
+}
+func (t *transmitter) SecondaryFromAddress(ctx context.Context) (common.Address, error) {
+	return common.Address{}, errors.New("trying to get secondary address on a non dual transmitter")
 }
 
 func (t *transmitter) FromAddress(context.Context) common.Address {
@@ -231,4 +248,13 @@ func (t *ocr2FeedsTransmitter) forwarderAddress(ctx context.Context, eoa, ocr2Ag
 
 func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
+}
+
+func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, service keystore.ServiceType) (bool, error) {
+	rm, err := ks.GetResourceMutex(ctx, address)
+	if err != nil {
+		return false, err
+	}
+
+	return rm.IsLocked(service)
 }

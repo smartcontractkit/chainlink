@@ -18,7 +18,6 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
@@ -32,7 +31,7 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
@@ -327,7 +326,7 @@ func TestConfig_Marshal(t *testing.T) {
 		Backup: toml.DatabaseBackup{
 			Dir:              ptr("test/backup/dir"),
 			Frequency:        &hour,
-			Mode:             &legacy.DatabaseBackupModeFull,
+			Mode:             &config.DatabaseBackupModeFull,
 			OnVersionUpgrade: ptr(true),
 		},
 	}
@@ -664,6 +663,9 @@ func TestConfig_Marshal(t *testing.T) {
 					AutoPurge: evmcfg.AutoPurgeConfig{
 						Enabled: ptr(false),
 					},
+					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
+						Enabled: ptr(false),
+					},
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
@@ -843,7 +845,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: ptr("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr("grpc"),
+			Protocol:             ptr(config.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  ptr(uint32(456)),
@@ -1132,6 +1134,9 @@ ResendAfterThreshold = '1h0m0s'
 [EVM.Transactions.AutoPurge]
 Enabled = false
 
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -1372,7 +1377,7 @@ TransmitConcurrency = 456
 
 			var got Config
 
-			require.NoError(t, config.DecodeTOML(strings.NewReader(s), &got))
+			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(s), &got))
 			ts, err := got.TOMLString()
 
 			require.NoError(t, err)
@@ -1383,7 +1388,7 @@ TransmitConcurrency = 456
 
 func TestConfig_full(t *testing.T) {
 	var got Config
-	require.NoError(t, config.DecodeTOML(strings.NewReader(fullTOML), &got))
+	require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fullTOML), &got))
 	// Except for some EVM node fields.
 	for c := range got.EVM {
 		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
@@ -1407,6 +1412,15 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].Order == nil {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.BlockTime = new(commoncfg.Duration)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.CustomURL == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commoncfg.URL)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
@@ -1550,7 +1564,7 @@ func TestConfig_Validate(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var c Config
-			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &c))
+			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(tt.toml), &c))
 			c.setDefaults()
 			assertValidationError(t, &c, tt.exp)
 		})
@@ -1755,7 +1769,7 @@ AllowSimplePasswords = true`,
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
-			require.NoError(t, config.DecodeTOML(strings.NewReader(tt.toml), &s))
+			require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(tt.toml), &s))
 			assertValidationError(t, &s, tt.exp)
 		})
 	}
@@ -1815,7 +1829,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			var c Config
 			for _, fs := range tt.from {
 				var f Config
-				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
+				require.NoError(t, commoncfg.DecodeTOML(strings.NewReader(fs), &f))
 				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()

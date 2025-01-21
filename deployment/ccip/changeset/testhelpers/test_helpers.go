@@ -398,7 +398,15 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) {
+func AddLane(
+	t *testing.T,
+	e *DeployedEnv,
+	from, to uint64,
+	isTestRouter bool,
+	gasprice map[uint64]*big.Int,
+	tokenPrices map[common.Address]*big.Int,
+	fqCfg fee_quoter.FeeQuoterDestChainConfig,
+) {
 	var err error
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
@@ -475,7 +483,11 @@ func AddLane(t *testing.T, e *DeployedEnv, from, to uint64, isTestRouter bool, g
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
 	stateChainFrom := state.Chains[from]
-	AddLane(t, e, from, to, isTestRouter,
+	AddLane(
+		t,
+		e,
+		from, to,
+		isTestRouter,
 		map[uint64]*big.Int{
 			to: DefaultGasPrice,
 		}, map[common.Address]*big.Int{

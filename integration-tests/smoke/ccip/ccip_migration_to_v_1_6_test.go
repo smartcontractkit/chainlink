@@ -1,4 +1,4 @@
-package smoke
+package ccip
 
 import (
 	"context"
@@ -151,7 +151,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
 	// in this test we have already deployed home chain contracts and the nodes are already running with the deployed cap registry.
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, true, true, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
