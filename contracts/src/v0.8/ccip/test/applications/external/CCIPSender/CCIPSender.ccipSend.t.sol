@@ -1,39 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IRouterClient} from "../../../../interfaces/IRouterClient.sol";
-
-import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
 import {CCIPSender} from "../../../../applications/external/CCIPSender.sol";
 import {Client} from "../../../../libraries/Client.sol";
-import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
+import {CCIPSenderSetup} from "./CCIPSenderSetup.t.sol";
 
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract CCIPSender_ccipSend is OnRampSetup {
-  bytes32 public constant MESSAGE_ID = keccak256("FAKE_MESSAGE_ID");
-
-  CCIPSender internal s_sender;
-
-  function setUp() public virtual override {
-    OnRampSetup.setUp();
-
-    vm.mockCall(
-      address(s_sourceRouter), abi.encodeWithSelector(IRouterClient.ccipSend.selector), abi.encode(MESSAGE_ID)
-    );
-
-    s_sender = new CCIPSender(address(s_sourceRouter));
-
-    CCIPBase.ChainUpdate[] memory chainUpdates = new CCIPBase.ChainUpdate[](1);
-    chainUpdates[0] = CCIPBase.ChainUpdate({
-      chainSelector: DEST_CHAIN_SELECTOR,
-      allowed: true,
-      recipient: abi.encode(address(s_sender)),
-      extraArgsBytes: ""
-    });
-    s_sender.applyChainUpdates(chainUpdates);
-  }
-
+contract CCIPSender_ccipSend is CCIPSenderSetup {
   function test_ccipSend_NonNativeFeetoken_andDestTokens() public {
     address token = address(s_sourceFeeToken);
     uint256 amount = 111333333777;
@@ -134,9 +108,5 @@ contract CCIPSender_ccipSend is OnRampSetup {
     // Assert that native fees are paid successfully and tokens are transferred
     assertEq(IERC20(token).balanceOf(OWNER), tokenBalanceBefore - amount);
     assertEq(OWNER.balance, nativeFeeTokenBalanceBefore - feeTokenAmount);
-  }
-
-  function test_typeAndVersion() public view {
-    assertEq(s_sender.typeAndVersion(), "CCIPSender 1.6.0-dev");
   }
 }

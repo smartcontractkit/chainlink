@@ -34,8 +34,4 @@ contract CCIPReceiverSetup is OnRampSetup {
 
     s_receiver.updateApprovedSenders(senderUpdates, new CCIPBase.ApprovedSenderUpdate[](0));
   }
-
-  function test_typeAndVersion() public view {
-    assertEq(s_receiver.typeAndVersion(), "CCIPReceiver 1.6.0-dev");
-  }
 }
