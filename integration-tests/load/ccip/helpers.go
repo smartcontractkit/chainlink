@@ -2,7 +2,7 @@ package ccip
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strconv"
 	"time"
 
@@ -130,11 +130,11 @@ func subscribeDeferredCommitEvents(
 					// push metrics to loki here
 					for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 						blockNum := report.Raw.BlockNumber
-						header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum))) //nolint
+						header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 						if err != nil {
 							errChan <- err
 						}
-						timestamp := time.Unix(int64(header.Time), 0) //nolint
+						timestamp := time.Unix(int64(header.Time), 0) //nolint:gosec // disable G115
 						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
 							Timestamp:      timestamp,
@@ -149,7 +149,7 @@ func subscribeDeferredCommitEvents(
 				"offRamp", offRamp.Address().String(),
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange)
-			errChan <- fmt.Errorf("timed out waiting for commit report")
+			errChan <- errors.New("timed out waiting for commit report")
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
@@ -252,7 +252,7 @@ func subscribeExecutionEvents(
 			}
 			// push metrics to loki here
 			blockNum := event.Raw.BlockNumber
-			header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum))) //nolint
+			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
 				errChan <- err
 			}
@@ -272,7 +272,7 @@ func subscribeExecutionEvents(
 				"expectedSeqNumbers", expectedRange,
 				"seenMessages", seenMessages,
 				"completedSrcChains", completedSrcChains)
-			errChan <- fmt.Errorf("timed out waiting for execution event")
+			errChan <- errors.New("timed out waiting for execution event")
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
