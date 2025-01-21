@@ -417,49 +417,38 @@ func ConfirmExecWithSeqNrsForAll(
 		mx sync.Mutex
 	)
 	executionStates = make(map[SourceDestPair]map[uint64]int)
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			srcChain := srcChain
-			dstChain := dstChain
-			wg.Go(func() error {
-				var startBlock *uint64
-				if startBlocks != nil {
-					startBlock = startBlocks[dstChain.Selector]
-				}
+	for sourceDest, seqRange := range expectedSeqNums {
+		seqRange := seqRange
+		srcChain := sourceDest.SourceChainSelector
+		dstChain := sourceDest.DestChainSelector
 
-				expectedSeqNum, ok := expectedSeqNums[SourceDestPair{
-					SourceChainSelector: srcChain.Selector,
-					DestChainSelector:   dstChain.Selector,
-				}]
-				if !ok || len(expectedSeqNum) == 0 {
-					return nil
-				}
-
-				innerExecutionStates, err := ConfirmExecWithSeqNrs(
-					t,
-					srcChain,
-					dstChain,
-					state.Chains[dstChain.Selector].OffRamp,
-					startBlock,
-					expectedSeqNum,
-				)
-				if err != nil {
-					return err
-				}
-
-				mx.Lock()
-				executionStates[SourceDestPair{
-					SourceChainSelector: srcChain.Selector,
-					DestChainSelector:   dstChain.Selector,
-				}] = innerExecutionStates
-				mx.Unlock()
-
-				return nil
-			})
+		var startBlock *uint64
+		if startBlocks != nil {
+			startBlock = startBlocks[dstChain]
 		}
+
+		wg.Go(func() error {
+			innerExecutionStates, err := ConfirmExecWithSeqNrs(
+				t,
+				e.Chains[srcChain],
+				e.Chains[dstChain],
+				state.Chains[dstChain].OffRamp,
+				startBlock,
+				seqRange,
+			)
+			if err != nil {
+				return err
+			}
+
+			mx.Lock()
+			executionStates[SourceDestPair{
+				SourceChainSelector: srcChain,
+				DestChainSelector:   dstChain,
+			}] = innerExecutionStates
+			mx.Unlock()
+
+			return nil
+		})
 	}
 
 	require.NoError(t, wg.Wait())
