@@ -15,9 +15,6 @@ FeeCapDefault = '120 gwei'
 
 [HeadTracker]
 HistoryDepth = 300
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
 
 [NodePool]
 # 4 block sync time between nodes to ensure they aren't labelled unreachable too soon

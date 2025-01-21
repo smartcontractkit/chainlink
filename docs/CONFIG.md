@@ -3286,7 +3286,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -5806,7 +5806,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -5918,7 +5918,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -8989,7 +8989,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -11072,7 +11072,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -11403,7 +11403,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -11510,7 +11510,7 @@ HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -12849,7 +12849,7 @@ HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
