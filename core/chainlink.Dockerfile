@@ -66,6 +66,11 @@ COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
 RUN chmod 755 /usr/lib/libwasmvm.*.so
 
+# CCIP specific
+COPY ./cci[p]/confi[g] /chainlink/ccip-config
+ARG CL_CHAIN_DEFAULTS
+ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
+
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi
