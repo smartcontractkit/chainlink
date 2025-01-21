@@ -15,7 +15,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
 
-	t.Run("EVMv1", func(t *testing.T) {
+	t.Run("v1", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
 			GasLimit: gasLimit,
 		})
@@ -27,7 +27,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.Equal(t, gasLimit, decodedGasLimit)
 	})
 
-	t.Run("EVMv2", func(t *testing.T) {
+	t.Run("v2", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
 			GasLimit:                 gasLimit,
 			AllowOutOfOrderExecution: true,
@@ -40,7 +40,30 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.Equal(t, gasLimit, decodedGasLimit)
 	})
 
-	t.Run("SVMv1", func(t *testing.T) {
+	t.Run("decode extra args into map evm v1", func(t *testing.T) {
+		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
+			GasLimit: gasLimit,
+		})
+		require.NoError(t, err)
+
+		m, err := DecodeExtraArgs(encoded)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(m))
+	})
+
+	t.Run("decode extra args into map evm v2", func(t *testing.T) {
+		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
+			GasLimit:                 gasLimit,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		m, err := DecodeExtraArgs(encoded)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(m))
+	})
+
+	t.Run("decode extra args into map svm", func(t *testing.T) {
 		key, err := solana.NewRandomPrivateKey()
 		require.NoError(t, err)
 		encoded, err := d.contract.EncodeSVMExtraArgsV1(nil, message_hasher.ClientSVMExtraArgsV1{
@@ -54,7 +77,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = decodeExtraArgsSVMV1(encoded)
+		_, err = DecodeExtraArgs(encoded)
 		require.NoError(t, err)
 	})
 }

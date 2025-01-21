@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -263,7 +264,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
-			ccipevm.NewExtraArgsCodec(),
+			ccip.NewExtraArgsCodec(),
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -286,7 +287,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
-			ccipevm.NewExtraArgsCodec(),
+			ccip.NewExtraArgsCodec(),
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),
