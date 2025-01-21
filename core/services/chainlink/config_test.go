@@ -180,6 +180,7 @@ var (
 						SyncThreshold:                ptr[uint32](5),
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
+						NewHeadsPollInterval:         &second,
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
@@ -208,6 +209,7 @@ var (
 						SyncThreshold:                ptr[uint32](5),
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
+						NewHeadsPollInterval:         &second,
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
@@ -778,6 +780,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SyncThreshold:                ptr[uint32](5),
 					NodeIsSyncingEnabled:         ptr(false),
 					LeaseDuration:                &minute,
+					NewHeadsPollInterval:         &second,
 					FinalizedBlockPollInterval:   &second,
 					EnforceRepeatableRead:        ptr(true),
 					DeathDeclarationDelay:        &minute,
@@ -1312,6 +1315,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
