@@ -9829,7 +9829,7 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '30s'
 
 [Transactions.AutoPurge]
-Enabled = false
+Enabled = true
 Threshold = 50
 MinAttempts = 3
 

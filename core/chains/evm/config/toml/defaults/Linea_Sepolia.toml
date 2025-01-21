@@ -24,6 +24,6 @@ BlockHistorySize = 200
 CheckInclusionBlocks = 0 #required for AutoPurge zkoverflow replacement
 
 [Transactions.AutoPurge]
-Enabled = false #Temporarily disable autopurge due to npe crashes
+Enabled = true
 Threshold = 50 # 50 blocks at 3s block time ~2.5 minutes
 MinAttempts = 3
