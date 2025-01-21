@@ -1,4 +1,4 @@
-package ccip
+package common
 
 import (
 	"fmt"
