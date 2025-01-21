@@ -128,7 +128,7 @@ func newLastFetchedAtMap() *lastFetchedAtMap {
 	}
 }
 
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name string, hexName string, config []byte, binary []byte) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding
 // method that handles the event.
@@ -397,6 +397,23 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 	}
 }
 
+type workflowName struct {
+	name string
+}
+
+func (w workflowName) String() string {
+	return w.name
+}
+
+func (w workflowName) Hex() string {
+	// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
+	// A name is used internally that is first hashed to avoid collisions,
+	// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
+	truncatedName := pkgworkflows.HashTruncateName(w.name)
+	hexName := hex.EncodeToString([]byte(truncatedName))
+	return hexName
+}
+
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
@@ -467,16 +484,14 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return nil
 	}
 
-	truncatedName := pkgworkflows.HashTruncateName(payload.WorkflowName)
-	hexName := hex.EncodeToString([]byte(truncatedName))
-
 	// If status == active, start a new WorkflowEngine instance, and add it to local engine registry
 	engine, err := h.engineFactory(
 		ctx,
 		wfID,
 		owner,
-		payload.WorkflowName,
-		hexName,
+		workflowName{
+			name: payload.WorkflowName,
+		},
 		config,
 		decodedBinary,
 	)
@@ -530,7 +545,7 @@ func (h *eventHandler) getWorkflowArtifacts(
 	return decodedBinary, config, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner string, name string, hexName string, config []byte, binary []byte) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
 	moduleConfig := &host.ModuleConfig{Logger: h.lggr, Labeler: h.emitter}
 	sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 	if err != nil {
@@ -546,12 +561,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 		// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
 		// A name is used internally that is first hashed to avoid collisions,
 		// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
-		WorkflowHexName: hexName,
-		Registry:        h.capRegistry,
-		Store:           h.workflowStore,
-		Config:          config,
-		Binary:          binary,
-		SecretsFetcher:  h,
+		Registry:       h.capRegistry,
+		Store:          h.workflowStore,
+		Config:         config,
+		Binary:         binary,
+		SecretsFetcher: h,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

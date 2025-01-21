@@ -166,12 +166,13 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
-		WorkflowID: testWorkflowId,
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Workflow:   sdkSpec,
-		maxRetries: 1,
-		retryMs:    100,
+		WorkflowID:   testWorkflowId,
+		Lggr:         logger.TestLogger(t),
+		Registry:     reg,
+		Workflow:     sdkSpec,
+		WorkflowName: defaultName{},
+		maxRetries:   1,
+		retryMs:      100,
 		afterInit: func(success bool) {
 			if success {
 				close(initSuccessful)

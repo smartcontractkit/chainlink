@@ -436,11 +436,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowOwner:            e.workflow.owner,
-			WorkflowName:             e.workflow.hexName,
+			WorkflowName:             e.workflow.name.Hex(),
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      e.workflow.name,
+			DecodedWorkflowName:      e.workflow.name.String(),
 		},
 		Config:    t.config.Load(),
 		TriggerID: triggerID,
@@ -869,7 +869,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.hexName, e.workflow.name, e.workflow.id)
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -961,11 +961,11 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
 			WorkflowOwner:            e.workflow.owner,
-			WorkflowName:             e.workflow.hexName,
+			WorkflowName:             e.workflow.name.Hex(),
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
-			DecodedWorkflowName:      e.workflow.name,
+			DecodedWorkflowName:      e.workflow.name.String(),
 		},
 	}
 
@@ -988,10 +988,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			WorkflowID:               e.workflow.id,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.hexName,
+			WorkflowName:             e.workflow.name.Hex(),
 			WorkflowOwner:            e.workflow.owner,
 			ReferenceID:              t.Ref,
-			DecodedWorkflowName:      e.workflow.name,
+			DecodedWorkflowName:      e.workflow.name.String(),
 		},
 		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
 		Config:    t.config.Load(),
@@ -1194,8 +1194,7 @@ type Config struct {
 	Workflow             sdk.WorkflowSpec
 	WorkflowID           string
 	WorkflowOwner        string
-	WorkflowName         string // Full human-readable workflow name. Intended for metrics and logging.
-	WorkflowHexName      string // The Workflow Name in an on-chain format, which has requirements of being 10 bytes long, hex encoded (i.e. 20 hex characters long). If not provided, we'll derive it from the workflowName.
+	WorkflowName         WorkflowNamer
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -1289,7 +1288,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
 
-	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName)
+	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
 		logCustMsg(ctx, cma, fmt.Sprintf("failed to parse workflow: %s", err), cfg.Lggr)
@@ -1300,15 +1299,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	workflow.owner = cfg.WorkflowOwner
 	workflow.name = cfg.WorkflowName
 
-	workflow.hexName = hex.EncodeToString([]byte(cfg.WorkflowName))
-	if cfg.WorkflowHexName != "" {
-		workflow.hexName = cfg.WorkflowHexName
-	}
-
 	engine = &Engine{
 		cma:            cma,
 		logger:         cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName), *em},
+		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()), *em},
 		registry:       cfg.Registry,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,
