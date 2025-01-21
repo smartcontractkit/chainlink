@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	// DESTINATION_ETH_PPB_GATE is the deviation threshold when writing to ethereum's PriceRegistry
-	EthereumThresholdGatePPB = 4e9
+	// CurveBasedDeviationPPB is the deviation threshold when writing to ethereum's PriceRegistry and is the trigger for
+	// using curve-based deviation logic.
+	CurveBasedDeviationPPB = 4e9
 )
 
 // ContiguousReqs checks if seqNrs contains all numbers from min to max.
@@ -70,13 +71,13 @@ func Deviates(x1, x2 *big.Int, ppb int64) bool {
 	return diff.CmpAbs(big.NewInt(ppb)) > 0 // abs(diff) > ppb
 }
 
-// DeviatesOnGasCurve calculates a deviation threshold on the fly using xNew. For now it's only used for gas price
+// DeviatesOnCurve calculates a deviation threshold on the fly using xNew. For now it's only used for gas price
 // deviation calculation. It's important to make sure the order of xNew and xOld is correct when passed into this
 // function to get an accurate deviation threshold.
-func DeviatesOnGasCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool {
+func DeviatesOnCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool {
 	// This is a temporary gating mechanism that ensures we only apply the gas curve deviation logic to eth-bound price
 	// updates. If ppb from config is not equal to 4000000000, do not apply the gas curve.
-	if ppb != EthereumThresholdGatePPB {
+	if ppb != CurveBasedDeviationPPB {
 		return Deviates(xOld, xNew, ppb)
 	}
 
@@ -88,19 +89,24 @@ func DeviatesOnGasCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) b
 	xNewFloat := new(big.Float).SetInt(xNew)
 	xNewFloat64, _ := xNewFloat.Float64()
 
-	// Calculate the deviation threshold percentage with xNew using the formula: y = (10e11) / (xNew^0.665)
 	// We use xNew to generate the threshold so that when going from cheap --> expensive, xNew generates a smaller
 	// deviation threshold so we are more likely to update the gas price on chain. When going from expensive --> cheap,
 	// xNew generates a larger deviation threshold since it's not as urgent to update the gas price on chain.
+	curveThresholdPPB := calculateCurveThresholdPPB(xNewFloat64)
+	return Deviates(xNew, xOld, curveThresholdPPB)
+}
+
+// calculateCurveThresholdPPB calculates the deviation threshold percentage with xNew using the formula:
+// y = (10e11) / (xNew^0.665).
+func calculateCurveThresholdPPB(x float64) int64 {
 	const constantFactor = 10e11
 	const exponent = 0.665
-	xNewPower := math.Pow(xNewFloat64, exponent)
-	threshold := constantFactor / xNewPower
+	xPower := math.Pow(x, exponent)
+	threshold := constantFactor / xPower
 
-	// Convert percentage to PPB
+	// Convert curve output percentage to PPB
 	thresholdPPB := int64(threshold * 1e7)
-
-	return Deviates(xNew, xOld, thresholdPPB)
+	return thresholdPPB
 }
 
 func MergeEpochAndRound(epoch uint32, round uint8) uint64 {

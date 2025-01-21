@@ -15,10 +15,6 @@ import (
 )
 
 const (
-	// ExecNoDeviationThresholdUSD is the lower bound no deviation threshold for exec gas. If the exec gas price is
-	// less than this value, we should never trigger a deviation. This is set to 10 gwei in USD terms.
-	ExecNoDeviationThresholdUSD = 10e9
-
 	// DANoDeviationThresholdUSD is the lower bound no deviation threshold for DA gas. If the DA gas price is less
 	// than this value, we should never trigger a deviation. This is set to 20 gwei in USD terms.
 	DANoDeviationThresholdUSD = 20e9
@@ -145,7 +141,7 @@ func (g DAGasPriceEstimator) Deviates(ctx context.Context, p1, p2 *big.Int) (boo
 		return execDeviates, nil
 	}
 
-	return ccipcalc.DeviatesOnGasCurve(p1DAGasPrice, p2DAGasPrice, big.NewInt(DANoDeviationThresholdUSD), g.daDeviationPPB), nil
+	return ccipcalc.DeviatesOnCurve(p1DAGasPrice, p2DAGasPrice, big.NewInt(DANoDeviationThresholdUSD), g.daDeviationPPB), nil
 }
 
 func (g DAGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {

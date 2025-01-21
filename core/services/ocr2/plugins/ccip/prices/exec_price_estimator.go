@@ -14,6 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
+const (
+	// ExecNoDeviationThresholdUSD is the lower bound no deviation threshold for exec gas. If the exec gas price is
+	// less than this value, we should never trigger a deviation. This is set to 10 gwei in USD terms.
+	ExecNoDeviationThresholdUSD = 10e9
+)
+
 type ExecGasPriceEstimator struct {
 	estimator    gas.EvmFeeEstimator
 	maxGasPrice  *big.Int
@@ -54,7 +60,7 @@ func (g ExecGasPriceEstimator) Median(ctx context.Context, gasPrices []*big.Int)
 }
 
 func (g ExecGasPriceEstimator) Deviates(ctx context.Context, p1 *big.Int, p2 *big.Int) (bool, error) {
-	return ccipcalc.DeviatesOnGasCurve(p1, p2, big.NewInt(ExecNoDeviationThresholdUSD), g.deviationPPB), nil
+	return ccipcalc.DeviatesOnCurve(p1, p2, big.NewInt(ExecNoDeviationThresholdUSD), g.deviationPPB), nil
 }
 
 func (g ExecGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
