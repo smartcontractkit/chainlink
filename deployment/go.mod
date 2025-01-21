@@ -423,8 +423,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250114010532-74b7a72c2706 // indirect
-  github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.2 // indirect
