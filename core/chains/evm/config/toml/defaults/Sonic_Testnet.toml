@@ -10,7 +10,6 @@ RPCDefaultBatchSize = 100
 Mode = 'FeeHistory'
 EIP1559DynamicFees = true
 BumpPercent = 10
-LimitDefault = 8000000    # default ccip value 
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '2s'

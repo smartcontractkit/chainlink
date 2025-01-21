@@ -7,9 +7,3 @@ LogPollInterval = '6s'
 [GasEstimator]
 EIP1559DynamicFees = false
 PriceMax = '100000 gwei'
-LimitDefault = 8000000
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
