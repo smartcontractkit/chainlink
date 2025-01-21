@@ -15,9 +15,6 @@ ResendAfterThreshold = '3m'
 # set greater than finality depth
 [HeadTracker]
 HistoryDepth = 350
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
 
 [Transactions.AutoPurge]
 Enabled = true

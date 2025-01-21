@@ -1,0 +1,32 @@
+ChainID = "37111"
+ChainType = "zksync"
+# finality depth for this chain is very inconsistent due to low network traffic. in testing blocks every ~1-2minutes were seen
+# confirmed this value with product
+FinalityDepth = 40 
+# block rate is dynamic, have seen block times as low as 1s
+LogPollInterval = "5s"
+# sufficient time for RPC to be labelled out of sync
+NoNewHeadsThreshold = "10m"
+
+[GasEstimator]
+# Increased gasLimit to account for pubdata cost
+LimitDefault = 100_000_000
+# value given by ds&a
+FeeCapDefault = "2000 gwei"
+# estimators typically estimated with min of 75 with median of 86
+PriceDefault = "70 gwei"
+PriceMax = "2000 gwei"
+PriceMin = "70 gwei"
+# bump gas aggressively to avoid high amounts of transmit errors
+BumpThreshold = 1
+BumpPercent = 40
+
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
+[Transactions]
+ResendAfterThreshold = '7m0s'
+
+[HeadTracker]
+# l1 batching is done every 8hrs with low network activity setting this value to a rough calculation of ~1tx / 2min * 8hrs
+HistoryDepth = 250

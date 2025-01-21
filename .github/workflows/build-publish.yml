@@ -91,6 +91,7 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           sign-images: true
           verify-signature: true
+          git-tag-type: ${{ needs.checks.outputs.git-tag-type }}
 
       - name: Attest Docker image
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2

@@ -28,8 +28,3 @@ ObservationGracePeriod = '500ms'
 
 [NodePool]
 SyncThreshold = 10
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
