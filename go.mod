@@ -80,7 +80,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.34
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250120130359-cc025272bbff
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250116214855-f49c5c27db51
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250117101554-1922eef0bdd4
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
 	github.com/smartcontractkit/chainlink-feeds v0.1.1

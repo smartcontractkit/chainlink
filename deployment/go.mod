@@ -9,7 +9,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20241212011003-de1a8f5e5b42
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250120230622-566643da09fd
 
 require (
 	github.com/Khan/genqlient v0.7.0
@@ -31,7 +31,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.36
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250120130359-cc025272bbff
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250116214855-f49c5c27db51
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250117101554-1922eef0bdd4
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250117195512-81a855ec1fc6
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.2-0.20250110073248-456673e8eea2
