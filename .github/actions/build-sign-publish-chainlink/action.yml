@@ -91,15 +91,15 @@ runs:
 
         if [[ "${GIT_TAG_TYPE}" = "ccip" ]]; then
           SHARED_BUILD_ARGS=$(cat << EOF
-          COMMIT_SHA=${GIT_COMMIT_SHA}
-          CL_CHAIN_DEFAULTS=/chainlink/ccip-config
-          EOF
-          )
+        COMMIT_SHA=${GIT_COMMIT_SHA}
+        CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        EOF
+        )
         else
           SHARED_BUILD_ARGS=$(cat << EOF
-          COMMIT_SHA=${GIT_COMMIT_SHA}
-          EOF
-          )
+        COMMIT_SHA=${GIT_COMMIT_SHA}
+        EOF
+        )
         fi
 
         echo "shared-images<<EOF" >> $GITHUB_ENV
