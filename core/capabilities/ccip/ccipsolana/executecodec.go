@@ -8,7 +8,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -52,11 +52,23 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		var extraArgs ccip_router.SolanaExtraArgs
-		decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
-		err := extraArgs.UnmarshalWithDecoder(decoder)
+		family, err := chainsel.GetSelectorFamily(uint64(chainReport.SourceChainSelector))
 		if err != nil {
-			return nil, fmt.Errorf("invalid extra arguments: %w", err)
+			return nil, fmt.Errorf("invalid source chain selector: %w", err)
+		}
+
+		var extraArgs ccip_router.SolanaExtraArgs
+		switch family {
+		case chainsel.FamilySolana:
+			decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
+			err = extraArgs.UnmarshalWithDecoder(decoder)
+			if err != nil {
+				return nil, fmt.Errorf("invalid extra arguments: %w", err)
+			}
+		case chainsel.FamilyEVM:
+			// TODO once https://github.com/smartcontractkit/chainlink/pull/16016 merged, use extraDataMap to construct extra args here
+		default:
+			return nil, fmt.Errorf("unsupported source chain family: %s", family)
 		}
 
 		if len(msg.Receiver) != solana.PublicKeyLength {
