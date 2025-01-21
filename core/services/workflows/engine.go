@@ -833,14 +833,34 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	l.Debugf("sent step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
 }
 
-func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
-	m := values.EmptyMap()
-
-	for k, v := range baseConfig.Underlying {
-		m.Underlying[k] = v
+func merge(baseConfig *values.Map, capConfig capabilities.CapabilityConfiguration) *values.Map {
+	restrictedKeys := map[string]bool{}
+	for _, k := range capConfig.RestrictedKeys {
+		restrictedKeys[k] = true
 	}
 
-	for k, v := range overrideConfig.Underlying {
+	// Shallow copy the defaults set in the onchain capability config.
+	m := values.EmptyMap()
+
+	if capConfig.DefaultConfig != nil {
+		for k, v := range capConfig.DefaultConfig.Underlying {
+			m.Underlying[k] = v
+		}
+	}
+
+	// Add in user-provided config, but skipping any restricted keys
+	for k, v := range baseConfig.Underlying {
+		if !restrictedKeys[k] {
+			m.Underlying[k] = v
+		}
+	}
+
+	if capConfig.RestrictedConfig == nil {
+		return m
+	}
+
+	// Then overwrite the config with any restricted settings.
+	for k, v := range capConfig.RestrictedConfig.Underlying {
 		m.Underlying[k] = v
 	}
 
@@ -901,14 +921,12 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 		return config, nil
 	}
 
-	if capConfig.DefaultConfig == nil {
-		return config, nil
-	}
-
-	// Merge the configs with registry config overriding the step config.  This is because
-	// some config fields are sensitive and could affect the safe running of the capability,
-	// so we avoid user provided values by overriding them with config from the capabilities registry.
-	return merge(config, capConfig.DefaultConfig), nil
+	// Merge the capability registry config with the config provided by the user.
+	// We need to obey the following rules:
+	// - Remove any restricted keys
+	// - Overlay any restricted config
+	// - Merge the other keys, with user keys taking precedence
+	return merge(config, capConfig), nil
 }
 
 // executeStep executes the referenced capability within a step and returns the result.

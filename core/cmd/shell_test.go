@@ -353,7 +353,7 @@ func TestNewUserCache(t *testing.T) {
 
 func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
+	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
 	ds := sqltest.NewNoOpDataSource()
 
@@ -483,7 +483,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
+	reg := plugins.NewTestLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2

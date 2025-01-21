@@ -28,13 +28,11 @@ func TestJobKVStore(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	lggr := logger.TestLogger(t)
-
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 
 	jobID := int32(1337)
-	kvStore := job.NewKVStore(jobID, db, lggr)
+	kvStore := job.NewKVStore(jobID, db)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db))
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())

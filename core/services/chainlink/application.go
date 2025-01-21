@@ -402,7 +402,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
 		}
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled
@@ -818,7 +818,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "name", service.Name())
+		app.logger.Infow("Starting service...", "name", service.Name())
 
 		if err := ms.Start(ctx, service); err != nil {
 			return err

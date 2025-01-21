@@ -22,8 +22,8 @@ import (
 	chainagnostictypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	commontypes "github.com/smartcontractkit/chainlink-framework/chains"
+	htrktypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types/internal/blocks"

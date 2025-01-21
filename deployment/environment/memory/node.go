@@ -195,7 +195,7 @@ func NewNode(
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
 	// Build relayer factory
 	relayerFactory := chainlink.RelayerFactory{

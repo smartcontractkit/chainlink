@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -39,7 +38,7 @@ var (
 	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
 	_ deployment.ChangeSet[SetCandidateChangesetConfig]          = SetCandidateChangeset
 	_ deployment.ChangeSet[RevokeCandidateChangesetConfig]       = RevokeCandidateChangeset
-	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfig
+	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
 type tokenInfo interface {
@@ -88,7 +87,12 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		tokenInfos = append(tokenInfos, onchainState.LinkToken)
+		var linkTokenInfo tokenInfo
+		linkTokenInfo = onchainState.LinkToken
+		if onchainState.LinkToken == nil {
+			linkTokenInfo = onchainState.StaticLinkToken
+		}
+		tokenInfos = append(tokenInfos, linkTokenInfo)
 		tokenInfos = append(tokenInfos, onchainState.Weth9)
 		symbol, decimal, err := findTokenInfo(tokenInfos, token)
 		if err != nil {
@@ -171,14 +175,66 @@ func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIP
 	return nil
 }
 
-// DefaultOCRParams returns the default OCR parameters for a chain,
-// except for a few values which must be parameterized (passed as arguments).
-func DefaultOCRParams(
-	feedChainSel uint64,
-	tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
-	tokenDataObservers []pluginconfig.TokenDataObserverConfig,
-	commit bool,
-	exec bool,
+type CCIPOCROpts func(params *CCIPOCRParams)
+
+// WithOCRParamOverride can be used if you want to override the default OCR parameters with your custom function.
+func WithOCRParamOverride(override func(params *CCIPOCRParams)) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if override != nil {
+			override(params)
+		}
+	}
+}
+
+// WithDefaultCommitOffChainConfig can be used to add token info to the existing commit off-chain config. If no commit off-chain config is set, it will be created with default values.
+func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if params.CommitOffChainConfig == nil {
+			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
+				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+				TokenInfo:                          tokenInfo,
+				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
+				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+				MaxReportTransmissionCheckAttempts: 5,
+				RMNEnabled:                         false,
+				RMNSignaturesTimeout:               30 * time.Minute,
+				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+			}
+		} else {
+			if params.CommitOffChainConfig.TokenInfo == nil {
+				params.CommitOffChainConfig.TokenInfo = make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
+			}
+			for k, v := range tokenInfo {
+				params.CommitOffChainConfig.TokenInfo[k] = v
+			}
+		}
+	}
+}
+
+// WithDefaultExecuteOffChainConfig can be used to add token data observers to the execute off-chain config. If no execute off-chain config is set, it will be created with default values.
+func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserverConfig) CCIPOCROpts {
+	return func(params *CCIPOCRParams) {
+		if params.ExecuteOffChainConfig == nil {
+			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
+				BatchGasLimit:             internal.BatchGasLimit,
+				RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
+				InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
+				RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
+				MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
+				BatchingStrategyID:        internal.BatchingStrategyID,
+				TokenDataObservers:        tokenDataObservers,
+			}
+		} else if tokenDataObservers != nil {
+			params.ExecuteOffChainConfig.TokenDataObservers = append(params.ExecuteOffChainConfig.TokenDataObservers, tokenDataObservers...)
+		}
+	}
+}
+
+// DeriveCCIPOCRParams derives the default OCR parameters for a chain, with the option to override them.
+func DeriveCCIPOCRParams(
+	opts ...CCIPOCROpts,
 ) CCIPOCRParams {
 	params := CCIPOCRParams{
 		OCRParameters: commontypes.OCRParameters{
@@ -196,30 +252,8 @@ func DefaultOCRParams(
 			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
 		},
 	}
-	if exec {
-		params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-			BatchGasLimit:             internal.BatchGasLimit,
-			RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
-			InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
-			RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
-			MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
-			BatchingStrategyID:        internal.BatchingStrategyID,
-			TokenDataObservers:        tokenDataObservers,
-		}
-	}
-	if commit {
-		params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
-			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
-			TokenInfo:                          tokenInfo,
-			PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
-			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
-			MaxReportTransmissionCheckAttempts: 5,
-			RMNEnabled:                         os.Getenv("ENABLE_RMN") == "true", // only enabled in manual test
-			RMNSignaturesTimeout:               30 * time.Minute,
-			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
-			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
-		}
+	for _, opt := range opts {
+		opt(&params)
 	}
 	return params
 }
@@ -433,7 +467,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 
 		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
 		if err != nil {
-			return fmt.Errorf("get all chain configs: %w", err)
+			return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
 		}
 		// FChain should never be zero if a chain config is set in CCIPHome
 		if chainConfig.FChain == 0 {
@@ -441,6 +475,13 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		}
 		if len(chainConfig.Readers) == 0 {
 			return errors.New("readers must be set")
+		}
+		decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
+		if err != nil {
+			return fmt.Errorf("can't decode chain config: %w", err)
+		}
+		if err := decodedChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config: %w", err)
 		}
 		err = params.Validate(chainSelector, feedChain, state)
 		if err != nil {
@@ -1213,11 +1254,14 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		if len(ccfg.Readers) == 0 {
 			return errors.New("Readers must be set")
 		}
+		if err := ccfg.EncodableChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config for selector %d: %w", add, err)
+		}
 	}
 	return nil
 }
 
-func UpdateChainConfig(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
+func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}

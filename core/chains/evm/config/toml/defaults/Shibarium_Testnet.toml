@@ -1,0 +1,32 @@
+ChainID = '157'
+FinalityTagEnabled = true
+LinkContractAddress = '0x44637eEfD71A090990f89faEC7022fc74B2969aD'
+LogPollInterval = '1s'
+MinIncomingConfirmations = 5
+NoNewHeadsThreshold = '30s'
+RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100
+
+[Transactions]
+ResendAfterThreshold = '1m'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceDefault = '10 gwei'
+PriceMin = '2 gwei'
+BumpMin = '5 gwei'
+BumpThreshold = 5
+PriceMax = '10000 gwei'
+FeeCapDefault = '10000 gwei'
+
+[HeadTracker]
+HistoryDepth = 300
+SamplingInterval = '1s'
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'
+SyncThreshold = 10

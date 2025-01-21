@@ -1,0 +1,9 @@
+#Core
+ChainID = '1116'
+FinalityDepth = 27 # finality harcoded based on validator size of the network
+LogPollInterval = '3s' # block rate 3s
+
+[GasEstimator]
+EIP1559DynamicFees = false
+Mode = 'FeeHistory'
+PriceDefault = '30 gwei' # currently set to 30 gwei, may change in the future so using FeeHistory mode

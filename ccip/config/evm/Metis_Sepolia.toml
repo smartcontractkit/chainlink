@@ -18,3 +18,7 @@ BlockHistorySize = 0
 
 [NodePool]
 SyncThreshold = 10
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
