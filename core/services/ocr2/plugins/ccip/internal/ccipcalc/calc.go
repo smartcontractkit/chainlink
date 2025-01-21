@@ -10,7 +10,7 @@ import (
 
 const (
 	// DESTINATION_ETH_PPB_GATE is the deviation threshold when writing to ethereum's PriceRegistry
-	ETHEREUM_THRESHOLD_GATE_PPB = 4e9
+	EthereumThresholdGatePPB = 4e9
 )
 
 // ContiguousReqs checks if seqNrs contains all numbers from min to max.
@@ -76,7 +76,7 @@ func Deviates(x1, x2 *big.Int, ppb int64) bool {
 func DeviatesOnGasCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool {
 	// This is a temporary gating mechanism that ensures we only apply the gas curve deviation logic to eth-bound price
 	// updates. If ppb from config is not equal to 4000000000, do not apply the gas curve.
-	if ppb != ETHEREUM_THRESHOLD_GATE_PPB {
+	if ppb != EthereumThresholdGatePPB {
 		return Deviates(xOld, xNew, ppb)
 	}
 

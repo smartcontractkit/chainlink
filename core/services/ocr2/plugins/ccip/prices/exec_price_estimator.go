@@ -54,7 +54,7 @@ func (g ExecGasPriceEstimator) Median(ctx context.Context, gasPrices []*big.Int)
 }
 
 func (g ExecGasPriceEstimator) Deviates(ctx context.Context, p1 *big.Int, p2 *big.Int) (bool, error) {
-	return ccipcalc.DeviatesOnGasCurve(p1, p2, big.NewInt(EXEC_NO_DEVIATION_THRESHOLD_USD), g.deviationPPB), nil
+	return ccipcalc.DeviatesOnGasCurve(p1, p2, big.NewInt(ExecNoDeviationThresholdUSD), g.deviationPPB), nil
 }
 
 func (g ExecGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {
