@@ -1,0 +1,5 @@
+ChainID = "37111"
+
+[GasEstimator] 
+# limit default set for zk based chains
+LimitDefault = 2_500_000_000

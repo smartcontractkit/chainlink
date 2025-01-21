@@ -1,27 +1,16 @@
 ChainID = '59141'
-FinalityTagEnabled = false
-FinalityDepth = 200 #3s block time ~ 20m finality based on committee decision
-NoNewHeadsThreshold = '0' #No empty blocks
-
-[HeadTracker]
-HistoryDepth = 200 
-
-[Transactions]
-ResendAfterThreshold = '30s'
+FinalityDepth = 900
+NoNewHeadsThreshold = '0'
 
 [GasEstimator]
-PriceMax = '2500 gwei' #higher max price to account for zkoverflow replacement txs
-BumpPercent = 10
-BumpThreshold = 10
 EIP1559DynamicFees = true
-FeeCapDefault = '2500 gwei'
-TipCapDefault = '5 gwei'
-TipCapMin = '1 gwei'
-LimitDefault = 8000000
+PriceMin = '1 wei'
 
-[GasEstimator.BlockHistory]
-BlockHistorySize = 200
-CheckInclusionBlocks = 0 #required for AutoPurge zkoverflow replacement
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[HeadTracker]
+HistoryDepth = 1000
 
 [Transactions.AutoPurge]
 Enabled = true

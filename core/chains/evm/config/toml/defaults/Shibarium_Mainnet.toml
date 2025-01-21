@@ -20,13 +20,7 @@ PriceMin = '2 gwei'
 BumpMin = '5 gwei'
 BumpThreshold = 5
 PriceMax = '10000 gwei'
-LimitDefault = 8000000
 FeeCapDefault = '10000 gwei'
-
-[GasEstimator.BlockHistory]
-# Default is 24, which leads to bumpy gas prices. In CCIP
-# we want to smooth out the gas prices, so we increase the sample size.
-BlockHistorySize = 200
 
 [HeadTracker]
 HistoryDepth = 300

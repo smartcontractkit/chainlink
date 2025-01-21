@@ -3,16 +3,14 @@ ChainType = "zksync"
 # finality depth for this chain is very inconsistent due to low network traffic. in testing blocks every ~1-2minutes were seen
 # confirmed this value with product
 FinalityDepth = 40 
-FinalityTagEnabled = false
 # block rate is dynamic, have seen block times as low as 1s
 LogPollInterval = "5s"
 # sufficient time for RPC to be labelled out of sync
 NoNewHeadsThreshold = "10m"
 
-[GasEstimator] 
-EIP1559DynamicFees = false
-# limit default set for zk based chains
-LimitDefault = 2_500_000_000
+[GasEstimator]
+# Increased gasLimit to account for pubdata cost
+LimitDefault = 100_000_000
 # value given by ds&a
 FeeCapDefault = "2000 gwei"
 # estimators typically estimated with min of 75 with median of 86

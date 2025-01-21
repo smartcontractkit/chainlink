@@ -4,7 +4,6 @@ FinalityTagEnabled = true
 
 [GasEstimator]
 PriceMax = '1000 gwei'
-LimitDefault = 8000000
 FeeCapDefault = '1000 gwei'
 
 [NodePool]

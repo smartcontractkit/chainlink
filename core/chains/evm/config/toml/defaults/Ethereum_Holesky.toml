@@ -1,0 +1,11 @@
+ChainID = '17000'
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'
