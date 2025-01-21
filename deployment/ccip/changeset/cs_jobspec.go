@@ -1,7 +1,10 @@
 package changeset
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -17,6 +20,30 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
+	}
+	// find existing jobs
+	existingSpecs := make(map[string][]string)
+	for _, node := range nodes {
+		jobs, err := env.Offchain.ListJobs(env.GetContext(), &job.ListJobsRequest{
+			Filter: &job.ListJobsRequest_Filter{
+				NodeIds: []string{node.NodeID},
+			},
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
+		}
+		for _, j := range jobs.Jobs {
+			for _, propId := range j.ProposalIds {
+				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &job.GetProposalRequest{
+					Id: propId,
+				})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get job proposal %s on node %s: %w", propId, node.NodeID, err)
+				}
+				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+			}
+		}
+
 	}
 	// Generate a set of brand new job specs for CCIP for a specific environment
 	// (including NOPs) and new addresses.
@@ -55,7 +82,19 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
+		// If the spec already exists, don't propose it again
+		specExists := false
+		if existingSpecs[node.NodeID] != nil {
+			for _, existingSpec := range existingSpecs[node.NodeID] {
+				if spec == existingSpec {
+					specExists = true
+					env.Logger.Infof("CCIP job spec already exists for node %s : JobSpec:/n %s", node.NodeID, spec)
+				}
+			}
+		}
+		if !specExists {
+			nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
+		}
 	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},

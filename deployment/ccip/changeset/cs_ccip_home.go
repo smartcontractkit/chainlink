@@ -261,8 +261,9 @@ func DeriveCCIPOCRParams(
 type PromoteCandidatePluginInfo struct {
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
-	RemoteChainSelectors []uint64
-	PluginType           types.PluginType
+	RemoteChainSelectors    []uint64
+	PluginType              types.PluginType
+	AllowEmptyConfigPromote bool // safe guard to prevent promoting empty config to active
 }
 
 type PromoteCandidateChangesetConfig struct {
@@ -328,7 +329,13 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err != nil {
 				return nil, fmt.Errorf("fetching %s configs from cciphome: %w", plugin.PluginType.String(), err)
 			}
+			// If promoteCandidate is called with AllowEmptyConfigPromote set to false and
+			// the CandidateConfig config digest is zero, do not promote the candidate config to active.
+			if !plugin.AllowEmptyConfigPromote && pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("%s candidate config digest is empty", plugin.PluginType.String())
+			}
 
+			// If the active and candidate config digests are both zero, we should not promote the candidate config to active.
 			if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
 				pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("%s active and candidate config digests are both zero", plugin.PluginType.String())
@@ -392,6 +399,7 @@ func PromoteCandidateChangeset(
 				nodes.NonBootstraps(),
 				donID,
 				plugin.PluginType,
+				plugin.AllowEmptyConfigPromote,
 				cfg.MCMS != nil,
 			)
 			if err != nil {
@@ -984,6 +992,7 @@ func promoteCandidateForChainOps(
 	nodes deployment.Nodes,
 	donID uint32,
 	pluginType cctypes.PluginType,
+	allowEmpty bool,
 	mcmsEnabled bool,
 ) (mcms.Operation, error) {
 	if donID == 0 {
@@ -992,6 +1001,9 @@ func promoteCandidateForChainOps(
 	digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
 	if err != nil {
 		return mcms.Operation{}, err
+	}
+	if digest == [32]byte{} && !allowEmpty {
+		return mcms.Operation{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
 	}
 	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
 	updatePluginOp, err := promoteCandidateOp(

@@ -942,9 +942,10 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 }
 
 type SetOCR3OffRampConfig struct {
-	HomeChainSel    uint64
-	RemoteChainSels []uint64
-	MCMS            *MCMSConfig
+	HomeChainSel       uint64
+	RemoteChainSels    []uint64
+	CCIPHomeConfigType string
+	MCMS               *MCMSConfig
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
@@ -954,6 +955,10 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 	}
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
+	}
+	if c.CCIPHomeConfigType != string(internal.ConfigTypeActive) &&
+		c.CCIPHomeConfigType != string(internal.ConfigTypeCandidate) {
+		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", internal.ConfigTypeActive, internal.ConfigTypeCandidate)
 	}
 	for _, remote := range c.RemoteChainSels {
 		chainState, ok := state.Chains[remote]
@@ -989,7 +994,8 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
-		args, err := internal.BuildSetOCR3ConfigArgs(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		args, err := internal.BuildSetOCR3ConfigArgs(
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, internal.ConfigType(cfg.CCIPHomeConfigType))
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

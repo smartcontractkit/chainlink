@@ -3,6 +3,8 @@ package changeset_test
 import (
 	"testing"
 
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -31,6 +33,13 @@ func TestJobSpecChangeset(t *testing.T) {
 		require.NotNil(t, jobs)
 		for _, job := range jobs {
 			_, err = ccip.ValidatedCCIPSpec(job)
+			require.NoError(t, err)
+			// Note these auto-accept
+			_, err := e.Offchain.ProposeJob(testcontext.Get(t),
+				&jobv1.ProposeJobRequest{
+					NodeId: node.NodeID,
+					Spec:   job,
+				})
 			require.NoError(t, err)
 		}
 	}
