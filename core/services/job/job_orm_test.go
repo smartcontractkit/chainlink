@@ -54,36 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
-const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
-type = 'offchainreporting2'
-schemaVersion = 1
-externalJobID = '00000000-0000-0000-0000-000000000001'
-contractID = '0x0000000000000000000000000000000000000006'
-transmitterID = '%s'
-feedID = '%s'
-relay = 'evm'
-pluginType = 'mercury'
-observationSource = """
-	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
-	ds_parse    [type=jsonparse path="data.price" separator="."];
-	ds_multiply [type=multiply times=100];
-	ds -> ds_parse -> ds_multiply;
-"""
-
-[relayConfig]
-chainID = 1
-fromBlock = 1000
-
-[onchainSigningStrategy]
-strategyName = 'single-chain'
-[onchainSigningStrategy.config]
-publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
-
-[pluginConfig]
-serverURL = 'wss://localhost:8080'
-serverPubKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
-`
-
 func TestORM(t *testing.T) {
 	t.Parallel()
 
@@ -1215,28 +1185,6 @@ func Test_FindJob(t *testing.T) {
 
 	jobOCR2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
-	ocr2WithFeedID1 := "0x0001000000000000000000000000000000000000000000000000000000000001"
-	ocr2WithFeedID2 := "0x0001000000000000000000000000000000000000000000000000000000000002"
-	jobOCR2WithFeedID1, err := ocr2validate.ValidatedOracleSpecToml(
-		testutils.Context(t),
-		config.OCR2(),
-		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID1),
-		nil,
-	)
-	require.NoError(t, err)
-
-	jobOCR2WithFeedID2, err := ocr2validate.ValidatedOracleSpecToml(
-		testutils.Context(t),
-		config.OCR2(),
-		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID2),
-		nil,
-	)
-	jobOCR2WithFeedID2.ExternalJobID = uuid.New()
-	jobOCR2WithFeedID2.Name = null.StringFrom("new name")
-	require.NoError(t, err)
-
 	err = orm.CreateJob(ctx, &job)
 	require.NoError(t, err)
 
@@ -1244,13 +1192,6 @@ func Test_FindJob(t *testing.T) {
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jobOCR2)
-	require.NoError(t, err)
-
-	err = orm.CreateJob(ctx, &jobOCR2WithFeedID1)
-	require.NoError(t, err)
-
-	// second ocr2 job with same contract id but different feed id
-	err = orm.CreateJob(ctx, &jobOCR2WithFeedID2)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -1311,39 +1252,14 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, job.ID, jbID)
 	})
 
-	t.Run("by contract id without feed id", func(t *testing.T) {
+	t.Run("by contract id", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
-		// Find job ID for ocr2 job without feedID.
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, nil)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
-	})
-
-	t.Run("by contract id with valid feed id", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		contractID := "0x0000000000000000000000000000000000000006"
-		feedID := common.HexToHash(ocr2WithFeedID1)
-
-		// Find job ID for ocr2 job with feed ID
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, &feedID)
-		require.NoError(t, err2)
-
-		assert.Equal(t, jobOCR2WithFeedID1.ID, jbID)
-	})
-
-	t.Run("with duplicate contract id but different feed id", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		contractID := "0x0000000000000000000000000000000000000006"
-		feedID := common.HexToHash(ocr2WithFeedID2)
-
-		// Find job ID for ocr2 job with feed ID
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, contractID, &feedID)
-		require.NoError(t, err2)
-
-		assert.Equal(t, jobOCR2WithFeedID2.ID, jbID)
 	})
 }
 

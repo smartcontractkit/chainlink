@@ -45,21 +45,15 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	lloevm "github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
@@ -81,10 +75,6 @@ func setupBlockchain(t *testing.T) (
 	*destination_verifier_proxy.DestinationVerifierProxy,
 	common.Address,
 	*channel_config_store.ChannelConfigStore,
-	common.Address,
-	*verifier.Verifier,
-	common.Address,
-	*verifier_proxy.VerifierProxy,
 	common.Address,
 ) {
 	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
@@ -111,53 +101,13 @@ func setupBlockchain(t *testing.T) (
 	require.NoError(t, err)
 	backend.Commit()
 
-	// Legacy mercury verifier
-	legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr := setupLegacyMercuryVerifier(t, steve, backend)
-
 	// ChannelConfigStore
 	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
 
 	backend.Commit()
 
-	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, legacyVerifierProxy, legacyVerifierProxyAddr
-}
-
-func setupLegacyMercuryVerifier(t *testing.T, steve *bind.TransactOpts, backend evmtypes.Backend) (*verifier.Verifier, common.Address, *verifier_proxy.VerifierProxy, common.Address) {
-	linkTokenAddress, _, linkToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
-	require.NoError(t, err)
-	backend.Commit()
-	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
-	require.NoError(t, err)
-	backend.Commit()
-	nativeTokenAddress, _, nativeToken, err := link_token_interface.DeployLinkToken(steve, backend.Client())
-	require.NoError(t, err)
-	backend.Commit()
-	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
-	require.NoError(t, err)
-	backend.Commit()
-	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend.Client(), common.Address{}) // zero address for access controller disables access control
-	require.NoError(t, err)
-	backend.Commit()
-	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend.Client(), verifierProxyAddr)
-	require.NoError(t, err)
-	backend.Commit()
-	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
-	require.NoError(t, err)
-	backend.Commit()
-	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend.Client(), linkTokenAddress)
-	require.NoError(t, err)
-	backend.Commit()
-	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend.Client(), linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
-	require.NoError(t, err)
-	backend.Commit()
-	_, err = verifierProxy.SetFeeManager(steve, feeManagerAddr)
-	require.NoError(t, err)
-	backend.Commit()
-	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
-	require.NoError(t, err)
-	backend.Commit()
-	return verifier, verifierAddress, verifierProxy, verifierProxyAddr
+	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress
 }
 
 type Stream struct {
@@ -315,31 +265,6 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	return
 }
 
-func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig datastreamsllo.OffchainConfig) ocr2types.ConfigDigest {
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, WithOracles(oracles), WithOffchainConfig(inOffchainConfig))
-
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	require.NoError(t, err)
-	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
-		offchainTransmitters[i] = nodes[i].ClientPubKey
-	}
-	donIDPadded := llo.DonIDToBytes32(donID)
-	_, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
-	require.NoError(t, err)
-
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-
-	l, err := legacyVerifier.LatestConfigDigestAndEpoch(&bind.CallOpts{}, donIDPadded)
-	require.NoError(t, err)
-
-	return l.ConfigDigest
-}
-
 func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
 	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
 }
@@ -390,7 +315,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
+	cfg, err := llo.DecodeProductionConfigSetLog(logs[len(logs)-1].Data)
 	require.NoError(t, err)
 
 	return cfg.ConfigDigest
@@ -445,7 +370,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -480,9 +405,9 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 chainID = "%s"
 fromBlock = %d
 lloDonID = %d
-lloConfigMode = "mercury"
+lloConfigMode = "bluegreen"
 `, chainID, fromBlock, donID)
-		addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-2", relayType, relayConfig)
 
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{
@@ -535,24 +460,21 @@ lloConfigMode = "mercury"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
-		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		// Set config on configurator
+<<<<<<< HEAD
 		setLegacyConfig(
 			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
+=======
+		setProductionConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+>>>>>>> 1d31103737 (Remove legacy Mercury plugin and associated code)
 		)
 
-		// Set config on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
 			signerAddresses[i] = common.BytesToAddress(oracle.OracleIdentity.OnchainPublicKey)
-		}
-		{
-			recipientAddressesAndWeights := []destination_verifier.CommonAddressAndWeight{}
-
-			_, err := verifier.SetConfig(steve, signerAddresses, fNodes, recipientAddressesAndWeights)
-			require.NoError(t, err)
-			backend.Commit()
 		}
 
 		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
@@ -622,16 +544,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.Subset(t, signerAddresses, reportSigners)
 				}
 
-				// test on-chain verification
-				t.Run("on-chain verification", func(t *testing.T) {
-					t.Skip("SKIP - MERC-6637")
-					// Disabled because it flakes, sometimes returns "execution reverted"
-					// No idea why
-					// https://smartcontract-it.atlassian.net/browse/MERC-6637
-					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-					require.NoError(t, err)
-				})
-
 				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
 
 				seen[feedID][req.pk] = struct{}{}
@@ -683,7 +595,7 @@ func testIntegrationLLOEVMABIEncodeUnpacked(t *testing.T, offchainConfig datastr
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -1448,7 +1360,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -1612,7 +1524,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap

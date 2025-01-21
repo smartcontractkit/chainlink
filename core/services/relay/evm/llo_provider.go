@@ -9,6 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -19,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -181,64 +185,10 @@ func (p *lloProvider) ShouldRetireCache() llotypes.ShouldRetireCache {
 	return p.shouldRetireCache
 }
 
-// wrapper is needed to turn mercury config poller into a service
-type mercuryConfigPollerWrapper struct {
-	*mercury.ConfigPoller
-	services.Service
-	eng *services.Engine
-
-	runReplay bool
-	fromBlock uint64
-}
-
-func newMercuryConfigPollerWrapper(lggr logger.Logger, cp *mercury.ConfigPoller, fromBlock uint64, runReplay bool) *mercuryConfigPollerWrapper {
-	w := &mercuryConfigPollerWrapper{cp, nil, nil, runReplay, fromBlock}
-	w.Service, w.eng = services.Config{
-		Name:  "LLOMercuryConfigWrapper",
-		Start: w.start,
-		Close: w.close,
-	}.NewServiceEngine(lggr)
-	return w
-}
-
-func (w *mercuryConfigPollerWrapper) Start(ctx context.Context) error {
-	return w.Service.Start(ctx)
-}
-
-func (w *mercuryConfigPollerWrapper) start(ctx context.Context) error {
-	w.ConfigPoller.Start()
-	return nil
-}
-
-func (w *mercuryConfigPollerWrapper) Close() error {
-	return w.Service.Close()
-}
-
-func (w *mercuryConfigPollerWrapper) close() error {
-	return w.ConfigPoller.Close()
-}
-
 func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc llo.ConfigCache, lp logpoller.LogPoller, chainID *big.Int, configuratorAddress common.Address, relayConfig types.RelayConfig) (cps []llo.ConfigPollerService, configDigester ocrtypes.OffchainConfigDigester, err error) {
 	donID := relayConfig.LLODONID
 	donIDHash := llo.DonIDToBytes32(donID)
 	switch relayConfig.LLOConfigMode {
-	case types.LLOConfigModeMercury:
-		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts
-		configDigester = mercury.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixMercuryV02)
-		// Mercury config poller will register its own filter
-		mcp, err := mercury.NewConfigPoller(
-			ctx,
-			lggr,
-			lp,
-			configuratorAddress,
-			llo.DonIDToBytes32(donID),
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-		// don't need to replay in the wrapper since the provider will handle it
-		w := newMercuryConfigPollerWrapper(lggr, mcp, relayConfig.FromBlock, false)
-		cps = []llo.ConfigPollerService{w}
 	case types.LLOConfigModeBlueGreen:
 		// NOTE: Register filter here because the config poller doesn't do it on its own
 		err := lp.RegisterFilter(ctx, logpoller.Filter{Name: lloProviderConfiguratorFilterName(configuratorAddress, donID), EventSigs: []common.Hash{llo.ProductionConfigSet, llo.StagingConfigSet, llo.PromoteStagingConfig}, Topic2: []common.Hash{donIDHash}, Addresses: []common.Address{configuratorAddress}})

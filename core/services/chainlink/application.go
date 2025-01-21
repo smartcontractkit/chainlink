@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -403,7 +402,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(opts.DS, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(opts.DS)
-		mercuryORM     = mercury.NewORM(opts.DS)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
@@ -565,7 +563,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				Ds:                    opts.DS,
 				JobORM:                jobORM,
 				BridgeORM:             bridgeORM,
-				MercuryORM:            mercuryORM,
 				PipelineRunner:        pipelineRunner,
 				StreamRegistry:        streamRegistry,
 				PeerWrapper:           peerWrapper,

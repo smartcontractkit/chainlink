@@ -50,7 +50,7 @@ type ORM interface {
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDByAddress(ctx context.Context, address evmtypes.EIP55Address, evmChainID *big.Big) (int32, error)
-	FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (int32, error)
+	FindOCR2JobIDByAddress(ctx context.Context, contractID string) (int32, error)
 	FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32, jobType Type) error
 	RecordError(ctx context.Context, jobID int32, description string) error
@@ -270,16 +270,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 
 			if jb.ForwardingAllowed && !slices.Contains(ForwardersSupportedPlugins, jb.OCR2OracleSpec.PluginType) {
 				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
-			}
-
-			if jb.OCR2OracleSpec.PluginType == types.Mercury {
-				if jb.OCR2OracleSpec.FeedID == nil {
-					return errors.New("feed ID is required for mercury plugin type")
-				}
-			} else {
-				if jb.OCR2OracleSpec.FeedID != nil {
-					return errors.New("feed ID is not currently supported for non-mercury jobs")
-				}
 			}
 
 			if jb.OCR2OracleSpec.PluginType == types.Median {
@@ -573,10 +563,10 @@ func (o *orm) insertOCROracleSpec(ctx context.Context, spec *OCROracleSpec) (spe
 }
 
 func (o *orm) insertOCR2OracleSpec(ctx context.Context, spec *OCR2OracleSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
+	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, allow_no_bootstrappers,
 					created_at, updated_at)
-			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :allow_no_bootstrappers,
 					NOW(), NOW())
 			RETURNING id;`, spec)
@@ -637,10 +627,10 @@ func (o *orm) insertLegacyGasStationSidecarSpec(ctx context.Context, spec *Legac
 }
 
 func (o *orm) insertBootstrapSpec(ctx context.Context, spec *BootstrapSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO bootstrap_specs (contract_id, feed_id, relay, relay_config, monitoring_endpoint,
+	return o.prepareQuerySpecID(ctx, `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
 					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :feed_id, :relay, :relay_config, :monitoring_endpoint,
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint,
 					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`, spec)
@@ -1065,20 +1055,18 @@ WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 	return
 }
 
-func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, contractID string, feedID *common.Hash) (jobID int32, err error) {
-	// NOTE: We want to explicitly match on NULL feed_id hence usage of `IS
-	// NOT DISTINCT FROM` instead of `=`
+func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, contractID string) (jobID int32, err error) {
 	stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
-LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.feed_id IS NOT DISTINCT FROM $2 AND bs.id = jobs.bootstrap_spec_id
+LEFT JOIN ocr2_oracle_specs ocr2spec on ocr2spec.contract_id = $1 AND ocr2spec.id = jobs.ocr2_oracle_spec_id
+LEFT JOIN bootstrap_specs bs on bs.contract_id = $1 AND bs.id = jobs.bootstrap_spec_id
 WHERE ocr2spec.id IS NOT NULL OR bs.id IS NOT NULL
 `
-	err = o.ds.GetContext(ctx, &jobID, stmt, contractID, feedID)
+	err = o.ds.GetContext(ctx, &jobID, stmt, contractID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			err = errors.Wrapf(err, "error searching for job by contract id=%s and feed id=%s", contractID, feedID)
+			err = errors.Wrapf(err, "error searching for job by contract id=%s", contractID)
 		}
 		err = errors.Wrap(err, "FindOCR2JobIDByAddress failed")
 		return

@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -24,18 +23,13 @@ import (
 // // Contract-specific
 // EffectiveTransmitterAddress null.String    `json:"effectiveTransmitterAddress"`
 // SendingKeys                 pq.StringArray `json:"sendingKeys"`
-
-// // Mercury-specific
-// FeedID *common.Hash `json:"feedID"`
 func Test_RelayConfig(t *testing.T) {
 	cid := testutils.NewRandomEVMChainID()
 	fromBlock := uint64(2222)
-	feedID := utils.NewHash()
 	rawToml := fmt.Sprintf(`
 ChainID = "%s"
 FromBlock = %d
-FeedID = "0x%x"
-`, cid, fromBlock, feedID[:])
+`, cid, fromBlock)
 
 	var rc RelayConfig
 	err := toml.Unmarshal([]byte(rawToml), &rc)
@@ -43,7 +37,6 @@ FeedID = "0x%x"
 
 	assert.Equal(t, cid.String(), rc.ChainID.String())
 	assert.Equal(t, fromBlock, rc.FromBlock)
-	assert.Equal(t, feedID.Hex(), rc.FeedID.Hex())
 }
 
 func Test_ChainReaderConfig(t *testing.T) {

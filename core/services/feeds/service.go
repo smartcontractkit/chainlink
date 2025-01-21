@@ -1302,24 +1302,17 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
-	var feedID *common.Hash
 
 	switch j.Type {
 	case job.OffchainReporting2:
 		contractID = j.OCR2OracleSpec.ContractID
-		feedID = j.OCR2OracleSpec.FeedID
 	case job.Bootstrap:
 		contractID = j.BootstrapSpec.ContractID
-		if j.BootstrapSpec.FeedID != nil {
-			feedID = j.BootstrapSpec.FeedID
-		}
-	case job.FluxMonitor, job.OffchainReporting:
-		return 0, errors.Errorf("contractID and feedID not applicable for job type: %s", j.Type)
 	default:
 		return 0, errors.Errorf("unsupported job type: %s", j.Type)
 	}
 
-	return tx.FindOCR2JobIDByAddress(ctx, contractID, feedID)
+	return tx.FindOCR2JobIDByAddress(ctx, contractID)
 }
 
 // findExistingJobForOCRFlux looks for existing job for OCR or flux

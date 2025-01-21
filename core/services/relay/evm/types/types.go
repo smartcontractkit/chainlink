@@ -184,12 +184,21 @@ func (r *ReadType) UnmarshalText(text []byte) error {
 type LLOConfigMode string
 
 const (
-	LLOConfigModeMercury   LLOConfigMode = "mercury"
 	LLOConfigModeBlueGreen LLOConfigMode = "bluegreen"
 )
 
 func (c LLOConfigMode) String() string {
 	return string(c)
+}
+
+func (c *LLOConfigMode) UnmarshalText(text []byte) error {
+	switch string(text) {
+	case "", "bluegreen":
+		*c = LLOConfigModeBlueGreen
+	default:
+		return fmt.Errorf("unrecognized LLOConfigMode: %s", string(text))
+	}
+	return nil
 }
 
 type DualTransmissionConfig struct {
@@ -211,12 +220,6 @@ type RelayConfig struct {
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
-
-	// Mercury-specific
-	FeedID                   *common.Hash `json:"feedID"`
-	EnableTriggerCapability  bool         `json:"enableTriggerCapability"`
-	TriggerCapabilityName    string       `json:"triggerCapabilityName"`
-	TriggerCapabilityVersion string       `json:"triggerCapabilityVersion"`
 
 	// LLO-specific
 	LLODONID      uint32        `json:"lloDonID" toml:"lloDonID"`

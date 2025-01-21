@@ -16,9 +16,13 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type Server struct {
+	URL    string
+	PubKey utils.PlainHexBytes
+}
 
 type PluginConfig struct {
 	ChannelDefinitionsContractAddress   common.Address `json:"channelDefinitionsContractAddress" toml:"channelDefinitionsContractAddress"`
@@ -82,9 +86,9 @@ func (p *PluginConfig) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, p)
 }
 
-func (p PluginConfig) GetServers() (servers []mercuryconfig.Server) {
+func (p PluginConfig) GetServers() (servers []Server) {
 	for url, pubKey := range p.Servers {
-		servers = append(servers, mercuryconfig.Server{URL: wssRegexp.ReplaceAllString(url, ""), PubKey: pubKey})
+		servers = append(servers, Server{URL: wssRegexp.ReplaceAllString(url, ""), PubKey: pubKey})
 	}
 	sort.Slice(servers, func(i, j int) bool {
 		return servers[i].URL < servers[j].URL

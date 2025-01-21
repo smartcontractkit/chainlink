@@ -102,16 +102,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, fmt.Errorf("ServiceForSpec: failed to get relay %s is it enabled?: %w", rid.Name(), err)
 	}
-	if spec.FeedID != nil {
-		spec.RelayConfig["feedID"] = *spec.FeedID
-	}
 	spec.RelayConfig.ApplyDefaultsOCR2(d.ocr2Cfg)
 
 	ctxVals := loop.ContextValues{
 		JobID:      jb.ID,
 		JobName:    jb.Name.ValueOrZero(),
 		ContractID: spec.ContractID,
-		FeedID:     spec.FeedID,
 	}
 	ctx = ctxVals.ContextWithValues(ctx)
 

@@ -600,12 +600,10 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 }
 
 // FeedID resolves the spec's feed ID
+// DEPRECATED: FeedID is no longer used for anything, but continue to return a
+// nil value in graphQL for compatibility with operator UI
 func (r *OCR2SpecResolver) FeedID() *string {
-	if r.spec.FeedID == nil {
-		return nil
-	}
-	feedID := r.spec.FeedID.String()
-	return &feedID
+	return nil
 }
 
 func (r *OCR2SpecResolver) AllowNoBootstrappers() bool {

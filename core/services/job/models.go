@@ -365,9 +365,8 @@ var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.OCR2
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID         int32        `toml:"-"`
-	ContractID string       `toml:"contractID"`
-	FeedID     *common.Hash `toml:"feedID"`
+	ID         int32  `toml:"-"`
+	ContractID string `toml:"contractID"`
 	// Network
 	Relay string `toml:"relay"`
 	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
@@ -776,10 +775,9 @@ type LegacyGasStationSidecarSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                int32        `toml:"-"`
-	ContractID                        string       `toml:"contractID"`
-	FeedID                            *common.Hash `toml:"feedID"`
-	Relay                             string       `toml:"relay"` // RelayID.Network
+	ID                                int32  `toml:"-"`
+	ContractID                        string `toml:"contractID"`
+	Relay                             string `toml:"relay"` // RelayID.Network
 	RelayConfig                       JSONConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`

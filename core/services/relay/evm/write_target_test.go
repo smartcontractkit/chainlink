@@ -270,7 +270,7 @@ func TestEvmWrite(t *testing.T) {
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})
-		testChain.On("ID").Return(big.NewInt(11155111))
+		testChain.On("ID").Return(big.NewInt(11155111)).Maybe()
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 

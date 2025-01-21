@@ -38,10 +38,6 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
-	var feedID string
-	if o.OCR2OracleSpec.FeedID != nil {
-		feedID = o.OCR2OracleSpec.FeedID.Hex()
-	}
 	externalID, err := ExternalJobID(o.Name)
 	if err != nil {
 		return "", err
@@ -53,7 +49,6 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		MaxTaskDuration          string
 		ForwardingAllowed        bool
 		ContractID               string
-		FeedID                   string
 		Relay                    string
 		PluginType               string
 		RelayConfig              map[string]interface{}
@@ -74,7 +69,6 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		ForwardingAllowed:     o.ForwardingAllowed,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
-		FeedID:                feedID,
 		Relay:                 o.OCR2OracleSpec.Relay,
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:           o.OCR2OracleSpec.RelayConfig,
@@ -100,9 +94,6 @@ pluginType                             = "{{ .PluginType }}" {{end}}
 relay                                  = "{{.Relay}}"
 schemaVersion                          = 1
 contractID                             = "{{.ContractID}}"
-{{if .FeedID}}
-feedID                                 = "{{.FeedID}}"
-{{end}}
 {{if eq .JobType "offchainreporting2" }}
 ocrKeyBundleID                         = "{{.OCRKeyBundleID}}" {{end}}
 {{if eq .JobType "offchainreporting2" }}

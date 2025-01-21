@@ -59,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
@@ -69,8 +68,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
-	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -109,7 +106,6 @@ type Delegate struct {
 	ds                    sqlutil.DataSource
 	jobORM                job.ORM
 	bridgeORM             bridges.ORM
-	mercuryORM            evmmercury.ORM
 	pipelineRunner        pipeline.Runner
 	streamRegistry        streams.Getter
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
@@ -219,7 +215,6 @@ type DelegateOpts struct {
 	Ds                    sqlutil.DataSource
 	JobORM                job.ORM
 	BridgeORM             bridges.ORM
-	MercuryORM            evmmercury.ORM
 	PipelineRunner        pipeline.Runner
 	StreamRegistry        streams.Getter
 	PeerWrapper           *ocrcommon.SingletonPeerWrapper
@@ -242,7 +237,6 @@ func NewDelegate(
 		ds:                    opts.Ds,
 		jobORM:                opts.JobORM,
 		bridgeORM:             opts.BridgeORM,
-		mercuryORM:            opts.MercuryORM,
 		pipelineRunner:        opts.PipelineRunner,
 		streamRegistry:        opts.StreamRegistry,
 		peerWrapper:           opts.PeerWrapper,
@@ -430,10 +424,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		ContractID:    spec.ContractID,
 		TransmitterID: transmitterID,
 	}
-	if spec.FeedID != nil && (*spec.FeedID != (common.Hash{})) {
-		lggrCtx.FeedID = *spec.FeedID
-		spec.RelayConfig["feedID"] = spec.FeedID
-	}
 	lggr := logger.Sugared(d.lggr.Named(string(jb.Type)).Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
 
 	kvStore := job.NewKVStore(jb.ID, d.ds)
@@ -503,9 +493,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	ctx = lggrCtx.ContextWithValues(ctx)
 	switch spec.PluginType {
-	case types.Mercury:
-		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
-
 	case types.LLO:
 		return d.newServicesLLO(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
@@ -540,7 +527,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
+	if spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
 	}
 
@@ -559,7 +546,6 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 
 	// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
 	if jb.ForwardingAllowed {
 		if chain == nil {
 			return "", fmt.Errorf("job forwarding requires non-nil chain")
@@ -832,115 +818,6 @@ func (d *Delegate) newServicesGenericPlugin(
 	}
 
 	return srvs, nil
-}
-
-func (d *Delegate) newServicesMercury(
-	ctx context.Context,
-	lggr logger.SugaredLogger,
-	jb job.Job,
-	bootstrapPeers []commontypes.BootstrapperLocator,
-	kb ocr2key.KeyBundle,
-	ocrDB *db,
-	lc ocrtypes.LocalConfig,
-) ([]job.ServiceCtx, error) {
-	if jb.OCR2OracleSpec.FeedID == nil || (*jb.OCR2OracleSpec.FeedID == (common.Hash{})) {
-		return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID")
-	}
-	spec := jb.OCR2OracleSpec
-	transmitterID := spec.TransmitterID.String
-	if len(transmitterID) != 64 {
-		return nil, errors.Errorf("ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
-	}
-	if _, err := hex.DecodeString(transmitterID); err != nil {
-		return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
-	}
-
-	rid, err := spec.RelayID()
-	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
-	}
-	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
-	}
-	relayer, err := d.RelayGetter.Get(rid)
-	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
-	}
-
-	provider, err2 := relayer.NewPluginProvider(ctx,
-		types.RelayArgs{
-			ExternalJobID: jb.ExternalJobID,
-			JobID:         jb.ID,
-			ContractID:    spec.ContractID,
-			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
-			ProviderType:  string(spec.PluginType),
-		}, types.PluginArgs{
-			TransmitterID: transmitterID,
-			PluginConfig:  spec.PluginConfig.Bytes(),
-		})
-	if err2 != nil {
-		return nil, err2
-	}
-
-	mercuryProvider, ok := provider.(types.MercuryProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to MercuryProvider")
-	}
-
-	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
-
-	// Disable OCR debug+info logging for legacy mercury jobs unless tracelogging is enabled, because its simply too verbose (150 jobs => ~50k logs per second)
-	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging(), d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
-	})
-
-	var relayConfig evmrelaytypes.RelayConfig
-	err = json.Unmarshal(jb.OCR2OracleSpec.RelayConfig.Bytes(), &relayConfig)
-	if err != nil {
-		return nil, fmt.Errorf("error while unmarshalling relay config: %w", err)
-	}
-
-	var telemetryType synchronization.TelemetryType
-	if relayConfig.EnableTriggerCapability && len(jb.OCR2OracleSpec.PluginConfig) == 0 {
-		telemetryType = synchronization.OCR3DataFeeds
-		// First use case for TriggerCapability transmission is Data Feeds, so telemetry should be routed accordingly.
-		// This is only true if TriggerCapability is the *only* transmission method (PluginConfig is empty).
-	} else {
-		telemetryType = synchronization.OCR3Mercury
-	}
-
-	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
-		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          mercuryProvider.ContractTransmitter(),
-		ContractConfigTracker:        mercuryProvider.ContractConfigTracker(),
-		Database:                     ocrDB,
-		LocalConfig:                  lc,
-		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), telemetryType),
-		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
-	}
-
-	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-
-	mCfg := mercury.NewMercuryConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg.JobPipeline().ResultWriteQueueDepth(), d.cfg)
-
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID), relayConfig.EnableTriggerCapability)
-
-	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
-		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
-		mercuryServices = append(mercuryServices, enhancedTelemService)
-	} else {
-		lggr.Infow("Enhanced telemetry is disabled for mercury job", "job", jb.Name)
-	}
-
-	mercuryServices = append(mercuryServices, ocrLogger)
-
-	return mercuryServices, err2
 }
 
 func (d *Delegate) newServicesLLO(

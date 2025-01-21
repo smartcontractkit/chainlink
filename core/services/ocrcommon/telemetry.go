@@ -7,18 +7,12 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -49,21 +43,7 @@ type EnhancedTelemetryData struct {
 	RepTimestamp   ObservationTimestamp
 }
 
-type EnhancedTelemetryMercuryData struct {
-	V1Observation                *v1types.Observation
-	V2Observation                *v2types.Observation
-	V3Observation                *v3types.Observation
-	V4Observation                *v4types.Observation
-	TaskRunResults               pipeline.TaskRunResults
-	RepTimestamp                 ocrtypes.ReportTimestamp
-	FeedVersion                  mercuryutils.FeedVersion
-	FetchMaxFinalizedTimestamp   bool
-	IsLinkFeed                   bool
-	IsNativeFeed                 bool
-	DpInvariantViolationDetected bool
-}
-
-type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData] struct {
+type EnhancedTelemetryService[T EnhancedTelemetryData] struct {
 	services.StateMachine
 
 	chTelem            <-chan T
@@ -73,7 +53,7 @@ type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercury
 	lggr               logger.Logger
 }
 
-func NewEnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData](job *job.Job, chTelem <-chan T, done chan struct{}, me commontypes.MonitoringEndpoint, lggr logger.Logger) *EnhancedTelemetryService[T] {
+func NewEnhancedTelemetryService[T EnhancedTelemetryData](job *job.Job, chTelem <-chan T, done chan struct{}, me commontypes.MonitoringEndpoint, lggr logger.Logger) *EnhancedTelemetryService[T] {
 	return &EnhancedTelemetryService[T]{
 		chTelem:            chTelem,
 		chDone:             done,
@@ -94,8 +74,6 @@ func (e *EnhancedTelemetryService[T]) Start(context.Context) error {
 					switch v := any(t).(type) {
 					case EnhancedTelemetryData:
 						e.collectEATelemetry(v.TaskRunResults, v.FinalResults, v.RepTimestamp)
-					case EnhancedTelemetryMercuryData:
-						e.collectMercuryEnhancedTelemetry(v)
 					default:
 						e.lggr.Errorf("unrecognised telemetry data type: %T", t)
 					}
@@ -340,149 +318,6 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 	}
 }
 
-// collectMercuryEnhancedTelemetry checks if enhanced telemetry should be collected, fetches the information needed and
-// sends the telemetry
-func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d EnhancedTelemetryMercuryData) {
-	if e.monitoringEndpoint == nil {
-		return
-	}
-
-	// v1 fields
-	var bn int64
-	var bh string
-	var bt uint64
-	// v1+v2+v3+v4 fields
-	bp := big.NewInt(0)
-	// v1+v3 fields
-	bid := big.NewInt(0)
-	ask := big.NewInt(0)
-	// v2+v3 fields
-	var mfts, lp, np int64
-	// v4 fields
-	var marketStatus telem.MarketStatus
-
-	switch {
-	case d.V1Observation != nil:
-		obs := *d.V1Observation
-		if obs.CurrentBlockNum.Err == nil {
-			bn = obs.CurrentBlockNum.Val
-		}
-		if obs.CurrentBlockHash.Err == nil {
-			bh = common.BytesToHash(obs.CurrentBlockHash.Val).Hex()
-		}
-		if obs.CurrentBlockTimestamp.Err == nil {
-			bt = obs.CurrentBlockTimestamp.Val
-		}
-		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
-			bp = obs.BenchmarkPrice.Val
-		}
-		if obs.Bid.Err == nil && obs.Bid.Val != nil {
-			bid = obs.Bid.Val
-		}
-		if obs.Ask.Err == nil && obs.Ask.Val != nil {
-			ask = obs.Ask.Val
-		}
-	case d.V2Observation != nil:
-		obs := *d.V2Observation
-		if obs.MaxFinalizedTimestamp.Err == nil {
-			mfts = obs.MaxFinalizedTimestamp.Val
-		}
-		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
-			lp = obs.LinkPrice.Val.Int64()
-		}
-		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
-			np = obs.NativePrice.Val.Int64()
-		}
-		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
-			bp = obs.BenchmarkPrice.Val
-		}
-	case d.V3Observation != nil:
-		obs := *d.V3Observation
-		if obs.MaxFinalizedTimestamp.Err == nil {
-			mfts = obs.MaxFinalizedTimestamp.Val
-		}
-		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
-			lp = obs.LinkPrice.Val.Int64()
-		}
-		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
-			np = obs.NativePrice.Val.Int64()
-		}
-		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
-			bp = obs.BenchmarkPrice.Val
-		}
-		if obs.Bid.Err == nil && obs.Bid.Val != nil {
-			bid = obs.Bid.Val
-		}
-		if obs.Ask.Err == nil && obs.Ask.Val != nil {
-			ask = obs.Ask.Val
-		}
-	case d.V4Observation != nil:
-		obs := *d.V4Observation
-		if obs.MaxFinalizedTimestamp.Err == nil {
-			mfts = obs.MaxFinalizedTimestamp.Val
-		}
-		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
-			lp = obs.LinkPrice.Val.Int64()
-		}
-		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
-			np = obs.NativePrice.Val.Int64()
-		}
-		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
-			bp = obs.BenchmarkPrice.Val
-		}
-		if obs.MarketStatus.Err == nil {
-			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
-		}
-	}
-
-	eaTelemetryValues := ParseMercuryEATelemetry(logger.Sugared(e.lggr).With("jobID", e.job.ID), d.TaskRunResults, d.FeedVersion)
-	for _, eaTelem := range eaTelemetryValues {
-		t := &telem.EnhancedEAMercury{
-			DataSource:                      eaTelem.DataSource,
-			DpBenchmarkPrice:                eaTelem.DpBenchmarkPrice,
-			DpBid:                           eaTelem.DpBid,
-			DpAsk:                           eaTelem.DpAsk,
-			DpInvariantViolationDetected:    d.DpInvariantViolationDetected,
-			CurrentBlockNumber:              bn,
-			CurrentBlockHash:                bh,
-			CurrentBlockTimestamp:           bt,
-			FetchMaxFinalizedTimestamp:      d.FetchMaxFinalizedTimestamp,
-			MaxFinalizedTimestamp:           mfts,
-			BridgeTaskRunStartedTimestamp:   eaTelem.BridgeTaskRunStartedTimestamp,
-			BridgeTaskRunEndedTimestamp:     eaTelem.BridgeTaskRunEndedTimestamp,
-			ProviderRequestedTimestamp:      eaTelem.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:       eaTelem.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished:   eaTelem.ProviderDataStreamEstablished,
-			ProviderIndicatedTime:           eaTelem.ProviderIndicatedTime,
-			Feed:                            e.job.OCR2OracleSpec.FeedID.Hex(),
-			ObservationBenchmarkPrice:       bp.Int64(),
-			ObservationBid:                  bid.Int64(),
-			ObservationAsk:                  ask.Int64(),
-			ObservationBenchmarkPriceString: stringOrEmpty(bp),
-			ObservationBidString:            stringOrEmpty(bid),
-			ObservationAskString:            stringOrEmpty(ask),
-			ObservationMarketStatus:         marketStatus,
-			IsLinkFeed:                      d.IsLinkFeed,
-			LinkPrice:                       lp,
-			IsNativeFeed:                    d.IsNativeFeed,
-			NativePrice:                     np,
-			ConfigDigest:                    d.RepTimestamp.ConfigDigest.Hex(),
-			Round:                           int64(d.RepTimestamp.Round),
-			Epoch:                           int64(d.RepTimestamp.Epoch),
-			BridgeRequestData:               eaTelem.BridgeRequestData,
-			AssetSymbol:                     eaTelem.AssetSymbol,
-			Version:                         uint32(d.FeedVersion),
-		}
-		bytes, err := proto.Marshal(t)
-		if err != nil {
-			e.lggr.Warnf("protobuf marshal failed %v", err.Error())
-			continue
-		}
-
-		e.monitoringEndpoint.SendLog(bytes)
-	}
-}
-
 type telemetryAttributes struct {
 	PriceType *string `json:"priceType"`
 }
@@ -672,15 +507,8 @@ func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunR
 	return benchmarkPrice, bidPrice, askPrice
 }
 
-// MaybeEnqueueEnhancedTelem sends data to the telemetry channel for processing
-func MaybeEnqueueEnhancedTelem(jb job.Job, ch chan<- EnhancedTelemetryMercuryData, data EnhancedTelemetryMercuryData) {
-	if ShouldCollectEnhancedTelemetryMercury(jb) {
-		EnqueueEnhancedTelem[EnhancedTelemetryMercuryData](ch, data)
-	}
-}
-
 // EnqueueEnhancedTelem sends data to the telemetry channel for processing
-func EnqueueEnhancedTelem[T EnhancedTelemetryData | EnhancedTelemetryMercuryData](ch chan<- T, data T) {
+func EnqueueEnhancedTelem[T EnhancedTelemetryData](ch chan<- T, data T) {
 	select {
 	case ch <- data:
 	default:

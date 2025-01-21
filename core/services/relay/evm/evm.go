@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,7 +29,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	ocr3capability "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -56,17 +54,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
-	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/interceptors/mantle"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
-	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -156,12 +147,8 @@ type Relayer struct {
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
-	// Mercury
-	mercuryORM        mercury.ORM
-	mercuryCfg        MercuryConfig
-	triggerCapability *triggers.MercuryTriggerService
-
 	// LLO/data streams
+	mercuryCfg            MercuryConfig
 	cdcFactory            func() (llo.ChannelDefinitionCacheFactory, error)
 	retirementReportCache llo.RetirementReportCache
 }
@@ -209,8 +196,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
-	sugared := logger.Sugared(lggr).Named("Relayer").With("evmChainID", chain.ID())
-	mercuryORM := mercury.NewORM(opts.DS)
+	sugared := logger.Sugared(lggr).Named("Relayer")
 	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
 		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
@@ -228,7 +214,6 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
 		retirementReportCache: opts.RetirementReportCache,
-		mercuryORM:            mercuryORM,
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
 	}
@@ -263,17 +248,6 @@ func (r *Relayer) Start(ctx context.Context) error {
 
 func (r *Relayer) Close() error {
 	cs := make([]io.Closer, 0, 2)
-	if r.triggerCapability != nil {
-		cs = append(cs, r.triggerCapability)
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
-		err := r.capabilitiesRegistry.Remove(ctx, r.triggerCapability.ID)
-		if err != nil {
-			return err
-		}
-	}
 	cs = append(cs, r.chain)
 	return services.MultiCloser(cs).Close()
 }
@@ -410,104 +384,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 }
 
 func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.MercuryProvider, error) {
-	lggr := logger.Sugared(r.lggr).Named("MercuryProvider").Named(rargs.ExternalJobID.String())
-	relayOpts := types.NewRelayOpts(rargs)
-	relayConfig, err := relayOpts.RelayConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relay config: %w", err)
-	}
-
-	var mercuryConfig mercuryconfig.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-
-	if relayConfig.FeedID == nil {
-		return nil, pkgerrors.New("FeedID must be specified")
-	}
-
-	if relayConfig.ChainID.String() != r.chain.ID().String() {
-		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
-	}
-	cp, err := newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
-	if err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-
-	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
-	}
-	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
-	}
-
-	clients := make(map[string]wsrpc.Client)
-	for _, server := range mercuryConfig.GetServers() {
-		clients[server.URL], err = r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// initialize trigger capability service lazily
-	if relayConfig.EnableTriggerCapability && r.triggerCapability == nil {
-		if r.capabilitiesRegistry == nil {
-			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
-		} else {
-			var err2 error
-			r.triggerCapability, err2 = triggers.NewMercuryTriggerService(0, relayConfig.TriggerCapabilityName, relayConfig.TriggerCapabilityVersion, lggr)
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to start required trigger service: %w", err2)
-			}
-			if err2 = r.triggerCapability.Start(ctx); err2 != nil {
-				return nil, err2
-			}
-			if err2 = r.capabilitiesRegistry.Add(ctx, r.triggerCapability); err2 != nil {
-				return nil, err2
-			}
-			lggr.Infow("successfully added trigger service to the Registry")
-		}
-	}
-
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
-	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
-	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
-
-	getCodecForFeed := func(feedID mercuryutils.FeedID) (mercury.TransmitterReportDecoder, error) {
-		var transmitterCodec mercury.TransmitterReportDecoder
-		switch feedID.Version() {
-		case 1:
-			transmitterCodec = reportCodecV1
-		case 2:
-			transmitterCodec = reportCodecV2
-		case 3:
-			transmitterCodec = reportCodecV3
-		case 4:
-			transmitterCodec = reportCodecV4
-		default:
-			return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
-		}
-		return transmitterCodec, nil
-	}
-
-	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
-		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
-		if benchmarkPriceErr != nil {
-			return nil, benchmarkPriceErr
-		}
-		return benchmarkPriceCodec.BenchmarkPriceFromReport(ctx, report)
-	}
-
-	transmitterCodec, err := getCodecForFeed(mercuryutils.FeedID(*relayConfig.FeedID))
-	if err != nil {
-		return nil, err
-	}
-
-	transmitter := mercury.NewTransmitter(lggr, r.mercuryCfg.Transmitter(), clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
-
-	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
+	return nil, errors.New("mercury jobs are no longer supported")
 }
 
 func chainToUUID(chainID *big.Int) uuid.UUID {
@@ -691,12 +568,31 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 
 func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
+	var relayConfig types.RelayConfig
+	{
+		var err error
+		relayConfig, err = relayOpts.RelayConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get relay config: %w", err)
+		}
+	}
+	if relayConfig.LLODONID == 0 {
+		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
+	}
+
+	var lloCfg lloconfig.PluginConfig
+	if err := json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+	if err := lloCfg.Validate(); err != nil {
+		return nil, err
+	}
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
-	if relayConfig.LLOConfigMode == "" {
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (can be either: %q or %q)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+	if relayConfig.LLODONID == 0 {
+		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
 	}
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
@@ -711,18 +607,11 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	lggr := r.lggr.Named(fmt.Sprintf("job-%d", rargs.JobID)).With("donID", relayConfig.LLODONID, "transmitterID", relayConfig.EffectiveTransmitterID.String)
 
 	switch relayConfig.LLOConfigMode {
-	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
+	case types.LLOConfigModeBlueGreen:
 	default:
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q is currently supported)", types.LLOConfigModeBlueGreen)
 	}
 
-	var lloCfg lloconfig.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-	if err = lloCfg.Validate(); err != nil {
-		return nil, err
-	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
@@ -813,23 +702,17 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 
-	// Handle legacy jobs which did not yet specify provider type and
-	// switched between median/mercury based on presence of feed ID
 	if args.ProviderType == "" {
-		if relayConfig.FeedID == nil {
-			args.ProviderType = "median"
-		} else if relayConfig.LLODONID > 0 {
+		if relayConfig.LLODONID > 0 {
 			args.ProviderType = "llo"
 		} else {
-			args.ProviderType = "mercury"
+			args.ProviderType = "median"
 		}
 	}
 
 	switch args.ProviderType {
 	case "median":
 		configProvider, err = newStandardConfigProvider(ctx, lggr, r.chain, relayOpts)
-	case "mercury":
-		configProvider, err = newMercuryConfigProvider(ctx, lggr, r.chain, relayOpts)
 	case "llo":
 		// Use NullRetirementReportCache since we never run LLO jobs on
 		// bootstrap nodes, and there's no need to introduce a failure mode or
@@ -858,11 +741,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 		return nil, pkgerrors.WithStack(err)
 	}
 
-	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
-	} else {
-		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
-	}
+	filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
 	return filterNames, err
 }
 

@@ -2,13 +2,11 @@ package pg
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/jmoiron/sqlx"
 
@@ -56,7 +54,6 @@ func NewConnection(ctx context.Context, uri string, driverName string, config Co
 	if err != nil {
 		return nil, err
 	}
-	setMaxMercuryConns(db, config)
 
 	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
 		if err = checkVersion(db, MinRequiredPGVersion); err != nil {
@@ -65,38 +62,6 @@ func NewConnection(ctx context.Context, uri string, driverName string, config Co
 	}
 
 	return db, nil
-}
-
-func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
-	// HACK: In the case of mercury jobs, one conn is needed per job for good
-	// performance. Most nops will forget to increase the defaults to account
-	// for this so we detect it here instead.
-	//
-	// This problem will be solved by replacing mercury with parallel
-	// compositions (llo plugin).
-	//
-	// See: https://smartcontract-it.atlassian.net/browse/MERC-3654
-	var cnt int
-	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
-		const errUndefinedTable = "42P01"
-		var pqerr *pgconn.PgError
-		if errors.As(err, &pqerr) {
-			if pqerr.Code == errUndefinedTable {
-				// no mercury jobs defined
-				return
-			}
-		}
-		log.Printf("Error checking mercury jobs: %s", err.Error())
-		return
-	}
-	if cnt > config.MaxOpenConns() {
-		log.Printf("Detected %d mercury jobs, increasing max open connections from %d to %d", cnt, config.MaxOpenConns(), cnt)
-		db.SetMaxOpenConns(cnt)
-	}
-	if cnt > config.MaxIdleConns() {
-		log.Printf("Detected %d mercury jobs, increasing max idle connections from %d to %d", cnt, config.MaxIdleConns(), cnt)
-		db.SetMaxIdleConns(cnt)
-	}
 }
 
 type Getter interface {
