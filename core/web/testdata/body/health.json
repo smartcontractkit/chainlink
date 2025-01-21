@@ -245,18 +245,27 @@
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Relayer",
+      "id": "Solana.Bar.Chain.BalanceMonitor",
       "attributes": {
-        "name": "Solana.Bar.Relayer",
+        "name": "Solana.Bar.Chain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Txm",
+      "id": "Solana.Bar.Chain.Txm",
       "attributes": {
-        "name": "Solana.Bar.Txm",
+        "name": "Solana.Bar.Chain.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -272,18 +281,18 @@
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.Relayer",
+      "id": "StarkNet.Baz.Chain.Txm",
       "attributes": {
-        "name": "StarkNet.Baz.Relayer",
+        "name": "StarkNet.Baz.Chain.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.Txm",
+      "id": "StarkNet.Baz.Relayer",
       "attributes": {
-        "name": "StarkNet.Baz.Txm",
+        "name": "StarkNet.Baz.Relayer",
         "status": "passing",
         "output": ""
       }

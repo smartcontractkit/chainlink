@@ -38,8 +38,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
-			// Only 1 boost (=OCR round) is enough to cover the fee
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
 			// Disable token price updates
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(1_000_000 * time.Hour)
 			// Disable gas price updates
@@ -76,10 +75,15 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 	// Adjust destination gas price on source fee quoter to 95% of the current value
 	adjustedGasPriceDest :=
 		new(big.Int).Div(
-			new(big.Int).Mul(originalGasPriceDestUSD, big.NewInt(95)),
+			new(big.Int).Mul(originalGasPriceDestUSD, big.NewInt(99)),
 			big.NewInt(100),
 		)
 	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
+
+	feeQuoterCfg := changeset.DefaultFeeQuoterDestChainConfig()
+	// the default adds 10% to the gas price, we want to increase it
+	// to make sure the fee boosting will be finished in proper time for testing
+	feeQuoterCfg.GasMultiplierWeiPerEth = 120e16
 
 	testhelpers.AddLane(t, &e, sourceChain, destChain, false,
 		map[uint64]*big.Int{
@@ -89,7 +93,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 			state.Chains[sourceChain].LinkToken.Address(): linkPrice,
 			state.Chains[sourceChain].Weth9.Address():     wethPrice,
 		},
-		changeset.DefaultFeeQuoterDestChainConfig())
+		feeQuoterCfg)
 
 	// Update token prices in destination chain FeeQuoter
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{

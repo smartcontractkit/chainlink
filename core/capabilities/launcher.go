@@ -81,8 +81,15 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 		return capabilities.CapabilityConfiguration{}, err
 	}
 
+	rc, err := values.FromMapValueProto(cconf.RestrictedConfig)
+	if err != nil {
+		return capabilities.CapabilityConfiguration{}, err
+	}
+
 	return capabilities.CapabilityConfiguration{
 		DefaultConfig:       dc,
+		RestrictedKeys:      cconf.RestrictedKeys,
+		RestrictedConfig:    rc,
 		RemoteTriggerConfig: remoteTriggerConfig,
 		RemoteTargetConfig:  remoteTargetConfig,
 	}, nil

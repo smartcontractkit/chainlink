@@ -10,8 +10,3 @@ BumpPercent = 40
 [Transactions]
 # increase resend time to align with finality
 ResendAfterThreshold = '3m'
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false

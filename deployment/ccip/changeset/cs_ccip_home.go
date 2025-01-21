@@ -467,7 +467,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 
 		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
 		if err != nil {
-			return fmt.Errorf("get all chain configs: %w", err)
+			return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
 		}
 		// FChain should never be zero if a chain config is set in CCIPHome
 		if chainConfig.FChain == 0 {
@@ -475,6 +475,13 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		}
 		if len(chainConfig.Readers) == 0 {
 			return errors.New("readers must be set")
+		}
+		decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
+		if err != nil {
+			return fmt.Errorf("can't decode chain config: %w", err)
+		}
+		if err := decodedChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config: %w", err)
 		}
 		err = params.Validate(chainSelector, feedChain, state)
 		if err != nil {
@@ -1246,6 +1253,9 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		}
 		if len(ccfg.Readers) == 0 {
 			return errors.New("Readers must be set")
+		}
+		if err := ccfg.EncodableChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config for selector %d: %w", add, err)
 		}
 	}
 	return nil

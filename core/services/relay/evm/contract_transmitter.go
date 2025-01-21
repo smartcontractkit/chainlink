@@ -17,11 +17,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ContractTransmitter interface {
@@ -35,7 +35,9 @@ type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
 
+	// Dual transmission
 	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
+	SecondaryFromAddress(context.Context) (gethcommon.Address, error)
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -87,6 +89,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	ks                  keystore.Eth
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -103,6 +106,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	ks keystore.Eth,
 	opts ...OCRTransmitterOption,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -118,6 +122,7 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
+		ks:                  ks,
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -246,8 +251,22 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *contractTransmitter) Close() error                    { return nil }
+func (oc *contractTransmitter) Start(ctx context.Context) error {
+	// Lock the transmitters to TXMv1
+	rm, err := oc.ks.GetResourceMutex(ctx, oc.transmitter.FromAddress(ctx))
+	if err != nil {
+		return err
+	}
+	return rm.TryLock(keystore.TXMv1)
+}
+func (oc *contractTransmitter) Close() error {
+	// Unlock the transmitters to TXMv1
+	rm, err := oc.ks.GetResourceMutex(context.Background(), oc.transmitter.FromAddress(context.Background()))
+	if err != nil {
+		return err
+	}
+	return rm.Unlock(keystore.TXMv1)
+}
 
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *contractTransmitter) Ready() error { return nil }
