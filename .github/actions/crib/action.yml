@@ -39,6 +39,14 @@ inputs:
   gap-url-integration-tests:
     description: "GAP URL for integration tests"
     required: true
+  crib-product-dir:
+    default: "chainlink"
+    description: "Product directory under crib deployments folder"
+    required: false
+  crib-command:
+    default: "core"
+    description: "The devspace command to run."
+    required: false
   crib-alert-slack-webhook:
     description: "CRIB alert Slack webhook"
     required: true
@@ -111,8 +119,8 @@ runs:
         aws-region: ${{ inputs.aws-region }}
         aws-role-duration-seconds: "1800"
 
-    - name: Deploy and validate CRIB Environment for Core
-      uses: smartcontractkit/.github/actions/crib-deploy-environment@265e28cc322771651688493303785323e3482b15 # crib-deploy-environment@8.2.1
+    - name: Deploy and validate CRIB Environment for ${{ inputs.crib-product-dir }}
+      uses: smartcontractkit/.github/actions/crib-deploy-environment@d7521ea9bcaa8a022a3244221d6294bca79649ac # crib-deploy-environment@8.3.0
       id: deploy-crib
       with:
         github-token: ${{ steps.token.outputs.access-token }}
@@ -123,7 +131,8 @@ runs:
         k8s-cluster-name: ${{ inputs.k8s-cluster-name }}
         chainlink-team: releng
         chainlink-product: crib
-        command: "core-dev-simulated-core-ocr1"
+        product-dir: ${{ inputs.crib-product-dir }}
+        command: ${{ inputs.crib-command }}
         crib-alert-slack-webhook: ${{ inputs.crib-alert-slack-webhook }}
         product-image: ${{ inputs.crib-chainlink-docker-image-name }}
         product-image-tag: ${{ inputs.crib-chainlink-docker-image-tag }}
@@ -131,6 +140,7 @@ runs:
         main-dns-zone: ${{ inputs.main-dns-zone }}
 
     - name: Set up Go
+      if: inputs.integration-tests-run == 'true'
       uses: ./.github/actions/setup-go
       with:
         go-version-file: "go.mod"

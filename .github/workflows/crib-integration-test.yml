@@ -39,6 +39,7 @@ jobs:
           ingress-base-domain: ${{ secrets.INGRESS_BASE_DOMAIN_STAGE }}
           k8s-staging-ingress-suffix: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
           gap-url-integration-tests: ${{ secrets.GAP_URL }}
+          crib-command: 'core-dev-simulated-core-ocr1'
           crib-alert-slack-webhook: ${{ secrets.CRIB_ALERT_SLACK_WEBHOOK }}
           crib-chainlink-docker-image-name: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}/chainlink
           crib-chainlink-docker-image-tag: develop
