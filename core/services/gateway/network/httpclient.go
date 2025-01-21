@@ -12,6 +12,7 @@ import (
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // HTTPClient interfaces defines a method to send HTTP requests
@@ -34,7 +35,7 @@ type HTTPClientConfig struct {
 var (
 	defaultAllowedPorts     = []int{80, 443}
 	defaultAllowedSchemes   = []string{"http", "https"}
-	defaultMaxResponseBytes = uint32(30 * 1024 * 1024) // 30MB
+	defaultMaxResponseBytes = uint32(26.4 * utils.KB)
 	defaultTimout           = 5 * time.Second
 )
 

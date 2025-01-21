@@ -498,9 +498,9 @@ func TestConfig_Marshal(t *testing.T) {
 			Address:                 ptr(""),
 			ChainID:                 ptr("1"),
 			NetworkID:               ptr("evm"),
-			MaxBinarySize:           ptr(utils.FileSize(10 * utils.MB)),
-			MaxEncryptedSecretsSize: ptr(utils.FileSize(5 * utils.MB)),
-			MaxConfigSize:           ptr(utils.FileSize(5 * utils.MB)),
+			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
+			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
+			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),

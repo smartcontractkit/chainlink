@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FetcherService struct {
@@ -42,7 +43,9 @@ var (
 	ArtifactTypeUnknown ArtifactType = "unknown"
 )
 
-const defaultMaxArtifactSizeBytes = uint32(10 * 1024 * 1024) // 10MB
+// By default, if type is unknown, the largest artifact size is 26.4KB.  Configure the artifact size
+// via the ArtifactConfig to override this default.
+const defaultMaxArtifactSizeBytes = uint32(26.4 * utils.KB)
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector

@@ -1219,6 +1219,9 @@ but the host and port must be fully specified and cannot be empty. You can speci
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+MaxBinarySize = '20.00mb' # Default
+MaxEncryptedSecretsSize = '26.40kb' # Default
+MaxConfigSize = '50.00kb' # Default
 ```
 
 
@@ -1239,6 +1242,24 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### MaxBinarySize
+```toml
+MaxBinarySize = '20.00mb' # Default
+```
+MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+
+### MaxEncryptedSecretsSize
+```toml
+MaxEncryptedSecretsSize = '26.40kb' # Default
+```
+MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+
+### MaxConfigSize
+```toml
+MaxConfigSize = '50.00kb' # Default
+```
+MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
 ## Capabilities.ExternalRegistry
 ```toml
