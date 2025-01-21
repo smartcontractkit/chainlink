@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -43,19 +44,19 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 }
 
 func setLokiLabels(src, dst uint64) (map[string]string, error) {
-	srcChainId, err := chainselectors.GetChainIDFromSelector(src)
+	srcChainID, err := chainselectors.GetChainIDFromSelector(src)
 	if err != nil {
 		return nil, err
 	}
-	dstChainId, err := chainselectors.GetChainIDFromSelector(dst)
+	dstChainID, err := chainselectors.GetChainIDFromSelector(dst)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]string{
-		"sourceEvmChainId":    fmt.Sprintf("%s", srcChainId),
-		"sourceSelector":      fmt.Sprintf("%d", src),
-		"destEvmChainId":      fmt.Sprintf("%s", dstChainId),
-		"destinationSelector": fmt.Sprintf("%d", dst),
+		"sourceEvmChainId":    srcChainID,
+		"sourceSelector":      strconv.FormatUint(src, 10),
+		"destEvmChainId":      dstChainID,
+		"destinationSelector": strconv.FormatUint(dst, 10),
 		"testType":            LokiLoadLabel,
 	}, nil
 }
@@ -129,11 +130,11 @@ func subscribeDeferredCommitEvents(
 					// push metrics to loki here
 					for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 						blockNum := report.Raw.BlockNumber
-						header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
+						header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum))) //nolint
 						if err != nil {
 							errChan <- err
 						}
-						timestamp := time.Unix(int64(header.Time), 0)
+						timestamp := time.Unix(int64(header.Time), 0) //nolint
 						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
 							Timestamp:      timestamp,
@@ -251,7 +252,7 @@ func subscribeExecutionEvents(
 			}
 			// push metrics to loki here
 			blockNum := event.Raw.BlockNumber
-			header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
+			header, err := client.HeaderByNumber(ctx, big.NewInt(int64(blockNum))) //nolint
 			if err != nil {
 				errChan <- err
 			}

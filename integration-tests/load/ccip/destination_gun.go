@@ -2,11 +2,13 @@ package ccip
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"math/big"
 	"math/rand"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,7 +42,6 @@ type DestinationGun struct {
 func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
-
 		// query for the actual sequence number
 		seqNums[testhelpers.SourceDestPair{
 			SourceChainSelector: cs,
@@ -71,7 +72,7 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 
 func (m *DestinationGun) Validate() error {
 	if len(*m.testConfig.MessageTypeWeights) != 3 {
-		return fmt.Errorf(
+		return errors.New(
 			"message type must have 3 weights corresponding to message only, token only, token with message")
 	}
 	sum := 0
@@ -79,7 +80,7 @@ func (m *DestinationGun) Validate() error {
 		sum += weight
 	}
 	if sum != 100 {
-		return fmt.Errorf("message type weights must sum to 100")
+		return errors.New("message type weights must sum to 100")
 	}
 	return nil
 }
@@ -202,9 +203,9 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
-		return 0, fmt.Errorf("no other chains to send from")
+		return 0, errors.New("no other chains to send from")
 	}
-	index := m.roundNum.Load() % int32(len(otherCS))
+	index := int(m.roundNum.Load()) % len(otherCS)
 	return otherCS[index], nil
 }
 

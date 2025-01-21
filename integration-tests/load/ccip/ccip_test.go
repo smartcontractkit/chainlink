@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	crib "github.com/smartcontractkit/chainlink/deployment/environment/crib"
@@ -41,7 +40,6 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 func TestCCIPLoad_RPS(t *testing.T) {
 	// comment out when executing the test
 	t.Skip("Skipping test as this test should not be auto triggered")
-	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 
 	// get user defined configurations
@@ -154,8 +152,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	}
 
 	_, err = p.Run(true)
+	require.NoError(t, err)
 
-	for destSel, gun := range gunMap {
+	for _, gun := range gunMap {
 		for csPair, seqNums := range gun.seqNums {
 			lggr.Debugw("pushing finalized sequence numbers for ",
 				"chainSelector", gun.chainSelector,
@@ -175,9 +174,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				},
 			}
 		}
-
-		defer close(finalSeqNrCommitChannels[destSel])
-		defer close(finalSeqNrExecChannels[destSel])
 	}
 
 	wg.Wait()
