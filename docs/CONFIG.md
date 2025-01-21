@@ -4018,7 +4018,7 @@ Mode = 'FeeHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -9907,7 +9907,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>Sonic testnet (57054)</summary><p>
+<details><summary>Sonic Testnet (57054)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -9953,7 +9953,7 @@ Mode = 'FeeHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
