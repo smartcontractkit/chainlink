@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import {IMessageTransformer} from "../../../interfaces/IMessageTransformer.sol";
 
+import {AuthorizedCallers} from "../../../../shared/access/AuthorizedCallers.sol";
 import {Router} from "../../../Router.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {OffRamp} from "../../../offRamp/OffRamp.sol";
 import {MessageTransformerHelper} from "../../helpers/MessageTransformerHelper.sol";
 import {OffRampWithMessageTransformerHelper} from "../../helpers/OffRampWithMessageTransformerHelper.sol";
-import {AuthorizedCallers} from "../../../../shared/access/AuthorizedCallers.sol";
 import {LogMessageDataReceiver} from "../../helpers/receivers/LogMessageDataReceiver.sol";
 import {OffRampSetup} from "./OffRampSetup.t.sol";
 
