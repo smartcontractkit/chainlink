@@ -216,10 +216,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	workflowRateLimiter, _ := gwcommon.NewRateLimiter(gwcommon.RateLimiterConfig{
-		GlobalRPS:      1000.0,
-		GlobalBurst:    1000,
-		PerSenderRPS:   30.0,
-		PerSenderBurst: 30,
+		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
+		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
+		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),
+		PerSenderBurst: cfg.Capabilities().RateLimit().PerSenderBurst(),
 	})
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper

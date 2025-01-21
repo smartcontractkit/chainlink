@@ -252,6 +252,12 @@ TransmitTimeout = '5s'
 TransmitConcurrency = 100
 
 [Capabilities]
+[Capabilities.RateLimit]
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
+
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10

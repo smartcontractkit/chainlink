@@ -1240,6 +1240,40 @@ ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
 
+## Capabilities.RateLimit
+ ```toml
+ [Capabilities.RateLimit]
+ GlobalRPS = 800 # Default
+ GlobalBurst = 1000 # Default
+ PerSenderRPS = 10 # Default
+ PerSenderBurst = 50 # Default
+ ```
+
+
+ ### GlobalRPS
+ ```toml
+ GlobalRPS = 800 # Default
+ ```
+ GlobalRPS is the global rate limit for workflow executions by the workflow engine.
+
+ ### GlobalBurst
+ ```toml
+ GlobalBurst = 1000 # Default
+ ```
+ GlobalBurst is the global burst limit for workflow executions by the workflow engine.
+
+ ### PerSenderRPS
+ ```toml
+ PerSenderRPS = 10 # Default
+ ```
+ PerSenderRPS is the per-sender (workflow owner) rate limit for workflow executions by the workflow engine.
+
+ ### PerSenderBurst
+ ```toml
+ PerSenderBurst = 50 # Default
+ ```
+ PerSenderBurst is the per-sender (workflow owner) burst limit for workflow executions by the workflow engine.
+
 ## Capabilities.ExternalRegistry
 ```toml
 [Capabilities.ExternalRegistry]
