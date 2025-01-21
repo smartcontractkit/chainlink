@@ -14,6 +14,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
+const (
+	// EXEC_NO_DEVIATION_THRESHOLD_USD is the lower bound no deviation threshold for exec gas. If the exec gas price is
+	// less than this value, we should never trigger a deviation. 0.00003 USD.
+	EXEC_NO_DEVIATION_THRESHOLD_USD = 3e13
+
+	// DA_NO_DEVIATION_THRESHOLD_USD is the lower bound no deviation threshold for DA gas. If the DA gas price is less
+	// than this value, we should never trigger a deviation. 0.00006 USD.
+	DA_NO_DEVIATION_THRESHOLD_USD = 6e13
+)
+
 type DAGasPriceEstimator struct {
 	execEstimator       GasPriceEstimator
 	l1Oracle            rollups.L1Oracle
@@ -135,7 +145,7 @@ func (g DAGasPriceEstimator) Deviates(ctx context.Context, p1, p2 *big.Int) (boo
 		return execDeviates, nil
 	}
 
-	return ccipcalc.DeviatesOnGasCurve(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
+	return ccipcalc.DeviatesOnGasCurve(p1DAGasPrice, p2DAGasPrice, big.NewInt(DA_NO_DEVIATION_THRESHOLD_USD), g.daDeviationPPB), nil
 }
 
 func (g DAGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {

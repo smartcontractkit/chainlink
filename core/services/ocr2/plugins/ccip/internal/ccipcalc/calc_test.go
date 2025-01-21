@@ -218,3 +218,75 @@ func TestDeviates(t *testing.T) {
 		})
 	}
 }
+
+func TestDeviatesOnGasCurve(t *testing.T) {
+	type args struct {
+		xNew  *big.Int
+		xOld  *big.Int
+		noDev *big.Int
+		ppb   int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "base case deviates from increase",
+			args: args{xNew: big.NewInt(4e14), xOld: big.NewInt(1e13), noDev: big.NewInt(3e13), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: true,
+		},
+		{
+			name: "base case deviates from decrease",
+			args: args{xNew: big.NewInt(1e13), xOld: big.NewInt(4e15), noDev: big.NewInt(1), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: true,
+		},
+		{
+			name: "does not deviate when equal",
+			args: args{xNew: big.NewInt(3e14), xOld: big.NewInt(3e14), noDev: big.NewInt(3e13), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: false,
+		},
+		{
+			name: "does not deviate with small difference when xNew is bigger",
+			args: args{xNew: big.NewInt(3e14 + 1), xOld: big.NewInt(3e14), noDev: big.NewInt(3e13), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: false,
+		},
+		{
+			name: "does not deviate with small difference when xOld is bigger",
+			args: args{xNew: big.NewInt(3e14), xOld: big.NewInt(3e14 + 1), noDev: big.NewInt(3e13), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: false,
+		},
+		{
+			name: "deviates when ppb is not equal to ETHEREUM_THRESHOLD_GATE_PPB",
+			args: args{xNew: big.NewInt(1e9), xOld: big.NewInt(2e9), noDev: big.NewInt(1), ppb: 1},
+			want: true,
+		},
+		{
+			name: "does not deviate when xNew is below noDeviationLowerBound",
+			args: args{xNew: big.NewInt(2e13), xOld: big.NewInt(1e13), noDev: big.NewInt(3e13), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: false,
+		},
+		// thresholdPPB = (10e11) / (xNew^0.665) * 1e7
+		// diff = (xNew - xOld) / min(xNew, xOld) * 1e9
+		// Deviates = abs(diff) > thresholdPPB
+		{
+			name: "xNew is just below deviation threshold and does deviate",
+			args: args{xNew: big.NewInt(3e13), xOld: big.NewInt(2.519478222838e12), noDev: big.NewInt(1), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: false,
+		},
+		{
+			name: "xNew is just above deviation threshold and does deviate",
+			args: args{xNew: big.NewInt(3e13), xOld: big.NewInt(2.519478222838e12 - 30), noDev: big.NewInt(1), ppb: ETHEREUM_THRESHOLD_GATE_PPB},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(
+				t,
+				tt.want,
+				DeviatesOnGasCurve(tt.args.xNew, tt.args.xOld, tt.args.noDev, tt.args.ppb),
+				"DeviatesOnGasCurve(%v, %v, %v, %v)", tt.args.xNew, tt.args.xOld, tt.args.noDev, tt.args.ppb)
+		})
+	}
+}

@@ -8,6 +8,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const (
+	// DESTINATION_ETH_PPB_GATE is the deviation threshold when writing to ethereum's PriceRegistry
+	ETHEREUM_THRESHOLD_GATE_PPB = 4e9
+)
+
 // ContiguousReqs checks if seqNrs contains all numbers from min to max.
 func ContiguousReqs(lggr logger.Logger, min, max uint64, seqNrs []uint64) bool {
 	if int(max-min+1) != len(seqNrs) {
@@ -68,26 +73,31 @@ func Deviates(x1, x2 *big.Int, ppb int64) bool {
 // DeviatesOnGasCurve calculates a deviation threshold on the fly using xNew. For now it's only used for gas price
 // deviation calculation. It's important to make sure the order of xNew and xOld is correct when passed into this
 // function to get an accurate deviation threshold.
-func DeviatesOnGasCurve(xNew, xOld *big.Int, ppb int64) bool {
-	// If ppb from config is not equal to 4000000000, do not apply the gas curve. This is a temporary gating mechanism
-	// that ensures we only apply the gas curve deviation logic to eth-bound price updates.
-	if ppb != 4000000000 {
+func DeviatesOnGasCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool {
+	// This is a temporary gating mechanism that ensures we only apply the gas curve deviation logic to eth-bound price
+	// updates. If ppb from config is not equal to 4000000000, do not apply the gas curve.
+	if ppb != ETHEREUM_THRESHOLD_GATE_PPB {
 		return Deviates(xOld, xNew, ppb)
+	}
+
+	// If xNew < noDeviationLowerBound, Deviates should never be true
+	if xNew.Cmp(noDeviationLowerBound) < 0 {
+		return false
 	}
 
 	xNewFloat := new(big.Float).SetInt(xNew)
 	xNewFloat64, _ := xNewFloat.Float64()
 
-	// Calculate the deviation threshold percentage with xNew using the formula: y = (5.64e10) / (x^0.654)
-	const constantFactor = 5.64e10
-	const exponent = 0.654
+	// Calculate the deviation threshold percentage with xNew using the formula: y = (10e11) / (x^0.665)
+	const constantFactor = 10e11
+	const exponent = 0.665
 	xNewPower := math.Pow(xNewFloat64, exponent)
 	threshold := constantFactor / xNewPower
 
 	// Convert percentage to PPB
 	thresholdPPB := int64(threshold * 1e7)
 
-	return Deviates(xOld, xNew, thresholdPPB)
+	return Deviates(xNew, xOld, thresholdPPB)
 }
 
 func MergeEpochAndRound(epoch uint32, round uint8) uint64 {
