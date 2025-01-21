@@ -158,6 +158,21 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 				HomeChainSelector: homeChainSel,
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+					solChainSelectors[0]: {
+						homeChainSel: {
+							IsEnabled:        true,
+							TestRouter:       true,
+							AllowListEnabled: false,
+						},
+					},
+				},
+				MCMS: nil,
+			},
+		},
 	})
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e.Env, solChainSelectors)

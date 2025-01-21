@@ -13,64 +13,54 @@ import (
 // UpdateOnRampsDests updates the onramp destinations for each onramp
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
-func UpdateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	s, err := LoadOnchainStateSolana(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	for chainSel, updates := range cfg.UpdatesByChain {
-		e.Logger.Infow("Updating onramp destinations", "chain", chainSel, "updates", updates)
-		chain := e.SolChains[chainSel]
+func updateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsConfig, s CCIPOnChainState, chainSel uint64, updates map[uint64]OnRampDestinationUpdate) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("Updating onramp destinations", "chain", chainSel, "updates", updates)
+	chain := e.SolChains[chainSel]
 
-		validSourceChainConfig := ccip_router.SourceChainConfig{
-			OnRamp:    []byte{1, 2, 3},
-			IsEnabled: true,
+	validSourceChainConfig := ccip_router.SourceChainConfig{
+		OnRamp:    []byte{1, 2, 3},
+		IsEnabled: true,
+	}
+
+	ccipRouterID := s.SolChains[chainSel].Router
+
+	for destination, update := range updates {
+		EvmSourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
+		e.Logger.Infow("EvmSourceChainStatePDA", "EvmSourceChainStatePDA", EvmSourceChainStatePDA)
+		EvmDestChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
+		validDestChainConfig := ccip_router.DestChainConfig{
+			IsEnabled: update.IsEnabled,
+
+			// minimal valid config
+			DefaultTxGasLimit:       1,
+			MaxPerMsgGasLimit:       100,
+			MaxDataBytes:            32,
+			MaxNumberOfTokensPerMsg: 1,
+			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+			ChainFamilySelector: [4]uint8{40, 18, 213, 44},
 		}
 
-		ccipRouterID := s.SolChains[chainSel].Router
-		// ccip_router.SetProgramID(ccipRouterId) //cannot set this again
+		instruction, err := ccip_router.NewAddChainSelectorInstruction(
+			destination,
+			validSourceChainConfig,
+			validDestChainConfig,
+			EvmSourceChainStatePDA,
+			EvmDestChainStatePDA,
+			GetRouterConfigPDA(ccipRouterID),
+			chain.DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
 
-		for destination, update := range updates {
-			EvmSourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
-			e.Logger.Infow("EvmSourceChainStatePDA", "EvmSourceChainStatePDA", EvmSourceChainStatePDA)
-			EvmDestChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
-			validDestChainConfig := ccip_router.DestChainConfig{
-				IsEnabled: update.IsEnabled,
-
-				// minimal valid config
-				DefaultTxGasLimit:       1,
-				MaxPerMsgGasLimit:       100,
-				MaxDataBytes:            32,
-				MaxNumberOfTokensPerMsg: 1,
-				// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-				ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-			}
-
-			instruction, err := ccip_router.NewAddChainSelectorInstruction(
-				destination,
-				validSourceChainConfig,
-				validDestChainConfig,
-				EvmSourceChainStatePDA,
-				EvmDestChainStatePDA,
-				GetRouterConfigPDA(ccipRouterID),
-				chain.DeployerKey.PublicKey(),
-				solana.SystemProgramID,
-			).ValidateAndBuild()
-
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
-			}
-
-			err = chain.Confirm([]solana.Instruction{instruction})
-
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-			}
-			e.Logger.Infow("Confirmed instruction", "instruction", instruction)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
+
+		err = chain.Confirm([]solana.Instruction{instruction})
+
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+		e.Logger.Infow("Confirmed instruction", "instruction", instruction)
 	}
 
 	return deployment.ChangesetOutput{}, nil

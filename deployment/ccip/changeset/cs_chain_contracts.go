@@ -326,7 +326,27 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	cso := deployment.ChangesetOutput{
+		Proposals: make([]timelock.MCMSWithTimelockProposal, 0),
+	}
 	for chainSel, updates := range cfg.UpdatesByChain {
+		family, err := chain_selectors.GetSelectorFamily(chainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		switch family {
+		case chain_selectors.FamilySolana:
+			cs, err := updateOnRampsDestsSolana(e, cfg, s, chainSel, updates)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			cso.Proposals = append(cso.Proposals, cs.Proposals...)
+			continue
+		case chain_selectors.FamilyEVM:
+			break // follow logic below
+		default:
+			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
+		}
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
 		if cfg.MCMS != nil {
@@ -387,9 +407,8 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+	cso.Proposals = append(cso.Proposals, *p)
+	return cso, nil
 }
 
 type UpdateFeeQuoterPricesConfig struct {
