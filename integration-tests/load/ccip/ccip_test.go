@@ -24,9 +24,11 @@ var (
 		"commit": "ccip_load_crib",
 	}
 	wg sync.WaitGroup
-	// todo: add multiple keys and rotate them when sending messages
-	SIM_CHAIN_TEST_KEY = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 )
+
+// todo: add multiple keys and rotate them when sending messages
+// this key only works on simulated geth chains in crib
+const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 // step 1: setup
 // Parse the test config, initialize CRIB with configurations defined
@@ -37,6 +39,8 @@ var (
 // step 4: teardown
 // Stop the chains, cleanup the environment
 func TestCCIPLoad_RPS(t *testing.T) {
+	// comment out when executing the test
+	t.Skip("Skipping test as this test should not be auto triggered")
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 
@@ -54,7 +58,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(SIM_CHAIN_TEST_KEY)
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
