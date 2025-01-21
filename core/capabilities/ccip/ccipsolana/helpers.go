@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
 
-func DecodeExtraArgs(extraArgs []byte) (map[string]any, error) {
+func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	outputMap := make(map[string]any)
 	var args ccip_router.SVMExtraArgs
 	decoder := agbinary.NewBorshDecoder(extraArgs)

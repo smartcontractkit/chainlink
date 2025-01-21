@@ -49,7 +49,7 @@ func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
 	return ifaces[0].(*big.Int), nil
 }
 
-func DecodeExtraArgs(extraArgs []byte) (map[string]any, error) {
+func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -69,7 +69,7 @@ func DecodeExtraArgs(extraArgs []byte) (map[string]any, error) {
 	args := make(map[string]interface{})
 	err := messageHasherABI.Methods[method].Inputs.UnpackIntoMap(args, extraArgs[4:])
 	if err != nil {
-		return nil, fmt.Errorf("abi decode extra args v1: %w", err)
+		return nil, fmt.Errorf("abi decode extra args %v: %w", method, err)
 	}
 
 	for k, val := range args {

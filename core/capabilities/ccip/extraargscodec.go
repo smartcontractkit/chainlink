@@ -24,10 +24,10 @@ func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSele
 
 	switch family {
 	case chainsel.FamilyEVM:
-		return ccipevm.DecodeExtraArgs(extraArgs)
+		return ccipevm.DecodeExtraArgsToMap(extraArgs)
 
 	case chainsel.FamilySolana:
-		return ccipsolana.DecodeExtraArgs(extraArgs)
+		return ccipsolana.DecodeExtraArgsToMap(extraArgs)
 
 	default:
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)

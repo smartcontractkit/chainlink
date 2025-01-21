@@ -27,7 +27,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
-		output, err := DecodeExtraArgs(buf.Bytes())
+		output, err := DecodeExtraArgsToMap(buf.Bytes())
 		require.NoError(t, err)
 		require.Equal(t, 3, len(output))
 	})

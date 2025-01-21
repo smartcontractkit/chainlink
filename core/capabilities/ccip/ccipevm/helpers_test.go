@@ -46,7 +46,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		m, err := DecodeExtraArgs(encoded)
+		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
 	})
@@ -58,7 +58,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		m, err := DecodeExtraArgs(encoded)
+		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(m))
 	})
@@ -77,7 +77,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = DecodeExtraArgs(encoded)
+		_, err = DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 	})
 }
