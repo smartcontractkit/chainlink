@@ -145,6 +145,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.abi ../../contracts/solc/v0.8.19/VRFCoordinatorTestV2_5/VRFCoordinatorTestV2_5.bin VRFCoordinatorTestV2_5 vrf_coordinator_test_v2_5
 
 // Aggregators
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
 
 //go:generate go generate ./functions

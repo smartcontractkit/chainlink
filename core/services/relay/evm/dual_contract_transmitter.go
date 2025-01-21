@@ -13,13 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // TODO: Remove when new dual transmitter contracts are merged
@@ -36,6 +37,7 @@ type dualContractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	ks                  keystore.Eth
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -56,6 +58,7 @@ func NewOCRDualContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	ethKeystore keystore.Eth,
 	opts ...OCRTransmitterOption,
 ) (*dualContractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -71,7 +74,8 @@ func NewOCRDualContractTransmitter(
 		transmittedEventSig: transmitted.ID,
 		lp:                  lp,
 		contractReader:      caller,
-		lggr:                logger.Named(lggr, "OCRDualContractTransmitter"),
+		lggr:                logger.Named(lggr, "OCR2DualContractTransmitter"),
+		ks:                  ethKeystore,
 		transmitterOptions: &transmitterOps{
 			reportToEvmTxMeta: reportToEvmTxMetaNoop,
 			excludeSigs:       false,
@@ -173,8 +177,88 @@ func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Ac
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *dualContractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *dualContractTransmitter) Close() error                    { return nil }
+func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
+	err := oc.lockPrimary(ctx)
+	if err != nil {
+		return err
+	}
+	err = oc.lockSecondary(ctx)
+	if err != nil {
+		return multierr.Append(err, oc.unlockPrimary(ctx))
+	}
+	return nil
+}
+
+func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error {
+	return multierr.Append(oc.unlockPrimary(ctx), oc.unlockSecondary(ctx))
+}
+
+func (oc *dualContractTransmitter) unlockPrimary(ctx context.Context) error {
+	primaryAddress := oc.transmitter.FromAddress(ctx)
+	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmPrimary.Unlock(keystore.TXMv1)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryAddress.String())
+	return nil
+}
+func (oc *dualContractTransmitter) unlockSecondary(ctx context.Context) error {
+	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	if err != nil {
+		return err
+	}
+	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmSecondary.Unlock(keystore.TXMv2)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been unlocked for TXMv2", secondaryAddress.String())
+	return nil
+}
+
+func (oc *dualContractTransmitter) lockPrimary(ctx context.Context) error {
+	primaryAddress := oc.transmitter.FromAddress(ctx)
+	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmPrimary.TryLock(keystore.TXMv1)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
+	return nil
+}
+func (oc *dualContractTransmitter) lockSecondary(ctx context.Context) error {
+	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
+	if err != nil {
+		return err
+	}
+	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
+	if err != nil {
+		return err
+	}
+	err = rmSecondary.TryLock(keystore.TXMv2)
+	if err != nil {
+		return err
+	}
+	oc.lggr.Debugf("Key %s has been locked for TXMv2", secondaryAddress.String())
+	return nil
+}
+
+func (oc *dualContractTransmitter) Start(ctx context.Context) error {
+	return oc.lockTransmitters(ctx)
+}
+func (oc *dualContractTransmitter) Close() error {
+	return oc.unlockTransmitters(context.Background())
+}
 
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *dualContractTransmitter) Ready() error { return nil }

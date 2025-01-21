@@ -81,7 +81,6 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
 		SetCheckRedirect(disableRedirects).
-		EnableDebugLogging(true).
 		Build()
 
 	return &httpClient{

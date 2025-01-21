@@ -157,9 +157,6 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
 			}
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
-			}
 		}
 		if cfg.MCMS == nil {
 			if authTx != nil {
@@ -219,6 +216,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 }
 
 type UpdateOnRampDestsConfig struct {
+	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
@@ -490,6 +488,8 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 					},
 				},
 			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -512,6 +512,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 }
 
 type UpdateFeeQuoterDestsConfig struct {
+	// UpdatesByChain is a mapping from source -> dest -> config update.
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
@@ -627,6 +628,8 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 }
 
 type UpdateOffRampSourcesConfig struct {
+	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
+	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
 	MCMS           *MCMSConfig
 }

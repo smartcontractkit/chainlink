@@ -33,7 +33,7 @@ const (
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
 	TokenPriceBatchWriteFrequency           = 30 * time.Minute
 	BatchGasLimit                           = 6_500_000
-	RelativeBoostPerWaitHour                = 10000.5
+	RelativeBoostPerWaitHour                = 0.5
 	InflightCacheExpiry                     = 10 * time.Minute
 	RootSnoozeTime                          = 30 * time.Minute
 	BatchingStrategyID                      = 0

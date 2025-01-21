@@ -142,7 +142,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     s_verifier.verify(signedReport, msg.sender);
   }
 
-  function test_revertsIfMismatchedSignatureLength() public {
+  function test_revertsIfMismatchedSignatureLengthV03() public {
     bytes32[] memory rs = new bytes32[](FAULT_TOLERANCE + 1);
     bytes32[] memory ss = new bytes32[](FAULT_TOLERANCE + 3);
     bytes32 rawVs = bytes32("");

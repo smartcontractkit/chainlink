@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {CallWithExactGas} from "../../../../shared/call/CallWithExactGas.sol";
+import {ERC165CheckerReverting} from "../../../libraries/ERC165CheckerReverting.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {RateLimiter} from "../../../libraries/RateLimiter.sol";
 import {MultiOCR3Base} from "../../../ocr/MultiOCR3Base.sol";
@@ -120,58 +121,46 @@ contract OffRamp_trialExecute is OffRampSetup {
     assertEq(abi.encodeWithSelector(OffRamp.NotACompatiblePool.selector, address(0)), err);
   }
 
-  function test_trialExecute_CallWithExactGasRevertsAndSenderIsNotGasEstimator() public {
+  function test_trialExecute_SenderIsNotGasEstimator_CallWithExactGasReverts() public {
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
 
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
-    uint32[] memory tokenGasOverrides = new uint32[](0);
 
     vm.mockCallRevert(
       address(s_offRamp),
-      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
+      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, new uint32[](0))),
       abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
     );
 
     (Internal.MessageExecutionState newState, bytes memory err) =
-      s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+      s_offRamp.trialExecute(message, offchainTokenData, new uint32[](0));
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
     assertEq(CallWithExactGas.NotEnoughGasForCall.selector, bytes4(err));
   }
 
-  function test_trialExecute_RevertsWhen_NoGasForCallExactCheckAndSenderIsGasEstimator() public {
+  function test_trialExecute_RevertsWhen_SenderIsGasEstimator_InsufficientGasForToCompleteTx() public {
+    bytes4[3] memory sigs = [
+      CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG,
+      CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG,
+      ERC165CheckerReverting.InsufficientGasForStaticCall.selector
+    ];
+
     Internal.Any2EVMRampMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-
     bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
-    uint32[] memory tokenGasOverrides = new uint32[](0);
 
-    vm.mockCallRevert(
-      address(s_offRamp),
-      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
-      abi.encodeWithSelector(CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG, "")
-    );
+    for (uint256 i = 0; i < sigs.length; ++i) {
+      vm.mockCallRevert(
+        address(s_offRamp),
+        abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, new uint32[](0))),
+        abi.encodeWithSelector(sigs[i])
+      );
 
-    changePrank(Internal.GAS_ESTIMATION_SENDER);
-    vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
-  }
+      changePrank(Internal.GAS_ESTIMATION_SENDER);
 
-  function test_trialExecute_RevertsWhen_NoEnoughGasForCallSigAndSenderIsGasEstimator() public {
-    Internal.Any2EVMRampMessage memory message =
-      _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-
-    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
-    uint32[] memory tokenGasOverrides = new uint32[](0);
-
-    vm.mockCallRevert(
-      address(s_offRamp),
-      abi.encodeCall(s_offRamp.executeSingleMessage, (message, offchainTokenData, tokenGasOverrides)),
-      abi.encodeWithSelector(CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG, "")
-    );
-
-    changePrank(Internal.GAS_ESTIMATION_SENDER);
-    vm.expectRevert(MultiOCR3Base.InsufficientGasForCallWithExact.selector);
-    s_offRamp.trialExecute(message, offchainTokenData, tokenGasOverrides);
+      vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InsufficientGasToCompleteTx.selector, sigs[i]));
+      s_offRamp.trialExecute(message, offchainTokenData, new uint32[](0));
+    }
   }
 }
