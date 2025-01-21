@@ -96,7 +96,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
-		wg.Add(1)
+		wg.Add(2)
 		go subscribeDeferredCommitEvents(
 			ctx,
 			lggr,
@@ -107,10 +107,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrCommitChannels[cs],
-			errChan,
-			&wg)
-
-		wg.Add(1)
+			errChan)
 		go subscribeExecutionEvents(
 			ctx,
 			lggr,
@@ -121,8 +118,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrExecChannels[cs],
-			errChan,
-			&wg)
+			errChan)
 	}
 
 	loadDuration, err := time.ParseDuration(*userOverrides.LoadDuration)

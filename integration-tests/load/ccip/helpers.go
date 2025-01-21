@@ -4,20 +4,21 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	"math/big"
-	"sync"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"math/big"
 )
+
+var wgroup sync.WaitGroup
 
 const (
 	transmitted = iota
@@ -77,9 +78,8 @@ func subscribeDeferredCommitEvents(
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	errChan chan error,
-	wg *sync.WaitGroup,
 ) {
-	defer wg.Done()
+	defer wgroup.Done()
 
 	lggr.Infow("starting commit event subscriber for ",
 		"destChainSelector", chainSelector,
@@ -204,9 +204,8 @@ func subscribeExecutionEvents(
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	errChan chan error,
-	wg *sync.WaitGroup,
 ) {
-	defer wg.Done()
+	defer wgroup.Done()
 	defer close(errChan)
 
 	lggr.Infow("starting execution event subscriber for ",
@@ -256,7 +255,7 @@ func subscribeExecutionEvents(
 			if err != nil {
 				errChan <- err
 			}
-			timestamp := time.Unix(int64(header.Time), 0)
+			timestamp := time.Unix(int64(header.Time), 0) //nolint:gosec // disable G115
 			SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 				EventType:      executed,
 				Timestamp:      timestamp,
