@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
+	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -170,8 +171,8 @@ var (
 				Chain: solcfg.Chain{
 					MaxRetries: ptr[int64](12),
 				},
-				MultiNode: solcfg.MultiNodeConfig{
-					MultiNode: solcfg.MultiNode{
+				MultiNode: mnCfg.MultiNodeConfig{
+					MultiNode: mnCfg.MultiNode{
 						Enabled:                      ptr(false),
 						PollFailureThreshold:         ptr[uint32](5),
 						PollInterval:                 &second,
@@ -198,8 +199,8 @@ var (
 				Chain: solcfg.Chain{
 					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
 				},
-				MultiNode: solcfg.MultiNodeConfig{
-					MultiNode: solcfg.MultiNode{
+				MultiNode: mnCfg.MultiNodeConfig{
+					MultiNode: mnCfg.MultiNode{
 						Enabled:                      ptr(false),
 						PollFailureThreshold:         ptr[uint32](5),
 						PollInterval:                 &second,
@@ -768,8 +769,8 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitLimitDefault:  ptr[uint32](100_000),
 				EstimateComputeUnitLimit: ptr(false),
 			},
-			MultiNode: solcfg.MultiNodeConfig{
-				MultiNode: solcfg.MultiNode{
+			MultiNode: mnCfg.MultiNodeConfig{
+				MultiNode: mnCfg.MultiNode{
 					Enabled:                      ptr(false),
 					PollFailureThreshold:         ptr[uint32](5),
 					PollInterval:                 &second,
