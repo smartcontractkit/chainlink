@@ -8,5 +8,5 @@ message TxMessage {
 	string Hash = 1;
 	string FromAddress = 2;
 	string ToAddress = 3;
-	uint64 Nonce = 4;
+	string Nonce = 4;
 }
