@@ -42,7 +42,7 @@ type mercuryTransmitterConfig struct {
 	c toml.MercuryTransmitter
 }
 
-func (m *mercuryTransmitterConfig) Protocol() string {
+func (m *mercuryTransmitterConfig) Protocol() config.MercuryTransmitterProtocol {
 	return *m.c.Protocol
 }
 

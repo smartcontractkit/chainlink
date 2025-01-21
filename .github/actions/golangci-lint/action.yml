@@ -21,7 +21,7 @@ inputs:
 outputs:
   golang-report-artifact-url:
     description: The URL to the uploaded artifact
-    value: ${{ steps.upload-artifact.outputs.artifact_url }}
+    value: ${{ steps.upload-artifact.outputs.artifact-url }}
 
 runs:
   using: composite

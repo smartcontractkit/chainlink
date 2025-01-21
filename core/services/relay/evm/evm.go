@@ -42,6 +42,7 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -744,14 +745,14 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		for _, server := range lloCfg.GetServers() {
 			var client grpc.Client
 			switch r.mercuryCfg.Transmitter().Protocol() {
-			case "grpc":
+			case config.MercuryTransmitterProtocolGRPC:
 				client = grpc.NewClient(grpc.ClientOpts{
 					Logger:        r.lggr,
 					ClientPrivKey: privKey.PrivateKey(),
 					ServerPubKey:  ed25519.PublicKey(server.PubKey),
 					ServerURL:     server.URL,
 				})
-			case "wsrpc":
+			case config.MercuryTransmitterProtocolWSRPC:
 				wsrpcClient, checkoutErr := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
 				if checkoutErr != nil {
 					return nil, checkoutErr
