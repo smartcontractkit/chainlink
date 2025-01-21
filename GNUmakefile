@@ -108,8 +108,8 @@ abigen: ## Build & install abigen.
 
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	export PATH=$(HOME)/.local/bin:$(PATH) ## Make sure that go:generate uses protoc installed above
-	gomods -w go generate -x ./...
+	## Make sure that go:generate uses protoc installed above
+	export PATH=$(HOME)/.local/bin:$(PATH); gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
