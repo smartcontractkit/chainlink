@@ -229,7 +229,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), appLggr.Named("Mailbox"))
 
-	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),

@@ -6,8 +6,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -59,8 +58,8 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 	return nil
 }
 
-func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint64, error) {
-	gasPrice := commonfee.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint64, maxGasPriceWei *assets.Wei, _ ...fees.Opt) (*assets.Wei, uint64, error) {
+	gasPrice := fees.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
 	chainSpecificGasLimit := gasLimit
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, nil
 }
@@ -72,7 +71,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
 ) (*assets.Wei, uint64, error) {
-	gasPrice, err := commonfee.CalculateBumpedFee(
+	gasPrice, err := fees.CalculateBumpedFee(
 		f.lggr,
 		f.config.PriceDefault().ToInt(),
 		originalGasPrice.ToInt(),

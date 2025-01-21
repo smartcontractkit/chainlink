@@ -291,7 +291,8 @@ LatestReportDeadline = '5s'
 CertFile = ''
 
 [Mercury.Transmitter]
-TransmitQueueMaxSize = 10000
+Protocol = 'wsrpc'
+TransmitQueueMaxSize = 100000
 TransmitTimeout = '5s'
 TransmitConcurrency = 100
 
@@ -385,6 +386,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]

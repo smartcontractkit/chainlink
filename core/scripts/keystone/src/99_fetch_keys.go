@@ -1,230 +1,271 @@
 package src
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string) []changeset.NodeKeys {
-	// Check if file exists already, and if so, return the keys
-	if _, err := os.Stat(pubKeysPath); err == nil {
-		fmt.Println("Loading existing public keys at:", pubKeysPath)
-		return mustParseJSON[[]changeset.NodeKeys](pubKeysPath)
-	}
-
-	nodes := downloadNodeAPICredentials(nodeList)
-	nodesKeys := mustFetchNodesKeys(chainID, nodes)
-
-	marshalledNodeKeys, err := json.MarshalIndent(nodesKeys, "", " ")
-	if err != nil {
-		panic(err)
-	}
-	err = os.WriteFile(pubKeysPath, marshalledNodeKeys, 0600)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Keystone OCR2 public keys have been saved to:", pubKeysPath)
-
-	return nodesKeys
+// NodeSet represents a set of nodes with associated metadata.
+// NodeKeys are indexed by the same order as Nodes.
+type NodeSet struct {
+	Name     string
+	Prefix   string
+	Nodes    []NodeWithCreds
+	NodeKeys []NodeKeys
 }
 
-// downloadNodeAPICredentials downloads the node API credentials, or loads them from disk if they already exist
-//
-// The nodes are sorted by URL. In the case of crib, the bootstrap node is the first node in the list.
-func downloadNodeAPICredentials(nodeListPath string) []*node {
-	if _, err := os.Stat(nodeListPath); err == nil {
-		fmt.Println("Loading existing node host list at:", nodeListPath)
-		nodesList := mustReadNodesList(nodeListPath)
-		return nodesList
+var (
+	WorkflowNodeSetName         = "workflow"
+	WorkflowNodeSetPrefix       = "ks-wf-"
+	StreamsTriggerNodeSetName   = "streams-trigger"
+	StreamsTriggerNodeSetPrefix = "ks-str-trig-"
+)
+
+// NodeSets holds the two NodeSets: Workflow and StreamsTrigger.
+type NodeSets struct {
+	Workflow       NodeSet
+	StreamsTrigger NodeSet
+}
+
+func downloadNodeSets(chainID int64, nodeSetPath string, nodeSetSize int) NodeSets {
+	if _, err := os.Stat(nodeSetPath); err == nil {
+		fmt.Println("Loading existing nodesets at:", nodeSetPath)
+		nodeSets := mustReadJSON[NodeSets](nodeSetPath)
+		return nodeSets
 	}
 
 	fmt.Println("Connecting to Kubernetes to fetch node credentials...")
 	crib := NewCribClient()
-	clNodesWithCreds, err := crib.GetCLNodeCredentials()
+	nodes, err := crib.getCLNodes()
+	PanicErr(err)
 
-	if err != nil {
-		panic(err)
+	totalNodes := len(nodes)
+	// Workflow and StreamsTrigger nodeSets should have the same number of nodes
+	// hence we need at least 2 * nodeSetSize nodes
+	requiredNodes := nodeSetSize * 2
+	if totalNodes < requiredNodes {
+		panic(fmt.Errorf("not enough nodes to populate both nodeSets: required %d, got %d", requiredNodes, totalNodes))
 	}
 
-	nodesList := clNodesWithCredsToNodes(clNodesWithCreds)
-	err = writeNodesList(nodeListPath, nodesList)
-	if err != nil {
-		panic(err)
+	nodeSets := NodeSets{
+		Workflow: NodeSet{
+			Name:   WorkflowNodeSetName,
+			Prefix: WorkflowNodeSetPrefix,
+			Nodes:  nodes[:nodeSetSize],
+		},
+		StreamsTrigger: NodeSet{
+			Name:   StreamsTriggerNodeSetName,
+			Prefix: StreamsTriggerNodeSetPrefix,
+			Nodes:  nodes[nodeSetSize : nodeSetSize*2],
+		},
 	}
-	if len(nodesList) == 0 {
-		panic("No nodes found")
-	}
-	return nodesList
+
+	nodeSets.Workflow.NodeKeys = mustFetchNodeKeys(chainID, nodeSets.Workflow.Nodes, true)
+	nodeSets.StreamsTrigger.NodeKeys = mustFetchNodeKeys(chainID, nodeSets.StreamsTrigger.Nodes, false)
+	mustWriteJSON(nodeSetPath, nodeSets)
+
+	return nodeSets
 }
 
-func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
-	nodes := []*node{}
-	for _, cl := range clNodesWithCreds {
-		n := node{
-			url:      cl.URL,
-			password: cl.Password,
-			login:    cl.Username,
-		}
-		nodes = append(nodes, &n)
-	}
-
-	// sort nodes by URL
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].url.String() < nodes[j].url.String()
-	})
-	return nodes
+// NodeKeys represents the keys for a single node.
+// If there are multiple OCR2KBs or OCR2AptosKBs, only the first one is used.
+type NodeKeys struct {
+	AptosAccount string `json:"AptosAccount"`
+	EthAddress   string `json:"EthAddress"`
+	P2PPeerID    string `json:"P2PPeerID"`
+	CSAPublicKey string `json:"CSAPublicKey"`
+	OCR2KBTrimmed
+	OCR2AptosKBTrimmed
 }
 
-type ocr2Bundle struct {
-	ID                string `json:"id"`
-	ChainType         string `json:"chainType"`
-	OnchainPublicKey  string `json:"onchainPublicKey"`
-	OffchainPublicKey string `json:"offchainPublicKey"`
-	ConfigPublicKey   string `json:"configPublicKey"`
+// This is an OCR key bundle with the prefixes on each respective key
+// trimmed off
+type OCR2KBTrimmed struct {
+	OCR2BundleID          string `json:"OCR2BundleID"`          // used only in job spec
+	OCR2OnchainPublicKey  string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
+	OCR2OffchainPublicKey string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
+	OCR2ConfigPublicKey   string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
 }
 
-func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []changeset.NodeKeys) {
+// This is an Aptos key bundle with the prefixes on each respective key
+// trimmed off
+type OCR2AptosKBTrimmed struct {
+	AptosBundleID         string `json:"AptosBundleID"`
+	AptosOnchainPublicKey string `json:"AptosOnchainPublicKey"` // ocr2on_aptos_<key>
+}
+
+func mustFetchNodeKeys(chainID int64, nodes []NodeWithCreds, createAptosKeys bool) []NodeKeys {
+	nodeKeys := []NodeKeys{}
+
 	for _, n := range nodes {
-		output := &bytes.Buffer{}
-		client, app := newApp(n, output)
+		api := newNodeAPI(n)
+		// Get eth key
+		fmt.Printf("Fetching ETH keys for node %s\n", n.ServiceName)
+		eKey := api.mustExec(api.methods.ListETHKeys)
+		ethKeys := mustJSON[[]presenters.ETHKeyResource](eKey)
+		ethAddress, err := findFirstGoodEthKeyAddress(chainID, *ethKeys)
+		helpers.PanicErr(err)
 
-		fmt.Println("Logging in:", n.url)
-		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
-		loginFs.Bool("bypass-version-check", true, "")
-		loginCtx := cli.NewContext(app, loginFs, nil)
-		err := client.RemoteLogin(loginCtx)
-		helpers.PanicErr(err)
-		output.Reset()
-
-		err = client.ListETHKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var ethKeys []presenters.ETHKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
-		ethAddress, err := findFirstGoodEthKeyAddress(chainID, ethKeys)
-		helpers.PanicErr(err)
-		output.Reset()
-
-		keysClient := cmd.NewAptosKeysClient(client)
-		err = keysClient.ListKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var aptosKeys []presenters.AptosKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &aptosKeys))
-		if len(aptosKeys) != 1 {
-			helpers.PanicErr(errors.New("node must have single aptos key"))
+		var aptosAccount string
+		if createAptosKeys {
+			aptosAccount = getOrCreateAptosKey(api)
 		}
-		aptosAccount := aptosKeys[0].Account
-		output.Reset()
 
-		err = client.ListP2PKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var p2pKeys []presenters.P2PKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &p2pKeys))
-		if len(p2pKeys) != 1 {
+		// Get p2p key
+		fmt.Printf("Fetching P2P key for node %s\n", n.ServiceName)
+		p2pKeys := api.mustExec(api.methods.ListP2PKeys)
+		p2pKey := mustJSON[[]presenters.P2PKeyResource](p2pKeys)
+		if len(*p2pKey) != 1 {
 			helpers.PanicErr(errors.New("node must have single p2p key"))
 		}
-		peerID := strings.TrimPrefix(p2pKeys[0].PeerID, "p2p_")
-		output.Reset()
+		peerID := strings.TrimPrefix((*p2pKey)[0].PeerID, "p2p_")
 
-		chainType := "evm"
+		// Get OCR2 key bundles for both EVM and Aptos chains
+		bundles := api.mustExec(api.methods.ListOCR2KeyBundles)
+		ocr2Bundles := mustJSON[cmd.OCR2KeyBundlePresenters](bundles)
 
-		var ocr2Bundles []ocr2Bundle
-		err = client.ListOCR2KeyBundles(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-		ocr2BundleIndex := findOCR2Bundle(ocr2Bundles, chainType)
-		output.Reset()
-		if ocr2BundleIndex == -1 {
-			fmt.Println("WARN: node does not have EVM OCR2 bundle, creating one")
-			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			err = fs.Parse([]string{chainType})
-			helpers.PanicErr(err)
-			ocr2CreateBundleCtx := cli.NewContext(app, fs, nil)
-			err = client.CreateOCR2KeyBundle(ocr2CreateBundleCtx)
-			helpers.PanicErr(err)
-			output.Reset()
+		expectedBundleLen := 1
 
-			err = client.ListOCR2KeyBundles(&cli.Context{
-				App: app,
-			})
-			helpers.PanicErr(err)
-			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-			ocr2BundleIndex = findOCR2Bundle(ocr2Bundles, chainType)
-			output.Reset()
+		// evm key bundles
+		fmt.Printf("Fetching OCR2 EVM key bundles for node %s\n", n.ServiceName)
+		ocr2EvmBundles := getTrimmedEVMOCR2KBs(*ocr2Bundles)
+		evmBundleLen := len(ocr2EvmBundles)
+		if evmBundleLen < expectedBundleLen {
+			fmt.Printf("WARN: node has %d EVM OCR2 bundles when it should have at least %d, creating bundles...\n", evmBundleLen, expectedBundleLen)
+			for i := evmBundleLen; i < expectedBundleLen; i++ {
+				cBundle := api.withArg("evm").mustExec(api.methods.CreateOCR2KeyBundle)
+				createdBundle := mustJSON[cmd.OCR2KeyBundlePresenter](cBundle)
+				fmt.Printf("Created OCR2 EVM key bundle %s\n", string(cBundle))
+				ocr2EvmBundles = append(ocr2EvmBundles, trimmedOCR2KB(*createdBundle))
+			}
 		}
 
-		ocr2Bndl := ocr2Bundles[ocr2BundleIndex]
-
-		aptosBundleIndex := findOCR2Bundle(ocr2Bundles, "aptos")
-		if aptosBundleIndex == -1 {
-			chainType2 := "aptos"
-			fmt.Println("WARN: node does not have Aptos OCR2 bundle, creating one")
-			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			err = fs.Parse([]string{chainType2})
-			helpers.PanicErr(err)
-			ocr2CreateBundleCtx := cli.NewContext(app, fs, nil)
-			err = client.CreateOCR2KeyBundle(ocr2CreateBundleCtx)
-			helpers.PanicErr(err)
-			output.Reset()
-
-			err = client.ListOCR2KeyBundles(&cli.Context{
-				App: app,
-			})
-			helpers.PanicErr(err)
-			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-			aptosBundleIndex = findOCR2Bundle(ocr2Bundles, chainType2)
-			output.Reset()
+		// aptos key bundles
+		var ocr2AptosBundles []OCR2AptosKBTrimmed
+		if createAptosKeys {
+			fmt.Printf("Fetching OCR2 Aptos key bundles for node %s\n", n.ServiceName)
+			ocr2AptosBundles = createAptosOCR2KB(ocr2Bundles, expectedBundleLen, api)
 		}
 
-		aptosBundle := ocr2Bundles[aptosBundleIndex]
-
-		err = client.ListCSAKeys(&cli.Context{
-			App: app,
-		})
+		fmt.Printf("Fetching CSA keys for node %s\n", n.ServiceName)
+		csaKeys := api.mustExec(api.methods.ListCSAKeys)
+		csaKeyResources := mustJSON[[]presenters.CSAKeyResource](csaKeys)
+		csaPubKey, err := findFirstCSAPublicKey(*csaKeyResources)
 		helpers.PanicErr(err)
-		var csaKeys []presenters.CSAKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &csaKeys))
-		csaPubKey, err := findFirstCSAPublicKey(csaKeys)
-		helpers.PanicErr(err)
-		output.Reset()
 
-		nc := changeset.NodeKeys{
-			EthAddress:            ethAddress,
-			AptosAccount:          aptosAccount,
-			P2PPeerID:             peerID,
-			AptosBundleID:         aptosBundle.ID,
-			AptosOnchainPublicKey: strings.TrimPrefix(aptosBundle.OnchainPublicKey, fmt.Sprintf("ocr2on_%s_", "aptos")),
-			OCR2BundleID:          ocr2Bndl.ID,
-			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, fmt.Sprintf("ocr2cfg_%s_", chainType)),
-			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, fmt.Sprintf("ocr2on_%s_", chainType)),
-			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffchainPublicKey, fmt.Sprintf("ocr2off_%s_", chainType)),
-			CSAPublicKey:          csaPubKey,
+		// We can handle multiple OCR bundles in the future
+		// but for now we only support a single bundle per node
+		keys := NodeKeys{
+			OCR2KBTrimmed: ocr2EvmBundles[0],
+			EthAddress:    ethAddress,
+			AptosAccount:  aptosAccount,
+			P2PPeerID:     peerID,
+			CSAPublicKey:  strings.TrimPrefix(csaPubKey, "csa_"),
+		}
+		if createAptosKeys {
+			keys.OCR2AptosKBTrimmed = ocr2AptosBundles[0]
 		}
 
-		nca = append(nca, nc)
+		nodeKeys = append(nodeKeys, keys)
 	}
-	return
+
+	return nodeKeys
+}
+
+func trimmedOCR2KB(ocr2Bndl cmd.OCR2KeyBundlePresenter) OCR2KBTrimmed {
+	return OCR2KBTrimmed{
+		OCR2BundleID:          ocr2Bndl.ID,
+		OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, "ocr2cfg_evm_"),
+		OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, "ocr2on_evm_"),
+		OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffChainPublicKey, "ocr2off_evm_"),
+	}
+}
+
+func trimmedAptosOCR2KB(ocr2Bndl cmd.OCR2KeyBundlePresenter) OCR2AptosKBTrimmed {
+	return OCR2AptosKBTrimmed{
+		AptosBundleID:         ocr2Bndl.ID,
+		AptosOnchainPublicKey: strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, "ocr2on_aptos_"),
+	}
+}
+
+func createAptosOCR2KB(ocr2Bundles *cmd.OCR2KeyBundlePresenters, expectedBundleLen int, api *nodeAPI) []OCR2AptosKBTrimmed {
+	ocr2AptosBundles := getTrimmedAptosOCR2KBs(*ocr2Bundles)
+	aptosBundleLen := len(ocr2AptosBundles)
+
+	if aptosBundleLen < expectedBundleLen {
+		fmt.Printf("WARN: node has %d Aptos OCR2 bundles when it should have at least %d, creating bundles...\n", aptosBundleLen, expectedBundleLen)
+		for i := aptosBundleLen; i < expectedBundleLen; i++ {
+			cBundle := api.withArg("aptos").mustExec(api.methods.CreateOCR2KeyBundle)
+			createdBundle := mustJSON[cmd.OCR2KeyBundlePresenter](cBundle)
+			fmt.Println("Created OCR2 Aptos key bundle", string(cBundle))
+			ocr2AptosBundles = append(ocr2AptosBundles, trimmedAptosOCR2KB(*createdBundle))
+		}
+	}
+
+	return ocr2AptosBundles
+}
+
+// getOrCreateAptosKey returns the Aptos account of the node.
+//
+// If the node has no Aptos keys, it creates one and returns the account.
+func getOrCreateAptosKey(api *nodeAPI) string {
+	api.output.Reset()
+	aKeysClient := cmd.NewAptosKeysClient(api.methods)
+	err := aKeysClient.ListKeys(&cli.Context{App: api.app})
+	helpers.PanicErr(err)
+	var aptosKeys []presenters.AptosKeyResource
+	helpers.PanicErr(json.Unmarshal(api.output.Bytes(), &aptosKeys))
+	if len(aptosKeys) == 0 {
+		api.output.Reset()
+		fmt.Printf("WARN: node has no aptos keys, creating one...\n")
+		err = aKeysClient.CreateKey(&cli.Context{App: api.app})
+		helpers.PanicErr(err)
+		api.output.Reset()
+		err = aKeysClient.ListKeys(&cli.Context{App: api.app})
+		helpers.PanicErr(err)
+		helpers.PanicErr(json.Unmarshal(api.output.Bytes(), &aptosKeys))
+		api.output.Reset()
+	}
+
+	if len(aptosKeys) != 1 {
+		fmt.Printf("Node has %d aptos keys\n", len(aptosKeys))
+		PanicErr(errors.New("node must have single aptos key"))
+	}
+
+	aptosAccount := aptosKeys[0].Account
+	api.output.Reset()
+
+	return aptosAccount
+}
+
+func getTrimmedAptosOCR2KBs(ocr2Bundles cmd.OCR2KeyBundlePresenters) []OCR2AptosKBTrimmed {
+	aptosBundles := []OCR2AptosKBTrimmed{}
+	for _, b := range ocr2Bundles {
+		if b.ChainType == "aptos" {
+			aptosBundles = append(aptosBundles, trimmedAptosOCR2KB(b))
+		}
+	}
+	return aptosBundles
+}
+
+func getTrimmedEVMOCR2KBs(ocr2Bundles cmd.OCR2KeyBundlePresenters) []OCR2KBTrimmed {
+	evmBundles := []OCR2KBTrimmed{}
+	for _, b := range ocr2Bundles {
+		if b.ChainType == "evm" {
+			evmBundles = append(evmBundles, trimmedOCR2KB(b))
+		}
+	}
+	return evmBundles
 }
 
 func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string, error) {
@@ -234,21 +275,9 @@ func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string,
 	return "", errors.New("did not find any CSA Key Resources")
 }
 
-func findOCR2Bundle(ocr2Bundles []ocr2Bundle, chainType string) int {
-	for i, b := range ocr2Bundles {
-		if b.ChainType == chainType {
-			return i
-		}
-	}
-	return -1
-}
-
 func findFirstGoodEthKeyAddress(chainID int64, ethKeys []presenters.ETHKeyResource) (string, error) {
 	for _, ethKey := range ethKeys {
 		if ethKey.EVMChainID.Equal(ubig.NewI(chainID)) && !ethKey.Disabled {
-			if ethKey.EthBalance.IsZero() {
-				fmt.Println("WARN: selected ETH address has zero balance", ethKey.Address)
-			}
 			return ethKey.Address, nil
 		}
 	}

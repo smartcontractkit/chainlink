@@ -15,7 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -25,7 +26,7 @@ import (
 )
 
 type stuckTxDetectorGasEstimator interface {
-	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...feetypes.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
+	GetFee(ctx context.Context, calldata []byte, feeLimit uint64, maxFeePrice *assets.Wei, fromAddress, toAddress *common.Address, opts ...fees.Opt) (fee gas.EvmFee, chainSpecificFeeLimit uint64, err error)
 }
 
 type stuckTxDetectorClient interface {

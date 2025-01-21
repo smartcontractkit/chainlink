@@ -35,9 +35,9 @@ func Test_Delegate(t *testing.T) {
 
 	t.Run("ServicesForSpec", func(t *testing.T) {
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
-		t.Run("errors if job is missing streamID", func(t *testing.T) {
+		t.Run("no error if job is missing streamID", func(t *testing.T) {
 			_, err := d.ServicesForSpec(testutils.Context(t), jb)
-			assert.EqualError(t, err, "streamID is required to be present for stream specs")
+			require.NoError(t, err)
 		})
 		jb.StreamID = ptr(uint32(42))
 		t.Run("returns services", func(t *testing.T) {

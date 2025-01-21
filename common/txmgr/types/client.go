@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -21,7 +21,7 @@ type TxmClient[
 	BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
 	TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -40,7 +40,7 @@ type TransactionClient[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
 

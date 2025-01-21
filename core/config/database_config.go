@@ -3,8 +3,6 @@ package config
 import (
 	"net/url"
 	"time"
-
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 type Backup interface {
@@ -35,7 +33,7 @@ type Database interface {
 	DefaultIdleInTxSessionTimeout() time.Duration
 	DefaultLockTimeout() time.Duration
 	DefaultQueryTimeout() time.Duration
-	Dialect() pgcommon.DialectName
+	DriverName() string
 	LogSQL() bool
 	MaxIdleConns() int
 	MaxOpenConns() int

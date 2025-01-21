@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
+var _ deployment.ChangeSet[OCR2Config] = SetOCR2ConfigForTestChangeset
+
 type FinalOCR2Config struct {
 	Signers               []common.Address
 	Transmitters          []common.Address
@@ -175,9 +177,9 @@ func (o OCR2Config) Validate(state changeset.CCIPOnChainState) error {
 	return nil
 }
 
-// SetOCR2ConfigForTest sets the OCR2 config on the chain for commit and offramp
+// SetOCR2ConfigForTestChangeset sets the OCR2 config on the chain for commit and offramp
 // This is currently not suitable for prod environments it's only for testing
-func SetOCR2ConfigForTest(env deployment.Environment, c OCR2Config) (deployment.ChangesetOutput, error) {
+func SetOCR2ConfigForTestChangeset(env deployment.Environment, c OCR2Config) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load CCIP onchain state: %w", err)

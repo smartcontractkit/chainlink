@@ -42,6 +42,9 @@ library Client {
   // bytes4(keccak256("CCIP EVMExtraArgsV2"));
   bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 
+  // bytes4(keccak256("CCIP SVMExtraArgsV1"));
+  bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
+
   /// @param gasLimit: gas limit for the callback on the destination chain.
   /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to
   /// other messages from the same sender. This value's default varies by chain. On some chains, a particular value is
@@ -51,9 +54,23 @@ library Client {
     bool allowOutOfOrderExecution;
   }
 
+  struct SVMExtraArgsV1 {
+    uint32 computeUnits;
+    uint64 accountIsWritableBitmap;
+    bool allowOutOfOrderExecution;
+    bytes32 tokenReceiver;
+    bytes32[] accounts;
+  }
+
   function _argsToBytes(
     EVMExtraArgsV2 memory extraArgs
   ) internal pure returns (bytes memory bts) {
     return abi.encodeWithSelector(EVM_EXTRA_ARGS_V2_TAG, extraArgs);
+  }
+
+  function _svmArgsToBytes(
+    SVMExtraArgsV1 memory extraArgs
+  ) internal pure returns (bytes memory bts) {
+    return abi.encodeWithSelector(SVM_EXTRA_EXTRA_ARGS_V1_TAG, extraArgs);
   }
 }
