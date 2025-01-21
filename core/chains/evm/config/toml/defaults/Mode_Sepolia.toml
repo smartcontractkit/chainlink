@@ -9,7 +9,6 @@ BumpThreshold = 60
 BumpPercent = 20
 BumpMin = '100 wei'
 PriceMax = '120 gwei'
-LimitDefault = 8000000
 FeeCapDefault = '120 gwei'
 
 [HeadTracker]
