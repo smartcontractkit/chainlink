@@ -16,12 +16,12 @@ import (
 
 const (
 	// ExecNoDeviationThresholdUSD is the lower bound no deviation threshold for exec gas. If the exec gas price is
-	// less than this value, we should never trigger a deviation. 0.00003 USD.
-	ExecNoDeviationThresholdUSD = 3e13
+	// less than this value, we should never trigger a deviation. This is set to 10 gwei in USD terms.
+	ExecNoDeviationThresholdUSD = 10e9
 
 	// DANoDeviationThresholdUSD is the lower bound no deviation threshold for DA gas. If the DA gas price is less
-	// than this value, we should never trigger a deviation. 0.00006 USD.
-	DANoDeviationThresholdUSD = 6e13
+	// than this value, we should never trigger a deviation. This is set to 20 gwei in USD terms.
+	DANoDeviationThresholdUSD = 20e9
 )
 
 type DAGasPriceEstimator struct {
