@@ -751,6 +751,13 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
+			allowed := e.ratelimiter.Allow(e.workflow.owner)
+			if !allowed {
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "per sender rate limit exceeded", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+				continue
+			}
+
 			cma := e.cma.With(platform.KeyWorkflowExecutionID, executionID)
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
@@ -918,13 +925,6 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	allowed := e.ratelimiter.Allow(e.workflow.owner)
-	if !allowed {
-		logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, curStep.ID), "per sender rate limit exceeded", lggr)
-		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitPerUserCounter(ctx)
-		return nil, nil, fmt.Errorf("exceeded %s's allowed executions per second", e.workflow.owner)
 	}
 
 	var inputs any
