@@ -176,14 +176,17 @@ func subscribeDeferredCommitEvents(
 				}
 			}
 			// if all chains have hit expected sequence numbers, return
+			allComplete := true
 			for c := range completedSrcChains {
 				if !completedSrcChains[c] {
-					return
+					allComplete = false
+					break
 				}
 			}
-			lggr.Infow("all chains have committed all expected sequence numbers")
-			return
-
+			if allComplete {
+				lggr.Infow("all chains have committed all expected sequence numbers")
+				return
+			}
 		}
 	}
 }
@@ -293,13 +296,18 @@ func subscribeExecutionEvents(
 				}
 			}
 			// if all chains have hit expected sequence numbers, return
+			allComplete := true
 			for c := range completedSrcChains {
 				if !completedSrcChains[c] {
-					return
+					allComplete = false
+					break
 				}
 			}
-			lggr.Infow("all chains have executed all expected sequence numbers",
-				"expectedSeqNumbers", expectedRange)
+			if allComplete {
+				lggr.Infow("all chains have executed all expected sequence numbers",
+					"expectedSeqNumbers", expectedRange)
+				return
+			}
 		}
 	}
 }
