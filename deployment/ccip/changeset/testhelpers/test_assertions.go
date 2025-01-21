@@ -321,6 +321,32 @@ func ConfirmCommitWithExpectedSeqNumRange(
 
 	seenMessages := NewCommitReportTracker(src.Selector, expectedSeqNumRange)
 
+	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
+		if len(report.MerkleRoots) > 0 {
+			// Check the interval of sequence numbers and make sure it matches
+			// the expected range.
+			for _, mr := range report.MerkleRoots {
+				t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+
+				seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
+
+				if mr.SourceChainSelector == src.Selector &&
+					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+					t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					return true
+				}
+
+				if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
+					t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					return true
+				}
+			}
+		}
+		return false
+	}
+
 	defer subscription.Unsubscribe()
 	var duration time.Duration
 	deadline, ok := t.Deadline()
@@ -354,24 +380,9 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			require.NoError(t, err)
 			for iter.Next() {
 				event := iter.Event
-				if len(event.MerkleRoots) > 0 {
-					for _, mr := range event.MerkleRoots {
-						t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v, tx hash: %s",
-							mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), event.PriceUpdates.TokenPriceUpdates, event.Raw.TxHash.String())
-						seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
-
-						if mr.SourceChainSelector == src.Selector &&
-							uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-							uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-							t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-							return event, nil
-						}
-
-						if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-							t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-							return event, nil
-						}
-					}
+				verified := verifyCommitReport(event)
+				if verified {
+					return event, nil
 				}
 			}
 		case subErr := <-subscription.Err():
@@ -380,27 +391,9 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return nil, fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				duration.String(), dest.Selector, src.Selector, expectedSeqNumRange.String())
 		case report := <-sink:
-			if len(report.MerkleRoots) > 0 {
-				// Check the interval of sequence numbers and make sure it matches
-				// the expected range.
-				for _, mr := range report.MerkleRoots {
-					t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-						mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
-
-					seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
-
-					if mr.SourceChainSelector == src.Selector &&
-						uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
-						uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-						t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-						return report, nil
-					}
-
-					if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
-						t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
-						return report, nil
-					}
-				}
+			verified := verifyCommitReport(report)
+			if verified {
+				return report, nil
 			}
 		}
 	}
