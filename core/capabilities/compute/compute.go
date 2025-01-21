@@ -197,7 +197,10 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	computeWASMInit.WithLabelValues(requestMetadata.WorkflowID, requestMetadata.ReferenceID).Observe(float64(initDuration))
 
 	m := &module{module: mod}
-	c.modules.add(id, m)
+	err = c.modules.add(id, m)
+	if err != nil {
+		c.log.Warnf("failed to add module to cache: %s", err.Error())
+	}
 	return m, nil
 }
 

@@ -28,6 +28,10 @@ import (
 
 type mockCfg struct{}
 
+func (m mockCfg) Protocol() string {
+	return ""
+}
+
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
 }
