@@ -1170,7 +1170,7 @@ targets:
 `
 
 // TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence tests that the engine merges the
-// workflow config with the CR config, with the CR config taking precedence.
+// workflow config with the CR config correctly, with the CR config taking precedence.
 func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
 	var (
 		ctx              = testutils.Context(t)
@@ -1230,7 +1230,8 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 			var cb []byte
 			cb, err = proto.Marshal(&capabilitiespb.CapabilityConfig{
-				DefaultConfig: values.ProtoMap(giveRegistryConfig),
+				RestrictedConfig: values.ProtoMap(giveRegistryConfig),
+				RestrictedKeys:   []string{"maxMemoryMBs", "tickInterval", "timeout"},
 			})
 			return registrysyncer.CapabilityConfiguration{
 				Config: cb,
@@ -1670,4 +1671,87 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 	expm, err := values.Wrap(expected)
 	require.NoError(t, err)
 	assert.Equal(t, gotConfig, expm)
+}
+
+func TestMerge(t *testing.T) {
+	tests := []struct {
+		name             string
+		baseConfig       map[string]any
+		expectedConfig   map[string]any
+		capabilityConfig capabilities.CapabilityConfiguration
+	}{
+		{
+			name: "no remote config",
+			baseConfig: map[string]any{
+				"foo": "bar",
+			},
+			expectedConfig: map[string]any{
+				"foo": "bar",
+			},
+			capabilityConfig: capabilities.CapabilityConfiguration{},
+		},
+		{
+			name: "user provides restricted config",
+			baseConfig: map[string]any{
+				"restrictedXXX": "restrictedYYY",
+				"foo":           "bar",
+			},
+			expectedConfig: map[string]any{
+				"foo": "bar",
+			},
+			capabilityConfig: capabilities.CapabilityConfiguration{
+				RestrictedKeys: []string{"restrictedXXX"},
+			},
+		},
+		{
+			name: "user provides restricted config; capability contains restricted",
+			baseConfig: map[string]any{
+				"restrictedXXX": "restrictedYYY",
+				"foo":           "bar",
+			},
+			expectedConfig: map[string]any{
+				"foo":           "bar",
+				"restrictedXXX": "restrictedXXXSetRemotely",
+			},
+			capabilityConfig: capabilities.CapabilityConfiguration{
+				RestrictedKeys: []string{"restrictedXXX"},
+				RestrictedConfig: &values.Map{
+					Underlying: map[string]values.Value{
+						"restrictedXXX": values.NewString("restrictedXXXSetRemotely"),
+					},
+				},
+			},
+		},
+		{
+			name: "default overridden by what user provides",
+			baseConfig: map[string]any{
+				"restrictedXXX": "restrictedYYY",
+				"foo":           "bar",
+				"baz":           "overridden",
+			},
+			expectedConfig: map[string]any{
+				"foo": "bar",
+				"baz": "overridden",
+			},
+			capabilityConfig: capabilities.CapabilityConfiguration{
+				RestrictedKeys: []string{"restrictedXXX"},
+				DefaultConfig: &values.Map{
+					Underlying: map[string]values.Value{
+						"baz": values.NewString("qux"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(st *testing.T) {
+			bc, err := values.NewMap(tc.baseConfig)
+			require.NoError(t, err)
+			got := merge(bc, tc.capabilityConfig)
+			gotMap, err := got.Unwrap()
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedConfig, gotMap)
+		})
+	}
 }

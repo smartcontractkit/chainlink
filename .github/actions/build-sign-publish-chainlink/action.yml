@@ -45,6 +45,10 @@ inputs:
   aws-region:
     description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
     required: false
+  git-tag-type:
+    description: The type of git tag (core or ccip)
+    default: core
+    required: false
 
   # Inputs for signing
   sign-images:
@@ -70,6 +74,9 @@ runs:
     - name: Set shared variables
       shell: bash
       # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
+      env:
+        GIT_COMMIT_SHA: ${{ inputs.git-commit-sha }}
+        GIT_TAG_TYPE: ${{ inputs.git-tag-type }}
       run: |
         SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
         OIDC_ISSUER=https://token.actions.githubusercontent.com
@@ -82,10 +89,18 @@ runs:
         EOF
         )
 
-        SHARED_BUILD_ARGS=$(cat << EOF
-        COMMIT_SHA=${{ inputs.git-commit-sha }}
-        EOF
-        )
+        if [[ "${GIT_TAG_TYPE}" = "ccip" ]]; then
+          SHARED_BUILD_ARGS=$(cat << EOF
+          COMMIT_SHA=${GIT_COMMIT_SHA}
+          CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+          EOF
+          )
+        else
+          SHARED_BUILD_ARGS=$(cat << EOF
+          COMMIT_SHA=${GIT_COMMIT_SHA}
+          EOF
+          )
+        fi
 
         echo "shared-images<<EOF" >> $GITHUB_ENV
         echo "$SHARED_IMAGES" >> $GITHUB_ENV

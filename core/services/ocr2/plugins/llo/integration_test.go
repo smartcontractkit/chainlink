@@ -37,6 +37,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -383,7 +384,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "wsrpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolWSRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -477,6 +478,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
 			}
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
 				v := make(map[string]interface{})
 				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 				require.NoError(t, err)
@@ -599,7 +601,7 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "grpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -938,6 +940,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		}
 
 		for req := range reqs {
+			assert.Equal(t, uint32(llotypes.ReportFormatEVMABIEncodeUnpacked), req.ReportFormat)
 			v := make(map[string]interface{})
 			err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 			require.NoError(t, err)
@@ -1078,7 +1081,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, "grpc")
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -1129,6 +1132,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until blue produces a report
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1150,6 +1154,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until green produces the first "specimen" report
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1171,6 +1176,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for first non-specimen report for the newly promoted (green) instance
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1240,6 +1246,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				if i == 5 {
 					break
 				}
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1257,6 +1264,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until blue produces the first "specimen" report
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1277,6 +1285,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for first non-specimen report for the newly promoted (blue) instance
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1317,6 +1326,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until the first report for the new channel definition is produced
 
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
 				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
@@ -1344,10 +1354,10 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, transmissionMode string) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, transmitterProtocol config.MercuryTransmitterProtocol) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], transmissionMode)
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], transmitterProtocol)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,

@@ -253,7 +253,7 @@ func TestNewServices(t *testing.T) {
 
 	t.Run("restartable loop", func(t *testing.T) {
 		// setup a real loop registry to test restartability
-		registry := plugins.NewLoopRegistry(logger.TestLogger(t), nil, nil, nil, "")
+		registry := plugins.NewTestLoopRegistry(logger.TestLogger(t))
 		loopRegistrarConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, registry.Register, registry.Unregister)
 		prodCfg := mercuryocr2.NewMercuryConfig(1, 1, loopRegistrarConfig)
 		type args struct {

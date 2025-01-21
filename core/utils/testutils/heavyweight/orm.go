@@ -57,7 +57,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	tests.SkipShort(t, "FullTestDB")
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Dialect = pgcommon.Postgres
+		c.Database.DriverName = pgcommon.DriverPostgres
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}
@@ -66,7 +66,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := testdb.CreateOrReplace(gcfg.Database().URL(), generateName(), c != KindEmpty)
 	require.NoError(t, err)
-	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL, pgcommon.Postgres, gcfg.Database())
+	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL, pgcommon.DriverPostgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close()) // must close before dropping
@@ -75,7 +75,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	})
 
 	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Dialect = pgcommon.Postgres
+		c.Database.DriverName = pgcommon.DriverPostgres
 		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
 		if overrideFn != nil {
 			overrideFn(c, s)

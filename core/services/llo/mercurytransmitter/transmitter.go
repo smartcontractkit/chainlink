@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -102,7 +103,7 @@ type Transmitter interface {
 var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
-	Protocol() string
+	Protocol() config.MercuryTransmitterProtocol
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 	TransmitConcurrency() uint32

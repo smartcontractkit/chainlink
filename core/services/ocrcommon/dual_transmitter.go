@@ -123,6 +123,10 @@ func (t *ocr2FeedsDualTransmission) FromAddress(ctx context.Context) common.Addr
 	return forwarderAddress
 }
 
+func (t *ocr2FeedsDualTransmission) SecondaryFromAddress(ctx context.Context) (common.Address, error) {
+	return t.secondaryFromAddress, nil
+}
+
 func (t *ocr2FeedsDualTransmission) urlParams() string {
 	values := url.Values{}
 	for k, v := range t.secondaryMeta {
