@@ -25,7 +25,7 @@ const (
 	LokiLoadLabel  = "ccip_load_test"
 	ErrLokiClient  = "failed to create Loki client for monitoring"
 	ErrLokiPush    = "failed to push metrics to Loki"
-	tickerDuration = 10 * time.Second
+	tickerDuration = 30 * time.Second
 )
 
 // todo: Have a different struct for commit/exec?
@@ -176,6 +176,7 @@ func subscribeDeferredCommitEvents(
 				}
 			}
 			// if all chains have hit expected sequence numbers, return
+			// we could instead push complete chains to an incrementer and compare size
 			allComplete := true
 			for c := range completedSrcChains {
 				if !completedSrcChains[c] {
