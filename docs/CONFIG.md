@@ -3258,7 +3258,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3583,7 +3583,7 @@ Mode = 'BlockHistory'
 PriceDefault = '10 gwei'
 PriceMax = '10 micro'
 PriceMin = '2 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3598,7 +3598,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -3799,7 +3799,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '1 micro'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -4141,7 +4141,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -4234,7 +4234,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '1 micro'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -5778,7 +5778,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '100 micro'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -5901,10 +5901,9 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
@@ -6065,8 +6064,8 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 500
+ChainType = 'metis'
+FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -6129,16 +6128,12 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
-[GasEstimator.DAOracle]
-OracleType = 'opstack'
-OracleAddress = '0x420000000000000000000000000000000000000F'
-
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
+FinalityTagBypass = true
 PersistenceEnabled = true
 
 [NodePool]
@@ -8594,7 +8589,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>Holesky testnet (17000)</summary><p>
+<details><summary>Ethereum Holesky (17000)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -8640,7 +8635,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '1 micro'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -8655,10 +8650,9 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
@@ -8749,7 +8743,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '120 gwei'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -8764,10 +8758,9 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
@@ -8862,7 +8855,7 @@ Mode = 'BlockHistory'
 PriceDefault = '70 gwei'
 PriceMax = '2 micro'
 PriceMin = '70 gwei'
-LimitDefault = 2500000000
+LimitDefault = 100000000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -10032,7 +10025,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 200
+FinalityDepth = 900
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -10056,7 +10049,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
+ResendAfterThreshold = '3m0s'
 
 [Transactions.AutoPurge]
 Enabled = true
@@ -10072,25 +10065,25 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '2.5 micro'
-PriceMin = '1 gwei'
-LimitDefault = 8000000
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 wei'
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
 EstimateLimit = false
 BumpMin = '5 gwei'
-BumpPercent = 10
-BumpThreshold = 10
+BumpPercent = 20
+BumpThreshold = 3
 EIP1559DynamicFees = true
-FeeCapDefault = '2.5 micro'
-TipCapDefault = '5 gwei'
-TipCapMin = '1 gwei'
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
-CheckInclusionBlocks = 0
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
@@ -10098,7 +10091,7 @@ TransactionPercentile = 60
 CacheTimeout = '10s'
 
 [HeadTracker]
-HistoryDepth = 200
+HistoryDepth = 1000
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -10250,8 +10243,8 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 3000
+ChainType = 'metis'
+FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -10313,10 +10306,6 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'opstack'
-OracleAddress = '0x420000000000000000000000000000000000000F'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -10837,7 +10826,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '120 gwei'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -10852,10 +10841,9 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
@@ -12615,7 +12603,7 @@ Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '120 gwei'
 PriceMin = '1 gwei'
-LimitDefault = 8000000
+LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -12630,10 +12618,9 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 200
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-EIP1559FeeCapBufferBlocks = 0
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
