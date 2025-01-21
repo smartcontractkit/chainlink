@@ -30,12 +30,12 @@ func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.
 			defer wg.Done()
 			for _, n := range nodeInfo {
 
-				chainId, err := chainsel.ChainIdFromSelector(sel)
+				chainID, err := chainsel.ChainIdFromSelector(sel)
 				if err != nil {
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
 					continue
 				}
-				addr := common.HexToAddress(n.AccountAddr[chainId])
+				addr := common.HexToAddress(n.AccountAddr[chainID])
 				balance, err := chain.Client.BalanceAt(context.Background(), addr, nil)
 				if err != nil {
 					lggr.Errorw("error fetching balance for %s: %v\n", n.Name, err)
@@ -56,9 +56,9 @@ func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.
 				lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)
 				return
 			}
-			block := latesthdr.Number.Uint64()
+			block := latesthdr.Number
 
-			nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, big.NewInt(int64(block)))
+			nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, block)
 			if err != nil {
 				lggr.Warnw("could not get latest nonce for deployer key", "err", err)
 				return

@@ -228,6 +228,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			},
 		},
 	})
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
+	}
 
 	// Add all lanes
 	for src := range e.Chains {
