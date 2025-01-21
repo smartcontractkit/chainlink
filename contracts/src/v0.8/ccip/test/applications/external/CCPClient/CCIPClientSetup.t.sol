@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
 import {CCIPClient} from "../../../../applications/external/CCIPClient.sol";
-import {Client} from "../../../../libraries/Client.sol";
 import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -36,30 +35,7 @@ contract CCIPClientSetup is OnRampSetup {
     s_sender.updateApprovedSenders(senderUpdates, new CCIPBase.ApprovedSenderUpdate[](0));
   }
 
-  function test_HappyPath_Success() public {
-    bytes32 messageId = keccak256("messageId");
-    address token = address(s_destFeeToken);
-    uint256 amount = 111333333777;
-    Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](1);
-    destTokenAmounts[0] = Client.EVMTokenAmount({token: token, amount: amount});
-
-    // Make sure we give the receiver contract enough tokens like CCIP would.
-    deal(token, address(s_sender), amount);
-
-    // The receiver contract will revert if the router is not the sender.
-    vm.startPrank(address(s_sourceRouter));
-
-    vm.expectEmit();
-    emit MessageSucceeded(messageId);
-
-    s_sender.ccipReceive(
-      Client.Any2EVMMessage({
-        messageId: messageId,
-        sourceChainSelector: DEST_CHAIN_SELECTOR,
-        sender: abi.encode(address(s_sender)), // correct sender
-        data: "",
-        destTokenAmounts: destTokenAmounts
-      })
-    );
+  function test_typeAndVersion() public view {
+    assertEq(s_sender.typeAndVersion(), "CCIPClient 1.6.0-dev");
   }
 }

@@ -20,17 +20,13 @@ abstract contract CCIPBase is OwnerIsCreator {
   error InvalidSender(bytes sender);
   error InvalidRecipient(bytes recipient);
 
-  event CCIPRouterModified(address indexed oldRouter, address indexed newRouter);
-  event TokensWithdrawnByOwner(address indexed token, address indexed to, uint256 amount);
-
   // Parameters are indexed to simplify indexing of cross-chain dapps where contracts may be deployed with the same address.
   // Since the updateApprovedSenders() function should be used sparingly by the contract owner, the additional gas cost
-  // should be negligible. If this function is needed to be used constantly, or with a large number of
-  // contracts, then an alternative and more gas-efficient method should be implemented instead, e.g. with merkle trees
-  // or removing the indexed parameters
+  // should be negligible.
   event ApprovedSenderAdded(uint64 indexed destChainSelector, bytes indexed recipient);
   event ApprovedSenderRemoved(uint64 indexed destChainSelector, bytes indexed recipient);
-
+  event CCIPRouterModified(address indexed oldRouter, address indexed newRouter);
+  event TokensWithdrawnByOwner(address indexed token, address indexed to, uint256 amount);
   event ChainAdded(uint64 indexed remoteChainSelector, bytes indexed recipient, bytes extraArgsBytes);
   event ChainRemoved(uint64 indexed removeChainSelector);
 
@@ -40,16 +36,17 @@ abstract contract CCIPBase is OwnerIsCreator {
   }
 
   struct ChainUpdate {
-    uint64 chainSelector; // ─╮ The unique CCIP specific identifier for a chain to send/receive messages
-    bool allowed; //   ───────╯ Whether the chain should be enabled
-    bytes recipient; // Address on the remote chain which should receive incoming messages from this. There should only be one per-chain
-    bytes extraArgsBytes; // Additional arguments to pass with the message including manually specifying gas limit and and whether to allow out-of-order execution
+    uint64 chainSelector; // ─╮ The unique CCIP specific identifier for a chain to send/receive messages.
+    bool allowed; // ─────────╯ Whether the chain should be enabled/disabled.
+    bytes recipient; // Address on the remote chain which receives incoming messages. There should only be one per-chain.
+    bytes extraArgsBytes; // Additional arguments to pass with every outgoing message to a specific chain.
   }
 
   struct RemoteChainConfig {
-    bytes recipient; // The address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
-    bytes extraArgsBytes; // Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
-    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support work-flows where Dapps
+    bytes recipient; // The address to send messages to on the destination chain.
+    bytes extraArgsBytes; // Specifies extraArgs to pass into ccipSend. It will be applied to every outgoing message
+    // for a specific chain by default.
+    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support workflows where Dapps
       // may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
   }
 
@@ -74,6 +71,8 @@ abstract contract CCIPBase is OwnerIsCreator {
   }
 
   /// @notice Return the recipient and extra args configs for a remote chain selector
+  /// @dev Since RemoteChainConfig contains a nested mapping, the full struct cannot be returned, so the recipient and
+  /// extraArgsBytes are returned separately, and isApprovedSender should be retrieved using the appropriate function.
   /// @param remoteChainSelector the unique CCIP specific identifier for a chain to send/receive messages
   /// @return recipient the address to send messages to on the destination chain, ABI encoded in the case of a remote EVM chain.
   /// @return extraArgsBytes Specifies extraArgs to pass into ccipSend, includes configs such as gas limit, and out-of-order execution.
@@ -89,6 +88,8 @@ abstract contract CCIPBase is OwnerIsCreator {
 
   /// @notice modify the list of approved source chain contracts which can send messages to this contract through CCIP
   /// @dev removes are executed before additions, so a contract present in both will be approved at the end of execution
+  /// @param adds an array of ApprovedSenderUpdate structs to add to the approved senders list
+  /// @param removes an array of ApprovedSenderUpdate structs to remove from the approved senders list
   function updateApprovedSenders(
     ApprovedSenderUpdate[] calldata adds,
     ApprovedSenderUpdate[] calldata removes
@@ -96,14 +97,12 @@ abstract contract CCIPBase is OwnerIsCreator {
     for (uint256 i = 0; i < removes.length; ++i) {
       delete s_chainConfigs[removes[i].destChainSelector].approvedSender[removes[i].sender];
 
-      // Third parameter is false to indicate that the sender's previous approval is being revoked, to improve off-chain event indexing
       emit ApprovedSenderRemoved(removes[i].destChainSelector, removes[i].sender);
     }
 
     for (uint256 i = 0; i < adds.length; ++i) {
       s_chainConfigs[adds[i].destChainSelector].approvedSender[adds[i].sender] = true;
 
-      // Third parameter is true to indicate that the sender is being approved, to improve off-chain event indexing
       emit ApprovedSenderAdded(adds[i].destChainSelector, adds[i].sender);
     }
   }
@@ -131,6 +130,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @dev This should NOT be used for recovering tokens from a failed message. Token recoveries can happen only if
   /// the failed message is guaranteed to not succeed upon retry, otherwise this can lead to double spend.
   /// For implementation of token recovery, see inheriting contracts.
+  /// @param token The address of the token to recover, or address(0) for native tokens
   /// @param to A payable address to send the recovered tokens to
   /// @param amount the amount of tokens (or native) to recover, denominated in wei
   function withdrawTokens(address token, address to, uint256 amount) external onlyOwner {
@@ -148,14 +148,14 @@ abstract contract CCIPBase is OwnerIsCreator {
   // ================================================================
 
   /// @notice Updates the address of the CCIP router to send/receive messages.
-  /// @dev function will can only be called by the owner, and should only be used in emergencies if the current CCIP Router is deprecated.
+  /// @dev function will can only be called by the owner, and should only be used in emergencies if the current CCIP
+  /// Router is deprecated.
   /// @param newRouter the address of the new router, cannot be the zero address.
   function updateRouter(
     address newRouter
   ) external onlyOwner {
     if (newRouter == address(0)) revert ZeroAddressNotAllowed();
 
-    // Store the old router in memory to emit event
     address currentRouter = s_ccipRouter;
 
     s_ccipRouter = newRouter;
@@ -164,6 +164,8 @@ abstract contract CCIPBase is OwnerIsCreator {
   }
 
   /// @notice Enable a remote-chain to send and receive messages to/from this contract via CCIP
+  /// @param chains an array of ChainUpdate structs to apply to the contract.
+  ///
   function applyChainUpdates(
     ChainUpdate[] calldata chains
   ) external onlyOwner {
@@ -171,6 +173,7 @@ abstract contract CCIPBase is OwnerIsCreator {
       ChainUpdate memory chain = chains[i];
 
       if (!chain.allowed) {
+        // The existence of a recipient is used to denote a chain enablement, so deleting the recipient will disable the chain
         delete s_chainConfigs[chain.chainSelector].recipient;
         emit ChainRemoved(chain.chainSelector);
       } else {
@@ -179,7 +182,7 @@ abstract contract CCIPBase is OwnerIsCreator {
 
         s_chainConfigs[chain.chainSelector].recipient = chain.recipient;
 
-        // Set any additional args such as enabling out-of-order execution or manual gas-limit
+        // Set any additional args for the chain, to be used for every outgoing message.
         s_chainConfigs[chain.chainSelector].extraArgsBytes = chain.extraArgsBytes;
 
         emit ChainAdded(chain.chainSelector, chain.recipient, chain.extraArgsBytes);
@@ -198,6 +201,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   modifier isValidChain(
     uint64 chainSelector
   ) virtual {
+    // The absence of a recipient is used to denote a disabled chain, so revert if the recipient is not set.
     if (s_chainConfigs[chainSelector].recipient.length == 0) revert InvalidChain(chainSelector);
     _;
   }

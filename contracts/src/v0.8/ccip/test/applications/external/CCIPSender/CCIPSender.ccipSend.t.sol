@@ -135,4 +135,8 @@ contract CCIPSender_ccipSend is OnRampSetup {
     assertEq(IERC20(token).balanceOf(OWNER), tokenBalanceBefore - amount);
     assertEq(OWNER.balance, nativeFeeTokenBalanceBefore - feeTokenAmount);
   }
+
+  function test_typeAndVersion() public view {
+    assertEq(s_sender.typeAndVersion(), "CCIPSender 1.6.0-dev");
+  }
 }

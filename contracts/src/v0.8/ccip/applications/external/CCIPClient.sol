@@ -19,6 +19,9 @@ contract CCIPClient is CCIPReceiver {
   event FeeTokenUpdated(address oldFeeToken, address newFeeToken);
 
   IERC20 internal s_feeToken;
+
+  /// @notice Pre-funding indicates that the contract should use funds already in its posession to pay CCIP fees.
+  /// If prefunding is disabled then fee tokens will need to be transferred from the msg.sender before sending a message.
   bool internal immutable i_isPreFunded;
 
   /// @dev A check for the zero-address is not explicitly performed since it is included in the CCIPBase parent constructor
@@ -27,9 +30,14 @@ contract CCIPClient is CCIPReceiver {
     s_feeToken = feeToken;
     i_isPreFunded = usePreFunding;
 
+    // Approve the router to spend the fee token
     if (address(feeToken) != address(0)) {
       IERC20(feeToken).safeApprove(s_ccipRouter, type(uint256).max);
     }
+  }
+
+  function typeAndVersion() external pure virtual override returns (string memory) {
+    return "CCIPClient 1.6.0-dev";
   }
 
   /// @notice sends a message through CCIP to the router
@@ -53,6 +61,8 @@ contract CCIPClient is CCIPReceiver {
 
     uint256 fee = IRouterClient(s_ccipRouter).getFee(destChainSelector, message);
 
+    // If the fee token is not native, and the contract is not pre-funded, transfer the fee from the sender
+    // before sending the message to the router.
     if (!usePreFundedFeeTokens() && address(s_feeToken) != address(0)) {
       IERC20(s_feeToken).safeTransferFrom(msg.sender, address(this), fee);
     }
@@ -61,14 +71,15 @@ contract CCIPClient is CCIPReceiver {
       // Transfer the tokens specified in TokenAmounts[] so that it can be forwarded to the router
       IERC20(tokenAmounts[i].token).safeTransferFrom(msg.sender, address(this), tokenAmounts[i].amount);
 
-      // Do not approve the tokens if it is the feeToken, otherwise the approval amount may overflow
+      // Grant the router an approval for the tokens, but only if the token is not the fee token. If the fee token
+      // is attempted to be approved, it may overwrite a necessary approval granted to the router when the fee
+      // token was set.
       if (tokenAmounts[i].token != address(s_feeToken)) {
         IERC20(tokenAmounts[i].token).safeApprove(s_ccipRouter, tokenAmounts[i].amount);
       }
     }
 
-    // messageId is only generated in the on-ramp, and therefore cannot be calculated head of time.
-    // This necessitates breaking CEI but since the router is a trusted contract, any risks are negligible.
+    // Send the message to the router using native tokens if the fee token is address(0).
     messageId = IRouterClient(s_ccipRouter).ccipSend{value: address(s_feeToken) == address(0) ? fee : 0}(
       destChainSelector, message
     );
@@ -79,7 +90,9 @@ contract CCIPClient is CCIPReceiver {
   }
 
   /// @notice Update the address of the token used to pay for CCIP fees.
-  /// @param token the token address, the zero address should be used if fees should be paid with native tokens
+  /// @dev If the fee token is not native, the contract will make an external call to the token to set a max possible
+  /// allowance to the router, as well as revoking approvals for the current token.
+  /// @param token the token address, the zero address should be used if fees should be paid with native tokens.
   function updateFeeToken(
     address token
   ) external onlyOwner {

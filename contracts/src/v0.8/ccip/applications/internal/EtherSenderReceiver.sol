@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-
 import {IRouterClient} from "../../interfaces/IRouterClient.sol";
 import {IWrappedNative} from "../../interfaces/IWrappedNative.sol";
 

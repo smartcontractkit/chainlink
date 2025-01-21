@@ -8,7 +8,6 @@ import {CCIPBase} from "./CCIPBase.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
@@ -38,6 +37,10 @@ contract CCIPReceiver is CCIPBase {
     address router
   ) CCIPBase(router) {}
 
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "CCIPReceiver 1.6.0-dev";
+  }
+
   // ================================================================
   // │                  Incoming Message Processing                 |
   // ================================================================
@@ -45,7 +48,7 @@ contract CCIPReceiver is CCIPBase {
   /// @notice The entrypoint for the CCIP router to call. This function should
   /// not revert, all errors should be handled internally in this contract.
   /// @param message The message to process.
-  /// @dev Extremely important to ensure only router calls this.
+  /// @dev Only the router may call this function.
   function ccipReceive(
     Client.Any2EVMMessage calldata message
   ) external virtual onlyRouter isValidChain(message.sourceChainSelector) {
@@ -56,10 +59,10 @@ contract CCIPReceiver is CCIPBase {
       // actual message state and any residual errors can be tracked within the dapp.
       s_failedMessages.add(message.messageId);
 
-      // Store the message contents in case it needs to be retried or abandoned
+      // Store the message contents in case it needs to be retried or abandoned.
       s_messageContents[message.messageId] = message;
 
-      // Don't revert because CCIPRouter doesn't revert. Emit event instead.
+      // Do not revert because CCIPRouter doesn't revert. Emit event instead.
       // The message can be retried or abandoned later without having to do manual execution of CCIP, which should
       // be reserved for retrying with a higher gas limit.
       emit MessageFailed(message.messageId, err);
@@ -70,7 +73,8 @@ contract CCIPReceiver is CCIPBase {
   }
 
   /// @notice Contains arbitrary application-logic for incoming CCIP messages.
-  /// @dev It has to be external because of the try/catch of ccipReceive() which invokes it
+  /// @dev It has to be external because of the try/catch of ccipReceive() which invokes it.
+  /// @dev The function is marked virtual, and should be overridden by the developer to implement custom logic.
   function processMessage(
     Client.Any2EVMMessage calldata message
   ) external virtual onlySelf isValidSender(message.sourceChainSelector, message.sender) {}
@@ -86,40 +90,40 @@ contract CCIPReceiver is CCIPBase {
   function retryFailedMessage(
     bytes32 messageId
   ) external virtual {
+    // Ensure that the message has already failed before retrying.
     if (!s_failedMessages.contains(messageId)) revert MessageNotFailed(messageId);
 
     // Allow developer to implement arbitrary functionality on retried messages, such as just releasing the associated
-    // tokens
+    // tokens.
     Client.Any2EVMMessage memory message = s_messageContents[messageId];
 
     // Set remove the message from storage to disallow reentry and retry the same failed message multiple times.
     delete s_messageContents[messageId];
     s_failedMessages.remove(messageId);
 
-    // Allow the user override the implementation, since different workflow may be desired for retrying a message
+    // Allow the user override the implementation, since different workflow may be desired for retrying a message.
     _retryFailedMessage(message);
 
     emit MessageRecovered(messageId);
   }
 
   /// @notice A function that should contain any special logic needed to "retry" processing of a previously failed message.
-  /// @dev If the owner wants to retrieve tokens without special logic, then abandonFailedMessage(), withdrawNativeTokens(), or withdrawTokens() should be used instead
-  /// This function is marked onlyOwner, but is virtual. Allowing permissionless execution is not recommended but may be allowed if function is overridden
+  /// @dev If the owner wants to retrieve tokens without special logic, then abandonFailedMessage(), withdrawNativeTokens(),
+  /// or withdrawTokens() should be used instead. This function is marked onlyOwner, but is virtual. Allowing permissionless execution is not recommended but may be allowed if function is overridden.
   function _retryFailedMessage(
     Client.Any2EVMMessage memory message
   ) internal virtual onlyOwner {
     this.processMessage(message);
   }
 
-  /// @notice Should be used to recover tokens from a failed message, while ensuring the message cannot be retried
+  /// @notice Should be used to recover tokens from a failed message, while ensuring the message cannot be retried.
   /// @dev function will send tokens to destination, but will NOT invoke any arbitrary logic afterwards.
-  /// function is only callable by the contract owner
   function abandonFailedMessage(bytes32 messageId, address receiver) external onlyOwner {
     if (!s_failedMessages.contains(messageId)) revert MessageNotFailed(messageId);
 
     Client.EVMTokenAmount[] memory tokenAmounts = s_messageContents[messageId].destTokenAmounts;
 
-    // Follow CEI and remove failed message from state before transferring in case of ERC-667 external calls
+    // Follow CEI and remove failed message from state before transferring in case of ERC-667 external calls.
     delete s_messageContents[messageId];
     s_failedMessages.remove(messageId);
 
@@ -150,8 +154,9 @@ contract CCIPReceiver is CCIPBase {
   // │                  Message Tracking                            │
   // ================================================================
 
-  /// @param messageId the ID of the message delivered by the CCIP Router
-  /// @return Any2EVMMessage a standard CCIP message for EVM-compatible networks
+  /// @notice Retrieve the contents of a message delivered by the CCIP Router.
+  /// @param messageId the ID of the message delivered by the CCIP Router.
+  /// @return Any2EVMMessage a standard CCIP message for EVM-compatible networks.
   function getMessageContents(
     bytes32 messageId
   ) public view returns (Client.Any2EVMMessage memory) {
@@ -159,8 +164,8 @@ contract CCIPReceiver is CCIPBase {
   }
 
   /// @notice Retrieve whether a message delivered by the CCIP router failed to process properly.
-  /// @dev Querying this function with message which was successfully retried or abandoned will return false
-  /// @param messageId the ID of the message delivered by the CCIP Router
+  /// @dev Querying this function with message which was successfully retried or abandoned will return false.
+  /// @param messageId the ID of the message delivered by the CCIP Router.
   /// @return bool Whether the previously-delivered message failed to process.
   function isFailedMessage(
     bytes32 messageId

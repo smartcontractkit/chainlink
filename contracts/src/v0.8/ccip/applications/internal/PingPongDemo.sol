@@ -30,7 +30,7 @@ contract PingPongDemo is CCIPClient {
   // CCIPClient will handle the token approval so there's no need to do it here
   constructor(address router, IERC20 feeToken) CCIPClient(router, feeToken, true) {}
 
-  function typeAndVersion() external pure virtual returns (string memory) {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "PingPongDemo 1.6.0-dev";
   }
 
@@ -72,6 +72,9 @@ contract PingPongDemo is CCIPClient {
   // │                     Admin Functions                          │
   // ================================================================
 
+  /// @notice Set the counterpart chain selector and address
+  /// @param counterpartChainSelector The chain ID of the counterpart ping pong contract
+  /// @param counterpartAddress The contract address of the counterpart ping pong contract
   function setCounterpart(uint64 counterpartChainSelector, address counterpartAddress) external onlyOwner {
     if (counterpartAddress == address(0) || counterpartChainSelector == 0) revert ZeroAddressNotAllowed();
 
@@ -85,6 +88,8 @@ contract PingPongDemo is CCIPClient {
     s_chainConfigs[counterpartChainSelector].recipient = abi.encode(counterpartAddress);
   }
 
+  /// @notice Set the paused state
+  /// @param pause The new paused state
   function setPaused(
     bool pause
   ) external onlyOwner {
@@ -95,22 +100,34 @@ contract PingPongDemo is CCIPClient {
   // │                      State Management                        │
   // ================================================================
 
+  /// @notice Get the counterpart chain selector
+  /// @return The counterpart chain selector
   function getCounterpartChainSelector() external view returns (uint64) {
     return s_counterpartChainSelector;
   }
 
+  /// @notice Get the counterpart address
+  /// @return counterpart address
   function getCounterpartAddress() external view returns (address) {
     return s_counterpartAddress;
   }
 
+  /// @notice Get the paused state
+  /// @return The paused state
   function isPaused() external view returns (bool) {
     return s_isPaused;
   }
 
+  /// @notice Get the out of order execution flag
+  /// @return The out of order execution flag
   function getOutOfOrderExecution() external view virtual returns (bool) {
     return s_allowOutOfOrderExecution;
   }
 
+  /// @notice Set the out of order execution flag as part of the extraArgsBytes for the chain configuration.
+  /// @dev The OOO execution is part of a chain's extraArgsBytes, which is set for the counterpartChainSelector also using
+  /// the OnRamp's default gas limit.
+  /// @param outOfOrderExecution The new out of order execution flag.
   function setOutOfOrderExecution(
     bool outOfOrderExecution
   ) external virtual onlyOwner {
@@ -120,8 +137,9 @@ contract PingPongDemo is CCIPClient {
     s_allowOutOfOrderExecution = outOfOrderExecution;
 
     address onRamp = IRouter(s_ccipRouter).getOnRamp(s_counterpartChainSelector);
-    // OnRamp.StaticConfig memory staticConfig = OnRamp(onRamp).getStaticConfig();
 
+    // Get the destination chain selector's default gas limit from the on-ramp, and apply it to the chain configuration's
+    // extraArgsBytes field.
     address feeQuoter = OnRamp(onRamp).getDynamicConfig().feeQuoter;
     uint64 defaultTxGasLimit = FeeQuoter(feeQuoter).getDestChainConfig(s_counterpartChainSelector).defaultTxGasLimit;
 
