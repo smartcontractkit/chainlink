@@ -15,16 +15,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/maps"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -1045,29 +1042,4 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet 
 		lggr.Debugw("configured forwarder", "forwarder", fwdr.Address().String(), "donId", dn.Info.Id, "version", ver, "f", dn.Info.F, "signers", signers)
 	}
 	return opMap, nil
-}
-
-func GetDefaultCapConfig(capability capabilities_registry.CapabilitiesRegistryCapability) *capabilitiespb.CapabilityConfig {
-	defaultCfg := &capabilitiespb.CapabilityConfig{
-		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-	}
-	switch capability.CapabilityType {
-	case uint8(0): // trigger
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefresh:     durationpb.New(20 * time.Second),
-				RegistrationExpiry:      durationpb.New(60 * time.Second),
-				MinResponsesToAggregate: uint32(10),
-			},
-		}
-	case uint8(3): // target
-		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
-			},
-		}
-	case uint8(2): // consensus
-	default:
-	}
-	return defaultCfg
 }

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -222,7 +224,7 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 			out = append(out, internal.RegisteredCapability{
 				CapabilitiesRegistryCapability: c,
 				ID:                             id,
-				Config:                         internal.GetDefaultCapConfig(c),
+				Config:                         GetDefaultCapConfig(t, c),
 			})
 			continue
 		}
@@ -251,7 +253,7 @@ func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Cha
 		out = append(out, internal.RegisteredCapability{
 			CapabilitiesRegistryCapability: capb,
 			ID:                             id,
-			Config:                         internal.GetDefaultCapConfig(capb),
+			Config:                         GetDefaultCapConfig(t, capb),
 		})
 		// cache the id
 		cc.nameToId[internal.CapabilityID(capb)] = id
@@ -294,4 +296,30 @@ func MustCapabilityId(t *testing.T, registry *capabilities_registry.Capabilities
 	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
 	require.NoError(t, err)
 	return id
+}
+
+func GetDefaultCapConfig(t *testing.T, capability capabilities_registry.CapabilitiesRegistryCapability) *capabilitiespb.CapabilityConfig {
+	t.Helper()
+	defaultCfg := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+	switch capability.CapabilityType {
+	case uint8(0): // trigger
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(20 * time.Second),
+				RegistrationExpiry:      durationpb.New(60 * time.Second),
+				MinResponsesToAggregate: uint32(10),
+			},
+		}
+	case uint8(3): // target
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+			},
+		}
+	case uint8(2): // consensus
+	default:
+	}
+	return defaultCfg
 }

@@ -97,10 +97,10 @@ func TestUpdateDon(t *testing.T) {
 		}
 	)
 
-	initialCapCfg := internal.GetDefaultCapConfig(initialCap)
+	initialCapCfg := kstest.GetDefaultCapConfig(t, initialCap)
 	initialCapCfgB, err := proto.Marshal(initialCapCfg)
 	require.NoError(t, err)
-	capToAddCfg := internal.GetDefaultCapConfig(capToAdd)
+	capToAddCfg := kstest.GetDefaultCapConfig(t, capToAdd)
 	capToAddCfgB, err := proto.Marshal(capToAddCfg)
 	require.NoError(t, err)
 
