@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
 	"github.com/stretchr/testify/require"
 
 	"context"
@@ -32,10 +30,10 @@ var (
 
 // step 1: setup
 // Parse the test config, initialize CRIB with configurations defined
-// step 2: load
+// step 2: subscribe
+// Create event subscribers on the offramp
+// step 3: load
 // Use wasp to initiate load
-// step 3: parse logs
-// Parse all events from the simulated chains, send to Loki
 // step 4: teardown
 // Stop the chains, cleanup the environment
 func TestCCIPLoad_RPS(t *testing.T) {
@@ -153,9 +151,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	_, err = p.Run(true)
 
-	// wait for offchain to complete handling load fully
-	execExpectedSeqNums := make(map[testhelpers.SourceDestPair][]uint64)
-	commitExepectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
 	for destSel, gun := range gunMap {
 		for csPair, seqNums := range gun.seqNums {
 			lggr.Debugw("pushing finalized sequence numbers for ",
@@ -180,104 +175,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		defer close(finalSeqNrCommitChannels[destSel])
 		defer close(finalSeqNrExecChannels[destSel])
 	}
-
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, *env, state, commitExepectedSeqNums, startBlocks)
-	testhelpers.ConfirmExecWithSeqNrsForAll(t, *env, state, execExpectedSeqNums, startBlocks)
-
-	// wait for offchain to complete handling load fully
-	//execExpectedSeqNums := make(map[ccipchangeset.SourceDestPair][]uint64)
-	//commitExepectedSeqNums := make(map[ccipchangeset.SourceDestPair]uint64)
-	//for _, gun := range gunMap {
-	//	for csPair := range gun.seqNums {
-	//		commitExepectedSeqNums[csPair] = gun.seqNums[csPair].End.Load()
-	//		for i := gun.seqNums[csPair].Start.Load(); i <= gun.seqNums[csPair].End.Load(); i++ {
-	//			execExpectedSeqNums[csPair] = append(execExpectedSeqNums[csPair], i)
-	//		}
-	//	}
-	//}
-
-	//ccipchangeset.ConfirmCommitForAllWithExpectedSeqNums(t, *env, state, commitExepectedSeqNums, startBlocks)
-	//ccipchangeset.ConfirmExecWithSeqNrsForAll(t, *env, state, execExpectedSeqNums, startBlocks)
-
-	// todo: create channels that subscribe to these events beforehand using WatchExecutionStateChanged and WatchCommitReportAccepted
-	//lokiLabels := map[string]string{}
-	//for chainSelector, startBlock := range startBlocks {
-	//	filterOpts := &bind.FilterOpts{
-	//		Start:   *startBlock,
-	//		End:     nil, // To the latest block
-	//		Context: ctx,
-	//	}
-
-	//wg.Add(1)
-	//go func(chainSelector uint64, startBlock *uint64, filterOpts *bind.FilterOpts) {
-	//	defer wg.Done()
-	//	lggr.Infow("Starting to query for events on ", "chainSelector", chainSelector, "startblock", startBlock)
-	//	latesthdr, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, nil)
-	//	require.NoError(t, err)
-	//	lggr.Infow("Current block number", "chainSelector", chainSelector, "block", latesthdr.Number.Uint64())
-	//
-	//	offRamp := state.Chains[chainSelector].OffRamp
-	//	// Filter CommitReportAccepted events
-	//	commitIterator, err := offRamp.FilterCommitReportAccepted(filterOpts)
-	//	require.NoError(t, err)
-	//
-	//	for commitIterator.Next() {
-	//		event := commitIterator.Event
-	//
-	//		blockNum := commitIterator.Event.Raw.BlockNumber
-	//		header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
-	//		require.NoError(t, err)
-	//		timestamp := time.Unix(int64(header.Time), 0)
-	//
-	//		for _, root := range event.MerkleRoots {
-	//			lokiLabels, err = setLokiLabels(root.SourceChainSelector, chainSelector)
-	//			require.NoError(t, err)
-	//
-	//			for i := root.MinSeqNr; i <= root.MaxSeqNr; i++ {
-	//				SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
-	//					EventType:      committed,
-	//					Timestamp:      timestamp,
-	//					SequenceNumber: i,
-	//				})
-	//				lggr.Infow("pushed loki commit event for ", "seqNumber", i, "src", root.SourceChainSelector, "dest", chainSelector)
-	//
-	//			}
-	//		}
-	//	}
-	//}(chainSelector, startBlock, filterOpts)
-
-	//for sourceCS := range env.Chains {
-	//	wg.Add(1)
-	//	go func(srcSelector uint64, startBlock *uint64, filterOpts *bind.FilterOpts) {
-	//		defer wg.Done()
-	//		csPair := ccipchangeset.SourceDestPair{
-	//			SourceChainSelector: srcSelector,
-	//			DestChainSelector:   chainSelector,
-	//		}
-	//		// Filter ExecutionStateChanged events
-	//		execIterator, err := state.Chains[chainSelector].OffRamp.FilterExecutionStateChanged(filterOpts, []uint64{srcSelector}, execExpectedSeqNums[csPair], nil)
-	//		require.NoError(t, err)
-	//
-	//		for execIterator.Next() {
-	//			blockNum := execIterator.Event.Raw.BlockNumber
-	//			header, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
-	//			require.NoError(t, err)
-	//			timestamp := time.Unix(int64(header.Time), 0)
-	//
-	//			lokiLabels, err = setLokiLabels(execIterator.Event.SourceChainSelector, chainSelector)
-	//			require.NoError(t, err)
-	//
-	//			SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
-	//				EventType:      executed,
-	//				Timestamp:      timestamp,
-	//				GasUsed:        execIterator.Event.GasUsed.Uint64(),
-	//				SequenceNumber: execIterator.Event.SequenceNumber,
-	//			})
-	//			lggr.Infow("pushed loki exec event for ", "seqNumber", execIterator.Event.SequenceNumber, "src", execIterator.Event.SourceChainSelector, "dest", chainSelector)
-	//		}
-	//	}(sourceCS, startBlock, filterOpts)
-	//}
-	//}
 
 	wg.Wait()
 	lggr.Infow("finished wait group")
