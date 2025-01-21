@@ -88,7 +88,10 @@ func DeviatesOnGasCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) b
 	xNewFloat := new(big.Float).SetInt(xNew)
 	xNewFloat64, _ := xNewFloat.Float64()
 
-	// Calculate the deviation threshold percentage with xNew using the formula: y = (10e11) / (x^0.665)
+	// Calculate the deviation threshold percentage with xNew using the formula: y = (10e11) / (xNew^0.665)
+	// We use xNew to generate the threshold so that when going from cheap --> expensive, xNew generates a smaller
+	// deviation threshold so we are more likely to update the gas price on chain. When going from expensive --> cheap,
+	// xNew generates a larger deviation threshold since it's not as urgent to update the gas price on chain.
 	const constantFactor = 10e11
 	const exponent = 0.665
 	xNewPower := math.Pow(xNewFloat64, exponent)
