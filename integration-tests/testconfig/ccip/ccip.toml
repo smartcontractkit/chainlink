@@ -250,7 +250,7 @@ MessageTypeWeights = [100,0,0]
 RequestFrequency = "10s"
 LoadDuration = "1m"
 # test duration
-TestDuration = "10m"
+TestDuration = "5h"
 # destination chain selectors to send messages to
 EnabledDestionationChains = [3379446385462418246]
 # Directory where we receive environment configuration from crib
