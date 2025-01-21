@@ -1,4 +1,4 @@
-package changeset_test
+package ccip
 
 import (
 	"testing"
@@ -120,7 +120,7 @@ func TestRMNCurseIdempotent(t *testing.T) {
 
 func TestRMNUncurseIdempotent(t *testing.T) {
 	for _, tc := range testCases {
-		t.Run(tc.name+"_UNCURESE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
+		t.Run(tc.name+"_UNCURSE_IDEMPOTENT_NO_MCMS", func(t *testing.T) {
 			runRmnUncurseIdempotentTest(t, tc)
 		})
 	}
@@ -172,7 +172,14 @@ func runRmnUncurseTest(t *testing.T, tc CurseTestCase) {
 
 func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state changeset.CCIPOnChainState, timelocksPerChain map[uint64]*proposalutils.TimelockExecutionContracts) {
 	contractsByChain := make(map[uint64][]common.Address)
-	rmnRemoteAddressesByChain := buildRMNRemoteAddressPerChain(e.Env, state)
+	rmnRemotePerChain := changeset.BuildRMNRemotePerChain(e.Env, state)
+	rmnRemoteAddressesByChain := make(map[uint64]common.Address)
+	for chain, remote := range rmnRemotePerChain {
+		if remote == nil {
+			continue
+		}
+		rmnRemoteAddressesByChain[chain] = remote.Address()
+	}
 	for chainSelector, rmnRemoteAddress := range rmnRemoteAddressesByChain {
 		contractsByChain[chainSelector] = []common.Address{rmnRemoteAddress}
 	}
