@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/fees"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -27,7 +27,7 @@ type TxStore[
 	// Represents the sequence type for a chain. For example, nonce for EVM.
 	SEQ types.Sequence,
 	// Represents the chain specific fee type
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	UnstartedTxQueuePruner
 	TxHistoryReaper[CHAIN_ID]
@@ -61,7 +61,7 @@ type TransactionStore[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	SEQ types.Sequence,
-	FEE feetypes.Fee,
+	FEE fees.Fee,
 ] interface {
 	CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (count uint32, err error)
 	CountTransactionsByState(ctx context.Context, state TxState, chainID CHAIN_ID) (count uint32, err error)

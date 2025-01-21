@@ -129,7 +129,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 
 	pm2, _ := bootstrapPersistenceManager(t, jobID2, db)
 	for i := 0; i < 20; i++ {
-		err := pm2.Insert(ctx, &pb.TransmitRequest{Payload: reports[i]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: uint32(i)}})
+		err := pm2.Insert(ctx, &pb.TransmitRequest{Payload: reports[i]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: uint32(i)}}) //nolint:gosec // G115
 		require.NoError(t, err)
 	}
 

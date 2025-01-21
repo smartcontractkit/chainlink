@@ -27,10 +27,10 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	resp := workflowregistry.SetupTestWorkflowRegistry(t, lggr, chainSel)
 	registry := resp.Registry
 
-	dons, err := registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err := registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Empty(t, dons)
+	assert.Empty(t, authorizedAddresses)
 
 	env := deployment.Environment{
 		Logger: lggr,
@@ -51,11 +51,11 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dons, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Len(t, dons, 1)
-	assert.Equal(t, dons[0], common.HexToAddress(addr))
+	assert.Len(t, authorizedAddresses, 1)
+	assert.Equal(t, authorizedAddresses[0], common.HexToAddress(addr))
 
 	_, err = workflowregistry.UpdateAuthorizedAddresses(
 		env,
@@ -67,10 +67,10 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dons, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
+	authorizedAddresses, err = registry.GetAllAuthorizedAddresses(&bind.CallOpts{})
 	require.NoError(t, err)
 
-	assert.Empty(t, dons)
+	assert.Empty(t, authorizedAddresses)
 }
 
 func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {

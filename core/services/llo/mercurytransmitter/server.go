@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -92,7 +92,7 @@ type server struct {
 
 	transmitTimeout time.Duration
 
-	c  wsrpc.Client
+	c  grpc.Client
 	pm *persistenceManager
 	q  TransmitQueue
 
@@ -121,7 +121,7 @@ type QueueConfig interface {
 	TransmitTimeout() commonconfig.Duration
 }
 
-func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client wsrpc.Client, orm ORM, serverURL string) *server {
+func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
 	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), flushDeletesFrequency, pruneFrequency)
 	donIDStr := fmt.Sprintf("%d", pm.DonID())
 	var codecLggr logger.Logger
@@ -248,17 +248,23 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 			s.transmitThreadBusyCountInc()
 			defer s.transmitThreadBusyCountDec()
 
-			req, res, err := func(ctx context.Context) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
+			req, res, err := func(ctx context.Context) (*rpc.TransmitRequest, *rpc.TransmitResponse, error) {
 				ctx, cancelFn := context.WithTimeout(ctx, utils.WithJitter(s.transmitTimeout))
 				defer cancelFn()
 				return s.transmit(ctx, t)
 			}(ctx)
+
+			lggr := s.lggr.With("transmission", t, "response", res, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+			if req != nil {
+				lggr = s.lggr.With("req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat)
+			}
+
 			if ctx.Err() != nil {
 				// only canceled on transmitter close so we can exit
 				return false
 			} else if err != nil {
 				s.transmitConnectionErrorCount.Inc()
-				s.lggr.Errorw("Transmit report failed", "err", err, "req.Payload", req.Payload, "req.ReportFormat", req.ReportFormat, "transmission", t)
+				lggr.Errorw("Transmit report failed", "err", err)
 				if ok := s.q.Push(t); !ok {
 					s.lggr.Error("Failed to push report to transmit queue; queue is closed")
 					return false
@@ -276,7 +282,7 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 			b.Reset()
 			if res.Error == "" {
 				s.transmitSuccessCount.Inc()
-				s.lggr.Debugw("Transmit report success", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+				lggr.Debug("Transmit report success")
 			} else {
 				// We don't need to retry here because the mercury server
 				// has confirmed it received the report. We only need to retry
@@ -285,31 +291,31 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, donI
 				case DuplicateReport:
 					s.transmitSuccessCount.Inc()
 					s.transmitDuplicateCount.Inc()
-					s.lggr.Debugw("Transmit report success; duplicate report", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "transmission", t, "response", res)
+					lggr.Debug("Transmit report success; duplicate report")
 				default:
 					promTransmitServerErrorCount.WithLabelValues(donIDStr, s.url, strconv.FormatInt(int64(res.Code), 10)).Inc()
-					s.lggr.Errorw("Transmit report failed; mercury server returned error", "req.ReportFormat", req.ReportFormat, "req.Payload", req.Payload, "response", res, "transmission", t, "err", res.Error, "code", res.Code)
+					lggr.Errorw("Transmit report failed; mercury server returned error", "err", res.Error, "code", res.Code)
 				}
 			}
 
 			select {
 			case s.deleteQueue <- t.Hash():
 			default:
-				s.lggr.Criticalw("Delete queue is full", "transmission", t, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+				lggr.Criticalw("Delete queue is full")
 			}
 			return true
 		}()
 	}
 }
 
-func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitRequest, *pb.TransmitResponse, error) {
+func (s *server) transmit(ctx context.Context, t *Transmission) (*rpc.TransmitRequest, *rpc.TransmitResponse, error) {
 	var payload []byte
 	var err error
 
 	switch t.Report.Info.ReportFormat {
 	case llotypes.ReportFormatJSON:
 		payload, err = s.jsonPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
-	case llotypes.ReportFormatEVMPremiumLegacy:
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
 		payload, err = s.evmPremiumLegacyPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	default:
 		return nil, nil, fmt.Errorf("Transmit failed; don't know how to Pack unsupported report format: %q", t.Report.Info.ReportFormat)
@@ -319,7 +325,7 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*pb.TransmitReq
 		return nil, nil, fmt.Errorf("Transmit: encode failed; %w", err)
 	}
 
-	req := &pb.TransmitRequest{
+	req := &rpc.TransmitRequest{
 		Payload:      payload,
 		ReportFormat: uint32(t.Report.Info.ReportFormat),
 	}

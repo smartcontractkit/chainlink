@@ -10,12 +10,18 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 /// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
+  error InvalidSVMAddress(bytes SVMAddress);
 
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.
   uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
   /// @dev The expected number of bytes returned by the balanceOf function.
   uint256 internal constant MAX_BALANCE_OF_RET_BYTES = 32;
+
+  /// @dev The address used to send calls for gas estimation.
+  /// You only need to use this address if the minimum gas limit specified by the user is not actually enough to execute the
+  /// given message and you're attempting to estimate the actual necessary gas limit
+  address public constant GAS_ESTIMATION_SENDER = address(0xC11C11C11C11C11C11C11C11C11C11C11C11C1);
 
   /// @notice A collection of token price and gas price updates.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -161,16 +167,23 @@ library Internal {
   /// @notice This methods provides validation for parsing abi encoded addresses by ensuring the address is within the
   /// EVM address space. If it isn't it will revert with an InvalidEVMAddress error, which we can catch and handle
   /// more gracefully than a revert from abi.decode.
-  /// @return The address if it is valid, the function will revert otherwise.
   function _validateEVMAddress(
     bytes memory encodedAddress
-  ) internal pure returns (address) {
+  ) internal pure {
     if (encodedAddress.length != 32) revert InvalidEVMAddress(encodedAddress);
     uint256 encodedAddressUint = abi.decode(encodedAddress, (uint256));
     if (encodedAddressUint > type(uint160).max || encodedAddressUint < PRECOMPILE_SPACE) {
       revert InvalidEVMAddress(encodedAddress);
     }
-    return address(uint160(encodedAddressUint));
+  }
+
+  function _validateSVMAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
+    if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
+    if (mustBeNonZero) {
+      if (abi.decode(encodedAddress, (bytes32)) == bytes32(0)) {
+        revert InvalidSVMAddress(encodedAddress);
+      }
+    }
   }
 
   /// @notice Enum listing the possible message execution states within the offRamp contract.
@@ -261,6 +274,9 @@ library Internal {
 
   // bytes4(keccak256("CCIP ChainFamilySelector EVM"));
   bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+
+  // bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+  bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
 
   /// @dev Holds a merkle root and interval for a source chain so that an array of these can be passed in the CommitReport.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.

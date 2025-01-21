@@ -141,6 +141,16 @@ Threshold = 5 # Example
 # MinAttempts configures the minimum number of broadcasted attempts a transaction has to have before it is evaluated further for being terminally stuck. This threshold is only applied if there is no custom API to identify stuck transactions provided by the chain. Ensure the gas estimator configs take more bump attempts before reaching the configured max gas price.
 MinAttempts = 3 # Example
 
+[EVM.Transactions.TransactionManagerV2]
+# Enabled enables TransactionManagerV2.
+Enabled = false # Default
+# BlockTime controls the frequency of the backfill loop of TransactionManagerV2. 
+BlockTime = '10s' # Example
+# CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+CustomURL = 'https://example.api.io' # Example
+# DualBroadcast enables DualBroadcast functionality.
+DualBroadcast = false # Example
+
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
 Enabled = true # Default

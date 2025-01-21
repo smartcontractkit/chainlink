@@ -108,6 +108,7 @@ func (c *DynamicPriceGetterConfig) Validate() error {
 type ExecPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	USDCConfig                       USDCConfig
+	LBTCConfig                       LBTCConfig
 }
 
 type USDCConfig struct {
@@ -119,10 +120,19 @@ type USDCConfig struct {
 	AttestationAPIIntervalMilliseconds int
 }
 
+type LBTCConfig struct {
+	SourceTokenAddress           common.Address
+	AttestationAPI               string
+	AttestationAPITimeoutSeconds uint
+	// AttestationAPIIntervalMilliseconds can be set to -1 to disable or 0 to use a default interval.
+	AttestationAPIIntervalMilliseconds int
+}
+
 type ExecPluginConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	IsSourceProvider                 bool
 	USDCConfig                       USDCConfig
+	LBTCConfig                       LBTCConfig
 	JobID                            string
 }
 
@@ -136,17 +146,30 @@ func (e ExecPluginConfig) Encode() ([]byte, error) {
 
 func (uc *USDCConfig) ValidateUSDCConfig() error {
 	if uc.AttestationAPI == "" {
-		return errors.New("AttestationAPI is required")
+		return errors.New("USDCConfig: AttestationAPI is required")
 	}
 	if uc.AttestationAPIIntervalMilliseconds < -1 {
-		return errors.New("AttestationAPIIntervalMilliseconds must be -1 to disable, 0 for default or greater to define the exact interval")
+		return errors.New("USDCConfig: AttestationAPIIntervalMilliseconds must be -1 to disable, 0 for default or greater to define the exact interval")
 	}
 	if uc.SourceTokenAddress == utils.ZeroAddress {
-		return errors.New("SourceTokenAddress is required")
+		return errors.New("USDCConfig: SourceTokenAddress is required")
 	}
 	if uc.SourceMessageTransmitterAddress == utils.ZeroAddress {
-		return errors.New("SourceMessageTransmitterAddress is required")
+		return errors.New("USDCConfig: SourceMessageTransmitterAddress is required")
 	}
 
+	return nil
+}
+
+func (lc *LBTCConfig) ValidateLBTCConfig() error {
+	if lc.AttestationAPI == "" {
+		return errors.New("LBTCConfig: AttestationAPI is required")
+	}
+	if lc.AttestationAPIIntervalMilliseconds < -1 {
+		return errors.New("LBTCConfig: AttestationAPIIntervalMilliseconds must be -1 to disable, 0 for default or greater to define the exact interval")
+	}
+	if lc.SourceTokenAddress == utils.ZeroAddress {
+		return errors.New("LBTCConfig: SourceTokenAddress is required")
+	}
 	return nil
 }

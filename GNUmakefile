@@ -65,6 +65,17 @@ install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
+.PHONY: install-plugins
+install-plugins: ## Build & install LOOPP binaries for products and chains.
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
+	go install ./cmd/chainlink-feeds
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
+	go install ./mercury/cmd/chainlink-mercury
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
+	go install ./pkg/solana/cmd/chainlink-solana
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
+	go install ./pkg/chainlink/cmd/chainlink-starknet
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \

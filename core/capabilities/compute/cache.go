@@ -1,6 +1,7 @@
 package compute
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -82,12 +83,18 @@ func (mc *moduleCache) reapLoop() {
 	}
 }
 
-func (mc *moduleCache) add(id string, mod *module) {
+func (mc *moduleCache) add(id string, mod *module) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
+
+	if mc.m[id] != nil {
+		return fmt.Errorf("module with id %q already exists in cache", id)
+	}
+
 	mod.lastFetchedAt = mc.clock.Now()
 	mc.m[id] = mod
 	moduleCacheAddition.Inc()
+	return nil
 }
 
 func (mc *moduleCache) get(id string) (*module, bool) {

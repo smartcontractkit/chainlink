@@ -31,22 +31,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
-var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContracts
+var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 var (
 	EnableExecutionAfter = int64(1800) // 30min
 )
 
-// DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
+// DeployChainContractsChangeset deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
-// DeployChainContracts is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
+// DeployChainContractsChangeset is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
 // changeset again with the same input to retry the failed deployment.
 // Caller should update the environment's address book with the returned addresses.
 // Points to note :
 // In case of migrating from legacy ccip to 1.6, the previous RMN address should be set while deploying RMNRemote.
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
-func DeployChainContracts(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -155,8 +155,13 @@ func deployChainContractsForChains(
 		switch family {
 		case chainsel.FamilyEVM:
 			chain := e.Chains[chainSel]
-			if existingEVMState.Chains[chainSel].LinkToken == nil || existingEVMState.Chains[chainSel].Weth9 == nil {
-				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
+			staticLinkExists := existingEVMState.Chains[chainSel].StaticLinkToken != nil
+			linkExists := existingEVMState.Chains[chainSel].LinkToken != nil
+			weth9Exists := existingEVMState.Chains[chainSel].Weth9 != nil
+			feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
+
+			if !feeTokensAreValid {
+				return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
 			}
 			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome) }
 
@@ -206,10 +211,10 @@ func deployChainContractsEVM(
 		return fmt.Errorf("timelock not found for chain %s, deploy the mcms contracts first", chain.String())
 	}
 	weth9Contract := chainState.Weth9
-	if chainState.LinkToken == nil {
-		return fmt.Errorf("link token not found for chain %s, deploy the prerequisites first", chain.String())
+	linkTokenContractAddr, err := chainState.LinkTokenAddress()
+	if err != nil {
+		return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err)
 	}
-	linkTokenContract := chainState.LinkToken
 	if chainState.TokenAdminRegistry == nil {
 		return fmt.Errorf("token admin registry not found for chain %s, deploy the prerequisites first", chain.String())
 	}
@@ -329,17 +334,17 @@ func deployChainContractsEVM(
 					chain.Client,
 					fee_quoter.FeeQuoterStaticConfig{
 						MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
-						LinkToken:                    linkTokenContract.Address(),
+						LinkToken:                    linkTokenContractAddr,
 						TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
 					},
-					[]common.Address{state.Chains[chain.Selector].Timelock.Address()},      // timelock should be able to update, ramps added after
-					[]common.Address{weth9Contract.Address(), linkTokenContract.Address()}, // fee tokens
+					[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
+					[]common.Address{weth9Contract.Address(), linkTokenContractAddr},  // fee tokens
 					[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
 					[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
 					[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 						{
 							PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
-							Token:                      linkTokenContract.Address(),
+							Token:                      linkTokenContractAddr,
 						},
 						{
 							PremiumMultiplierWeiPerEth: 1e18,
@@ -375,7 +380,7 @@ func deployChainContractsEVM(
 					},
 					onramp.OnRampDynamicConfig{
 						FeeQuoter:     feeQuoterContract.Address(),
-						FeeAggregator: common.HexToAddress("0x1"), // TODO real fee aggregator
+						FeeAggregator: chain.DeployerKey.From, // TODO real fee aggregator, using deployer key for now
 					},
 					[]onramp.OnRampDestChainConfigArgs{},
 				)

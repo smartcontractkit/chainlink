@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"context"
@@ -17,6 +17,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -37,7 +39,7 @@ func TestAddTokenPool(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	SavePreloadedSolAddresses(t, e, solChain1)
+	testhelpers.SavePreloadedSolAddresses(t, e, solChain1)
 
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		// I CANNOT LOAD STATE IF I DEPLOY a random token, because load token expects to understand every address ?
@@ -57,27 +59,27 @@ func TestAddTokenPool(t *testing.T) {
 			Config:    []uint64{solChain1},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    []uint64{solChain1},
 				HomeChainSelector: homeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddTokenPool),
-			Config: AddTokenPoolConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddTokenPool),
+			Config: changeset.AddTokenPoolConfig{
 				ChainSelector:    solChain1,
 				TokenName:        "LinkToken",
 				TokenProgramName: "spl-token-2022",
@@ -87,8 +89,8 @@ func TestAddTokenPool(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForRemoteChain),
-			Config: SetupTokenPoolForRemoteChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetupTokenPoolForRemoteChain),
+			Config: changeset.SetupTokenPoolForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "LinkToken",
@@ -143,7 +145,7 @@ func TestBilling(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	SavePreloadedSolAddresses(t, e, solChain1)
+	testhelpers.SavePreloadedSolAddresses(t, e, solChain1)
 
 	// Any nonzero timestamp is valid (for now)
 	validTimestamp := int64(100)
@@ -158,27 +160,27 @@ func TestBilling(t *testing.T) {
 			Config:    []uint64{solChain1},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    []uint64{solChain1},
 				HomeChainSelector: homeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddBillingToken),
-			Config: AddBillingTokenPoolConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddBillingToken),
+			Config: changeset.AddBillingTokenPoolConfig{
 				ChainSelector:    solChain1,
 				TokenName:        "LinkToken",
 				TokenProgramName: "spl-token-2022",
@@ -193,8 +195,8 @@ func TestBilling(t *testing.T) {
 				}},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddBillingToken),
-			Config: AddBillingTokenPoolConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddBillingToken),
+			Config: changeset.AddBillingTokenPoolConfig{
 				ChainSelector:    solChain1,
 				TokenName:        "",
 				TokenProgramName: "spl-token",
@@ -210,8 +212,8 @@ func TestBilling(t *testing.T) {
 				}},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenForRemoteChain),
-			Config: BillingTokenForRemoteChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddBillingTokenForRemoteChain),
+			Config: changeset.BillingTokenForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "LinkToken",
@@ -220,8 +222,8 @@ func TestBilling(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddBillingTokenForRemoteChain),
-			Config: BillingTokenForRemoteChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddBillingTokenForRemoteChain),
+			Config: changeset.BillingTokenForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "",
@@ -237,7 +239,7 @@ func TestBilling(t *testing.T) {
 	tokenPubKey, err := deployment.FindTokenAddress(e, solChain1, "LinkToken")
 	require.NoError(t, err)
 
-	state, _ := LoadOnchainStateSolana(e)
+	state, _ := changeset.LoadOnchainStateSolana(e)
 	chainState := state.SolChains[solChain1]
 	linkTokenBillingPDA, _, _ := solana.FindProgramAddress([][]byte{solTestConfig.BillingTokenConfigPrefix, tokenPubKey.Bytes()}, chainState.SolCcipRouter)
 	var linkTokenConfigAccountPDA ccip_router.BillingTokenConfigWrapper
@@ -275,7 +277,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	SavePreloadedSolAddresses(t, e, solChain1)
+	testhelpers.SavePreloadedSolAddresses(t, e, solChain1)
 	tokenAdmin1, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	tokenAdmin2, err := solana.NewRandomPrivateKey()
@@ -288,27 +290,27 @@ func TestTokenAdminRegistry(t *testing.T) {
 			Config:    []uint64{solChain1},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    []uint64{solChain1},
 				HomeChainSelector: homeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(AddTokenPool),
-			Config: AddTokenPoolConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddTokenPool),
+			Config: changeset.AddTokenPoolConfig{
 				ChainSelector:    solChain1,
 				TokenName:        "LinkToken",
 				TokenProgramName: "spl-token-2022",
@@ -318,8 +320,8 @@ func TestTokenAdminRegistry(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(SetupTokenPoolForRemoteChain),
-			Config: SetupTokenPoolForRemoteChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetupTokenPoolForRemoteChain),
+			Config: changeset.SetupTokenPoolForRemoteChainConfig{
 				ChainSelector:       solChain1,
 				RemoteChainSelector: homeChainSel,
 				TokenName:           "LinkToken",
@@ -342,18 +344,18 @@ func TestTokenAdminRegistry(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(RegisterTokenAdminRegistry),
-			Config: RegisterTokenAdminRegistryConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.RegisterTokenAdminRegistry),
+			Config: changeset.RegisterTokenAdminRegistryConfig{
 				ChainSelector:       solChain1,
 				TokenName:           "LinkToken",
 				TokenPoolAdmin:      tokenAdmin1.PublicKey().String(),
 				AuthorityPrivateKey: e.SolChains[solChain1].DeployerKey.String(),
-				RegisterType:        ViaOwnerInstruction,
+				RegisterType:        changeset.ViaOwnerInstruction,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(TransferAndAcceptAdminRoleTokenAdminRegistry),
-			Config: TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.TransferAndAcceptAdminRoleTokenAdminRegistry),
+			Config: changeset.TransferAndAcceptAdminRoleTokenAdminRegistryConfig{
 				ChainSelector:               solChain1,
 				TokenName:                   "LinkToken",
 				TokenPoolAdminPrivateKey:    tokenAdmin1.String(),
@@ -361,8 +363,8 @@ func TestTokenAdminRegistry(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(UpdateTokenPool),
-			Config: UpdateTokenPoolConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateTokenPool),
+			Config: changeset.UpdateTokenPoolConfig{
 				ChainSelector:       solChain1,
 				TokenName:           "LinkToken",
 				AuthorityPrivateKey: tokenAdmin2.String(),
