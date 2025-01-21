@@ -9700,7 +9700,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>Sonic Testnet (57054)</summary><p>
+<details><summary>Sonic testnet (57054)</summary><p>
 
 ```toml
 AutoCreateKey = true
