@@ -402,7 +402,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
 		}
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled

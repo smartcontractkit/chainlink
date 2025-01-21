@@ -37,7 +37,7 @@ func Test_AddChain(t *testing.T) {
 		testhelpers.WithNoJobsAndContracts(),
 		testhelpers.WithOCRConfigOverride(func(params *ccipcs.CCIPOCRParams) {
 			// Only 1 boost (=OCR round) is enough to cover the fee
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 10
+			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
 		}),
 	)
 

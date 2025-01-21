@@ -10,7 +10,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NethermindEth/juno v0.3.1
 	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb
-	github.com/XSAM/otelsql v0.27.0
 	github.com/andybalholm/brotli v1.1.1
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -79,15 +78,15 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.34
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250117200850-6cf7498adbfd
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250116214855-f49c5c27db51
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250120130359-cc025272bbff
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250121141917-62443f4b3c30
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20241202195413-82468150ac1e
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
-	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250117143722-fb6416c087a5
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117171710-b6481e9fcb34
+	github.com/smartcontractkit/chainlink-solana v1.1.1-0.20250117195512-81a855ec1fc6
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
@@ -151,6 +150,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/XSAM/otelsql v0.29.0 // indirect
 	github.com/apache/arrow-go/v18 v18.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect

@@ -170,8 +170,14 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 				},
 			}
 		}
-		// this signature is not verified by the node because
-		// WS connection between gateway and node are already verified
+
+		// Work around the fact that the connection manager expects all messages
+		// to have a valid signature by reusing the signature that came with the message.
+		// This is OK to do because:
+		// - our trust model for Gateways assumes that we can trust the Gateway node. This is a central assumption since
+		// the Gateway node has access to plaintext secrets sent by DON nodes.
+		// - the connection between the Gateway and DON Node is already authorized via a DON-side and Gateway-side
+		// allowlist, and secured via TLS.
 		respMsg.Signature = msg.Signature
 
 		err = h.don.SendToNode(newCtx, nodeAddr, respMsg)

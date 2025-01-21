@@ -308,6 +308,10 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			}
 
 			if enableDualTransmission, ok := jb.OCR2OracleSpec.RelayConfig["enableDualTransmission"]; ok && enableDualTransmission != nil {
+				if jb.OCR2OracleSpec.Relay != relay.NetworkEVM {
+					return errors.New("dual transmission is enabled only for EVM")
+				}
+
 				rawDualTransmissionConfig, ok := jb.OCR2OracleSpec.RelayConfig["dualTransmission"]
 				if !ok {
 					return errors.New("dual transmission is enabled but no dual transmission config present")
@@ -341,6 +345,23 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 					return errors.Wrap(err, "unknown dual transmission transmitterAddress")
 				}
 
+				// Check if secondary transmitter address is used as primary somewhere else
+				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(dtTransmitterAddress), keystore.TXMv1)
+				if err2 != nil {
+					return err2
+				} else if hasLock {
+					return errors.Errorf("key %s cannot be a secondary transmitter address because it's used a primary transmitter in another job", dtTransmitterAddress)
+				}
+			}
+
+			// Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
+			if jb.OCR2OracleSpec.PluginType != types.Mercury {
+				hasLock, err2 := checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), keystore.TXMv2)
+				if err2 != nil {
+					return err2
+				} else if hasLock {
+					return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
+				}
 			}
 
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
@@ -1744,4 +1765,13 @@ func validateDualTransmissionMeta(meta map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+func checkIfKeyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, usage keystore.ServiceType) (bool, error) {
+	rm, err := ks.GetResourceMutex(ctx, address)
+	if err != nil {
+		return false, err
+	}
+
+	return rm.IsLocked(usage)
 }

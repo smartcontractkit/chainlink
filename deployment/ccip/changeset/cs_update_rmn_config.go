@@ -24,6 +24,8 @@ var (
 	_ deployment.ChangeSet[SetRMNHomeCandidateConfig]     = SetRMNHomeCandidateConfigChangeset
 	_ deployment.ChangeSet[PromoteRMNHomeCandidateConfig] = PromoteRMNHomeCandidateConfigChangeset
 	_ deployment.ChangeSet[SetRMNRemoteConfig]            = SetRMNRemoteConfigChangeset
+	_ deployment.ChangeSet[SetRMNHomeDynamicConfigConfig] = SetRMNHomeDynamicConfigChangeset
+	_ deployment.ChangeSet[RevokeCandidateConfig]         = RevokeRMNHomeCandidateConfigChangeset
 )
 
 type SetRMNRemoteOnRMNProxyConfig struct {
@@ -211,8 +213,13 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 		}
 		offchainPublicKeys[node.OffchainPublicKey] = struct{}{}
 	}
-	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
 
+	homeChain, ok := state.Chains[c.HomeChainSelector]
+	if !ok {
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
+	}
+
+	rmnHome := homeChain.RMNHome
 	if rmnHome == nil {
 		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
 	}
@@ -241,7 +248,13 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 		return err
 	}
 
-	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+	homeChain, ok := state.Chains[c.HomeChainSelector]
+
+	if !ok {
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
+	}
+
+	rmnHome := homeChain.RMNHome
 	if rmnHome == nil {
 		return fmt.Errorf("RMNHome not found for chain %d", c.HomeChainSelector)
 	}
@@ -325,6 +338,10 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		"proposal to set candidate config",
 		config.MCMSConfig.MinDelay,
 	)
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
+	}
 
 	return deployment.ChangesetOutput{
 		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
@@ -457,6 +474,150 @@ func (c SetRMNRemoteConfig) Validate() error {
 	}
 
 	return nil
+}
+
+type SetRMNHomeDynamicConfigConfig struct {
+	HomeChainSelector uint64
+	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
+	ActiveDigest      [32]byte
+	MCMS              *MCMSConfig
+}
+
+func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error {
+	err := deployment.IsValidChainSelector(c.HomeChainSelector)
+	if err != nil {
+		return err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+	if rmnHome == nil {
+		return fmt.Errorf("RMNHome not found for chain %s", e.Chains[c.HomeChainSelector].String())
+	}
+
+	currentDigest, err := rmnHome.GetActiveDigest(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", e.Chains[c.HomeChainSelector].String(), err)
+	}
+
+	if currentDigest != c.ActiveDigest {
+		return fmt.Errorf("onchain active digest (%x) does not match provided digest (%x)", currentDigest[:], c.ActiveDigest[:])
+	}
+
+	if len(c.RMNDynamicConfig.OffchainConfig) != 0 {
+		return errors.New("RMNDynamicConfig.OffchainConfig must be empty")
+	}
+
+	return nil
+}
+
+func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDynamicConfigConfig) (deployment.ChangesetOutput, error) {
+	err := cfg.Validate(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+
+	chain, exists := e.Chains[cfg.HomeChainSelector]
+	if !exists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
+	}
+
+	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
+	if rmnHome == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
+	}
+
+	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	_, err = rmnHome.SetDynamicConfig(deployer, cfg.RMNDynamicConfig, cfg.ActiveDigest)
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
+	}
+
+	return deployerGroup.Enact("Set RMNHome dynamic config")
+}
+
+type RevokeCandidateConfig struct {
+	HomeChainSelector uint64
+	CandidateDigest   [32]byte
+	MCMS              *MCMSConfig
+}
+
+func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
+	err := deployment.IsValidChainSelector(c.HomeChainSelector)
+	if err != nil {
+		return err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	rmnHome := state.Chains[c.HomeChainSelector].RMNHome
+	if rmnHome == nil {
+		return fmt.Errorf("RMNHome not found for chain %s", e.Chains[c.HomeChainSelector].String())
+	}
+
+	currentDigest, err := rmnHome.GetCandidateDigest(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get RMNHome candidate digest for chain %s: %w", e.Chains[c.HomeChainSelector].String(), err)
+	}
+
+	if currentDigest != c.CandidateDigest {
+		return fmt.Errorf("onchain candidate digest (%x) does not match provided digest (%x)", currentDigest[:], c.CandidateDigest[:])
+	}
+
+	return nil
+}
+
+func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeCandidateConfig) (deployment.ChangesetOutput, error) {
+	err := cfg.Validate(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+
+	chain, exists := e.Chains[cfg.HomeChainSelector]
+	if !exists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
+	}
+
+	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
+	if rmnHome == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("RMNHome not found for chain %s", chain.String())
+	}
+
+	deployer, err := deployerGroup.GetDeployer(cfg.HomeChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	_, err = rmnHome.RevokeCandidate(deployer, cfg.CandidateDigest)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
+	}
+
+	return deployerGroup.Enact("Revoke candidate config")
 }
 
 func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {

@@ -78,7 +78,7 @@ type LogPoller interface {
 type LogPollerTest interface {
 	LogPoller
 	PollAndSaveLogs(ctx context.Context, currentBlockNumber int64)
-	BackupPollAndSaveLogs(ctx context.Context)
+	BackupPollAndSaveLogs(ctx context.Context) error
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
 	PruneOldBlocks(ctx context.Context) (bool, error)
@@ -419,6 +419,12 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) (err error) {
 	defer func() {
 		if errors.Is(err, context.Canceled) {
 			err = ErrReplayRequestAborted
+		} else if errors.Is(err, commontypes.ErrFinalityViolated) {
+			// Replay only declares finality violation and does not resolve it, as it's possible that [fromBlock, savedFinalizedBlockNumber]
+			// does not contain the violation.
+			lp.lggr.Criticalw("Replay failed due to finality violation", "fromBlock", fromBlock, "err", err)
+			lp.finalityViolated.Store(true)
+			lp.SvcErrBuffer.Append(err)
 		}
 	}()
 
@@ -666,7 +672,17 @@ func (lp *logPoller) run() {
 				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
-			lp.BackupPollAndSaveLogs(ctx)
+			err := lp.BackupPollAndSaveLogs(ctx)
+			switch {
+			case errors.Is(err, commontypes.ErrFinalityViolated):
+				// BackupPoll only declares finality violation and does not resolve it, as it's possible that processed range
+				// does not contain the violation.
+				lp.lggr.Criticalw("Backup poll failed due to finality violation", "err", err)
+				lp.finalityViolated.Store(true)
+				lp.SvcErrBuffer.Append(err)
+			case err != nil:
+				lp.lggr.Errorw("Backup poller failed, retrying later", "err", err)
+			}
 		}
 	}
 }
@@ -767,16 +783,16 @@ func (lp *logPoller) handleReplayRequest(ctx context.Context, fromBlockReq int64
 	}
 }
 
-func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
+func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) error {
 	if lp.backupPollerNextBlock == 0 {
 		lastProcessed, err := lp.orm.SelectLatestBlock(ctx)
 		if err != nil {
 			if pkgerrors.Is(err, sql.ErrNoRows) {
 				lp.lggr.Warnw("Backup log poller ran before first successful log poller run, skipping")
-			} else {
-				lp.lggr.Errorw("Backup log poller unable to get starting block", "err", err)
+				return nil
 			}
-			return
+
+			return fmt.Errorf("unable to get starting block: %w", err)
 		}
 		// If this is our first run, start from block min(lastProcessed.FinalizedBlockNumber, lastProcessed.BlockNumber-backupPollerBlockDelay)
 		backupStartBlock := mathutil.Min(lastProcessed.FinalizedBlockNumber, lastProcessed.BlockNumber-lp.backupPollerBlockDelay)
@@ -787,7 +803,7 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 	_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 	if err != nil {
 		lp.lggr.Warnw("Backup logpoller failed to get latest block", "err", err)
-		return
+		return nil
 	}
 
 	lastSafeBackfillBlock := latestFinalizedBlockNumber - 1
@@ -796,12 +812,13 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context) {
 		if err = lp.backfill(ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
-			lp.lggr.Warnw("Backup poller failed", "err", err)
-			return
+			return fmt.Errorf("backfill failed: %w", err)
 		}
 		lp.lggr.Infow("Backup poller finished backfilling", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		lp.backupPollerNextBlock = lastSafeBackfillBlock + 1
 	}
+
+	return nil
 }
 
 // convertLogs converts an array of geth logs ([]type.Log) to an array of logpoller logs ([]Log)
@@ -850,17 +867,28 @@ func convertTopics(topics []common.Hash) [][]byte {
 	return topicsForDB
 }
 
-// blocksFromLogs fetches all of the blocks associated with a given list of logs. It will also unconditionally fetch endBlockNumber,
+// blocksFromFinalizedLogs fetches all of the blocks associated with a given list of logs. It will also unconditionally fetch endBlockNumber,
 // whether or not there are any logs in the list from that block
-func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log, endBlockNumber uint64) (blocks []LogPollerBlock, err error) {
-	var numbers []uint64
+func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.Log, endBlockNumber uint64) (blocks []LogPollerBlock, err error) {
+	numbers := make([]uint64, 0, len(logs))
 	for _, log := range logs {
 		numbers = append(numbers, log.BlockNumber)
 	}
 	if numbers[len(numbers)-1] != endBlockNumber {
 		numbers = append(numbers, endBlockNumber)
 	}
-	return lp.GetBlocksRange(ctx, numbers)
+	blocks, err = lp.GetBlocksRange(ctx, numbers)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, log := range logs {
+		if log.BlockHash != blocks[i].BlockHash {
+			return nil, fmt.Errorf("finalized log produced by tx %s has block hash %s that does not match fetched block's hash %s: %w", log.TxHash, log.BlockHash, blocks[i].BlockHash, commontypes.ErrFinalityViolated)
+		}
+	}
+
+	return blocks, nil
 }
 
 // backfill will query FilterLogs in batches for logs in the
@@ -891,7 +919,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		if len(gethLogs) == 0 {
 			continue
 		}
-		blocks, err := lp.blocksFromLogs(ctx, gethLogs, uint64(to))
+		blocks, err := lp.blocksFromFinalizedLogs(ctx, gethLogs, uint64(to)) //nolint:gosec // G115
 		if err != nil {
 			return err
 		}
@@ -921,11 +949,6 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 // 2. Delete all logs and blocks after the LCA
 // 3. Return the LCA+1, i.e. our new current (unprocessed) block.
 func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, currentBlockNumber int64, currentBlock *evmtypes.Head) (head *evmtypes.Head, err error) {
-	defer func() {
-		if err == nil {
-			lp.finalityViolated.Store(false)
-		}
-	}()
 
 	var err1 error
 	if currentBlock == nil {
@@ -956,7 +979,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 	// We will not have the previous currentBlock on initial poll.
 	havePreviousBlock := err1 == nil
 	if !havePreviousBlock {
-		lp.lggr.Infow("Do not have previous block, first poll ever on new chain or after backfill", "currentBlockNumber", currentBlockNumber)
+		lp.lggr.Infow("Do not have previous block, first poll ever on new chain", "currentBlockNumber", currentBlockNumber)
 		return currentBlock, nil
 	}
 	// Check for reorg.
@@ -966,8 +989,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// Since we go currentBlock by currentBlock for unfinalized logs, the mismatch starts at currentBlockNumber - 1.
 		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock, expectedParent.FinalizedBlockNumber)
 		if err2 != nil {
-			lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err2)
-			return nil, pkgerrors.New("Unable to find LCA after reorg, retrying")
+			return nil, fmt.Errorf("unable to find LCA after reorg: %w", err2)
 		}
 
 		lp.lggr.Infow("Reorg detected", "blockAfterLCA", blockAfterLCA.Number, "currentBlockNumber", currentBlockNumber)
@@ -994,20 +1016,40 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // currentBlockNumber is the block from where new logs are to be polled & saved. Under normal
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
+	err := lp.pollAndSaveLogs(ctx, currentBlockNumber)
+	if errors.Is(err, commontypes.ErrFinalityViolated) {
+		lp.lggr.Criticalw("Failed to poll and save logs due to finality violation, retrying later", "err", err)
+		lp.finalityViolated.Store(true)
+		lp.SvcErrBuffer.Append(err)
+		return
+	}
+
+	if err != nil {
+		lp.lggr.Errorw("Failed to poll and save logs, retrying later", "err", err)
+		return
+	}
+
+	if lp.finalityViolated.Load() {
+		lp.lggr.Info("PollAndSaveLogs completed successfully - removing finality violation flag")
+		lp.finalityViolated.Store(false)
+	}
+}
+
+func (lp *logPoller) pollAndSaveLogs(ctx context.Context, currentBlockNumber int64) (err error) {
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
 	// Intentionally not using logPoller.finalityDepth directly but the latestFinalizedBlockNumber returned from lp.latestBlocks()
 	// latestBlocks knows how to pick a proper latestFinalizedBlockNumber based on the logPoller's configuration
 	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
-		return
+		return nil
 	}
 	latestBlockNumber := latestBlock.Number
 	if currentBlockNumber > latestBlockNumber {
 		// Note there can also be a reorg "shortening" i.e. chain height decreases but TDD increases. In that case
 		// we also just wait until the new tip is longer and then detect the reorg.
 		lp.lggr.Debugw("No new blocks since last poll", "currentBlockNumber", currentBlockNumber, "latestBlockNumber", latestBlockNumber)
-		return
+		return nil
 	}
 	var currentBlock *evmtypes.Head
 	if currentBlockNumber == latestBlockNumber {
@@ -1020,8 +1062,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	if err != nil {
 		// If there's an error handling the reorg, we can't be sure what state the db was left in.
 		// Resume from the latest block saved and retry.
-		lp.lggr.Errorw("Unable to get current block, retrying", "err", err)
-		return
+		return fmt.Errorf("unable to get current block: %w", err)
 	}
 	currentBlockNumber = currentBlock.Number
 
@@ -1036,8 +1077,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
-			lp.lggr.Warnw("Unable to backfill finalized logs, retrying later", "err", err)
-			return
+			return fmt.Errorf("failed to backfill finalized logs: %w", err)
 		}
 		currentBlockNumber = lastSafeBackfillBlock + 1
 	}
@@ -1048,8 +1088,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			if err != nil {
 				// If there's an error handling the reorg, we can't be sure what state the db was left in.
 				// Resume from the latest block saved.
-				lp.lggr.Errorw("Unable to get current block", "err", err)
-				return
+				return fmt.Errorf("failed to get current block: %w", err)
 			}
 			currentBlockNumber = currentBlock.Number
 		}
@@ -1059,7 +1098,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		logs, err = lp.ec.FilterLogs(ctx, lp.Filter(nil, nil, &h))
 		if err != nil {
 			lp.lggr.Warnw("Unable to query for logs, retrying", "err", err, "block", currentBlockNumber)
-			return
+			return nil
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash, "timestamp", currentBlock.Timestamp)
 		block := LogPollerBlock{
@@ -1075,7 +1114,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 		)
 		if err != nil {
 			lp.lggr.Warnw("Unable to save logs resuming from last saved block + 1", "err", err, "block", currentBlockNumber)
-			return
+			return nil
 		}
 		// Update current block.
 		// Same reorg detection on unfinalized blocks.
@@ -1084,6 +1123,8 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			break
 		}
 	}
+
+	return nil
 }
 
 // Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
@@ -1119,12 +1160,14 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
 	// This can happen only if finalityTag is not enabled and fixed finalityDepth is provided via config.
+	var ourParentBlockHash common.Hash
 	for parent.Number >= latestFinalizedBlockNumber {
-		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(ctx, parent.Number)
+		outParentBlock, err := lp.orm.SelectBlockByNumber(ctx, parent.Number)
 		if err != nil {
 			return nil, err
 		}
-		if parent.Hash == ourParentBlockHash.BlockHash {
+		ourParentBlockHash = outParentBlock.BlockHash
+		if parent.Hash == ourParentBlockHash {
 			// If we do have the blockhash, return blockAfterLCA
 			return blockAfterLCA, nil
 		}
@@ -1135,11 +1178,9 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 			return nil, err
 		}
 	}
+
 	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
-	rerr := pkgerrors.New("Reorg greater than finality depth")
-	lp.SvcErrBuffer.Append(rerr)
-	lp.finalityViolated.Store(true)
-	return nil, rerr
+	return nil, fmt.Errorf("%w: finalized block hash %s does not match RPC's %s at height %d", commontypes.ErrFinalityViolated, ourParentBlockHash, blockAfterLCA.Hash, blockAfterLCA.Number)
 }
 
 // PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
@@ -1370,11 +1411,10 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	blocksRequested map[uint64]struct{},
 	blocksFound map[uint64]LogPollerBlock,
 ) (map[uint64]LogPollerBlock, error) {
-	var remainingBlocks []string
-
+	remainingBlocks := make([]uint64, 0, len(blocksRequested))
 	for num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
-			remainingBlocks = append(remainingBlocks, hexutil.EncodeBig(new(big.Int).SetUint64(num)))
+			remainingBlocks = append(remainingBlocks, num)
 		}
 	}
 
@@ -1383,23 +1423,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 			"remainingBlocks", remainingBlocks)
 	}
 
-	evmBlocks, err := lp.batchFetchBlocks(ctx, remainingBlocks, lp.rpcBatchSize)
-	if err != nil {
-		return nil, err
-	}
-
-	logPollerBlocks := make(map[uint64]LogPollerBlock)
-	for _, head := range evmBlocks {
-		logPollerBlocks[uint64(head.Number)] = LogPollerBlock{
-			EvmChainId:           head.EVMChainID,
-			BlockHash:            head.Hash,
-			BlockNumber:          head.Number,
-			BlockTimestamp:       head.Timestamp,
-			FinalizedBlockNumber: head.Number, // always finalized; only matters if this block is returned by LatestBlock()
-			CreatedAt:            head.CreatedAt,
-		}
-	}
-	return logPollerBlocks, nil
+	return lp.batchFetchBlocks(ctx, remainingBlocks, lp.rpcBatchSize)
 }
 
 // newBlockReq constructs an eth_getBlockByNumber request for particular block number
@@ -1418,25 +1442,23 @@ var (
 	finalizedBlock blockValidationType = blockValidationType(rpc.FinalizedBlockNumber.String())
 )
 
-// fetchBlocks fetches a list of blocks in a single batch. validationReq is the string to use for the
+// fetchBlocks fetches a list of blocks in a single batch. finalityValidationReq is the string to use for the
 // additional validation request (either the "finalized" or "latest" string defined in rpc module), which
 // will be used to validate the finality of the other blocks.
-func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, validationReq blockValidationType) (blocks []*evmtypes.Head, err error) {
+// chainReference - is used to verify that fetched blocks belong to the same chain as referenced head.
+func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []uint64, finalityValidationReq blockValidationType, chainReference *LogPollerBlock) (blocks map[uint64]*evmtypes.Head, err error) {
 	n := len(blocksRequested)
-	blocks = make([]*evmtypes.Head, 0, n+1)
-	reqs := make([]rpc.BatchElem, 0, n+1)
+	blocks = make(map[uint64]*evmtypes.Head, n+2)
+	reqs := make([]rpc.BatchElem, 0, n+2)
 
-	validationBlockIndex := n
-	for k, num := range blocksRequested {
-		if num == string(validationReq) {
-			validationBlockIndex = k
-		}
-		reqs = append(reqs, newBlockReq(num))
+	for _, num := range blocksRequested {
+		reqs = append(reqs, newBlockReq(hexutil.EncodeBig(big.NewInt(0).SetUint64(num))))
 	}
 
-	if validationBlockIndex == n {
-		// Add validation req if it wasn't in there already
-		reqs = append(reqs, newBlockReq(string(validationReq)))
+	reqs = append(reqs, newBlockReq(string(finalityValidationReq)))
+
+	if chainReference != nil {
+		reqs = append(reqs, newBlockReq(hexutil.EncodeBig(big.NewInt(chainReference.BlockNumber))))
 	}
 
 	err = lp.ec.BatchCallContext(ctx, reqs)
@@ -1444,64 +1466,128 @@ func (lp *logPoller) fetchBlocks(ctx context.Context, blocksRequested []string, 
 		return nil, err
 	}
 
-	validationBlock, err := validateBlockResponse(reqs[validationBlockIndex])
+	// ensure that requested blocks belong to the same chain as referenced head
+	if chainReference != nil {
+		var rpcChainReference *evmtypes.Head
+		rpcChainReference, err = validateBlockResponse(reqs[len(reqs)-1])
+		if err != nil {
+			return nil, err
+		}
+
+		if rpcChainReference.Hash != chainReference.BlockHash {
+			return nil, fmt.Errorf("expected RPC's finalized block hash at hegiht %d to be %s but got %s: %w",
+				chainReference.BlockNumber, chainReference.BlockHash, rpcChainReference.Hash, commontypes.ErrFinalityViolated)
+		}
+
+		reqs = reqs[:len(reqs)-1] // no need to include chain reference into results
+	}
+
+	latestFinalized, err := validateBlockResponse(reqs[len(reqs)-1])
 	if err != nil {
 		return nil, err
 	}
-	latestFinalizedBlockNumber := validationBlock.Number
-	if validationReq == latestBlock {
+	latestFinalizedBlockNumber := latestFinalized.Number
+	if finalityValidationReq == latestBlock {
 		// subtract finalityDepth from "latest" to get finalized, when useFinalityTags = false
 		latestFinalizedBlockNumber = mathutil.Max(latestFinalizedBlockNumber-lp.finalityDepth, 0)
 	}
-	if len(reqs) == n+1 {
-		reqs = reqs[:n] // ignore last req if we added it explicitly for validation
-	}
 
-	for k, r := range reqs {
-		if k == validationBlockIndex {
-			// Already validated this one, just insert it in proper place
-			blocks = append(blocks, validationBlock)
-			continue
-		}
+	reqs = reqs[:len(reqs)-1] // no need to include finality validation request into results
 
-		block, err2 := validateBlockResponse(r)
-		if err2 != nil {
-			return nil, err2
+	for i, r := range reqs {
+		block, err := validateBlockResponse(r)
+		if err != nil {
+			return nil, err
 		}
 
 		blockRequested := r.Args[0].(string)
 		if blockRequested != string(latestBlock) && block.Number > latestFinalizedBlockNumber {
 			return nil, fmt.Errorf(
-				"Received unfinalized block %d while expecting finalized block (latestFinalizedBlockNumber = %d)",
+				"received unfinalized block %d while expecting finalized block (latestFinalizedBlockNumber = %d)",
 				block.Number, latestFinalizedBlockNumber)
 		}
 
-		blocks = append(blocks, block)
+		blocks[blocksRequested[i]] = block
 	}
 	return blocks, nil
 }
 
-func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
-	var blocks = make([]*evmtypes.Head, 0, len(blocksRequested)+1)
-
+func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []uint64, batchSize int64) (map[uint64]LogPollerBlock, error) {
 	validationReq := finalizedBlock
 	if !lp.useFinalityTag {
 		validationReq = latestBlock
 	}
 
+	chainValidationHead, err := lp.orm.SelectLatestFinalizedBlock(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to fetch latest finalized block from db: %w", err)
+	}
+
+	var logPollerBlocks = make(map[uint64]LogPollerBlock, len(blocksRequested))
 	for i := 0; i < len(blocksRequested); i += int(batchSize) {
 		j := i + int(batchSize)
 		if j > len(blocksRequested) {
 			j = len(blocksRequested)
 		}
-		moreBlocks, err := lp.fetchBlocks(ctx, blocksRequested[i:j], validationReq)
+
+		// As batch requests are not atomic, there is a chance that some of the blocks were replaced due to a reorg once we've observed them.
+		// Example:
+		// 1. RPC's chain is 1,2',3',4',5' (latest finalized is 1).
+		// 2. Batch request reads blocks 1,2'.
+		// 3. RPC updates its state to 1,2,3,4,5 (latest finalized is 5).
+		// 4. Batch request reads 4,5.
+		// As a result, we'll treat block 2' as finalized. To address that, we have to fetch all blocks twice and verify that the results are identical.
+		fetched1, err := lp.fetchBlocks(ctx, blocksRequested[i:j], validationReq, chainValidationHead)
 		if err != nil {
 			return nil, err
 		}
-		blocks = append(blocks, moreBlocks...)
+
+		fetched2, err := lp.fetchBlocks(ctx, blocksRequested[i:j], validationReq, chainValidationHead)
+		if err != nil {
+			return nil, err
+		}
+
+		err = ensureIdenticalBlocksBatches(fetched1, fetched2)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, head := range fetched1 {
+			lpBlock := LogPollerBlock{
+				EvmChainId:           head.EVMChainID,
+				BlockHash:            head.Hash,
+				BlockNumber:          head.Number,
+				BlockTimestamp:       head.Timestamp,
+				FinalizedBlockNumber: head.Number, // always finalized; only matters if this block is returned by LatestBlock()
+				CreatedAt:            head.CreatedAt,
+			}
+			logPollerBlocks[uint64(head.Number)] = lpBlock //nolint:gosec // G115
+			if chainValidationHead == nil || chainValidationHead.BlockNumber < lpBlock.BlockNumber {
+				chainValidationHead = &lpBlock
+			}
+		}
 	}
 
-	return blocks, nil
+	return logPollerBlocks, nil
+}
+
+func ensureIdenticalBlocksBatches(fetched1, fetched2 map[uint64]*evmtypes.Head) error {
+	if len(fetched1) != len(fetched2) {
+		return fmt.Errorf("invariant violation: expected size of batches to be identical. Fetched1: %d, Fetched2: %d", len(fetched1), len(fetched2))
+	}
+
+	for num, head1 := range fetched1 {
+		head2, ok := fetched2[num]
+		if !ok {
+			return fmt.Errorf("invariant violation: expected fetched1 to contain same blocks as fetched2, but %d is missing from fetched2", num)
+		}
+
+		if head1.Hash != head2.Hash {
+			return fmt.Errorf("expected block %d to be finalized but got different hashes %s and %s from RPC: %w", num, head1.Hash, head2.Hash, commontypes.ErrFinalityViolated)
+		}
+	}
+
+	return nil
 }
 
 func validateBlockResponse(r rpc.BatchElem) (*evmtypes.Head, error) {
