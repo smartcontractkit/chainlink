@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	testWorkflowId    = "<workflow-id>"
+	testWorkflowID    = "<workflow-id>"
 	testWorkflowOwner = "testowner"
 	testWorkflowName  = "testworkflow"
 )
@@ -110,7 +110,7 @@ func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
 	RETURNING id;`
 	var wfSpec job.WorkflowSpec
 	wfSpec.Workflow = simpleWorkflow
-	wfSpec.WorkflowID = testWorkflowId
+	wfSpec.WorkflowID = testWorkflowID
 	wfSpec.WorkflowOwner = testWorkflowOwner
 	wfSpec.WorkflowName = testWorkflowName
 	_, err := db.NamedExec(sql, wfSpec)
@@ -178,7 +178,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
-		WorkflowID:    testWorkflowId,
+		WorkflowID:    testWorkflowID,
 		WorkflowOwner: testWorkflowOwner,
 		Lggr:          logger.TestLogger(t),
 		Registry:      reg,
@@ -216,7 +216,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionId(t *testing.T, eng *Engine, hooks *testHooks) (string, error) {
+func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) (string, error) {
 	var eid string
 	select {
 	case <-hooks.initFailed:
@@ -316,7 +316,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 	resp1 := <-target1.response
 	assert.Equal(t, cr.Event.Outputs, resp1.Value)
@@ -539,7 +539,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
-		_, err := getExecutionId(t, eng, testHooks)
+		_, err := getExecutionID(t, eng, testHooks)
 		require.Error(t, err)
 	})
 
@@ -592,7 +592,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
-		_, err := getExecutionId(t, eng, testHooks)
+		_, err := getExecutionID(t, eng, testHooks)
 		require.Error(t, err)
 	})
 }
@@ -612,7 +612,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, hooks)
+	eid, err := getExecutionID(t, eng, hooks)
 	require.NoError(t, err)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -636,7 +636,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, simpleWorkflow)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, hooks)
+	eid, err := getExecutionID(t, eng, hooks)
 	require.NoError(t, err)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -731,7 +731,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, multiStepWorkflow)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, hooks)
+	eid, err := getExecutionID(t, eng, hooks)
 	require.NoError(t, err)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -788,7 +788,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  testWorkflowId,
+		WorkflowID:  testWorkflowID,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -803,7 +803,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, hooks)
+	eid, err := getExecutionID(t, eng, hooks)
 	require.NoError(t, err)
 	gotEx, err := dbstore.Get(ctx, eid)
 	require.NoError(t, err)
@@ -843,7 +843,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  testWorkflowId,
+		WorkflowID:  testWorkflowID,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -862,7 +862,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	clock.Advance(15 * time.Minute)
 	servicetest.Run(t, eng)
 
-	_, _ = getExecutionId(t, eng, hooks)
+	_, _ = getExecutionID(t, eng, hooks)
 	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusTimeout, gotEx.Status)
@@ -1083,7 +1083,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1231,7 +1231,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1373,7 +1373,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1428,7 +1428,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1526,7 +1526,7 @@ targets:
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, workflowSpec)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, hooks)
+	eid, err := getExecutionID(t, eng, hooks)
 	require.NoError(t, err)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1615,7 +1615,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1682,7 +1682,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -1795,7 +1795,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionId(t, eng, testHooks)
+	eid, err := getExecutionID(t, eng, testHooks)
 	require.NoError(t, err)
 
 	state, err := eng.executionStates.Get(ctx, eid)
