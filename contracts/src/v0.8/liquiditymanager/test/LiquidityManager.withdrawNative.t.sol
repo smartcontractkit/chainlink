@@ -5,27 +5,27 @@ import {LiquidityManager} from "../LiquidityManager.sol";
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 
 contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
-    event NativeWithdrawn(uint256 amount, address destination);
+  event NativeWithdrawn(uint256 amount, address destination);
 
-    address private receiver = makeAddr("receiver");
+  address private receiver = makeAddr("receiver");
 
-    function setUp() public override {
-        super.setUp();
-        vm.deal(address(s_liquidityManager), 1);
-    }
+  function setUp() public override {
+    super.setUp();
+    vm.deal(address(s_liquidityManager), 1);
+  }
 
-    function test_withdrawNative() external {
-        assertEq(receiver.balance, 0);
-        vm.expectEmit();
-        emit NativeWithdrawn(1, receiver);
-        changePrank(FINANCE);
-        s_liquidityManager.withdrawNative(1, payable(receiver));
-        assertEq(receiver.balance, 1);
-    }
+  function test_withdrawNative() external {
+    assertEq(receiver.balance, 0);
+    vm.expectEmit();
+    emit NativeWithdrawn(1, receiver);
+    changePrank(FINANCE);
+    s_liquidityManager.withdrawNative(1, payable(receiver));
+    assertEq(receiver.balance, 1);
+  }
 
-    function test_withdrawNative_FinanceRoleReverts() external {
-        vm.stopPrank();
-        vm.expectRevert(LiquidityManager.OnlyFinanceRole.selector);
-        s_liquidityManager.withdrawNative(1, payable(receiver));
-    }
+  function test_withdrawNative_FinanceRoleReverts() external {
+    vm.stopPrank();
+    vm.expectRevert(LiquidityManager.OnlyFinanceRole.selector);
+    s_liquidityManager.withdrawNative(1, payable(receiver));
+  }
 }

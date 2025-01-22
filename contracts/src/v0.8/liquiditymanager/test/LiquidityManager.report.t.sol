@@ -5,14 +5,14 @@ import "../interfaces/ILiquidityManager.sol";
 import "./LiquidityManagerSetup.t.sol";
 
 contract LiquidityManager__report is LiquidityManagerSetup {
-    function test_report_RevertWhen_EmptyReport() external {
-        ILiquidityManager.LiquidityInstructions memory instructions = ILiquidityManager.LiquidityInstructions({
-            sendLiquidityParams: new ILiquidityManager.SendLiquidityParams[](0),
-            receiveLiquidityParams: new ILiquidityManager.ReceiveLiquidityParams[](0)
-        });
+  function test_report_RevertWhen_EmptyReport() external {
+    ILiquidityManager.LiquidityInstructions memory instructions = ILiquidityManager.LiquidityInstructions({
+      sendLiquidityParams: new ILiquidityManager.SendLiquidityParams[](0),
+      receiveLiquidityParams: new ILiquidityManager.ReceiveLiquidityParams[](0)
+    });
 
-        vm.expectRevert(LiquidityManager.EmptyReport.selector);
+    vm.expectRevert(LiquidityManager.EmptyReport.selector);
 
-        s_liquidityManager.report(abi.encode(instructions), 123);
-    }
+    s_liquidityManager.report(abi.encode(instructions), 123);
+  }
 }
