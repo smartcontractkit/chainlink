@@ -94,7 +94,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 		}
 
 		chainReports[i] = cciptypes.ExecutePluginReportSingleChain{
-			SourceChainSelector: cciptypes.ChainSelector(rand.Uint64()),
+			SourceChainSelector: cciptypes.ChainSelector(124615329519749607), // Solana mainnet chain selector
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
 			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
