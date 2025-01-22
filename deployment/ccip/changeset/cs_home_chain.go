@@ -3,7 +3,6 @@ package changeset
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -359,16 +358,19 @@ func deployHomeChain(
 	return capReg, nil
 }
 
-func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
-	aBytes, err := json.Marshal(a)
-	if err != nil {
-		return false, err
+func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) bool {
+	if len(a.HashedCapabilityIds) != len(b.HashedCapabilityIds) {
+		return false
 	}
-	bBytes, err := json.Marshal(b)
-	if err != nil {
-		return false, err
+	for i := range a.HashedCapabilityIds {
+		if !bytes.Equal(a.HashedCapabilityIds[i][:], b.HashedCapabilityIds[i][:]) {
+			return false
+		}
 	}
-	return bytes.Equal(aBytes, bBytes), nil
+	return a.NodeOperatorId == b.NodeOperatorId &&
+		bytes.Equal(a.Signer[:], b.Signer[:]) &&
+		bytes.Equal(a.P2pId[:], b.P2pId[:]) &&
+		bytes.Equal(a.EncryptionPublicKey[:], b.EncryptionPublicKey[:])
 }
 
 func addNodes(
@@ -388,6 +390,7 @@ func addNodes(
 			NodeOperatorId:      node.NodeOperatorId,
 			Signer:              node.Signer,
 			P2pId:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
@@ -405,7 +408,7 @@ func addNodes(
 				HashedCapabilityIds: [][32]byte{internal.CCIPCapabilityID},
 			}
 			if existing, ok := existingNodeParams[p2pID]; ok {
-				if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
+				if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {
 					lggr.Infow("Node already exists", "p2pID", p2pID)
 					continue
 				}
