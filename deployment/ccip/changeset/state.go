@@ -41,7 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -468,8 +468,6 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.OffRamp = offRamp
-		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_6_0_dev).String():
-			fallthrough
 		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
 			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {

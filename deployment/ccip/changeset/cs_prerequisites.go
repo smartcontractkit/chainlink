@@ -7,10 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
@@ -314,6 +313,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
 			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
 		}
+		e.Logger.Infow("assigned registry module on token admin registry")
 	}
 	if weth9Contract == nil {
 		weth, err := deployment.DeployContract(lggr, chain, ab,

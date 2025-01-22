@@ -19,8 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 )
 
-var wgroup sync.WaitGroup
-
 const (
 	transmitted = iota
 	committed
@@ -79,8 +77,9 @@ func subscribeDeferredCommitEvents(
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	errChan chan error,
+	wg *sync.WaitGroup,
 ) {
-	defer wgroup.Done()
+	defer wg.Done()
 
 	lggr.Infow("starting commit event subscriber for ",
 		"destChainSelector", chainSelector,
@@ -205,8 +204,9 @@ func subscribeExecutionEvents(
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
 	errChan chan error,
+	wg *sync.WaitGroup,
 ) {
-	defer wgroup.Done()
+	defer wg.Done()
 	defer close(errChan)
 
 	lggr.Infow("starting execution event subscriber for ",

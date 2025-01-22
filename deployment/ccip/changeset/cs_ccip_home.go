@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 var (
@@ -515,10 +515,8 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnC
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", s.HomeChainSelector)
 	}
-	if s.MCMS != nil {
-		if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
-			return err
-		}
+	if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.Chains[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+		return err
 	}
 
 	if len(e.NodeIDs) == 0 {
@@ -1232,10 +1230,8 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", c.HomeChainSelector)
 	}
-	if c.MCMS != nil {
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
-			return err
-		}
+	if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
+		return err
 	}
 	for _, remove := range c.RemoteChainRemoves {
 		if err := deployment.IsValidChainSelector(remove); err != nil {
@@ -1316,6 +1312,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
+		e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
 		return deployment.ChangesetOutput{}, nil
 	}
 

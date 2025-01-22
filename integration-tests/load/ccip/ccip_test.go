@@ -47,11 +47,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 	lggr.Infof("loaded ccip test config: %+v", config.CCIP.Load)
 	userOverrides := config.CCIP.Load
+	userOverrides.Validate(t)
 
 	// apply user defined test duration
-	timeout, err := time.ParseDuration(*userOverrides.TestDuration)
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), userOverrides.GetTestDuration())
 	defer cancel()
 
 	// generate environment from crib-produced files
@@ -107,7 +106,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrCommitChannels[cs],
-			errChan)
+			errChan,
+			&wg)
 		go subscribeExecutionEvents(
 			ctx,
 			lggr,
@@ -118,11 +118,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrExecChannels[cs],
-			errChan)
+			errChan,
+			&wg)
 	}
 
-	loadDuration, err := time.ParseDuration(*userOverrides.LoadDuration)
-	require.NoError(t, err)
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
 	require.NoError(t, err)
 
@@ -131,9 +130,9 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			T:           t,
 			GenName:     "ccipLoad",
 			LoadType:    wasp.RPS,
-			CallTimeout: 5 * time.Second,
+			CallTimeout: userOverrides.GetLoadDuration(),
 			// 1 request per second for n seconds
-			Schedule: wasp.Plain(1, loadDuration),
+			Schedule: wasp.Plain(1, userOverrides.GetLoadDuration()),
 			// limit requests to 1 per duration
 			RateLimitUnitDuration: requestFrequency,
 			// will need to be divided by number of chains

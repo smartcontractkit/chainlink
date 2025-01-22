@@ -42,7 +42,24 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	p2pIds := nodes.NonBootstraps().PeerIDs()
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.AllChainSelectors() {
+		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
+		if err != nil {
+			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
+		}
+		cfg[chain] = commontypes.MCMSWithTimelockConfig{
+			Canceller:        *mcmsConfig,
+			Bypasser:         *mcmsConfig,
+			Proposer:         *mcmsConfig,
+			TimelockMinDelay: big.NewInt(0),
+		}
+	}
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			Config:    cfg,
+		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
 			Config: changeset.DeployHomeChainConfig{
@@ -81,25 +98,13 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 	e.ExistingAddresses = ab
 	chainSelectors := e.AllChainSelectors()
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
 	for _, chain := range e.AllChainSelectors() {
-		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
-		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("failed to create mcms config: %w", err)
-		}
-		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:        *mcmsConfig,
-			Bypasser:         *mcmsConfig,
-			Proposer:         *mcmsConfig,
-			TimelockMinDelay: big.NewInt(0),
-		}
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
 
-	// todo: parallelize these step across all chains
 	// set up chains
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -136,10 +141,6 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    cfg,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
