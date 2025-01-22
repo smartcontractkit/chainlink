@@ -63,6 +63,28 @@ func Test_Transmitter_Transmit(t *testing.T) {
 	orm := NewORM(db, donID)
 	clients := map[string]grpc.Client{}
 
+	t.Run("errors if not started", func(t *testing.T) {
+		mt := newTransmitter(Opts{
+			Lggr:        lggr,
+			Cfg:         mockCfg{},
+			Clients:     clients,
+			FromAccount: ed25519.PublicKey{},
+			DonID:       donID,
+			ORM:         orm,
+		})
+
+		seqNr := uint64(55)
+		report := makeSampleReport()
+		digest := makeSampleConfigDigest()
+		sigs := []types.AttributedOnchainSignature{{
+			Signature: []byte{22},
+			Signer:    commontypes.OracleID(43),
+		}}
+		err := mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transmitter is not started")
+	})
+
 	t.Run("with multiple mercury servers", func(t *testing.T) {
 		t.Run("transmission successfully enqueued", func(t *testing.T) {
 			c := &MockGRPCClient{}
@@ -78,10 +100,15 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				DonID:       donID,
 				ORM:         orm,
 			})
-			// init the queue since we skipped starting transmitter
-			mt.servers[sURL].q.Init([]*Transmission{})
-			mt.servers[sURL2].q.Init([]*Transmission{})
-			mt.servers[sURL3].q.Init([]*Transmission{})
+			err := mt.StartOnce("SimulateTransmitterStart", func() error {
+				// init the queue since we simulate starting transmitter
+				mt.servers[sURL].q.Init([]*Transmission{})
+				mt.servers[sURL2].q.Init([]*Transmission{})
+				mt.servers[sURL3].q.Init([]*Transmission{})
+
+				return nil
+			})
+			require.NoError(t, err)
 
 			seqNr := uint64(55)
 			report := makeSampleReport()
@@ -90,7 +117,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				Signature: []byte{22},
 				Signer:    commontypes.OracleID(43),
 			}}
-			err := mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
+			err = mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
 			require.NoError(t, err)
 
 			// ensure it was added to the queue

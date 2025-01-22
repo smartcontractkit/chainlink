@@ -1137,7 +1137,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 func isOCR3ConfigSetOnOffRamp(
 	lggr logger.Logger,
 	chain deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs,
 ) (bool, error) {
 	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)

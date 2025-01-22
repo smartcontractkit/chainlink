@@ -169,19 +169,31 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 			mt.lggr.Debugw("Loading transmit requests from database")
 		}
 
-		{
-			var startClosers []services.StartClose
-			for _, s := range mt.servers {
-				transmissions, err := s.pm.Load(ctx)
+		g, startCtx := errgroup.WithContext(ctx)
+		for _, s := range mt.servers {
+			// concurrent start of all servers
+			g.Go(func() error {
+				// Load DB transmissions and populate server transmit queue
+				transmissions, err := s.pm.Load(startCtx)
 				if err != nil {
 					return err
 				}
 				s.q.Init(transmissions)
+
+				// Start all associated services
+				//
 				// starting pm after loading from it is fine because it simply
 				// spawns some garbage collection/prune goroutines
-				startClosers = append(startClosers, s.c, s.q, s.pm)
+				//
+				// client, queue etc should be started before spawning server loops
+				startClosers := []services.StartClose{s.c, s.q, s.pm}
+				if err := (&services.MultiStart{}).Start(startCtx, startClosers...); err != nil {
+					return err
+				}
 
-				// Number of goroutines per server will be roughly
+				// Spawn loops for the server
+				//
+				// Number of goroutines per transmitter will be roughly
 				// 2*nServers*TransmitConcurrency because each server has a
 				// delete queue and a transmit queue.
 				//
@@ -194,13 +206,11 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
 					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
 				}
-			}
-			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
-				return err
-			}
+				return nil
+			})
 		}
 
-		return nil
+		return g.Wait()
 	})
 }
 
@@ -245,7 +255,24 @@ func (mt *transmitter) Transmit(
 	digest types.ConfigDigest,
 	seqNr uint64,
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
-	sigs []types.AttributedOnchainSignature) error {
+	sigs []types.AttributedOnchainSignature,
+) (err error) {
+	ok := mt.IfStarted(func() {
+		err = mt.transmit(ctx, digest, seqNr, report, sigs)
+	})
+	if !ok {
+		return errors.New("transmitter is not started")
+	}
+	return
+}
+
+func (mt *transmitter) transmit(
+	ctx context.Context,
+	digest types.ConfigDigest,
+	seqNr uint64,
+	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
+	sigs []types.AttributedOnchainSignature,
+) error {
 	transmissions := make([]*Transmission, 0, len(mt.servers))
 	for serverURL := range mt.servers {
 		transmissions = append(transmissions, &Transmission{

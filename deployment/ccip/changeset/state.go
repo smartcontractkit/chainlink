@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
@@ -81,10 +82,11 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter          deployment.ContractType = "TestRouter"
-	Multicall3          deployment.ContractType = "Multicall3"
-	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	TestRouter             deployment.ContractType = "TestRouter"
+	Multicall3             deployment.ContractType = "Multicall3"
+	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
+	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
+	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
 	BurnMintToken      deployment.ContractType = "BurnMintToken"
@@ -102,8 +104,8 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
+	OnRamp             onramp.OnRampInterface
+	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
@@ -128,7 +130,8 @@ type CCIPChainState struct {
 	RMNHome            *rmn_home.RMNHome
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
+	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
@@ -576,6 +579,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LogMessageDataReceiver = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
