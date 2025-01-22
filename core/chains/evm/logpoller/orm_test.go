@@ -1938,7 +1938,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 	}
 
-	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx int, topicVals []common.Hash) query.KeyFilter {
+	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx uint64, topicVals []common.Hash) query.KeyFilter {
 		filters := []query.Expression{
 			logpoller.NewAddressFilter(address),
 			logpoller.NewEventSigFilter(event),
@@ -1946,7 +1946,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 		if len(topicVals) > 0 {
 			exp := []query.Expression{
-				logpoller.NewEventByTopicFilter(uint64(topicIdx), []logpoller.HashedValueComparator{
+				logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
 					{Values: topicVals, Operator: primitives.Eq},
 				}),
 			}

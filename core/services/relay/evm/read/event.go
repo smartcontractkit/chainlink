@@ -607,9 +607,9 @@ func (b *EventBinding) encodeValue(itemType string, isDW bool, value any) (commo
 
 	if isDW {
 		return b.encodeValComparatorDataWord(itemType, onChainTypedVal)
-	} else {
-		return b.encodeValComparatorTopic(itemType, onChainTypedVal)
 	}
+
+	return b.encodeValComparatorTopic(itemType, onChainTypedVal)
 }
 
 func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (query.Expression, error) {
@@ -717,7 +717,8 @@ func createTopicFilters(hashedTopics []common.Hash) (query.Expression, error) {
 	for topicID, hash := range hashedTopics {
 		expressions = append(expressions, logpoller.NewEventByTopicFilter(
 			// adding 1 to skip even signature
-			uint64(topicID+1), []logpoller.HashedValueComparator{{Values: []common.Hash{hash}, Operator: primitives.Eq}},
+			uint64(topicID+1), //nolint:gosec // G115
+			[]logpoller.HashedValueComparator{{Values: []common.Hash{hash}, Operator: primitives.Eq}},
 		))
 	}
 
