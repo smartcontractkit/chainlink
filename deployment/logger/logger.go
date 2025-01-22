@@ -125,7 +125,7 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 	// send only Error
 	consoleCore := zapcore.NewCore(
 		consoleEncoder,
-		&debugWriteSyncer{writer: consoleWriter},
+		&debugWriteSyncer{writer: zapcore.AddSync(consoleWriter), name: "console"},
 		zap.ErrorLevel,
 	)
 
@@ -133,22 +133,22 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 
 	debugFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		&debugWriteSyncer{writer: zapcore.AddSync(debugFileWriter)},
+		&debugWriteSyncer{writer: zapcore.AddSync(debugFileWriter), name: "debug"},
 		debugLevelEnabler,
 	)
 	infoFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		&debugWriteSyncer{writer: zapcore.AddSync(infoFileWriter)},
+		&debugWriteSyncer{writer: zapcore.AddSync(infoFileWriter), name: "info"},
 		infoLevelEnabler,
 	)
 	warnFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		&debugWriteSyncer{writer: zapcore.AddSync(warnFileWriter)},
+		&debugWriteSyncer{writer: zapcore.AddSync(warnFileWriter), name: "warn"},
 		warnLevelEnabler,
 	)
 	errorFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		&debugWriteSyncer{writer: zapcore.AddSync(errorFileWriter)},
+		&debugWriteSyncer{writer: zapcore.AddSync(errorFileWriter), name: "error"},
 		errorLevelEnabler,
 	)
 
