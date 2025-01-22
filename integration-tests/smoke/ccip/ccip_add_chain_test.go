@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -527,14 +528,7 @@ func setupOutboundWiring(
 // Based on the flags provided, it will also deploy the jobs and home chain contracts.
 // mcmsEnabled should be set to true if the home chain contracts have been transferred to MCMS.
 func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEnvironment, chains []uint64, deployJobs, deployHomeChain, mcmsEnabled bool) testhelpers.DeployedEnv {
-	e = testhelpers.AddCCIPContractsToEnvironment(
-		t,
-		chains,
-		tEnv,
-		deployJobs,
-		deployHomeChain,
-		mcmsEnabled,
-	)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, chains, tEnv, mcmsEnabled)
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
