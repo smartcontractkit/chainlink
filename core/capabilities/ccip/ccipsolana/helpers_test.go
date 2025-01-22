@@ -13,14 +13,8 @@ import (
 func Test_decodeExtraArgs(t *testing.T) {
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		extraArgs := ccip_router.AnyExtraArgs{
-			// TODO wait for onchain team fix this AnyExtraArgs
-			//ComputeUnits:     1000,
-			//IsWritableBitmap: 2,
-			//Accounts: []solana.PublicKey{
-			//	config.ReceiverExternalExecutionConfigPDA,
-			//	config.ReceiverTargetAccountPDA,
-			//	solana.SystemProgramID,
-			//},
+			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
+			AllowOutOfOrderExecution: false,
 		}
 
 		var buf bytes.Buffer
@@ -29,6 +23,6 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.NoError(t, err)
 		output, err := DecodeExtraArgsToMap(buf.Bytes())
 		require.NoError(t, err)
-		require.Len(t, output, 3)
+		require.Len(t, output, 2)
 	})
 }
