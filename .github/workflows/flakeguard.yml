@@ -231,7 +231,7 @@ jobs:
   run-tests:
     name: Run Tests
     needs: get-tests
-    runs-on: ubuntu22.04-32cores-128GB
+    runs-on: ${{ matrix.runs_on }}
     if: ${{ needs.get-tests.outputs.matrix != '' && needs.get-tests.outputs.matrix != '[]' }}
     timeout-minutes: 180
     strategy:
