@@ -297,7 +297,7 @@ var sei = ClientErrors{
 }
 
 var monad = ClientErrors{
-	TerminallyUnderpriced: regexp.MustCompile("Gas limit too low"),
+	Fatal: regexp.MustCompile("Gas limit too low"),
 }
 
 const TerminallyStuckMsg = "transaction terminally stuck"
