@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"testing"
 
 	"go.uber.org/zap"
@@ -124,7 +125,7 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 	// send only Error
 	consoleCore := zapcore.NewCore(
 		consoleEncoder,
-		consoleWriter,
+		&debugWriteSyncer{writer: consoleWriter},
 		zap.ErrorLevel,
 	)
 
@@ -132,22 +133,22 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 
 	debugFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(debugFileWriter),
+		&debugWriteSyncer{writer: zapcore.AddSync(debugFileWriter)},
 		debugLevelEnabler,
 	)
 	infoFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(infoFileWriter),
+		&debugWriteSyncer{writer: zapcore.AddSync(infoFileWriter)},
 		infoLevelEnabler,
 	)
 	warnFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(warnFileWriter),
+		&debugWriteSyncer{writer: zapcore.AddSync(warnFileWriter)},
 		warnLevelEnabler,
 	)
 	errorFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(errorFileWriter),
+		&debugWriteSyncer{writer: zapcore.AddSync(errorFileWriter)},
 		errorLevelEnabler,
 	)
 
@@ -180,4 +181,23 @@ func (afw *autoFlushWriter) canSync() bool {
 		return false
 	}
 	return (stat.Mode() & os.ModeNamedPipe) == 0 // Pipes cannot be synced
+}
+
+type debugWriteSyncer struct {
+	writer zapcore.WriteSyncer
+	name   string
+}
+
+func (dws *debugWriteSyncer) Write(p []byte) (n int, err error) {
+	return dws.writer.Write(p)
+}
+
+func (dws *debugWriteSyncer) Sync() error {
+	fmt.Printf("Sync called on: %s\n", dws.name)
+	err := dws.writer.Sync()
+	if err != nil {
+		fmt.Printf("Sync failed on: %s, error: %v\n", dws.name, err)
+		debug.PrintStack() // Print stack trace to identify the caller
+	}
+	return err
 }

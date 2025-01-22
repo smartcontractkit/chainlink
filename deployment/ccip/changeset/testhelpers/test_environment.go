@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math/big"
 	"os"
+	"runtime/debug"
 	"testing"
 	"time"
 
@@ -301,7 +302,11 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
-			require.NoError(t, node.App.Stop())
+			err := node.App.Stop()
+			if err != nil {
+				debug.PrintStack()
+			}
+			require.NoError(t, err)
 		})
 	}
 	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, nodes)
