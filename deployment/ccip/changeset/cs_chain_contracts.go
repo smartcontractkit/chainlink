@@ -705,12 +705,10 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		var args []offramp.OffRampSourceChainConfigArgs
 		for source, update := range updates {
 			router := common.HexToAddress("0x0")
-			if update.IsEnabled {
-				if update.TestRouter {
-					router = s.Chains[chainSel].TestRouter.Address()
-				} else {
-					router = s.Chains[chainSel].Router.Address()
-				}
+			if update.TestRouter {
+				router = s.Chains[chainSel].TestRouter.Address()
+			} else {
+				router = s.Chains[chainSel].Router.Address()
 			}
 			onRamp := s.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{

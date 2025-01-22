@@ -481,6 +481,46 @@ func AddLane(
 	require.NoError(t, err)
 }
 
+func UpdateLane(
+	t *testing.T,
+	e *DeployedEnv,
+	from, to uint64,
+	isTestRouter bool,
+	isEnabled bool,
+) {
+	var err error
+	var apps []commoncs.ChangesetApplication
+	apps = append(apps, commoncs.ChangesetApplication{
+		Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+		Config: changeset.UpdateOnRampDestsConfig{
+			UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+				from: {
+					to: {
+						IsEnabled:        isEnabled,
+						TestRouter:       isTestRouter,
+						AllowListEnabled: false,
+					},
+				},
+			},
+		},
+	})
+	apps = append(apps, commoncs.ChangesetApplication{
+		Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+		Config: changeset.UpdateOffRampSourcesConfig{
+			UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+				to: {
+					from: {
+						IsEnabled:  isEnabled,
+						TestRouter: isTestRouter,
+					},
+				},
+			},
+		},
+	})
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	require.NoError(t, err)
+}
+
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
 	stateChainFrom := state.Chains[from]
 	AddLane(
