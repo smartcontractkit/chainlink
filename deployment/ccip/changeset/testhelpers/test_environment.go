@@ -397,7 +397,8 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 }
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
-	lggr := logger.Test(t)
+	// lggr := logger.Test(t)
+	lggr := changeset.NewNamedTestLogger(t)
 	tc := tEnv.TestConfigs()
 	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()

@@ -106,6 +106,8 @@ func Test_CCIPMessaging(t *testing.T) {
 			nil,                                 // default extraArgs
 			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
+
+		require.True(t, false, "on-demand failure")
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
