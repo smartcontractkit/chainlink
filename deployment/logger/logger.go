@@ -119,21 +119,21 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 	warnFileWriter := &autoFlushWriter{writer: warnFile}
 	errorFileWriter := &autoFlushWriter{writer: errorFile}
 
-	consoleEncoder := zapcore.NewConsoleEncoder(sharedEncoderConfig)
-	consoleWriter := zapcore.Lock(os.Stdout)
+	// consoleEncoder := zapcore.NewConsoleEncoder(sharedEncoderConfig)
+	// consoleWriter := zapcore.Lock(os.Stdout)
 
 	// send only Error
-	consoleCore := zapcore.NewCore(
-		consoleEncoder,
-		&debugWriteSyncer{writer: zapcore.AddSync(consoleWriter), name: "console"},
-		zap.ErrorLevel,
-	)
+	// consoleCore := zapcore.NewCore(
+	// 	consoleEncoder,
+	// 	&debugWriteSyncer{writer: zapcore.AddSync(consoleWriter), name: "console"},
+	// 	zap.ErrorLevel,
+	// )
 
 	// add trace?
 
 	debugFileCore := zapcore.NewCore(
 		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		&debugWriteSyncer{writer: zapcore.AddSync(debugFileWriter), name: "debug"},
+		&debugWriteSyncer{writer: zapcore.AddSync(debugFileWriter), name: "info"},
 		debugLevelEnabler,
 	)
 	infoFileCore := zapcore.NewCore(
@@ -152,7 +152,8 @@ func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core 
 		errorLevelEnabler,
 	)
 
-	return []zapcore.Core{debugFileCore, infoFileCore, warnFileCore, errorFileCore, consoleCore}
+	// return []zapcore.Core{debugFileCore, infoFileCore, warnFileCore, errorFileCore, consoleCore}
+	return []zapcore.Core{debugFileCore, infoFileCore, warnFileCore, errorFileCore}
 }
 
 type autoFlushWriter struct {
