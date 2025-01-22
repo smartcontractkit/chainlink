@@ -41,7 +41,7 @@ type mockFetcher struct {
 	responseMap map[string]mockFetchResp
 }
 
-func (m *mockFetcher) Fetch(_ context.Context, url string) ([]byte, error) {
+func (m *mockFetcher) Fetch(_ context.Context, url string, n uint32) ([]byte, error) {
 	return m.responseMap[url].Body, m.responseMap[url].Err
 }
 
@@ -99,7 +99,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
@@ -116,7 +116,7 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 
@@ -169,7 +169,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
@@ -197,7 +197,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)

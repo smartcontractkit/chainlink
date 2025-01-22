@@ -298,10 +298,10 @@ TransmitConcurrency = 100
 
 [Capabilities]
 [Capabilities.RateLimit]
-GlobalRPS = 800.0
-GlobalBurst = 1000
-PerSenderRPS = 10.0
-PerSenderBurst = 50
+GlobalRPS = 200.0
+GlobalBurst = 200
+PerSenderRPS = 100.0
+PerSenderBurst = 100
 
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10
@@ -322,10 +322,10 @@ SupportedVersion = 1
 ReceiverBufferSize = 10000
 
 [Capabilities.Dispatcher.RateLimit]
-GlobalRPS = 200.0
-GlobalBurst = 200
-PerSenderRPS = 100.0
-PerSenderBurst = 100
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
 Address = ''
@@ -336,6 +336,9 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxBinarySize = '20.00mb'
+MaxEncryptedSecretsSize = '26.40kb'
+MaxConfigSize = '50.00kb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''

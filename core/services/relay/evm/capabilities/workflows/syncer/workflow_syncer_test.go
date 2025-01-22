@@ -316,7 +316,7 @@ func Test_SecretsWorker(t *testing.T) {
 		}
 		giveContents = "contents"
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
 	)
@@ -417,7 +417,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -516,7 +516,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)

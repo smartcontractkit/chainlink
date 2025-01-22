@@ -1253,6 +1253,9 @@ PerSenderBurst is the per-sender burst limit for the dispatcher.
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+MaxBinarySize = '20.00mb' # Default
+MaxEncryptedSecretsSize = '26.40kb' # Default
+MaxConfigSize = '50.00kb' # Default
 ```
 
 
@@ -1273,6 +1276,24 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### MaxBinarySize
+```toml
+MaxBinarySize = '20.00mb' # Default
+```
+MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+
+### MaxEncryptedSecretsSize
+```toml
+MaxEncryptedSecretsSize = '26.40kb' # Default
+```
+MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+
+### MaxConfigSize
+```toml
+MaxConfigSize = '50.00kb' # Default
+```
+MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
 ## Capabilities.ExternalRegistry
 ```toml
@@ -6098,7 +6119,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -10491,7 +10512,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -14593,6 +14614,7 @@ SelectionMode = 'PriorityLevel' # Default
 SyncThreshold = 5 # Default
 NodeIsSyncingEnabled = false # Default
 LeaseDuration = '1m0s' # Default
+NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
@@ -14645,6 +14667,12 @@ NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes 
 LeaseDuration = '1m0s' # Default
 ```
 LeaseDuration is the max duration a node can be leased for.
+
+### NewHeadsPollInterval
+```toml
+NewHeadsPollInterval = '10s' # Default
+```
+NewHeadsPollInterval is the rate to poll for new heads.
 
 ### FinalizedBlockPollInterval
 ```toml
