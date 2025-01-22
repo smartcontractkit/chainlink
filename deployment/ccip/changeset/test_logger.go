@@ -1,127 +1,171 @@
 package changeset
 
-import (
-	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"testing"
+// import (
+// 	"fmt"
+// 	"log"
+// 	"os"
+// 	"path/filepath"
+// 	"testing"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-)
+// 	"go.uber.org/zap"
+// 	"go.uber.org/zap/zapcore"
 
-type SplitTestLogger struct {
-	*zap.SugaredLogger
-}
+// 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
+// )
 
-func (l *SplitTestLogger) Name() string {
-	return l.Desugar().Name()
-}
+// type SplitTestLogger struct {
+// 	*zap.SugaredLogger
+// }
 
-func NewNamedTestLogger(tb testing.TB) *SplitTestLogger {
-	nameFn := func(level string) string {
-		return fmt.Sprintf("%s_%s.log", tb.Name(), level)
-	}
+// func (l SplitTestLogger) Name() string {
+// 	return l.Desugar().Name()
+// }
 
-	logger := zap.New(zapcore.NewTee(getCoresWithNamedFunction(nameFn)...))
+// func (l SplitTestLogger) Named(name string) corelogger.Logger {
+// 	return SplitTestLogger{l.SugaredLogger.Named(name)}
+// }
 
-	return &SplitTestLogger{logger.Sugar()}
-}
+// func (l SplitTestLogger) Trace(args ...interface{}) {
+// 	l.Debug(args...)
+// }
 
-func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core {
-	sharedEncoderConfig := zap.NewDevelopmentEncoderConfig()
-	sharedEncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000000000")
+// func (l SplitTestLogger) Tracef(format string, values ...interface{}) {
+// 	l.Debugf(format, values...)
+// }
 
-	dir := "logs"
+// func (l SplitTestLogger) Tracew(msg string, keysAndValues ...interface{}) {
+// 	l.Debugw(msg, keysAndValues...)
+// }
 
-	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-		log.Fatalf("Failed to create directory: %v", err)
-	}
+// func (l SplitTestLogger) Critical(args ...interface{}) {
+// 	l.Error(args...)
+// }
 
-	debugFile, err := os.Create(filepath.Join(dir, nameFn("debug")))
-	if err != nil {
-		log.Fatalf("Failed to create debug.log: %v", err)
-	}
-	infoFile, err := os.Create(filepath.Join(dir, nameFn("info")))
-	if err != nil {
-		log.Fatalf("Failed to create info.log: %v", err)
-	}
-	warnFile, err := os.Create(filepath.Join(dir, nameFn("warn")))
-	if err != nil {
-		log.Fatalf("Failed to create warn.log: %v", err)
-	}
-	errorFile, err := os.Create(filepath.Join(dir, nameFn("error")))
-	if err != nil {
-		log.Fatalf("Failed to create error.log: %v", err)
-	}
+// func (l SplitTestLogger) Criticalf(format string, values ...interface{}) {
+// 	l.Errorf(format, values...)
+// }
 
-	debugLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-		return level == zap.DebugLevel
-	})
-	infoLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-		return level == zap.InfoLevel
-	})
-	warnLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-		return level == zap.WarnLevel
-	})
-	errorLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
-		return level == zap.ErrorLevel || level == zap.DPanicLevel || level == zap.PanicLevel || level == zap.FatalLevel
-	})
+// func (l SplitTestLogger) Criticalw(msg string, keysAndValues ...interface{}) {
+// 	l.Errorw(msg, keysAndValues...)
+// }
 
-	debugFileWriter := &autoFlushWriter{writer: debugFile}
-	infoFileWriter := &autoFlushWriter{writer: infoFile}
-	warnFileWriter := &autoFlushWriter{writer: warnFile}
-	errorFileWriter := &autoFlushWriter{writer: errorFile}
+// func (l SplitTestLogger) Helper(skip int) corelogger.Logger {
+// 	return SplitTestLogger{l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()}
+// }
 
-	consoleEncoder := zapcore.NewConsoleEncoder(sharedEncoderConfig)
-	consoleWriter := zapcore.Lock(os.Stdout)
+// func (l SplitTestLogger) Recover(panicErr interface{}) {
 
-	// send only Error
-	consoleCore := zapcore.NewCore(
-		consoleEncoder,
-		consoleWriter,
-		zap.ErrorLevel,
-	)
+// }
 
-	// add trace?
+// func (l SplitTestLogger) SetLogLevel(zapcore.Level) {}
 
-	debugFileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(debugFileWriter),
-		debugLevelEnabler,
-	)
-	infoFileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(infoFileWriter),
-		infoLevelEnabler,
-	)
-	warnFileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(warnFileWriter),
-		warnLevelEnabler,
-	)
-	errorFileCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(sharedEncoderConfig),
-		zapcore.AddSync(errorFileWriter),
-		errorLevelEnabler,
-	)
+// func (l SplitTestLogger) With(args ...interface{}) corelogger.Logger {
+// 	return SplitTestLogger{l.SugaredLogger.With(args...)}
+// }
 
-	return []zapcore.Core{debugFileCore, infoFileCore, warnFileCore, errorFileCore, consoleCore}
-}
+// func NewNamedTestLogger(tb testing.TB) *SplitTestLogger {
+// 	nameFn := func(level string) string {
+// 		return fmt.Sprintf("%s_%s.log", tb.Name(), level)
+// 	}
 
-type autoFlushWriter struct {
-	writer *os.File
-}
+// 	logger := zap.New(zapcore.NewTee(getCoresWithNamedFunction(nameFn)...))
 
-func (afw *autoFlushWriter) Write(p []byte) (n int, err error) {
-	n, err = afw.writer.Write(p)
-	if err == nil {
-		_ = afw.writer.Sync() // Flush after every write
-	}
-	return
-}
+// 	return &SplitTestLogger{logger.Sugar()}
+// }
 
-func (afw *autoFlushWriter) Sync() error {
-	return afw.writer.Sync()
-}
+// func getCoresWithNamedFunction(nameFn func(level string) string) []zapcore.Core {
+// 	sharedEncoderConfig := zap.NewDevelopmentEncoderConfig()
+// 	sharedEncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000000000")
+
+// 	dir := "logs"
+
+// 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+// 		log.Fatalf("Failed to create directory: %v", err)
+// 	}
+
+// 	debugFile, err := os.Create(filepath.Join(dir, nameFn("debug")))
+// 	if err != nil {
+// 		log.Fatalf("Failed to create debug.log: %v", err)
+// 	}
+// 	infoFile, err := os.Create(filepath.Join(dir, nameFn("info")))
+// 	if err != nil {
+// 		log.Fatalf("Failed to create info.log: %v", err)
+// 	}
+// 	warnFile, err := os.Create(filepath.Join(dir, nameFn("warn")))
+// 	if err != nil {
+// 		log.Fatalf("Failed to create warn.log: %v", err)
+// 	}
+// 	errorFile, err := os.Create(filepath.Join(dir, nameFn("error")))
+// 	if err != nil {
+// 		log.Fatalf("Failed to create error.log: %v", err)
+// 	}
+
+// 	debugLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+// 		return level == zap.DebugLevel
+// 	})
+// 	infoLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+// 		return level == zap.InfoLevel
+// 	})
+// 	warnLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+// 		return level == zap.WarnLevel
+// 	})
+// 	errorLevelEnabler := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+// 		return level == zap.ErrorLevel || level == zap.DPanicLevel || level == zap.PanicLevel || level == zap.FatalLevel
+// 	})
+
+// 	debugFileWriter := &autoFlushWriter{writer: debugFile}
+// 	infoFileWriter := &autoFlushWriter{writer: infoFile}
+// 	warnFileWriter := &autoFlushWriter{writer: warnFile}
+// 	errorFileWriter := &autoFlushWriter{writer: errorFile}
+
+// 	consoleEncoder := zapcore.NewConsoleEncoder(sharedEncoderConfig)
+// 	consoleWriter := zapcore.Lock(os.Stdout)
+
+// 	// send only Error
+// 	consoleCore := zapcore.NewCore(
+// 		consoleEncoder,
+// 		consoleWriter,
+// 		zap.ErrorLevel,
+// 	)
+
+// 	// add trace?
+
+// 	debugFileCore := zapcore.NewCore(
+// 		zapcore.NewJSONEncoder(sharedEncoderConfig),
+// 		zapcore.AddSync(debugFileWriter),
+// 		debugLevelEnabler,
+// 	)
+// 	infoFileCore := zapcore.NewCore(
+// 		zapcore.NewJSONEncoder(sharedEncoderConfig),
+// 		zapcore.AddSync(infoFileWriter),
+// 		infoLevelEnabler,
+// 	)
+// 	warnFileCore := zapcore.NewCore(
+// 		zapcore.NewJSONEncoder(sharedEncoderConfig),
+// 		zapcore.AddSync(warnFileWriter),
+// 		warnLevelEnabler,
+// 	)
+// 	errorFileCore := zapcore.NewCore(
+// 		zapcore.NewJSONEncoder(sharedEncoderConfig),
+// 		zapcore.AddSync(errorFileWriter),
+// 		errorLevelEnabler,
+// 	)
+
+// 	return []zapcore.Core{debugFileCore, infoFileCore, warnFileCore, errorFileCore, consoleCore}
+// }
+
+// type autoFlushWriter struct {
+// 	writer *os.File
+// }
+
+// func (afw *autoFlushWriter) Write(p []byte) (n int, err error) {
+// 	n, err = afw.writer.Write(p)
+// 	if err == nil {
+// 		_ = afw.writer.Sync() // Flush after every write
+// 	}
+// 	return
+// }
+
+// func (afw *autoFlushWriter) Sync() error {
+// 	return afw.writer.Sync()
+// }
