@@ -5,12 +5,20 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
-contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
+contract FeeQuoter_resolveGasLimitForDestination is FeeQuoterSetup {
   FeeQuoter.DestChainConfig private s_destChainConfig;
 
   function setUp() public virtual override {
     super.setUp();
     s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+  }
+
+  function test_EVMExtraArgsV1TagSelector() public view {
+    assertEq(Client.EVM_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP EVMExtraArgsV1")));
+  }
+
+  function test_EVMExtraArgsV2TagSelector() public view {
+    assertEq(Client.EVM_EXTRA_ARGS_V2_TAG, bytes4(keccak256("CCIP EVMExtraArgsV2")));
   }
 
   function test_EVMExtraArgsV1() public view {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 
@@ -362,6 +363,9 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 	}
 
 	t.metrics.IncrementNumBroadcastedTxs(ctx)
+	if err = t.metrics.EmitTxMessage(ctx, attempt.Hash, address, tx.ToAddress, strconv.FormatUint(*tx.Nonce, 10)); err != nil {
+		t.lggr.Errorw("Beholder error emitting tx message", "err", err)
+	}
 	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, address)
 }
 

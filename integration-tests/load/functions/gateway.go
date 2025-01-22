@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -117,7 +118,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, erro
 	log.Debug().Interface("Result", result).Msg("S4 secrets_set response result")
 	for _, nodeResponse := range result.Result.Body.Payload.NodeResponses {
 		if !nodeResponse.Body.Payload.Success {
-			return 0, 0, fmt.Errorf("node response was not successful")
+			return 0, 0, errors.New("node response was not successful")
 		}
 	}
 	if envelope.SlotID > math.MaxUint8 {

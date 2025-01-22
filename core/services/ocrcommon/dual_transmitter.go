@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
@@ -121,6 +121,10 @@ func (t *ocr2FeedsDualTransmission) FromAddress(ctx context.Context) common.Addr
 	}
 
 	return forwarderAddress
+}
+
+func (t *ocr2FeedsDualTransmission) SecondaryFromAddress(ctx context.Context) (common.Address, error) {
+	return t.secondaryFromAddress, nil
 }
 
 func (t *ocr2FeedsDualTransmission) urlParams() string {

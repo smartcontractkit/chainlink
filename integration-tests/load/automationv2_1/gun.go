@@ -44,14 +44,14 @@ func generateCallData(int1 int64, int2 int64, count int64) []byte {
 
 func NewLogTriggerUser(
 	logger zerolog.Logger,
-	TriggerConfigs []LogTriggerConfig,
+	triggerConfigs []LogTriggerConfig,
 	client *seth.Client,
 	multicallAddress string,
 ) *LogTriggerGun {
 	var data [][]byte
 	var addresses []string
 
-	for _, c := range TriggerConfigs {
+	for _, c := range triggerConfigs {
 		if c.NumberOfEvents > 0 {
 			d := generateCallData(1, 1, c.NumberOfEvents)
 			data = append(data, d)

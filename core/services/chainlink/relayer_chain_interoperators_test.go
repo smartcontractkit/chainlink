@@ -176,7 +176,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	factory := chainlink.RelayerFactory{
 		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr, nil, nil, nil, ""),
+		LoopRegistry:         plugins.NewTestLoopRegistry(lggr),
 		GRPCOpts:             loop.GRPCOpts{},
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
@@ -400,14 +400,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						assert.Nil(t, cr.LegacyEVMChains())
 					}
 				}
-				if relayNetwork == relay.NetworkCosmos {
-					_, wantCosmos := tt.expectedRelayerNetworks[relay.NetworkCosmos]
-					if wantCosmos {
-						assert.Len(t, cr.LegacyCosmosChains().Slice(), expectedChainCnt)
-					} else {
-						assert.Nil(t, cr.LegacyCosmosChains())
-					}
-				}
 
 				nodesStats, cnt, err := interops.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
@@ -437,12 +429,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
 						assert.Equal(t, wantId.ChainID, c.ID().String())
-					}
-					if wantId.Network == relay.NetworkCosmos {
-						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID)
-						assert.NoError(t, err)
-						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID, c.ID())
 					}
 				}
 			}

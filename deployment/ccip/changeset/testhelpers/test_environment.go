@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -483,6 +483,13 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ChangesetApplication
+	allContractParams := make(map[uint64]changeset.ChainContractParams)
+	for _, chain := range allChains {
+		allContractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
 	apps = append(apps, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -499,8 +506,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    allChains,
-				HomeChainSelector: e.HomeChainSel,
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: allContractParams,
 			},
 		},
 	}...)
@@ -568,9 +575,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: internal.OptimisticConfirmations,
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
 	}

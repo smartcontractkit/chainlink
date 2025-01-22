@@ -85,7 +85,7 @@ func newConfigPoller(lggr logger.Logger, lp LogPoller, cc ConfigCache, addr comm
 			logpoller.NewEventSigFilter(StagingConfigSet),
 		),
 		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-			{Value: donIDTopic, Operator: primitives.Eq},
+			{Values: []common.Hash{donIDTopic}, Operator: primitives.Eq},
 		}),
 		// NOTE: Optimize for fast config switches. On Arbitrum, finalization
 		// can take tens of minutes

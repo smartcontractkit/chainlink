@@ -823,7 +823,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 
 		for idx, value := range topicValues {
 			topicFilters.Expressions[idx] = logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(value), Operator: primitives.Eq},
+				{Values: []common.Hash{logpoller.EvmWord(value)}, Operator: primitives.Eq},
 			})
 		}
 
@@ -919,7 +919,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(2), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(2)}, Operator: primitives.Gte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		},
@@ -934,10 +934,10 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(min), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(min)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(max), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(max)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1093,10 +1093,10 @@ func TestORM_DataWords(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word1), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(word1)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word2), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(word2)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1161,7 +1161,7 @@ func TestORM_DataWords(t *testing.T) {
 		logpoller.NewAddressFilter(addr),
 		logpoller.NewEventSigFilter(eventSig),
 		logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-			{Value: logpoller.EvmWord(1), Operator: primitives.Gte},
+			{Values: []common.Hash{logpoller.EvmWord(1)}, Operator: primitives.Gte},
 		}),
 		query.Confidence(primitives.Unconfirmed),
 	}
@@ -1938,18 +1938,17 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 	}
 
-	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx int, topicVals []common.Hash) query.KeyFilter {
+	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx uint64, topicVals []common.Hash) query.KeyFilter {
 		filters := []query.Expression{
 			logpoller.NewAddressFilter(address),
 			logpoller.NewEventSigFilter(event),
 		}
 
 		if len(topicVals) > 0 {
-			exp := make([]query.Expression, len(topicVals))
-			for idx, val := range topicVals {
-				exp[idx] = logpoller.NewEventByTopicFilter(uint64(topicIdx), []logpoller.HashedValueComparator{
-					{Value: val, Operator: primitives.Eq},
-				})
+			exp := []query.Expression{
+				logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
+					{Values: topicVals, Operator: primitives.Eq},
+				}),
 			}
 
 			filters = append(filters, query.Expression{
@@ -2251,10 +2250,10 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 				logpoller.NewAddressFilter(address),
 				logpoller.NewEventSigFilter(eventSig),
 				logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Lte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Lte},
 				}),
 				logpoller.NewEventByWordFilter(1, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Gte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Gte},
 				}),
 				query.Confidence(primitives.Unconfirmed),
 			},
@@ -2417,5 +2416,37 @@ func TestSelectOldestBlock(t *testing.T) {
 		require.NotNil(t, block)
 		require.Equal(t, block.BlockNumber, int64(13))
 		require.Equal(t, block.BlockHash, common.HexToHash("0x1233"))
+	})
+}
+
+func TestSelectLatestFinalizedBlock(t *testing.T) {
+	t.Run("If finalized block is not present in DB return error", func(t *testing.T) {
+		th := SetupTH(t, lpOpts)
+		o1 := th.ORM
+		o2 := th.ORM2
+		ctx := testutils.Context(t)
+		// o2's chain does not have finalized block
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1231"), 11, time.Now(), 9))
+		require.NoError(t, o2.InsertBlock(ctx, common.HexToHash("0x1234"), 10, time.Now(), 8))
+		// o1 has finalized blocks
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 11, time.Now(), 10))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1232"), 10, time.Now(), 10))
+		result, err := o2.SelectLatestFinalizedBlock(ctx)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+		require.Nil(t, result)
+	})
+	t.Run("Returns latest finalized block even if there is no exact match by block number", func(t *testing.T) {
+		th := SetupTH(t, lpOpts)
+		o1 := th.ORM
+		ctx := testutils.Context(t)
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1233"), 12, time.Now(), 10))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1232"), 11, time.Now(), 9))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1231"), 5, time.Now(), 4))
+		require.NoError(t, o1.InsertBlock(ctx, common.HexToHash("0x1230"), 4, time.Now(), 4))
+		result, err := o1.SelectLatestFinalizedBlock(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, int64(5), result.BlockNumber)
+		require.Equal(t, common.HexToHash("0x1231"), result.BlockHash)
 	})
 }

@@ -96,11 +96,12 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok Solana.Bar.Chain
+ok Solana.Bar.Chain.BalanceMonitor
+ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
-ok Solana.Bar.Txm
 ok StarkNet.Baz.Chain
+ok StarkNet.Baz.Chain.Txm
 ok StarkNet.Baz.Relayer
-ok StarkNet.Baz.Txm
 ok TelemetryManager
 ok WorkflowDBStore
 
@@ -356,18 +357,27 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Relayer",
+      "id": "Solana.Bar.Chain.BalanceMonitor",
       "attributes": {
-        "name": "Solana.Bar.Relayer",
+        "name": "Solana.Bar.Chain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.Txm",
+      "id": "Solana.Bar.Chain.Txm",
       "attributes": {
-        "name": "Solana.Bar.Txm",
+        "name": "Solana.Bar.Chain.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -383,18 +393,18 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.Relayer",
+      "id": "StarkNet.Baz.Chain.Txm",
       "attributes": {
-        "name": "StarkNet.Baz.Relayer",
+        "name": "StarkNet.Baz.Chain.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.Txm",
+      "id": "StarkNet.Baz.Relayer",
       "attributes": {
-        "name": "StarkNet.Baz.Txm",
+        "name": "StarkNet.Baz.Relayer",
         "status": "passing",
         "output": ""
       }

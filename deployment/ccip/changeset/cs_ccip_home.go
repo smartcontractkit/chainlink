@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -191,8 +192,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 	return func(params *CCIPOCRParams) {
 		if params.CommitOffChainConfig == nil {
 			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
-				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
 				TokenInfo:                          tokenInfo,
 				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
 				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
@@ -218,12 +219,12 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 	return func(params *CCIPOCRParams) {
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-				BatchGasLimit:             internal.BatchGasLimit,
-				RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
-				InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
-				RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
-				BatchingStrategyID:        internal.BatchingStrategyID,
+				BatchGasLimit:             globals.BatchGasLimit,
+				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
+				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
+				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
+				MessageVisibilityInterval: *config.MustNewDuration(globals.FirstBlockAge),
+				BatchingStrategyID:        globals.BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
 		} else if tokenDataObservers != nil {
@@ -238,18 +239,18 @@ func DeriveCCIPOCRParams(
 ) CCIPOCRParams {
 	params := CCIPOCRParams{
 		OCRParameters: commontypes.OCRParameters{
-			DeltaProgress:                           internal.DeltaProgress,
-			DeltaResend:                             internal.DeltaResend,
-			DeltaInitial:                            internal.DeltaInitial,
-			DeltaRound:                              internal.DeltaRound,
-			DeltaGrace:                              internal.DeltaGrace,
-			DeltaCertifiedCommitRequest:             internal.DeltaCertifiedCommitRequest,
-			DeltaStage:                              internal.DeltaStage,
-			Rmax:                                    internal.Rmax,
-			MaxDurationQuery:                        internal.MaxDurationQuery,
-			MaxDurationObservation:                  internal.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   internal.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
+			DeltaProgress:                           globals.DeltaProgress,
+			DeltaResend:                             globals.DeltaResend,
+			DeltaInitial:                            globals.DeltaInitial,
+			DeltaRound:                              globals.DeltaRound,
+			DeltaGrace:                              globals.DeltaGrace,
+			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
+			DeltaStage:                              globals.DeltaStage,
+			Rmax:                                    globals.Rmax,
+			MaxDurationQuery:                        globals.MaxDurationQuery,
+			MaxDurationObservation:                  globals.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
 		},
 	}
 	for _, opt := range opts {
@@ -475,7 +476,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 
 		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
 		if err != nil {
-			return fmt.Errorf("get all chain configs: %w", err)
+			return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
 		}
 		// FChain should never be zero if a chain config is set in CCIPHome
 		if chainConfig.FChain == 0 {
@@ -483,6 +484,13 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		}
 		if len(chainConfig.Readers) == 0 {
 			return errors.New("readers must be set")
+		}
+		decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
+		if err != nil {
+			return fmt.Errorf("can't decode chain config: %w", err)
+		}
+		if err := decodedChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config: %w", err)
 		}
 		err = params.Validate(chainSelector, feedChain, state)
 		if err != nil {
@@ -1258,6 +1266,9 @@ func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
 		}
 		if len(ccfg.Readers) == 0 {
 			return errors.New("Readers must be set")
+		}
+		if err := ccfg.EncodableChainConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid chain config for selector %d: %w", add, err)
 		}
 	}
 	return nil
