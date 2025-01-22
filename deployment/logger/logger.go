@@ -160,12 +160,24 @@ type autoFlushWriter struct {
 
 func (afw *autoFlushWriter) Write(p []byte) (n int, err error) {
 	n, err = afw.writer.Write(p)
-	if err == nil {
+	if err == nil && afw.canSync() {
 		_ = afw.writer.Sync() // Flush after every write
 	}
 	return
 }
 
 func (afw *autoFlushWriter) Sync() error {
-	return afw.writer.Sync()
+	if afw.canSync() {
+		return afw.writer.Sync()
+	}
+	return nil
+}
+
+func (afw *autoFlushWriter) canSync() bool {
+	// Check if the writer supports syncing
+	stat, err := afw.writer.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeNamedPipe) == 0 // Pipes cannot be synced
 }
