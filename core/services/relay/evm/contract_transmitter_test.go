@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
@@ -32,6 +33,10 @@ var sampleAddress = testutils.NewAddress()
 
 type mockTransmitter struct {
 	lastPayload []byte
+}
+
+func (m *mockTransmitter) SecondaryFromAddress(ctx context.Context) (gethcommon.Address, error) {
+	return gethcommon.Address{}, nil
 }
 
 func (m *mockTransmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
@@ -52,6 +57,7 @@ func TestContractTransmitter(t *testing.T) {
 	c := evmclimocks.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	ctx := testutils.Context(t)
+	ks := mocks.NewEth(t)
 	// scanLogs = false
 	digestAndEpochDontScanLogs, _ := hex.DecodeString(
 		"0000000000000000000000000000000000000000000000000000000000000000" + // false
@@ -63,7 +69,7 @@ func TestContractTransmitter(t *testing.T) {
 	reportToEvmTxMeta := func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}
-	ot, err := NewOCRContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockTransmitter{}, lp, lggr,
+	ot, err := NewOCRContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockTransmitter{}, lp, lggr, ks,
 		WithReportToEthMetadata(reportToEvmTxMeta))
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
@@ -157,6 +163,7 @@ func oneSignature() []ocrtypes.AttributedOnchainSignature {
 }
 
 func createContractTransmitter(ctx context.Context, t *testing.T, transmitter Transmitter, ops ...OCRTransmitterOption) *contractTransmitter {
+	ethKeyStore := mocks.NewEth(t)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	require.NoError(t, err)
 	lp := lpmocks.NewLogPoller(t)
@@ -169,6 +176,7 @@ func createContractTransmitter(ctx context.Context, t *testing.T, transmitter Tr
 		transmitter,
 		lp,
 		logger.TestLogger(t),
+		ethKeyStore,
 		ops...,
 	)
 	require.NoError(t, err)

@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/pb"
 )
 
 var (
@@ -90,4 +93,26 @@ func (m *txmMetrics) IncrementNumNonceGaps(ctx context.Context) {
 func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration float64) {
 	promTimeUntilTxConfirmed.WithLabelValues(m.chainID.String()).Observe(duration)
 	m.timeUntilTxConfirmed.Record(ctx, duration)
+}
+
+func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress common.Address, toAddress common.Address, nonce string) error {
+	message := &pb.TxMessage{
+		Hash:        tx.String(),
+		FromAddress: fromAddress.String(),
+		ToAddress:   toAddress.String(),
+		Nonce:       nonce,
+	}
+
+	messageBytes, err := proto.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	return beholder.GetEmitter().Emit(
+		ctx,
+		messageBytes,
+		"beholder_domain", "svr",
+		"beholder_entity", "pb.TxMessage",
+		"beholder_data_schema", "/beholder-tx-message/versions/1",
+	)
 }

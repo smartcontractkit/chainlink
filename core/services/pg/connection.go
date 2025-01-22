@@ -2,29 +2,19 @@ package pg
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	"github.com/XSAM/otelsql"
-	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
+	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/jmoiron/sqlx"
-	"github.com/scylladb/go-reflectx"
-	"go.opentelemetry.io/otel"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 )
-
-// NOTE: This is the default level in Postgres anyway, we just make it
-// explicit here
-const defaultIsolation = sql.LevelReadCommitted
 
 var MinRequiredPGVersion = 110000
 
@@ -51,81 +41,33 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
-func NewConnection(ctx context.Context, uri string, dialect pgcommon.DialectName, config ConnectionConfig) (*sqlx.DB, error) {
-	opts := []otelsql.Option{otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
-		otelsql.WithTracerProvider(otel.GetTracerProvider()),
-		otelsql.WithSQLCommenter(true),
-		otelsql.WithSpanOptions(otelsql.SpanOptions{
-			OmitConnResetSession: true,
-			OmitConnPrepare:      true,
-			OmitRows:             true,
-			OmitConnectorConnect: true,
-			OmitConnQuery:        false,
-		})}
-
-	// Set default connection options
-	lockTimeout := config.DefaultLockTimeout().Milliseconds()
-	idleInTxSessionTimeout := config.DefaultIdleInTxSessionTimeout().Milliseconds()
-	connParams := fmt.Sprintf(`SET TIME ZONE 'UTC'; SET lock_timeout = %d; SET idle_in_transaction_session_timeout = %d; SET default_transaction_isolation = %q`,
-		lockTimeout, idleInTxSessionTimeout, defaultIsolation.String())
-
-	var sqldb *sql.DB
-	if dialect == pgcommon.TransactionWrappedPostgres {
-		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
-		// should be encapsulated in it's own transaction, and thus needs its own
-		// unique id.
-		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-
-		err := pgcommon.RegisterTxDb(uri)
-		if err != nil {
-			return nil, fmt.Errorf("failed to register txdb: %w", err)
+func NewConnection(ctx context.Context, uri string, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
+	if driverName == commonpg.DriverTxWrappedPostgres {
+		if err = sqltest.RegisterTxDB(uri); err != nil {
+			return nil, fmt.Errorf("failed to register %s: %w", commonpg.DriverTxWrappedPostgres, err)
 		}
-		sqldb, err = otelsql.Open(string(dialect), uuid.New().String(), opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open txdb: %w", err)
-		}
-		_, err = sqldb.ExecContext(ctx, connParams)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set options: %w", err)
-		}
-	} else {
-		// Set sane defaults for every new database connection.
-		// Those can be overridden with Txn options or SET statements in individual connections.
-		// The default values are the same for Txns.
-		connConfig, err := pgx.ParseConfig(uri)
-		if err != nil {
-			return nil, fmt.Errorf("database: failed to parse config: %w", err)
-		}
-
-		connector := stdlib.GetConnector(*connConfig, stdlib.OptionAfterConnect(func(ctx context.Context, c *pgx.Conn) (err error) {
-			_, err = c.Exec(ctx, connParams)
-			return
-		}))
-
-		// Initialize sql/sqlx
-		sqldb = otelsql.OpenDB(connector, opts...)
 	}
-	db := sqlx.NewDb(sqldb, string(dialect))
-	db.MapperFunc(reflectx.CamelToSnakeASCII)
-
-	setMaxConns(db, config)
+	db, err = commonpg.DBConfig{
+		IdleInTxSessionTimeout: config.DefaultIdleInTxSessionTimeout(),
+		LockTimeout:            config.DefaultLockTimeout(),
+		MaxOpenConns:           config.MaxOpenConns(),
+		MaxIdleConns:           config.MaxIdleConns(),
+	}.New(ctx, uri, driverName)
+	if err != nil {
+		return nil, err
+	}
+	setMaxMercuryConns(db, config)
 
 	if os.Getenv("SKIP_PG_VERSION_CHECK") != "true" {
-		if err := checkVersion(db, MinRequiredPGVersion); err != nil {
+		if err = checkVersion(db, MinRequiredPGVersion); err != nil {
 			return nil, err
 		}
 	}
 
-	return db, disallowReplica(db)
+	return db, nil
 }
 
-func setMaxConns(db *sqlx.DB, config ConnectionConfig) {
-	db.SetMaxOpenConns(config.MaxOpenConns())
-	db.SetMaxIdleConns(config.MaxIdleConns())
-
+func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
 	// HACK: In the case of mercury jobs, one conn is needed per job for good
 	// performance. Most nops will forget to increase the defaults to account
 	// for this so we detect it here instead.
@@ -174,19 +116,5 @@ func checkVersion(db Getter, minVersion int) error {
 	if version < minVersion {
 		return fmt.Errorf("The minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
 	}
-	return nil
-}
-
-func disallowReplica(db *sqlx.DB) error {
-	var val string
-	err := db.Get(&val, "SHOW session_replication_role")
-	if err != nil {
-		return err
-	}
-
-	if val == "replica" {
-		return fmt.Errorf("invalid `session_replication_role`: %s. Refusing to connect to replica database. Writing to a replica will corrupt the database", val)
-	}
-
 	return nil
 }
