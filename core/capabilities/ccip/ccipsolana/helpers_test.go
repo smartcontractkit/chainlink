@@ -6,9 +6,10 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
@@ -29,6 +30,6 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.NoError(t, err)
 		output, err := DecodeExtraArgsToMap(buf.Bytes())
 		require.NoError(t, err)
-		require.Equal(t, 3, len(output))
+		require.Len(t, output, 3)
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	agbinary "github.com/gagliardetto/binary"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
 

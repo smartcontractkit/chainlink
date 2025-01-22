@@ -48,7 +48,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 
 		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(m))
+		require.Len(t, m, 1)
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
@@ -60,7 +60,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 
 		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(m))
+		require.Len(t, m, 2)
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {

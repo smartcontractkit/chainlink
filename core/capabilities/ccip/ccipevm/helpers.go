@@ -55,13 +55,14 @@ func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	}
 
 	var method string
-	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
+	switch string(extraArgs[:4]) {
+	case string(evmExtraArgsV1Tag):
 		method = evmV1DecodeName
-	} else if bytes.Equal(extraArgs[:4], evmExtraArgsV2Tag) {
+	case string(evmExtraArgsV2Tag):
 		method = evmV2DecodeName
-	} else if bytes.Equal(extraArgs[:4], svmExtraArgsV1Tag) {
+	case string(svmExtraArgsV1Tag):
 		method = svmV1DecodeName
-	} else {
+	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
 	}
 
