@@ -278,7 +278,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
-	workflowRateLimiter, _ := ratelimiter.NewRateLimiter(ratelimiter.RateLimiterConfig{
+	workflowRateLimiter, _ := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
 		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
 		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),

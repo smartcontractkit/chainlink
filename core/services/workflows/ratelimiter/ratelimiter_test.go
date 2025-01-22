@@ -9,7 +9,7 @@ import (
 func TestRateLimiter(t *testing.T) {
 	t.Parallel()
 
-	config := RateLimiterConfig{
+	config := Config{
 		GlobalRPS:      3.0,
 		GlobalBurst:    3,
 		PerSenderRPS:   1.0,

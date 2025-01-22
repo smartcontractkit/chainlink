@@ -39,7 +39,7 @@ import (
 	crypto2 "github.com/ethereum/go-ethereum/crypto"
 )
 
-var rlConfig = ratelimiter.RateLimiterConfig{
+var rlConfig = ratelimiter.Config{
 	GlobalRPS:      1000.0,
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,

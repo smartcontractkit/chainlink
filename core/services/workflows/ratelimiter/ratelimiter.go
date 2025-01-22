@@ -11,18 +11,18 @@ import (
 type RateLimiter struct {
 	global    *rate.Limiter
 	perSender map[string]*rate.Limiter
-	config    RateLimiterConfig
+	config    Config
 	mu        sync.Mutex
 }
 
-type RateLimiterConfig struct {
+type Config struct {
 	GlobalRPS      float64 `json:"globalRPS"`
 	GlobalBurst    int     `json:"globalBurst"`
 	PerSenderRPS   float64 `json:"perSenderRPS"`
 	PerSenderBurst int     `json:"perSenderBurst"`
 }
 
-func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
+func NewRateLimiter(config Config) (*RateLimiter, error) {
 	if config.GlobalRPS <= 0.0 || config.PerSenderRPS <= 0.0 {
 		return nil, errors.New("RPS values must be positive")
 	}

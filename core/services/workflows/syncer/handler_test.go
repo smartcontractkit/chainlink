@@ -71,7 +71,7 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
-var rlConfig = ratelimiter.RateLimiterConfig{
+var rlConfig = ratelimiter.Config{
 	GlobalRPS:      1000.0,
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,
