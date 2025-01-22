@@ -10,7 +10,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -49,7 +48,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		}
 		tpu = append(tpu, ccip_router.TokenPriceUpdate{
 			SourceToken: token,
-			UsdPerToken: common.To28BytesBE(update.Price.Int.Uint64()),
+			UsdPerToken: [28]uint8(update.Price.FillBytes(make([]byte, 28))),
 		})
 	}
 
@@ -61,7 +60,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 		gpu = append(gpu, ccip_router.GasPriceUpdate{
 			DestChainSelector: uint64(update.ChainSel),
-			UsdPerUnitGas:     common.To28BytesBE(update.GasPrice.Int.Uint64()),
+			UsdPerUnitGas:     [28]uint8(update.GasPrice.FillBytes(make([]byte, 28))),
 		})
 	}
 
