@@ -446,13 +446,13 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
 [Capabilities.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
-GlobalRPS = 800 # Default
+GlobalRPS = 200 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
-GlobalBurst = 1000 # Default
+GlobalBurst = 200 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 10 # Default
+PerSenderRPS = 100 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 50 # Default
+PerSenderBurst = 100 # Default
 
 [Capabilities.WorkflowRegistry]
 # Address is the address for the workflow registry contract.

@@ -322,10 +322,10 @@ SupportedVersion = 1
 ReceiverBufferSize = 10000
 
 [Capabilities.Dispatcher.RateLimit]
-GlobalRPS = 800.0
-GlobalBurst = 1000
-PerSenderRPS = 10.0
-PerSenderBurst = 50
+GlobalRPS = 200.0
+GlobalBurst = 200
+PerSenderRPS = 100.0
+PerSenderBurst = 100
 
 [Capabilities.ExternalRegistry]
 Address = ''

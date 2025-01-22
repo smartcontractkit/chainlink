@@ -278,12 +278,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
-	workflowRateLimiter, _ := ratelimiter.NewRateLimiter(ratelimiter.Config{
+	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
 		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
 		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),
 		PerSenderBurst: cfg.Capabilities().RateLimit().PerSenderBurst(),
 	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
+	}
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {

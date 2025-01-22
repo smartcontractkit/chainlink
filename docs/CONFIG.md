@@ -1216,34 +1216,34 @@ but the host and port must be fully specified and cannot be empty. You can speci
 ## Capabilities.RateLimit
 ```toml
 [Capabilities.RateLimit]
-GlobalRPS = 800 # Default
-GlobalBurst = 1000 # Default
-PerSenderRPS = 10 # Default
-PerSenderBurst = 50 # Default
+GlobalRPS = 200 # Default
+GlobalBurst = 200 # Default
+PerSenderRPS = 100 # Default
+PerSenderBurst = 100 # Default
 ```
 
 
 ### GlobalRPS
 ```toml
-GlobalRPS = 800 # Default
+GlobalRPS = 200 # Default
 ```
 GlobalRPS is the global rate limit for the dispatcher.
 
 ### GlobalBurst
 ```toml
-GlobalBurst = 1000 # Default
+GlobalBurst = 200 # Default
 ```
 GlobalBurst is the global burst limit for the dispatcher.
 
 ### PerSenderRPS
 ```toml
-PerSenderRPS = 10 # Default
+PerSenderRPS = 100 # Default
 ```
 PerSenderRPS is the per-sender rate limit for the dispatcher.
 
 ### PerSenderBurst
 ```toml
-PerSenderBurst = 50 # Default
+PerSenderBurst = 100 # Default
 ```
 PerSenderBurst is the per-sender burst limit for the dispatcher.
 
