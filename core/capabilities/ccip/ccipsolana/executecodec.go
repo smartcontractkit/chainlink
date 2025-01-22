@@ -58,6 +58,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("invalid source chain selector: %w", err)
 		}
 
+		// if source chain is Solana the Borsh decoder will be used, for EVM we will construct the extra args from
+		// the chain agnostic extra args map
 		var extraArgs ccip_router.SolanaExtraArgs
 		switch family {
 		case chainsel.FamilySolana:
