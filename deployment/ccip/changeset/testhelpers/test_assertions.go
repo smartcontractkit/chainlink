@@ -11,10 +11,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -186,18 +193,40 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 				startBlock = startBlocks[dstChain]
 			}
 
-			return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				srcChain,
-				e.Chains[dstChain],
-				state.Chains[dstChain].OffRamp,
-				startBlock,
-				ccipocr3.SeqNumRange{
-					ccipocr3.SeqNum(expectedSeqNum),
-					ccipocr3.SeqNum(expectedSeqNum),
-				},
-				true,
-			))
+			family, err := chainsel.GetSelectorFamily(dstChain)
+			if err != nil {
+				return err
+			}
+			switch family {
+			case chainsel.FamilyEVM:
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					e.Chains[dstChain],
+					state.Chains[dstChain].OffRamp,
+					startBlock,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
+					},
+					true,
+				))
+			case chainsel.FamilySolana:
+				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
+					t,
+					srcChain,
+					e.SolChains[dstChain],
+					state.SolChains[dstChain].Router,
+					*startBlock,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(expectedSeqNum),
+						ccipocr3.SeqNum(expectedSeqNum),
+					},
+					true,
+				))
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
 		})
 	}
 
@@ -345,16 +374,8 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	}
 
 	defer subscription.Unsubscribe()
-	var duration time.Duration
-	deadline, ok := t.Deadline()
-	if ok {
-		// make this timer end a minute before so that we don't hit the deadline
-		duration = deadline.Sub(time.Now().Add(-1 * time.Minute))
-	} else {
-		duration = 5 * time.Minute
-	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -377,14 +398,134 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			}
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
-		case <-timer.C:
-			return nil, fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				duration.String(), dest.Selector, srcSelector, expectedSeqNumRange.String())
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case report := <-sink:
 			verified := verifyCommitReport(report)
 			if verified {
 				return report, nil
 			}
+		}
+	}
+}
+
+// Scan for events referencing address
+func SolEventEmitter[T any](
+	t *testing.T,
+	client *solrpc.Client,
+	address solana.PublicKey,
+	eventType string,
+	startSlot uint64,
+	done chan any,
+) <-chan T {
+	ch := make(chan T)
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		var until solana.Signature
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				// Scan for transactions referencing the address
+				ctx := context.Background()
+				txSigs, err := client.GetSignaturesForAddressWithOpts(
+					ctx,
+					address,
+					&solrpc.GetSignaturesForAddressOpts{
+						Commitment: solrpc.CommitmentConfirmed,
+						Until:      until,
+					},
+				)
+				require.NoError(t, err)
+
+				if len(txSigs) == 0 {
+					continue
+				}
+
+				// values are returned ordered newest to oldest, so we replay them backwards
+				for _, txSig := range slices.Backward(txSigs) {
+					if txSig.Err != nil {
+						// We're not interested in failed transactions.
+						continue
+					}
+					if txSig.Slot < startSlot {
+						// Skip any signatures that are before the starting slot
+						continue
+					}
+					tx, err := client.GetTransaction(
+						ctx,
+						txSig.Signature,
+						&solrpc.GetTransactionOpts{
+							Commitment: solrpc.CommitmentConfirmed,
+							Encoding:   solana.EncodingBase64,
+						},
+					)
+					require.NoError(t, err)
+					require.NotNil(t, tx)
+
+					var event T
+					require.NoError(t, solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents))
+
+					select {
+					case ch <- event:
+					case <-done:
+						return
+					}
+				}
+				// next scan should stop at the newest signature we've received
+				until = txSigs[0].Signature
+			}
+		}
+	}()
+
+	return ch
+}
+
+func ConfirmCommitWithExpectedSeqNumRangeSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest deployment.SolChain,
+	routerAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNumRange ccipocr3.SeqNumRange,
+	enforceSingleCommit bool,
+) (bool, error) {
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
+
+	done := make(chan any)
+	defer close(done)
+	sink := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, routerAddress, "CommitReportAccepted", startSlot, done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case commitEvent := <-sink:
+			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
+
+			// TODO: commitEvent.Report.MerkleRoot ? do we need to recursive call?
+
+			// TODO: this logic is duplicated with verifyCommitReport, share
+			mr := commitEvent.Report
+			seenMessages.visitCommitReport(mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr)
+			if mr.SourceChainSelector == srcSelector &&
+				uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+				uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+				t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+
+			if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+				return true, nil
+			}
+		case <-timeout.C:
+			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
 }
@@ -418,16 +559,39 @@ func ConfirmExecWithSeqNrsForAll(
 		}
 
 		wg.Go(func() error {
-			innerExecutionStates, err := ConfirmExecWithSeqNrs(
-				t,
-				srcChain,
-				e.Chains[dstChain],
-				state.Chains[dstChain].OffRamp,
-				startBlock,
-				seqRange,
-			)
+			family, err := chainsel.GetSelectorFamily(dstChain)
 			if err != nil {
 				return err
+			}
+
+			var innerExecutionStates map[uint64]int
+			switch family {
+			case chainsel.FamilyEVM:
+				innerExecutionStates, err = ConfirmExecWithSeqNrs(
+					t,
+					srcChain,
+					e.Chains[dstChain],
+					state.Chains[dstChain].OffRamp,
+					startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			case chainsel.FamilySolana:
+				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
+					t,
+					srcChain,
+					e.SolChains[dstChain],
+					state.SolChains[dstChain].Router,
+					*startBlock,
+					seqRange,
+				)
+				if err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
 			}
 
 			mx.Lock()
@@ -458,8 +622,8 @@ func ConfirmExecWithSeqNrs(
 		return nil, errors.New("no expected sequence numbers provided")
 	}
 
-	timer := time.NewTimer(tests.WaitTimeout(t))
-	defer timer.Stop()
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
 	tick := time.NewTicker(3 * time.Second)
 	defer tick.Stop()
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
@@ -512,11 +676,56 @@ func ConfirmExecWithSeqNrs(
 					return executionStates, nil
 				}
 			}
-		case <-timer.C:
+		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNrs)
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
+		}
+	}
+}
+
+func ConfirmExecWithSeqNrsSol(
+	t *testing.T,
+	srcSelector uint64,
+	dest deployment.SolChain,
+	routerAddress solana.PublicKey,
+	startSlot uint64,
+	expectedSeqNrs []uint64,
+) (executionStates map[uint64]int, err error) {
+	// TODO: share with EVM
+	// some state to efficiently track the execution states
+	// of all the expected sequence numbers.
+	executionStates = make(map[uint64]int)
+	seqNrsToWatch := make(map[uint64]struct{})
+	for _, seqNr := range expectedSeqNrs {
+		seqNrsToWatch[seqNr] = struct{}{}
+	}
+
+	done := make(chan any)
+	defer close(done)
+	sink := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, routerAddress, "ExecutionStateChanged", startSlot, done)
+
+	timeout := time.NewTimer(tests.WaitTimeout(t))
+	defer timeout.Stop()
+
+	for {
+		select {
+		case execEvent := <-sink:
+			// TODO: share with EVM
+			_, found := seqNrsToWatch[execEvent.SequenceNumber]
+			if found && execEvent.SourceChainSelector == srcSelector {
+				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
+					execEvent.State.String(), dest.Selector, routerAddress.String(), srcSelector, execEvent.SequenceNumber)
+				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
+				delete(seqNrsToWatch, execEvent.SequenceNumber)
+				if len(seqNrsToWatch) == 0 {
+					return executionStates, nil
+				}
+			}
+		case <-timeout.C:
+			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
+				dest.Selector, routerAddress.String(), srcSelector, expectedSeqNrs)
 		}
 	}
 }
