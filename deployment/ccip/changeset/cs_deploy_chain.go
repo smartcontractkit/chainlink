@@ -50,7 +50,7 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ChainSelectors)
+	err := deployChainContractsForChains(env, newAddresses, c.HomeChainSelector, c.ContractParamsPerChain)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 		return deployment.ChangesetOutput{AddressBook: newAddresses}, deployment.MaybeDataErr(err)
@@ -63,20 +63,106 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 }
 
 type DeployChainContractsConfig struct {
-	ChainSelectors    []uint64
-	HomeChainSelector uint64
+	HomeChainSelector      uint64
+	ContractParamsPerChain map[uint64]ChainContractParams
 }
 
 func (c DeployChainContractsConfig) Validate() error {
-	for _, cs := range c.ChainSelectors {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
-	}
 	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
+	for cs, args := range c.ContractParamsPerChain {
+		if err := deployment.IsValidChainSelector(cs); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+		}
+		if err := args.Validate(); err != nil {
+			return fmt.Errorf("invalid contract args for chain %d: %w", cs, err)
+		}
+	}
 	return nil
+}
+
+type ChainContractParams struct {
+	FeeQuoterParams FeeQuoterParams
+	OffRampParams   OffRampParams
+}
+
+func (c ChainContractParams) Validate() error {
+	if err := c.FeeQuoterParams.Validate(); err != nil {
+		return fmt.Errorf("invalid FeeQuoterParams: %w", err)
+	}
+	if err := c.OffRampParams.Validate(); err != nil {
+		return fmt.Errorf("invalid OffRampParams: %w", err)
+	}
+	return nil
+}
+
+type FeeQuoterParamsOld struct {
+	MaxFeeJuelsPerMsg              *big.Int
+	TokenPriceStalenessThreshold   uint32
+	LinkPremiumMultiplierWeiPerEth uint64
+	WethPremiumMultiplierWeiPerEth uint64
+}
+
+type FeeQuoterParams struct {
+	MaxFeeJuelsPerMsg              *big.Int
+	TokenPriceStalenessThreshold   uint32
+	LinkPremiumMultiplierWeiPerEth uint64
+	WethPremiumMultiplierWeiPerEth uint64
+	MorePremiumMultiplierWeiPerEth []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
+	TokenPriceFeedUpdates          []fee_quoter.FeeQuoterTokenPriceFeedUpdate
+	TokenTransferFeeConfigArgs     []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
+	DestChainConfigArgs            []fee_quoter.FeeQuoterDestChainConfigArgs
+}
+
+func (c FeeQuoterParams) Validate() error {
+	if c.MaxFeeJuelsPerMsg == nil {
+		return errors.New("MaxFeeJuelsPerMsg is nil")
+	}
+	if c.MaxFeeJuelsPerMsg.Cmp(big.NewInt(0)) <= 0 {
+		return errors.New("MaxFeeJuelsPerMsg must be positive")
+	}
+	if c.TokenPriceStalenessThreshold == 0 {
+		return errors.New("TokenPriceStalenessThreshold can't be 0")
+	}
+	return nil
+}
+
+func DefaultFeeQuoterParams() FeeQuoterParams {
+	return FeeQuoterParams{
+		MaxFeeJuelsPerMsg:              big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+		TokenPriceStalenessThreshold:   uint32(24 * 60 * 60),
+		LinkPremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
+		WethPremiumMultiplierWeiPerEth: 1e18, // 1.0 ETH
+		TokenPriceFeedUpdates:          []fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
+		TokenTransferFeeConfigArgs:     []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{},
+		MorePremiumMultiplierWeiPerEth: []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{},
+		DestChainConfigArgs:            []fee_quoter.FeeQuoterDestChainConfigArgs{},
+	}
+}
+
+type OffRampParams struct {
+	GasForCallExactCheck                    uint16
+	PermissionLessExecutionThresholdSeconds uint32
+	IsRMNVerificationDisabled               bool
+}
+
+func (c OffRampParams) Validate() error {
+	if c.GasForCallExactCheck == 0 {
+		return errors.New("GasForCallExactCheck is 0")
+	}
+	if c.PermissionLessExecutionThresholdSeconds == 0 {
+		return errors.New("PermissionLessExecutionThresholdSeconds is 0")
+	}
+	return nil
+}
+
+func DefaultOffRampParams() OffRampParams {
+	return OffRampParams{
+		GasForCallExactCheck:                    uint16(5000),
+		PermissionLessExecutionThresholdSeconds: uint32(24 * 60 * 60),
+		IsRMNVerificationDisabled:               true,
+	}
 }
 
 func validateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
@@ -126,7 +212,7 @@ func deployChainContractsForChains(
 	e deployment.Environment,
 	ab deployment.AddressBook,
 	homeChainSel uint64,
-	chainsToDeploy []uint64) error {
+	contractParamsPerChain map[uint64]ChainContractParams) error {
 	existingEVMState, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -134,11 +220,6 @@ func deployChainContractsForChains(
 	}
 
 	err = validateHomeChainState(e, homeChainSel, existingEVMState)
-	if err != nil {
-		return err
-	}
-
-	err = deployment.ValidateSelectorsInEnvironment(e, chainsToDeploy)
 	if err != nil {
 		return err
 	}
@@ -153,7 +234,10 @@ func deployChainContractsForChains(
 
 	deployGrp := errgroup.Group{}
 
-	for _, chainSel := range chainsToDeploy {
+	for chainSel, contractParams := range contractParamsPerChain {
+		if _, exists := existingEVMState.SupportedChains()[chainSel]; !exists {
+			return fmt.Errorf("chain %d not supported", chainSel)
+		}
 		// already validated family
 		family, _ := chainsel.GetSelectorFamily(chainSel)
 		var deployFn func() error
@@ -170,7 +254,7 @@ func deployChainContractsForChains(
 			if existingEVMState.Chains[chainSel].LinkToken == nil || existingEVMState.Chains[chainSel].Weth9 == nil {
 				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 			}
-			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome) }
+			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
 
 		case chainsel.FamilySolana:
 			chain := e.SolChains[chainSel]
@@ -196,12 +280,7 @@ func deployChainContractsForChains(
 	return nil
 }
 
-func deployChainContractsEVM(
-	e deployment.Environment,
-	chain deployment.Chain,
-	ab deployment.AddressBook,
-	rmnHome *rmn_home.RMNHome,
-) error {
+func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
 	// check for existing contracts
 	state, err := LoadOnchainState(e)
 	if err != nil {
@@ -297,7 +376,7 @@ func deployChainContractsEVM(
 				routerAddr, tx2, routerC, err2 := router.DeployRouter(
 					chain.DeployerKey,
 					chain.Client,
-					weth9Contract.Address(),
+					chainState.Weth9.Address(),
 					RMNProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
@@ -341,25 +420,25 @@ func deployChainContractsEVM(
 					chain.DeployerKey,
 					chain.Client,
 					fee_quoter.FeeQuoterStaticConfig{
-						MaxFeeJuelsPerMsg:            big.NewInt(0).Mul(big.NewInt(2e2), big.NewInt(1e18)),
+						MaxFeeJuelsPerMsg:            contractParams.FeeQuoterParams.MaxFeeJuelsPerMsg,
 						LinkToken:                    linkTokenContractAddr,
-						TokenPriceStalenessThreshold: uint32(24 * 60 * 60),
+						TokenPriceStalenessThreshold: contractParams.FeeQuoterParams.TokenPriceStalenessThreshold,
 					},
 					[]common.Address{state.Chains[chain.Selector].Timelock.Address()}, // timelock should be able to update, ramps added after
 					[]common.Address{weth9Contract.Address(), linkTokenContractAddr},  // fee tokens
-					[]fee_quoter.FeeQuoterTokenPriceFeedUpdate{},
-					[]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{}, // TODO: tokens
-					[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
+					contractParams.FeeQuoterParams.TokenPriceFeedUpdates,
+					contractParams.FeeQuoterParams.TokenTransferFeeConfigArgs,
+					append([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs{
 						{
-							PremiumMultiplierWeiPerEth: 9e17, // 0.9 ETH
+							PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.LinkPremiumMultiplierWeiPerEth,
 							Token:                      linkTokenContractAddr,
 						},
 						{
-							PremiumMultiplierWeiPerEth: 1e18,
+							PremiumMultiplierWeiPerEth: contractParams.FeeQuoterParams.WethPremiumMultiplierWeiPerEth,
 							Token:                      weth9Contract.Address(),
 						},
-					},
-					[]fee_quoter.FeeQuoterDestChainConfigArgs{},
+					}, contractParams.FeeQuoterParams.MorePremiumMultiplierWeiPerEth...),
+					contractParams.FeeQuoterParams.DestChainConfigArgs,
 				)
 				return deployment.ContractDeploy[*fee_quoter.FeeQuoter]{
 					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), Err: err2,
@@ -413,15 +492,15 @@ func deployChainContractsEVM(
 					chain.Client,
 					offramp.OffRampStaticConfig{
 						ChainSelector:        chain.Selector,
-						GasForCallExactCheck: 5_000,
+						GasForCallExactCheck: contractParams.OffRampParams.GasForCallExactCheck,
 						RmnRemote:            RMNProxy.Address(),
 						NonceManager:         nmContract.Address(),
 						TokenAdminRegistry:   tokenAdminReg.Address(),
 					},
 					offramp.OffRampDynamicConfig{
 						FeeQuoter:                               feeQuoterContract.Address(),
-						PermissionLessExecutionThresholdSeconds: uint32(86400),
-						IsRMNVerificationDisabled:               true,
+						PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
+						IsRMNVerificationDisabled:               contractParams.OffRampParams.IsRMNVerificationDisabled,
 					},
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)

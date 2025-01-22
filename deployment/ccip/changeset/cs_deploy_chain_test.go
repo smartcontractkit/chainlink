@@ -38,8 +38,19 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	for _, chain := range solChainSelectors {
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
@@ -77,8 +88,8 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    selectors,
-				HomeChainSelector: homeChainSel,
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParams,
 			},
 		},
 	})

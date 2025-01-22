@@ -273,21 +273,21 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 		// On production envs, we have the ECR prefix for the image
 		if environment == "production" {
 			if isCCIP {
-				base = base + "/chainlink/chainlink-ccip-experimental-goreleaser"
+				base += "/chainlink/chainlink-ccip-experimental-goreleaser"
 			} else {
-				base = base + "/chainlink/chainlink-experimental-goreleaser"
+				base += "/chainlink/chainlink-experimental-goreleaser"
 			}
 		} else {
 			if isCCIP {
-				base = base + "/ccip"
+				base += "/ccip"
 			} else {
-				base = base + "/chainlink"
+				base += "/chainlink"
 			}
 		}
 
 		imageTemplates := []string{}
 		if strings.Contains(id, "plugins") {
-			taggedBase := fmt.Sprintf("%s:{{ .Env.IMG_TAG }}-plugins", base)
+			taggedBase := base + ":{{ .Env.IMG_TAG }}-plugins"
 			// We have a default, non-arch specific image for plugins that defaults to amd64
 			if goarch == "amd64" {
 				imageTemplates = append(imageTemplates, taggedBase)
@@ -296,7 +296,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 				fmt.Sprintf("%s-%s", taggedBase, archSuffix(id)),
 				fmt.Sprintf("%s:sha-{{ .ShortCommit }}-plugins-%s", base, archSuffix(id)))
 		} else {
-			taggedBase := fmt.Sprintf("%s:{{ .Env.IMG_TAG }}", base)
+			taggedBase := base + ":{{ .Env.IMG_TAG }}"
 			// We have a default, non-arch specific image for plugins that defaults to amd64
 			if goarch == "amd64" {
 				imageTemplates = append(imageTemplates, taggedBase)
@@ -341,7 +341,7 @@ func dockerManifests(environment string) []config.DockerManifest {
 	var manifests []config.DockerManifest
 
 	for _, imageName := range imageNames {
-		fullImageName := fmt.Sprintf("{{ .Env.IMAGE_PREFIX }}/%s", imageName)
+		fullImageName := "{{ .Env.IMAGE_PREFIX }}/" + imageName
 
 		manifestConfigs := []struct {
 			ID     string
@@ -376,7 +376,7 @@ func dockerManifests(environment string) []config.DockerManifest {
 // manifestImages generates image templates for docker manifests.
 func manifestImages(imageName string) []string {
 	architectures := []string{"amd64", "arm64"}
-	var images []string
+	images := make([]string, 0, 3)
 	// Add the default image for tagged images
 	if !strings.Contains(imageName, "sha") {
 		images = append(images, imageName)

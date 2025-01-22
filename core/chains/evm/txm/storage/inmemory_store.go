@@ -11,9 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 

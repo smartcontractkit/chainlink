@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -125,6 +126,10 @@ type Engine struct {
 	onExecutionFinished func(string)
 	// testing lifecycle hook to signal initialization status
 	afterInit func(success bool)
+
+	// testing lifecycle hook to signal the execution was rate limited
+	onRateLimit func(string)
+
 	// Used for testing to control the number of retries
 	// we'll do when initializing the engine.
 	maxRetries int
@@ -134,7 +139,8 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock clockwork.Clock
+	clock       clockwork.Clock
+	ratelimiter *ratelimiter.RateLimiter
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -749,6 +755,22 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
+			senderAllowed, globalAllowed := e.ratelimiter.Allow(e.workflow.owner)
+			if !senderAllowed {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: per sender rate limit exceeded")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: per sender rate limit exceeded", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+				continue
+			}
+			if !globalAllowed {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global rate limit exceeded")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global rate limit exceeded", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitGlobalCounter(ctx)
+				continue
+			}
+
 			cma := e.cma.With(platform.KeyWorkflowExecutionID, executionID)
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
@@ -1226,12 +1248,14 @@ type Config struct {
 	SecretsFetcher        secretsFetcher
 	HeartbeatCadence      time.Duration
 	StepTimeout           time.Duration
+	RateLimiter           *ratelimiter.RateLimiter
 
 	// For testing purposes only
 	maxRetries          int
 	retryMs             int
 	afterInit           func(success bool)
 	onExecutionFinished func(weid string)
+	onRateLimit         func(weid string)
 	clock               clockwork.Clock
 }
 
@@ -1289,8 +1313,20 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		cfg.onExecutionFinished = func(weid string) {}
 	}
 
+	if cfg.onRateLimit == nil {
+		cfg.onRateLimit = func(weid string) {}
+	}
+
 	if cfg.clock == nil {
 		cfg.clock = clockwork.NewRealClock()
+	}
+
+	if cfg.RateLimiter == nil {
+		return nil, &workflowError{reason: "ratelimiter must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
 	}
 
 	// TODO: validation of the workflow spec
@@ -1344,11 +1380,13 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxExecutionDuration: cfg.MaxExecutionDuration,
 		heartbeatCadence:     cfg.HeartbeatCadence,
 		onExecutionFinished:  cfg.onExecutionFinished,
+		onRateLimit:          cfg.onRateLimit,
 		afterInit:            cfg.afterInit,
 		maxRetries:           cfg.maxRetries,
 		retryMs:              cfg.retryMs,
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
+		ratelimiter:          cfg.RateLimiter,
 	}
 
 	return engine, nil

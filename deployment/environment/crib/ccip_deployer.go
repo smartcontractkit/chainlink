@@ -103,6 +103,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get node info from env: %w", err)
 	}
+	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range chainSelectors {
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
@@ -112,6 +113,10 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
 				OptimisticConfirmations: 1,
 			},
+		}
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
 
@@ -141,8 +146,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    chainSelectors,
-				HomeChainSelector: homeChainSel,
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParams,
 			},
 		},
 		{

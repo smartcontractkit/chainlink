@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,37 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 const (
 	CapabilityLabelledName = "ccip"
 	CapabilityVersion      = "v1.0.0"
-
-	FirstBlockAge                           = 8 * time.Hour
-	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
-	TokenPriceBatchWriteFrequency           = 30 * time.Minute
-	BatchGasLimit                           = 6_500_000
-	RelativeBoostPerWaitHour                = 0.5
-	InflightCacheExpiry                     = 10 * time.Minute
-	RootSnoozeTime                          = 30 * time.Minute
-	BatchingStrategyID                      = 0
-	DeltaProgress                           = 30 * time.Second
-	DeltaResend                             = 10 * time.Second
-	DeltaInitial                            = 20 * time.Second
-	DeltaRound                              = 2 * time.Second
-	DeltaGrace                              = 2 * time.Second
-	DeltaCertifiedCommitRequest             = 10 * time.Second
-	DeltaStage                              = 10 * time.Second
-	Rmax                                    = 3
-	MaxDurationQuery                        = 500 * time.Millisecond
-	MaxDurationObservation                  = 5 * time.Second
-	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
-	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
-
-	GasPriceDeviationPPB    = 1000
-	DAGasPriceDeviationPPB  = 0
-	OptimisticConfirmations = 1
 )
 
 var (
@@ -202,7 +176,7 @@ func BuildSetOCR3ConfigArgs(
 
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	dest deployment.Chain,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,

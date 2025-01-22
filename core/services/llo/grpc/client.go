@@ -89,9 +89,6 @@ func (c *client) start(context.Context) error {
 				Timeout:             time.Second * 20,
 				PermitWithoutStream: true,
 			}),
-		grpc.WithDefaultCallOptions(
-			grpc.WaitForReady(true),
-		),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create client connection: %w", err)
@@ -106,7 +103,11 @@ func (c *client) close() error {
 }
 
 func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *rpc.TransmitResponse, err error) {
-	return c.client.Transmit(ctx, req)
+	err = c.eng.IfStarted(func() error {
+		resp, err = c.client.Transmit(ctx, req)
+		return err
+	})
+	return
 }
 
 func (c *client) LatestReport(ctx context.Context, req *rpc.LatestReportRequest) (resp *rpc.LatestReportResponse, err error) {

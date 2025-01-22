@@ -1042,7 +1042,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infof("Proposing OCR3 config update for", cfg.RemoteChainSels)
+	e.Logger.Info("Proposing OCR3 config update for", cfg.RemoteChainSels)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
@@ -1051,7 +1051,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 func isOCR3ConfigSetOnOffRamp(
 	lggr logger.Logger,
 	chain deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs,
 ) (bool, error) {
 	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)
