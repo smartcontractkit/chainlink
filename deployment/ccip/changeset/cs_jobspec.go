@@ -36,17 +36,16 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
 		}
 		for _, j := range jobs.Jobs {
-			for _, propId := range j.ProposalIds {
+			for _, propID := range j.ProposalIds {
 				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &job.GetProposalRequest{
-					Id: propId,
+					Id: propID,
 				})
 				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get job proposal %s on node %s: %w", propId, node.NodeID, err)
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
 				}
 				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
 			}
 		}
-
 	}
 	// Generate a set of brand new job specs for CCIP for a specific environment
 	// (including NOPs) and new addresses.

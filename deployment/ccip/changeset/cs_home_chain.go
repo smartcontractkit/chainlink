@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -295,7 +296,7 @@ func deployHomeChain(
 		nodeOpsToAdd = append(nodeOpsToAdd, nop)
 	}
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
-	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
+	p2pIDsByNodeOpID := make(map[uint32][][32]byte)
 	if len(nodeOpsToAdd) > 0 {
 		tx, err := capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
 		txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
@@ -313,42 +314,46 @@ func deployHomeChain(
 		}
 
 		for addedEvent.Next() {
-			for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
+			for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
 				if addedEvent.Event.Name == nopName {
 					lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
-					p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pId
+					p2pIDsByNodeOpID[addedEvent.Event.NodeOperatorId] = p2pID
 				}
 			}
 		}
 	} else {
 		lggr.Infow("No new node operators to add")
 		foundNopID := make(map[uint32]bool)
-		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
+		for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
 			// this is to find the node operator id for the given node operator name
 			// node operator start from id 1, starting from 1 to len(existingNodeOps)
-			for nopId := uint32(1); nopId <= uint32(len(existingNodeOps)); nopId++ {
+			totalNops := len(existingNodeOps)
+			if totalNops >= math.MaxUint32 {
+				return nil, errors.New("too many node operators")
+			}
+			for nopID := uint32(1); nopID <= uint32(totalNops); nopID++ {
 				// if we already found the node operator id, skip
-				if foundNopID[nopId] {
+				if foundNopID[nopID] {
 					continue
 				}
-				nodeOp, err := capReg.Contract.GetNodeOperator(nil, nopId)
+				nodeOp, err := capReg.Contract.GetNodeOperator(nil, nopID)
 				if err != nil {
-					return capReg, fmt.Errorf("failed to get node operator %d: %w", nopId, err)
+					return capReg, fmt.Errorf("failed to get node operator %d: %w", nopID, err)
 				}
 				if nodeOp.Name == nopName {
-					p2pIDsByNodeOpId[nopId] = p2pId
-					foundNopID[nopId] = true
+					p2pIDsByNodeOpID[nopID] = p2pID
+					foundNopID[nopID] = true
 					break
 				}
 			}
 		}
 	}
-	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
+	if len(p2pIDsByNodeOpID) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpID), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
 		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
-	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
+	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpID); err != nil {
 		return capReg, err
 	}
 	return capReg, nil

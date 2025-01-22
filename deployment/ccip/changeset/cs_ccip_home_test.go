@@ -162,8 +162,9 @@ func Test_PromoteCandidate(t *testing.T) {
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []changeset.PromoteCandidatePluginInfo{
 							{
-								RemoteChainSelectors: []uint64{dest},
-								PluginType:           types.PluginTypeCCIPCommit,
+								RemoteChainSelectors:    []uint64{dest},
+								PluginType:              types.PluginTypeCCIPCommit,
+								AllowEmptyConfigPromote: true,
 							},
 						},
 						MCMS: mcmsConfig,
