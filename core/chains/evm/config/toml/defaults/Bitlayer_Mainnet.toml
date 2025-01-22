@@ -9,8 +9,3 @@ PriceMax = '1 gwei'        # DS&A recommended value
 PriceMin = '40 mwei'       # During testing, we saw minimum gas prices ~50 mwei
 PriceDefault = '1 gwei'    # As we set PriceMax to '1 gwei' and PriceDefault must be less than or equal to PriceMax
 FeeCapDefault = '1 gwei'   # As we set PriceMax to '1 gwei' and FeeCapDefault must be less than or equal to PriceMax
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false

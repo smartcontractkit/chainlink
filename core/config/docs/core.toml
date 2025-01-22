@@ -451,6 +451,12 @@ Address = '0x0' # Example
 NetworkID = 'evm' # Default
 # ChainID identifies the target chain id where the remote registry is located.
 ChainID = '1' # Default
+# MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+MaxBinarySize = '20.00mb' # Default
+# MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+MaxEncryptedSecretsSize = '26.40kb' # Default
+# MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+MaxConfigSize = '50.00kb' # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.

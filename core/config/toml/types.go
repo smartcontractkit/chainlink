@@ -1454,9 +1454,12 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 }
 
 type WorkflowRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address                 *string
+	NetworkID               *string
+	ChainID                 *string
+	MaxBinarySize           *utils.FileSize
+	MaxEncryptedSecretsSize *utils.FileSize
+	MaxConfigSize           *utils.FileSize
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1470,6 +1473,18 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.MaxBinarySize != nil {
+		r.MaxBinarySize = f.MaxBinarySize
+	}
+
+	if f.MaxEncryptedSecretsSize != nil {
+		r.MaxEncryptedSecretsSize = f.MaxEncryptedSecretsSize
+	}
+
+	if f.MaxConfigSize != nil {
+		r.MaxConfigSize = f.MaxConfigSize
 	}
 }
 
