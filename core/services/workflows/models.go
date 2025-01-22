@@ -16,9 +16,11 @@ import (
 )
 
 type WorkflowNamer interface {
-	// Must be 10 bytes, hex-encoded (i.e. 20 characters long)
+	// Should be 10 bytes, hex-encoded (i.e. 20 characters long)
 	// Used in the metadata we send onchain and for authorizing
 	// the workflow with the consumer
+	// TODO: in practice we validate that this can be max 10 bytes (rather than exactly 10),
+	// but this should be avoided due to a bug in the consensus capability.
 	Hex() string
 
 	// Human-readable version of the name
