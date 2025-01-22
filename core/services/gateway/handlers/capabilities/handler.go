@@ -131,11 +131,12 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 
 	timeout := time.Duration(payload.TimeoutMs) * time.Millisecond
 	req := network.HTTPRequest{
-		Method:  payload.Method,
-		URL:     payload.URL,
-		Headers: payload.Headers,
-		Body:    payload.Body,
-		Timeout: timeout,
+		Method:           payload.Method,
+		URL:              payload.URL,
+		Headers:          payload.Headers,
+		Body:             payload.Body,
+		MaxResponseBytes: payload.MaxResponseBytes,
+		Timeout:          timeout,
 	}
 
 	// send response to node async

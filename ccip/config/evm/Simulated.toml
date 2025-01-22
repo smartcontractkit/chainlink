@@ -19,9 +19,6 @@ PriceMax = '100 micro'
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
 
 [OCR]
 ContractConfirmations = 1

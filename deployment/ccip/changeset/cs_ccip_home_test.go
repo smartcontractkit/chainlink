@@ -51,8 +51,13 @@ func TestInvalidOCR3Params(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    []uint64{chain1},
 				HomeChainSelector: e.HomeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					chain1: {
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
 			},
 		},
 	})
@@ -557,9 +562,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]changeset.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-									OptimisticConfirmations: internal.OptimisticConfirmations,
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(changeset.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(changeset.DAGasPriceDeviationPPB)},
+									OptimisticConfirmations: changeset.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
 								Readers: otherChainConfig.Readers,

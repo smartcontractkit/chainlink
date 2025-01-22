@@ -147,11 +147,11 @@ func (t *LeafHasher) ParseEVM2EVMLog(log types.Log) (*SendRequestedEvent, error)
 	return event, err
 }
 
-func NewLeafHasher(sourceChainId uint64, destChainId uint64, onRampId common.Address, ctx Ctx[[32]byte]) *LeafHasher {
+func NewLeafHasher(sourceChainID uint64, destChainId uint64, onRampId common.Address, ctx Ctx[[32]byte]) *LeafHasher {
 	geABI, _ := abi.JSON(strings.NewReader(OnRampABI))
 	return &LeafHasher{
 		geABI:        geABI,
-		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageHashV2")), sourceChainId, onRampId, destChainId),
+		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageHashV2")), sourceChainID, onRampId, destChainId),
 		ctx:          ctx,
 	}
 }
@@ -301,7 +301,7 @@ func proveSingleLayer[H Hash](layer []H, indices []int) singleLayerProof[H] {
 		}
 		j++
 	}
-	var subProof []H
+	subProof := make([]H, 0, len(authIndices))
 	for _, i := range authIndices {
 		subProof = append(subProof, layer[i])
 	}
