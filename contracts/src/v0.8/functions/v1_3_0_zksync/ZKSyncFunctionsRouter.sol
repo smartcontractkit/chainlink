@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import {FunctionsRouter} from "../v1_0_0/FunctionsRouter.sol";
 import {CallWithExactGasZKSync} from "../../shared/call/CallWithExactGasZKSync.sol";
@@ -22,7 +22,7 @@ contract ZKSyncFunctionsRouter is FunctionsRouter {
     bytes memory err,
     uint32 callbackGasLimit,
     address client
-  ) private override returns (CallbackResult memory) {
+  ) internal override returns (CallbackResult memory) {
     // 1. Check if client code exists
     bool destinationNoLongerExists;
     assembly {

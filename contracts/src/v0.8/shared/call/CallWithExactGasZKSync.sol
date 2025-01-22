@@ -30,18 +30,18 @@ library CallWithExactGasZKSync {
   /// of the `_maxTotalGas` parameter. In other words, `max(gas(), _maxTotalGas)` is the maximum amount of gas that can be spent by this function.
   /// @dev The function relays the `returndata` returned by the callee. In case the `callee` reverts, it reverts with the same error.
   /// @param _to The address of the contract to call.
-  /// @param _maxtotalgas the maximum amount of gas that can be spent by the call.
+  /// @param _maxTotalGas the maximum amount of gas that can be spent by the call.
   /// @param _data The calldata for the call.
   /// @param _maxReturnBytes the maximum amount of bytes that can be returned by the call.
   /// @return success whether the call succeeded
-  /// @return retData the return data from the call, capped at maxReturnBytes bytes
   /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
+  /// @return retData the return data from the call, capped at maxReturnBytes bytes
   function _callWithExactGasSafeReturnData(
     address _to,
     uint256 _maxTotalGas,
     bytes calldata _data,
     uint16 _maxReturnBytes
-  ) external payable {
+  ) internal returns (bool success, uint256 gasUsed, bytes memory retData) {
     // At the start of the execution we deduce how much gas be spent on things that will be
     // paid for later on by the transaction.
     // The `expectedForCompute` variable is an upper bound of how much this contract can spend on compute and
