@@ -431,10 +431,7 @@ func ConfirmExecWithSeqNrsForAll(
 			}
 
 			mx.Lock()
-			executionStates[SourceDestPair{
-				SourceChainSelector: srcChain,
-				DestChainSelector:   dstChain,
-			}] = innerExecutionStates
+			executionStates[sourceDest] = innerExecutionStates
 			mx.Unlock()
 
 			return nil
@@ -485,7 +482,7 @@ func ConfirmExecWithSeqNrs(
 		select {
 		case <-tick.C:
 			for expectedSeqNr := range seqNrsToWatch {
-				scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+				scc, executionState := getExecutionState(t, source, dest, offRamp, expectedSeqNr)
 				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
@@ -531,7 +528,7 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 	timeout time.Duration,
 ) {
 	RequireConsistently(t, func() bool {
-		scc, executionState := GetExecutionState(t, source, dest, offRamp, expectedSeqNr)
+		scc, executionState := getExecutionState(t, source, dest, offRamp, expectedSeqNr)
 		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
 			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 		if executionState == EXECUTION_STATE_UNTOUCHED {
@@ -543,7 +540,7 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 }
 
-func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+func getExecutionState(t *testing.T, source, dest deployment.Chain, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
 	// if it's simulated backend, commit to ensure mining
 	if backend, ok := source.Client.(*memory.Backend); ok {
 		backend.Commit()
