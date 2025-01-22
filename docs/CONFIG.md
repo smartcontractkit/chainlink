@@ -1213,6 +1213,40 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.RateLimit
+```toml
+[Capabilities.RateLimit]
+GlobalRPS = 800 # Default
+GlobalBurst = 1000 # Default
+PerSenderRPS = 10 # Default
+PerSenderBurst = 50 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 800 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 1000 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 10 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 50 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.WorkflowRegistry
 ```toml
 [Capabilities.WorkflowRegistry]
@@ -1239,40 +1273,6 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
-
-## Capabilities.RateLimit
- ```toml
- [Capabilities.RateLimit]
- GlobalRPS = 800 # Default
- GlobalBurst = 1000 # Default
- PerSenderRPS = 10 # Default
- PerSenderBurst = 50 # Default
- ```
-
-
- ### GlobalRPS
- ```toml
- GlobalRPS = 800 # Default
- ```
- GlobalRPS is the global rate limit for workflow executions by the workflow engine.
-
- ### GlobalBurst
- ```toml
- GlobalBurst = 1000 # Default
- ```
- GlobalBurst is the global burst limit for workflow executions by the workflow engine.
-
- ### PerSenderRPS
- ```toml
- PerSenderRPS = 10 # Default
- ```
- PerSenderRPS is the per-sender (workflow owner) rate limit for workflow executions by the workflow engine.
-
- ### PerSenderBurst
- ```toml
- PerSenderBurst = 50 # Default
- ```
- PerSenderBurst is the per-sender (workflow owner) burst limit for workflow executions by the workflow engine.
 
 ## Capabilities.ExternalRegistry
 ```toml
