@@ -11,7 +11,7 @@ import (
 
 func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	outputMap := make(map[string]any)
-	var args ccip_router.SVMExtraArgs
+	var args ccip_router.AnyExtraArgs
 	decoder := agbinary.NewBorshDecoder(extraArgs)
 	err := args.UnmarshalWithDecoder(decoder)
 	if err != nil {
