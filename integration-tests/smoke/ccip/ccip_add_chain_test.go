@@ -176,6 +176,7 @@ func Test_AddChain(t *testing.T) {
 
 	state, err = ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
 
 	assertRMNRemoteAndProxyState(t, []uint64{remainingChain}, state)
 
