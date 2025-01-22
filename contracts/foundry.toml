@@ -42,6 +42,7 @@ via_ir = true
 
 [profile.functions]
 solc_version = '0.8.20'
+evm_version = 'paris'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
 gas_price = 3_000_000_000         # 3 gwei
