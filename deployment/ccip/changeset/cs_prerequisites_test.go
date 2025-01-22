@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -19,18 +20,18 @@ func TestDeployPrerequisites(t *testing.T) {
 		Nodes:      4,
 	})
 	newChain := e.AllChainSelectors()[0]
-	cfg := DeployPrerequisiteConfig{
-		Configs: []DeployPrerequisiteConfigPerChain{
+	cfg := changeset.DeployPrerequisiteConfig{
+		Configs: []changeset.DeployPrerequisiteConfigPerChain{
 			{
 				ChainSelector: newChain,
 			},
 		},
 	}
-	output, err := DeployPrerequisites(e, cfg)
+	output, err := changeset.DeployPrerequisitesChangeset(e, cfg)
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[newChain].Weth9)
 	require.NotNil(t, state.Chains[newChain].TokenAdminRegistry)

@@ -9,11 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-var _ deployment.ChangeSet[any] = CCIPCapabilityJobspec
+var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 
-// CCIPCapabilityJobspec returns the job specs for the CCIP capability.
+// CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
-func CCIPCapabilityJobspec(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
+func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

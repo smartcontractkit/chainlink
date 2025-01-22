@@ -1786,8 +1786,17 @@ func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	_, err := o.q.ExecContext(ctx, `UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
-	return err
+	return o.Transact(ctx, false, func(orm *evmTxStore) error {
+		var abandonedIDs []string
+		err := orm.q.SelectContext(ctx, &abandonedIDs, `UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2 RETURNING id`, chainID.String(), addr)
+		if err != nil {
+			return fmt.Errorf("failed to mark transactions as abandoned: %w", err)
+		}
+		if _, err := orm.q.ExecContext(ctx, `DELETE FROM evm.tx_attempts WHERE eth_tx_id = ANY($1)`, pq.Array(abandonedIDs)); err != nil {
+			return fmt.Errorf("failed to delete attempts related to abandoned transactions: %w", err)
+		}
+		return nil
+	})
 }
 
 // Find transactions by a field in the TxMeta blob and transaction states
@@ -1916,7 +1925,7 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
 	query := `
 		SELECT evm.tx_attempts.* FROM evm.tx_attempts
 		JOIN evm.txes ON evm.txes.ID = evm.tx_attempts.eth_tx_id
-		WHERE evm.tx_attempts.state = 'broadcast' AND evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.txes.evm_chain_id = $1 AND evm.txes.ID NOT IN (
+		WHERE evm.tx_attempts.state = 'broadcast' AND evm.txes.nonce IS NOT NULL AND evm.txes.state IN ('confirmed', 'confirmed_missing_receipt', 'fatal_error') AND evm.txes.evm_chain_id = $1 AND evm.txes.ID NOT IN (
 			SELECT DISTINCT evm.txes.ID FROM evm.txes
 			JOIN evm.tx_attempts ON evm.tx_attempts.eth_tx_id = evm.txes.ID
 			JOIN evm.receipts ON evm.receipts.tx_hash = evm.tx_attempts.hash

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -178,6 +179,7 @@ func Test_DualTransmitter(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ctx := tests.Context(t)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, secondaryFromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -203,6 +205,7 @@ func Test_DualTransmitter(t *testing.T) {
 	}
 
 	transmitter, err := ocrcommon.NewOCR2FeedsTransmitter(
+		ctx,
 		txm,
 		[]common.Address{fromAddress},
 		contractAddress,
@@ -241,6 +244,7 @@ func Test_DualTransmitter(t *testing.T) {
 	})).Twice().Return(txmgr.Tx{}, nil)
 
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
+	require.NoError(t, transmitter.CreateSecondaryEthTransaction(testutils.Context(t), payload, nil))
 
 	require.True(t, primaryTxConfirmed)
 	require.True(t, secondaryTxConfirmed)

@@ -16,8 +16,6 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -338,7 +336,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *commonconfig.Duration
 	DefaultLockTimeout            *commonconfig.Duration
 	DefaultQueryTimeout           *commonconfig.Duration
-	Dialect                       pgcommon.DialectName `toml:"-"`
+	DriverName                    string `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
@@ -1327,12 +1325,16 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
+	Protocol             *config.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
+	if v := f.Protocol; v != nil {
+		m.Protocol = v
+	}
 	if v := f.TransmitQueueMaxSize; v != nil {
 		m.TransmitQueueMaxSize = v
 	}

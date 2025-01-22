@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -2119,13 +2120,104 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid transmitter address in dual transmission config")
 
 	dtTransmitterAddress := cltest.MustGenerateRandomKey(t)
-	completeDualTransmissionSpec := fmt.Sprintf(`
+
+	metaNotSliceDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
 		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = 'val1'
+		key2 = ['val2','val3']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+metaNotSliceDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta value key1 is not a slice")
+
+	hintNotValidDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		hint = ['some-invalid-hint']
+		key2 = ['val2','val3']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+hintNotValidDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs]")
+
+	invalidRefundFormatDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		hint = ['calldata','logs']
+		refund = ['0x00']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundFormatDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund, format should be <ADDRESS>:<PERCENT>")
+
+	invalidRefundAddressFormatDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		hint = ['calldata','logs']
+		refund = ['0x000:50']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundAddressFormatDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund address, 0x000 is not a valid address")
+
+	invalidRefundPercentFormatDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		hint = ['calldata','logs']
+		refund = ['0x0000000000000000000000000000000000000000:A']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundPercentFormatDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund percent, A is not a number")
+
+	invalidRefundPercentTotalFormatDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		hint = ['calldata','logs']
+		refund = ['0x0000000000000000000000000000000000000000:50','0x0000000000000000000000000000000000000001:50']
+		`,
+		dtTransmitterAddress.Address.String())
+
+	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+invalidRefundPercentTotalFormatDualTransmissionSpec, nil)
+	require.NoError(t, err)
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "invalid dual transmission refund percentages, total sum of percentages must be less than 100")
+
+	completeDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		key1 = ['val1']
 		key2 = ['val2','val3']
 		`,
 		dtTransmitterAddress.Address.String())
@@ -2141,4 +2233,109 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	// Should not error
 	keyStore.Eth().XXXTestingOnlyAdd(ctx, dtTransmitterAddress)
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
+}
+
+func TestORM_CreateJob_KeyLocking(t *testing.T) {
+	ctx := testutils.Context(t)
+	customChainID := big.New(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.Defaults(customChainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+	db := pgtest.NewSqlxDB(t)
+	ks := cltest.NewKeyStore(t, db)
+	require.NoError(t, ks.OCR2().Add(ctx, cltest.DefaultOCR2Key))
+	_, transmitterID := cltest.MustInsertRandomKey(t, ks.Eth())
+	dtTransmitterAddress := cltest.MustGenerateRandomKey(t)
+	ks.Eth().XXXTestingOnlyAdd(ctx, dtTransmitterAddress)
+
+	baseJobSpec := fmt.Sprintf(testspecs.OCR2EVMDualTransmissionSpecMinimalTemplate, transmitterID.String())
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+
+	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, ks)
+
+	t.Run("keys not locked", func(t *testing.T) {
+		completeDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		key1 = ['val1']
+		key2 = ['val2','val3']
+		`,
+			dtTransmitterAddress.Address.String())
+
+		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
+		require.NoError(t, err)
+
+		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(transmitterID.String())
+		jb.Name = null.StringFrom(uuid.NewString())
+
+		require.NoError(t, jobORM.CreateJob(ctx, &jb))
+	})
+
+	t.Run("keys locked", func(t *testing.T) {
+		completeDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		key1 = ['val1']
+		key2 = ['val2','val3']
+		`,
+			dtTransmitterAddress.Address.String())
+
+		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, err)
+		require.NoError(t, rm.TryLock(keystore.TXMv1))
+		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, err)
+		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
+		require.NoError(t, err)
+
+		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(transmitterID.String())
+		jb.Name = null.StringFrom(uuid.NewString())
+
+		require.NoError(t, jobORM.CreateJob(ctx, &jb))
+	})
+
+	t.Run("keys locked but job spec misconfigured", func(t *testing.T) {
+		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, err)
+		require.NoError(t, rm.TryLock(keystore.TXMv1))
+		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, err)
+		require.NoError(t, rm.TryLock(keystore.TXMv2))
+
+		completeDualTransmissionSpec := fmt.Sprintf(`
+		enableDualTransmission=true
+		[relayConfig.dualTransmission]
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		transmitterAddress = '%s'
+		[relayConfig.dualTransmission.meta]
+		key1 = ['val1']
+		key2 = ['val2','val3']
+		`,
+			transmitterID.String())
+
+		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
+		require.NoError(t, err)
+
+		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(dtTransmitterAddress.Address.String())
+		jb.Name = null.StringFrom(uuid.NewString())
+
+		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "cannot be a secondary transmitter address because it's used a primary transmitter in another job")
+	})
 }

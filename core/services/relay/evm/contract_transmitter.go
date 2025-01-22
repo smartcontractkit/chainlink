@@ -17,11 +17,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ContractTransmitter interface {
@@ -34,6 +34,10 @@ var _ ContractTransmitter = &contractTransmitter{}
 type Transmitter interface {
 	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress(context.Context) gethcommon.Address
+
+	// Dual transmission
+	CreateSecondaryEthTransaction(ctx context.Context, payload []byte, txMeta *txmgr.TxMeta) error
+	SecondaryFromAddress(context.Context) (gethcommon.Address, error)
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -42,28 +46,35 @@ func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 	return nil, nil
 }
 
-type OCRTransmitterOption func(transmitter *contractTransmitter)
+type transmitterOps struct {
+	reportToEvmTxMeta ReportToEthMetadata
+	excludeSigs       bool
+	retention         time.Duration
+	maxLogsKept       uint64
+}
+
+type OCRTransmitterOption func(transmitter *transmitterOps)
 
 func WithExcludeSignatures() OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.excludeSigs = true
 	}
 }
 
 func WithRetention(retention time.Duration) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.retention = retention
 	}
 }
 
 func WithMaxLogsKept(maxLogsKept uint64) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		ct.maxLogsKept = maxLogsKept
 	}
 }
 
 func WithReportToEthMetadata(reportToEvmTxMeta ReportToEthMetadata) OCRTransmitterOption {
-	return func(ct *contractTransmitter) {
+	return func(ct *transmitterOps) {
 		if reportToEvmTxMeta != nil {
 			ct.reportToEvmTxMeta = reportToEvmTxMeta
 		}
@@ -78,11 +89,9 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
+	ks                  keystore.Eth
 	// Options
-	reportToEvmTxMeta ReportToEthMetadata
-	excludeSigs       bool
-	retention         time.Duration
-	maxLogsKept       uint64
+	transmitterOptions *transmitterOps
 }
 
 func transmitterFilterName(addr common.Address) string {
@@ -97,6 +106,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
+	ks keystore.Eth,
 	opts ...OCRTransmitterOption,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -112,17 +122,20 @@ func NewOCRContractTransmitter(
 		lp:                  lp,
 		contractReader:      caller,
 		lggr:                logger.Named(lggr, "OCRContractTransmitter"),
-		reportToEvmTxMeta:   reportToEvmTxMetaNoop,
-		excludeSigs:         false,
-		retention:           0,
-		maxLogsKept:         0,
+		ks:                  ks,
+		transmitterOptions: &transmitterOps{
+			reportToEvmTxMeta: reportToEvmTxMetaNoop,
+			excludeSigs:       false,
+			retention:         0,
+			maxLogsKept:       0,
+		},
 	}
 
 	for _, opt := range opts {
-		opt(newContractTransmitter)
+		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.retention, MaxLogsKept: newContractTransmitter.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +155,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if err != nil {
 			panic("eventTransmit(ev): error in SplitSignature")
 		}
-		if !oc.excludeSigs {
+		if !oc.transmitterOptions.excludeSigs {
 			rs = append(rs, r)
 			ss = append(ss, s)
 			vs[i] = v
@@ -150,7 +163,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	txMeta, err := oc.reportToEvmTxMeta(report)
+	txMeta, err := oc.transmitterOptions.reportToEvmTxMeta(report)
 	if err != nil {
 		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
 	}
@@ -163,6 +176,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 
 	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload, txMeta), "failed to send Eth transaction")
+
 }
 
 type contractReader interface {
@@ -237,8 +251,22 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 	return ocrtypes.Account(oc.transmitter.FromAddress(ctx).String()), nil
 }
 
-func (oc *contractTransmitter) Start(ctx context.Context) error { return nil }
-func (oc *contractTransmitter) Close() error                    { return nil }
+func (oc *contractTransmitter) Start(ctx context.Context) error {
+	// Lock the transmitters to TXMv1
+	rm, err := oc.ks.GetResourceMutex(ctx, oc.transmitter.FromAddress(ctx))
+	if err != nil {
+		return err
+	}
+	return rm.TryLock(keystore.TXMv1)
+}
+func (oc *contractTransmitter) Close() error {
+	// Unlock the transmitters to TXMv1
+	rm, err := oc.ks.GetResourceMutex(context.Background(), oc.transmitter.FromAddress(context.Background()))
+	if err != nil {
+		return err
+	}
+	return rm.Unlock(keystore.TXMv1)
+}
 
 // Has no state/lifecycle so it's always healthy and ready
 func (oc *contractTransmitter) Ready() error { return nil }
