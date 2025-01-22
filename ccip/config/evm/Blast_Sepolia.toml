@@ -1,18 +1,4 @@
 ChainID = '168587773'
-FinalityDepth = 200
-FinalityTagEnabled = true
-ChainType = 'optimismBedrock'
-# block rate is ~2sec, so this ensures blocks are polled correctly
-LogPollInterval = '2s'
-
-[GasEstimator]
-EIP1559DynamicFees = true
-BumpThreshold = 60
-BumpPercent = 20
-BumpMin = '100 wei'
-PriceMax = '120 gwei'
-LimitDefault = 8000000
-FeeCapDefault = '120 gwei'
 
 [GasEstimator.BlockHistory]
 # Default is 24, which leads to bumpy gas prices. In CCIP
@@ -23,15 +9,3 @@ BlockHistorySize = 200
 # the gas price is relayed to other changes for quotes so we want accurate/avg not pessimistic values.
 # So we set this to zero so FeeCap = baseFee + tipcap.
 EIP1559FeeCapBufferBlocks = 0
-
-[HeadTracker]
-HistoryDepth = 300
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
-
-[NodePool]
-# 4 block sync time between nodes to ensure they aren't labelled unreachable too soon
-PollFailureThreshold = 4
-# polls every 4sec to check if there is a block produced, since blockRate is ~3sec
-PollInterval = '4s'

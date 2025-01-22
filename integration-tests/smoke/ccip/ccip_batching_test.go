@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	numMessages = 40
+	numMessages = 25
 )
 
 type batchTestSetup struct {

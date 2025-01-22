@@ -1,18 +1,20 @@
 package plugins
 
 import (
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPluginPortManager(t *testing.T) {
 	// register one
-	m := NewLoopRegistry(logger.TestLogger(t), nil, nil, nil, "")
+	m := NewTestLoopRegistry(logger.TestLogger(t))
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
@@ -60,7 +62,36 @@ func (m mockCfgTelemetry) EmitterBatchProcessor() bool { return true }
 
 func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time.Second }
 
+type mockCfgDatabase struct{}
+
+func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
+
+func (m mockCfgDatabase) Listener() config.Listener { panic("unimplemented") }
+
+func (m mockCfgDatabase) Lock() config.Lock { panic("unimplemented") }
+
+func (m mockCfgDatabase) DefaultIdleInTxSessionTimeout() time.Duration { return time.Hour }
+
+func (m mockCfgDatabase) DefaultLockTimeout() time.Duration { return time.Minute }
+
+func (m mockCfgDatabase) DefaultQueryTimeout() time.Duration { return time.Second }
+
+func (m mockCfgDatabase) DriverName() string { panic("unimplemented") }
+
+func (m mockCfgDatabase) LogSQL() bool { return true }
+
+func (m mockCfgDatabase) MaxIdleConns() int { return 99 }
+
+func (m mockCfgDatabase) MaxOpenConns() int { return 42 }
+
+func (m mockCfgDatabase) MigrateDatabase() bool { panic("unimplemented") }
+
+func (m mockCfgDatabase) URL() url.URL {
+	return url.URL{Scheme: "fake", Host: "database.url"}
+}
+
 func TestLoopRegistry_Register(t *testing.T) {
+	mockCfgDatabase := &mockCfgDatabase{}
 	mockCfgTracing := &mockCfgTracing{}
 	mockCfgTelemetry := &mockCfgTelemetry{}
 	registry := make(map[string]*RegisteredLoop)
@@ -69,6 +100,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	loopRegistry := &LoopRegistry{
 		lggr:         logger.TestLogger(t),
 		registry:     registry,
+		cfgDatabase:  mockCfgDatabase,
 		cfgTracing:   mockCfgTracing,
 		cfgTelemetry: mockCfgTelemetry,
 	}
@@ -79,6 +111,15 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "testID", registeredLoop.Name)
 
 	envCfg := registeredLoop.EnvCfg
+
+	require.Equal(t, &url.URL{Scheme: "fake", Host: "database.url"}, envCfg.DatabaseURL)
+	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
+	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
+	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)
+	require.True(t, envCfg.DatabaseLogSQL)
+	require.Equal(t, 42, envCfg.DatabaseMaxOpenConns)
+	require.Equal(t, 99, envCfg.DatabaseMaxIdleConns)
+
 	require.True(t, envCfg.TracingEnabled)
 	require.Equal(t, "http://localhost:9000", envCfg.TracingCollectorTarget)
 	require.Equal(t, map[string]string{"attribute": "value"}, envCfg.TracingAttributes)

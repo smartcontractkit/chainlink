@@ -18,9 +18,9 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	txmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
@@ -39,8 +39,8 @@ type OrchestratorKeystore interface {
 }
 
 type OrchestratorAttemptBuilder[
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
+	BLOCK_HASH chains.Hashable,
+	HEAD chains.Head[BLOCK_HASH],
 ] interface {
 	services.Service
 	OnNewLongestChain(ctx context.Context, head HEAD)
@@ -48,8 +48,8 @@ type OrchestratorAttemptBuilder[
 
 // Generics are necessary to keep TXMv2 backwards compatible
 type Orchestrator[
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
+	BLOCK_HASH chains.Hashable,
+	HEAD chains.Head[BLOCK_HASH],
 ] struct {
 	services.StateMachine
 	lggr           logger.SugaredLogger
@@ -62,7 +62,7 @@ type Orchestrator[
 	resumeCallback txmgr.ResumeCallback
 }
 
-func NewTxmOrchestrator[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]](
+func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]](
 	lggr logger.Logger,
 	chainID *big.Int,
 	txm *Txm,

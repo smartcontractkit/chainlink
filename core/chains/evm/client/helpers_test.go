@@ -11,7 +11,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	client "github.com/smartcontractkit/chainlink-solana/pkg/solana/client/multinode"
+	client "github.com/smartcontractkit/chainlink-framework/multinode"
 
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"

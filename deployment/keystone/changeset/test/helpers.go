@@ -355,10 +355,6 @@ func capIDs(t *testing.T, cfgs []kcr.CapabilitiesRegistryCapabilityConfiguration
 	return out
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 func p2pIDs(t *testing.T, vals []string) [][32]byte {
 	var out [][32]byte
 	for _, v := range vals {

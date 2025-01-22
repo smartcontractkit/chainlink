@@ -18,7 +18,7 @@ import (
 
 	time "time"
 
-	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	types "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
 	uuid "github.com/google/uuid"
 )

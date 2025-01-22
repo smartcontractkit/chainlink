@@ -89,9 +89,6 @@ func (c *client) start(context.Context) error {
 				Timeout:             time.Second * 20,
 				PermitWithoutStream: true,
 			}),
-		grpc.WithDefaultCallOptions(
-			grpc.WaitForReady(true),
-		),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create client connection: %w", err)

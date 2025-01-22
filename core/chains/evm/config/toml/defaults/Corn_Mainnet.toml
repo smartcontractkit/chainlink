@@ -1,0 +1,14 @@
+ChainID = '21000000'
+FinalityTagEnabled = true
+ChainType = 'arbitrum'
+
+[GasEstimator]
+Mode = 'Arbitrum'
+LimitMax = 1_000_000_000
+# Arbitrum uses the suggested gas price, so we don't want to place any limits on the minimum
+PriceMin = '0'
+PriceDefault = '0.1 gwei'
+PriceMax = '1000 gwei'
+
+[GasEstimator.DAOracle]
+OracleType = 'arbitrum'

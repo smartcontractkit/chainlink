@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKMSToEthSigConversion(t *testing.T) {
