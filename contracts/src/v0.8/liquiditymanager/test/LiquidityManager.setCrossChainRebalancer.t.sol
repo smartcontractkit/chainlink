@@ -45,7 +45,8 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
 
     assertEq(s_liquidityManager.getCrossChainRebalancer(remoteChainSelector).remoteRebalancer, newRebalancer);
 
-    LiquidityManager.CrossChainRebalancerArgs[] memory crossChainRebalancers = s_liquidityManager.getAllCrossChainRebalancers();
+    LiquidityManager.CrossChainRebalancerArgs[] memory crossChainRebalancers = s_liquidityManager
+      .getAllCrossChainRebalancers();
     assertEq(crossChainRebalancers.length, 1);
     assertEq(crossChainRebalancers[0].remoteRebalancer, args[0].remoteRebalancer);
     assertEq(address(crossChainRebalancers[0].localBridge), address(args[0].localBridge));
