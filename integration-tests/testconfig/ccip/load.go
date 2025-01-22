@@ -1,9 +1,10 @@
 package ccip
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type LoadConfig struct {
@@ -29,7 +30,7 @@ func (l *LoadConfig) Validate(t *testing.T) {
 	for _, w := range *l.MessageTypeWeights {
 		agg += w
 	}
-	require.Equal(t, agg, 100, "Sum of MessageTypeWeights must be 100")
+	require.Equal(t, 100, agg, "Sum of MessageTypeWeights must be 100")
 }
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {
