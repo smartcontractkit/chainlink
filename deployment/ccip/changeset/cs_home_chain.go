@@ -263,7 +263,7 @@ func deployHomeChain(
 		}
 	}
 	// Add the capability to the CapabilitiesRegistry contract only if it does not exist
-	if !addCapability {
+	if addCapability {
 		tx, err := capReg.Contract.AddCapabilities(
 			chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 				capabilityToAdd,
@@ -272,6 +272,8 @@ func deployHomeChain(
 			lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
 			return nil, err
 		}
+		lggr.Infow("Added capability to CapabilitiesRegistry",
+			"labelledName", capabilityToAdd.LabelledName, "version", capabilityToAdd.Version)
 	}
 
 	existingNodeOps, err := capReg.Contract.GetNodeOperators(nil)
@@ -318,10 +320,6 @@ func deployHomeChain(
 				}
 			}
 		}
-		if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-			lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
-			return capReg, errors.New("failed to add all node operators")
-		}
 	} else {
 		lggr.Infow("No new node operators to add")
 		foundNopID := make(map[uint32]bool)
@@ -344,6 +342,10 @@ func deployHomeChain(
 				}
 			}
 		}
+	}
+	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
+		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
 	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
@@ -413,7 +415,8 @@ func addNodes(
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
-		lggr.Errorw("Failed to add nodes", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
+		lggr.Errorw("Failed to add nodes", "chain", chain.String(),
+			"err", deployment.DecodedErrFromABIIfDataErr(err, capabilities_registry.CapabilitiesRegistryABI))
 		return err
 	}
 	_, err = chain.Confirm(tx)

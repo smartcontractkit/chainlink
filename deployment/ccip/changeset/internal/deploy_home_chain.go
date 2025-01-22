@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -24,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
-
-type ConfigType string
 
 const (
 	CapabilityLabelledName = "ccip"
@@ -55,9 +54,6 @@ const (
 	GasPriceDeviationPPB    = 1000
 	DAGasPriceDeviationPPB  = 0
 	OptimisticConfirmations = 1
-
-	ConfigTypeActive    ConfigType = "active"
-	ConfigTypeCandidate ConfigType = "candidate"
 )
 
 var (
@@ -166,7 +162,7 @@ func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
-	configType ConfigType,
+	configType globals.ConfigType,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
@@ -182,12 +178,12 @@ func BuildSetOCR3ConfigArgs(
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
-		if configType == ConfigTypeActive {
+		if configType == globals.ConfigTypeActive {
 			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
-		} else if configType == ConfigTypeCandidate {
+		} else if configType == globals.ConfigTypeCandidate {
 			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
 					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))

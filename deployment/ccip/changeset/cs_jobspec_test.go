@@ -3,13 +3,12 @@ package changeset_test
 import (
 	"testing"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,13 +33,15 @@ func TestJobSpecChangeset(t *testing.T) {
 		for _, job := range jobs {
 			_, err = ccip.ValidatedCCIPSpec(job)
 			require.NoError(t, err)
-			// Note these auto-accept
-			_, err := e.Offchain.ProposeJob(testcontext.Get(t),
-				&jobv1.ProposeJobRequest{
-					NodeId: node.NodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
 		}
 	}
+}
+
+func TestJobSpecChangesetIdempotent(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+	// we call the changeset again to ensure that it doesn't return any new job specs
+	// as the job specs are already created in the first call
+	output, err := changeset.CCIPCapabilityJobspecChangeset(e.Env, nil)
+	require.NoError(t, err)
+	require.Empty(t, output.JobSpecs)
 }
