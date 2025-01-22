@@ -41,7 +41,7 @@ library CallWithExactGasZKSync {
     uint256 _maxTotalGas,
     bytes calldata _data,
     uint16 _maxReturnBytes
-  ) internal returns (bool success, uint256 gasUsed, bytes memory retData) {
+  ) external returns (bool, uint256, bytes memory) {
     // At the start of the execution we deduce how much gas be spent on things that will be
     // paid for later on by the transaction.
     // The `expectedForCompute` variable is an upper bound of how much this contract can spend on compute and
