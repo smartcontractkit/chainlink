@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {ILiquidityManager} from "../interfaces/ILiquidityManager.sol";
+import {ILiquidityContainer} from "../interfaces/ILiquidityContainer.sol";
 
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
@@ -38,7 +39,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
 
     vm.expectEmit();
     bytes memory encodedNonce = abi.encode(uint256(1));
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       type(uint64).max,
       i_localChainSelector,
       i_remoteChainSelector,
@@ -163,9 +164,9 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     bytes memory bridgeSendReturnData = abi.encode(nonce);
     bytes memory bridgeSpecificPayload = bytes("");
     vm.expectEmit();
-    emit LiquidityRemoved(address(remoteRebalancer), AMOUNT);
+    emit ILiquidityContainer.LiquidityRemoved(address(remoteRebalancer), AMOUNT);
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -188,12 +189,14 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       action: MockL1BridgeAdapter.FinalizationAction.ProveWithdrawal,
       data: abi.encode(provePayload)
     });
+
     bool fundsAvailable = s_bridgeAdapter.finalizeWithdrawERC20(
       address(0),
       address(s_liquidityManager),
       abi.encode(payload)
     );
     assertFalse(fundsAvailable, "fundsAvailable must be false");
+
     MockL1BridgeAdapter.FinalizePayload memory finalizePayload = MockL1BridgeAdapter.FinalizePayload({
       nonce: nonce,
       amount: AMOUNT
@@ -216,16 +219,18 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     // try to finalize on L1 again
     // bytes memory revertData = abi.encodeWithSelector(NonceAlreadyUsed.selector, nonce);
     vm.expectEmit();
-    emit FinalizationFailed(
+    emit LiquidityManager.FinalizationFailed(
       maxSeqNum,
       i_remoteChainSelector,
       abi.encode(payload),
       abi.encodeWithSelector(NonceAlreadyUsed.selector, nonce)
     );
+
     vm.expectEmit();
-    emit LiquidityAdded(address(s_liquidityManager), AMOUNT);
+    emit ILiquidityContainer.LiquidityAdded(address(s_liquidityManager), AMOUNT);
+
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -234,6 +239,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       abi.encode(payload),
       bytes("")
     );
+
     s_liquidityManager.receiveLiquidity(i_remoteChainSelector, AMOUNT, false, abi.encode(payload));
 
     // available balance on the rebalancer has been injected into the token pool.
@@ -283,10 +289,12 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     uint64 maxSeqNum = type(uint64).max;
     bytes memory bridgeSendReturnData = abi.encode(nonce);
     bytes memory bridgeSpecificPayload = bytes("");
+
     vm.expectEmit();
-    emit LiquidityRemoved(address(remoteRebalancer), AMOUNT);
+    emit ILiquidityContainer.LiquidityRemoved(address(remoteRebalancer), AMOUNT);
+
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -295,6 +303,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       bridgeSpecificPayload,
       bridgeSendReturnData
     );
+
     vm.startPrank(FINANCE);
     remoteRebalancer.rebalanceLiquidity(i_localChainSelector, AMOUNT, 0, bridgeSpecificPayload);
 
@@ -304,13 +313,16 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
 
     // prove withdrawal on the L1 bridge adapter, through the rebalancer.
     uint256 balanceBeforeProve = s_l1Token.balanceOf(address(s_lockReleaseTokenPool));
+
     MockL1BridgeAdapter.ProvePayload memory provePayload = MockL1BridgeAdapter.ProvePayload({nonce: nonce});
     MockL1BridgeAdapter.Payload memory payload = MockL1BridgeAdapter.Payload({
       action: MockL1BridgeAdapter.FinalizationAction.ProveWithdrawal,
       data: abi.encode(provePayload)
     });
+
     vm.expectEmit();
-    emit FinalizationStepCompleted(maxSeqNum, i_remoteChainSelector, abi.encode(payload));
+    emit LiquidityManager.FinalizationStepCompleted(maxSeqNum, i_remoteChainSelector, abi.encode(payload));
+
     s_liquidityManager.receiveLiquidity(i_remoteChainSelector, AMOUNT, false, abi.encode(payload));
 
     // s_liquidityManager should have no tokens.
@@ -327,14 +339,17 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       nonce: nonce,
       amount: AMOUNT
     });
+
     payload = MockL1BridgeAdapter.Payload({
       action: MockL1BridgeAdapter.FinalizationAction.FinalizeWithdrawal,
       data: abi.encode(finalizePayload)
     });
+
     vm.expectEmit();
-    emit LiquidityAdded(address(s_liquidityManager), AMOUNT);
+    emit ILiquidityContainer.LiquidityAdded(address(s_liquidityManager), AMOUNT);
+
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -343,6 +358,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       abi.encode(payload),
       bytes("")
     );
+
     s_liquidityManager.receiveLiquidity(i_remoteChainSelector, AMOUNT, false, abi.encode(payload));
 
     // s_liquidityManager should have no tokens.
@@ -410,10 +426,12 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     uint64 maxSeqNum = type(uint64).max;
     bytes memory bridgeSendReturnData = abi.encode(nonce);
     bytes memory bridgeSpecificPayload = bytes("");
+
     vm.expectEmit();
-    emit LiquidityRemoved(address(remoteRebalancer), AMOUNT);
+    emit ILiquidityContainer.LiquidityRemoved(address(remoteRebalancer), AMOUNT);
+
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -422,6 +440,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       bridgeSpecificPayload,
       bridgeSendReturnData
     );
+
     remoteRebalancer.rebalanceLiquidity(i_localChainSelector, AMOUNT, 0, bridgeSpecificPayload);
 
     // available liquidity has been moved to the remote bridge adapter from the token pool.
@@ -430,13 +449,16 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
 
     // prove withdrawal on the L1 bridge adapter, through the rebalancer.
     uint256 balanceBeforeProve = s_l1Weth.balanceOf(address(s_wethMockLockReleaseTokenPool));
+
     MockL1BridgeAdapter.ProvePayload memory provePayload = MockL1BridgeAdapter.ProvePayload({nonce: nonce});
     MockL1BridgeAdapter.Payload memory payload = MockL1BridgeAdapter.Payload({
       action: MockL1BridgeAdapter.FinalizationAction.ProveWithdrawal,
       data: abi.encode(provePayload)
     });
+
     vm.expectEmit();
-    emit FinalizationStepCompleted(maxSeqNum, i_remoteChainSelector, abi.encode(payload));
+    emit LiquidityManager.FinalizationStepCompleted(maxSeqNum, i_remoteChainSelector, abi.encode(payload));
+
     s_wethRebalancer.receiveLiquidity(i_remoteChainSelector, AMOUNT, false, abi.encode(payload));
 
     // s_wethRebalancer should have no tokens.
@@ -453,14 +475,17 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       nonce: nonce,
       amount: AMOUNT
     });
+
     payload = MockL1BridgeAdapter.Payload({
       action: MockL1BridgeAdapter.FinalizationAction.FinalizeWithdrawal,
       data: abi.encode(finalizePayload)
     });
+
     vm.expectEmit();
-    emit LiquidityAdded(address(s_wethRebalancer), AMOUNT);
+    emit ILiquidityContainer.LiquidityAdded(address(s_wethRebalancer), AMOUNT);
+
     vm.expectEmit();
-    emit LiquidityTransferred(
+    emit LiquidityManager.LiquidityTransferred(
       maxSeqNum,
       i_remoteChainSelector,
       i_localChainSelector,
@@ -469,6 +494,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       abi.encode(payload),
       bytes("")
     );
+
     s_wethRebalancer.receiveLiquidity(i_remoteChainSelector, AMOUNT, true, abi.encode(payload));
 
     // s_wethRebalancer should have no tokens.

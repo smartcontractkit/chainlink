@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import "./LiquidityManagerSetup.t.sol";
 
@@ -9,7 +9,7 @@ contract LiquidityManager_removeLiquidity is LiquidityManagerSetup {
     deal(address(s_l1Token), address(s_lockReleaseTokenPool), amount);
 
     vm.expectEmit();
-    emit LiquidityRemovedFromContainer(FINANCE, amount);
+    emit LiquidityManager.LiquidityRemovedFromContainer(FINANCE, amount);
 
     changePrank(FINANCE);
     s_liquidityManager.removeLiquidity(amount);

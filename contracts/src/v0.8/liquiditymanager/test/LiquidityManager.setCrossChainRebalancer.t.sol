@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {IBridgeAdapter} from "../interfaces/IBridge.sol";
 import {ILiquidityManager} from "../interfaces/ILiquidityManager.sol";
@@ -45,13 +45,13 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
 
     assertEq(s_liquidityManager.getCrossChainRebalancer(remoteChainSelector).remoteRebalancer, newRebalancer);
 
-    LiquidityManager.CrossChainRebalancerArgs[] memory got = s_liquidityManager.getAllCrossChainRebalancers();
-    assertEq(got.length, 1);
-    assertEq(got[0].remoteRebalancer, args[0].remoteRebalancer);
-    assertEq(address(got[0].localBridge), address(args[0].localBridge));
-    assertEq(got[0].remoteToken, args[0].remoteToken);
-    assertEq(got[0].remoteChainSelector, args[0].remoteChainSelector);
-    assertEq(got[0].enabled, args[0].enabled);
+    LiquidityManager.CrossChainRebalancerArgs[] memory crossChainRebalancers = s_liquidityManager.getAllCrossChainRebalancers();
+    assertEq(crossChainRebalancers.length, 1);
+    assertEq(crossChainRebalancers[0].remoteRebalancer, args[0].remoteRebalancer);
+    assertEq(address(crossChainRebalancers[0].localBridge), address(args[0].localBridge));
+    assertEq(crossChainRebalancers[0].remoteToken, args[0].remoteToken);
+    assertEq(crossChainRebalancers[0].remoteChainSelector, args[0].remoteChainSelector);
+    assertEq(crossChainRebalancers[0].enabled, args[0].enabled);
 
     supportedChains = s_liquidityManager.getSupportedDestChains();
     assertEq(supportedChains.length, 1);

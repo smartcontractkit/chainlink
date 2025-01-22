@@ -7,8 +7,9 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MockLockReleaseTokenPool is ILiquidityContainer {
-  IERC20 public immutable i_localToken;
   using SafeERC20 for IERC20;
+
+  IERC20 public immutable i_localToken;
 
   constructor(IERC20 localToken) {
     i_localToken = localToken;
