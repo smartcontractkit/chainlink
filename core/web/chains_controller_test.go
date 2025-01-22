@@ -442,6 +442,7 @@ SelectionMode = 'PriorityLevel'
 SyncThreshold = 10
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '5s'
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '20s'

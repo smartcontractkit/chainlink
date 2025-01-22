@@ -1213,12 +1213,49 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.RateLimit
+```toml
+[Capabilities.RateLimit]
+GlobalRPS = 200 # Default
+GlobalBurst = 200 # Default
+PerSenderRPS = 100 # Default
+PerSenderBurst = 100 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 200 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 200 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 100 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 100 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.WorkflowRegistry
 ```toml
 [Capabilities.WorkflowRegistry]
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+MaxBinarySize = '20.00mb' # Default
+MaxEncryptedSecretsSize = '26.40kb' # Default
+MaxConfigSize = '50.00kb' # Default
 ```
 
 
@@ -1239,6 +1276,24 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### MaxBinarySize
+```toml
+MaxBinarySize = '20.00mb' # Default
+```
+MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+
+### MaxEncryptedSecretsSize
+```toml
+MaxEncryptedSecretsSize = '26.40kb' # Default
+```
+MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+
+### MaxConfigSize
+```toml
+MaxConfigSize = '50.00kb' # Default
+```
+MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
 ## Capabilities.ExternalRegistry
 ```toml
@@ -6064,7 +6119,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -10457,7 +10512,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -14559,6 +14614,7 @@ SelectionMode = 'PriorityLevel' # Default
 SyncThreshold = 5 # Default
 NodeIsSyncingEnabled = false # Default
 LeaseDuration = '1m0s' # Default
+NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
@@ -14611,6 +14667,12 @@ NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes 
 LeaseDuration = '1m0s' # Default
 ```
 LeaseDuration is the max duration a node can be leased for.
+
+### NewHeadsPollInterval
+```toml
+NewHeadsPollInterval = '10s' # Default
+```
+NewHeadsPollInterval is the rate to poll for new heads.
 
 ### FinalizedBlockPollInterval
 ```toml
