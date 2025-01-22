@@ -368,7 +368,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
 					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
+					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0],
+					syncer.WithMaxArtifactSize(
+						syncer.ArtifactConfig{
+							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
+							MaxSecretsSize: uint64(cfg.Capabilities().WorkflowRegistry().MaxEncryptedSecretsSize()),
+							MaxConfigSize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxConfigSize()),
+						},
+					),
+				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfSyncer := syncer.NewWorkflowRegistry(
@@ -402,7 +410,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
 		}
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled

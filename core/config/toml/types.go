@@ -16,8 +16,6 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -338,7 +336,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *commonconfig.Duration
 	DefaultLockTimeout            *commonconfig.Duration
 	DefaultQueryTimeout           *commonconfig.Duration
-	Dialect                       pgcommon.DialectName `toml:"-"`
+	DriverName                    string `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
@@ -1456,9 +1454,12 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 }
 
 type WorkflowRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address                 *string
+	NetworkID               *string
+	ChainID                 *string
+	MaxBinarySize           *utils.FileSize
+	MaxEncryptedSecretsSize *utils.FileSize
+	MaxConfigSize           *utils.FileSize
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1472,6 +1473,18 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.MaxBinarySize != nil {
+		r.MaxBinarySize = f.MaxBinarySize
+	}
+
+	if f.MaxEncryptedSecretsSize != nil {
+		r.MaxEncryptedSecretsSize = f.MaxEncryptedSecretsSize
+	}
+
+	if f.MaxConfigSize != nil {
+		r.MaxConfigSize = f.MaxConfigSize
 	}
 }
 

@@ -274,6 +274,9 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxBinarySize = '20.00mb'
+MaxEncryptedSecretsSize = '26.40kb'
+MaxConfigSize = '50.00kb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -695,6 +698,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
@@ -741,6 +745,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'

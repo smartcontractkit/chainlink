@@ -460,7 +460,7 @@ func setupNodeCCIP(
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry(), nil, "")
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Database(), config.Tracing(), config.Telemetry(), nil, "")
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
@@ -490,7 +490,7 @@ func setupNodeCCIP(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry(), nil, ""),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Database(), config.Tracing(), config.Telemetry(), nil, ""),
 	})
 	ctx := testutils.Context(t)
 	require.NoError(t, err)

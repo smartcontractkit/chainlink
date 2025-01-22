@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type CapabilitiesExternalRegistry interface {
@@ -15,6 +16,9 @@ type CapabilitiesWorkflowRegistry interface {
 	Address() string
 	NetworkID() string
 	ChainID() string
+	MaxEncryptedSecretsSize() utils.FileSize
+	MaxBinarySize() utils.FileSize
+	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
 }
 
