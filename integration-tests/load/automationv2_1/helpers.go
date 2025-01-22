@@ -30,18 +30,18 @@ func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfi
 
 	headerText := ":chainlink-keepers: Automation Load Test " + header
 
-	grafanaUrl, err := config.GetGrafanaBaseURL()
+	grafanaURL, err := config.GetGrafanaBaseURL()
 	if err != nil {
 		return "", err
 	}
 
-	dashboardUrl, err := config.GetGrafanaDashboardURL()
+	dashboardURL, err := config.GetGrafanaDashboardURL()
 	if err != nil {
 		return "", err
 	}
 
-	formattedDashboardUrl := fmt.Sprintf("%s%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaUrl, dashboardUrl, startingTime, endingTime, namespace, numberOfNodes)
-	l.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
+	formattedDashboardURL := fmt.Sprintf("%s%s?orgId=1&from=%s&to=%s&var-namespace=%s&var-number_of_nodes=%s", grafanaURL, dashboardURL, startingTime, endingTime, namespace, numberOfNodes)
+	l.Info().Str("Dashboard", formattedDashboardURL).Msg("Dashboard URL")
 
 	var notificationBlocks []slack.Block
 
@@ -54,15 +54,15 @@ func sendSlackNotification(header string, l zerolog.Logger, config *tc.TestConfi
 		pyroscopeServer := *config.Pyroscope.ServerUrl
 		pyroscopeEnvironment := *config.Pyroscope.Environment
 
-		formattedPyroscopeUrl := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%s&to=%s", pyroscopeServer, pyroscopeEnvironment, startingTime, endingTime)
-		l.Info().Str("Pyroscope", formattedPyroscopeUrl).Msg("Dashboard URL")
+		formattedPyroscopeURL := fmt.Sprintf("%s/?query=chainlink-node.cpu{Environment=\"%s\"}&from=%s&to=%s", pyroscopeServer, pyroscopeEnvironment, startingTime, endingTime)
+		l.Info().Str("Pyroscope", formattedPyroscopeURL).Msg("Dashboard URL")
 		notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
 			fmt.Sprintf("<%s|Pyroscope>",
-				formattedPyroscopeUrl), false, true), nil, nil))
+				formattedPyroscopeURL), false, true), nil, nil))
 	}
 	notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
 		fmt.Sprintf("<%s|Test Dashboard> \nNotifying <@%s>",
-			formattedDashboardUrl, reportModel.SlackUserID), false, true), nil, nil))
+			formattedDashboardURL, reportModel.SlackUserID), false, true), nil, nil))
 
 	if len(extraBlocks) > 0 {
 		notificationBlocks = append(notificationBlocks, extraBlocks...)
