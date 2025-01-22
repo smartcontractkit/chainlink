@@ -63,6 +63,16 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				},
 			}
 
+			extraArgsMap := map[string]any{
+				"ComputeUnits":     uint32(1000),
+				"IsWritableBitmap": uint64(2),
+				"Accounts": [][32]byte{
+					[32]byte(config.CcipReceiverProgram.Bytes()),
+					[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
+					[32]byte(solana.SystemProgramID.Bytes()),
+				},
+			}
+
 			var buf bytes.Buffer
 			encoder := agbinary.NewBorshEncoder(&buf)
 			err = extraArgs.MarshalWithEncoder(encoder)
@@ -78,13 +88,14 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              cciptypes.UnknownAddress(key.PublicKey().String()),
 				},
-				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
-				Data:           extraData,
-				Receiver:       key.PublicKey().Bytes(),
-				ExtraArgs:      buf.Bytes(),
-				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
-				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
-				TokenAmounts:   tokenAmounts,
+				Sender:           cciptypes.UnknownAddress(key.PublicKey().String()),
+				Data:             extraData,
+				Receiver:         key.PublicKey().Bytes(),
+				ExtraArgs:        buf.Bytes(),
+				FeeToken:         cciptypes.UnknownAddress(key.PublicKey().String()),
+				FeeTokenAmount:   cciptypes.NewBigInt(big.NewInt(rand.Int63())),
+				TokenAmounts:     tokenAmounts,
+				ExtraArgsDecoded: extraArgsMap,
 			}
 		}
 
@@ -117,13 +128,12 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			expErr:        false,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
-		// TODO uncomment when extraargs codec implemented, right now the map is empty
-		// {
-		//	 ame:          "base report with EVM as source chain",
-		//	 report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
-		//	 expErr:        false,
-		//	 chainSelector: 5009297550715157269, // ETH mainnet chain selector
-		// },
+		{
+			name:          "base report with EVM as source chain",
+			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			expErr:        false,
+			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+		},
 		// TODO: check if empty msg if necessary since there is only single msg in solana execute report
 		// {
 		//	 name: "reports have empty msgs",
@@ -157,13 +167,14 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			// ignore msg hash in comparison
+			// ignore msg hash and extraArgsDecoded map in comparison
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
 					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
+					report.ChainReports[i].Messages[j].ExtraArgsDecoded = nil
 				}
 			}
 
