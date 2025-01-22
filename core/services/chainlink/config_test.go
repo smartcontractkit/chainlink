@@ -20,11 +20,9 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
@@ -146,24 +144,6 @@ var (
 					},
 				}},
 		},
-		Cosmos: []*coscfg.TOMLConfig{
-			{
-				ChainID: ptr("Ibiza-808"),
-				Chain: coscfg.Chain{
-					MaxMsgsPerBatch: ptr[int64](13),
-				},
-				Nodes: []*coscfg.Node{
-					{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://columbus.cosmos.com")},
-				}},
-			{
-				ChainID: ptr("Malaga-420"),
-				Chain: coscfg.Chain{
-					BlocksUntilTxTimeout: ptr[int64](20),
-				},
-				Nodes: []*coscfg.Node{
-					{Name: ptr("secondary"), TendermintURL: commoncfg.MustParseURL("http://bombay.cosmos.com")},
-				}},
-		},
 		Solana: []*solcfg.TOMLConfig{
 			{
 				ChainID: ptr("mainnet"),
@@ -221,18 +201,6 @@ var (
 				},
 				Nodes: []*solcfg.Node{
 					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com")},
-				},
-			},
-		},
-		Starknet: []*stkcfg.TOMLConfig{
-			{
-				ChainID: ptr("foobar"),
-				Chain: stkcfg.Chain{
-					ConfirmationPoll: commoncfg.MustNewDuration(time.Hour),
-				},
-				FeederURL: commoncfg.MustParseURL("http://feeder.url"),
-				Nodes: []*stkcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
 				},
 			},
 		},
@@ -807,47 +775,6 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Starknet = []*stkcfg.TOMLConfig{
-		{
-			ChainID: ptr("foobar"),
-			Enabled: ptr(true),
-			Chain: stkcfg.Chain{
-				OCR2CachePollPeriod: commoncfg.MustNewDuration(6 * time.Hour),
-				OCR2CacheTTL:        commoncfg.MustNewDuration(3 * time.Minute),
-				RequestTimeout:      commoncfg.MustNewDuration(time.Minute + 3*time.Second),
-				TxTimeout:           commoncfg.MustNewDuration(13 * time.Second),
-				ConfirmationPoll:    commoncfg.MustNewDuration(42 * time.Second),
-			},
-			FeederURL: commoncfg.MustParseURL("http://feeder.url"),
-			Nodes: []*stkcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://stark.node"), APIKey: ptr("key")},
-			},
-		},
-	}
-	full.Cosmos = []*coscfg.TOMLConfig{
-		{
-			ChainID: ptr("Malaga-420"),
-			Enabled: ptr(true),
-			Chain: coscfg.Chain{
-				Bech32Prefix:         ptr("wasm"),
-				BlockRate:            commoncfg.MustNewDuration(time.Minute),
-				BlocksUntilTxTimeout: ptr[int64](12),
-				ConfirmPollPeriod:    commoncfg.MustNewDuration(time.Second),
-				FallbackGasPrice:     mustDecimal("0.001"),
-				GasToken:             ptr("ucosm"),
-				GasLimitMultiplier:   mustDecimal("1.2"),
-				MaxMsgsPerBatch:      ptr[int64](17),
-				OCR2CachePollPeriod:  commoncfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:         commoncfg.MustNewDuration(time.Hour),
-				TxMsgTimeout:         commoncfg.MustNewDuration(time.Second),
-			},
-			Nodes: []*coscfg.Node{
-				{Name: ptr("primary"), TendermintURL: commoncfg.MustParseURL("http://tender.mint")},
-				{Name: ptr("foo"), TendermintURL: commoncfg.MustParseURL("http://foo.url")},
-				{Name: ptr("bar"), TendermintURL: commoncfg.MustParseURL("http://bar.web")},
-			},
-		},
-	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
 			LatestReportTTL:      commoncfg.MustNewDuration(100 * time.Second),
@@ -1267,33 +1194,6 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 `},
-		{"Cosmos", Config{Cosmos: full.Cosmos}, `[[Cosmos]]
-ChainID = 'Malaga-420'
-Enabled = true
-Bech32Prefix = 'wasm'
-BlockRate = '1m0s'
-BlocksUntilTxTimeout = 12
-ConfirmPollPeriod = '1s'
-FallbackGasPrice = '0.001'
-GasToken = 'ucosm'
-GasLimitMultiplier = '1.2'
-MaxMsgsPerBatch = 17
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxMsgTimeout = '1s'
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
-[[Cosmos.Nodes]]
-Name = 'foo'
-TendermintURL = 'http://foo.url'
-
-[[Cosmos.Nodes]]
-Name = 'bar'
-TendermintURL = 'http://bar.web'
-`},
 		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
 ChainID = 'mainnet'
 Enabled = false
@@ -1351,21 +1251,6 @@ SendOnly = true
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
-`},
-		{"Starknet", Config{Starknet: full.Starknet}, `[[Starknet]]
-ChainID = 'foobar'
-FeederURL = 'http://feeder.url'
-Enabled = true
-OCR2CachePollPeriod = '6h0m0s'
-OCR2CacheTTL = '3m0s'
-RequestTimeout = '1m3s'
-TxTimeout = '13s'
-ConfirmationPoll = '42s'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-APIKey = 'key'
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
@@ -1544,16 +1429,13 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: must have at least one node
 		- 5.Transactions.AutoPurge.DetectionApiUrl: invalid value (): must be set for scroll
 		- 6.Nodes: missing: 0th node (primary) must have a valid WSURL when http polling is disabled
-	- Cosmos: 5 errors:
+	- Cosmos: 4 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (test): duplicate - must be unique
-		- 0.Nodes: 2 errors:
-				- 0.TendermintURL: missing: required for all nodes
-				- 1.TendermintURL: missing: required for all nodes
-		- 1.Nodes: missing: must have at least one node
+		- 1.Nodes: missing: expected at least one node
 		- 2: 2 errors:
 			- ChainID: missing: required for all chains
-			- Nodes: missing: must have at least one node
+			- Nodes: missing: expected at least one node
 	- Solana: 5 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
@@ -1569,7 +1451,7 @@ func TestConfig_Validate(t *testing.T) {
 		- 0.ChainID: missing: required for all chains
 		- 1: 2 errors:
 			- ChainID: missing: required for all chains
-			- Nodes: missing: must have at least one node
+			- Nodes: missing: expected at least one node
 	- Aptos: 2 errors:
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 0: 2 errors:
@@ -1805,9 +1687,9 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: ubig.NewI(99999133712345)}}
-	c.Cosmos = coscfg.TOMLConfigs{{ChainID: ptr("unknown cosmos chain")}}
+	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
 	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
-	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)
@@ -1905,4 +1787,23 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 	n, err := hex.ParseBig(hx)
 	require.NoError(t, err)
 	return n
+}
+
+func TestRawConfig_IsEnabled(t *testing.T) {
+	assert.True(t, RawConfig{"Enabled": true}.IsEnabled())
+	assert.True(t, RawConfig{"Enabled": nil}.IsEnabled())
+	assert.True(t, RawConfig{}.IsEnabled())
+
+	assert.False(t, RawConfig{"Enabled": false}.IsEnabled())
+	assert.False(t, RawConfig{"Enabled": "garbage"}.IsEnabled())
+}
+
+func TestRawConfig_SetDefaults(t *testing.T) {
+	c := RawConfig{"Enabled": true}
+	c.SetDefaults()
+	require.NotContains(t, c, "Enabled")
+	c["Enabled"] = false
+	c.SetDefaults()
+	require.Contains(t, c, "Enabled")
+	require.Equal(t, false, c["Enabled"])
 }

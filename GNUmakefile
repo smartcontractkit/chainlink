@@ -71,11 +71,11 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install ./cmd/chainlink-feeds
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
 	go install ./mercury/cmd/chainlink-mercury
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-cosmos) && \
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@f740e9ae54e79762991bdaf8ad6b50363261c056 | jq -r .Dir) && \
 	go install ./pkg/cosmos/cmd/chainlink-cosmos
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
 	go install ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@9a780650af4708e4bd9b75495feff2c5b4054e46 | jq -r .Dir) && \
 	go install ./pkg/chainlink/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
