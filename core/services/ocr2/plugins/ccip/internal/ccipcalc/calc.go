@@ -97,7 +97,14 @@ func DeviatesOnCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool
 }
 
 // calculateCurveThresholdPPB calculates the deviation threshold percentage with x using the formula:
-// y = (10e11) / (x^0.665).
+// y = (10e11) / (x^0.665). This sliding scale curve was created by collecting several thousands of historical
+// PriceRegistry gas price update samples from chains with volatile gas prices like Zircuit and Mode and then using that
+// historical data to define thresholds of gas deviations that were acceptable given their USD value. The gas prices
+// (X coordinates) and these new thresholds (Y coordinates) were used to fit this sliding scale curve that returns large
+// thresholds at low gas prices and smaller thresholds at higher gas prices. Constructing the curve in USD terms allows
+// us to more easily reason about these thresholds and also better translates to non-evm chains. For example, when the
+// per unit gas price is 0.000006 USD, (6e12 USDgwei), the curve will output a threshold of around 3,000%. However, when
+// the per unit gas price is 0.005 USD (5e15 USDgwei), the curve will output a threshold of only ~30%.
 func calculateCurveThresholdPPB(x float64) int64 {
 	const constantFactor = 10e11
 	const exponent = 0.665
