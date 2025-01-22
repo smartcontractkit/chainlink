@@ -118,12 +118,12 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
 		// TODO uncomment when extraargs codec implemented, right now the map is empty
-		//{
-		//	name:          "base report with EVM as source chain",
-		//	report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
-		//	expErr:        false,
-		//	chainSelector: 5009297550715157269, // ETH mainnet chain selector
-		//},
+		// {
+		//	 ame:          "base report with EVM as source chain",
+		//	 report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+		//	 expErr:        false,
+		//	 chainSelector: 5009297550715157269, // ETH mainnet chain selector
+		// },
 		// TODO: check if empty msg if necessary since there is only single msg in solana execute report
 		// {
 		//	 name: "reports have empty msgs",
