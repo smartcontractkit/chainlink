@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
+var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptypes.ExecutePluginReport {
 	const numChainReports = 1
 	const msgsPerReport = 1
 	const numTokensPerMsg = 1
@@ -71,7 +71,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 			reportMessages[j] = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
 					MessageID:           utils.RandomBytes32(),
-					SourceChainSelector: cciptypes.ChainSelector(rand.Uint64()),
+					SourceChainSelector: cciptypes.ChainSelector(sourceChainSelector),
 					DestChainSelector:   cciptypes.ChainSelector(rand.Uint64()),
 					SequenceNumber:      cciptypes.SeqNum(rand.Uint64()),
 					Nonce:               rand.Uint64(),
@@ -94,7 +94,7 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 		}
 
 		chainReports[i] = cciptypes.ExecutePluginReportSingleChain{
-			SourceChainSelector: cciptypes.ChainSelector(124615329519749607), // Solana mainnet chain selector
+			SourceChainSelector: cciptypes.ChainSelector(sourceChainSelector),
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
 			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
@@ -106,15 +106,24 @@ var randomExecuteReport = func(t *testing.T) cciptypes.ExecutePluginReport {
 
 func TestExecutePluginCodecV1(t *testing.T) {
 	testCases := []struct {
-		name   string
-		report func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport
-		expErr bool
+		name          string
+		report        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport
+		expErr        bool
+		chainSelector uint64
 	}{
 		{
-			name:   "base report",
-			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
-			expErr: false,
+			name:          "base report with Solana as source chain",
+			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			expErr:        false,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
+		// TODO uncomment when extraargs codec implemented, right now the map is empty
+		//{
+		//	name:          "base report with EVM as source chain",
+		//	report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+		//	expErr:        false,
+		//	chainSelector: 5009297550715157269, // ETH mainnet chain selector
+		//},
 		// TODO: check if empty msg if necessary since there is only single msg in solana execute report
 		// {
 		//	 name: "reports have empty msgs",
@@ -130,7 +139,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				report.ChainReports[0].OffchainTokenData = [][][]byte{}
 				return report
 			},
-			expErr: false,
+			expErr:        false,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
 	}
 
@@ -139,7 +149,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cd := NewExecutePluginCodecV1()
-			report := tc.report(randomExecuteReport(t))
+			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
 				assert.Error(t, err)

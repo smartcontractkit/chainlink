@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	ag_solanago "github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -199,7 +201,40 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 }
 
 func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error) {
+	// Parse input map into SolanaExtraArgs
 	var out ccip_router.SolanaExtraArgs
+
+	// Iterate through the expected fields in the struct
+	for fieldName, fieldValue := range input {
+		switch fieldName {
+		case "ComputeUnits":
+			// Expect uint32
+			if v, ok := fieldValue.(uint32); ok {
+				out.ComputeUnits = v
+			} else {
+				return out, errors.New("invalid type for ComputeUnits, expected uint32")
+			}
+		case "IsWritableBitmap":
+			// Expect uint64
+			if v, ok := fieldValue.(uint64); ok {
+				out.IsWritableBitmap = v
+			} else {
+				return out, errors.New("invalid type for IsWritableBitmap, expected uint64")
+			}
+		case "Accounts":
+			// Expect [][32]byte
+			if v, ok := fieldValue.([][32]byte); ok {
+				accounts := make([]ag_solanago.PublicKey, len(v))
+				for i, val := range v {
+					accounts[i] = val
+				}
+				out.Accounts = accounts
+			} else {
+				return out, errors.New("invalid type for Accounts, expected [][32]byte")
+			}
+		}
+	}
+
 	return out, nil
 }
 
