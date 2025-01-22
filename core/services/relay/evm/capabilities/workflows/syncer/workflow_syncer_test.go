@@ -128,6 +128,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "someurl",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
@@ -179,6 +180,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 
@@ -254,6 +256,7 @@ func Test_InitialStateSync(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: "someurl",
+			BinaryURL:  "someurl",
 		}
 		workflow.ID = workflowID
 		registerWorkflow(t, backendTH, wfRegistryC, workflow)
@@ -309,6 +312,7 @@ func Test_SecretsWorker(t *testing.T) {
 			DonID:      donID,
 			Status:     uint8(1),
 			SecretsURL: giveSecretsURL,
+			BinaryURL:  "someurl",
 		}
 		giveContents = "contents"
 		wantContents = "updated contents"

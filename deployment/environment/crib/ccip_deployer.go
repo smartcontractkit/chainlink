@@ -12,8 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -23,7 +25,7 @@ import (
 )
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
-// Afterwards, we call DeployHomeChain changeset with nodeinfo ( the peer id and all)
+// Afterwards, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -40,12 +42,12 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChain),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
 			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  changeset.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: changeset.NewTestRMNDynamicConfig(),
-				NodeOperators:    changeset.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -116,7 +118,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// Setup because we only need to deploy the contracts and distribute job specs
 	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfig),
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
 			Config: changeset.UpdateChainConfigConfig{
 				HomeChainSelector: homeChainSel,
 				RemoteChainAdds:   chainConfigs,
@@ -127,7 +129,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    chainSelectors,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisites),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
 			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
@@ -137,14 +139,14 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContracts),
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
 				ChainSelectors:    chainSelectors,
 				HomeChainSelector: homeChainSel,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspec),
+			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
 			Config:    struct{}{},
 		},
 	})
@@ -159,7 +161,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				stateChain1 := state.Chains[from]
 				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDests),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 						Config: changeset.UpdateOnRampDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 								from: {
@@ -173,23 +175,23 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesCS),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
 						Config: changeset.UpdateFeeQuoterPricesConfig{
 							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 								from: {
 									TokenPrices: map[common.Address]*big.Int{
-										stateChain1.LinkToken.Address(): changeset.DefaultLinkPrice,
-										stateChain1.Weth9.Address():     changeset.DefaultWethPrice,
+										stateChain1.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+										stateChain1.Weth9.Address():     testhelpers.DefaultWethPrice,
 									},
 									GasPrices: map[uint64]*big.Int{
-										to: changeset.DefaultGasPrice,
+										to: testhelpers.DefaultGasPrice,
 									},
 								},
 							},
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDests),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
 						Config: changeset.UpdateFeeQuoterDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 								from: {
@@ -199,7 +201,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSources),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 						Config: changeset.UpdateOffRampSourcesConfig{
 							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 								to: {
@@ -212,7 +214,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						},
 					},
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRamps),
+						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
 						Config: changeset.UpdateRouterRampsConfig{
 							TestRouter: true,
 							UpdatesByChain: map[uint64]changeset.RouterUpdates{

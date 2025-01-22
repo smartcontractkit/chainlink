@@ -50,7 +50,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.InsecureFastScrypt = ptr(true)
 	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 
-	c.Database.Dialect = pgcommon.TransactionWrappedPostgres
+	c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)

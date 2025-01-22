@@ -33,9 +33,11 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -363,16 +365,16 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, "")
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
-		reqs := make(chan request, 100000)
+		reqs := make(chan wsrpcRequest, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+		srv := NewWSRPCMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
 
-		serverURL := startMercuryServer(t, srv, clientPubKeys)
+		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
 
 		donID := uint32(995544)
 		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
@@ -382,7 +384,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams)
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolWSRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -476,6 +478,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
 			}
 			for req := range reqs {
+				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
 				v := make(map[string]interface{})
 				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
 				require.NoError(t, err)
@@ -579,11 +582,11 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, "")
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("generates reports using go ReportFormatEVMABIEncodeUnpacked format", func(t *testing.T) {
-		reqs := make(chan request, 100000)
+		reqs := make(chan *rpc.TransmitRequest, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
 		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
@@ -598,7 +601,7 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams)
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -937,8 +940,9 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		}
 
 		for req := range reqs {
+			assert.Equal(t, uint32(llotypes.ReportFormatEVMABIEncodeUnpacked), req.ReportFormat)
 			v := make(map[string]interface{})
-			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 			require.NoError(t, err)
 			report, exists := v["report"]
 			if !exists {
@@ -1058,11 +1062,11 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, "")
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("Blue/Green lifecycle (using JSON report format)", func(t *testing.T) {
-		reqs := make(chan request, 100000)
+		reqs := make(chan *rpc.TransmitRequest, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
 		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
@@ -1077,7 +1081,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams)
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, config.MercuryTransmitterProtocolGRPC)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -1128,7 +1132,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until blue produces a report
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1149,7 +1154,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until green produces the first "specimen" report
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1170,7 +1176,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for first non-specimen report for the newly promoted (green) instance
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1239,7 +1246,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				if i == 5 {
 					break
 				}
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1256,7 +1264,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until blue produces the first "specimen" report
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1276,7 +1285,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait for first non-specimen report for the newly promoted (blue) instance
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1316,7 +1326,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// NOTE: Wait until the first report for the new channel definition is produced
 
 			for req := range reqs {
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.req.Payload)
+				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1343,10 +1354,10 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, transmitterProtocol config.MercuryTransmitterProtocol) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], transmitterProtocol)
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
