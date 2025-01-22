@@ -98,6 +98,7 @@ type testHooks struct {
 	initFailed        chan struct{}
 	initSuccessful    chan struct{}
 	executionFinished chan string
+	rateLimited       chan string
 }
 
 func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
@@ -167,6 +168,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	initFailed := make(chan struct{})
 	initSuccessful := make(chan struct{})
 	executionFinished := make(chan string, 100)
+	rateLimited := make(chan string)
 	clock := clockwork.NewFakeClock()
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      1000.0,
@@ -195,6 +197,9 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
+		onRateLimit: func(weid string) {
+			rateLimited <- weid
+		},
 		SecretsFetcher: mockSecretsFetcher{},
 		clock:          clock,
 		RateLimiter:    rl,
@@ -208,7 +213,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	}
 	eng, err := NewEngine(testutils.Context(t), cfg)
 	require.NoError(t, err)
-	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished}
+	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished, rateLimited: rateLimited}
 }
 
 // getExecutionId returns the execution id of the workflow that is
@@ -216,17 +221,15 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) (string, error) {
+func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) string {
 	var eid string
 	select {
 	case <-hooks.initFailed:
 		t.FailNow()
 	case eid = <-hooks.executionFinished:
-	case <-time.After(1 * time.Second):
-		return "", errors.New("No chan messages")
 	}
 
-	return eid, nil
+	return eid
 }
 
 type mockCapability struct {
@@ -315,8 +318,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 	resp1 := <-target1.response
 	assert.Equal(t, cr.Event.Outputs, resp1.Value)
 
@@ -538,8 +540,11 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
-		_, err := getExecutionID(t, eng, testHooks)
-		require.Error(t, err)
+		select {
+		case <-testHooks.rateLimited:
+		case <-ctx.Done():
+			t.FailNow()
+		}
 	})
 
 	t.Run("global rate limit", func(t *testing.T) {
@@ -591,8 +596,11 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
 
-		_, err := getExecutionID(t, eng, testHooks)
-		require.Error(t, err)
+		select {
+		case <-testHooks.rateLimited:
+		case <-ctx.Done():
+			t.FailNow()
+		}
 	})
 }
 
@@ -611,8 +619,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, hooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
@@ -635,8 +642,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, simpleWorkflow)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, hooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
@@ -730,8 +736,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, multiStepWorkflow)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, hooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
@@ -802,8 +807,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, hooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, hooks)
 	gotEx, err := dbstore.Get(ctx, eid)
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusCompleted, gotEx.Status)
@@ -861,7 +865,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	clock.Advance(15 * time.Minute)
 	servicetest.Run(t, eng)
 
-	_, _ = getExecutionID(t, eng, hooks)
+	_ = getExecutionID(t, eng, hooks)
 	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusTimeout, gotEx.Status)
@@ -1082,8 +1086,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1230,8 +1233,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1372,8 +1374,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1427,8 +1428,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1525,8 +1525,7 @@ targets:
 	eng, hooks := newTestEngineWithYAMLSpec(t, reg, workflowSpec)
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, hooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
@@ -1614,8 +1613,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1681,8 +1679,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
@@ -1794,8 +1791,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 
 	servicetest.Run(t, eng)
 
-	eid, err := getExecutionID(t, eng, testHooks)
-	require.NoError(t, err)
+	eid := getExecutionID(t, eng, testHooks)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
