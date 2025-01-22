@@ -145,42 +145,54 @@ func deployHomeChain(
 	}
 
 	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
-	ccipHome, err := deployment.DeployContract(
-		lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
-			ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
-				chain.DeployerKey,
-				chain.Client,
-				capReg.Address,
-			)
-			return deployment.ContractDeploy[*ccip_home.CCIPHome]{
-				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
-		return nil, err
+	var ccipHomeAddr common.Address
+	if state.Chains[chain.Selector].CCIPHome != nil {
+		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
+		ccipHomeAddr = state.Chains[chain.Selector].CCIPHome.Address()
+	} else {
+		ccipHome, err := deployment.DeployContract(
+			lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
+				ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
+					chain.DeployerKey,
+					chain.Client,
+					capReg.Address,
+				)
+				return deployment.ContractDeploy[*ccip_home.CCIPHome]{
+					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+				}
+			})
+		if err != nil {
+			lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		ccipHomeAddr = ccipHome.Address
 	}
-
-	rmnHome, err := deployment.DeployContract(
-		lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
-			rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
-				chain.DeployerKey,
-				chain.Client,
-			)
-			return deployment.ContractDeploy[*rmn_home.RMNHome]{
-				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
-			}
-		},
-	)
-	if err != nil {
-		lggr.Errorw("Failed to deploy RMNHome", "chain", chain.String(), "err", err)
-		return nil, err
+	rmnHome := state.Chains[chain.Selector].RMNHome
+	if state.Chains[chain.Selector].RMNHome != nil {
+		lggr.Infow("RMNHome already deployed", "addr", state.Chains[chain.Selector].RMNHome.Address().String())
+	} else {
+		rmnHomeContract, err := deployment.DeployContract(
+			lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
+				rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
+					chain.DeployerKey,
+					chain.Client,
+				)
+				return deployment.ContractDeploy[*rmn_home.RMNHome]{
+					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
+				}
+			},
+		)
+		if err != nil {
+			lggr.Errorw("Failed to deploy RMNHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		rmnHome = rmnHomeContract.Contract
 	}
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
-	configs, err := rmnHome.Contract.GetAllConfigs(nil)
+	configs, err := rmnHome.GetAllConfigs(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +218,7 @@ func deployHomeChain(
 	}
 
 	if setCandidate {
-		tx, err := rmnHome.Contract.SetCandidate(
+		tx, err := rmnHome.SetCandidate(
 			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest)
 		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 			lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
@@ -215,19 +227,19 @@ func deployHomeChain(
 		lggr.Infow("Set candidate on RMNHome", "chain", chain.String())
 	}
 	if promoteCandidate {
-		rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
+		rmnCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
 		if err != nil {
 			lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.String(), "err", err)
 			return nil, err
 		}
 
-		tx, err := rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
+		tx, err := rmnHome.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
 		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 			lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
 			return nil, err
 		}
 
-		rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
+		rmnActiveDigest, err := rmnHome.GetActiveDigest(nil)
 		if err != nil {
 			lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.String(), "err", err)
 			return nil, err
@@ -251,7 +263,7 @@ func deployHomeChain(
 		Version:               internal.CapabilityVersion,
 		CapabilityType:        2, // consensus. not used (?)
 		ResponseType:          0, // report. not used (?)
-		ConfigurationContract: ccipHome.Address,
+		ConfigurationContract: ccipHomeAddr,
 	}
 	addCapability := true
 	for _, cap := range capabilities {
