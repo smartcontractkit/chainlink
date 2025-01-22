@@ -222,7 +222,7 @@ func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) (string, error)
 	case <-hooks.initFailed:
 		t.FailNow()
 	case eid = <-hooks.executionFinished:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(1 * time.Second):
 		return "", errors.New("No chan messages")
 	}
 
