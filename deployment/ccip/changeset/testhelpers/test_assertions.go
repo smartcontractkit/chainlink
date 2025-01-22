@@ -174,41 +174,31 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 	startBlocks map[uint64]*uint64,
 ) {
 	var wg errgroup.Group
-	for src, srcChain := range e.Chains {
-		for dest, dstChain := range e.Chains {
-			if src == dest {
-				continue
-			}
-			srcChain := srcChain
-			dstChain := dstChain
-			wg.Go(func() error {
-				var startBlock *uint64
-				if startBlocks != nil {
-					startBlock = startBlocks[dstChain.Selector]
-				}
-
-				expectedSeqNum, ok := expectedSeqNums[SourceDestPair{
-					SourceChainSelector: srcChain.Selector,
-					DestChainSelector:   dstChain.Selector,
-				}]
-				if !ok || expectedSeqNum == 0 {
-					return nil
-				}
-
-				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
-					t,
-					srcChain,
-					dstChain,
-					state.Chains[dstChain.Selector].OffRamp,
-					startBlock,
-					ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(expectedSeqNum),
-						ccipocr3.SeqNum(expectedSeqNum),
-					},
-					true,
-				))
-			})
+	for sourceDest, expectedSeqNum := range expectedSeqNums {
+		srcChain := sourceDest.SourceChainSelector
+		dstChain := sourceDest.DestChainSelector
+		if expectedSeqNum == 0 {
+			continue
 		}
+		wg.Go(func() error {
+			var startBlock *uint64
+			if startBlocks != nil {
+				startBlock = startBlocks[dstChain]
+			}
+
+			return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
+				t,
+				e.Chains[srcChain],
+				e.Chains[dstChain],
+				state.Chains[dstChain].OffRamp,
+				startBlock,
+				ccipocr3.SeqNumRange{
+					ccipocr3.SeqNum(expectedSeqNum),
+					ccipocr3.SeqNum(expectedSeqNum),
+				},
+				true,
+			))
+		})
 	}
 
 	done := make(chan struct{})
