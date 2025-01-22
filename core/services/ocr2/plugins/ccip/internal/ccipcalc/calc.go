@@ -96,8 +96,8 @@ func DeviatesOnCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool
 	return Deviates(xNew, xOld, curveThresholdPPB)
 }
 
-// calculateCurveThresholdPPB calculates the deviation threshold percentage with xNew using the formula:
-// y = (10e11) / (xNew^0.665).
+// calculateCurveThresholdPPB calculates the deviation threshold percentage with x using the formula:
+// y = (10e11) / (x^0.665).
 func calculateCurveThresholdPPB(x float64) int64 {
 	const constantFactor = 10e11
 	const exponent = 0.665

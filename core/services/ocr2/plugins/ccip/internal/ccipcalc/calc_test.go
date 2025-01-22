@@ -220,7 +220,7 @@ func TestDeviates(t *testing.T) {
 	}
 }
 
-func TestDeviatesOnGasCurve(t *testing.T) {
+func TestDeviatesOnCurve(t *testing.T) {
 	type args struct {
 		xNew  *big.Int
 		xOld  *big.Int
@@ -350,7 +350,6 @@ func TestCalculateCurveThresholdPPB(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		// convert tt.x to string
 		t.Run(fmt.Sprintf("%f", tt.x), func(t *testing.T) {
 			thresholdPPB := calculateCurveThresholdPPB(tt.x)
 			assert.GreaterOrEqual(t, thresholdPPB, tt.ppbLowerBound)
