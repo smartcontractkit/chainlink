@@ -73,7 +73,11 @@ let config = {
       },
       {
         version: '0.8.20',
-        settings: COMPILER_SETTINGS,
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+          viaIR: true,
+        },
       },
       {
         version: '0.8.24',
