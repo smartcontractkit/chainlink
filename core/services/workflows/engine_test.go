@@ -311,7 +311,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		t,
 		reg,
 		hardcodedWorkflow,
-		nil,
 	)
 
 	servicetest.Run(t, eng)
