@@ -67,7 +67,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid extra arguments: %w", err)
 			}
 		case chainsel.FamilyEVM:
-			// TODO once https://github.com/smartcontractkit/chainlink/pull/16016 merged, use extraDataMap to construct extra args here
+			extraArgs, err = parseExtraArgsMap(msg.ExtraArgsDecoded)
+			if err != nil {
+				return nil, fmt.Errorf("invalid extra args map: %w", err)
+			}
 		default:
 			return nil, fmt.Errorf("unsupported source chain family: %s", family)
 		}
@@ -191,6 +194,11 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	}
 
 	return report, nil
+}
+
+func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error) {
+	var out ccip_router.SolanaExtraArgs
+	return out, nil
 }
 
 func bytesToUint32(b []byte) uint32 {
