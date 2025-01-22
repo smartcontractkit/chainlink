@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -195,7 +196,7 @@ func NewNode(
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
 	// Build relayer factory
 	relayerFactory := chainlink.RelayerFactory{
@@ -417,7 +418,7 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 		ChainID:   &chainID,
 		Enabled:   ptr(true),
 		Chain:     chainConfig,
-		MultiNode: solcfg.MultiNodeConfig{},
+		MultiNode: mnCfg.MultiNodeConfig{},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,

@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
@@ -38,6 +39,13 @@ import (
 
 	crypto2 "github.com/ethereum/go-ethereum/crypto"
 )
+
+var rlConfig = ratelimiter.Config{
+	GlobalRPS:      1000.0,
+	GlobalBurst:    1000,
+	PerSenderRPS:   30.0,
+	PerSenderBurst: 30,
+}
 
 type testEvtHandler struct {
 	events []syncer.Event
@@ -309,7 +317,7 @@ func Test_SecretsWorker(t *testing.T) {
 		}
 		giveContents = "contents"
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(wantContents), nil
 		}
 	)
@@ -344,9 +352,11 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, contents, giveContents)
 
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}),
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -408,7 +418,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -426,8 +436,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, syncer.WithEngineRegistry(er))
+		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -505,7 +517,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -524,6 +536,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
 		lggr,
 		orm,
@@ -533,6 +547,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		emitter,
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
+		rl,
 		syncer.WithEngineRegistry(er),
 		syncer.WithEngineFactoryFn(mf.new),
 	)

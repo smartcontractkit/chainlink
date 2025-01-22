@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // KVStore is a simple KV store that can store and retrieve serializable data.
@@ -18,17 +17,14 @@ type KVStore interface {
 type kVStore struct {
 	jobID int32
 	ds    sqlutil.DataSource
-	lggr  logger.SugaredLogger
 }
 
 var _ KVStore = (*kVStore)(nil)
 
-func NewKVStore(jobID int32, ds sqlutil.DataSource, lggr logger.Logger) kVStore {
-	namedLogger := logger.Sugared(lggr.Named("JobORM"))
+func NewKVStore(jobID int32, ds sqlutil.DataSource) kVStore {
 	return kVStore{
 		jobID: jobID,
 		ds:    ds,
-		lggr:  namedLogger,
 	}
 }
 

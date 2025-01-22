@@ -9,7 +9,6 @@ echo " └───────────────────────�
 SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=1000000
 
-
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 solc-select install $SOLC_VERSION
@@ -19,15 +18,15 @@ export SOLC_VERSION=$SOLC_VERSION
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 
 compileContract () {
-  local contract
-  contract=$(basename "$1" ".sol")
+ local contract dir
+ contract=$(basename "$1" ".sol")
+ dir=$(dirname "$1")
 
-  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
-      "$ROOT"/contracts/src/v0.8/"$1"
+ solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+     -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$dir"/"$contract" \
+     --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
+     "$ROOT"/contracts/src/v0.8/"$1"
 }
-
 compileContract llo-feeds/v0.3.0/Verifier.sol
 compileContract llo-feeds/v0.3.0/VerifierProxy.sol
 compileContract llo-feeds/v0.3.0/FeeManager.sol
@@ -38,6 +37,10 @@ compileContract llo-feeds/v0.4.0/DestinationFeeManager.sol
 compileContract llo-feeds/v0.4.0/DestinationRewardManager.sol
 compileContract llo-feeds/v0.5.0/configuration/ChannelConfigStore.sol
 compileContract llo-feeds/v0.5.0/configuration/Configurator.sol
+compileContract llo-feeds/v0.5.0/Verifier.sol
+compileContract llo-feeds/v0.5.0/VerifierProxy.sol
+compileContract llo-feeds/v0.5.0/FeeManager.sol
+compileContract llo-feeds/v0.5.0/RewardManager.sol
 
 # Test | Mocks
 compileContract llo-feeds/v0.3.0/test/mocks/ErroredVerifier.sol

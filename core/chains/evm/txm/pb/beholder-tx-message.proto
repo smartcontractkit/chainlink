@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb";
+
+package pb;
+
+message TxMessage {
+	string Hash = 1;
+	string FromAddress = 2;
+	string ToAddress = 3;
+	string Nonce = 4;
+}

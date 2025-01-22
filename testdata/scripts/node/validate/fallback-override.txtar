@@ -40,6 +40,9 @@ ResendAfterThreshold = '1m'
 [Transactions.AutoPurge]
 Enabled = false
 
+[Transactions.TransactionManagerV2]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -388,6 +391,12 @@ TransmitTimeout = '5s'
 TransmitConcurrency = 100
 
 [Capabilities]
+[Capabilities.RateLimit]
+GlobalRPS = 200.0
+GlobalBurst = 200
+PerSenderRPS = 100.0
+PerSenderBurst = 100
+
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10
 OutgoingMessageBufferSize = 10
@@ -421,6 +430,9 @@ ChainID = '1'
 Address = ''
 NetworkID = 'evm'
 ChainID = '1'
+MaxBinarySize = '20.00mb'
+MaxEncryptedSecretsSize = '26.40kb'
+MaxConfigSize = '50.00kb'
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
@@ -477,6 +489,9 @@ ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
 [EVM.Transactions.AutoPurge]
+Enabled = false
+
+[EVM.Transactions.TransactionManagerV2]
 Enabled = false
 
 [EVM.BalanceMonitor]

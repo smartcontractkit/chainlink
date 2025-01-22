@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 )
 
 // Version and Sha are set at compile time via build arguments.
@@ -40,17 +42,11 @@ func buildPrettyVersion() string {
 // SetConsumerName sets a nicely formatted application_name on the
 // database uri
 func SetConsumerName(uri *url.URL, name string, id *uuid.UUID) {
-	q := uri.Query()
-
 	applicationName := fmt.Sprintf("Chainlink%s|%s", buildPrettyVersion(), name)
 	if id != nil {
 		applicationName += fmt.Sprintf("|%s", id.String())
 	}
-	if len(applicationName) > 63 {
-		applicationName = applicationName[:63]
-	}
-	q.Set("application_name", applicationName)
-	uri.RawQuery = q.Encode()
+	pg.SetApplicationName(uri, applicationName)
 }
 
 // Short returns a 7-character sha prefix and version, or Unset if blank.

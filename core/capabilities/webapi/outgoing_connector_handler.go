@@ -26,12 +26,11 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
 	services.StateMachine
-	gc            connector.GatewayConnector
-	method        string
-	lggr          logger.Logger
-	responseChs   map[string]chan *api.Message
-	responseChsMu sync.Mutex
-	rateLimiter   *common.RateLimiter
+	gc          connector.GatewayConnector
+	method      string
+	lggr        logger.Logger
+	rateLimiter *common.RateLimiter
+	responses   *responses
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
@@ -44,14 +43,12 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 		return nil, fmt.Errorf("invalid outgoing connector handler method: %s", method)
 	}
 
-	responseChs := make(map[string]chan *api.Message)
 	return &OutgoingConnectorHandler{
-		gc:            gc,
-		method:        method,
-		responseChs:   responseChs,
-		responseChsMu: sync.Mutex{},
-		rateLimiter:   rateLimiter,
-		lggr:          lgger,
+		gc:          gc,
+		method:      method,
+		responses:   newResponses(),
+		rateLimiter: rateLimiter,
+		lggr:        lgger,
 	}, nil
 }
 
@@ -74,10 +71,12 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		return nil, fmt.Errorf("failed to marshal fetch request: %w", err)
 	}
 
-	ch := make(chan *api.Message, 1)
-	c.responseChsMu.Lock()
-	c.responseChs[messageID] = ch
-	c.responseChsMu.Unlock()
+	ch, err := c.responses.new(messageID)
+	if err != nil {
+		return nil, fmt.Errorf("duplicate message received for ID: %s", messageID)
+	}
+	defer c.responses.cleanup(messageID)
+
 	l := logger.With(c.lggr, "messageID", messageID)
 	l.Debugw("sending request to gateway")
 
@@ -136,16 +135,14 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 			l.Errorw("failed to unmarshal payload", "err", err)
 			return
 		}
-		c.responseChsMu.Lock()
-		defer c.responseChsMu.Unlock()
-		ch, ok := c.responseChs[body.MessageId]
+		ch, ok := c.responses.get(body.MessageId)
 		if !ok {
-			l.Errorw("no response channel found")
+			l.Warnw("no response channel found; this may indicate that the node timed out the request")
 			return
 		}
 		select {
 		case ch <- msg:
-			delete(c.responseChs, body.MessageId)
+			return
 		case <-ctx.Done():
 			return
 		}
@@ -181,4 +178,44 @@ func validMethod(method string) bool {
 	default:
 		return false
 	}
+}
+
+func newResponses() *responses {
+	return &responses{
+		chs: map[string]chan *api.Message{},
+	}
+}
+
+type responses struct {
+	chs map[string]chan *api.Message
+	mu  sync.RWMutex
+}
+
+func (r *responses) new(id string) (chan *api.Message, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	_, ok := r.chs[id]
+	if ok {
+		return nil, fmt.Errorf("already have response for id: %s", id)
+	}
+
+	// Buffered so we don't wait if sending
+	ch := make(chan *api.Message, 1)
+	r.chs[id] = ch
+	return ch, nil
+}
+
+func (r *responses) cleanup(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.chs, id)
+}
+
+func (r *responses) get(id string) (chan *api.Message, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ch, ok := r.chs[id]
+	return ch, ok
 }
