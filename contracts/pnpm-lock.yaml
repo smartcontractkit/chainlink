@@ -146,7 +146,7 @@ importers:
         version: 1.4.1(prettier@3.3.3)
       solhint:
         specifier: ^5.0.3
-        version: 5.0.5
+        version: 5.0.3
       solhint-plugin-chainlink-solidity:
         specifier: git+https://github.com/smartcontractkit/chainlink-solhint-rules.git#v1.2.1
         version: '@chainlink/solhint-plugin-chainlink-solidity@https://codeload.github.com/smartcontractkit/chainlink-solhint-rules/tar.gz/1b4c0c2663fcd983589d4f33a2e73908624ed43c'
@@ -686,9 +686,6 @@ packages:
 
   '@solidity-parser/parser@0.18.0':
     resolution: {integrity: sha512-yfORGUIPgLck41qyN7nbwJRAx17/jAIXCTanHOJZhB6PJ1iAk/84b/xlsVKFSyNyLXIj0dhppoE0+CRws7wlzA==}
-
-  '@solidity-parser/parser@0.19.0':
-    resolution: {integrity: sha512-RV16k/qIxW/wWc+mLzV3ARyKUaMUTBy9tOLMzFhtNSKYeTAanQ3a5MudJKf/8arIFnA2L27SNjarQKmFg0w/jA==}
 
   '@szmarczak/http-timer@5.0.1':
     resolution: {integrity: sha512-+PmQX0PiAYPMeVYe237LJAYvOMYW1j2rH5YROyS3b4CTVJum34HfRvKvAzozHAQG0TnHNdUfY9nCeUyRAs//cw==}
@@ -2730,8 +2727,8 @@ packages:
       prettier: ^3.0.0
       prettier-plugin-solidity: ^1.0.0
 
-  solhint@5.0.5:
-    resolution: {integrity: sha512-WrnG6T+/UduuzSWsSOAbfq1ywLUDwNea3Gd5hg6PS+pLUm8lz2ECNr0beX609clBxmDeZ3676AiA9nPDljmbJQ==}
+  solhint@5.0.3:
+    resolution: {integrity: sha512-OLCH6qm/mZTCpplTXzXTJGId1zrtNuDYP5c2e6snIv/hdRVxPfBBz/bAlL91bY/Accavkayp2Zp2BaDSrLVXTQ==}
     hasBin: true
 
   solidity-ast@0.4.56:
@@ -4104,8 +4101,6 @@ snapshots:
   '@sindresorhus/is@4.6.0': {}
 
   '@solidity-parser/parser@0.18.0': {}
-
-  '@solidity-parser/parser@0.19.0': {}
 
   '@szmarczak/http-timer@5.0.1':
     dependencies:
@@ -6597,9 +6592,9 @@ snapshots:
       prettier-linter-helpers: 1.0.0
       prettier-plugin-solidity: 1.4.1(prettier@3.3.3)
 
-  solhint@5.0.5:
+  solhint@5.0.3:
     dependencies:
-      '@solidity-parser/parser': 0.19.0
+      '@solidity-parser/parser': 0.18.0
       ajv: 6.12.6
       antlr4: 4.13.1-patch-1
       ast-parents: 0.0.1
