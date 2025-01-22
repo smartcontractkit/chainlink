@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -174,6 +175,7 @@ type eventHandler struct {
 	secretsFreshnessDuration time.Duration
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
+	ratelimiter              *ratelimiter.RateLimiter
 }
 
 type Event interface {
@@ -211,6 +213,7 @@ func NewEventHandler(
 	emitter custmsg.MessageEmitter,
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
+	ratelimiter *ratelimiter.RateLimiter,
 	opts ...func(*eventHandler),
 ) *eventHandler {
 	eh := &eventHandler{
@@ -226,6 +229,7 @@ func NewEventHandler(
 		limits:                   &ArtifactConfig{},
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
+		ratelimiter:              ratelimiter,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
@@ -590,6 +594,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 		Config:                config,
 		Binary:                binary,
 		SecretsFetcher:        h,
+		RateLimiter:           h.ratelimiter,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

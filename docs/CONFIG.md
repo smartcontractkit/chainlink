@@ -1213,6 +1213,40 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.RateLimit
+```toml
+[Capabilities.RateLimit]
+GlobalRPS = 200 # Default
+GlobalBurst = 200 # Default
+PerSenderRPS = 100 # Default
+PerSenderBurst = 100 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 200 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 200 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 100 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 100 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.WorkflowRegistry
 ```toml
 [Capabilities.WorkflowRegistry]
