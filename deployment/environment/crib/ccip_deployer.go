@@ -103,7 +103,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get node info from env: %w", err)
 	}
-	contractParams := make(map[uint64]changeset.ContractParams)
+	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range chainSelectors {
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
@@ -114,7 +114,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 				OptimisticConfirmations: 1,
 			},
 		}
-		contractParams[chain] = changeset.ContractParams{
+		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}

@@ -33,6 +33,34 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
+const (
+	// ========= Changeset Defaults =========
+	FirstBlockAge                           = 8 * time.Hour
+	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
+	TokenPriceBatchWriteFrequency           = 30 * time.Minute
+	BatchGasLimit                           = 6_500_000
+	RelativeBoostPerWaitHour                = 0.5
+	InflightCacheExpiry                     = 10 * time.Minute
+	RootSnoozeTime                          = 30 * time.Minute
+	BatchingStrategyID                      = 0
+	DeltaProgress                           = 30 * time.Second
+	DeltaResend                             = 10 * time.Second
+	DeltaInitial                            = 20 * time.Second
+	DeltaRound                              = 2 * time.Second
+	DeltaGrace                              = 2 * time.Second
+	DeltaCertifiedCommitRequest             = 10 * time.Second
+	DeltaStage                              = 10 * time.Second
+	Rmax                                    = 3
+	MaxDurationQuery                        = 500 * time.Millisecond
+	MaxDurationObservation                  = 5 * time.Second
+	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
+	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
+	GasPriceDeviationPPB                    = 1000
+	DAGasPriceDeviationPPB                  = 0
+	OptimisticConfirmations                 = 1
+	// ======================================
+)
+
 var (
 	_ deployment.ChangeSet[AddDonAndSetCandidateChangesetConfig] = AddDonAndSetCandidateChangeset
 	_ deployment.ChangeSet[PromoteCandidateChangesetConfig]      = PromoteCandidateChangeset
@@ -191,8 +219,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 	return func(params *CCIPOCRParams) {
 		if params.CommitOffChainConfig == nil {
 			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
-				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(TokenPriceBatchWriteFrequency),
 				TokenInfo:                          tokenInfo,
 				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
 				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
@@ -218,12 +246,12 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 	return func(params *CCIPOCRParams) {
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-				BatchGasLimit:             internal.BatchGasLimit,
-				RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
-				InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
-				RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
-				BatchingStrategyID:        internal.BatchingStrategyID,
+				BatchGasLimit:             BatchGasLimit,
+				RelativeBoostPerWaitHour:  RelativeBoostPerWaitHour,
+				InflightCacheExpiry:       *config.MustNewDuration(InflightCacheExpiry),
+				RootSnoozeTime:            *config.MustNewDuration(RootSnoozeTime),
+				MessageVisibilityInterval: *config.MustNewDuration(FirstBlockAge),
+				BatchingStrategyID:        BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
 		} else if tokenDataObservers != nil {
@@ -238,18 +266,18 @@ func DeriveCCIPOCRParams(
 ) CCIPOCRParams {
 	params := CCIPOCRParams{
 		OCRParameters: commontypes.OCRParameters{
-			DeltaProgress:                           internal.DeltaProgress,
-			DeltaResend:                             internal.DeltaResend,
-			DeltaInitial:                            internal.DeltaInitial,
-			DeltaRound:                              internal.DeltaRound,
-			DeltaGrace:                              internal.DeltaGrace,
-			DeltaCertifiedCommitRequest:             internal.DeltaCertifiedCommitRequest,
-			DeltaStage:                              internal.DeltaStage,
-			Rmax:                                    internal.Rmax,
-			MaxDurationQuery:                        internal.MaxDurationQuery,
-			MaxDurationObservation:                  internal.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   internal.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
+			DeltaProgress:                           DeltaProgress,
+			DeltaResend:                             DeltaResend,
+			DeltaInitial:                            DeltaInitial,
+			DeltaRound:                              DeltaRound,
+			DeltaGrace:                              DeltaGrace,
+			DeltaCertifiedCommitRequest:             DeltaCertifiedCommitRequest,
+			DeltaStage:                              DeltaStage,
+			Rmax:                                    Rmax,
+			MaxDurationQuery:                        MaxDurationQuery,
+			MaxDurationObservation:                  MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: MaxDurationShouldTransmitAcceptedReport,
 		},
 	}
 	for _, opt := range opts {
