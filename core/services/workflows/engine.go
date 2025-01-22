@@ -1308,6 +1308,14 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		cfg.clock = clockwork.NewRealClock()
 	}
 
+	if cfg.RateLimiter == nil {
+		return nil, &workflowError{reason: "ratelimiter must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
