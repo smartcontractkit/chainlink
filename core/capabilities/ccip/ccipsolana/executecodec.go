@@ -226,7 +226,7 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error
 			if v, ok := fieldValue.([][32]byte); ok {
 				accounts := make([]ag_solanago.PublicKey, len(v))
 				for i, val := range v {
-					accounts[i] = val
+					accounts[i] = ag_solanago.PublicKeyFromBytes(val[:])
 				}
 				out.Accounts = accounts
 			} else {
