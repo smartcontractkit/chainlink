@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -71,7 +71,7 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
-var rlConfig = gwcommon.RateLimiterConfig{
+var rlConfig = ratelimiter.RateLimiterConfig{
 	GlobalRPS:      1000.0,
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,
@@ -84,7 +84,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
@@ -112,7 +112,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails with unsupported event type", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
@@ -129,7 +129,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails to get secrets url", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 
 		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
@@ -154,7 +154,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails to fetch contents", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		giveURL := "http://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
@@ -182,7 +182,7 @@ func Test_Handler(t *testing.T) {
 	t.Run("fails to update secrets", func(t *testing.T) {
 		mockORM := mocks.NewORM(t)
 		ctx := testutils.Context(t)
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		giveURL := "http://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
@@ -479,7 +479,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
 			workflowkey.Key{}, rl, opts...)
@@ -531,7 +531,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -608,7 +608,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -690,7 +690,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		rl, err := gwcommon.NewRateLimiter(rlConfig)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -839,7 +839,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 			url: mockFetchResp{Err: errors.New("could not fetch")},
 		},
 	}
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
@@ -904,7 +904,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 			url: mockFetchResp{Body: secretsPayload},
 		},
 	}
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
@@ -970,7 +970,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 		},
 	}
 	clock := clockwork.NewFakeClock()
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,

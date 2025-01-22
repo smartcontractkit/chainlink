@@ -13,8 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -23,7 +23,7 @@ type Delegate struct {
 	secretsFetcher secretsFetcher
 	logger         logger.Logger
 	store          store.Store
-	ratelimiter    *common.RateLimiter
+	ratelimiter    *ratelimiter.RateLimiter
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -96,7 +96,7 @@ func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
-	ratelimiter *common.RateLimiter,
+	ratelimiter *ratelimiter.RateLimiter,
 ) *Delegate {
 	return &Delegate{
 		logger:         logger,

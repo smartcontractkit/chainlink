@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -136,7 +136,7 @@ type Engine struct {
 	maxWorkerLimit int
 
 	clock       clockwork.Clock
-	ratelimiter *common.RateLimiter
+	ratelimiter *ratelimiter.RateLimiter
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -751,10 +751,15 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
-			allowed := e.ratelimiter.Allow(e.workflow.owner)
-			if !allowed {
+			senderAllowed, globalAllowed := e.ratelimiter.Allow(e.workflow.owner)
+			if !senderAllowed {
 				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "per sender rate limit exceeded", e.logger)
 				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitPerUserCounter(ctx)
+				continue
+			}
+			if !globalAllowed {
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "global rate limit exceeded", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitGlobalCounter(ctx)
 				continue
 			}
 
@@ -1217,7 +1222,7 @@ type Config struct {
 	SecretsFetcher        secretsFetcher
 	HeartbeatCadence      time.Duration
 	StepTimeout           time.Duration
-	RateLimiter           *common.RateLimiter
+	RateLimiter           *ratelimiter.RateLimiter
 
 	// For testing purposes only
 	maxRetries          int

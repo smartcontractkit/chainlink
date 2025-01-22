@@ -28,9 +28,9 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
@@ -39,7 +39,7 @@ import (
 	crypto2 "github.com/ethereum/go-ethereum/crypto"
 )
 
-var rlConfig = gwcommon.RateLimiterConfig{
+var rlConfig = ratelimiter.RateLimiterConfig{
 	GlobalRPS:      1000.0,
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,
@@ -347,7 +347,7 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, contents, giveContents)
 
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
@@ -431,7 +431,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
 		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
@@ -531,7 +531,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
-	rl, err := gwcommon.NewRateLimiter(rlConfig)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
 		lggr,
