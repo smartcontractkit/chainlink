@@ -6,6 +6,9 @@ import {ISystemContext} from "@zksync/contracts/gas-bound-caller/contracts/ISyst
 
 ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
 
+error GasLimitTooLow();
+error NotEnoughGasForPubdata();
+
 /**
  * @title CallWithExactGasZKSync
  * @notice Library that attempts to call a target contract with exactly `gasAmount` gas on zkSync
@@ -15,10 +18,10 @@ ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b)
 library CallWithExactGasZKSync {
   /// @notice We assume that no more than `CALL_ENTRY_OVERHEAD` ergs are used for the O(1) operations at the start
   /// of execution of the contract, such as abi decoding the parameters, jumping to the correct function, etc.
-  uint256 constant CALL_ENTRY_OVERHEAD = 800;
+  uint256 internal constant CALL_ENTRY_OVERHEAD = 800;
   /// @notice We assume that no more than `CALL_RETURN_OVERHEAD` ergs are used for the O(1) operations at the end of the execution,
   /// as such relaying the return.
-  uint256 constant CALL_RETURN_OVERHEAD = 400;
+  uint256 internal constant CALL_RETURN_OVERHEAD = 400;
 
   /// @notice The function that implements limiting of the total gas expenditure of the call.
   /// @dev On Era, the gas for pubdata is charged at the end of the execution of the entire transaction, meaning
@@ -52,7 +55,9 @@ library CallWithExactGasZKSync {
     // This require is more of a safety protection for the users that call this function with incorrect parameters.
     //
     // Ultimately, the entire `gas` sent to this call can be spent on compute regardless of the `_maxTotalGas` parameter.
-    require(_maxTotalGas >= gasleft(), "Gas limit is too low");
+    if (_maxTotalGas < gasleft()) {
+      revert GasLimitTooLow();
+    }
 
     // This is the amount of gas that can be spent *exclusively* on pubdata in addition to the `gas` provided to this function.
     uint256 pubdataAllowance = _maxTotalGas > expectedForCompute ? _maxTotalGas - expectedForCompute : 0;
@@ -63,6 +68,7 @@ library CallWithExactGasZKSync {
     // If the call fails, the `EfficientCall.call` will propagate the revert.
     // Since the revert is propagated, the pubdata published wouldn't change and so no
     // other checks are needed.
+    // solhint-disable-next-line avoid-low-level-calls
     bytes memory returnData = EfficientCall.call({
       _gas: gasleft(),
       _address: _to,
@@ -102,7 +108,9 @@ library CallWithExactGasZKSync {
     if (pubdataGas != 0) {
       // Here we double check that the additional cost is not higher than the maximum allowed.
       // Note, that the `gasleft()` can be spent on pubdata too.
-      require(pubdataAllowance + gasleft() >= pubdataGas + CALL_RETURN_OVERHEAD, "Not enough gas for pubdata");
+      if (pubdataAllowance + gasleft() < pubdataGas + CALL_RETURN_OVERHEAD) {
+        revert NotEnoughGasForPubdata();
+      }
     }
 
     assembly {
