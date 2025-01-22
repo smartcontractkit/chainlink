@@ -32,7 +32,7 @@ mkdir -p $CONTRACTS_FOLDER
 echo $CCIP_VERSION > $CONTRACTS_FOLDER/.solana_contracts_rev
 
 # clone the chainlink-ccip and checkout the required revision
-git clone git@github.com:smartcontractkit/chainlink-ccip.git $TEMP_FOLDER
+git clone https://github.com/smartcontractkit/chainlink-ccip.git $TEMP_FOLDER
 cd $TEMP_FOLDER
 git checkout $CCIP_VERSION
 
