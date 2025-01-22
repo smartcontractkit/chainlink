@@ -169,24 +169,28 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 			mt.lggr.Debugw("Loading transmit requests from database")
 		}
 
-		{
-			var startClosers []services.StartClose
-			for _, s := range mt.servers {
-				transmissions, err := s.pm.Load(ctx)
-				if err != nil {
-					return err
-				}
-				s.q.Init(transmissions)
-				// starting pm after loading from it is fine because it simply
-				// spawns some garbage collection/prune goroutines
-				startClosers = append(startClosers, s.c, s.q, s.pm)
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
 
-				// Number of goroutines per server will be roughly
-				// 2*nServers*TransmitConcurrency because each server has a
-				// delete queue and a transmit queue.
-				//
-				// This could potentially be reduced by implementing transmit batching,
-				// see: https://smartcontract-it.atlassian.net/browse/MERC-6635
+		var startClosers []services.StartClose
+		for _, s := range mt.servers {
+			transmissions, err := s.pm.Load(ctx)
+			if err != nil {
+				return err
+			}
+			s.q.Init(transmissions)
+			// starting pm after loading from it is fine because it simply
+			// spawns some garbage collection/prune goroutines
+			startClosers = append(startClosers, s.c, s.q, s.pm)
+
+			// Number of goroutines per server will be roughly
+			// 2*nServers*TransmitConcurrency because each server has a
+			// delete queue and a transmit queue.
+			//
+			// This could potentially be reduced by implementing transmit batching,
+			// see: https://smartcontract-it.atlassian.net/browse/MERC-6635
+			go func(wg *sync.WaitGroup, mt *transmitter, s *server) {
+				wg.Wait()
 				nThreads := int(mt.cfg.TransmitConcurrency())
 				mt.wg.Add(2 * nThreads)
 				donIDStr := strconv.FormatUint(uint64(mt.donID), 10)
@@ -194,11 +198,12 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
 					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
 				}
-			}
-			if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
-				return err
-			}
+			}(wg, mt, s)
 		}
+		if err := (&services.MultiStart{}).Start(ctx, startClosers...); err != nil {
+			return err
+		}
+		wg.Done()
 
 		return nil
 	})
