@@ -17,7 +17,7 @@ contract LiquidityManager_removeLiquidity is LiquidityManagerSetup {
     assertEq(s_l1Token.balanceOf(address(s_liquidityManager)), 0);
   }
 
-  function test_InsufficientLiquidityReverts() external {
+  function test_removeLiquidity_RevertWhen_InsufficientLiquidity() external {
     uint256 balance = 923;
     uint256 requested = balance + 1;
 

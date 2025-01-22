@@ -19,7 +19,7 @@ contract LiquidityManager_setLocalLiquidityContainer is LiquidityManagerSetup {
     assertEq(s_liquidityManager.getLocalLiquidityContainer(), address(newPool));
   }
 
-  function test_setLocalLiquidityContainer_RevertsWhen_CallerNotOwner() external {
+  function test_setLocalLiquidityContainer_RevertWhen_CallerNotOwner() external {
     vm.stopPrank();
 
     vm.expectRevert("Only callable by owner");
@@ -27,7 +27,7 @@ contract LiquidityManager_setLocalLiquidityContainer is LiquidityManagerSetup {
     s_liquidityManager.setLocalLiquidityContainer(MockLockReleaseTokenPool(address(1)));
   }
 
-  function test_setLocalLiquidityContainer_RevertsWhen_CalledWithTheZeroAddress() external {
+  function test_setLocalLiquidityContainer_RevertWhen_CalledWithTheZeroAddress() external {
     vm.expectRevert(LiquidityManager.ZeroAddress.selector);
     s_liquidityManager.setLocalLiquidityContainer(MockLockReleaseTokenPool(address(0)));
   }

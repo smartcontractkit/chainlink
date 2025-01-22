@@ -23,7 +23,7 @@ contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
     assertEq(receiver.balance, 1);
   }
 
-  function test_withdrawNative_FinanceRoleReverts() external {
+  function test_withdrawNative_RevertWhen_NotFinanceRole() external {
     vm.stopPrank();
     vm.expectRevert(LiquidityManager.OnlyFinanceRole.selector);
     s_liquidityManager.withdrawNative(1, payable(receiver));

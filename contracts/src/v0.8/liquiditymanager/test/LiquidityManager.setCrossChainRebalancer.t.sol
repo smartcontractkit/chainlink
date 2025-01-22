@@ -78,7 +78,7 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
     assertEq(supportedChains[0], remoteChainSelector);
   }
 
-  function test_ZeroChainSelectorReverts() external {
+  function test_setCrossChainRebalancer_RevertWhen_ZeroChainSelector() external {
     LiquidityManager.CrossChainRebalancerArgs memory arg = ILiquidityManager.CrossChainRebalancerArgs({
       remoteRebalancer: address(9),
       localBridge: s_bridgeAdapter,
@@ -92,7 +92,7 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
     s_liquidityManager.setCrossChainRebalancer(arg);
   }
 
-  function test_setCrossChainRebalancer_RevertsWhen_ZeroAddressRemoteRebalancer() external {
+  function test_setCrossChainRebalancer_RevertWhen_ZeroAddressRemoteRebalancer() external {
     LiquidityManager.CrossChainRebalancerArgs memory arg = ILiquidityManager.CrossChainRebalancerArgs({
       remoteRebalancer: address(0),
       localBridge: s_bridgeAdapter,
@@ -120,7 +120,7 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
     s_liquidityManager.setCrossChainRebalancer(arg);
   }
 
-  function test_setCrossChainRebalancer_RevertsWhen_CallerNotOwner() external {
+  function test_setCrossChainRebalancer_RevertWhen_CallerNotOwner() external {
     vm.stopPrank();
 
     vm.expectRevert("Only callable by owner");
