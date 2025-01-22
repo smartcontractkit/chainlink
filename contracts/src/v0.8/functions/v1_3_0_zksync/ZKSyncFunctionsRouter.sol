@@ -7,7 +7,7 @@ import {CallWithExactGasZKSync} from "../../shared/call/CallWithExactGasZKSync.s
 ///
 /// @title FunctionsRouterZkSync
 /// @notice Specialized version of FunctionsRouter for zkSync that uses
-///         CallWithExactGasZKSync to control callback gas usage.
+/// CallWithExactGasZKSync to control callback gas usage.
 ///
 contract ZKSyncFunctionsRouter is FunctionsRouter {
   constructor(address linkToken, Config memory config) FunctionsRouter(linkToken, config) {}
