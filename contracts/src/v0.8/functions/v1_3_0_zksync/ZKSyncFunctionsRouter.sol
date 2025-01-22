@@ -21,7 +21,7 @@ contract ZKSyncFunctionsRouter is FunctionsRouter {
     uint32 callbackGasLimit,
     address client
   ) internal override returns (CallbackResult memory) {
-    if (client.code.length == 0)
+    if (client.code.length == 0) {
       // If there's no code at `client`, skip the callback
       return CallbackResult({success: false, gasUsed: 0, returnData: new bytes(0)});
     }
@@ -29,12 +29,7 @@ contract ZKSyncFunctionsRouter is FunctionsRouter {
     (bool success, uint256 gasUsed, bytes memory returnData) = CallWithExactGasZKSync._callWithExactGasSafeReturnData(
       client,
       callbackGasLimit,
-      abi.encodeWithSelector(
-        this.getConfig().handleOracleFulfillmentSelector,
-        requestId,
-        response,
-        err
-      ),
+      abi.encodeWithSelector(this.getConfig().handleOracleFulfillmentSelector, requestId, response, err),
       MAX_CALLBACK_RETURN_BYTES
     );
     return CallbackResult({success: success, gasUsed: gasUsed, returnData: returnData});
