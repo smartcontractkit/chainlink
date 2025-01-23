@@ -23,10 +23,8 @@ import (
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -45,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -226,9 +223,8 @@ func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	var offRampAddr string
 	switch chainFamily {
 	case relay.NetworkEVM:
-		if checkSum {
-			offRampAddr = common.BytesToAddress(addr).Hex()
-		} else {
+		offRampAddr = common.BytesToAddress(addr).Hex()
+		if !checkSum {
 			offRampAddr = hexutil.Encode(addr)
 		}
 	case relay.NetworkSolana:
@@ -508,11 +504,6 @@ func getChainReaderConfig(
 			cfg = solanaconfig.DestReaderConfig
 		} else {
 			cfg = solanaconfig.SourceReaderConfig
-		}
-
-		if chainID == homeChainID {
-			lggr.Debugw("Adding home chain reader config", "chainID", chainID)
-			cfg = solanaconfig.MergeReaderConfigs(cfg, solanaconfig.HomeChainReaderConfigRaw)
 		}
 
 		marshaledConfig, err := json.Marshal(cfg)
