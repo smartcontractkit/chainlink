@@ -8,7 +8,6 @@ import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
-
   function test_setCrossChainRebalancer() external {
     address newRebalancer = address(23892423);
     uint64 remoteChainSelector = 12301293;

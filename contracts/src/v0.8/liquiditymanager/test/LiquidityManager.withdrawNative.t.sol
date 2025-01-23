@@ -5,7 +5,6 @@ import {LiquidityManager} from "../LiquidityManager.sol";
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 
 contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
-
   address private receiver = makeAddr("receiver");
 
   function setUp() public override {

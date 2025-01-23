@@ -5,7 +5,6 @@ import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setFinanceRole is LiquidityManagerSetup {
-
   function test_setFinanceRole() external {
     vm.expectEmit();
     address newFinanceRole = makeAddr("newFinanceRole");

@@ -9,7 +9,6 @@ import {ERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/E
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract LiquidityManagerBaseTest is Test {
-
   IERC20 internal s_l1Token;
   IERC20 internal s_l2Token;
   IERC20 internal s_otherToken;

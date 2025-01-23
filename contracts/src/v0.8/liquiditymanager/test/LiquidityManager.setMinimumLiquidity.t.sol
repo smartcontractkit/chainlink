@@ -5,7 +5,6 @@ import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setMinimumLiquidity is LiquidityManagerSetup {
-
   function test_setMinimumLiquidity() external {
     vm.expectEmit();
     emit LiquidityManager.MinimumLiquiditySet(uint256(0), uint256(1000));

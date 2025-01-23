@@ -6,7 +6,6 @@ import {MockLockReleaseTokenPool} from "./mocks/MockTokenPool.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setLocalLiquidityContainer is LiquidityManagerSetup {
-
   function test_setLocalLiquidityContainer() external {
     MockLockReleaseTokenPool newPool = new MockLockReleaseTokenPool(s_l1Token);
 
