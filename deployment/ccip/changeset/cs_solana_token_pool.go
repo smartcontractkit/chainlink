@@ -7,12 +7,14 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+
 	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -257,7 +259,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			return deployment.ChangesetOutput{}, err
 		}
 	default:
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid register type")
+		return deployment.ChangesetOutput{}, errors.New("invalid register type")
 	}
 
 	instructions := []solana.Instruction{instruction}
@@ -289,7 +291,7 @@ func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg 
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.TokenPool.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("token pool not found in existing state, deploy the prerequisites first")
 	}
 
 	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
@@ -349,7 +351,7 @@ func UpdateTokenPool(e deployment.Environment, cfg UpdateTokenPoolConfig) (deplo
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.TokenPool.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("token pool not found in existing state, deploy the prerequisites first")
 	}
 
 	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
@@ -390,7 +392,6 @@ type AddBillingTokenPoolConfig struct {
 }
 
 func AddBillingToken(e deployment.Environment, cfg AddBillingTokenPoolConfig) (deployment.ChangesetOutput, error) {
-
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)

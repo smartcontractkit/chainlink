@@ -24,7 +24,7 @@ import (
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -149,14 +149,11 @@ func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uin
 			WSURL:        chain.WSURL,
 			KeypairPath:  chain.KeypairPath,
 			ProgramsPath: ProgramsPath,
-			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
-				_, err := solCommomUtil.SendAndConfirm(
+			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
+				_, err := solCommonUtil.SendAndConfirm(
 					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
 				)
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		}
 	}
