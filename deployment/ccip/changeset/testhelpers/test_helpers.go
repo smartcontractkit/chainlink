@@ -1281,6 +1281,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 	state, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	for solSelector, solState := range state.SolChains {
+		ccip_receiver.SetProgramID(solState.Receiver)
 		instruction, ixErr := ccip_receiver.NewInitializeInstruction(
 			changeset.GetReceiverTargetAccountPDA(solState.Receiver),
 			changeset.GetReceiverExternalExecutionConfigPDA(solState.Receiver),
@@ -1290,7 +1291,6 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		require.NoError(t, ixErr)
 		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
 		require.NoError(t, err)
-		ccip_receiver.SetProgramID(solState.Receiver)
 	}
 }
 
