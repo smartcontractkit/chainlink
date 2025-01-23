@@ -208,9 +208,10 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 }
 
 func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cctypes.OCR3ConfigWithMeta) (ccipreaderpkg.RMNHome, error) {
-	return ccipreaderpkg.NewRMNHome(
+	return ccipreaderpkg.NewRMNHomeChainReader(
 		ctx,
 		i.lggr,
+		ccipreaderpkg.HomeChainPollingInterval,
 		config.Config.ChainSelector,
 		config.Config.RmnHomeAddress,
 		i.homeChainContractReader,
