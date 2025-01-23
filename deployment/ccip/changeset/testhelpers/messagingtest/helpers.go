@@ -147,17 +147,15 @@ func Run(tc TestCase) (out TestCaseOutput) {
 			FeeToken:     common.HexToAddress("0x0"),
 			ExtraArgs:    tc.ExtraArgs,
 		})
+	sourceDest := testhelpers.SourceDestPair{
+		SourceChainSelector: tc.SourceChain,
+		DestChainSelector:   tc.DestChain,
+	}
 	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
-		{
-			SourceChainSelector: tc.SourceChain,
-			DestChainSelector:   tc.DestChain,
-		}: msgSentEvent.SequenceNumber,
+		sourceDest: msgSentEvent.SequenceNumber,
 	}
 	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{
-		{
-			SourceChainSelector: tc.SourceChain,
-			DestChainSelector:   tc.DestChain,
-		}: {msgSentEvent.SequenceNumber},
+		sourceDest: {msgSentEvent.SequenceNumber},
 	}
 	out.MsgSentEvent = msgSentEvent
 
@@ -179,17 +177,11 @@ func Run(tc TestCase) (out TestCaseOutput) {
 		require.Equalf(
 			tc.T,
 			tc.ExpectedExecutionState,
-			execStates[testhelpers.SourceDestPair{
-				SourceChainSelector: tc.SourceChain,
-				DestChainSelector:   tc.DestChain,
-			}][msgSentEvent.SequenceNumber],
+			execStates[sourceDest][msgSentEvent.SequenceNumber],
 			"wrong execution state for seq nr %d, expected %d, got %d",
 			msgSentEvent.SequenceNumber,
 			tc.ExpectedExecutionState,
-			execStates[testhelpers.SourceDestPair{
-				SourceChainSelector: tc.SourceChain,
-				DestChainSelector:   tc.DestChain,
-			}][msgSentEvent.SequenceNumber],
+			execStates[sourceDest][msgSentEvent.SequenceNumber],
 		)
 
 		// check the sender latestNonce on the dest, should be incremented
