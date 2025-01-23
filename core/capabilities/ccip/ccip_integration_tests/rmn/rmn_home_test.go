@@ -2,15 +2,15 @@ package rmn
 
 import (
 	"bytes"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"math/big"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/stretchr/testify/require"
 
@@ -73,7 +73,15 @@ func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
 	err = uni.HomeContractReader.Bind(testutils.Context(t), []types.BoundContract{rmnHomeBoundContract})
 	require.NoError(t, err)
 
-	rmnHomeReader := readerpkg.NewRMNHomePoller(uni.HomeContractReader, rmnHomeBoundContract, lggr, 100*time.Millisecond)
+	rmnHomeReader, err := readerpkg.NewRMNHomeChainReader(
+		ctx,
+		lggr,
+		100*time.Millisecond,
+		cciptypes.ChainSelector(1),
+		rmnHomeAddress.Bytes(),
+		uni.HomeContractReader,
+	)
+	require.NoError(t, err)
 
 	err = rmnHomeReader.Start(testutils.Context(t))
 	require.NoError(t, err)
