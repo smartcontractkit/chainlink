@@ -14,7 +14,7 @@ import (
 type DeploySolanaTokenConfig struct {
 	ChainSelector uint64
 	// not sure how to handle this in state
-	// TOOD: figure this out
+	// TODO: figure this out
 	// Just using this with LinkToken for now
 	TokenName        string
 	TokenProgramName string
@@ -25,7 +25,7 @@ var _ deployment.ChangeSet[*DeploySolanaTokenConfig] = DeploySolanaToken
 
 func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (deployment.ChangesetOutput, error) {
 	// validate
-	tokenProgramId, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -37,7 +37,7 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	mintPublicKey := mint.PublicKey()
 
 	instructions, err := solTokenUtil.CreateToken(
-		context.Background(), tokenProgramId, mintPublicKey, adminPublicKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
+		context.Background(), tokenprogramID, mintPublicKey, adminPublicKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -48,7 +48,7 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	// hence they are PDAs and dont need to be stored in the address book
 	for _, ata := range cfg.ATAList {
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
-			tokenProgramId, mintPublicKey, solana.MustPublicKeyFromBase58(ata), adminPublicKey)
+			tokenprogramID, mintPublicKey, solana.MustPublicKeyFromBase58(ata), adminPublicKey)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -94,7 +94,7 @@ func MintSolanaToken(e deployment.Environment, cfg *MintSolanaTokenConfig) (depl
 		return deployment.ChangesetOutput{}, err
 	}
 	// get token program id
-	tokenProgramId, err := deployment.GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -103,8 +103,8 @@ func MintSolanaToken(e deployment.Environment, cfg *MintSolanaTokenConfig) (depl
 	for _, toAddress := range cfg.ToAddressList {
 		toAddressBase58 := solana.MustPublicKeyFromBase58(toAddress)
 		// get associated token account for toAddress
-		ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramId, tokenAddress, toAddressBase58)
-		mintToI, err := solTokenUtil.MintTo(cfg.Amount, tokenProgramId, tokenAddress, ata, chain.DeployerKey.PublicKey())
+		ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenAddress, toAddressBase58)
+		mintToI, err := solTokenUtil.MintTo(cfg.Amount, tokenprogramID, tokenAddress, ata, chain.DeployerKey.PublicKey())
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

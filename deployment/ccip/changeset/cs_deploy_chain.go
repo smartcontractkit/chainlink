@@ -700,7 +700,6 @@ func deployChainContractsSolana(
 			})
 		if err != nil {
 			return fmt.Errorf("failed to create lookup table: %w", err)
-
 		}
 		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0))
 		if err != nil {

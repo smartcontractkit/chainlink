@@ -1257,11 +1257,12 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
 	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
+	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
+	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
-
 	require.NoError(t, err)
 }
 
@@ -1286,7 +1287,8 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		require.NoError(t, ixErr)
-		e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
+		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
+		require.NoError(t, err)
 		ccip_receiver.SetProgramID(solState.Receiver)
 	}
 }

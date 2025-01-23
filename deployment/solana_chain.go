@@ -157,8 +157,7 @@ func FindTokenAddress(e Environment, chainSelector uint64, tokenName string) (so
 
 	tv := NewTypeAndVersion(ContractType(tokenName), Version1_0_0)
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case tv:
+		if tvStr == tv {
 			return solana.MustPublicKeyFromBase58(address), nil
 		}
 	}

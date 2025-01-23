@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -52,11 +53,11 @@ func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.TokenPool.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("token pool not found in existing state, deploy the prerequisites first")
 	}
 	token_pool.SetProgramID(chainState.TokenPool)
 
-	tokenProgramId, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -89,7 +90,7 @@ func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.
 	}
 
 	// ata for token pool
-	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(tokenProgramId, tokenPubKey, poolSigner, chain.DeployerKey.PublicKey())
+	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(tokenprogramID, tokenPubKey, poolSigner, chain.DeployerKey.PublicKey())
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -99,7 +100,7 @@ func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.
 		return deployment.ChangesetOutput{}, err
 	}
 	// make pool mint_authority for token (required for burn/mint)
-	authI, err := solTokenUtil.SetTokenMintAuthority(tokenProgramId, poolSigner, tokenPubKey, chain.DeployerKey.PublicKey())
+	authI, err := solTokenUtil.SetTokenMintAuthority(tokenprogramID, poolSigner, tokenPubKey, chain.DeployerKey.PublicKey())
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -140,7 +141,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg SetupTokenPoolFo
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.TokenPool.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("token pool not found in existing state, deploy the prerequisites first")
 	}
 	token_pool.SetProgramID(chainState.TokenPool)
 
@@ -220,7 +221,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.TokenPool.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("token pool not found in existing state, deploy the prerequisites first")
 	}
 
 	tokenPubKey, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
@@ -231,8 +232,8 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	// Convert string addresses to public keys
 	authorityPrivKey := solana.MustPrivateKeyFromBase58(cfg.AuthorityPrivateKey)
 	var instruction *ccip_router.Instruction
-
-	if cfg.RegisterType == ViaGetCcipAdminInstruction {
+	switch cfg.RegisterType {
+	case ViaGetCcipAdminInstruction:
 		tokenPoolAdminPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPoolAdmin)
 		instruction, err = ccip_router.NewRegisterTokenAdminRegistryViaGetCcipAdminInstruction(
 			tokenPubKey,
@@ -245,7 +246,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-	} else if cfg.RegisterType == ViaOwnerInstruction {
+	case ViaOwnerInstruction:
 		instruction, err = ccip_router.NewRegisterTokenAdminRegistryViaOwnerInstruction(
 			GetTokenAdminRegistryPDA(chainState.Router, tokenPubKey),
 			tokenPubKey,
@@ -255,8 +256,8 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-	} else {
-		return deployment.ChangesetOutput{}, fmt.Errorf("Unsupported RegisterType")
+	default:
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid register type")
 	}
 
 	instructions := []solana.Instruction{instruction}
@@ -434,10 +435,10 @@ func AddBillingToken(e deployment.Environment, cfg AddBillingTokenPoolConfig) (d
 	billingSignerPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("fee_billing_signer")}, chainState.Router)
 	fmt.Println("billingSignerPDA", billingSignerPDA.String())
 
-	tokenProgramId, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
-	fmt.Println("tokenProgramId", tokenProgramId.String())
+	tokenprogramID, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	fmt.Println("tokenprogramID", tokenprogramID.String())
 
-	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramId, tokenPubKey, billingSignerPDA)
+	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, billingSignerPDA)
 	fmt.Println("token2022Receiver", token2022Receiver.String())
 
 	routerConfigPDA := GetRouterConfigPDA(chainState.Router)
@@ -452,7 +453,7 @@ func AddBillingToken(e deployment.Environment, cfg AddBillingTokenPoolConfig) (d
 		cfg.Config,
 		routerConfigPDA,
 		billingConfigPDA,
-		tokenProgramId,
+		tokenprogramID,
 		tokenPubKey,
 		token2022Receiver,
 		chain.DeployerKey.PublicKey(),
