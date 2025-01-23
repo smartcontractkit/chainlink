@@ -69,7 +69,7 @@ type finalSeqNrReport struct {
 func subscribeDeferredCommitEvents(
 	ctx context.Context,
 	lggr logger.Logger,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	srcChains []uint64,
 	startBlock *uint64,
 	loki *wasp.LokiClient,
@@ -196,7 +196,7 @@ func subscribeDeferredCommitEvents(
 func subscribeExecutionEvents(
 	ctx context.Context,
 	lggr logger.Logger,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	srcChains []uint64,
 	startBlock *uint64,
 	loki *wasp.LokiClient,
