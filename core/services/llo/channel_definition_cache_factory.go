@@ -1,11 +1,7 @@
 package llo
 
 import (
-	"fmt"
 	"net/http"
-	"sync"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -26,8 +22,6 @@ func NewChannelDefinitionCacheFactory(lggr logger.Logger, orm ChannelDefinitionC
 		orm,
 		lp,
 		client,
-		make(map[common.Address]map[uint32]struct{}),
-		sync.Mutex{},
 	}
 }
 
@@ -36,9 +30,6 @@ type channelDefinitionCacheFactory struct {
 	orm    ChannelDefinitionCacheORM
 	lp     logpoller.LogPoller
 	client *http.Client
-
-	caches map[common.Address]map[uint32]struct{}
-	mu     sync.Mutex
 }
 
 func (f *channelDefinitionCacheFactory) NewCache(cfg lloconfig.PluginConfig) (llotypes.ChannelDefinitionCache, error) {
@@ -50,16 +41,5 @@ func (f *channelDefinitionCacheFactory) NewCache(cfg lloconfig.PluginConfig) (ll
 	fromBlock := cfg.ChannelDefinitionsContractFromBlock
 	donID := cfg.DonID
 
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if _, exists := f.caches[addr][donID]; exists {
-		// This shouldn't really happen and isn't supported
-		return nil, fmt.Errorf("cache already exists for contract address %s and don ID %d", addr.Hex(), donID)
-	}
-	if _, exists := f.caches[addr]; !exists {
-		f.caches[addr] = make(map[uint32]struct{})
-	}
-	f.caches[addr][donID] = struct{}{}
 	return NewChannelDefinitionCache(f.lggr, f.orm, f.client, f.lp, addr, donID, fromBlock), nil
 }
