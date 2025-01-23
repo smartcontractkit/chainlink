@@ -103,6 +103,10 @@ struct FeeTokenConfigArgs {
 
 - Prefix your public getters with `get` and your public setters with `set`.
   - `getConfig` and `setConfig`.
+ 
+- Avoid function overloading
+  - Functions with the same name but different parameters can cause confusion in environments that don't support overloading, such as when being called by JavaScript or Go wrappers.
+  - Instead use separate function names for the separate functions to avoid confusion. 
 
 ### Return Values
 
