@@ -4,6 +4,8 @@ package ccip
 //go:generate go run ../generation/wrap.go ccip CCIPHome ccip_home
 //go:generate go run ../generation/wrap.go ccip OnRamp onramp
 //go:generate go run ../generation/wrap.go ccip OffRamp offramp
+//go:generate go run ../generation/wrap.go ccip OnRampWithMessageTransformer onramp_with_message_transformer
+//go:generate go run ../generation/wrap.go ccip OffRampWithMessageTransformer offramp_with_message_transformer
 //go:generate go run ../generation/wrap.go ccip FeeQuoter fee_quoter
 //go:generate go run ../generation/wrap.go ccip NonceManager nonce_manager
 //go:generate go run ../generation/wrap.go ccip MultiAggregateRateLimiter multi_aggregate_rate_limiter
@@ -23,6 +25,7 @@ package ccip
 
 // Helpers
 //go:generate go run ../generation/wrap.go ccip MaybeRevertMessageReceiver maybe_revert_message_receiver
+//go:generate go run ../generation/wrap.go ccip LogMessageDataReceiver log_message_data_receiver
 //go:generate go run ../generation/wrap.go ccip PingPongDemo ping_pong_demo
 //go:generate go run ../generation/wrap.go ccip MessageHasher message_hasher
 //go:generate go run ../generation/wrap.go ccip MultiOCR3Helper multi_ocr3_helper

@@ -257,6 +257,8 @@ jobs:
           restore-build-cache-only: "true"
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Build Solana artifacts
+        uses: ./.github/actions/setup-solana/build-contracts
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres

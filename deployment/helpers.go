@@ -107,7 +107,7 @@ func parseErrorFromABI(errorString string, contractABI string) (string, error) {
 			if err3 != nil {
 				return "", errors.Wrap(err3, "error unpacking data")
 			}
-			return fmt.Sprintf("error is \"%v\" args %v\n", errorName, v), nil
+			return fmt.Sprintf("error -`%v` args %v", errorName, v), nil
 		}
 	}
 	return "", errors.New("error not found in ABI")
@@ -204,4 +204,15 @@ func ChainInfo(cs uint64) (chain_selectors.ChainDetails, error) {
 		return chain_selectors.ChainDetails{}, err
 	}
 	return info, nil
+}
+
+func ValidateSelectorsInEnvironment(e Environment, chains []uint64) error {
+	for _, chain := range chains {
+		_, evmOk := e.Chains[chain]
+		_, solOk := e.SolChains[chain]
+		if !evmOk && !solOk {
+			return fmt.Errorf("chain %d not found in environment", chain)
+		}
+	}
+	return nil
 }

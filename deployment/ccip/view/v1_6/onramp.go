@@ -28,7 +28,7 @@ type DestChainSpecificData struct {
 }
 
 func GenerateOnRampView(
-	onRampContract *onramp.OnRamp,
+	onRampContract onramp.OnRampInterface,
 	routerContract *router1_2.Router,
 	taContract *token_admin_registry.TokenAdminRegistry,
 ) (OnRampView, error) {

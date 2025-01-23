@@ -162,6 +162,7 @@ type Config struct {
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
 	FileMaxBackups int // files
+	SentryEnabled  bool
 
 	diskSpaceAvailableFn diskSpaceAvailableFn
 	diskPollConfig       zapDiskPollConfig
@@ -195,7 +196,9 @@ func (c *Config) New() (Logger, func() error) {
 		log.Fatal(err)
 	}
 
-	l = newSentryLogger(l)
+	if c.SentryEnabled {
+		l = newSentryLogger(l)
+	}
 	l = newPrometheusLogger(l)
 	l = l.With("version", verShaNameStatic())
 	return l, closeLogger

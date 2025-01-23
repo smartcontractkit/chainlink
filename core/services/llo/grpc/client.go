@@ -103,7 +103,11 @@ func (c *client) close() error {
 }
 
 func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *rpc.TransmitResponse, err error) {
-	return c.client.Transmit(ctx, req)
+	err = c.eng.IfStarted(func() error {
+		resp, err = c.client.Transmit(ctx, req)
+		return err
+	})
+	return
 }
 
 func (c *client) LatestReport(ctx context.Context, req *rpc.LatestReportRequest) (resp *rpc.LatestReportResponse, err error) {
