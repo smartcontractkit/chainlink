@@ -11,8 +11,6 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -29,7 +27,7 @@ type LockedDBConfig interface {
 	ConnectionConfig
 	URL() url.URL
 	DefaultQueryTimeout() time.Duration
-	Dialect() pg.DialectName
+	DriverName() string
 }
 
 type lockedDb struct {
@@ -80,7 +78,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 
 		// Step 2: start the stat reporter
 		l.statsReporter = NewStatsReporter(l.db.Stats, l.lggr)
-		l.statsReporter.Start(ctx)
+		l.statsReporter.Start()
 
 		// Step 3: acquire DB locks
 		lockingMode := l.lockCfg.LockingMode()
@@ -150,7 +148,6 @@ func (l *lockedDb) DB() *sqlx.DB {
 func openDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
-	dialect := cfg.Dialect()
-	db, err = NewConnection(ctx, uri.String(), dialect, cfg)
+	db, err = NewConnection(ctx, uri.String(), cfg.DriverName(), cfg)
 	return
 }

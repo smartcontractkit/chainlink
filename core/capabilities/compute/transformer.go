@@ -26,6 +26,7 @@ type ParsedConfig struct {
 type transformer struct {
 	logger  logger.Logger
 	emitter custmsg.MessageEmitter
+	config  Config
 }
 
 func shallowCopy(m *values.Map) *values.Map {
@@ -60,9 +61,13 @@ func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func
 		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 	}
 
-	maxMemoryMBs, err := popOptionalValue[int64](copiedReq.Config, maxMemoryMBsKey)
+	maxMemoryMBs, err := popOptionalValue[uint64](copiedReq.Config, maxMemoryMBsKey)
 	if err != nil {
 		return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
+	}
+
+	if maxMemoryMBs <= 0 || maxMemoryMBs > t.config.MaxMemoryMBs {
+		maxMemoryMBs = t.config.MaxMemoryMBs
 	}
 
 	mc := &host.ModuleConfig{
@@ -82,7 +87,14 @@ func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func
 		if err != nil {
 			return capabilities.CapabilityRequest{}, nil, NewInvalidRequestError(err)
 		}
+		if td <= 0 || td > t.config.MaxTimeout {
+			td = t.config.MaxTimeout
+		}
 		mc.Timeout = &td
+	}
+
+	if mc.Timeout == nil {
+		mc.Timeout = &t.config.MaxTimeout
 	}
 
 	tickInterval, err := popOptionalValue[string](copiedReq.Config, tickIntervalKey)
@@ -99,6 +111,10 @@ func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func
 		mc.TickInterval = ti
 	}
 
+	if mc.TickInterval <= 0 || mc.TickInterval > t.config.MaxTickInterval {
+		mc.TickInterval = t.config.MaxTickInterval
+	}
+
 	pc := &ParsedConfig{
 		Binary:       binary,
 		Config:       config,
@@ -112,10 +128,11 @@ func (t *transformer) Transform(req capabilities.CapabilityRequest, opts ...func
 	return copiedReq, pc, nil
 }
 
-func NewTransformer(lggr logger.Logger, emitter custmsg.MessageEmitter) *transformer {
+func NewTransformer(lggr logger.Logger, emitter custmsg.MessageEmitter, config Config) *transformer {
 	return &transformer{
 		logger:  lggr,
 		emitter: emitter,
+		config:  config,
 	}
 }
 

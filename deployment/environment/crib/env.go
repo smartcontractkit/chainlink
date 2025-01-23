@@ -16,15 +16,23 @@ func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
 	}
 }
 
-func (c CRIBEnv) GetConfig() DeployOutput {
+func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 	reader := NewOutputReader(c.envStateDir)
 	nodesDetails := reader.ReadNodesDetails()
 	chainConfigs := reader.ReadChainConfigs()
+	for i, chain := range chainConfigs {
+		err := chain.SetDeployerKey(&key)
+		if err != nil {
+			return DeployOutput{}, err
+		}
+		chainConfigs[i] = chain
+	}
+
 	return DeployOutput{
 		AddressBook: reader.ReadAddressBook(),
 		NodeIDs:     nodesDetails.NodeIDs,
 		Chains:      chainConfigs,
-	}
+	}, nil
 }
 
 type RPC struct {

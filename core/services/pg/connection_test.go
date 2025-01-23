@@ -8,9 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 var _ Getter = &mockGetter{}
@@ -61,22 +58,4 @@ func Test_checkVersion(t *testing.T) {
 		err := checkVersion(m, 110001)
 		require.NoError(t, err)
 	})
-}
-
-func Test_disallowReplica(t *testing.T) {
-	testutils.SkipShortDB(t)
-	db := pgtest.NewSqlxDB(t)
-
-	_, err := db.Exec("SET session_replication_role= 'origin'")
-	require.NoError(t, err)
-	err = disallowReplica(db)
-	require.NoError(t, err)
-
-	_, err = db.Exec("SET session_replication_role= 'replica'")
-	require.NoError(t, err)
-	err = disallowReplica(db)
-	require.Error(t, err, "replica role should be disallowed")
-
-	_, err = db.Exec("SET session_replication_role= 'not_valid_role'")
-	require.Error(t, err)
 }

@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pelletier/go-toml/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -83,7 +85,6 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	// TODO CCIP-3108
 	include := func(node *nodev1.Node) bool {
 		if in.Filter == nil {
 			return true
@@ -240,13 +241,60 @@ func (j JobClient) GetJob(ctx context.Context, in *jobv1.GetJobRequest, opts ...
 }
 
 func (j JobClient) GetProposal(ctx context.Context, in *jobv1.GetProposalRequest, opts ...grpc.CallOption) (*jobv1.GetProposalResponse, error) {
-	// TODO CCIP-3108 implement me
-	panic("implement me")
+	// we are using proposal id as job id
+	// refer to ListJobs and ProposeJobs for the assignment of proposal id
+	for _, node := range j.Nodes {
+		jobs, _, err := node.App.JobORM().FindJobs(ctx, 0, 1000)
+		if err != nil {
+			return nil, err
+		}
+		for _, job := range jobs {
+			if job.ExternalJobID.String() == in.Id {
+				specBytes, err := toml.Marshal(job.CCIPSpec)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal job spec: %w", err)
+				}
+				return &jobv1.GetProposalResponse{
+					Proposal: &jobv1.Proposal{
+						Id:     job.ExternalJobID.String(),
+						Status: jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
+						Spec:   string(specBytes),
+						JobId:  job.ExternalJobID.String(),
+					},
+				}, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("job not found: %s", in.Id)
 }
 
 func (j JobClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
-	// TODO CCIP-3108 implement me
-	panic("implement me")
+	jobResponse := make([]*jobv1.Job, 0)
+	for _, req := range in.Filter.NodeIds {
+		if _, ok := j.Nodes[req]; !ok {
+			return nil, fmt.Errorf("node not found: %s", req)
+		}
+		n := j.Nodes[req]
+		jobs, _, err := n.App.JobORM().FindJobs(ctx, 0, 1000)
+		if err != nil {
+			return nil, err
+		}
+		for _, job := range jobs {
+			jobResponse = append(jobResponse, &jobv1.Job{
+				Id:     string(job.ID),
+				Uuid:   job.ExternalJobID.String(),
+				NodeId: req,
+				// based on the current implementation, there is only one proposal per job
+				// see ProposeJobs for ProposalId assignment
+				ProposalIds: []string{job.ExternalJobID.String()},
+				CreatedAt:   timestamppb.New(job.CreatedAt),
+				UpdatedAt:   timestamppb.New(job.CreatedAt),
+			})
+		}
+	}
+	return &jobv1.ListJobsResponse{
+		Jobs: jobResponse,
+	}, nil
 }
 
 func (j JobClient) ListProposals(ctx context.Context, in *jobv1.ListProposalsRequest, opts ...grpc.CallOption) (*jobv1.ListProposalsResponse, error) {
@@ -286,7 +334,9 @@ func (j JobClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, 
 		return nil, err
 	}
 	return &jobv1.ProposeJobResponse{Proposal: &jobv1.Proposal{
-		Id: "",
+		// make the proposal id the same as the job id for further reference
+		// if you are changing this make sure to change the GetProposal and ListJobs method implementation
+		Id: jb.ExternalJobID.String(),
 		// Auto approve for now
 		Status:             jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED,
 		DeliveryStatus:     jobv1.ProposalDeliveryStatus_PROPOSAL_DELIVERY_STATUS_DELIVERED,

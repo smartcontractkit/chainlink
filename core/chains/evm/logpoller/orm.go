@@ -13,14 +13,12 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 // ORM represents the persistent data access layer used by the log poller. At this moment, it's a bit leaky abstraction, because
@@ -47,6 +45,7 @@ type ORM interface {
 	SelectBlockByHash(ctx context.Context, hash common.Hash) (*LogPollerBlock, error)
 	SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error)
 	SelectOldestBlock(ctx context.Context, minAllowedBlockNumber int64) (*LogPollerBlock, error)
+	SelectLatestFinalizedBlock(ctx context.Context) (*LogPollerBlock, error)
 
 	SelectLogs(ctx context.Context, start, end int64, address common.Address, eventSig common.Hash) ([]Log, error)
 	SelectLogsWithSigs(ctx context.Context, start, end int64, address common.Address, eventSigs []common.Hash) ([]Log, error)
@@ -254,6 +253,18 @@ func (o *DSORM) SelectLatestBlock(ctx context.Context) (*LogPollerBlock, error) 
 	var b LogPollerBlock
 	if err := o.ds.GetContext(ctx, &b,
 		blocksQuery(`WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`), ubig.New(o.chainID),
+	); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (o *DSORM) SelectLatestFinalizedBlock(ctx context.Context) (*LogPollerBlock, error) {
+	var b LogPollerBlock
+	if err := o.ds.GetContext(ctx, &b,
+		blocksQuery(`WHERE evm_chain_id = $1 AND block_number <= (
+			SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1
+		) ORDER BY block_number DESC LIMIT 1`), ubig.New(o.chainID),
 	); err != nil {
 		return nil, err
 	}

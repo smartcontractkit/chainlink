@@ -66,6 +66,8 @@ SyncThreshold = 5 # Default
 NodeIsSyncingEnabled = false # Default
 # LeaseDuration is the max duration a node can be leased for.
 LeaseDuration = '1m0s' # Default
+# NewHeadsPollInterval is the rate to poll for new heads.
+NewHeadsPollInterval = '10s' # Default
 # FinalizedBlockPollInterval is the rate to poll for the finalized block.
 FinalizedBlockPollInterval = '10s' # Default
 # EnforceRepeatableRead enforces the repeatable read guarantee for multinode.

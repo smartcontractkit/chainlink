@@ -86,6 +86,28 @@ contract MessageHasher {
     uint256 gasLimit,
     bool allowOutOfOrderExecution
   ) public pure returns (Client.EVMExtraArgsV2 memory) {
-    return Client.EVMExtraArgsV2(gasLimit, allowOutOfOrderExecution);
+    return Client.EVMExtraArgsV2({gasLimit: gasLimit, allowOutOfOrderExecution: allowOutOfOrderExecution});
+  }
+
+  function encodeSVMExtraArgsV1(
+    Client.SVMExtraArgsV1 memory extraArgs
+  ) public pure returns (bytes memory) {
+    return Client._svmArgsToBytes(extraArgs);
+  }
+
+  function decodeSVMExtraArgsV1(
+    uint32 computeUnits,
+    uint64 accountIsWritableBitmap,
+    bool allowOutOfOrderExecution,
+    bytes32 tokenReceiver,
+    bytes32[] memory accounts
+  ) public pure returns (Client.SVMExtraArgsV1 memory) {
+    return Client.SVMExtraArgsV1({
+      computeUnits: computeUnits,
+      accountIsWritableBitmap: accountIsWritableBitmap,
+      allowOutOfOrderExecution: allowOutOfOrderExecution,
+      tokenReceiver: tokenReceiver,
+      accounts: accounts
+    });
   }
 }

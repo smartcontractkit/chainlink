@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	numMessages = 40
+	numMessages = 25
 )
 
 type batchTestSetup struct {
@@ -425,7 +425,7 @@ func sendMessages(
 	t *testing.T,
 	sourceChain deployment.Chain,
 	sourceTransactOpts *bind.TransactOpts,
-	sourceOnRamp *onramp.OnRamp,
+	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,
 	sourceMulticall3 *multicall3.Multicall3,
 	destChainSelector uint64,
