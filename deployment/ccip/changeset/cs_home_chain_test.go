@@ -63,6 +63,27 @@ func TestDeployHomeChain(t *testing.T) {
 	require.Len(t, capRegSnap.Nodes, len(p2pIds))
 }
 
+func TestDeployHomeChainIdempotent(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	homeChainCfg := changeset.DeployHomeChainConfig{
+		HomeChainSel:     e.HomeChainSel,
+		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+		NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+			"NodeOperator": nodes.NonBootstraps().PeerIDs(),
+		},
+	}
+	// apply the changeset once again to ensure idempotency
+	output, err := changeset.DeployHomeChainChangeset(e.Env, homeChainCfg)
+	require.NoError(t, err)
+	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
+	_, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+}
+
 func TestRemoveDonsValidate(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)

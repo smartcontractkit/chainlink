@@ -8,6 +8,9 @@ type Request struct {
 	Headers   map[string]string `json:"headers,omitempty"`   // HTTP headers, defaults to empty.
 	Body      []byte            `json:"body,omitempty"`      // HTTP request body
 	TimeoutMs uint32            `json:"timeoutMs,omitempty"` // Timeout in milliseconds
+
+	// Maximum number of bytes to read from the response body.  If the gateway max response size is smaller than this value, the gateway max response size will be used.
+	MaxResponseBytes uint32 `json:"maxBytes,omitempty"`
 }
 
 type Response struct {

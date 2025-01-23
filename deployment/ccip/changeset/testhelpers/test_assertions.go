@@ -305,7 +305,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
 	src deployment.Chain,
 	dest deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
@@ -480,7 +480,7 @@ func ConfirmExecWithSeqNrsForAll(
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
 	source, dest deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
@@ -554,7 +554,7 @@ func ConfirmExecWithSeqNrs(
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
 	source, dest deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
 ) {
@@ -571,7 +571,7 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
 }
 
-func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp *offramp.OffRamp, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+func GetExecutionState(t *testing.T, source, dest deployment.Chain, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
 	// if it's simulated backend, commit to ensure mining
 	if backend, ok := source.Client.(*memory.Backend); ok {
 		backend.Commit()

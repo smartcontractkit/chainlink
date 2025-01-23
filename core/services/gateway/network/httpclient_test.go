@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -23,11 +24,12 @@ func TestHTTPClient_Send(t *testing.T) {
 	lggr := logger.Test(t)
 	// Define test cases
 	tests := []struct {
-		name          string
-		setupServer   func() *httptest.Server
-		request       HTTPRequest
-		expectedError error
-		expectedResp  *HTTPResponse
+		name             string
+		setupServer      func() *httptest.Server
+		request          HTTPRequest
+		giveMaxRespBytes uint32
+		expectedError    error
+		expectedResp     *HTTPResponse
 	}{
 		{
 			name: "successful request",
@@ -35,7 +37,7 @@ func TestHTTPClient_Send(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
-					require.NoError(t, err2)
+					assert.NoError(t, err2)
 				}))
 			},
 			request: HTTPRequest{
@@ -59,7 +61,7 @@ func TestHTTPClient_Send(t *testing.T) {
 					time.Sleep(10 * time.Second)
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
-					require.NoError(t, err2)
+					assert.NoError(t, err2)
 				}))
 			},
 			request: HTTPRequest{
@@ -78,7 +80,7 @@ func TestHTTPClient_Send(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 					_, err2 := w.Write([]byte("error"))
-					require.NoError(t, err2)
+					assert.NoError(t, err2)
 				}))
 			},
 			request: HTTPRequest{
@@ -96,14 +98,15 @@ func TestHTTPClient_Send(t *testing.T) {
 			},
 		},
 		{
-			name: "response too long",
+			name: "response too long with non-default config",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write(make([]byte, 2048))
-					require.NoError(t, err2)
+					assert.NoError(t, err2)
 				}))
 			},
+			giveMaxRespBytes: 1024,
 			request: HTTPRequest{
 				Method:  "GET",
 				URL:     "/",
@@ -113,6 +116,28 @@ func TestHTTPClient_Send(t *testing.T) {
 			},
 			expectedError: &http.MaxBytesError{},
 			expectedResp:  nil,
+		},
+		{
+			name: "success with long response and default config",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write(make([]byte, 2048))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method:  "GET",
+				URL:     "/",
+				Headers: map[string]string{},
+				Body:    nil,
+				Timeout: 2 * time.Second,
+			},
+			expectedResp: &HTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers:    map[string]string{"Content-Length": "2048"},
+				Body:       make([]byte, 2048),
+			},
 		},
 		{
 			name: "redirects are blocked",
@@ -153,7 +178,7 @@ func TestHTTPClient_Send(t *testing.T) {
 			require.NoError(t, err)
 
 			config := HTTPClientConfig{
-				MaxResponseBytes: 1024,
+				MaxResponseBytes: tt.giveMaxRespBytes,
 				DefaultTimeout:   5 * time.Second,
 				allowedIPs:       []string{hostname},
 				AllowedPorts:     []int{int(portInt)},
@@ -168,16 +193,17 @@ func TestHTTPClient_Send(t *testing.T) {
 			if tt.expectedError != nil {
 				require.Error(t, err)
 				require.ErrorContains(t, err, tt.expectedError.Error())
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tt.expectedResp.StatusCode, resp.StatusCode)
-				for k, v := range tt.expectedResp.Headers {
-					value, ok := resp.Headers[k]
-					require.True(t, ok)
-					require.Equal(t, v, value)
-				}
-				require.Equal(t, tt.expectedResp.Body, resp.Body)
+				return
 			}
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedResp.StatusCode, resp.StatusCode)
+			for k, v := range tt.expectedResp.Headers {
+				value, ok := resp.Headers[k]
+				require.True(t, ok)
+				require.Equal(t, v, value)
+			}
+			require.Equal(t, tt.expectedResp.Body, resp.Body)
 		})
 	}
 }
@@ -388,4 +414,26 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 			require.ErrorContains(t, err, tt.expectedError)
 		})
 	}
+}
+
+func Test_ConfigApplyDefaults(t *testing.T) {
+	t.Parallel()
+	t.Run("successfully overrides defaults", func(t *testing.T) {
+		config := HTTPClientConfig{
+			MaxResponseBytes: 1024,
+			DefaultTimeout:   5 * time.Second,
+		}
+		config.ApplyDefaults()
+		require.Equal(t, uint32(1024), config.MaxResponseBytes)
+		require.Equal(t, 5*time.Second, config.DefaultTimeout)
+	})
+
+	t.Run("successfully sets default values", func(t *testing.T) {
+		config := HTTPClientConfig{}
+		config.ApplyDefaults()
+		require.Equal(t, defaultMaxResponseBytes, config.MaxResponseBytes) // 30MB
+		require.Equal(t, defaultTimeout, config.DefaultTimeout)
+		require.Equal(t, defaultAllowedPorts, config.AllowedPorts)
+		require.Equal(t, defaultAllowedSchemes, config.AllowedSchemes)
+	})
 }

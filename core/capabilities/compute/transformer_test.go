@@ -113,7 +113,12 @@ func Test_transformer(t *testing.T) {
 			},
 		}
 
-		tf := NewTransformer(lgger, emitter)
+		config := Config{
+			MaxMemoryMBs:    2048,
+			MaxTimeout:      20 * time.Second,
+			MaxTickInterval: 10 * time.Second,
+		}
+		tf := NewTransformer(lgger, emitter, config)
 		_, gotConfig, err := tf.Transform(giveReq)
 
 		require.NoError(t, err)
@@ -130,16 +135,22 @@ func Test_transformer(t *testing.T) {
 		}
 		require.NoError(t, err)
 
+		timeout := defaultMaxTimeout
 		wantConfig := &ParsedConfig{
 			Binary: []byte{0x01, 0x02, 0x03},
 			Config: []byte{0x04, 0x05, 0x06},
 			ModuleConfig: &host.ModuleConfig{
-				Logger:  lgger,
-				Labeler: emitter,
+				Logger:       lgger,
+				Labeler:      emitter,
+				TickInterval: defaultMaxTickInterval,
+				Timeout:      &timeout,
+				MaxMemoryMBs: defaultMaxMemoryMBs,
 			},
 		}
 
-		tf := NewTransformer(lgger, emitter)
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
 		_, gotConfig, err := tf.Transform(giveReq)
 
 		require.NoError(t, err)
@@ -157,7 +168,9 @@ func Test_transformer(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		tf := NewTransformer(lgger, emitter)
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
 		_, _, err = tf.Transform(giveReq)
 
 		require.Error(t, err)
@@ -175,10 +188,111 @@ func Test_transformer(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		tf := NewTransformer(lgger, emitter)
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
 		_, _, err = tf.Transform(giveReq)
 
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid request")
+	})
+
+	t.Run("invalid tickInterval, applies default", func(t *testing.T) {
+		giveMap, err := values.NewMap(map[string]any{
+			"tickInterval": "-50ms",
+			"binary":       []byte{0x01, 0x02, 0x03},
+			"config":       []byte{0x04, 0x05, 0x06},
+		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
+		require.NoError(t, err)
+
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
+		_, pc, err := tf.Transform(giveReq)
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultMaxTickInterval, pc.ModuleConfig.TickInterval)
+	})
+
+	t.Run("invalid timeout, applies default", func(t *testing.T) {
+		giveMap, err := values.NewMap(map[string]any{
+			"timeout": "-50ms",
+			"binary":  []byte{0x01, 0x02, 0x03},
+			"config":  []byte{0x04, 0x05, 0x06},
+		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
+		require.NoError(t, err)
+
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
+		_, pc, err := tf.Transform(giveReq)
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultMaxTimeout, *pc.ModuleConfig.Timeout)
+	})
+
+	t.Run("timeout too high, applies default", func(t *testing.T) {
+		giveMap, err := values.NewMap(map[string]any{
+			"timeout": "1h",
+			"binary":  []byte{0x01, 0x02, 0x03},
+			"config":  []byte{0x04, 0x05, 0x06},
+		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
+		require.NoError(t, err)
+
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
+		_, pc, err := tf.Transform(giveReq)
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultMaxTimeout, *pc.ModuleConfig.Timeout)
+	})
+
+	t.Run("tickInterval too high, applies default", func(t *testing.T) {
+		giveMap, err := values.NewMap(map[string]any{
+			"tickInterval": "1h",
+			"binary":       []byte{0x01, 0x02, 0x03},
+			"config":       []byte{0x04, 0x05, 0x06},
+		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
+		require.NoError(t, err)
+
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
+		_, pc, err := tf.Transform(giveReq)
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultMaxTickInterval, pc.ModuleConfig.TickInterval)
+	})
+
+	t.Run("applies default tick interval if missing", func(t *testing.T) {
+		giveMap, err := values.NewMap(map[string]any{
+			"binary": []byte{0x01, 0x02, 0x03},
+			"config": []byte{0x04, 0x05, 0x06},
+		})
+		giveReq := capabilities.CapabilityRequest{
+			Config: giveMap,
+		}
+		require.NoError(t, err)
+
+		config := Config{}
+		config.ApplyDefaults()
+		tf := NewTransformer(lgger, emitter, config)
+		_, pc, err := tf.Transform(giveReq)
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultMaxTickInterval, pc.ModuleConfig.TickInterval)
 	})
 }
