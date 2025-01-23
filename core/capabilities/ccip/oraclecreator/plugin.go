@@ -13,7 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	common2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -287,7 +287,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewCommitPluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
-			common2.NewExtraArgsCodec(),
+			ccipcommon.NewExtraArgsCodec(),
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -310,7 +310,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
 			ccipevm.NewExecutePluginCodecV1(),
 			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
-			common2.NewExtraArgsCodec(),
+			ccipcommon.NewExtraArgsCodec(),
 			i.homeChainReader,
 			ccipevm.NewEVMTokenDataEncoder(),
 			ccipevm.NewGasEstimateProvider(),

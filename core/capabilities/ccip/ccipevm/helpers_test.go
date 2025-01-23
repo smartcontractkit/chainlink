@@ -49,6 +49,10 @@ func Test_decodeExtraArgs(t *testing.T) {
 		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
+
+		gl, exist := m["gasLimit"]
+		require.True(t, exist)
+		require.Equal(t, gl, gasLimit)
 	})
 
 	t.Run("decode extra args into map evm v2", func(t *testing.T) {
@@ -61,6 +65,14 @@ func Test_decodeExtraArgs(t *testing.T) {
 		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 2)
+
+		gl, exist := m["gasLimit"]
+		require.True(t, exist)
+		require.Equal(t, gl, gasLimit)
+
+		ooe, exist := m["allowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, ooe, true)
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {

@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
-	common2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -291,7 +291,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
-		common2.NewExtraArgsCodec(),
+		ccipcommon.NewExtraArgsCodec(),
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1411,7 +1411,7 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := common2.NewExtraArgsCodec()
+	edc := ccipcommon.NewExtraArgsCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, edc)
 
 	return reader
@@ -1527,7 +1527,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := common2.NewExtraArgsCodec()
+	edc := ccipcommon.NewExtraArgsCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, edc)
 
 	t.Cleanup(func() {

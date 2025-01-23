@@ -24,5 +24,13 @@ func Test_decodeExtraArgs(t *testing.T) {
 		output, err := DecodeExtraArgsToMap(buf.Bytes())
 		require.NoError(t, err)
 		require.Len(t, output, 2)
+
+		gasLimit, exist := output["GasLimit"]
+		require.True(t, exist)
+		require.Equal(t, agbinary.Uint128{Lo: 5000, Hi: 0}, gasLimit)
+
+		ooe, exist := output["AllowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, false, ooe)
 	})
 }

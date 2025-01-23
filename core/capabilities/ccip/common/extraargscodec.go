@@ -20,7 +20,7 @@ func NewExtraArgsCodec() ExtraArgsCodec {
 func (ExtraArgsCodec) DecodeExtraData(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode extra data, %w", err)
+		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
 
 	switch family {

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
 
+// DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any, which will be saved in ocr report.message.ExtraArgsDecoded
 func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	outputMap := make(map[string]any)
 	var args ccip_router.AnyExtraArgs
