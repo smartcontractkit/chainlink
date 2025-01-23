@@ -9,7 +9,8 @@
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.6.0 latest",
     "compile": "./scripts/native_solc_compile_all_ccip",
-    "prepublishOnly": "pnpm compile"
+    "prepublishOnly": "pnpm compile",
+    "verify:ccip-files": "diff ./release/ccip/package.json ./package.json && diff ./release/ccip/README.md ./README.md"
   },
   "files": [
     "src/v0.8/ccip/**/*.sol",
