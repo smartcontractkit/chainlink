@@ -31,6 +31,7 @@ func Test_AddChain(t *testing.T) {
 	// only deploy and configure 3 of them.
 	e, tEnv := testhelpers.NewMemoryEnvironment(
 		t,
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithNumOfChains(numChains),
 		testhelpers.WithNumOfNodes(4),
 		testhelpers.WithPrerequisiteDeploymentOnly(nil),

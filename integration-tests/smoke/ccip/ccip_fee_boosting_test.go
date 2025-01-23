@@ -37,6 +37,7 @@ var (
 func Test_CCIPFeeBoosting(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
 			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
 			// Disable token price updates

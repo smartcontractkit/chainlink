@@ -50,7 +50,7 @@ type messagingTestCaseOutput struct {
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithMineBlocks())
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

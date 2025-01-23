@@ -35,6 +35,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithNumOfUsersPerChain(3),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithUSDC(),

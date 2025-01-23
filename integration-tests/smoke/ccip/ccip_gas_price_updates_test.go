@@ -28,6 +28,7 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 
 	var gasPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
 			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
 		}),

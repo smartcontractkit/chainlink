@@ -21,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -353,13 +352,6 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	for {
 		select {
 		case <-ticker.C:
-			// if it's simulated backend, commit to ensure mining
-			if backend, ok := src.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, src.Selector, expectedSeqNumRange.String())
 
@@ -541,13 +533,6 @@ func ConfirmNoExecConsistentlyWithSeqNr(
 }
 
 func getExecutionState(t *testing.T, source, dest deployment.Chain, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
-	// if it's simulated backend, commit to ensure mining
-	if backend, ok := source.Client.(*memory.Backend); ok {
-		backend.Commit()
-	}
-	if backend, ok := dest.Client.(*memory.Backend); ok {
-		backend.Commit()
-	}
 	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
 	require.NoError(t, err)
 	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)

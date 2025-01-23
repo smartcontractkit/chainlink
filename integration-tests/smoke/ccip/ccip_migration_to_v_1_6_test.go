@@ -46,6 +46,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			}),
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithNumOfUsersPerChain(2),
 		// for in-memory test it is important to set the dest chain id as 1337 otherwise the config digest will not match

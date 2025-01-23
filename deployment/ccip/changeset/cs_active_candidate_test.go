@@ -29,6 +29,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and then setup a candidate instance. The candidate instance
 	// should not be able to transmit anything until we make it active.
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithMineBlocks(),
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithNumOfNodes(4))
 	state, err := changeset.LoadOnchainState(tenv.Env)
