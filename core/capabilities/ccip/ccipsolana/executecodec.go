@@ -9,7 +9,6 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	ag_solanago "github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -27,14 +26,15 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
-	if len(report.ChainReports) == 0 || len(report.ChainReports) > 1 {
+	if len(report.ChainReports) != 1 {
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
 
 	var message ccip_router.Any2SolanaRampMessage
+	var offchainTokenData [][]byte
 	chainReport := report.ChainReports[0]
 	if len(chainReport.Messages) > 0 {
-		// currently only allow committing one message at a time
+		// currently only allow executing one message at a time
 		msg := chainReport.Messages[0]
 		tokenAmounts := make([]ccip_router.Any2SolanaTokenTransfer, 0, len(msg.TokenAmounts))
 		for _, tokenAmount := range msg.TokenAmounts {
@@ -97,11 +97,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			TokenAmounts: tokenAmounts,
 			ExtraArgs:    extraArgs,
 		}
-	}
 
-	var offchainTokenData [][]byte
-	if len(chainReport.OffchainTokenData) > 0 {
-		offchainTokenData = chainReport.OffchainTokenData[0]
+		// should only have an offchain token data if there are tokens as part of the message
+		if len(chainReport.OffchainTokenData) > 0 {
+			offchainTokenData = chainReport.OffchainTokenData[0]
+		}
 	}
 
 	solanaProofs := make([][32]byte, 0, len(chainReport.Proofs))
@@ -224,9 +224,9 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error
 		case "Accounts":
 			// Expect [][32]byte
 			if v, ok := fieldValue.([][32]byte); ok {
-				accounts := make([]ag_solanago.PublicKey, len(v))
+				accounts := make([]solana.PublicKey, len(v))
 				for i, val := range v {
-					accounts[i] = ag_solanago.PublicKeyFromBytes(val[:])
+					accounts[i] = solana.PublicKeyFromBytes(val[:])
 				}
 				out.Accounts = accounts
 			} else {

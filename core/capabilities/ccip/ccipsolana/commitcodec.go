@@ -25,7 +25,7 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
-	if len(report.MerkleRoots) == 0 || len(report.MerkleRoots) > 1 {
+	if len(report.MerkleRoots) != 1 {
 		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.MerkleRoots))
 	}
 
