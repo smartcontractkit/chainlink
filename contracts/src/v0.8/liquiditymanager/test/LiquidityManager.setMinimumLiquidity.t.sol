@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
+import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setMinimumLiquidity is LiquidityManagerSetup {
-  event MinimumLiquiditySet(uint256 oldBalance, uint256 newBalance);
 
   function test_setMinimumLiquidity() external {
     vm.expectEmit();
-    emit MinimumLiquiditySet(uint256(0), uint256(1000));
+    emit LiquidityManager.MinimumLiquiditySet(uint256(0), uint256(1000));
 
     s_liquidityManager.setMinimumLiquidity(1000);
 

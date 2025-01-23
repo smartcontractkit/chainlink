@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
+import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_receive is LiquidityManagerSetup {
-  event NativeDeposited(uint256 amount, address depositor);
 
   address private depositor = makeAddr("depositor");
 
@@ -13,7 +13,7 @@ contract LiquidityManager_receive is LiquidityManagerSetup {
     uint256 before = address(s_liquidityManager).balance;
 
     vm.expectEmit();
-    emit NativeDeposited(100, depositor);
+    emit LiquidityManager.NativeDeposited(100, depositor);
 
     changePrank(depositor);
     payable(address(s_liquidityManager)).transfer(100);

@@ -29,13 +29,13 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     s_liquidityManager.setCrossChainRebalancers(args);
 
     vm.expectEmit();
-    emit Transfer(address(s_lockReleaseTokenPool), address(s_liquidityManager), AMOUNT);
+    emit IERC20.Transfer(address(s_lockReleaseTokenPool), address(s_liquidityManager), AMOUNT);
 
     vm.expectEmit();
-    emit Approval(address(s_liquidityManager), address(s_bridgeAdapter), AMOUNT);
+    emit IERC20.Approval(address(s_liquidityManager), address(s_bridgeAdapter), AMOUNT);
 
     vm.expectEmit();
-    emit Transfer(address(s_liquidityManager), address(s_bridgeAdapter), AMOUNT);
+    emit IERC20.Transfer(address(s_liquidityManager), address(s_bridgeAdapter), AMOUNT);
 
     vm.expectEmit();
     bytes memory encodedNonce = abi.encode(uint256(1));

@@ -8,13 +8,6 @@ import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
-  event CrossChainRebalancerSet(
-    uint64 indexed remoteChainSelector,
-    IBridgeAdapter localBridge,
-    address remoteToken,
-    address remoteRebalancer,
-    bool enabled
-  );
 
   function test_setCrossChainRebalancer() external {
     address newRebalancer = address(23892423);
@@ -33,7 +26,7 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
     });
 
     vm.expectEmit();
-    emit CrossChainRebalancerSet(
+    emit LiquidityManager.CrossChainRebalancerSet(
       remoteChainSelector,
       args[0].localBridge,
       args[0].remoteToken,
@@ -62,7 +55,7 @@ contract LiquidityManager_setCrossChainRebalancer is LiquidityManagerSetup {
     args[0].remoteRebalancer = anotherRebalancer;
 
     vm.expectEmit();
-    emit CrossChainRebalancerSet(
+    emit LiquidityManager.CrossChainRebalancerSet(
       remoteChainSelector,
       args[0].localBridge,
       args[0].remoteToken,

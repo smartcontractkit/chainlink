@@ -5,7 +5,6 @@ import {LiquidityManager} from "../LiquidityManager.sol";
 import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 
 contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
-  event NativeWithdrawn(uint256 amount, address destination);
 
   address private receiver = makeAddr("receiver");
 
@@ -18,7 +17,7 @@ contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
     assertEq(receiver.balance, 0);
 
     vm.expectEmit();
-    emit NativeWithdrawn(1, receiver);
+    emit LiquidityManager.NativeWithdrawn(1, receiver);
 
     changePrank(FINANCE);
     s_liquidityManager.withdrawNative(1, payable(receiver));
