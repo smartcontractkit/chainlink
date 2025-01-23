@@ -29,6 +29,32 @@ func (c *capabilitiesConfig) WorkflowRegistry() config.CapabilitiesWorkflowRegis
 	}
 }
 
+func (c *capabilitiesConfig) RateLimit() config.EngineExecutionRateLimit {
+	return &engineExecutionRateLimit{
+		rl: c.c.RateLimit,
+	}
+}
+
+type engineExecutionRateLimit struct {
+	rl toml.EngineExecutionRateLimit
+}
+
+func (rl *engineExecutionRateLimit) GlobalRPS() float64 {
+	return *rl.rl.GlobalRPS
+}
+
+func (rl *engineExecutionRateLimit) GlobalBurst() int {
+	return *rl.rl.GlobalBurst
+}
+
+func (rl *engineExecutionRateLimit) PerSenderRPS() float64 {
+	return *rl.rl.PerSenderRPS
+}
+
+func (rl *engineExecutionRateLimit) PerSenderBurst() int {
+	return *rl.rl.PerSenderBurst
+}
+
 func (c *capabilitiesConfig) Dispatcher() config.Dispatcher {
 	return &dispatcher{d: c.c.Dispatcher}
 }

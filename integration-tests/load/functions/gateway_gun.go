@@ -69,7 +69,7 @@ func callSecretsSet(m *GatewaySecretsSetGun) *wasp.Response {
 	}
 	network := m.Cfg.GetNetworkConfig().SelectedNetworks[0]
 	if len(m.Cfg.GetNetworkConfig().WalletKeys[network]) < 1 {
-		panic(fmt.Sprintf("no wallet keys found for %s", network))
+		panic("no wallet keys found for " + network)
 	}
 
 	cfg := m.Cfg.GetFunctionsConfig()
@@ -103,7 +103,7 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.Response {
 	expiration := int64(60 * 60 * 1000)
 	network := m.Cfg.GetNetworkConfig().SelectedNetworks[0]
 	if len(m.Cfg.GetNetworkConfig().WalletKeys[network]) < 1 {
-		panic(fmt.Sprintf("no wallet keys found for %s", network))
+		panic("no wallet keys found for " + network)
 	}
 	cfg := m.Cfg.GetFunctionsConfig()
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{

@@ -37,7 +37,7 @@ function getOptimizations() {
     local optimize_runs_override=""
 
     case $1 in
-      "OffRamp")
+      "OffRamp" | "OffRampWithMessageTransformer")
         optimize_runs_override="--optimizer-runs $OPTIMIZE_RUNS_OFFRAMP"
         ;;
       "FeeQuoter")
@@ -77,6 +77,7 @@ compileContract test/helpers/MessageHasher
 compileContract test/helpers/USDCReaderTester
 compileContract test/helpers/ReportCodec
 compileContract test/helpers/receivers/MaybeRevertMessageReceiver
+compileContract test/helpers/receivers/LogMessageDataReceiver
 compileContract test/helpers/MultiOCR3Helper
 compileContract test/mocks/MockE2EUSDCTokenMessenger
 compileContract test/mocks/MockE2EUSDCTransmitter
@@ -84,5 +85,9 @@ compileContract test/WETH9
 compileContract test/helpers/CCIPReaderTester
 # Offchain test encoding utils
 compileContract test/helpers/EncodingUtils
+
+# Message Transformer On/OffRamps
+compileContract offRamp/OffRampWithMessageTransformer
+compileContract onRamp/OnRampWithMessageTransformer
 
 

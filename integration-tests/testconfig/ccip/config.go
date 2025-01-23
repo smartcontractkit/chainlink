@@ -38,6 +38,7 @@ type Config struct {
 	HomeChainSelector       *string                                     `toml:",omitempty"`
 	FeedChainSelector       *string                                     `toml:",omitempty"`
 	RMNConfig               RMNConfig                                   `toml:",omitempty"`
+	Load                    *LoadConfig                                 `toml:",omitempty"`
 }
 
 type RMNConfig struct {

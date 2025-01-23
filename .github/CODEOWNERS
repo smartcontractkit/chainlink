@@ -159,8 +159,8 @@ contracts/scripts/requirements.txt @smartcontractkit/core
 .nvmrc @smartcontractkit/core
 contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
 contracts/pnpm.lock @smartcontractkit/core
-go.mod @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
-go.sum @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
+go.mod @smartcontractkit/core @smartcontractkit/foundations
+go.sum @smartcontractkit/core @smartcontractkit/foundations
 integration-tests/go.mod @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 integration-tests/go.sum @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/core

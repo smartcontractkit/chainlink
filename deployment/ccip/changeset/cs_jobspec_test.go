@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,4 +35,13 @@ func TestJobSpecChangeset(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
+}
+
+func TestJobSpecChangesetIdempotent(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t)
+	// we call the changeset again to ensure that it doesn't return any new job specs
+	// as the job specs are already created in the first call
+	output, err := changeset.CCIPCapabilityJobspecChangeset(e.Env, nil)
+	require.NoError(t, err)
+	require.Empty(t, output.JobSpecs)
 }

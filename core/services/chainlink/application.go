@@ -74,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -277,6 +278,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
+		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
+		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
+		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),
+		PerSenderBurst: cfg.Capabilities().RateLimit().PerSenderBurst(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
+	}
+
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
@@ -366,9 +377,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
 				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
 
-				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0],
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
+					fetcher.Fetch,
+					workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					clockwork.NewRealClock(),
+					keys[0],
+					workflowRateLimiter,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
@@ -591,6 +609,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
+		workflowRateLimiter,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

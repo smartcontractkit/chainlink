@@ -12,6 +12,13 @@ type CapabilitiesExternalRegistry interface {
 	RelayID() types.RelayID
 }
 
+type EngineExecutionRateLimit interface {
+	GlobalRPS() float64
+	GlobalBurst() int
+	PerSenderRPS() float64
+	PerSenderBurst() int
+}
+
 type CapabilitiesWorkflowRegistry interface {
 	Address() string
 	NetworkID() string
@@ -38,6 +45,7 @@ type ConnectorGateway interface {
 }
 
 type Capabilities interface {
+	RateLimit() EngineExecutionRateLimit
 	Peering() P2P
 	Dispatcher() Dispatcher
 	ExternalRegistry() CapabilitiesExternalRegistry
