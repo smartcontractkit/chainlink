@@ -9,8 +9,6 @@ import {MockLockReleaseTokenPool} from "./mocks/MockTokenPool.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-// FOUNDRY_PROFILE=liquiditymanager forge test --match-path src/v0.8/liquiditymanager/test/LiquidityManager.t.sol
-
 contract LiquidityManagerSetup is LiquidityManagerBaseTest {
   error NonceAlreadyUsed(uint256 nonce);
 

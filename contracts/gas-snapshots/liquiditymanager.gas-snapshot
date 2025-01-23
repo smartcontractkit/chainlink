@@ -4,7 +4,7 @@ LiquidityManager_rebalanceLiquidity:test_rebalanceLiquidity_BetweenPools() (gas:
 LiquidityManager_rebalanceLiquidity:test_rebalanceLiquidity_BetweenPools_AlreadyFinalized() (gas: 5843918)
 LiquidityManager_rebalanceLiquidity:test_rebalanceLiquidity_NativeRewrap() (gas: 5766947)
 LiquidityManager_rebalanceLiquidity:test_rebalanceLiquidity_RebalanceBetweenPoolsMultiStageFinalization() (gas: 5839103)
-LiquidityManager_receive:test_receive() (gas: 25294)
+LiquidityManager_receive:test_receive() (gas: 24490)
 LiquidityManager_removeLiquidity:test_removeLiquiditySuccess() (gas: 237114)
 LiquidityManager_setCrossChainRebalancer:test_setCrossChainRebalancer() (gas: 162164)
 LiquidityManager_setFinanceRole:test_setFinanceRole() (gas: 21792)
