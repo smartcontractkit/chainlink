@@ -18,3 +18,12 @@ To be ran from the (`./contracts`) directory.
 
 2. Follow the prompts to describe your changes
 3. Commit the generated changeset file
+
+## CCIP Contracts Release
+
+To be ran from the (`./contracts`) directory. Copy files over from `./contracts/release/ccip`/ to `./contracts/`.
+
+```shell
+# To undo the copy, run `git checkout -- package.json README.md`
+pnpm copy:ccip-files
+```
