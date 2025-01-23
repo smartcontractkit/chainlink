@@ -72,7 +72,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 
 		ooe, exist := m["allowOutOfOrderExecution"]
 		require.True(t, exist)
-		require.Equal(t, ooe, true)
+		require.Equal(t, true, ooe)
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
