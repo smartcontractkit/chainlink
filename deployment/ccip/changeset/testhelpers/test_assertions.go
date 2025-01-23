@@ -187,7 +187,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 
 			return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRange(
 				t,
-				e.Chains[srcChain],
+				srcChain,
 				e.Chains[dstChain],
 				state.Chains[dstChain].OffRamp,
 				startBlock,
@@ -273,7 +273,7 @@ func ConfirmMultipleCommits(
 		errGrp.Go(func() error {
 			_, err := ConfirmCommitWithExpectedSeqNumRange(
 				t,
-				chains[srcChain],
+				srcChain,
 				chains[destChain],
 				state[destChain].OffRamp,
 				startBlocks[destChain],
@@ -292,7 +292,7 @@ func ConfirmMultipleCommits(
 // If startBlock is nil, it will start watching from the latest block.
 func ConfirmCommitWithExpectedSeqNumRange(
 	t *testing.T,
-	src deployment.Chain,
+	srcSelector uint64,
 	dest deployment.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
@@ -308,7 +308,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		return nil, fmt.Errorf("error to subscribe CommitReportAccepted : %w", err)
 	}
 
-	seenMessages := NewCommitReportTracker(src.Selector, expectedSeqNumRange)
+	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
 		if len(report.MerkleRoots) > 0 {
@@ -316,18 +316,18 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			// the expected range.
 			for _, mr := range report.MerkleRoots {
 				t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, src.Selector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 
-				seenMessages.visitCommitReport(src.Selector, mr.MinSeqNr, mr.MaxSeqNr)
+				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
-				if mr.SourceChainSelector == src.Selector &&
+				if mr.SourceChainSelector == srcSelector &&
 					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
 					t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 					return true
 				}
 
-				if !enforceSingleCommit && seenMessages.allCommited(src.Selector) {
+				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
 					t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 					return true
 				}
@@ -353,7 +353,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 		select {
 		case <-ticker.C:
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, src.Selector, expectedSeqNumRange.String())
+				dest.Selector, srcSelector, expectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
@@ -371,7 +371,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			return nil, fmt.Errorf("subscription error: %w", subErr)
 		case <-timer.C:
 			return nil, fmt.Errorf("timed out after waiting %s duration for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				duration.String(), dest.Selector, src.Selector, expectedSeqNumRange.String())
+				duration.String(), dest.Selector, srcSelector, expectedSeqNumRange.String())
 		case report := <-sink:
 			verified := verifyCommitReport(report)
 			if verified {
@@ -412,7 +412,7 @@ func ConfirmExecWithSeqNrsForAll(
 		wg.Go(func() error {
 			innerExecutionStates, err := ConfirmExecWithSeqNrs(
 				t,
-				e.Chains[srcChain],
+				srcChain,
 				e.Chains[dstChain],
 				state.Chains[dstChain].OffRamp,
 				startBlock,
@@ -440,7 +440,8 @@ func ConfirmExecWithSeqNrsForAll(
 // Returns a map that maps the expected sequence number to its execution state.
 func ConfirmExecWithSeqNrs(
 	t *testing.T,
-	source, dest deployment.Chain,
+	sourceSelector uint64,
+	dest deployment.Chain,
 	offRamp offramp.OffRampInterface,
 	startBlock *uint64,
 	expectedSeqNrs []uint64,
@@ -474,12 +475,12 @@ func ConfirmExecWithSeqNrs(
 		select {
 		case <-tick.C:
 			for expectedSeqNr := range seqNrsToWatch {
-				scc, executionState := getExecutionState(t, source, dest, offRamp, expectedSeqNr)
+				scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
 				t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-					dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+					dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 				if executionState == EXECUTION_STATE_SUCCESS || executionState == EXECUTION_STATE_FAILURE {
 					t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+						executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 					executionStates[expectedSeqNr] = int(executionState)
 					delete(seqNrsToWatch, expectedSeqNr)
 					if len(seqNrsToWatch) == 0 {
@@ -490,13 +491,13 @@ func ConfirmExecWithSeqNrs(
 		case execEvent := <-sink:
 			t.Logf("Received ExecutionStateChanged (state %s) for seqNum %d on chain %d (offramp %s) from chain %d",
 				executionStateToString(execEvent.State), execEvent.SequenceNumber, dest.Selector, offRamp.Address().String(),
-				source.Selector,
+				sourceSelector,
 			)
 
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
-			if found && execEvent.SourceChainSelector == source.Selector {
+			if found && execEvent.SourceChainSelector == sourceSelector {
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), source.Selector, execEvent.SequenceNumber)
+					executionStateToString(execEvent.State), dest.Selector, offRamp.Address().String(), sourceSelector, execEvent.SequenceNumber)
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
@@ -505,7 +506,7 @@ func ConfirmExecWithSeqNrs(
 			}
 		case <-timer.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNrs)
+				dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNrs)
 		case subErr := <-subscription.Err():
 			return nil, fmt.Errorf("subscription error: %w", subErr)
 		}
@@ -514,28 +515,29 @@ func ConfirmExecWithSeqNrs(
 
 func ConfirmNoExecConsistentlyWithSeqNr(
 	t *testing.T,
-	source, dest deployment.Chain,
+	sourceSelector uint64,
+	dest deployment.Chain,
 	offRamp offramp.OffRampInterface,
 	expectedSeqNr uint64,
 	timeout time.Duration,
 ) {
 	RequireConsistently(t, func() bool {
-		scc, executionState := getExecutionState(t, source, dest, offRamp, expectedSeqNr)
+		scc, executionState := getExecutionState(t, sourceSelector, offRamp, expectedSeqNr)
 		t.Logf("Waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence number %d, current onchain minSeqNr: %d, execution state: %s",
-			dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
+			dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr, scc.MinSeqNr, executionStateToString(executionState))
 		if executionState == EXECUTION_STATE_UNTOUCHED {
 			return true
 		}
 		t.Logf("Observed %s execution state on chain %d (offramp %s) from chain %d with expected sequence number %d",
-			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+			executionStateToString(executionState), dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 		return false
-	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), source.Selector, expectedSeqNr)
+	}, timeout, 3*time.Second, "Expected no execution state change on chain %d (offramp %s) from chain %d with expected sequence number %d", dest.Selector, offRamp.Address().String(), sourceSelector, expectedSeqNr)
 }
 
-func getExecutionState(t *testing.T, source, dest deployment.Chain, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
-	scc, err := offRamp.GetSourceChainConfig(nil, source.Selector)
+func getExecutionState(t *testing.T, sourceSelector uint64, offRamp offramp.OffRampInterface, expectedSeqNr uint64) (offramp.OffRampSourceChainConfig, uint8) {
+	scc, err := offRamp.GetSourceChainConfig(nil, sourceSelector)
 	require.NoError(t, err)
-	executionState, err := offRamp.GetExecutionState(nil, source.Selector, expectedSeqNr)
+	executionState, err := offRamp.GetExecutionState(nil, sourceSelector, expectedSeqNr)
 	require.NoError(t, err)
 	return scc, executionState
 }
