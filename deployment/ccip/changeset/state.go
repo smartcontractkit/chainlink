@@ -10,9 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc677"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
@@ -40,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -78,13 +80,16 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter          deployment.ContractType = "TestRouter"
-	Multicall3          deployment.ContractType = "Multicall3"
-	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	TestRouter             deployment.ContractType = "TestRouter"
+	Multicall3             deployment.ContractType = "Multicall3"
+	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
+	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
+	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
 	BurnMintToken      deployment.ContractType = "BurnMintToken"
+	ERC20Token         deployment.ContractType = "ERC20Token"
+	ERC677Token        deployment.ContractType = "ERC677Token"
 	BurnMintTokenPool  deployment.ContractType = "BurnMintTokenPool"
 	USDCToken          deployment.ContractType = "USDCToken"
 	USDCTokenMessenger deployment.ContractType = "USDCTokenMessenger"
@@ -97,8 +102,8 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
+	OnRamp             onramp.OnRampInterface
+	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
@@ -109,8 +114,8 @@ type CCIPChainState struct {
 	RMNRemote          *rmn_remote.RMNRemote
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
 	// and the respective token contract
-	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
-	// Not all tokens will be burn and mint tokens.
+	ERC20Tokens        map[TokenSymbol]*erc20.ERC20
+	ERC677Tokens       map[TokenSymbol]*erc677.ERC677
 	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
 	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
@@ -123,7 +128,8 @@ type CCIPChainState struct {
 	RMNHome            *rmn_home.RMNHome
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
+	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
@@ -137,6 +143,16 @@ type CCIPChainState struct {
 	MockRMN        *mock_rmn_contract.MockRMNContract
 	PriceRegistry  *price_registry_1_2_0.PriceRegistry
 	RMN            *rmn_contract.RMNContract
+}
+
+func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
+	if c.LinkToken != nil {
+		return c.LinkToken.Address(), nil
+	}
+	if c.StaticLinkToken != nil {
+		return c.StaticLinkToken.Address(), nil
+	}
+	return common.Address{}, errors.New("no link token found in the state")
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -312,6 +328,16 @@ type CCIPOnChainState struct {
 	SolChains map[uint64]SolCCIPChainState
 }
 
+func (s CCIPOnChainState) Validate() error {
+	for sel, chain := range s.Chains {
+		// cannot have static link and link together
+		if chain.LinkToken != nil && chain.StaticLinkToken != nil {
+			return fmt.Errorf("cannot have both link and static link token on the same chain %d", sel)
+		}
+	}
+	return nil
+}
+
 func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint64]*gethwrappers.ManyChainMultiSig, error) {
 	multiSigs := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	for _, chain := range chains {
@@ -394,7 +420,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 		}
 		state.Chains[chainSelector] = chainState
 	}
-	return state, nil
+	return state, state.Validate()
 }
 
 // LoadChainState Loads all state for a chain into state
@@ -543,6 +569,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LogMessageDataReceiver = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -561,7 +593,7 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			if err != nil {
 				return state, err
 			}
-			key, ok := MockDescriptionToTokenSymbol[desc]
+			key, ok := DescriptionToTokenSymbol[desc]
 			if !ok {
 				return state, fmt.Errorf("unknown feed description %s", desc)
 			}
@@ -600,6 +632,32 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
 			}
 			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
+		case deployment.NewTypeAndVersion(ERC20Token, deployment.Version1_0_0).String():
+			tok, err := erc20.NewERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.ERC20Tokens == nil {
+				state.ERC20Tokens = make(map[TokenSymbol]*erc20.ERC20)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.ERC20Tokens[TokenSymbol(symbol)] = tok
+		case deployment.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
+			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.ERC677Tokens == nil {
+				state.ERC677Tokens = make(map[TokenSymbol]*erc677.ERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.ERC677Tokens[TokenSymbol(symbol)] = tok
 		// legacy addresses below
 		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
 			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)

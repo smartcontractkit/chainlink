@@ -428,6 +428,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     for (uint256 i = 0; i < numMsgs; ++i) {
       uint256 gasStart = gasleft();
       Internal.Any2EVMRampMessage memory message = report.messages[i];
+      message = _beforeExecuteSingleMessage(message);
 
       Internal.MessageExecutionState originalState =
         getExecutionState(sourceChainSelector, message.header.sequenceNumber);
@@ -548,8 +549,9 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
         if (
           CallWithExactGas.NOT_ENOUGH_GAS_FOR_CALL_SIG == bytes4(err)
             || CallWithExactGas.NO_GAS_FOR_CALL_EXACT_CHECK_SIG == bytes4(err)
+            || ERC165CheckerReverting.InsufficientGasForStaticCall.selector == bytes4(err)
         ) {
-          revert InsufficientGasForCallWithExact();
+          revert InsufficientGasToCompleteTx(bytes4(err));
         }
       }
       // return the message execution state as FAILURE and the revert data.
@@ -558,6 +560,15 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     }
     // If message execution succeeded, no CCIP receiver return data is expected, return with empty bytes.
     return (Internal.MessageExecutionState.SUCCESS, "");
+  }
+
+  /// @notice hook for applying custom logic to the input message before executeSingleMessage()
+  /// @param message initial message
+  /// @return transformedMessage modified message
+  function _beforeExecuteSingleMessage(
+    Internal.Any2EVMRampMessage memory message
+  ) internal virtual returns (Internal.Any2EVMRampMessage memory transformedMessage) {
+    return message;
   }
 
   /// @notice Executes a single message.
@@ -573,6 +584,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
     uint32[] calldata tokenGasOverrides
   ) external {
     if (msg.sender != address(this)) revert CanOnlySelfCall();
+
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(

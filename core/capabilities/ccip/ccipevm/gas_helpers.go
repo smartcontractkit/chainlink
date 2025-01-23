@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/pkg/errors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 const (
 	EvmAddressLengthBytes           = 20
 	EvmWordBytes                    = 32
-	CalldataGasPerByte              = 16
+	CalldataGasPerByteBase          = 16
+	CalldataGasPerByteHigh          = 40
+	CalldataGasPerByteThreshold     = 3000
 	TokenAdminRegistryWarmupCost    = 2_500
 	TokenAdminRegistryPoolLookupGas = 100 + // WARM_ACCESS_COST TokenAdminRegistry
 		700 + // CALL cost for TokenAdminRegistry
@@ -44,7 +48,7 @@ func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 		return 0
 	}
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numRequests))))*32 + (1+2)*32 // only ever one outer root hash
-	return uint64(merkleProofBytes * CalldataGasPerByte)
+	return uint64(merkleProofBytes * CalldataGasPerByteBase)
 }
 
 // return the size of bytes for msg tokens
@@ -86,7 +90,11 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		bytesForMsgTokens(numTokens) +
 		dataLength
 
-	messageCallDataGas := uint64(messageBytes * CalldataGasPerByte)
+	if messageBytes < 0 {
+		return 0, errors.New("message bytes cannot be negative")
+	}
+
+	messageCallDataGas := uint64(messageBytes) * CalldataGasPerByteBase
 
 	// Rate limiter only limits value in tokens. It's not called if there are no
 	// tokens in the message. The same goes for the admin registry, it's only loaded

@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )

@@ -28,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	commonht "github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commonht "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"

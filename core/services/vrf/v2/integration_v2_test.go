@@ -33,8 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -141,7 +141,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil, nil, nil)
 
 	return txm
 }

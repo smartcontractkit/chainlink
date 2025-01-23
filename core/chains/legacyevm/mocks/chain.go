@@ -16,7 +16,7 @@ import (
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
-	headtracker "github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	headtracker "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 
@@ -28,7 +28,7 @@ import (
 
 	monitor "github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 
-	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
 )

@@ -9,8 +9,3 @@ NoNewHeadsThreshold = "3m"
 # Ronin uses default gas price of 20 gwei https://docs.skymavis.com/mavis/mpc/guides/estimate-gas#overview
 Mode = 'FeeHistory'
 PriceMax = "1000 gwei"
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false

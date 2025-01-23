@@ -13,12 +13,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -73,17 +73,17 @@ func TestLoader_Chains(t *testing.T) {
 	assert.Len(t, results, 3)
 
 	require.NoError(t, err)
-	want2 := types.ChainStatusWithID{
+	want2 := chainlink.NetworkChainStatus{
 		ChainStatus: commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2},
-		RelayID:     commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "2"},
+		Network:     relay.NetworkEVM,
 	}
-	assert.Equal(t, want2, results[0].Data.(types.ChainStatusWithID))
+	assert.Equal(t, want2, results[0].Data.(chainlink.NetworkChainStatus))
 
-	want1 := types.ChainStatusWithID{
+	want1 := chainlink.NetworkChainStatus{
 		ChainStatus: commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1},
-		RelayID:     commontypes.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
+		Network:     relay.NetworkEVM,
 	}
-	assert.Equal(t, want1, results[1].Data.(types.ChainStatusWithID))
+	assert.Equal(t, want1, results[1].Data.(chainlink.NetworkChainStatus))
 	assert.Nil(t, results[2].Data)
 	assert.Error(t, results[2].Error)
 	assert.ErrorIs(t, results[2].Error, chains.ErrNotFound)
@@ -148,15 +148,15 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, types.ChainStatusWithID{
+	assert.Equal(t, chainlink.NetworkChainStatus{
 		ChainStatus: commontypes.ChainStatus{ID: "2", Enabled: true, Config: config2},
-		RelayID:     evm2,
-	}, results[0].Data.(types.ChainStatusWithID))
+		Network:     evm2.Network,
+	}, results[0].Data.(chainlink.NetworkChainStatus))
 
-	assert.Equal(t, types.ChainStatusWithID{
+	assert.Equal(t, chainlink.NetworkChainStatus{
 		ChainStatus: commontypes.ChainStatus{ID: "1", Enabled: true, Config: config1},
-		RelayID:     evm1,
-	}, results[1].Data.(types.ChainStatusWithID))
+		Network:     evm1.Network,
+	}, results[1].Data.(chainlink.NetworkChainStatus))
 	assert.Nil(t, results[2].Data)
 	require.Error(t, results[2].Error)
 	require.ErrorIs(t, results[2].Error, chains.ErrNotFound)

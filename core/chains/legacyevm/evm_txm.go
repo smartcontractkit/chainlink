@@ -40,6 +40,24 @@ func newEvmTxm(
 	)
 
 	if opts.GenTxManager == nil {
+		var txmv2 txmgr.TxManager
+		if cfg.Transactions().TransactionManagerV2().Enabled() {
+			txmv2, err = txmgr.NewTxmV2(
+				ds,
+				cfg,
+				txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
+				cfg.Transactions(),
+				cfg.Transactions().TransactionManagerV2(),
+				client,
+				lggr,
+				logPoller,
+				opts.KeyStore,
+				estimator,
+			)
+			if cfg.Transactions().TransactionManagerV2().DualBroadcast() != nil && *cfg.Transactions().TransactionManagerV2().DualBroadcast() {
+				return txmv2, err
+			}
+		}
 		txm, err = txmgr.NewTxm(
 			ds,
 			cfg,
@@ -53,7 +71,8 @@ func newEvmTxm(
 			logPoller,
 			opts.KeyStore,
 			estimator,
-			headTracker)
+			headTracker,
+			txmv2)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}

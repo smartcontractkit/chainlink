@@ -128,6 +128,47 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
     );
   }
 
+  function test_processMessageArgs_WithSVMExtraArgsV1() public {
+    // Apply the chain update to set the chain family selector to SOL
+    FeeQuoter.DestChainConfig memory s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+    s_destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
+    destChainConfigs[0] =
+      FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_destChainConfig});
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
+
+    bytes memory extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({
+        computeUnits: 0,
+        accountIsWritableBitmap: 0,
+        tokenReceiver: bytes32(0),
+        allowOutOfOrderExecution: true,
+        accounts: new bytes32[](0)
+      })
+    );
+
+    (
+      /* uint256 msgFeeJuels */
+      ,
+      bool isOutOfOrderExecution,
+      bytes memory convertedExtraArgs,
+      /* destExecDataPerToken */
+    ) = s_feeQuoter.processMessageArgs(
+      DEST_CHAIN_SELECTOR,
+      s_sourceTokens[0],
+      0,
+      extraArgs,
+      new Internal.EVM2AnyTokenTransfer[](0),
+      new Client.EVMTokenAmount[](0)
+    );
+
+    assertTrue(isOutOfOrderExecution);
+    assertEq(
+      convertedExtraArgs, Client._svmArgsToBytes(s_feeQuoter.parseSVMExtraArgsFromBytes(extraArgs, s_destChainConfig))
+    );
+  }
+
   // Reverts
 
   function test_RevertWhen_processMessageArgs_MessageFeeTooHigh() public {

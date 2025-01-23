@@ -43,7 +43,7 @@ func TestSaveExisting(t *testing.T) {
 		},
 	}
 
-	output, err := SaveExistingContracts(dummyEnv, ExistingContracts)
+	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()

@@ -27,6 +27,7 @@ var (
 var (
 	MedianPlugin   = NewPlugin("median")
 	MercuryPlugin  = NewPlugin("mercury")
+	CosmosPlugin   = NewPlugin("cosmos")
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
 	TronPlugin     = NewPlugin("tron")
