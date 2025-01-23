@@ -30,9 +30,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
 
-	var message ccip_router.Any2SolanaRampMessage
-	var offchainTokenData [][]byte
 	chainReport := report.ChainReports[0]
+	if len(chainReport.Messages) > 1 {
+		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
+	}
+
+	var message ccip_router.Any2SolanaRampMessage
+	var offChainTokenData [][]byte
 	if len(chainReport.Messages) > 0 {
 		// currently only allow executing one message at a time
 		msg := chainReport.Messages[0]
@@ -100,7 +104,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 		// should only have an offchain token data if there are tokens as part of the message
 		if len(chainReport.OffchainTokenData) > 0 {
-			offchainTokenData = chainReport.OffchainTokenData[0]
+			offChainTokenData = chainReport.OffchainTokenData[0]
 		}
 	}
 
@@ -112,7 +116,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 	solanaReport := ccip_router.ExecutionReportSingleChain{
 		SourceChainSelector: uint64(chainReport.SourceChainSelector),
 		Message:             message,
-		OffchainTokenData:   offchainTokenData,
+		OffchainTokenData:   offChainTokenData,
 		Proofs:              solanaProofs,
 	}
 
