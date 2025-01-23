@@ -3,6 +3,8 @@ package memory
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -29,6 +31,20 @@ import (
 const (
 	Memory = "memory"
 )
+
+var (
+	// Instead of a relative path, use runtime.Caller or go-bindata
+	ProgramsPath = GetProgramsPath()
+)
+
+func GetProgramsPath() string {
+	// Get the directory of the current file (environment.go)
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Go up to the root of the deployment package
+	rootDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+	// Construct the absolute path
+	return filepath.Join(rootDir, "ccip/changeset/internal", "solana_contracts")
+}
 
 type MemoryEnvironmentConfig struct {
 	Chains             int
@@ -126,9 +142,13 @@ func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uin
 	for cid, chain := range inputs {
 		chain := chain
 		chains[cid] = deployment.SolChain{
-			Selector:    cid,
-			Client:      chain.Client,
-			DeployerKey: &chain.DeployerKey,
+			Selector:     cid,
+			Client:       chain.Client,
+			DeployerKey:  &chain.DeployerKey,
+			URL:          chain.URL,
+			WSURL:        chain.WSURL,
+			KeypairPath:  chain.KeypairPath,
+			ProgramsPath: ProgramsPath,
 			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
 				_, err := solCommomUtil.SendAndConfirm(
 					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
