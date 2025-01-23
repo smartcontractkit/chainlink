@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Move TxMessage proto files to chainlink-protos.
+#updated move TxMessage proto files to chainlink-protos.
