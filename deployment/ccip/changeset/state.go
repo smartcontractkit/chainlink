@@ -373,6 +373,9 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range s.Chains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range s.SolChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 
@@ -401,8 +404,13 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+	solState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return CCIPOnChainState{}, err
+	}
 	state := CCIPOnChainState{
-		Chains: make(map[uint64]CCIPChainState),
+		Chains:    make(map[uint64]CCIPChainState),
+		SolChains: solState.SolChains,
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)

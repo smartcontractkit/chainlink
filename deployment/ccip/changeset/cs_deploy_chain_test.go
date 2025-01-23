@@ -24,10 +24,16 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
+		SolChains:  1,
 		Nodes:      4,
 	})
-	selectors := e.AllChainSelectors()
-	homeChainSel := selectors[0]
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := e.AllChainSelectorsSolana()
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
+	selectors = append(selectors, evmSelectors...)
+	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -35,6 +41,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -91,7 +103,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	for _, sel := range selectors {
+	for _, sel := range evmSelectors {
 		require.NotNil(t, state.Chains[sel].LinkToken)
 		require.NotNil(t, state.Chains[sel].Weth9)
 		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
@@ -104,6 +116,14 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
+
+	solState, err := changeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for _, sel := range solChainSelectors {
+		require.NotNil(t, solState.SolChains[sel].LinkToken)
+		require.NotNil(t, solState.SolChains[sel].SolCcipRouter)
+	}
+
 }
 
 func TestDeployCCIPContracts(t *testing.T) {

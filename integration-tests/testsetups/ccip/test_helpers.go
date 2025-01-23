@@ -656,8 +656,16 @@ func CreateChainConfigFromNetworks(
 			ChainID:   chainId,
 			ChainName: chainName,
 			ChainType: "EVM",
-			WSRPCs:    cd.wsRPCs,
-			HTTPRPCs:  cd.httpRPCs,
+			WSRPCs: []devenv.CribRPCs{
+				{
+					External: cd.wsRPCs[0],
+				},
+			},
+			HTTPRPCs: []devenv.CribRPCs{
+				{
+					Internal: cd.httpRPCs[0],
+				},
+			},
 		}
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key

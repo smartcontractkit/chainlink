@@ -3,8 +3,8 @@ package changeset
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -145,131 +145,244 @@ func deployHomeChain(
 	}
 
 	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
-	ccipHome, err := deployment.DeployContract(
-		lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
-			ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
-				chain.DeployerKey,
-				chain.Client,
-				capReg.Address,
-			)
-			return deployment.ContractDeploy[*ccip_home.CCIPHome]{
-				Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
-			}
-		})
-	if err != nil {
-		lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
-		return nil, err
+	var ccipHomeAddr common.Address
+	if state.Chains[chain.Selector].CCIPHome != nil {
+		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
+		ccipHomeAddr = state.Chains[chain.Selector].CCIPHome.Address()
+	} else {
+		ccipHome, err := deployment.DeployContract(
+			lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*ccip_home.CCIPHome] {
+				ccAddr, tx, cc, err2 := ccip_home.DeployCCIPHome(
+					chain.DeployerKey,
+					chain.Client,
+					capReg.Address,
+				)
+				return deployment.ContractDeploy[*ccip_home.CCIPHome]{
+					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+				}
+			})
+		if err != nil {
+			lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		ccipHomeAddr = ccipHome.Address
 	}
-
-	rmnHome, err := deployment.DeployContract(
-		lggr, chain, ab,
-		func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
-			rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
-				chain.DeployerKey,
-				chain.Client,
-			)
-			return deployment.ContractDeploy[*rmn_home.RMNHome]{
-				Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
-			}
-		},
-	)
-	if err != nil {
-		lggr.Errorw("Failed to deploy RMNHome", "chain", chain.String(), "err", err)
-		return nil, err
+	rmnHome := state.Chains[chain.Selector].RMNHome
+	if state.Chains[chain.Selector].RMNHome != nil {
+		lggr.Infow("RMNHome already deployed", "addr", state.Chains[chain.Selector].RMNHome.Address().String())
+	} else {
+		rmnHomeContract, err := deployment.DeployContract(
+			lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_home.RMNHome] {
+				rmnAddr, tx, rmn, err2 := rmn_home.DeployRMNHome(
+					chain.DeployerKey,
+					chain.Client,
+				)
+				return deployment.ContractDeploy[*rmn_home.RMNHome]{
+					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
+				}
+			},
+		)
+		if err != nil {
+			lggr.Errorw("Failed to deploy RMNHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		rmnHome = rmnHomeContract.Contract
 	}
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
-	tx, err := rmnHome.Contract.SetCandidate(chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, [32]byte{})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
-		return nil, err
-	}
-
-	rmnCandidateDigest, err := rmnHome.Contract.GetCandidateDigest(nil)
+	configs, err := rmnHome.GetAllConfigs(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.String(), "err", err)
 		return nil, err
 	}
+	setCandidate := false
+	promoteCandidate := false
 
-	tx, err = rmnHome.Contract.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
-		return nil, err
+	// check if the candidate is already set and equal to static and dynamic configs
+	if isRMNDynamicConfigEqual(rmnHomeDynamic, configs.CandidateConfig.DynamicConfig) &&
+		isRMNStaticConfigEqual(rmnHomeStatic, configs.CandidateConfig.StaticConfig) {
+		lggr.Infow("RMNHome candidate is already set and equal to given static and dynamic configs,skip setting candidate")
+	} else {
+		setCandidate = true
+	}
+	// check the active config is equal to the static and dynamic configs
+	if isRMNDynamicConfigEqual(rmnHomeDynamic, configs.ActiveConfig.DynamicConfig) &&
+		isRMNStaticConfigEqual(rmnHomeStatic, configs.ActiveConfig.StaticConfig) {
+		lggr.Infow("RMNHome active is already set and equal to given static and dynamic configs," +
+			"skip setting and promoting candidate")
+		setCandidate = false
+		promoteCandidate = false
+	} else {
+		promoteCandidate = true
 	}
 
-	rmnActiveDigest, err := rmnHome.Contract.GetActiveDigest(nil)
+	if setCandidate {
+		tx, err := rmnHome.SetCandidate(
+			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest)
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+			lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
+			return nil, err
+		}
+		lggr.Infow("Set candidate on RMNHome", "chain", chain.String())
+	}
+	if promoteCandidate {
+		rmnCandidateDigest, err := rmnHome.GetCandidateDigest(nil)
+		if err != nil {
+			lggr.Errorw("Failed to get RMNHome candidate digest", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+
+		tx, err := rmnHome.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+			lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+
+		rmnActiveDigest, err := rmnHome.GetActiveDigest(nil)
+		if err != nil {
+			lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
+
+		if rmnActiveDigest != rmnCandidateDigest {
+			lggr.Errorw("RMNHome active digest does not match previously candidate digest",
+				"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
+			return nil, errors.New("RMNHome active digest does not match candidate digest")
+		}
+		lggr.Infow("Promoted candidate and revoked active on RMNHome", "chain", chain.String())
+	}
+	// check if ccip capability exists in cap reg
+	capabilities, err := capReg.Contract.GetCapabilities(nil)
 	if err != nil {
-		lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.String(), "err", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to get capabilities: %w", err)
 	}
-	lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
-
-	if rmnActiveDigest != rmnCandidateDigest {
-		lggr.Errorw("RMNHome active digest does not match previously candidate digest",
-			"active", rmnActiveDigest, "candidate", rmnCandidateDigest)
-		return nil, errors.New("RMNHome active digest does not match candidate digest")
+	capabilityToAdd := capabilities_registry.CapabilitiesRegistryCapability{
+		LabelledName:          internal.CapabilityLabelledName,
+		Version:               internal.CapabilityVersion,
+		CapabilityType:        2, // consensus. not used (?)
+		ResponseType:          0, // report. not used (?)
+		ConfigurationContract: ccipHomeAddr,
+	}
+	addCapability := true
+	for _, cap := range capabilities {
+		if cap.LabelledName == capabilityToAdd.LabelledName && cap.Version == capabilityToAdd.Version {
+			lggr.Infow("Capability already exists, skipping adding capability",
+				"labelledName", cap.LabelledName, "version", cap.Version)
+			addCapability = false
+			break
+		}
+	}
+	// Add the capability to the CapabilitiesRegistry contract only if it does not exist
+	if addCapability {
+		tx, err := capReg.Contract.AddCapabilities(
+			chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
+				capabilityToAdd,
+			})
+		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+			lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		lggr.Infow("Added capability to CapabilitiesRegistry",
+			"labelledName", capabilityToAdd.LabelledName, "version", capabilityToAdd.Version)
 	}
 
-	tx, err = capReg.Contract.AddCapabilities(chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
-		{
-			LabelledName:          internal.CapabilityLabelledName,
-			Version:               internal.CapabilityVersion,
-			CapabilityType:        2, // consensus. not used (?)
-			ResponseType:          0, // report. not used (?)
-			ConfigurationContract: ccipHome.Address,
-		},
-	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
-		return nil, err
-	}
-
-	tx, err = capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
-	txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+	existingNodeOps, err := capReg.Contract.GetNodeOperators(nil)
 	if err != nil {
-		lggr.Errorw("Failed to add node operators", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
-		Start:   txBlockNum,
-		Context: context.Background(),
-	}, nil, nil)
-	if err != nil {
-		lggr.Errorw("Failed to filter NodeOperatorAdded event", "chain", chain.String(), "err", err)
-		return capReg, err
+	nodeOpsMap := make(map[string]capabilities_registry.CapabilitiesRegistryNodeOperator)
+	for _, nop := range nodeOps {
+		nodeOpsMap[nop.Admin.String()] = nop
+	}
+	for _, existingNop := range existingNodeOps {
+		if _, ok := nodeOpsMap[existingNop.Admin.String()]; ok {
+			lggr.Infow("Node operator already exists", "admin", existingNop.Admin.String())
+			delete(nodeOpsMap, existingNop.Admin.String())
+		}
+	}
+	nodeOpsToAdd := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0, len(nodeOpsMap))
+	for _, nop := range nodeOpsMap {
+		nodeOpsToAdd = append(nodeOpsToAdd, nop)
 	}
 	// Need to fetch nodeoperators ids to be able to add nodes for corresponding node operators
-	p2pIDsByNodeOpId := make(map[uint32][][32]byte)
-	for addedEvent.Next() {
-		for nopName, p2pId := range nodeP2PIDsPerNodeOpAdmin {
-			if addedEvent.Event.Name == nopName {
-				lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
-				p2pIDsByNodeOpId[addedEvent.Event.NodeOperatorId] = p2pId
+	p2pIDsByNodeOpID := make(map[uint32][][32]byte)
+	if len(nodeOpsToAdd) > 0 {
+		tx, err := capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
+		txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+		if err != nil {
+			lggr.Errorw("Failed to add node operators", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		addedEvent, err := capReg.Contract.FilterNodeOperatorAdded(&bind.FilterOpts{
+			Start:   txBlockNum,
+			Context: context.Background(),
+		}, nil, nil)
+		if err != nil {
+			lggr.Errorw("Failed to filter NodeOperatorAdded event", "chain", chain.String(), "err", err)
+			return capReg, err
+		}
+
+		for addedEvent.Next() {
+			for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
+				if addedEvent.Event.Name == nopName {
+					lggr.Infow("Added node operator", "admin", addedEvent.Event.Admin, "name", addedEvent.Event.Name)
+					p2pIDsByNodeOpID[addedEvent.Event.NodeOperatorId] = p2pID
+				}
+			}
+		}
+	} else {
+		lggr.Infow("No new node operators to add")
+		foundNopID := make(map[uint32]bool)
+		for nopName, p2pID := range nodeP2PIDsPerNodeOpAdmin {
+			// this is to find the node operator id for the given node operator name
+			// node operator start from id 1, starting from 1 to len(existingNodeOps)
+			totalNops := len(existingNodeOps)
+			if totalNops >= math.MaxUint32 {
+				return nil, errors.New("too many node operators")
+			}
+			for nopID := uint32(1); nopID <= uint32(totalNops); nopID++ {
+				// if we already found the node operator id, skip
+				if foundNopID[nopID] {
+					continue
+				}
+				nodeOp, err := capReg.Contract.GetNodeOperator(nil, nopID)
+				if err != nil {
+					return capReg, fmt.Errorf("failed to get node operator %d: %w", nopID, err)
+				}
+				if nodeOp.Name == nopName {
+					p2pIDsByNodeOpID[nopID] = p2pID
+					foundNopID[nopID] = true
+					break
+				}
 			}
 		}
 	}
-	if len(p2pIDsByNodeOpId) != len(nodeP2PIDsPerNodeOpAdmin) {
-		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpId), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
+	if len(p2pIDsByNodeOpID) != len(nodeP2PIDsPerNodeOpAdmin) {
+		lggr.Errorw("Failed to add all node operators", "added", maps.Keys(p2pIDsByNodeOpID), "expected", maps.Keys(nodeP2PIDsPerNodeOpAdmin), "chain", chain.String())
 		return capReg, errors.New("failed to add all node operators")
 	}
 	// Adds initial set of nodes to CR, who all have the CCIP capability
-	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpId); err != nil {
+	if err := addNodes(lggr, capReg.Contract, chain, p2pIDsByNodeOpID); err != nil {
 		return capReg, err
 	}
 	return capReg, nil
 }
 
-func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) (bool, error) {
-	aBytes, err := json.Marshal(a)
-	if err != nil {
-		return false, err
+func isEqualCapabilitiesRegistryNodeParams(a, b capabilities_registry.CapabilitiesRegistryNodeParams) bool {
+	if len(a.HashedCapabilityIds) != len(b.HashedCapabilityIds) {
+		return false
 	}
-	bBytes, err := json.Marshal(b)
-	if err != nil {
-		return false, err
+	for i := range a.HashedCapabilityIds {
+		if !bytes.Equal(a.HashedCapabilityIds[i][:], b.HashedCapabilityIds[i][:]) {
+			return false
+		}
 	}
-	return bytes.Equal(aBytes, bBytes), nil
+	return a.NodeOperatorId == b.NodeOperatorId &&
+		bytes.Equal(a.Signer[:], b.Signer[:]) &&
+		bytes.Equal(a.P2pId[:], b.P2pId[:]) &&
+		bytes.Equal(a.EncryptionPublicKey[:], b.EncryptionPublicKey[:])
 }
 
 func addNodes(
@@ -289,6 +402,7 @@ func addNodes(
 			NodeOperatorId:      node.NodeOperatorId,
 			Signer:              node.Signer,
 			P2pId:               node.P2pId,
+			EncryptionPublicKey: node.EncryptionPublicKey,
 			HashedCapabilityIds: node.HashedCapabilityIds,
 		}
 	}
@@ -306,7 +420,7 @@ func addNodes(
 				HashedCapabilityIds: [][32]byte{internal.CCIPCapabilityID},
 			}
 			if existing, ok := existingNodeParams[p2pID]; ok {
-				if isEqual, err := isEqualCapabilitiesRegistryNodeParams(existing, nodeParam); err != nil && isEqual {
+				if isEqualCapabilitiesRegistryNodeParams(existing, nodeParam) {
 					lggr.Infow("Node already exists", "p2pID", p2pID)
 					continue
 				}
@@ -321,7 +435,8 @@ func addNodes(
 	}
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
-		lggr.Errorw("Failed to add nodes", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
+		lggr.Errorw("Failed to add nodes", "chain", chain.String(),
+			"err", deployment.DecodedErrFromABIIfDataErr(err, capabilities_registry.CapabilitiesRegistryABI))
 		return err
 	}
 	_, err = chain.Confirm(tx)
