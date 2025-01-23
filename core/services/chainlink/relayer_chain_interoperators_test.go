@@ -13,14 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -400,14 +400,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						assert.Nil(t, cr.LegacyEVMChains())
 					}
 				}
-				if relayNetwork == relay.NetworkCosmos {
-					_, wantCosmos := tt.expectedRelayerNetworks[relay.NetworkCosmos]
-					if wantCosmos {
-						assert.Len(t, cr.LegacyCosmosChains().Slice(), expectedChainCnt)
-					} else {
-						assert.Nil(t, cr.LegacyCosmosChains())
-					}
-				}
 
 				nodesStats, cnt, err := interops.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
@@ -437,12 +429,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
 						assert.Equal(t, wantId.ChainID, c.ID().String())
-					}
-					if wantId.Network == relay.NetworkCosmos {
-						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID)
-						assert.NoError(t, err)
-						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID, c.ID())
 					}
 				}
 			}

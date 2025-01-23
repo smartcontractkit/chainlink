@@ -54,18 +54,18 @@ func (m *BHSTestGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 	_, err = vrfv2plus.RequestRandomness(
-		//the same consumer is used for all requests and in all subs
+		// the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
 		m.contracts.CoordinatorV2Plus,
 		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
-		//randomly pick a subID from pool of subIDs
+		// randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		billingType,
 		vrfv2PlusConfig,
 		m.logger,
 		seth_utils.AvailableSethKeyNum(m.sethClient),
 	)
-	//todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
+	// todo - might need to store randRequestBlockNumber and blockhash to verify that it was stored in BHS contract at the end of the test
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
@@ -102,22 +102,22 @@ func NewSingleHashGun(
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *SingleHashGun) Call(_ *wasp.Generator) *wasp.Response {
-	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
+	// todo - should work with multiple consumers and consumers having different keyhashes and wallets
 	vrfv2PlusConfig := m.testConfig.General
 	billingType, err := vrfv2plus.SelectBillingTypeWithDistribution(*vrfv2PlusConfig.SubscriptionBillingType, actions.RandBool)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
 	}
 
-	//randomly increase/decrease randomness request count per TX
+	// randomly increase/decrease randomness request count per TX
 	reqCount := deviateValue(*m.testConfig.General.RandomnessRequestCountPerRequest, *m.testConfig.General.RandomnessRequestCountPerRequestDeviation)
 	m.testConfig.General.RandomnessRequestCountPerRequest = &reqCount
 	_, _, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-		//the same consumer is used for all requests and in all subs
+		// the same consumer is used for all requests and in all subs
 		m.contracts.VRFV2PlusConsumer[0],
 		m.contracts.CoordinatorV2Plus,
 		&vrfcommon.VRFKeyData{KeyHash: m.keyHash},
-		//randomly pick a subID from pool of subIDs
+		// randomly pick a subID from pool of subIDs
 		m.subIDs[randInRange(0, len(m.subIDs)-1)],
 		billingType,
 		vrfv2PlusConfig,

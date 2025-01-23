@@ -157,11 +157,11 @@ func (v *pgDSLParser) nestedConfQuery(finalized bool, confs uint64) string {
 
 func (v *pgDSLParser) VisitEventByWordFilter(p *eventByWordFilter) {
 	if len(p.HashedValueComparers) > 0 {
-		wordIdx := v.args.withIndexedField("word_index", p.WordIndex)
+		columnName := fmt.Sprintf("substring(data from 32*%d+1 for 32)", p.WordIndex)
 
 		comps := make([]string, len(p.HashedValueComparers))
 		for idx, comp := range p.HashedValueComparers {
-			comps[idx], v.err = makeComp(comp, v.args, "word_value", wordIdx, "substring(data from 32*:%s+1 for 32) %s :%s")
+			comps[idx], v.err = v.hashedValueCmpToCondition(comp, columnName, "word_value")
 			if v.err != nil {
 				return
 			}
@@ -170,28 +170,29 @@ func (v *pgDSLParser) VisitEventByWordFilter(p *eventByWordFilter) {
 		v.expression = strings.Join(comps, " AND ")
 	}
 }
-
 func (v *pgDSLParser) VisitEventTopicsByValueFilter(p *eventByTopicFilter) {
-	if len(p.ValueComparers) > 0 {
-		if !(p.Topic == 1 || p.Topic == 2 || p.Topic == 3) {
-			v.err = fmt.Errorf("invalid index for topic: %d", p.Topic)
+	if len(p.ValueComparers) == 0 {
+		return
+	}
 
+	if !(p.Topic == 1 || p.Topic == 2 || p.Topic == 3) {
+		v.err = fmt.Errorf("invalid index for topic: %d", p.Topic)
+
+		return
+	}
+
+	// Add 1 since postgresql arrays are 1-indexed.
+	columnName := fmt.Sprintf("topics[%d]", p.Topic+1)
+
+	comps := make([]string, len(p.ValueComparers))
+	for idx, comp := range p.ValueComparers {
+		comps[idx], v.err = v.hashedValueCmpToCondition(comp, columnName, "topic_value")
+		if v.err != nil {
 			return
 		}
-
-		// Add 1 since postgresql arrays are 1-indexed.
-		topicIdx := v.args.withIndexedField("topic_index", p.Topic+1)
-
-		comps := make([]string, len(p.ValueComparers))
-		for idx, comp := range p.ValueComparers {
-			comps[idx], v.err = makeComp(comp, v.args, "topic_value", topicIdx, "topics[:%s] %s :%s")
-			if v.err != nil {
-				return
-			}
-		}
-
-		v.expression = strings.Join(comps, " AND ")
 	}
+
+	v.expression = strings.Join(comps, " AND ")
 }
 
 func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
@@ -204,18 +205,18 @@ func (v *pgDSLParser) VisitConfirmationsFilter(p *confirmationsFilter) {
 	}
 }
 
-func makeComp(comp HashedValueComparator, args *queryArgs, field, subfield, pattern string) (string, error) {
+func (v *pgDSLParser) hashedValueCmpToCondition(comp HashedValueComparator, column, fieldName string) (string, error) {
 	cmp, err := cmpOpToString(comp.Operator)
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf(
-		pattern,
-		subfield,
-		cmp,
-		args.withIndexedField(field, comp.Value),
-	), nil
+	// simplify query for Postgres as in some cases, it's not that smart
+	if len(comp.Values) == 1 {
+		return fmt.Sprintf("%s %s :%s", column, cmp, v.args.withIndexedField(fieldName, comp.Values[0])), nil
+	}
+
+	return fmt.Sprintf("%s %s ANY(:%s)", column, cmp, v.args.withIndexedField(fieldName, comp.Values)), nil
 }
 
 func (v *pgDSLParser) buildQuery(chainID *big.Int, expressions []query.Expression, limiter query.LimitAndSort) (string, *queryArgs, error) {
@@ -504,7 +505,7 @@ func (f *eventSigFilter) Accept(visitor primitives.Visitor) {
 }
 
 type HashedValueComparator struct {
-	Value    common.Hash
+	Values   []common.Hash
 	Operator primitives.ComparisonOperator
 }
 

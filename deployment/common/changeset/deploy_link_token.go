@@ -2,7 +2,6 @@ package changeset
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -25,12 +24,10 @@ const (
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
-	for _, chain := range chains {
-		_, evmOk := e.Chains[chain]
-		_, solOk := e.SolChains[chain]
-		if !evmOk && !solOk {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", chain)
-		}
+
+	err := deployment.ValidateSelectorsInEnvironment(e, chains)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	for _, chain := range chains {

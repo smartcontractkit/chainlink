@@ -239,6 +239,8 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
     }
 
+    newMessage = _postProcessMessage(newMessage);
+
     // Hash only after all fields have been set.
     newMessage.header.messageId = Internal._hash(
       newMessage,
@@ -255,6 +257,15 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
     s_dynamicConfig.reentrancyGuardEntered = false;
 
     return newMessage.header.messageId;
+  }
+
+  /// @notice hook for applying custom logic to the message from the router
+  /// @param message router message
+  /// @return transformedMessage modified message
+  function _postProcessMessage(
+    Internal.EVM2AnyRampMessage memory message
+  ) internal virtual returns (Internal.EVM2AnyRampMessage memory transformedMessage) {
+    return message;
   }
 
   /// @notice Uses a pool to lock or burn a token.

@@ -24,16 +24,12 @@ import (
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
@@ -42,7 +38,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -52,6 +48,7 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
@@ -227,9 +224,8 @@ func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	var offRampAddr string
 	switch chainFamily {
 	case relay.NetworkEVM:
-		if checkSum {
-			offRampAddr = common.BytesToAddress(addr).Hex()
-		} else {
+		offRampAddr = common.BytesToAddress(addr).Hex()
+		if !checkSum {
 			offRampAddr = hexutil.Encode(addr)
 		}
 	case relay.NetworkSolana:
@@ -509,11 +505,6 @@ func getChainReaderConfig(
 			cfg = solanaconfig.DestReaderConfig
 		} else {
 			cfg = solanaconfig.SourceReaderConfig
-		}
-
-		if chainID == homeChainID {
-			lggr.Debugw("Adding home chain reader config", "chainID", chainID)
-			cfg = solanaconfig.MergeReaderConfigs(cfg, solanaconfig.HomeChainReaderConfigRaw)
 		}
 
 		marshaledConfig, err := json.Marshal(cfg)
