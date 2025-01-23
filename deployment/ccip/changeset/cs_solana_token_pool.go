@@ -405,7 +405,7 @@ func AddBillingToken(e deployment.Environment, cfg AddBillingTokenPoolConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
 	if chainState.Router.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+		return deployment.ChangesetOutput{}, errors.New("ccip router not found in existing state, deploy the prerequisites first")
 	}
 	ccip_router.SetProgramID(chainState.Router)
 
@@ -427,7 +427,7 @@ func AddBillingToken(e deployment.Environment, cfg AddBillingTokenPoolConfig) (d
 	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
 	err = solCommonUtil.GetAccountDataBorshInto(context.Background(), chain.Client, billingConfigPDA, solRpc.CommitmentFinalized, &token0ConfigAccount)
 	if err == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("billing token config already exists")
+		return deployment.ChangesetOutput{}, errors.New("billing token config already exists")
 	}
 	if err.Error() != "not found" {
 		return deployment.ChangesetOutput{}, err
