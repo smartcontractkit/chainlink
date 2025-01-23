@@ -1,3 +1,4 @@
+env CL_COSMOS_CMD=chainlink-cosmos
 env CL_SOLANA_CMD=chainlink-solana
 env CL_STARKNET_CMD=chainlink-starknet
 
@@ -26,6 +27,7 @@ cp stdout compact.json
 exec jq . compact.json
 cmp stdout out-unhealthy.json
 
+-- go:build.integration --
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --
@@ -71,9 +73,12 @@ Name = 'primary'
 URL = 'http://stark.node'
 
 -- out.txt --
-ok Cosmos.Foo.Chain
-ok Cosmos.Foo.Relayer
-ok Cosmos.Foo.Txm
+ok Cosmos.Foo.RelayerService
+ok Cosmos.Foo.RelayerService.PluginRelayerClient
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm
 ok EVM.1
 ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
@@ -102,14 +107,15 @@ ok Solana.Bar.RelayerService
 ok Solana.Bar.RelayerService.PluginRelayerClient
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain
+ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor
+ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm
 ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer
-ok Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm
 ok StarkNet.Baz.RelayerService
 ok StarkNet.Baz.RelayerService.PluginRelayerClient
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
+ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
-ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm
 ok TelemetryManager
 ok WorkflowDBStore
 
@@ -122,27 +128,54 @@ ok WorkflowDBStore
   "data": [
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Chain",
+      "id": "Cosmos.Foo.RelayerService",
       "attributes": {
-        "name": "Cosmos.Foo.Chain",
+        "name": "Cosmos.Foo.RelayerService",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Relayer",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient",
       "attributes": {
-        "name": "Cosmos.Foo.Relayer",
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Txm",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
       "attributes": {
-        "name": "Cosmos.Foo.Txm",
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
         "status": "passing",
         "output": ""
       }
@@ -392,18 +425,27 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor",
       "attributes": {
-        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm",
       "attributes": {
-        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Txm",
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Chain.Txm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
+      "attributes": {
+        "name": "Solana.Bar.RelayerService.PluginRelayerClient.PluginSolana.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -446,18 +488,18 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
+      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm",
       "attributes": {
-        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
+        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm",
+      "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
       "attributes": {
-        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Txm",
+        "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
         "status": "passing",
         "output": ""
       }

@@ -37,13 +37,6 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -53,14 +46,13 @@ import (
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -84,10 +76,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/tronkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -96,6 +91,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
@@ -368,7 +366,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	url := cfg.Database().URL()
-	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().Dialect(), cfg.Database())
+	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().DriverName(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -396,7 +394,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewLoopRegistry(lggr, nil, nil, nil, "")
+	loopRegistry := plugins.NewTestLoopRegistry(lggr)
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
@@ -498,7 +496,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil, nil, nil, ""),
+		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
 		MercuryPool:                mercuryPool,
 		CapabilitiesRegistry:       capabilitiesRegistry,
 		CapabilitiesDispatcher:     dispatcher,

@@ -36,7 +36,7 @@ func WaitForSuccessfulTxReceipt(client ethereum.TransactionReader, hash common.H
 					return fmt.Errorf("[MINING] ERROR tx reverted %s", hash.Hex())
 				}
 				if receipt.Status == types.ReceiptStatusSuccessful {
-					log.Println("[MINING] tx mined %s successful", hash.Hex())
+					log.Printf("[MINING] tx mined %s successful\n", hash.Hex())
 					return nil
 				}
 			}

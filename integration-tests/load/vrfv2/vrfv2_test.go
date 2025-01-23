@@ -81,13 +81,11 @@ func TestVRFV2Performance(t *testing.T) {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				// wait for all txs to be mined in order to avoid nonce issues
-				time.Sleep(10 * time.Second)
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
+		} else if *vrfv2Config.General.CancelSubsAfterTestRun {
+			// wait for all txs to be mined in order to avoid nonce issues
+			time.Sleep(10 * time.Second)
+			// cancel subs and return funds to sub owner
+			vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
 			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
@@ -167,7 +165,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(1)
-		//todo - timeout should be configurable depending on the perf test type
+		// todo - timeout should be configurable depending on the perf test type
 		requestCount, fulfilmentCount, err := vrfcommon.WaitForRequestCountEqualToFulfilmentCount(testcontext.Get(t), vrfContracts.VRFV2Consumers[0], 2*time.Minute, &wg)
 		require.NoError(t, err)
 		wg.Wait()
@@ -224,11 +222,9 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
-		} else {
-			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				//cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
-			}
+		} else if *vrfv2Config.General.CancelSubsAfterTestRun {
+			// cancel subs and return funds to sub owner
+			vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
 			if err := testEnv.Cleanup(test_env.CleanupOpts{}); err != nil {
@@ -253,7 +249,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
-		//Underfund Subscription
+		// Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 
 		underfundedSubIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
@@ -308,7 +304,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
-		//Wait at least 256 blocks
+		// Wait at least 256 blocks
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(
@@ -362,10 +358,10 @@ func teardown(
 	testType string,
 	testConfig *tc.TestConfig,
 ) {
-	//send final results to Loki
+	// send final results to Loki
 	metrics := GetLoadTestMetrics(testcontext.Get(t), consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
-	//set report data for Slack notification
+	// set report data for Slack notification
 	testReporter.SetReportData(
 		testType,
 		testreporters.VRFLoadTestMetrics{

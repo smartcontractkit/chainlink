@@ -10,8 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var randomCommitReport = func() cciptypes.CommitPluginReport {

@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewConfigFromToml(tomlConfig []byte, opts ...node.NodeConfigOpt) (*chainlink.Config, error) {

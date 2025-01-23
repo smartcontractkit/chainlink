@@ -348,6 +348,25 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     });
   }
 
+  // Used to generate a message with a specific extraArgs tag for SVM
+  function _generateEmptyMessage2SVM() public view returns (Client.EVM2AnyMessage memory) {
+    return Client.EVM2AnyMessage({
+      receiver: abi.encode(OWNER),
+      data: "",
+      tokenAmounts: new Client.EVMTokenAmount[](0),
+      feeToken: s_sourceFeeToken,
+      extraArgs: Client._svmArgsToBytes(
+        Client.SVMExtraArgsV1({
+          computeUnits: GAS_LIMIT,
+          accountIsWritableBitmap: 0,
+          allowOutOfOrderExecution: true,
+          tokenReceiver: bytes32(0),
+          accounts: new bytes32[](0)
+        })
+      )
+    });
+  }
+
   function _generateSingleTokenMessage(
     address token,
     uint256 amount

@@ -26,10 +26,11 @@ ok PipelineRunner
 ok PipelineRunner.BridgeCache
 ok RetirementReportCache
 ok Solana.Bar.Chain
+ok Solana.Bar.Chain.BalanceMonitor
+ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
-ok Solana.Bar.Txm
 ok StarkNet.Baz.Chain
+ok StarkNet.Baz.Chain.Txm
 ok StarkNet.Baz.Relayer
-ok StarkNet.Baz.Txm
 ok TelemetryManager
 ok WorkflowDBStore

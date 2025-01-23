@@ -146,6 +146,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Golang Lint (${{ matrix.modules }})
+        id: golang-lint
         uses: ./.github/actions/golangci-lint
         with: 
           go-directory: ${{ matrix.modules }}
@@ -156,7 +157,10 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#team-core"
-          slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+          slack-message: |
+            "golangci-lint failed (${{ matrix.modules }})
+                - Run: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+                - Report: ${{ steps.golang-lint.outputs.golang-report-artifact-url }}"
   
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
@@ -203,6 +207,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4.2.1
@@ -234,6 +239,10 @@ jobs:
       - name: Setup Solana
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-solana
+
+      - name: Build Solana artifacts
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        uses: ./.github/actions/setup-solana/build-contracts
 
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
@@ -284,7 +293,14 @@ jobs:
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.should-run-ci-core == 'true' }}
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          run_url=$(gh run --repo "$GH_REPO" view "$GH_RUN_ID" --json jobs --jq '.jobs[] | select(.name | contains("${{ matrix.type.cmd }}")) | .url')
+          echo "run_url=$run_url" >> $GITHUB_OUTPUT
+
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
             cat race.txt
@@ -325,7 +341,8 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#topic-data-races"
-          slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+          slack-message: |
+            Race Tests Failed: ${{ steps.print-races.outputs.run_url }}
 
   core-scripts-tests:
     name: test-scripts

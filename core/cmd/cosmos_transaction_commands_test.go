@@ -19,6 +19,7 @@ import (
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -60,14 +61,12 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(ctx, cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
-	chain, err := app.GetRelayers().LegacyCosmosChains().Get(chainID)
-	require.NoError(t, err)
 
-	reader, err := chain.Reader("")
+	cosClient, err := cosmosclient.NewClient(chainID, url, time.Minute, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(ctx, from.Address, *cosmosChain.GasToken)
+		coin, err := cosClient.Balance(ctx, from.Address, *cosmosChain.GasToken)
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -90,7 +89,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(ctx, from.Address, *cosmosChain.GasToken)
+			startBal, err := cosClient.Balance(ctx, from.Address, *cosmosChain.GasToken)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
@@ -123,7 +122,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			expBal := startBal.Sub(sent)
 
 			testutils.RequireEventually(t, func() bool {
-				endBal, err := reader.Balance(ctx, from.Address, *cosmosChain.GasToken)
+				endBal, err := cosClient.Balance(ctx, from.Address, *cosmosChain.GasToken)
 				require.NoError(t, err)
 				t.Logf("%s <= %s", endBal, expBal)
 				return endBal.IsLTE(expBal)

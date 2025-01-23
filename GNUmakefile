@@ -71,6 +71,8 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install ./cmd/chainlink-feeds
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
 	go install ./mercury/cmd/chainlink-mercury
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-cosmos) && \
+	go install ./pkg/cosmos/cmd/chainlink-cosmos
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
 	go install ./pkg/solana/cmd/chainlink-solana
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
@@ -108,7 +110,8 @@ abigen: ## Build & install abigen.
 
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	gomods -w go generate -x ./...
+	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
+	export PATH=$(HOME)/.local/bin:$(PATH); gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
@@ -147,7 +150,7 @@ testdb-user-only: ## Prepares the test database with user only.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.4
+	go install github.com/jmank88/gomods@v0.1.5
 
 .PHONY: gomodslocalupdate
 gomodslocalupdate: gomods ## Run gomod-local-update
