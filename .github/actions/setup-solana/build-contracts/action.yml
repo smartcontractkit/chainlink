@@ -9,6 +9,19 @@ runs:
       with:
         repository: smartcontractkit/chainlink-ccip
         path: chainlink-ccip
+        fetch-depth: 0
+    - name: Checkout branch based on CCIP Revision
+      id: get_checkout_ccip_chains_solana_revision
+      shell: bash
+      run: |
+        # get the short revision of the chainlink-ccip solana contracts dependency from the go.mod file
+        short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | cut -d'-' -f3)
+
+        # since the github action checkout action doesn't support short revisions, we have to do it manually
+        cd chainlink-ccip
+        git checkout $short_revision
+
+        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
     - name: Get Anchor Version
       id: get_anchor_version
       shell: bash
@@ -52,5 +65,9 @@ runs:
     - name: move built contracts to test folder
       shell: bash
       run: |
+        # copy the built contracts so they can be used in the chainlink tests
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+
+        # save the revision of the built chainlink-ccip solana contracts
+        echo ${{ env.CHAINLINK_CCIP_COMMIT_SHORT }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev

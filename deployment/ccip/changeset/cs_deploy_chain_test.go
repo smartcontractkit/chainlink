@@ -13,6 +13,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -206,9 +207,9 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 			// #nosec G115 - Overflow is not a concern in this test scenario
 			FChain: uint8(len(nodes.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(changeset.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(changeset.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: changeset.OptimisticConfirmations,
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
 	}
@@ -283,8 +284,9 @@ func TestHomeChainChangesetSolana(t *testing.T) {
 			// Enable the OCR config on the remote chains.
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3ConfigSolana),
 			Config: changeset.SetOCR3OffRampConfig{
-				HomeChainSel:    homeChainSel,
-				RemoteChainSels: solChainSelectors,
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		},
 	})

@@ -37,7 +37,7 @@ var (
 	EnableExecutionAfter = int64(1800) // 30min
 )
 
-// DeployChainContractsChangeset deploys all new CCIP v1.6 or later contracts for the given chains.
+// DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
 // DeployChainContractsChangeset is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
 // changeset again with the same input to retry the failed deployment.
@@ -209,24 +209,28 @@ func validateHomeChainState(e deployment.Environment, homeChainSel uint64, exist
 	return nil
 }
 
-func deployChainContractsForChains(e deployment.Environment, ab deployment.AddressBook, homeChainSel uint64, contractParamsPerChain map[uint64]ChainContractParams) error {
-	existingEVMState, err := LoadOnchainState(e)
+func deployChainContractsForChains(
+	e deployment.Environment,
+	ab deployment.AddressBook,
+	homeChainSel uint64,
+	contractParamsPerChain map[uint64]ChainContractParams) error {
+	existingState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", err)
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 
-	err = validateHomeChainState(e, homeChainSel, existingEVMState)
+	err = validateHomeChainState(e, homeChainSel, existingState)
 	if err != nil {
 		return err
 	}
 
-	rmnHome := existingEVMState.Chains[homeChainSel].RMNHome
+	rmnHome := existingState.Chains[homeChainSel].RMNHome
 
 	deployGrp := errgroup.Group{}
 
 	for chainSel, contractParams := range contractParamsPerChain {
-		if _, exists := existingEVMState.SupportedChains()[chainSel]; !exists {
+		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
 			return fmt.Errorf("chain %d not supported", chainSel)
 		}
 		// already validated family
@@ -234,20 +238,22 @@ func deployChainContractsForChains(e deployment.Environment, ab deployment.Addre
 		var deployFn func() error
 		switch family {
 		case chainsel.FamilyEVM:
-			chain := e.Chains[chainSel]
-			staticLinkExists := existingEVMState.Chains[chainSel].StaticLinkToken != nil
-			linkExists := existingEVMState.Chains[chainSel].LinkToken != nil
-			weth9Exists := existingEVMState.Chains[chainSel].Weth9 != nil
+			staticLinkExists := existingState.Chains[chainSel].StaticLinkToken != nil
+			linkExists := existingState.Chains[chainSel].LinkToken != nil
+			weth9Exists := existingState.Chains[chainSel].Weth9 != nil
 			feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
-
 			if !feeTokensAreValid {
 				return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
+			}
+			chain := e.Chains[chainSel]
+			if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
+				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 			}
 			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
 
 		case chainsel.FamilySolana:
 			chain := e.SolChains[chainSel]
-			if existingEVMState.SolChains[chainSel].LinkToken.IsZero() {
+			if existingState.SolChains[chainSel].LinkToken.IsZero() {
 				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
 			}
 			deployFn = func() error { return deployChainContractsSolana(e, chain, ab) }
