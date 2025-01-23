@@ -27,6 +27,7 @@ cp stdout compact.json
 exec jq . compact.json
 cmp stdout out-unhealthy.json
 
+-- go:build.integration --
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --
