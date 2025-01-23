@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
       - name: Check release tag (core)
         id: release-tag-check-core
-        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # v0.1.0
+        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'
@@ -65,7 +65,7 @@ jobs:
           VERSION_PREFIX: "contracts-v"
       - name: Check release tag (ccip)
         id: release-tag-check-ccip
-        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # v0.1.0
+        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
         env:
           # Match semver git tags with a "contracts-ccip/" prefix.
           RELEASE_REGEX: '^contracts-ccip/v[0-9]+\.[0-9]+\.[0-9]+$'
