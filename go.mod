@@ -10,7 +10,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/NethermindEth/juno v0.3.1
 	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb
-	github.com/XSAM/otelsql v0.29.0
 	github.com/andybalholm/brotli v1.1.1
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
@@ -129,6 +128,8 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
+require github.com/XSAM/otelsql v0.29.0 // indirect
+
 require (
 	cel.dev/expr v0.17.0 // indirect
 	cloud.google.com/go/auth v0.9.9 // indirect
@@ -151,7 +152,6 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
-	github.com/XSAM/otelsql v0.29.0 // indirect
 	github.com/apache/arrow-go/v18 v18.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
