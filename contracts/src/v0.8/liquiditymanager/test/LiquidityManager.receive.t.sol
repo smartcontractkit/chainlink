@@ -5,8 +5,6 @@ import {LiquidityManagerSetup} from "./LiquidityManagerSetup.t.sol";
 import {LiquidityManager} from "../LiquidityManager.sol";
 
 contract LiquidityManager_receive is LiquidityManagerSetup {
-
-
   function test_receive() external {
     address depositor = makeAddr("depositor");
     vm.deal(depositor, 100);
