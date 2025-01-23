@@ -489,7 +489,9 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 				return fmt.Errorf("gas price for chain %d is nil", chainSel)
 			}
 			if _, ok := state.Chains[dest]; !ok {
-				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", dest, chainSel)
+				if _, ok := state.SolChains[dest]; !ok {
+					return fmt.Errorf("dest chain %d not found in onchain state for chain %d", dest, chainSel)
+				}
 			}
 		}
 	}
@@ -890,10 +892,11 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			destChain := state.Chains[destination]
-			if destChain.OffRamp == nil {
-				return fmt.Errorf("missing offramp for dest %d", destination)
-			}
+			// TODO: Add solana support
+			// destChain := state.Chains[destination]
+			// if destChain.OffRamp == nil {
+			// 	return fmt.Errorf("missing offramp for dest %d", destination)
+			// }
 		}
 	}
 	return nil

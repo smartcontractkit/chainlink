@@ -12,24 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 type EnvType string
@@ -428,7 +427,12 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	var err error
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
-	allChains := e.Env.AllChainSelectors()
+	evmChains := e.Env.AllChainSelectors()
+	solChains := e.Env.AllChainSelectorsSolana()
+	allChains := append(evmChains, solChains...)
+	if len(solChains) > 0 {
+		SavePreloadedSolAddresses(t, e.Env, solChains[0])
+	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {
@@ -436,7 +440,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	}
 
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, chain := range allChains {
+	for _, chain := range evmChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
 			if tc.IsUSDC {
@@ -471,13 +475,14 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	})
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
-	e = AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+
+	e = AddCCIPContractsToEnvironment(t, allChains, tEnv, false)
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
 			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: allChains,
+				ChainSelectors: evmChains,
 			},
 		},
 	})
@@ -495,12 +500,28 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ChangesetApplication
 	allContractParams := make(map[uint64]changeset.ChainContractParams)
+
 	for _, chain := range allChains {
 		allContractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
+
+	evmChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.Chains[chain]; ok {
+			evmChains = append(evmChains, chain)
+		}
+	}
+
+	solChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.SolChains[chain]; ok {
+			solChains = append(solChains, chain)
+		}
+	}
+
 	apps = append(apps, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -536,7 +557,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	if tc.IsUSDC {
 		endpoint := tEnv.MockUSDCAttestationServer(t, tc.IsUSDCAttestationMissing)
 		cctpContracts := make(map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig)
-		for _, usdcChain := range allChains {
+		for _, usdcChain := range evmChains {
 			require.NotNil(t, state.Chains[usdcChain].MockUSDCTokenMessenger)
 			require.NotNil(t, state.Chains[usdcChain].MockUSDCTransmitter)
 			require.NotNil(t, state.Chains[usdcChain].USDCTokenPool)
@@ -555,13 +576,18 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 			}})
 	}
-	// Build the per chain config.
-	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
-	chainConfigs := make(map[uint64]changeset.ChainConfig)
+
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
+	timelockContractsPerChain[e.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
+		Timelock:  state.Chains[e.HomeChainSel].Timelock,
+		CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+	}
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	for _, chain := range allChains {
+	// Build the per chain config.
+	chainConfigs := make(map[uint64]changeset.ChainConfig)
+	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
+	for _, chain := range evmChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
@@ -592,10 +618,27 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			},
 		}
 	}
-	timelockContractsPerChain[e.HomeChainSel] = &proposalutils.TimelockExecutionContracts{
-		Timelock:  state.Chains[e.HomeChainSel].Timelock,
-		CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+
+	for _, chain := range solChains {
+		ocrOverride := tc.OCRConfigOverride
+		ocrParams := changeset.DeriveCCIPOCRParams(
+			// TODO: tokenInfo is nil for solana
+			changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
+			changeset.WithDefaultExecuteOffChainConfig(tokenDataProviders),
+			changeset.WithOCRParamOverride(ocrOverride),
+		)
+		ocrConfigs[chain] = ocrParams
+		chainConfigs[chain] = changeset.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
 	}
+
 	// Apply second set of changesets to configure the CCIP contracts.
 	var mcmsConfig *changeset.MCMSConfig
 	if mcmsEnabled {
@@ -619,6 +662,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Config: changeset.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
+					// TODO: we dont know what this means for solana
 					FeedChainSelector: e.FeedChainSel,
 					MCMS:              mcmsConfig,
 				},
@@ -634,6 +678,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Config: changeset.SetCandidateChangesetConfig{
 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
+					// TODO: we dont know what this means for solana
 					FeedChainSelector: e.FeedChainSel,
 					MCMS:              mcmsConfig,
 				},
@@ -668,7 +713,16 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
 			Config: changeset.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
-				RemoteChainSels:    allChains,
+				RemoteChainSels:    evmChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3ConfigSolana),
+			Config: changeset.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    solChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		},
@@ -686,7 +740,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	require.NotNil(t, state.Chains[e.HomeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[e.HomeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[e.HomeChainSel].RMNHome)
-	for _, chain := range allChains {
+	for _, chain := range evmChains {
 		require.NotNil(t, state.Chains[chain].LinkToken)
 		require.NotNil(t, state.Chains[chain].Weth9)
 		require.NotNil(t, state.Chains[chain].TokenAdminRegistry)
