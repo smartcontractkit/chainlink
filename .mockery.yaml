@@ -3,15 +3,24 @@ mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
 packages:
-  github.com/smartcontractkit/chainlink/v2/common/headtracker:
+  github.com/smartcontractkit/chainlink-framework/chains/headtracker:
+    config:
+      dir: common/headtracker/mocks
+      outpkg: mocks
     interfaces:
       HeadTrackable:
       HeadTracker:
       HeadBroadcaster:
-  github.com/smartcontractkit/chainlink/v2/common/txmgr:
+  github.com/smartcontractkit/chainlink-framework/chains/txmgr:
+    config:
+      dir: common/txmgr/mocks
+      outpkg: mocks
     interfaces:
       TxManager:
-  github.com/smartcontractkit/chainlink/v2/common/txmgr/types:
+  github.com/smartcontractkit/chainlink-framework/chains/txmgr/types:
+    config:
+      dir: common/txmgr/types/mocks
+      outpkg: mocks
     interfaces:
       ReaperChainConfig:
         config:

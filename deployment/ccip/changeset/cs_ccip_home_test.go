@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -51,8 +52,13 @@ func TestInvalidOCR3Params(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    []uint64{chain1},
 				HomeChainSelector: e.HomeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					chain1: {
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
 			},
 		},
 	})
@@ -156,8 +162,9 @@ func Test_PromoteCandidate(t *testing.T) {
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []changeset.PromoteCandidatePluginInfo{
 							{
-								RemoteChainSelectors: []uint64{dest},
-								PluginType:           types.PluginTypeCCIPCommit,
+								RemoteChainSelectors:    []uint64{dest},
+								PluginType:              types.PluginTypeCCIPCommit,
+								AllowEmptyConfigPromote: true,
 							},
 						},
 						MCMS: mcmsConfig,
@@ -557,9 +564,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]changeset.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-									OptimisticConfirmations: internal.OptimisticConfirmations,
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
 								Readers: otherChainConfig.Readers,

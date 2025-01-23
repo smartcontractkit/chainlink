@@ -5,9 +5,9 @@ package mocks
 import (
 	context "context"
 
-	assets "github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	assets "github.com/smartcontractkit/chainlink/v2/evm/assets"
 
-	fees "github.com/smartcontractkit/chainlink/v2/common/fees"
+	fees "github.com/smartcontractkit/chainlink-framework/chains/fees"
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 

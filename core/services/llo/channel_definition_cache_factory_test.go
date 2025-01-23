@@ -31,12 +31,13 @@ func Test_ChannelDefinitionCacheFactory(t *testing.T) {
 			require.NoError(t, err)
 			require.IsType(t, &channelDefinitionCache{}, cdc)
 
-			// returns error if you try to do it again with the same addr/donID
-			_, err = cdcFactory.NewCache(lloconfig.PluginConfig{
+			// creates another one if you try to do it again with the same addr/donID
+			cdc, err = cdcFactory.NewCache(lloconfig.PluginConfig{
 				ChannelDefinitionsContractAddress: common.HexToAddress("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 				DonID:                             1,
 			})
-			require.EqualError(t, err, "cache already exists for contract address 0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa and don ID 1")
+			require.NoError(t, err)
+			require.IsType(t, &channelDefinitionCache{}, cdc)
 
 			// is fine if you do it again with different addr
 			cdc, err = cdcFactory.NewCache(lloconfig.PluginConfig{

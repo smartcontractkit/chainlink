@@ -203,6 +203,19 @@ func MaybeDataErr(err error) error {
 	return err
 }
 
+func DecodedErrFromABIIfDataErr(err error, abi string) error {
+	var d rpc.DataError
+	ok := errors.As(err, &d)
+	if ok {
+		errReason, err := parseErrorFromABI(fmt.Sprintf("%s", d.ErrorData()), abi)
+		if err != nil {
+			return fmt.Errorf("%s: %v", d.Error(), d.ErrorData())
+		}
+		return fmt.Errorf("%s due to %s: %v", d.Error(), errReason, d.ErrorData())
+	}
+	return err
+}
+
 func UBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
 }

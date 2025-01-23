@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -259,7 +260,7 @@ func (args *execArgs) execute() error {
 				return err
 			}
 			leaves = append(leaves, hash)
-			if event.Message.SequenceNumber == seqNr && event.Message.MessageId == args.msgID {
+			if event.Message.SequenceNumber == seqNr && event.Message.MessageID == args.msgID {
 				log.Printf("Found proving %d %+v\n\n", curr, event.Message)
 				msgs = append(msgs, event.Message)
 
@@ -280,7 +281,7 @@ func (args *execArgs) execute() error {
 		return fmt.Errorf("unable to find msg with seqNr %d", seqNr)
 	}
 
-	expectedNumberOfLeaves := int(commitReport.Interval.Max) - int(commitReport.Interval.Min) + 1
+	expectedNumberOfLeaves := int(commitReport.Interval.Max - commitReport.Interval.Min + 1)
 	if len(leaves) != expectedNumberOfLeaves {
 		return fmt.Errorf("not enough leaves gather to build a commit root - want %d got %d. Please set NumberOfBlocks const to a higher value", expectedNumberOfLeaves, len(leaves))
 	}
@@ -290,7 +291,7 @@ func (args *execArgs) execute() error {
 		return err
 	}
 	if tree.Root() != commitReport.MerkleRoot {
-		return fmt.Errorf("root doesn't match. cannot execute")
+		return errors.New("root doesn't match. cannot execute")
 	}
 
 	proof := tree.Prove([]int{prove})
@@ -332,7 +333,7 @@ func (args *execArgs) execute() error {
 		return err
 	}
 	if changed != 2 {
-		return fmt.Errorf("manual execution did not result in ExecutionStateChanged as success")
+		return errors.New("manual execution did not result in ExecutionStateChanged as success")
 	}
 	return nil
 }
@@ -350,7 +351,7 @@ func (args *execArgs) seqNumFromCCIPSendRequested(logs []*types.Log) error {
 		}
 	}
 	if topic0 == (common.Hash{}) {
-		return fmt.Errorf("no CCIPSendRequested event found in ABI")
+		return errors.New("no CCIPSendRequested event found in ABI")
 	}
 	var sendRequestedLogs []types.Log
 	for _, sendReqLog := range logs {
@@ -374,16 +375,16 @@ func (args *execArgs) seqNumFromCCIPSendRequested(logs []*types.Log) error {
 		}
 
 		if args.cfg.CCIPMsgID != "" &&
-			"0x"+hex.EncodeToString(event.Message.MessageId[:]) != args.cfg.CCIPMsgID {
+			"0x"+hex.EncodeToString(event.Message.MessageID[:]) != args.cfg.CCIPMsgID {
 			continue
 		}
 
 		args.seqNum = event.Message.SequenceNumber
-		args.msgID = event.Message.MessageId
+		args.msgID = event.Message.MessageID
 		return nil
 	}
 
-	return fmt.Errorf("send request not found in logs")
+	return errors.New("send request not found in logs")
 }
 
 func (args *execArgs) approxDestStartBlock() error {
@@ -412,7 +413,8 @@ func (args *execArgs) approxDestStartBlock() error {
 		// break if the difference in timestamp is lesser than 1 minute
 		if timeDiff < 60 {
 			break
-		} else if closestBlockHdr.Time > sendTxTime {
+		}
+		if closestBlockHdr.Time > sendTxTime {
 			maxBlockNum = blockNum - 1
 		} else {
 			minBlockNum = blockNum + 1
@@ -428,9 +430,9 @@ func (args *execArgs) approxDestStartBlock() error {
 		if closestBlockHdr.Time <= sendTxTime {
 			break
 		}
-		closestBlockNum = closestBlockNum - blockOffset
+		closestBlockNum -= blockOffset
 		if closestBlockNum <= 0 {
-			return fmt.Errorf("approx destination blocknumber not found")
+			return errors.New("approx destination blocknumber not found")
 		}
 		closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
 		if err != nil {

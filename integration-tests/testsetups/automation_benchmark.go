@@ -638,8 +638,8 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 	}
 
 	headerText := ":white_check_mark: Automation Benchmark Test STARTED :white_check_mark:"
-	formattedDashboardUrl := fmt.Sprintf("%s%s?from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
-	log.Info().Str("Dashboard", formattedDashboardUrl).Msg("Dashboard URL")
+	formattedDashboardURL := fmt.Sprintf("%s%s?from=%d&to=%s&var-namespace=%s&var-cl_node=chainlink-0-0", grafanaUrl, dashboardUrl, k.TestReporter.Summary.StartTime, "now", k.env.Cfg.Namespace)
+	log.Info().Str("Dashboard", formattedDashboardURL).Msg("Dashboard URL")
 
 	notificationBlocks := []slack.Block{}
 	notificationBlocks = append(notificationBlocks,
@@ -649,7 +649,7 @@ func (k *KeeperBenchmarkTest) SendSlackNotification(slackClient *slack.Client, c
 	notificationBlocks = append(notificationBlocks, slack.NewDividerBlock())
 	notificationBlocks = append(notificationBlocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn",
 		fmt.Sprintf("<%s|Test Dashboard> \nNotifying <@%s>",
-			formattedDashboardUrl, reportModel.SlackUserID), false, true), nil, nil))
+			formattedDashboardURL, reportModel.SlackUserID), false, true), nil, nil))
 
 	ts, err := reportModel.SendSlackMessage(slackClient, slack.MsgOptionBlocks(notificationBlocks...))
 	log.Debug().Str("ts", ts).Msg("Sent Slack Message")

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
@@ -53,7 +52,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			capabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}
@@ -83,11 +82,15 @@ func hash(url string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func (s *FetcherService) Fetch(ctx context.Context, url string) ([]byte, error) {
+// Fetch fetches the given URL and returns the response body.  n is the maximum number of bytes to
+// read from the response body.  Set n to zero to use the default size limit specified by the
+// configured gateway's http client, if any.
+func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
 	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
 	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-		URL:    url,
-		Method: http.MethodGet,
+		URL:              url,
+		Method:           http.MethodGet,
+		MaxResponseBytes: n,
 	})
 	if err != nil {
 		return nil, err
