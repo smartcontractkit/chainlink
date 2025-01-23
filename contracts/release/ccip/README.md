@@ -1,29 +1,51 @@
-# CCIP Contracts Releases
+# Chainlink CCIP Smart Contracts
 
-This directory contains the changelogs, version (via `package.json`), and the changesets for the CCIP contracts.
+## Installation
 
-## Overview
-
-The actual CCIP contracts code currently lives in the `contracts/src/*/ccip` directory in order to share code with other Chainlink contracts. Even though this CCIP code directory is under the `@chainlink/contracts`'s `package.json` file, it's not part of the `@chainlink/contracts` NPM package and should be versioned, released, and published separately which is why this directory exists.
-
-## Directory Structure
-
-```
-ccip/
-├── .changeset/     # Contains changesets for versioning
-├── CHANGELOG.md    # Auto-generated changelog from changesets
-└── package.json    # @chainlink/contracts-ccip package configuration for versioning
+```sh
+# via pnpm
+$ pnpm add @chainlink/contracts-ccip
+# via npm
+$ npm install @chainlink/contracts-ccip --save
 ```
 
-## Create a Changeset
+### Directory Structure
 
-To be ran from the (`./contracts`) directory.
+```sh
+@chainlink/contracts-ccip
+├── src # Solidity contracts
+│   └── v0.8
+└── abi # ABI json output
+    └── v0.8
+```
 
-1. Create a changeset for your changes:
+### Usage
 
-   ```shell
-   pnpm changeset:ccip
-   ```
+The solidity smart contracts themselves can be imported via the `src` directory of `@chainlink/contracts-ccip`:
 
-2. Follow the prompts to describe your changes
-3. Commit the generated changeset file
+```solidity
+import '@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol';
+```
+
+### Changesets
+
+We use [changesets](https://github.com/changesets/changesets) to manage versioning the contracts.
+
+Every PR that modifies any configuration or code, should most likely accompanied by a changeset file.
+
+To install `changesets`:
+
+1. Install `pnpm` if it is not already installed - [docs](https://pnpm.io/installation).
+2. Run `pnpm install`.
+
+Either after or before you create a commit, run the `pnpm changeset:ccip` command in the `contracts` directory to create an accompanying changeset entry which will reflect on the CHANGELOG for the next release.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## License
+
+The CCIP repo is licensed under the [BUSL-1.1](./src/v0.8/ccip/LICENSE.md) license, however, there are a few exceptions
+
+- `src/v0.8/ccip/applications/*` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license
+- `src/v0.8/ccip/interfaces/*` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license
+- `src/v0.8/ccip/libraries/{Client.sol, Internal.sol}` is licensed under the [MIT](./src/v0.8/ccip/LICENSE-MIT.md) license
