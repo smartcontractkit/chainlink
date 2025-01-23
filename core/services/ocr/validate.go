@@ -2,6 +2,7 @@ package ocr
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
@@ -51,9 +53,13 @@ type insecureConfig interface {
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyChainContainer, tomlString string) (job.Job, error) {
 	return ValidatedOracleSpecTomlCfg(gcfg, func(id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error) {
-		c, err := legacyChains.Get(id.String())
+		chainService, err := legacyChains.Get(id.String())
 		if err != nil {
 			return nil, err
+		}
+		c, ok := chainService.(legacyevm.Chain)
+		if !ok {
+			return nil, fmt.Errorf("ocr is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 		}
 		if gcfg.OCR().ConfigLogValidation() {
 			_, err = validateContractConfig(legacyChains, id, contractAddress)
@@ -182,9 +188,13 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job, ocrObservationTimeo
 }
 
 func validateContractConfig(legacyChains legacyevm.LegacyChainContainer, id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error) {
-	chain, err := legacyChains.Get(id.String())
+	chainService, err := legacyChains.Get(id.String())
 	if err != nil {
 		return nil, err
+	}
+	chain, ok := chainService.(legacyevm.Chain)
+	if !ok {
+		return nil, fmt.Errorf("ocr is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
 
 	// Check if contract exists
