@@ -15,7 +15,7 @@ func (ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSele
 	return nil, nil
 }
 
-func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (cciptypes.Bytes, error) {
+func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	// Not implemented and return the original input bytes without returning error
-	return destExecData, nil
+	return nil, nil
 }
