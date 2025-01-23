@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -458,7 +460,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	})
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
-	e = AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, true, true, false)
+	e = AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
 	// now we update RMNProxy to point to RMNRemote
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
 		{
@@ -472,7 +474,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, deployJobs, deployHomeChain, mcmsEnabled bool) DeployedEnv {
+func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -481,8 +483,15 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ChangesetApplication
-	if deployHomeChain {
-		apps = append(apps, commonchangeset.ChangesetApplication{
+	allContractParams := make(map[uint64]changeset.ChainContractParams)
+	for _, chain := range allChains {
+		allContractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	apps = append(apps, []commonchangeset.ChangesetApplication{
+		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
 			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
@@ -493,22 +502,15 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		})
-	}
-	allContractParams := make(map[uint64]changeset.ChainContractParams)
-	for _, chain := range allChains {
-		allContractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
-	}
-	apps = append(apps, commonchangeset.ChangesetApplication{
-		Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-		Config: changeset.DeployChainContractsConfig{
-			HomeChainSelector:      e.HomeChainSel,
-			ContractParamsPerChain: allContractParams,
 		},
-	})
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: allContractParams,
+			},
+		},
+	}...)
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
 
@@ -573,9 +575,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(changeset.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(changeset.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: changeset.OptimisticConfirmations,
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
 			},
 		}
 	}
@@ -654,15 +656,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			// Enable the OCR config on the remote chains.
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
 			Config: changeset.SetOCR3OffRampConfig{
-				HomeChainSel:    e.HomeChainSel,
-				RemoteChainSels: allChains,
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    allChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		},
-	}
-	if deployJobs {
-		apps = append(apps, commonchangeset.ChangesetApplication{
+		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
-		})
+		},
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, apps)
 	require.NoError(t, err)

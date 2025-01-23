@@ -8,8 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+
+	solBinary "github.com/gagliardetto/binary"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -25,7 +32,11 @@ import (
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
-// DeployChainContractsChangeset deploys all new CCIP v1.6 or later contracts for the given chains.
+var (
+	EnableExecutionAfter = int64(1800) // 30min
+)
+
+// DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
 // DeployChainContractsChangeset is idempotent. If there is an error, it will return the successfully deployed addresses and the error so that the caller can call the
 // changeset again with the same input to retry the failed deployment.
@@ -154,13 +165,12 @@ func DefaultOffRampParams() OffRampParams {
 	}
 }
 
-func deployChainContractsForChains(e deployment.Environment, ab deployment.AddressBook, homeChainSel uint64, contractParamsPerChain map[uint64]ChainContractParams) error {
+func validateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
 	existingState, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
-
 	capReg := existingState.Chains[homeChainSel].CapabilityRegistry
 	if capReg == nil {
 		e.Logger.Errorw("Failed to get capability registry")
@@ -195,30 +205,73 @@ func deployChainContractsForChains(e deployment.Environment, ab deployment.Addre
 		e.Logger.Errorw("Failed to get rmn home", "err", err)
 		return errors.New("rmn home not found")
 	}
+	return nil
+}
+
+func deployChainContractsForChains(
+	e deployment.Environment,
+	ab deployment.AddressBook,
+	homeChainSel uint64,
+	contractParamsPerChain map[uint64]ChainContractParams) error {
+	existingEVMState, err := LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+
+	err = validateHomeChainState(e, homeChainSel, existingEVMState)
+	if err != nil {
+		return err
+	}
+
+	rmnHome := existingEVMState.Chains[homeChainSel].RMNHome
+
+	existingSolState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain solanastate", "err", err)
+		return err
+	}
+
 	deployGrp := errgroup.Group{}
+
 	for chainSel, contractParams := range contractParamsPerChain {
-		chain, ok := e.Chains[chainSel]
-		if !ok {
-			return fmt.Errorf("chain %d not found", chainSel)
+		if _, exists := existingEVMState.SupportedChains()[chainSel]; !exists {
+			return fmt.Errorf("chain %d not supported", chainSel)
 		}
+		// already validated family
+		family, _ := chainsel.GetSelectorFamily(chainSel)
+		var deployFn func() error
+		switch family {
+		case chainsel.FamilyEVM:
+			staticLinkExists := existingEVMState.Chains[chainSel].StaticLinkToken != nil
+			linkExists := existingEVMState.Chains[chainSel].LinkToken != nil
+			weth9Exists := existingEVMState.Chains[chainSel].Weth9 != nil
+			feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
+			if !feeTokensAreValid {
+				return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
+			}
+			chain := e.Chains[chainSel]
+			if existingEVMState.Chains[chainSel].LinkToken == nil || existingEVMState.Chains[chainSel].Weth9 == nil {
+				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
+			}
+			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
 
-		staticLinkExists := existingState.Chains[chainSel].StaticLinkToken != nil
-		linkExists := existingState.Chains[chainSel].LinkToken != nil
-		weth9Exists := existingState.Chains[chainSel].Weth9 != nil
-		feeTokensAreValid := weth9Exists && (linkExists != staticLinkExists)
-
-		if !feeTokensAreValid {
-			return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
+		case chainsel.FamilySolana:
+			chain := e.SolChains[chainSel]
+			if existingSolState.SolChains[chainSel].LinkToken.IsZero() {
+				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
+			}
+			deployFn = func() error { return deployChainContractsSolana(e, chain, ab) }
 		}
-		deployGrp.Go(
-			func() error {
-				err := deployChainContracts(e, chain, ab, rmnHome, contractParams)
-				if err != nil {
-					e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
-					return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
-				}
-				return nil
-			})
+		deployGrp.Go(func() error {
+			err := deployFn()
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy chain contracts", "chain", chainSel, "err", err)
+				return fmt.Errorf("failed to deploy chain contracts for chain %d: %w", chainSel, err)
+			}
+			return nil
+		})
+
 	}
 	if err := deployGrp.Wait(); err != nil {
 		e.Logger.Errorw("Failed to deploy chain contracts", "err", err)
@@ -227,11 +280,11 @@ func deployChainContractsForChains(e deployment.Environment, ab deployment.Addre
 	return nil
 }
 
-func deployChainContracts(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
+func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
 	// check for existing contracts
 	state, err := LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err")
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	chainState, chainExists := state.Chains[chain.Selector]
@@ -482,5 +535,125 @@ func deployChainContracts(e deployment.Environment, chain deployment.Chain, ab d
 		return err
 	}
 	e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
+	return nil
+}
+
+func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (struct {
+	DataType uint32
+	Address  solana.PublicKey
+}, error) {
+	var programData struct {
+		DataType uint32
+		Address  solana.PublicKey
+	}
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), ccipRouterProgram, &solRpc.GetAccountInfoOpts{
+		Commitment: solRpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		return programData, fmt.Errorf("failed to deploy program: %w", err)
+	}
+
+	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
+	if err != nil {
+		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
+	}
+	return programData, nil
+}
+
+func checkRouterInitialized(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (bool, error) {
+	routerConfigPDA := GetRouterConfigPDA(ccipRouterProgram)
+	routerConfigInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), routerConfigPDA, &solRpc.GetAccountInfoOpts{
+		Commitment: solRpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		return false, nil
+	}
+	return routerConfigInfo != nil && len(routerConfigInfo.Value.Data.GetBinary()) > 0, nil
+}
+
+func deployChainContractsSolana(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ab deployment.AddressBook,
+) error {
+	state, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return err
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	linkTokenContract := chainState.LinkToken
+	e.Logger.Infow("link token", "addr", linkTokenContract.String())
+
+	var ccipRouterProgram solana.PublicKey
+	if chainState.SolCcipRouter.IsZero() {
+		// deploy router
+		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %w", err)
+		}
+
+		tv := deployment.NewTypeAndVersion("SolCcipRouter", deployment.Version1_0_0)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+
+		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	} else {
+		e.Logger.Infow("Using existing router", "addr", chainState.SolCcipRouter.String())
+		ccipRouterProgram = chainState.SolCcipRouter
+	}
+	ccip_router.SetProgramID(ccipRouterProgram)
+
+	// check if solana router is initialised
+	initialized, err := checkRouterInitialized(e, chain, ccipRouterProgram)
+	if err != nil {
+		return err
+	}
+	if initialized {
+		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
+		return nil
+	}
+
+	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+
+	defaultGasLimit := solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+
+	instruction, err := ccip_router.NewInitializeInstruction(
+		chain.Selector,       // chain selector
+		defaultGasLimit,      // default gas limit
+		true,                 // allow out of order execution
+		EnableExecutionAfter, // period to wait before allowing manual execution
+		solana.PublicKey{},
+		GetRouterConfigPDA(ccipRouterProgram),
+		GetRouterStatePDA(ccipRouterProgram),
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		ccipRouterProgram,
+		programData.Address,
+		GetExternalExecutionConfigPDA(ccipRouterProgram),
+		GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	err = chain.Confirm([]solana.Instruction{instruction})
+
+	if err != nil {
+		return fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+
+	//TODO: deploy token pool contract
+	//TODO: log errors
+
 	return nil
 }

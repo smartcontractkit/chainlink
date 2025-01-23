@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -234,6 +235,50 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	return nil
+}
+
+func isRMNStaticConfigEqual(a, b rmn_home.RMNHomeStaticConfig) bool {
+	if len(a.Nodes) != len(b.Nodes) {
+		return false
+	}
+	nodesByPeerID := make(map[p2pkey.PeerID]rmn_home.RMNHomeNode)
+	for i := range a.Nodes {
+		nodesByPeerID[a.Nodes[i].PeerId] = a.Nodes[i]
+	}
+	for i := range b.Nodes {
+		node, exists := nodesByPeerID[b.Nodes[i].PeerId]
+		if !exists {
+			return false
+		}
+		if !bytes.Equal(node.OffchainPublicKey[:], b.Nodes[i].OffchainPublicKey[:]) {
+			return false
+		}
+	}
+
+	return bytes.Equal(a.OffchainConfig, b.OffchainConfig)
+}
+
+func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
+	if len(a.SourceChains) != len(b.SourceChains) {
+		return false
+	}
+	sourceChainBySelector := make(map[uint64]rmn_home.RMNHomeSourceChain)
+	for i := range a.SourceChains {
+		sourceChainBySelector[a.SourceChains[i].ChainSelector] = a.SourceChains[i]
+	}
+	for i := range b.SourceChains {
+		sourceChain, exists := sourceChainBySelector[b.SourceChains[i].ChainSelector]
+		if !exists {
+			return false
+		}
+		if sourceChain.FObserve != b.SourceChains[i].FObserve {
+			return false
+		}
+		if sourceChain.ObserverNodesBitmap.Cmp(b.SourceChains[i].ObserverNodesBitmap) != 0 {
+			return false
+		}
+	}
+	return bytes.Equal(a.OffchainConfig, b.OffchainConfig)
 }
 
 type PromoteRMNHomeCandidateConfig struct {

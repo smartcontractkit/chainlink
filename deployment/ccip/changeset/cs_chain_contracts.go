@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -942,9 +943,10 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 }
 
 type SetOCR3OffRampConfig struct {
-	HomeChainSel    uint64
-	RemoteChainSels []uint64
-	MCMS            *MCMSConfig
+	HomeChainSel       uint64
+	RemoteChainSels    []uint64
+	CCIPHomeConfigType globals.ConfigType
+	MCMS               *MCMSConfig
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
@@ -954,6 +956,10 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 	}
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
+	}
+	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
+		c.CCIPHomeConfigType != globals.ConfigTypeCandidate {
+		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", globals.ConfigTypeActive, globals.ConfigTypeCandidate)
 	}
 	for _, remote := range c.RemoteChainSels {
 		chainState, ok := state.Chains[remote]
@@ -989,7 +995,8 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
-		args, err := internal.BuildSetOCR3ConfigArgs(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		args, err := internal.BuildSetOCR3ConfigArgs(
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

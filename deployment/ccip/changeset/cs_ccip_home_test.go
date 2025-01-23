@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -161,8 +162,9 @@ func Test_PromoteCandidate(t *testing.T) {
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []changeset.PromoteCandidatePluginInfo{
 							{
-								RemoteChainSelectors: []uint64{dest},
-								PluginType:           types.PluginTypeCCIPCommit,
+								RemoteChainSelectors:    []uint64{dest},
+								PluginType:              types.PluginTypeCCIPCommit,
+								AllowEmptyConfigPromote: true,
 							},
 						},
 						MCMS: mcmsConfig,
@@ -562,9 +564,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]changeset.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(changeset.GasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(changeset.DAGasPriceDeviationPPB)},
-									OptimisticConfirmations: changeset.OptimisticConfirmations,
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
 								Readers: otherChainConfig.Readers,
