@@ -106,7 +106,6 @@ jobs:
         working-directory: contracts
         run: pnpm prepublishOnly
 
-  # TODO: Confirm if this job is needed for CCIP contracts releases.
   native-compile:
     needs: [changes, tag-check]
     if: needs.changes.outputs.changes == 'true' || needs.tag-check.outputs.is-release-core == 'true' || needs.tag-check.outputs.is-pre-release-core == 'true'
@@ -242,7 +241,6 @@ jobs:
       - name: Publish to NPM (beta)
         uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
         with:
-          # TODO: confirm if this has perms to publish to @chainlink/contracts-ccip.
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
           publish-command: "pnpm publish-beta --no-git-checks"
@@ -292,7 +290,6 @@ jobs:
       - name: Publish to NPM (latest)
         uses: smartcontractkit/.github/actions/ci-publish-npm@4b0ab756abcb1760cb82e1e87b94ff431905bffc # ci-publish-npm@0.4.0
         with:
-          # TODO: confirm if this has perms to publish to @chainlink/contracts-ccip.
           npm-token: ${{ secrets.NPM_TOKEN }}
           create-github-release: false
           publish-command: "pnpm publish-prod --no-git-checks"
