@@ -39,7 +39,11 @@ release:
 changelog:
   disable: true
 
+nightly:
+  version_template: "{{ .ProjectName }}-{{ .ShortCommit }}"
 
 snapshot:
   version_template: "{{ .ProjectName }}-{{ .ShortCommit }}"
 
+partial:
+    by: target
