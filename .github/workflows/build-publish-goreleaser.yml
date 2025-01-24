@@ -1,10 +1,10 @@
 name: "Goreleaser Chainlink"
 
 on:
-  # push:
-  #   tags:
-  #     - "goreleaser-v*"
-  workflow_dispatch:
+  push:
+    tags:
+      - "goreleaser-v*"
+
 env:
   ECR_HOSTNAME: public.ecr.aws
 
