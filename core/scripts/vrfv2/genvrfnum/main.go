@@ -16,11 +16,11 @@ import (
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func main() {

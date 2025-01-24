@@ -4,10 +4,16 @@
     "ChainName": "alpha",
     "ChainType": "EVM",
     "WSRPCs": [
-      "wss://crib-local-geth-1337-ws.local:443"
+      {
+        "External": "wss://crib-local-geth-2337-ws.main.stage.cldev.sh",
+        "Internal": "ws://crib-local-geth-2337-ws:8546"
+      }
     ],
     "HTTPRPCs": [
-      "https://crib-local-geth-1337-ws.local:443"
+      {
+        "External": "https://crib-local-geth-1337-ws.main.stage.cldev.sh:443",
+        "Internal": "http://crib-local-geth-1337:8544"
+      }
     ]
   },
   {
@@ -15,10 +21,16 @@
     "ChainName": "alpha",
     "ChainType": "EVM",
     "WSRPCs": [
-      "wss://crib-local-geth-2337-ws.local:443"
+      {
+        "External": "wss://crib-local-geth-2337-ws.main.stage.cldev.sh",
+        "Internal": "ws://crib-local-geth-2337-ws:8546"
+      }
     ],
     "HTTPRPCs": [
-      "https://crib-local-geth-2337-ws.local:443"
+      {
+        "External": "https://crib-local-geth-2337-ws.main.stage.cldev.sh:443",
+        "Internal": "http://crib-local-geth-2337:8544"
+      }
     ]
   }
 ]

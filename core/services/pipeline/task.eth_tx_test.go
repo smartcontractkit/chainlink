@@ -578,8 +578,15 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
-				TxManager: txManager, KeyStore: keyStore})
+			legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+				DB:             db,
+				GeneralConfig:  cfg,
+				DatabaseConfig: cfg.Database(),
+				FeatureConfig:  cfg.Feature(),
+				ListenerConfig: cfg.Database().Listener(),
+				TxManager:      txManager,
+				KeyStore:       keyStore,
+			})
 
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)

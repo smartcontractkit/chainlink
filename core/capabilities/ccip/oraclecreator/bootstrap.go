@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -24,7 +23,6 @@ import (
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -210,21 +208,14 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 }
 
 func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cctypes.OCR3ConfigWithMeta) (ccipreaderpkg.RMNHome, error) {
-	rmnHomeBoundContract := types.BoundContract{
-		Address: "0x" + hex.EncodeToString(config.Config.RmnHomeAddress),
-		Name:    consts.ContractNameRMNHome,
-	}
-
-	if err1 := i.homeChainContractReader.Bind(ctx, []types.BoundContract{rmnHomeBoundContract}); err1 != nil {
-		return nil, fmt.Errorf("failed to bind RMNHome contract: %w", err1)
-	}
-	rmnHomeReader := ccipreaderpkg.NewRMNHomePoller(
-		i.homeChainContractReader,
-		rmnHomeBoundContract,
+	return ccipreaderpkg.NewRMNHomeChainReader(
+		ctx,
 		i.lggr,
-		5*time.Second,
+		ccipreaderpkg.HomeChainPollingInterval,
+		config.Config.ChainSelector,
+		config.Config.RmnHomeAddress,
+		i.homeChainContractReader,
 	)
-	return rmnHomeReader, nil
 }
 
 // peerGroupDialer keeps watching for RMNHome config changes and calls NewPeerGroup when needed.

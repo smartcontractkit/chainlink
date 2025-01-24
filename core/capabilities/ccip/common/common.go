@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 // HashedCapabilityID returns the hashed capability id in a manner equivalent to the capability registry.

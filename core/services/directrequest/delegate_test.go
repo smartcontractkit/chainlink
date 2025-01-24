@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
@@ -45,7 +45,16 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 	keyStore := cltest.NewKeyStore(t, db)
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		Client:         ethClient,
+		MailMon:        mailMon,
+		KeyStore:       keyStore.Eth(),
+	})
 
 	lggr := logger.TestLogger(t)
 	delegate := directrequest.NewDelegate(lggr, runner, nil, legacyChains, mailMon)
@@ -84,7 +93,17 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		Client:         ethClient,
+		LogBroadcaster: broadcaster,
+		MailMon:        mailMon,
+		KeyStore:       keyStore.Eth(),
+	})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_JobType(t *testing.T) {
@@ -63,11 +63,14 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	legacyChains := evmtest.NewLegacyChains(
 		t,
 		evmtest.TestChainOpts{
-			DB:            db,
-			KeyStore:      kst,
-			GeneralConfig: cfg,
-			Client:        ethClient,
-			LogPoller:     lp,
+			GeneralConfig:  cfg,
+			DatabaseConfig: cfg.Database(),
+			FeatureConfig:  cfg.Feature(),
+			ListenerConfig: cfg.Database().Listener(),
+			DB:             db,
+			KeyStore:       kst,
+			Client:         ethClient,
+			LogPoller:      lp,
 		},
 	)
 	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{

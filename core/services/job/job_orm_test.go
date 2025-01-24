@@ -19,13 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -38,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -50,6 +48,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const mercuryOracleTOML = `name = 'LINK / ETH | 0x0000000000000000000000000000000000000000000000000000000000000001 | verifier_proxy 0x0000000000000000000000000000000000000001'
@@ -376,7 +376,14 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+			GeneralConfig:  config,
+			DatabaseConfig: config.Database(),
+			FeatureConfig:  config.Feature(),
+			ListenerConfig: config.Database().Listener(),
+			DB:             db,
+			KeyStore:       keyStore.Eth(),
+		})
 		jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
@@ -795,7 +802,14 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		TransmitterAddress: address.Hex(),
 		JobID:              externalJobID.UUID.String(),
 	})
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	jb, err := ocr.ValidatedOracleSpecToml(config, legacyChains, spec.Toml())
 	require.NoError(t, err)
 
@@ -1065,7 +1079,14 @@ func Test_FindJobs(t *testing.T) {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	jb1, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              uuid.New().String(),
@@ -1149,7 +1170,14 @@ func Test_FindJob(t *testing.T) {
 	// Must uniquely name the OCR Specs to properly insert a new job in the job table.
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	job, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
@@ -1380,7 +1408,14 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -1443,7 +1478,14 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -1505,7 +1547,14 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -1619,7 +1668,14 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -1798,7 +1854,14 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  config,
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		DB:             db,
+		KeyStore:       keyStore.Eth(),
+	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})

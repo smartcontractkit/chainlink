@@ -1,6 +1,7 @@
 package ccipcalc
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -215,6 +216,144 @@ func TestDeviates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, Deviates(tt.args.x1, tt.args.x2, tt.args.ppb), "Deviates(%v, %v, %v)", tt.args.x1, tt.args.x2, tt.args.ppb)
+		})
+	}
+}
+
+func TestDeviatesOnCurve(t *testing.T) {
+	type args struct {
+		xNew  *big.Int
+		xOld  *big.Int
+		noDev *big.Int
+		ppb   int64
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "base case deviates from increase",
+			args: args{xNew: big.NewInt(4e14), xOld: big.NewInt(1e13), noDev: big.NewInt(3e13), ppb: CurveBasedDeviationPPB},
+			want: true,
+		},
+		{
+			name: "base case deviates from decrease",
+			args: args{xNew: big.NewInt(1e13), xOld: big.NewInt(4e15), noDev: big.NewInt(1), ppb: CurveBasedDeviationPPB},
+			want: true,
+		},
+		{
+			name: "does not deviate when equal",
+			args: args{xNew: big.NewInt(3e14), xOld: big.NewInt(3e14), noDev: big.NewInt(3e13), ppb: CurveBasedDeviationPPB},
+			want: false,
+		},
+		{
+			name: "does not deviate with small difference when xNew is bigger",
+			args: args{xNew: big.NewInt(3e14 + 1), xOld: big.NewInt(3e14), noDev: big.NewInt(3e13), ppb: CurveBasedDeviationPPB},
+			want: false,
+		},
+		{
+			name: "does not deviate with small difference when xOld is bigger",
+			args: args{xNew: big.NewInt(3e14), xOld: big.NewInt(3e14 + 1), noDev: big.NewInt(3e13), ppb: CurveBasedDeviationPPB},
+			want: false,
+		},
+		{
+			name: "deviates when ppb is not equal to CurveBasedDeviationPPB",
+			args: args{xNew: big.NewInt(1e9), xOld: big.NewInt(2e9), noDev: big.NewInt(1), ppb: 1},
+			want: true,
+		},
+		{
+			name: "does not deviate when xNew is below noDeviationLowerBound",
+			args: args{xNew: big.NewInt(2e13), xOld: big.NewInt(1e13), noDev: big.NewInt(3e13), ppb: CurveBasedDeviationPPB},
+			want: false,
+		},
+		// thresholdPPB = (10e11) / (xNew^0.665) * 1e7
+		// diff = (xNew - xOld) / min(xNew, xOld) * 1e9
+		// Deviates = abs(diff) > thresholdPPB
+		{
+			name: "xNew is just below deviation threshold and does deviate",
+			args: args{xNew: big.NewInt(3e13), xOld: big.NewInt(2.519478222838e12), noDev: big.NewInt(1), ppb: CurveBasedDeviationPPB},
+			want: false,
+		},
+		{
+			name: "xNew is just above deviation threshold and does deviate",
+			args: args{xNew: big.NewInt(3e13), xOld: big.NewInt(2.519478222838e12 - 30), noDev: big.NewInt(1), ppb: CurveBasedDeviationPPB},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(
+				t,
+				tt.want,
+				DeviatesOnCurve(tt.args.xNew, tt.args.xOld, tt.args.noDev, tt.args.ppb),
+				"DeviatesOnCurve(%v, %v, %v, %v)", tt.args.xNew, tt.args.xOld, tt.args.noDev, tt.args.ppb)
+		})
+	}
+}
+
+func TestCalculateCurveThresholdPPB(t *testing.T) {
+	tests := []struct {
+		x             float64
+		ppbLowerBound int64
+		ppbUpperBound int64
+	}{
+		{
+			x:             500_000,
+			ppbLowerBound: 1_000_000_000_000_000, // 100,000,000%
+			ppbUpperBound: 3_000_000_000_000_000, // 300,000,000%
+		},
+		{
+			x:             50_000_000,
+			ppbLowerBound: 70_000_000_000_000, // 7,000,000%
+			ppbUpperBound: 90_000_000_000_000, // 9,000,000%
+		},
+		{
+			x:             350_000_000,
+			ppbLowerBound: 20_000_000_000_000, // 2,000,000%
+			ppbUpperBound: 30_000_000_000_000, // 3,000,000%
+		},
+		{
+			x:             200_000_000_000,
+			ppbLowerBound: 300_000_000_000, // 30,000%
+			ppbUpperBound: 400_000_000_000, // 40,000%
+		},
+		{
+			x:             6_000_000_000_000,
+			ppbLowerBound: 30_000_000_000, // 3,000%
+			ppbUpperBound: 40000000000,    // 4,000%
+		},
+		{
+			x:             50_000_000_000_000,
+			ppbLowerBound: 7_000_000_000, // 700%
+			ppbUpperBound: 8_000_000_000, // 800%
+		},
+		{
+			x:             225_000_000_000_000,
+			ppbLowerBound: 2_000_000_000, // 200%
+			ppbUpperBound: 3_000_000_000, // 300%
+		},
+		{
+			x:             5_000_000_000_000_000,
+			ppbLowerBound: 300_000_000, // 30%
+			ppbUpperBound: 400_000_000, // 40%
+		},
+		{
+			x:             70_000_000_000_000_000,
+			ppbLowerBound: 60_000_000, // 6%
+			ppbUpperBound: 70_000_000, // 7%
+		},
+		{
+			x:             500_000_000_000_000_000,
+			ppbLowerBound: 10_000_000, // 1%
+			ppbUpperBound: 20_000_000, // 2%
+		},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%f", tt.x), func(t *testing.T) {
+			thresholdPPB := calculateCurveThresholdPPB(tt.x)
+			assert.GreaterOrEqual(t, thresholdPPB, tt.ppbLowerBound)
+			assert.LessOrEqual(t, thresholdPPB, tt.ppbUpperBound)
 		})
 	}
 }

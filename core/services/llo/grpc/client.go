@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -29,9 +31,10 @@ type client struct {
 	services.Service
 	eng *services.Engine
 
-	clientPrivKey ed25519.PrivateKey
-	serverPubKey  ed25519.PublicKey
-	serverURL     string
+	clientPrivKey   ed25519.PrivateKey
+	clientPubKeyHex string
+	serverPubKey    ed25519.PublicKey
+	serverURL       string
 
 	conn   *grpc.ClientConn
 	client rpc.TransmitterClient
@@ -50,9 +53,10 @@ func NewClient(opts ClientOpts) Client {
 
 func newClient(opts ClientOpts) Client {
 	c := &client{
-		clientPrivKey: opts.ClientPrivKey,
-		serverPubKey:  opts.ServerPubKey,
-		serverURL:     opts.ServerURL,
+		clientPrivKey:   opts.ClientPrivKey,
+		clientPubKeyHex: hex.EncodeToString(opts.ClientPrivKey.Public().(ed25519.PublicKey)),
+		serverPubKey:    opts.ServerPubKey,
+		serverURL:       opts.ServerURL,
 	}
 	c.Service, c.eng = services.Config{
 		Name:  "GRPCClient",
@@ -104,7 +108,10 @@ func (c *client) close() error {
 
 func (c *client) Transmit(ctx context.Context, req *rpc.TransmitRequest) (resp *rpc.TransmitResponse, err error) {
 	err = c.eng.IfStarted(func() error {
-		resp, err = c.client.Transmit(ctx, req)
+		// This is a self-identified client ID
+		// It is not cryptographically verified
+		transmitCtx := metadata.AppendToOutgoingContext(ctx, "client_public_key", c.clientPubKeyHex)
+		resp, err = c.client.Transmit(transmitCtx, req)
 		return err
 	})
 	return
