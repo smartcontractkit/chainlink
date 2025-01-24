@@ -34,6 +34,8 @@ const (
 	//	-- testport.txt --
 	//	PORT
 	testPortName = "testport.txt"
+	// integrationBuildName acts like a build tag: //go:build integration
+	integrationBuildName = "go:build.integration"
 )
 
 func TestMain(m *testing.M) {
@@ -69,7 +71,15 @@ func TestScripts(t *testing.T) {
 	require.NoError(t, visitor.Walk())
 }
 
+// isIntegrationBuild is toggled true by a func init() with a //go:build integration gate
+var isIntegrationBuild = false
+
 func commonEnv(te *testscript.Env) error {
+	if _, err := os.Stat(integrationBuildName); err == nil && !isIntegrationBuild {
+		te.T().Skip("integration test")
+		return nil
+	}
+
 	te.Setenv("HOME", "$WORK/home")
 	te.Setenv("VERSION", static.Version)
 	te.Setenv("COMMIT_SHA", static.Sha)

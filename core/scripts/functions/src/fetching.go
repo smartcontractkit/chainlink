@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type ocr2Bundle struct {

@@ -19,8 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type SeqNumRange struct {

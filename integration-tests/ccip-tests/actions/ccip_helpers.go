@@ -51,7 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -67,6 +67,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const (

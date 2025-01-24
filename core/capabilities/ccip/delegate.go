@@ -170,7 +170,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
 		d.lggr.Named("HomeChainReader"),
-		15*time.Second,
+		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)

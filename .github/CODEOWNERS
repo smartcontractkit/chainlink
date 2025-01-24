@@ -10,6 +10,7 @@
 # Chains
 /common @smartcontractkit/bix-framework @smartcontractkit/core
 /core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
+/evm @jmank88 @pavel-raykov @DylanTinianov
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
