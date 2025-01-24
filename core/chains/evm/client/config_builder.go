@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 )
 
 type NodeConfig struct {

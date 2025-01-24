@@ -17,13 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewBaseConfig() *chainlink.Config {

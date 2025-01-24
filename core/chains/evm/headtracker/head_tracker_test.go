@@ -30,6 +30,7 @@ import (
 
 	commonht "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 	commontypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
+
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -38,10 +39,10 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) *evmtypes.Head {

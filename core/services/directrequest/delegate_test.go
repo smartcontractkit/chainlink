@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -34,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {

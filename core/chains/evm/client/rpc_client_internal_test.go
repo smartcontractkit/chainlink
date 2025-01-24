@@ -10,8 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 	client "github.com/smartcontractkit/chainlink-framework/multinode"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 )
 
 func TestRPCClient_MakeLogsValid(t *testing.T) {

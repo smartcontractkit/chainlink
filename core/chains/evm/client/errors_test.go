@@ -452,6 +452,8 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Tx too large. Max size is 2048576, but got 2097431", true, "Sei"},
 		{": insufficient funds", true, "Sei"},
 		{"insufficient fee", true, "Sei"},
+
+		{"Gas limit too low", true, "monad"},
 	}
 
 	for _, test := range tests {

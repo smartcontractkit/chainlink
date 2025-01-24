@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -14,16 +15,41 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
+type WorkflowNamer interface {
+	// Should be 10 bytes, hex-encoded (i.e. 20 characters long)
+	// Used in the metadata we send onchain and for authorizing
+	// the workflow with the consumer
+	// TODO: in practice we validate that this can be max 10 bytes (rather than exactly 10),
+	// but this should be avoided due to a bug in the consensus capability.
+	Hex() string
+
+	// Human-readable version of the name
+	// This has no restriction on size, and is only
+	// used for logging and metrics.
+	String() string
+}
+
+type defaultName struct {
+	name string
+}
+
+func (d defaultName) Hex() string {
+	return hex.EncodeToString([]byte(d.name))
+}
+
+func (d defaultName) String() string {
+	return d.name
+}
+
 // workflow is a directed graph of nodes, where each node is a step.
 //
 // triggers are special steps that are stored separately, they're
 // treated differently due to their nature of being the starting
 // point of a workflow.
 type workflow struct {
-	id      string
-	owner   string
-	hexName string
-	name    string
+	id    string
+	owner string
+	name  WorkflowNamer
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability

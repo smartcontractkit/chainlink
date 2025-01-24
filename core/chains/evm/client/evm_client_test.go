@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 )
 
 func TestNewEvmClient(t *testing.T) {

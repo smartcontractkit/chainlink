@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 func TestAssets_NewEthAndString(t *testing.T) {
