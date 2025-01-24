@@ -3,20 +3,26 @@ package changeset_test
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -125,7 +131,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	var routerConfigAccount solRouter.Config
 	err = e.SolChains[solChainSelectors[0]].GetAccountDataBorshInto(testcontext.Get(t), changeset.GetRouterConfigPDA(state.SolChains[solChainSelectors[0]].Router), &routerConfigAccount)
 	require.NoError(t, err)
-	t.Logf("Router config account: %+v", routerConfigAccount)
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
@@ -144,155 +149,155 @@ func TestDeployCCIPContracts(t *testing.T) {
 	fmt.Println(string(b))
 }
 
-// COVERED by testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+// TODO:this test should be in some other test file
+// This is breaking now because NewMemoryEnvironment already does the update
+// @tt can fix this please ?
+func TestHomeChainChangesetSolana(t *testing.T) {
+	t.Parallel()
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	evmSelectors := e.Env.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := e.Env.AllChainSelectorsSolana()
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	for _, chain := range e.Env.AllChainSelectors() {
+		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+	}
+	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
+	// e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	// 	// {
+	// 	// 	Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+	// 	// 	Config:    solChainSelectors,
+	// 	// },
+	// 	// {
+	// 	// 	Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+	// 	// 	Config: changeset.DeployChainContractsConfig{
+	// 	// 		HomeChainSelector: homeChainSel,
+	// 	// 		ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+	// 	// 			solChainSelectors[0]: {
+	// 	// 				FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+	// 	// 				OffRampParams:   changeset.DefaultOffRampParams(),
+	// 	// 			},
+	// 	// 		},
+	// 	// 	},
+	// 	// },
+	// 	{
+	// 		Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+	// 		Config: changeset.UpdateOnRampDestsConfig{
+	// 			UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+	// 				solChainSelectors[0]: {
+	// 					homeChainSel: {
+	// 						IsEnabled:        true,
+	// 						TestRouter:       true,
+	// 						AllowListEnabled: false,
+	// 					},
+	// 				},
+	// 			},
+	// 			MCMS: nil,
+	// 		},
+	// 	},
+	// })
+	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e.Env, solChainSelectors)
 
-// func TestHomeChainChangesetSolana(t *testing.T) {
-// 	t.Parallel()
-// 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-// 	evmSelectors := e.Env.AllChainSelectors()
-// 	homeChainSel := evmSelectors[0]
-// 	solChainSelectors := e.Env.AllChainSelectorsSolana()
-// 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
-// 	require.NoError(t, err)
-// 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
-// 	for _, chain := range e.Env.AllChainSelectors() {
-// 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
-// 	}
-// 	// testhelpers.SavePreloadedSolAddresses(t, e.Env, solChainSelectors[0])
-// 	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
-// 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-// 		// {
-// 		// 	Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-// 		// 	Config:    solChainSelectors,
-// 		// },
-// 		// {
-// 		// 	Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-// 		// 	Config: changeset.DeployChainContractsConfig{
-// 		// 		HomeChainSelector: homeChainSel,
-// 		// 		ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
-// 		// 			solChainSelectors[0]: {
-// 		// 				FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-// 		// 				OffRampParams:   changeset.DefaultOffRampParams(),
-// 		// 			},
-// 		// 		},
-// 		// 	},
-// 		// },
-// 		{
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-// 			Config: changeset.UpdateOnRampDestsConfig{
-// 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
-// 					solChainSelectors[0]: {
-// 						homeChainSel: {
-// 							IsEnabled:        true,
-// 							TestRouter:       true,
-// 							AllowListEnabled: false,
-// 						},
-// 					},
-// 				},
-// 				MCMS: nil,
-// 			},
-// 		},
-// 	})
-// 	require.NoError(t, err)
-// 	testhelpers.ValidateSolanaState(t, e.Env, solChainSelectors)
-
-// 	// Build the per chain config.
-// 	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
-// 	chainConfigs := make(map[uint64]changeset.ChainConfig)
-// 	for _, chain := range solChainSelectors {
-// 		ocrParams := changeset.DeriveCCIPOCRParams(
-// 			changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
-// 			changeset.WithDefaultExecuteOffChainConfig(nil),
-// 		)
-// 		ocrConfigs[chain] = ocrParams
-// 		chainConfigs[chain] = changeset.ChainConfig{
-// 			Readers: nodes.NonBootstraps().PeerIDs(),
-// 			// #nosec G115 - Overflow is not a concern in this test scenario
-// 			FChain: uint8(len(nodes.NonBootstraps().PeerIDs()) / 3),
-// 			EncodableChainConfig: chainconfig.ChainConfig{
-// 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-// 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-// 				OptimisticConfirmations: globals.OptimisticConfirmations,
-// 			},
-// 		}
-// 	}
-// 	// Deploy second set of changesets to deploy and configure the CCIP contracts.
-// 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-// 		{
-// 			// Add the chain configs for the new chains.
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-// 			Config: changeset.UpdateChainConfigConfig{
-// 				HomeChainSelector: homeChainSel,
-// 				RemoteChainAdds:   chainConfigs,
-// 			},
-// 		},
-// 		// For everything below, we need node spinup to support Solana OCR
-// 		{
-// 			// Add the DONs and candidate commit OCR instances for the chain.
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
-// 			Config: changeset.AddDonAndSetCandidateChangesetConfig{
-// 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
-// 					HomeChainSelector: homeChainSel,
-// 					FeedChainSelector: homeChainSel,
-// 				},
-// 				PluginInfo: changeset.SetCandidatePluginInfo{
-// 					OCRConfigPerRemoteChainSelector: ocrConfigs,
-// 					PluginType:                      types.PluginTypeCCIPCommit,
-// 				},
-// 			},
-// 		},
-// 		{
-// 			// Add the exec OCR instances for the new chains.
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-// 			Config: changeset.SetCandidateChangesetConfig{
-// 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
-// 					HomeChainSelector: homeChainSel,
-// 					FeedChainSelector: homeChainSel,
-// 				},
-// 				PluginInfo: []changeset.SetCandidatePluginInfo{
-// 					{
-// 						OCRConfigPerRemoteChainSelector: ocrConfigs,
-// 						PluginType:                      types.PluginTypeCCIPExec,
-// 					},
-// 				},
-// 			},
-// 		},
-// 		{
-// 			// Promote everything
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-// 			Config: changeset.PromoteCandidateChangesetConfig{
-// 				HomeChainSelector: homeChainSel,
-// 				PluginInfo: []changeset.PromoteCandidatePluginInfo{
-// 					{
-// 						RemoteChainSelectors: solChainSelectors,
-// 						PluginType:           types.PluginTypeCCIPCommit,
-// 					},
-// 				},
-// 			},
-// 		},
-// 		{
-// 			// Promote everything
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-// 			Config: changeset.PromoteCandidateChangesetConfig{
-// 				HomeChainSelector: homeChainSel,
-// 				PluginInfo: []changeset.PromoteCandidatePluginInfo{
-// 					{
-// 						RemoteChainSelectors: solChainSelectors,
-// 						PluginType:           types.PluginTypeCCIPExec,
-// 					},
-// 				},
-// 			},
-// 		},
-// 		{
-// 			// Enable the OCR config on the remote chains.
-// 			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3ConfigSolana),
-// 			Config: changeset.SetOCR3OffRampConfig{
-// 				HomeChainSel:       homeChainSel,
-// 				RemoteChainSels:    solChainSelectors,
-// 				CCIPHomeConfigType: globals.ConfigTypeActive,
-// 			},
-// 		},
-// 	})
-// 	require.NoError(t, err)
-// 	testhelpers.ValidateSolanaState(t, e.Env, solChainSelectors)
-// }
+	// Build the per chain config.
+	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
+	chainConfigs := make(map[uint64]changeset.ChainConfig)
+	for _, chain := range solChainSelectors {
+		ocrParams := changeset.DeriveCCIPOCRParams(
+			changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
+			changeset.WithDefaultExecuteOffChainConfig(nil),
+		)
+		ocrConfigs[chain] = ocrParams
+		chainConfigs[chain] = changeset.ChainConfig{
+			Readers: nodes.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodes.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
+	}
+	// Deploy second set of changesets to deploy and configure the CCIP contracts.
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			// Add the chain configs for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
+			Config: changeset.UpdateChainConfigConfig{
+				HomeChainSelector: homeChainSel,
+				RemoteChainAdds:   chainConfigs,
+			},
+		},
+		// For everything below, we need node spinup to support Solana OCR
+		{
+			// Add the DONs and candidate commit OCR instances for the chain.
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			Config: changeset.AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: homeChainSel,
+				},
+				PluginInfo: changeset.SetCandidatePluginInfo{
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Add the exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
+			Config: changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: homeChainSel,
+				},
+				PluginInfo: []changeset.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigs,
+						PluginType:                      types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
+			Config: changeset.PromoteCandidateChangesetConfig{
+				HomeChainSelector: homeChainSel,
+				PluginInfo: []changeset.PromoteCandidatePluginInfo{
+					{
+						RemoteChainSelectors: solChainSelectors,
+						PluginType:           types.PluginTypeCCIPCommit,
+					},
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
+			Config: changeset.PromoteCandidateChangesetConfig{
+				HomeChainSelector: homeChainSel,
+				PluginInfo: []changeset.PromoteCandidatePluginInfo{
+					{
+						RemoteChainSelectors: solChainSelectors,
+						PluginType:           types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.SetOCR3ConfigSolana),
+			Config: changeset.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		},
+	})
+	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e.Env, solChainSelectors)
+}
