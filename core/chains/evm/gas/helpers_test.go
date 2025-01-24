@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func init() {

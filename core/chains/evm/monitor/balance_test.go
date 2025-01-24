@@ -18,17 +18,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 var nilBigInt *big.Int
 
-func newEthClientMock(t *testing.T) *evmclimocks.Client {
-	mockEth := evmclimocks.NewClient(t)
+func newEthClientMock(t *testing.T) *clienttest.Client {
+	mockEth := clienttest.NewClient(t)
 	mockEth.On("ConfiguredChainID").Maybe().Return(big.NewInt(0))
 	return mockEth
 }

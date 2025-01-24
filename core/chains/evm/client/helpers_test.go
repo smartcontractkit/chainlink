@@ -11,13 +11,13 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	client "github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink-framework/multinode"
+	client "github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type TestClientErrors struct {

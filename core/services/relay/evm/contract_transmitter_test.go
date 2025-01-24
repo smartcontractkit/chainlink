@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -54,7 +54,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	c := evmclimocks.NewClient(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	ctx := testutils.Context(t)
 	ks := mocks.NewEth(t)
@@ -171,7 +171,7 @@ func createContractTransmitter(ctx context.Context, t *testing.T, transmitter Tr
 	contractTransmitter, err := NewOCRContractTransmitter(
 		ctx,
 		gethcommon.Address{},
-		evmclimocks.NewClient(t),
+		clienttest.NewClient(t),
 		contractABI,
 		transmitter,
 		lp,

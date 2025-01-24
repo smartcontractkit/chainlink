@@ -31,7 +31,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -223,7 +223,7 @@ func TestConfigPoller(t *testing.T) {
 			})
 		})
 		t.Run("returns error if callLatestConfigDetails fails", func(t *testing.T) {
-			failingClient := new(evmClientMocks.Client)
+			failingClient := new(clienttest.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
 			cp, err := newConfigPoller(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
@@ -321,7 +321,7 @@ func TestConfigPoller(t *testing.T) {
 			})
 		})
 		t.Run("returns error if callReadConfig fails", func(t *testing.T) {
-			failingClient := new(evmClientMocks.Client)
+			failingClient := new(clienttest.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
 				// initial call to retrieve config store address from aggregator

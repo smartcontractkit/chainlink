@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commontypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price

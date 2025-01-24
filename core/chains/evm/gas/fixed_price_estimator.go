@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var _ EvmEstimator = (*fixedPriceEstimator)(nil)

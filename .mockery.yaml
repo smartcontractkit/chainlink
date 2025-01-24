@@ -48,9 +48,12 @@ packages:
       Dispatcher:
       Receiver:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
+    config:
+      dir: core/chains/evm/client/clienttest
+      outpkg: clienttest
     interfaces:
       Client:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
+  github.com/smartcontractkit/chainlink/v2/evm/config:
     interfaces:
       GasEstimator:
       ChainScopedConfig:

@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type CapabilityRegistryProvisioner struct {

@@ -14,21 +14,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	"github.com/jmoiron/sqlx"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	geth_types "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
@@ -43,10 +40,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	cltypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

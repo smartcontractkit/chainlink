@@ -14,14 +14,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 func TestWrappedEvmEstimator(t *testing.T) {
@@ -263,7 +264,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect legacy fee data
 		dynamicFees := false
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		fee, limit, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
@@ -290,7 +291,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect legacy fee data
 		dynamicFees := false
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		_, _, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
@@ -308,7 +309,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		lggr := logger.Test(t)
 		dynamicFees := false // expect legacy fee data
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		fee, limit, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
@@ -333,7 +334,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect legacy fee data
 		dynamicFees := false
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(uint64(0), errors.New("something broke")).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		fee, limit, err := estimator.GetFee(ctx, []byte{}, gasLimit, nil, &fromAddress, &toAddress)
@@ -364,7 +365,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect legacy fee data
 		dynamicFees := false
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGasLimit, nil).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		fee, limit, err := estimator.GetFee(ctx, []byte{}, uint64(0), nil, &fromAddress, &toAddress)
@@ -394,7 +395,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		// expect legacy fee data
 		dynamicFees := false
 		geCfg.EstimateLimitF = true
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(uint64(0), errors.New("something broke")).Twice()
 		estimator := gas.NewEvmFeeEstimator(lggr, getRootEst, dynamicFees, geCfg, ethClient)
 		_, _, err := estimator.GetFee(ctx, []byte{}, 0, nil, &fromAddress, &toAddress)

@@ -19,7 +19,6 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -28,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -39,40 +39,40 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		cfg := evmcfg.Defaults(evmChainID1)
-		node1_1 := evmcfg.Node{
+		cfg := toml.Defaults(evmChainID1)
+		node1_1 := toml.Node{
 			Name:     ptr("Test node chain1:1"),
 			WSURL:    commonconfig.MustParseURL("ws://localhost:8546"),
 			HTTPURL:  commonconfig.MustParseURL("http://localhost:8546"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(15)),
 		}
-		node1_2 := evmcfg.Node{
+		node1_2 := toml.Node{
 			Name:     ptr("Test node chain1:2"),
 			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
 			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(36)),
 		}
-		node2_1 := evmcfg.Node{
+		node2_1 := toml.Node{
 			Name:     ptr("Test node chain2:1"),
 			WSURL:    commonconfig.MustParseURL("ws://localhost:8547"),
 			HTTPURL:  commonconfig.MustParseURL("http://localhost:8547"),
 			SendOnly: ptr(false),
 			Order:    ptr(int32(11)),
 		}
-		c.EVM[0] = &evmcfg.EVMConfig{
+		c.EVM[0] = &toml.EVMConfig{
 			ChainID: evmChainID1,
 			Enabled: ptr(true),
 			Chain:   cfg,
-			Nodes:   evmcfg.EVMNodes{&node1_1, &node1_2},
+			Nodes:   toml.EVMNodes{&node1_1, &node1_2},
 		}
 		id2 := ubig.New(big.NewInt(2))
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &toml.EVMConfig{
 			ChainID: evmChainID2,
-			Chain:   evmcfg.Defaults(id2),
+			Chain:   toml.Defaults(id2),
 			Enabled: ptr(true),
-			Nodes:   evmcfg.EVMNodes{&node2_1},
+			Nodes:   toml.EVMNodes{&node2_1},
 		})
 
 		c.Solana = solcfg.TOMLConfigs{

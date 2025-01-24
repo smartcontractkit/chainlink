@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -159,7 +159,7 @@ func (o *SuggestedPriceEstimator) forceRefresh(ctx context.Context) (err error) 
 	return
 }
 
-func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (o *SuggestedPriceEstimator) OnNewLongestChain(context.Context, *types.Head) {}
 
 func (*SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ *assets.Wei) (fee DynamicFee, err error) {
 	err = pkgerrors.New("dynamic fees are not implemented for this estimator")

@@ -21,8 +21,6 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -49,6 +47,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -769,11 +769,11 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.Defaults(customChainID),
+			Chain:   configtoml.Defaults(customChainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
@@ -846,11 +846,11 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.Defaults(customChainID),
+			Chain:   configtoml.Defaults(customChainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
@@ -908,11 +908,11 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.Defaults(customChainID),
+			Chain:   configtoml.Defaults(customChainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
@@ -1144,11 +1144,11 @@ func Test_FindJob(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		chainID := big.NewI(1337)
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: chainID,
-			Chain:   evmcfg.Defaults(chainID),
+			Chain:   configtoml.Defaults(chainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 
@@ -2133,11 +2133,11 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.Defaults(customChainID),
+			Chain:   configtoml.Defaults(customChainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 	db := pgtest.NewSqlxDB(t)
@@ -2304,11 +2304,11 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		enabled := true
-		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+		c.EVM = append(c.EVM, &configtoml.EVMConfig{
 			ChainID: customChainID,
-			Chain:   evmcfg.Defaults(customChainID),
+			Chain:   configtoml.Defaults(customChainID),
 			Enabled: &enabled,
-			Nodes:   evmcfg.EVMNodes{{}},
+			Nodes:   configtoml.EVMNodes{{}},
 		})
 	})
 	db := pgtest.NewSqlxDB(t)

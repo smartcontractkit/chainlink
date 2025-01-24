@@ -8,11 +8,11 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 
-	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	config "github.com/smartcontractkit/chainlink/v2/evm/config"
 
 	context "context"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 

@@ -25,12 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -43,13 +40,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type broadcasterHelper struct {
 	t            *testing.T
 	lb           log.BroadcasterInTest
 	db           *sqlx.DB
-	mockEth      *evmtestutils.MockEth
+	mockEth      *clienttest.MockEth
 	globalConfig config.AppConfig
 	config       evmconfig.ChainScopedConfig
 
@@ -366,9 +366,9 @@ type mockEthClientExpectedCalls struct {
 	FilterLogsResult []types.Log
 }
 
-func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtestutils.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *evmtestutils.MockEth {
-	ethClient := evmclimocks.NewClient(t)
-	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtestutils.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *clienttest.MockEth {
+	ethClient := clienttest.NewClient(t)
+	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.EthClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(

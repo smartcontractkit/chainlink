@@ -23,11 +23,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // MaxStartTime is the maximum amount of time we are allowed to spend

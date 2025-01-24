@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -56,7 +56,7 @@ func TestDualContractTransmitter(t *testing.T) {
 
 	keyStore := mocks.NewEth(t)
 	lggr := logger.TestLogger(t)
-	c := evmclimocks.NewClient(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	ctx := testutils.Context(t)
 	// scanLogs = false
@@ -158,7 +158,7 @@ func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitte
 	contractTransmitter, err := NewOCRDualContractTransmitter(
 		ctx,
 		gethcommon.Address{},
-		evmclimocks.NewClient(t),
+		clienttest.NewClient(t),
 		contractABI,
 		transmitter,
 		lp,

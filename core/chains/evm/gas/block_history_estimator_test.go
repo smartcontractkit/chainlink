@@ -19,19 +19,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -81,7 +80,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	bhCfg.TransactionPercentileF = percentile
 
 	t.Run("loads initial state", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -125,7 +124,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		bhCfg2.BlockHistorySizeF = historySize
 		bhCfg2.TransactionPercentileF = percentile
 
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg2, bhCfg2, l1Oracle)
@@ -159,7 +158,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("boots even if initial batch call returns nothing", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -178,7 +177,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching latest head fails", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -200,7 +199,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway if fetching first fetch fails, but errors on estimation", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -224,7 +223,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("returns error if main context is cancelled", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -241,7 +240,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts anyway even if the fetch context is cancelled due to taking longer than the MaxStartTime", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -294,7 +293,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with history size of 0, errors", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -315,7 +314,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -338,7 +337,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("with error retrieving blocks returns error", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -361,7 +360,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("batch fetches heads and transactions and sets them on the block history estimator instance", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -456,7 +455,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("does not refetch blocks below EVM.FinalityDepth", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -520,7 +519,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("replaces blocks on re-org within EVM.FinalityDepth", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -592,7 +591,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("uses locally cached blocks if they are in the chain", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		var blockDelay uint16
@@ -650,7 +649,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 
 	t.Run("fetches max(BlockHistoryEstimatorCheckInclusionBlocks, BlockHistoryEstimatorBlockHistorySize)", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		var blockDelay uint16
@@ -703,7 +702,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T) {
 	t.Parallel()
 
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
 
 	bhCfg := newBlockHistoryConfig()
@@ -775,7 +774,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_EIP1559(t *testing.T) {
 	t.Parallel()
 
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
 
 	bhCfg := newBlockHistoryConfig()
@@ -841,7 +840,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	minGasPrice := assets.NewWeiI(10)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -867,7 +866,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	})
 
 	t.Run("sets gas price to EVM.GasEstimator.PriceMax if the calculation would otherwise exceed it", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -903,7 +902,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	})
 
 	t.Run("sets gas price to EVM.GasEstimator.PriceMin if the calculation would otherwise fall below it", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -939,7 +938,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	})
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -987,7 +986,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 	t.Run("takes into account zero priced transactions if chain is not Gnosis", func(t *testing.T) {
 		// Because everyone loves free gas!
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1020,7 +1019,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	})
 
 	t.Run("ignores zero priced transactions only on Gnosis", func(t *testing.T) {
-		ethClient := evmmocks.NewClient(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1068,7 +1067,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	t.Run("handles unreasonably large gas prices (larger than a 64 bit int can hold)", func(t *testing.T) {
 		// Seems unlikely we will ever experience gas prices > 9 Petawei on mainnet (praying to the eth Gods 🙏)
 		// But other chains could easily use a different base of account
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1116,7 +1115,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	})
 
 	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1163,7 +1162,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(100)
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1201,7 +1200,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	})
 
 	t.Run("does not set tip higher than EVM.GasEstimator.PriceMax", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1240,7 +1239,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	})
 
 	t.Run("sets tip cap to EVM.GasEstimator.TipCapMin if the calculation would otherwise fall below it", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1279,7 +1278,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	})
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1328,7 +1327,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 	})
 
 	t.Run("respects minimum gas tip cap", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1365,7 +1364,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 	t.Run("allows to set zero tip cap if minimum allows it", func(t *testing.T) {
 		// Because everyone loves *cheap* gas!
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -1402,7 +1401,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 }
 
 func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
 
 	bhCfg := newBlockHistoryConfig()
@@ -1487,7 +1486,7 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 }
 
 func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
 
 	bhCfg := newBlockHistoryConfig()
@@ -1548,7 +1547,7 @@ func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
 }
 
 func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
 
 	bhCfg := newBlockHistoryConfig()
@@ -1979,7 +1978,7 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		geCfg.PriceMaxF = assets.NewWeiI(1000000)
 		geCfg.PriceDefaultF = assets.NewWeiI(100)
 
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -2031,7 +2030,7 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		geCfg.TipCapDefaultF = assets.NewWeiI(50)
 		geCfg.BumpThresholdF = uint64(1)
 
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -2185,7 +2184,7 @@ func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 	geCfg.PriceMinF = assets.NewWeiI(1)
 	geCfg.PriceMaxF = assets.NewWeiI(100)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ctx := tests.Context(t)
 
 	bhe := gas.BlockHistoryEstimatorFromInterface(
@@ -2472,7 +2471,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.PriceMaxF = maxGasPrice
 		geCfg.PriceMinF = assets.NewWeiI(0)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ctx := tests.Context(t)
 
 		bhe := gas.BlockHistoryEstimatorFromInterface(
@@ -2513,7 +2512,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
 		l1Oracle := rollupMocks.NewL1Oracle(t)
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ctx := tests.Context(t)
 
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
@@ -2601,7 +2600,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.PriceMinF = assets.NewWeiI(0)
 		geCfg.TipCapMinF = assets.NewWeiI(0)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ctx := tests.Context(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -2642,7 +2641,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.PriceMaxF = maxGasPrice
 		geCfg.TipCapDefaultF = assets.NewWeiI(52)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ctx := tests.Context(t)
 
 		bhe := newBlockHistoryEstimator(t, ethClient, defaultChainType, geCfg, bhCfg, l1Oracle)
@@ -2713,7 +2712,7 @@ func TestBlockHistoryEstimator_CheckInclusionPercentile_Calculation(t *testing.T
 	t.Parallel()
 
 	t.Run("sets CheckInclusionPercentile price using the latest blocks, eip-1559 disabled", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()
@@ -2770,7 +2769,7 @@ func TestBlockHistoryEstimator_CheckInclusionPercentile_Calculation(t *testing.T
 	})
 
 	t.Run("sets CheckInclusionPercentile price using the latest blocks, eip-1559 enabled", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 
 		bhCfg := newBlockHistoryConfig()

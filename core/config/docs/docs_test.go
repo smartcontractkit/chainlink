@@ -16,13 +16,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestDoc(t *testing.T) {
@@ -45,7 +45,7 @@ func TestDoc(t *testing.T) {
 	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, config.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
-		fallbackDefaults := evmcfg.Defaults(nil)
+		fallbackDefaults := toml.Defaults(nil)
 		docDefaults := defaults.EVM[0].Chain
 
 		require.Equal(t, chaintype.ChainType(""), docDefaults.ChainType.ChainType())
@@ -53,8 +53,8 @@ func TestDoc(t *testing.T) {
 
 		// clean up KeySpecific as a special case
 		require.Equal(t, 1, len(docDefaults.KeySpecific))
-		ks := evmcfg.KeySpecific{Key: new(types.EIP55Address),
-			GasEstimator: evmcfg.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
+		ks := toml.KeySpecific{Key: new(types.EIP55Address),
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])
 		docDefaults.KeySpecific = nil
 
@@ -69,7 +69,7 @@ func TestDoc(t *testing.T) {
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.Keeper)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.VRF)
 		require.Zero(t, *docDefaults.GasEstimator.LimitJobType.FM)
-		docDefaults.GasEstimator.LimitJobType = evmcfg.GasLimitJobType{}
+		docDefaults.GasEstimator.LimitJobType = toml.GasLimitJobType{}
 
 		// EIP1559FeeCapBufferBlocks doesn't have a constant default - it is derived from another field
 		require.Zero(t, *docDefaults.GasEstimator.BlockHistory.EIP1559FeeCapBufferBlocks)
@@ -90,7 +90,7 @@ func TestDoc(t *testing.T) {
 		docDefaults.Workflow.FromAddress = nil
 		docDefaults.Workflow.ForwarderAddress = nil
 		docDefaults.Workflow.GasLimitDefault = &gasLimitDefault
-		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
+		docDefaults.NodePool.Errors = toml.ClientErrors{}
 
 		// Transactions.AutoPurge configs are only set if the feature is enabled
 		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
@@ -103,7 +103,7 @@ func TestDoc(t *testing.T) {
 		docDefaults.Transactions.TransactionManagerV2.DualBroadcast = nil
 
 		// Fallback DA oracle is not set
-		docDefaults.GasEstimator.DAOracle = evmcfg.DAOracle{}
+		docDefaults.GasEstimator.DAOracle = toml.DAOracle{}
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	chainmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
@@ -87,7 +87,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchSizes := make([]int, 0)
-			ec := chainmocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 				evmCalls := args.Get(1).([]rpc.BatchElem)
 				batchSizes = append(batchSizes, len(evmCalls))
@@ -131,7 +131,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			ec := chainmocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			calls := make(read.BatchCall, tc.numCalls)
 			for j := range calls {
 				contractName := fmt.Sprintf("testCase_%d", i)
