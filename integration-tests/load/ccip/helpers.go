@@ -78,7 +78,7 @@ type finalSeqNrReport struct {
 	expectedSeqNrRange  ccipocr3.SeqNumRange
 }
 
-func subscribeDeferredCommitEvents(
+func subscribeCommitEvents(
 	ctx context.Context,
 	lggr logger.Logger,
 	offRamp offramp.OffRampInterface,
@@ -219,7 +219,6 @@ func subscribeExecutionEvents(
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
-	defer close(errChan)
 
 	lggr.Infow("starting execution event subscriber for ",
 		"destChain", chainSelector,

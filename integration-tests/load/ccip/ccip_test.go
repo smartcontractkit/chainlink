@@ -21,8 +21,8 @@ import (
 
 var (
 	CommonTestLabels = map[string]string{
-		"branch": "ccip_load_crib",
-		"commit": "ccip_load_crib",
+		"branch": "ccip_load_1_6",
+		"commit": "ccip_load_1_6",
 	}
 	wg sync.WaitGroup
 )
@@ -65,8 +65,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, &wg, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
-	lggr.Infow("transmitKeys", "len", len(transmitKeys), "key1", transmitKeys[3379446385462418246], "key2", transmitKeys[909606746561742123])
 	require.NoError(t, err)
+	// todo: defer returning funds
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
@@ -74,6 +74,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 
 	errChan := make(chan error)
+	defer close(errChan)
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 
@@ -90,7 +91,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 		messageKeys := make(map[uint64]*bind.TransactOpts)
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		lggr.Infow("otherChains", "chains", other, "currentcs", cs)
 		for _, sel := range other {
 			messageKeys[sel] = transmitKeys[sel][ind]
 		}
@@ -106,7 +106,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
 		wg.Add(2)
-		go subscribeDeferredCommitEvents(
+		go subscribeCommitEvents(
 			context.Background(),
 			lggr,
 			state.Chains[cs].OffRamp,
