@@ -108,6 +108,7 @@ type ChangesetOutput struct {
 	MCMSTimelockProposals []mcms.TimelockProposal
 	MCMSProposals         []mcms.Proposal
 	AddressBook           AddressBook
+	Reports               []Report[any, any, any]
 }
 
 // ViewState produces a product specific JSON representation of
