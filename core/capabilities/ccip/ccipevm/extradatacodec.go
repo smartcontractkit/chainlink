@@ -10,7 +10,7 @@ func NewExtraDataCodec() ExtraDataCodec {
 	return ExtraDataCodec{}
 }
 
-func (ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
+func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	// Not implemented and not return error
 	return nil, nil
 }
