@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -21,7 +21,7 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
 		return nil
 	}
-	return pg.NewTestDB(t, dbURL)
+	return sqltest.NewDB(t, dbURL)
 }
 
 func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...interface{}) {

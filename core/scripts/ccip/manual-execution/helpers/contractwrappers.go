@@ -135,17 +135,17 @@ func FilterExecutionStateChanged(
 	opts *bind.FilterOpts,
 	offRampAddr string,
 	sequenceNumber []uint64,
-	messageId [][32]byte,
+	messageID [][32]byte,
 ) (int, error) {
-	var sequenceNumberRule []interface{}
+	sequenceNumberRule := make([]interface{}, 0, len(sequenceNumber))
 	for _, sequenceNumberItem := range sequenceNumber {
 		sequenceNumberRule = append(sequenceNumberRule, sequenceNumberItem)
 	}
-	var messageIdRule []interface{}
-	for _, messageIdItem := range messageId {
-		messageIdRule = append(messageIdRule, messageIdItem)
+	messageIDRule := make([]interface{}, 0, len(messageID))
+	for _, messageIDItem := range messageID {
+		messageIDRule = append(messageIDRule, messageIDItem)
 	}
-	offRamp, logs, sub, err := DecodeEvents(chain, opts, offRampAddr, OffRampABI, "ExecutionStateChanged", sequenceNumberRule, messageIdRule)
+	offRamp, logs, sub, err := DecodeEvents(chain, opts, offRampAddr, OffRampABI, "ExecutionStateChanged", sequenceNumberRule, messageIDRule)
 	if err != nil {
 		return 0, err
 	}
@@ -167,7 +167,7 @@ func FilterExecutionStateChanged(
 	}
 
 	if executionState == -1 {
-		return 0, fmt.Errorf("no ExecutionStateChanged found for seq num %v and msg id %v", sequenceNumber, messageId)
+		return 0, fmt.Errorf("no ExecutionStateChanged found for seq num %v and msg id %v", sequenceNumber, messageID)
 	}
 	return executionState, nil
 }

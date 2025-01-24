@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -51,19 +52,11 @@ func Test_AddChain(t *testing.T) {
 	/////////////////////////////////////
 	// START Setup initial chains
 	/////////////////////////////////////
-	e = setupChain(
-		t,
-		e,
-		tEnv,
-		toDeploy,
-		true,  // deployJobs
-		true,  // deployHomeChain
-		false, // mcmsEnabled
-	)
+	e = setupChain(t, e, tEnv, toDeploy, false)
 
 	state, err := ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
+	tEnv.UpdateDeployedEnvironment(e)
 	// check RMNRemote is up and RMNProxy is correctly wired.
 	assertRMNRemoteAndProxyState(t, toDeploy, state)
 
@@ -179,18 +172,11 @@ func Test_AddChain(t *testing.T) {
 
 	// MCMS needs to be enabled because the home chain contracts have been
 	// transferred to MCMS.
-	e = setupChain(
-		t,
-		e,
-		tEnv,
-		[]uint64{remainingChain},
-		false, // deployJobs
-		false, // deployHomeChain
-		true,  // mcmsEnabled
-	)
+	e = setupChain(t, e, tEnv, []uint64{remainingChain}, true)
 
 	state, err = ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
 
 	assertRMNRemoteAndProxyState(t, []uint64{remainingChain}, state)
 
@@ -526,15 +512,8 @@ func setupOutboundWiring(
 // setupChain will deploy the ccip chain contracts to the provided chains.
 // Based on the flags provided, it will also deploy the jobs and home chain contracts.
 // mcmsEnabled should be set to true if the home chain contracts have been transferred to MCMS.
-func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEnvironment, chains []uint64, deployJobs, deployHomeChain, mcmsEnabled bool) testhelpers.DeployedEnv {
-	e = testhelpers.AddCCIPContractsToEnvironment(
-		t,
-		chains,
-		tEnv,
-		deployJobs,
-		deployHomeChain,
-		mcmsEnabled,
-	)
+func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEnvironment, chains []uint64, mcmsEnabled bool) testhelpers.DeployedEnv {
+	e = testhelpers.AddCCIPContractsToEnvironment(t, chains, tEnv, mcmsEnabled)
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error

@@ -22,15 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
+	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -38,6 +35,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (
@@ -170,8 +170,8 @@ var (
 				Chain: solcfg.Chain{
 					MaxRetries: ptr[int64](12),
 				},
-				MultiNode: solcfg.MultiNodeConfig{
-					MultiNode: solcfg.MultiNode{
+				MultiNode: mnCfg.MultiNodeConfig{
+					MultiNode: mnCfg.MultiNode{
 						Enabled:                      ptr(false),
 						PollFailureThreshold:         ptr[uint32](5),
 						PollInterval:                 &second,
@@ -179,6 +179,7 @@ var (
 						SyncThreshold:                ptr[uint32](5),
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
+						NewHeadsPollInterval:         &second,
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
@@ -198,8 +199,8 @@ var (
 				Chain: solcfg.Chain{
 					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
 				},
-				MultiNode: solcfg.MultiNodeConfig{
-					MultiNode: solcfg.MultiNode{
+				MultiNode: mnCfg.MultiNodeConfig{
+					MultiNode: mnCfg.MultiNode{
 						Enabled:                      ptr(false),
 						PollFailureThreshold:         ptr[uint32](5),
 						PollInterval:                 &second,
@@ -207,6 +208,7 @@ var (
 						SyncThreshold:                ptr[uint32](5),
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
+						NewHeadsPollInterval:         &second,
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
@@ -471,6 +473,12 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Capabilities = toml.Capabilities{
+		RateLimit: toml.EngineExecutionRateLimit{
+			GlobalRPS:      ptr(200.00),
+			GlobalBurst:    ptr(200),
+			PerSenderRPS:   ptr(100.0),
+			PerSenderBurst: ptr(100),
+		},
 		Peering: toml.P2P{
 			IncomingMessageBufferSize: ptr[int64](13),
 			OutgoingMessageBufferSize: ptr[int64](17),
@@ -494,9 +502,12 @@ func TestConfig_Marshal(t *testing.T) {
 			NetworkID: ptr("evm"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
-			Address:   ptr(""),
-			ChainID:   ptr("1"),
-			NetworkID: ptr("evm"),
+			Address:                 ptr(""),
+			ChainID:                 ptr("1"),
+			NetworkID:               ptr("evm"),
+			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
+			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
+			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),
@@ -768,8 +779,8 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitLimitDefault:  ptr[uint32](100_000),
 				EstimateComputeUnitLimit: ptr(false),
 			},
-			MultiNode: solcfg.MultiNodeConfig{
-				MultiNode: solcfg.MultiNode{
+			MultiNode: mnCfg.MultiNodeConfig{
+				MultiNode: mnCfg.MultiNode{
 					Enabled:                      ptr(false),
 					PollFailureThreshold:         ptr[uint32](5),
 					PollInterval:                 &second,
@@ -777,6 +788,7 @@ func TestConfig_Marshal(t *testing.T) {
 					SyncThreshold:                ptr[uint32](5),
 					NodeIsSyncingEnabled:         ptr(false),
 					LeaseDuration:                &minute,
+					NewHeadsPollInterval:         &second,
 					FinalizedBlockPollInterval:   &second,
 					EnforceRepeatableRead:        ptr(true),
 					DeathDeclarationDelay:        &minute,
@@ -1311,6 +1323,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'

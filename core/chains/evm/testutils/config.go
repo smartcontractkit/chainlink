@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewTestChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) config.ChainScopedConfig {
