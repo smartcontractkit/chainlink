@@ -27,7 +27,7 @@ func TestDisableLane(t *testing.T) {
 	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
-	// Add all lanes
+	// add all lanes
 	testhelpers.AddLanesForAll(t, &tenv, state)
 
 	var (
@@ -53,7 +53,6 @@ func TestDisableLane(t *testing.T) {
 					FeeToken:     common.HexToAddress("0x0"),
 					ExtraArgs:    nil,
 				}))
-
 		}
 
 		assertSendRequestReverted = func(src, dest uint64, deployer *bind.TransactOpts) {
@@ -76,13 +75,13 @@ func TestDisableLane(t *testing.T) {
 		}
 	)
 
-	// Disable lane A -> B
+	// disable lane A -> B
 	testhelpers.UpdateLane(t, &tenv, chainA, chainB, false, false)
 	// send a message to confirm it is reverted between chainA and chainB
 	assertSendRequestReverted(chainA, chainB, e.Chains[chainA].Users[0])
 	// send a message between chainB and chainA to confirm it is not reverted
 	assertRequestSent(chainB, chainA, e.Chains[chainB].Users[0])
-	// Disable lane B -> A
+	// disable lane B -> A
 	testhelpers.UpdateLane(t, &tenv, chainB, chainA, false, false)
 	assertSendRequestReverted(chainB, chainA, e.Chains[chainB].Users[0])
 
@@ -93,12 +92,12 @@ func TestDisableLane(t *testing.T) {
 		assertRequestSent(chainB, chainC, e.Chains[chainB].Users[1])
 		assertRequestSent(chainC, chainB, e.Chains[chainC].Users[1])
 	}()
-	// Disable lanes between A & C and C & B while requests are getting sent
+	// disable lanes between A & C and C & B while requests are getting sent
 	testhelpers.UpdateLane(t, &tenv, chainA, chainC, false, false)
 	testhelpers.UpdateLane(t, &tenv, chainC, chainA, false, false)
 	testhelpers.UpdateLane(t, &tenv, chainB, chainC, false, false)
 	testhelpers.UpdateLane(t, &tenv, chainC, chainB, false, false)
-	// Confirm that message sent in all lanes are reverted after disabling the lanes
+	// confirm that message sent in all lanes are reverted after disabling the lanes
 	for _, pair := range pairs {
 		assertSendRequestReverted(pair.SourceChainSelector, pair.DestChainSelector, e.Chains[pair.SourceChainSelector].Users[0])
 	}
@@ -106,10 +105,10 @@ func TestDisableLane(t *testing.T) {
 	for _, pair := range pairs {
 		testhelpers.UpdateLane(t, &tenv, pair.SourceChainSelector, pair.DestChainSelector, false, true)
 	}
-	//send a message in all the lane including re-enabled lanes
+	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {
 		assertRequestSent(pair.SourceChainSelector, pair.DestChainSelector, e.Chains[pair.SourceChainSelector].Users[0])
 	}
-	//Confirm all messages are delivered
+	// confirm all messages are delivered
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 }
