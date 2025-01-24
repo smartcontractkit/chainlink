@@ -486,8 +486,7 @@ func UpdateLane(
 	t *testing.T,
 	e *DeployedEnv,
 	from, to uint64,
-	isTestRouter bool,
-	isEnabled bool,
+	isTestRouter, isEnabled bool,
 ) {
 	var err error
 	var apps []commoncs.ChangesetApplication
