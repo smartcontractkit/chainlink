@@ -530,21 +530,3 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
 }
-
-// wsol billing (will it work with above billing?)
-// add test helpers for funding and approvals ?
-/*
-t.Run("Billing", func(t *testing.T) {
-			ix, err := ccip_router.NewSetTokenBillingInstruction(
-			config.EvmChainSelector,
-			token0.Mint.PublicKey(),
-			ccip_router.TokenBilling{},
-			config.RouterConfigPDA,
-			token0.Billing[config.EvmChainSelector],
-			anotherAdmin.PublicKey(),
-			solana.SystemProgramID
-			).ValidateAndBuild()
-			require.NoError(t, err)
-			testutils.SendAndConfirm(ctx, t, solanaGoClient, []solana.Instruction{ix}, anotherAdmin, config.DefaultCommitment)
-		})
-*/

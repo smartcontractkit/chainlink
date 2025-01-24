@@ -414,6 +414,15 @@ func AddLane(
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
+
+	// from family
+	fromFamily, _ := chainsel.GetSelectorFamily(from)
+	toFamily, _ := chainsel.GetSelectorFamily(to)
+
+	if fromFamily != chainsel.FamilyEVM {
+		t.Fatalf("from family is not evm, %s", fromFamily)
+	}
+
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
@@ -446,19 +455,6 @@ func AddLane(
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
-					},
-				},
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-					to: {
-						from: {
-							IsEnabled:  true,
-							TestRouter: isTestRouter,
-						},
 					},
 				},
 			},
@@ -484,130 +480,80 @@ func AddLane(
 			},
 		},
 	})
-	require.NoError(t, err)
-}
 
-func AddLaneEvmToSolana(
-	t *testing.T,
-	e *DeployedEnv,
-	from, to uint64,
-	isTestRouter bool,
-	gasprice map[uint64]*big.Int,
-	tokenPrices map[common.Address]*big.Int,
-	fqCfg fee_quoter.FeeQuoterDestChainConfig,
-) {
-	var err error
-	// Any nonzero timestamp is valid (for now)
-	validTimestamp := int64(100)
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	require.True(t, ok)
-	bigNum.FillBytes(value[:])
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
-					from: {
+	switch toFamily {
+	case chainsel.FamilyEVM:
+		e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+				Config: changeset.UpdateOffRampSourcesConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 						to: {
-							IsEnabled:        true,
-							TestRouter:       isTestRouter,
-							AllowListEnabled: false,
-						},
-					},
-					// solana
-					to: {
-						from: {
-							IsEnabled:        true,
-							TestRouter:       true,
-							AllowListEnabled: false,
+							from: {
+								IsEnabled:  true,
+								TestRouter: isTestRouter,
+							},
 						},
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
-					from: {
-						TokenPrices: tokenPrices,
-						GasPrices:   gasprice,
-					},
-				},
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-					from: {
-						to: fqCfg,
-					},
-				},
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
-				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
-					// onRamp update on source chain
-					from: {
-						OnRampUpdates: map[uint64]bool{
-							to: true,
+		})
+	case chainsel.FamilySolana:
+		// evm to solana
+		validTimestamp := int64(100)
+		value := [28]uint8{}
+		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+		require.True(t, ok)
+		bigNum.FillBytes(value[:])
+		e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+				Config: changeset.UpdateOnRampDestsConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+						to: {
+							from: {
+								IsEnabled:        true,
+								TestRouter:       true,
+								AllowListEnabled: false,
+							},
 						},
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.AddBillingToken),
-			Config: changeset.AddBillingTokenPoolConfig{
-				ChainSelector:    to,
-				TokenName:        "LinkToken",
-				TokenProgramName: "spl-token-2022",
-				Config: ccip_router.BillingTokenConfig{
-					Enabled: true,
-					UsdPerToken: ccip_router.TimestampedPackedU224{
-						Value:     value,
-						Timestamp: validTimestamp,
-					},
-					PremiumMultiplierWeiPerEth: 11000000,
-				}},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.AddBillingTokenForRemoteChain),
-			Config: changeset.BillingTokenForRemoteChainConfig{
-				ChainSelector:       to,
-				RemoteChainSelector: from,
-				TokenName:           "LinkToken",
-				TokenProgramName:    "spl-token-2022",
-				Config:              ccip_router.TokenBilling{},
+			{
+				// maybe add this in chain setup for solana in cs_deploy_chain.go
+				Changeset: commoncs.WrapChangeSet(changeset.AddBillingToken),
+				Config: changeset.AddBillingTokenPoolConfig{
+					ChainSelector:    to,
+					TokenName:        "LinkToken",
+					TokenProgramName: "spl-token-2022",
+					Config: ccip_router.BillingTokenConfig{
+						Enabled: true,
+						UsdPerToken: ccip_router.TimestampedPackedU224{
+							Value:     value,
+							Timestamp: validTimestamp,
+						},
+						PremiumMultiplierWeiPerEth: 11000000,
+					}},
 			},
-		},
-	})
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.AddBillingTokenForRemoteChain),
+				Config: changeset.BillingTokenForRemoteChainConfig{
+					ChainSelector:       to,
+					RemoteChainSelector: from,
+					TokenName:           "LinkToken",
+					TokenProgramName:    "spl-token-2022",
+					Config:              ccip_router.TokenBilling{},
+				},
+			},
+		})
+	}
 	require.NoError(t, err)
 }
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
 	stateChainFrom := state.Chains[from]
 	AddLane(
-		t,
-		e,
-		from, to,
-		isTestRouter,
-		map[uint64]*big.Int{
-			to: DefaultGasPrice,
-		}, map[common.Address]*big.Int{
-			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
-			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, changeset.DefaultFeeQuoterDestChainConfig())
-}
-
-func AddLaneWithDefaultPricesAndFeeQuoterConfigEvmToSolana(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
-	stateChainFrom := state.Chains[from]
-	AddLaneEvmToSolana(
 		t,
 		e,
 		from, to,

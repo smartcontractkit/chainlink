@@ -22,7 +22,8 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 
 	solanaSelectors := e.Env.AllChainSelectorsSolana()
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, chain2, true)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfigEvmToSolana(t, &e, state, chain1, solanaSelectors[0], true)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, solanaSelectors[0], true)
+
 	// // Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	// startBlocks := make(map[uint64]*uint64)solanaSelectors
 	// // Send a message from each chain to every other chain.

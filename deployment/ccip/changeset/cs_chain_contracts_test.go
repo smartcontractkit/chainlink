@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 )
 
+// TODO: test solana here
 func TestUpdateOnRampsDests(t *testing.T) {
 	for _, tc := range []struct {
 		name        string

@@ -706,7 +706,5 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to save address: %w", err)
 		}
 	}
-	// token pool initialization happens for a specific token
-	// should we initialize LINK and WSOL token pools here ?
 	return nil
 }
