@@ -245,10 +245,10 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 		name        string
 		mcmsEnabled bool
 	}{
-		//{
-		//	name:        "MCMS enabled",
-		//	mcmsEnabled: true,
-		//},
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
 		{
 			name:        "MCMS disabled",
 			mcmsEnabled: false,
@@ -291,7 +291,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			feeAgggregator := config.FeeAggregator
 			deployer := tenv.Env.Chains[source].DeployerKey
 
-			//LINK
+			// LINK
 			tx, err := linkToken.GrantMintRole(deployer, feeAgggregator)
 			require.NoError(t, err)
 			_, err = tenv.Env.Chains[source].Confirm(tx)
@@ -301,7 +301,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			_, err = tenv.Env.Chains[source].Confirm(tx)
 			require.NoError(t, err)
 
-			//WETH9
+			// WETH9
 			txOpts := *tenv.Env.Chains[source].DeployerKey
 			txOpts.Value = tokenAmount
 			tx, err = weth9.Deposit(&txOpts)

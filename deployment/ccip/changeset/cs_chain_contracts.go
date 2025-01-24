@@ -391,9 +391,10 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
 	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOps := e.Chains[chainSel].DeployerKey
-		txOps.Context = e.GetContext()
+		txOps.Context = ctx
 		if cfg.MCMS != nil {
 			txOps = deployment.SimTransactOpts()
 		}
@@ -483,9 +484,10 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
 	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	ctx := e.GetContext()
 	for srcSel, updates := range cfg.UpdatesByChain {
 		txOps := e.Chains[srcSel].DeployerKey
-		txOps.Context = e.GetContext()
+		txOps.Context = ctx
 		onRamp := onchain.Chains[srcSel].OnRamp
 		args := make([]onramp.OnRampAllowlistConfigArgs, len(updates))
 		for destSel, update := range updates {
@@ -576,9 +578,10 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	batches := make([]timelock.BatchChainOperation, len(cfg.FeeTokensByChain))
 	timelocks := make(map[uint64]common.Address, len(cfg.FeeTokensByChain))
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.FeeTokensByChain))
+	ctx := e.GetContext()
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
 		txOps := e.Chains[chainSel].DeployerKey
-		txOps.Context = e.GetContext()
+		txOps.Context = ctx
 		onRamp := onchain.Chains[chainSel].OnRamp
 		tx, err := onRamp.WithdrawFeeTokens(txOps, feeTokens)
 		if err != nil {
