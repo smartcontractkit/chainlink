@@ -10,11 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewHead() evmtypes.Head {

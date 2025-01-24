@@ -18,6 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -572,6 +573,45 @@ func (b *EventBinding) remapPrimitive(expression query.Expression) (query.Expres
 	}
 }
 
+func (b *EventBinding) valueCmpToHashedCmp(itemType string, isDW bool, valueCmp primitives.ValueComparator) (logpoller.HashedValueComparator, error) {
+	var valuesToEncode []any
+	switch typedValue := valueCmp.Value.(type) {
+	case primitives.AnyOperator:
+		valuesToEncode = typedValue
+	default:
+		valuesToEncode = []any{typedValue}
+	}
+
+	result := logpoller.HashedValueComparator{
+		Operator: valueCmp.Operator,
+		Values:   make([]common.Hash, len(valuesToEncode)),
+	}
+
+	for i := range valuesToEncode {
+		valueToEncode := valuesToEncode[i]
+		encodedValue, err := b.encodeValue(itemType, isDW, valueToEncode)
+		if err != nil {
+			return logpoller.HashedValueComparator{}, fmt.Errorf("failed to encode value %v: %w", valueToEncode, err)
+		}
+		result.Values[i] = encodedValue
+	}
+
+	return result, nil
+}
+
+func (b *EventBinding) encodeValue(itemType string, isDW bool, value any) (common.Hash, error) {
+	onChainTypedVal, err := b.toNativeOnChainType(itemType, value)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to convert comparator value to native on chain type: %w", err)
+	}
+
+	if isDW {
+		return b.encodeValComparatorDataWord(itemType, onChainTypedVal)
+	}
+
+	return b.encodeValComparatorTopic(itemType, onChainTypedVal)
+}
+
 func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (query.Expression, error) {
 	dwInfo, isDW := b.dataWords[comparator.Name]
 	if !isDW {
@@ -583,17 +623,7 @@ func (b *EventBinding) encodeComparator(comparator *primitives.Comparator) (quer
 	var hashedValComps []logpoller.HashedValueComparator
 	itemType := codec.WrapItemType(b.contractName, b.eventName+"."+comparator.Name, true)
 	for _, valComp := range comparator.ValueComparators {
-		onChainTypedVal, err := b.toNativeOnChainType(itemType, valComp.Value)
-		if err != nil {
-			return query.Expression{}, fmt.Errorf("failed to convert comparator value to native on chain type: %w", err)
-		}
-
-		hashedValComp := logpoller.HashedValueComparator{Operator: valComp.Operator}
-		if isDW {
-			hashedValComp.Value, err = b.encodeValComparatorDataWord(itemType, onChainTypedVal)
-		} else {
-			hashedValComp.Value, err = b.encodeValComparatorTopic(itemType, onChainTypedVal)
-		}
+		hashedValComp, err := b.valueCmpToHashedCmp(itemType, isDW, valComp)
 		if err != nil {
 			return query.Expression{}, err
 		}
@@ -685,9 +715,10 @@ func (b *EventBinding) validateBound(address common.Address) error {
 func createTopicFilters(hashedTopics []common.Hash) (query.Expression, error) {
 	var expressions []query.Expression
 	for topicID, hash := range hashedTopics {
-		// first topic index is 1-based, so we add 1.
 		expressions = append(expressions, logpoller.NewEventByTopicFilter(
-			uint64(topicID+1), []logpoller.HashedValueComparator{{Value: hash, Operator: primitives.Eq}},
+			// adding 1 to skip even signature
+			uint64(topicID+1), //nolint:gosec // G115
+			[]logpoller.HashedValueComparator{{Values: []common.Hash{hash}, Operator: primitives.Eq}},
 		))
 	}
 

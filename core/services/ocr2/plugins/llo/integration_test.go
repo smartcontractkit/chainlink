@@ -34,12 +34,9 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
@@ -58,6 +55,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (

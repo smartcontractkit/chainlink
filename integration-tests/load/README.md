@@ -3,6 +3,7 @@
 This folder container performance e2e tests for different job types, currently implemented:
 
 - VRFv2
+- CCIP (wip)
 
 All the tests have 4 groups:
 

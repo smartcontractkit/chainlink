@@ -1213,12 +1213,49 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.RateLimit
+```toml
+[Capabilities.RateLimit]
+GlobalRPS = 200 # Default
+GlobalBurst = 200 # Default
+PerSenderRPS = 100 # Default
+PerSenderBurst = 100 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 200 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 200 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 100 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 100 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.WorkflowRegistry
 ```toml
 [Capabilities.WorkflowRegistry]
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+MaxBinarySize = '20.00mb' # Default
+MaxEncryptedSecretsSize = '26.40kb' # Default
+MaxConfigSize = '50.00kb' # Default
 ```
 
 
@@ -1239,6 +1276,24 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### MaxBinarySize
+```toml
+MaxBinarySize = '20.00mb' # Default
+```
+MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+
+### MaxEncryptedSecretsSize
+```toml
+MaxEncryptedSecretsSize = '26.40kb' # Default
+```
+MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+
+### MaxConfigSize
+```toml
+MaxConfigSize = '50.00kb' # Default
+```
+MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
 ## Capabilities.ExternalRegistry
 ```toml
@@ -6064,7 +6119,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -8471,6 +8526,113 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Monad Testnet (10143)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 120
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '1m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 100
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '2s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '4s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Gnosis Chiado (10200)</summary><p>
 
 ```toml
@@ -9700,7 +9862,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true
@@ -9815,7 +9977,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true
@@ -10457,7 +10619,7 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
@@ -14559,6 +14721,7 @@ SelectionMode = 'PriorityLevel' # Default
 SyncThreshold = 5 # Default
 NodeIsSyncingEnabled = false # Default
 LeaseDuration = '1m0s' # Default
+NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
@@ -14611,6 +14774,12 @@ NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes 
 LeaseDuration = '1m0s' # Default
 ```
 LeaseDuration is the max duration a node can be leased for.
+
+### NewHeadsPollInterval
+```toml
+NewHeadsPollInterval = '10s' # Default
+```
+NewHeadsPollInterval is the rate to poll for new heads.
 
 ### FinalizedBlockPollInterval
 ```toml

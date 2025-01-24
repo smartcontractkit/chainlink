@@ -19,14 +19,13 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/jmoiron/sqlx"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -35,15 +34,12 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -82,6 +78,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var defaultMaxGasPrice = uint64(1e12)

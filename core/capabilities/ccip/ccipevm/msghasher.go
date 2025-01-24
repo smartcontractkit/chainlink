@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var (

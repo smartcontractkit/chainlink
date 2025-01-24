@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 func NewEvmAddress() gethcommon.Address {

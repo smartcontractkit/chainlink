@@ -9,8 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 func makeTestBlock(nTx int) *evmtypes.Block {

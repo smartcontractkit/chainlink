@@ -18,13 +18,10 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
@@ -40,6 +37,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func testSingleConsumerHappyPath(
@@ -56,10 +56,10 @@ func testSingleConsumerHappyPath(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled,
-		subID *big.Int),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled,
+	subID *big.Int),
 ) {
 	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -178,9 +178,9 @@ func testMultipleConsumersNeedBHS(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled),
 ) {
 	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
@@ -317,9 +317,9 @@ func testMultipleConsumersNeedTrustedBHS(
 	nativePayment bool,
 	addedDelay bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled),
 ) {
 	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
@@ -531,10 +531,10 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled,
-		subID *big.Int),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled,
+	subID *big.Int),
 ) {
 	ctx := testutils.Context(t)
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -639,9 +639,9 @@ func testSingleConsumerNeedsTopUp(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled),
 ) {
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
@@ -737,9 +737,9 @@ func testBlockHeaderFeeder(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled),
 ) {
 	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
@@ -1765,10 +1765,10 @@ func testReplayOldRequestsOnStartUp(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 	assertions ...func(
-		t *testing.T,
-		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled,
-		subID *big.Int),
+	t *testing.T,
+	coordinator v22.CoordinatorV2_X,
+	rwfe v22.RandomWordsFulfilled,
+	subID *big.Int),
 ) {
 	ctx := testutils.Context(t)
 	sendingKey := cltest.MustGenerateRandomKey(t)

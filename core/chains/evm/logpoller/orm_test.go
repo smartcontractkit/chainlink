@@ -12,13 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -28,10 +25,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type block struct {
@@ -823,7 +821,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 
 		for idx, value := range topicValues {
 			topicFilters.Expressions[idx] = logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(value), Operator: primitives.Eq},
+				{Values: []common.Hash{logpoller.EvmWord(value)}, Operator: primitives.Eq},
 			})
 		}
 
@@ -919,7 +917,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(2), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(2)}, Operator: primitives.Gte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		},
@@ -934,10 +932,10 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(min), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(min)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(max), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(max)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1093,10 +1091,10 @@ func TestORM_DataWords(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word1), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(word1)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word2), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(word2)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1161,7 +1159,7 @@ func TestORM_DataWords(t *testing.T) {
 		logpoller.NewAddressFilter(addr),
 		logpoller.NewEventSigFilter(eventSig),
 		logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-			{Value: logpoller.EvmWord(1), Operator: primitives.Gte},
+			{Values: []common.Hash{logpoller.EvmWord(1)}, Operator: primitives.Gte},
 		}),
 		query.Confidence(primitives.Unconfirmed),
 	}
@@ -1938,18 +1936,17 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 	}
 
-	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx int, topicVals []common.Hash) query.KeyFilter {
+	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx uint64, topicVals []common.Hash) query.KeyFilter {
 		filters := []query.Expression{
 			logpoller.NewAddressFilter(address),
 			logpoller.NewEventSigFilter(event),
 		}
 
 		if len(topicVals) > 0 {
-			exp := make([]query.Expression, len(topicVals))
-			for idx, val := range topicVals {
-				exp[idx] = logpoller.NewEventByTopicFilter(uint64(topicIdx), []logpoller.HashedValueComparator{
-					{Value: val, Operator: primitives.Eq},
-				})
+			exp := []query.Expression{
+				logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
+					{Values: topicVals, Operator: primitives.Eq},
+				}),
 			}
 
 			filters = append(filters, query.Expression{
@@ -2251,10 +2248,10 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 				logpoller.NewAddressFilter(address),
 				logpoller.NewEventSigFilter(eventSig),
 				logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Lte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Lte},
 				}),
 				logpoller.NewEventByWordFilter(1, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Gte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Gte},
 				}),
 				query.Confidence(primitives.Unconfirmed),
 			},

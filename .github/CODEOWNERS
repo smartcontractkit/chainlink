@@ -10,10 +10,11 @@
 # Chains
 /common @smartcontractkit/bix-framework @smartcontractkit/core
 /core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
+/evm @jmank88 @pavel-raykov @DylanTinianov
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @smartcontractkit/core
+/core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -159,8 +160,8 @@ contracts/scripts/requirements.txt @smartcontractkit/core
 .nvmrc @smartcontractkit/core
 contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
 contracts/pnpm.lock @smartcontractkit/core
-go.mod @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
-go.sum @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
+go.mod @smartcontractkit/core @smartcontractkit/foundations
+go.sum @smartcontractkit/core @smartcontractkit/foundations
 integration-tests/go.mod @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 integration-tests/go.sum @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/core

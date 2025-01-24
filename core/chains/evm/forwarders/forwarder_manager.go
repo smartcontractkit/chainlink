@@ -19,10 +19,10 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]

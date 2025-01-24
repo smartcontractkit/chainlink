@@ -15,15 +15,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestResolver_EthTransaction(t *testing.T) {

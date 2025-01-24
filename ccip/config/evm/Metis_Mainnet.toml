@@ -1,6 +1,5 @@
 # Metis is an L2 chain based on Optimism.
 ChainID = '1088'
-ChainType = 'optimismBedrock'
 # Sequencer offers absolute finality
 # High variation on finality depth triggered a commitee to investigate
 # and set 500 as a secure finality depth.

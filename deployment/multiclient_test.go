@@ -1,7 +1,7 @@
 package deployment
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,20 +16,24 @@ func TestMultiClient(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	// Expect an error if no RPCs supplied.
 	s := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		b, err := ioutil.ReadAll(request.Body)
-		require.NoError(t, err)
+		b, err := io.ReadAll(request.Body)
+		if !assert.NoError(t, err) {
+			_, err = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"error":"` + err.Error() + `"}`))
+			assert.NoError(t, err)
+			return
+		}
 		// TODO: Helper struct somewhere for this?
 		if string(b) == "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\"}" {
 			writer.WriteHeader(http.StatusOK)
 			// Respond with 1337
 			_, err = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":"0x539"}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			return
 		} else {
 			// Dial
 			writer.WriteHeader(http.StatusOK)
 			_, err = writer.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":true}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}
 	}))
 	defer s.Close()
