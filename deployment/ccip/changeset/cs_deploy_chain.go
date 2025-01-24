@@ -673,7 +673,6 @@ func deployChainContractsSolana(
 				ccipRouterProgram,
 				GetRouterConfigPDA(ccipRouterProgram),
 				GetRouterStatePDA(ccipRouterProgram),
-				GetSolanaDestChainStatePDA(ccipRouterProgram, chain.Selector),
 				GetExternalExecutionConfigPDA(ccipRouterProgram),
 				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
 				// token pool
