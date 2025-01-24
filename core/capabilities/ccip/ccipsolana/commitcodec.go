@@ -48,7 +48,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		}
 		tpu = append(tpu, ccip_router.TokenPriceUpdate{
 			SourceToken: token,
-			UsdPerToken: [28]uint8(update.Price.FillBytes(make([]byte, 28))),
+			UsdPerToken: [28]uint8(encodeBigIntToFixedLengthLE(update.Price.Int, 28)),
 		})
 	}
 
@@ -60,7 +60,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 		gpu = append(gpu, ccip_router.GasPriceUpdate{
 			DestChainSelector: uint64(update.ChainSel),
-			UsdPerUnitGas:     [28]uint8(update.GasPrice.FillBytes(make([]byte, 28))),
+			UsdPerUnitGas:     [28]uint8(encodeBigIntToFixedLengthLE(update.GasPrice.Int, 28)),
 		})
 	}
 
@@ -104,14 +104,14 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
 		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
 			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
-			Price:   priceHelper(update.UsdPerToken[:]),
+			Price:   decodeLEToBigInt(update.UsdPerToken[:]),
 		})
 	}
 
 	gasPriceUpdates := make([]cciptypes.GasPriceChain, 0, len(commitReport.PriceUpdates.GasPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.GasPriceUpdates {
 		gasPriceUpdates = append(gasPriceUpdates, cciptypes.GasPriceChain{
-			GasPrice: priceHelper(update.UsdPerUnitGas[:]),
+			GasPrice: decodeLEToBigInt(update.UsdPerUnitGas[:]),
 			ChainSel: cciptypes.ChainSelector(update.DestChainSelector),
 		})
 	}
@@ -135,6 +135,36 @@ func priceHelper(input []byte) cciptypes.BigInt {
 	}
 
 	return tokenPrice
+}
+
+func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
+	// Create a fixed-length byte array
+	paddedBytes := make([]byte, length)
+
+	// Use FillBytes to fill the array with big-endian data, zero-padded
+	bi.FillBytes(paddedBytes)
+
+	// Reverse the array for little-endian encoding
+	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
+		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
+	}
+
+	return paddedBytes
+}
+
+func decodeLEToBigInt(data []byte) cciptypes.BigInt {
+	// Reverse the byte array to convert it from little-endian to big-endian
+	for i, j := 0, len(data)-1; i < j; i, j = i+1, j-1 {
+		data[i], data[j] = data[j], data[i]
+	}
+
+	// Use big.Int.SetBytes to construct the big.Int
+	bi := new(big.Int).SetBytes(data)
+	if bi.Int64() == 0 {
+		return cciptypes.NewBigInt(big.NewInt(0))
+	}
+
+	return cciptypes.NewBigInt(bi)
 }
 
 // Ensure CommitPluginCodec implements the CommitPluginCodec interface
