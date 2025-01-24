@@ -61,6 +61,14 @@ type DeployedLocalDevEnvironment struct {
 	devEnvCfg       *devenv.EnvironmentConfig
 }
 
+func (l *DeployedLocalDevEnvironment) GetCLClusterTestEnv() *test_env.CLClusterTestEnv {
+	return l.testEnv
+}
+
+func (l *DeployedLocalDevEnvironment) GetDevEnvConfig() devenv.EnvironmentConfig {
+	return *l.devEnvCfg
+}
+
 func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
 	return l.DeployedEnv
 }
@@ -76,7 +84,7 @@ func (l *DeployedLocalDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
 func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
-	envConfig, testEnv, cfg := CreateDockerEnv(t)
+	envConfig, testEnv, cfg := CreateDockerEnv(t, l.GenericTCConfig)
 	l.devEnvTestCfg = cfg
 	l.testEnv = testEnv
 	l.devEnvCfg = envConfig
@@ -323,7 +331,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 // CreateDockerEnv creates a new test environment with simulated private ethereum networks and job distributor
 // It returns the EnvironmentConfig which holds the chain config and JD config
 // The test environment is then used to start chainlink nodes
-func CreateDockerEnv(t *testing.T) (
+func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 	*devenv.EnvironmentConfig,
 	*test_env.CLClusterTestEnv,
 	tc.TestConfig,
@@ -347,11 +355,12 @@ func CreateDockerEnv(t *testing.T) (
 	}
 
 	// ignore critical CL node logs until they are fixed, as otherwise tests will fail
-	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(testreporters.NewAllowedLogMessage(
-		"No live RPC nodes available",
-		"CL nodes are started before simulated chains, so this is expected",
-		zapcore.DPanicLevel,
-		testreporters.WarnAboutAllowedMsgs_No),
+	var allowedMessages = []testreporters.AllowedLogMessage{
+		testreporters.NewAllowedLogMessage(
+			"No live RPC nodes available",
+			"CL nodes are started before simulated chains, so this is expected",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_No),
 		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",
@@ -362,7 +371,18 @@ func CreateDockerEnv(t *testing.T) (
 			"Possible lifecycle bug in chainlink.",
 			zapcore.DPanicLevel,
 			testreporters.WarnAboutAllowedMsgs_No),
-	)
+	}
+	if v1_6TestConfig != nil {
+		for _, logMsg := range v1_6TestConfig.LogMessagesToIgnore {
+			allowedMessages = append(allowedMessages, testreporters.NewAllowedLogMessage(
+				logMsg.Msg,
+				logMsg.Reason,
+				logMsg.Level,
+				testreporters.WarnAboutAllowedMsgs_No,
+			))
+		}
+	}
+	var logScannerSettings = test_env.GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(allowedMessages...)
 
 	builder := test_env.NewCLTestEnvBuilder().
 		WithTestConfig(&cfg).
@@ -578,10 +598,7 @@ func FundNodes(t *testing.T, lggr zerolog.Logger, env *test_env.CLClusterTestEnv
 				if receipt == nil {
 					return fmt.Errorf("receipt is nil")
 				}
-				txHash := "(none)"
-				if receipt != nil {
-					txHash = receipt.TxHash.String()
-				}
+				txHash := receipt.TxHash.String()
 				lggr.Info().
 					Str("From", fromAddress.Hex()).
 					Str("To", toAddr.String()).

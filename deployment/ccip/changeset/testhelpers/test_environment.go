@@ -39,6 +39,12 @@ const (
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
+type LogMessageToIgnore struct {
+	Msg    string
+	Reason string
+	Level  zapcore.Level
+}
+
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
 	CreateJob bool
@@ -59,6 +65,14 @@ type TestConfigs struct {
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
+
+	// Test env related configs
+
+	// LogMessagesToIgnore are log messages emitted by the chainlink node that cause
+	// the test to auto-fail if they were logged.
+	// In some tests we don't want this to happen where a failure is expected, e.g
+	// we are purposely re-orging beyond finality.
+	LogMessagesToIgnore []LogMessageToIgnore
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -101,6 +115,12 @@ func DefaultTestConfigs() *TestConfigs {
 }
 
 type TestOps func(testCfg *TestConfigs)
+
+func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.LogMessagesToIgnore = logMessages
+	}
+}
 
 func WithMultiCall3() TestOps {
 	return func(testCfg *TestConfigs) {
@@ -417,6 +437,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
 	allChains := e.Env.AllChainSelectors()
+	t.Log("number of chains:", len(allChains))
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {
