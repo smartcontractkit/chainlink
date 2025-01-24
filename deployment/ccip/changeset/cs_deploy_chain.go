@@ -12,12 +12,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -534,6 +533,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	return nil
 }
 
+// TODO: move everything below to solana file
 func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
@@ -556,30 +556,17 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 	return programData, nil
 }
 
-func checkRouterInitialized(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (bool, error) {
-	routerConfigPDA := GetRouterConfigPDA(ccipRouterProgram)
-	routerConfigInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), routerConfigPDA, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
-	})
-	if err != nil {
-		return false, nil
-	}
-	return routerConfigInfo != nil && len(routerConfigInfo.Value.Data.GetBinary()) > 0, nil
-}
-
 func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
 
-	defaultGasLimit := solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
-
-	instruction, err := ccip_router.NewInitializeInstruction(
-		chain.Selector,       // chain selector
-		defaultGasLimit,      // default gas limit
-		true,                 // allow out of order execution
-		EnableExecutionAfter, // period to wait before allowing manual execution
+	instruction, err := solRouter.NewInitializeInstruction(
+		chain.Selector,                // chain selector
+		deployment.SolDefaultGasLimit, // default gas limit
+		true,                          // allow out of order execution
+		EnableExecutionAfter,          // period to wait before allowing manual execution
 		solana.PublicKey{},
 		GetRouterConfigPDA(ccipRouterProgram),
 		GetRouterStatePDA(ccipRouterProgram),
@@ -640,38 +627,36 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
 	}
-	ccip_router.SetProgramID(ccipRouterProgram)
+	solRouter.SetProgramID(ccipRouterProgram)
 
 	// check if solana router is initialised
-	initialized, err := checkRouterInitialized(e, chain, ccipRouterProgram)
+	var routerConfigAccount solRouter.Config
+	err = chain.GetAccountDataBorshInto(e.GetContext(), GetRouterConfigPDA(ccipRouterProgram), &routerConfigAccount)
 	if err != nil {
-		return err
-	}
-	if initialized {
-		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
-	} else {
 		if err := initialzeRouter(e, chain, ccipRouterProgram); err != nil {
 			return err
 		}
+	} else {
+		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	var tokenPoolProgram solana.PublicKey
-	if chainState.TokenPool.IsZero() {
-		programID, err := chain.DeployProgram(e.Logger, "token_pool")
-		if err != nil {
-			return fmt.Errorf("failed to deploy program: %w", err)
-		}
-		tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
-		tokenPoolProgram = chainState.TokenPool
-	}
+	// var tokenPoolProgram solana.PublicKey
+	// if chainState.TokenPool.IsZero() {
+	// 	programID, err := chain.DeployProgram(e.Logger, "token_pool")
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to deploy program: %w", err)
+	// 	}
+	// 	tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
+	// 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+	// 	tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+	// 	err = ab.Save(chain.Selector, programID, tv)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to save address: %w", err)
+	// 	}
+	// } else {
+	// 	e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
+	// 	tokenPoolProgram = chainState.TokenPool
+	// }
 
 	// initialize this last with every address we need
 	if chainState.AddressLookupTable.IsZero() {
@@ -692,7 +677,7 @@ func deployChainContractsSolana(
 				GetExternalExecutionConfigPDA(ccipRouterProgram),
 				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
 				// token pool
-				tokenPoolProgram,
+				// tokenPoolProgram,
 				// token
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,

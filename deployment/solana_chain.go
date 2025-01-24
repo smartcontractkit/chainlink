@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
+	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -22,6 +24,7 @@ import (
 
 var (
 	SolDefaultCommitment = rpc.CommitmentConfirmed
+	SolDefaultGasLimit   = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 )
 
 // SolChain represents a Solana chain.
@@ -167,4 +170,12 @@ func FindTokenAddress(e Environment, chainSelector uint64, tokenName string) (so
 		}
 	}
 	return solana.PublicKey{}, fmt.Errorf("token address not found in address book: %s", tokenName)
+}
+
+func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
+	if err != nil {
+		return err
+	}
+	return nil
 }
