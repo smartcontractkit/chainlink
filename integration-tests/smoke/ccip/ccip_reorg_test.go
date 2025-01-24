@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -85,13 +86,19 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	require.NoError(t, err)
 
 	allChains := e.Env.AllChainSelectors()
-	require.GreaterOrEqual(t, len(allChains), 2)
-	sourceChainSelector := allChains[0]
-	sourceChain, ok := chainsel.ChainBySelector(sourceChainSelector)
+	require.GreaterOrEqual(t, len(allChains), 3)
+	reorgSourceSelector := allChains[0]
+	reorgSourceChain, ok := chainsel.ChainBySelector(reorgSourceSelector)
 	require.True(t, ok)
-	logPollerService := fmt.Sprintf("EVM.%d.LogPoller", sourceChain.EvmChainID)
-	l.Info().Msgf("log poller service name: %s", logPollerService)
-	destChainSelector := allChains[1]
+	noreorgSourceSelector := allChains[1]
+	noreorgSourceChain, ok := chainsel.ChainBySelector(noreorgSourceSelector)
+	require.True(t, ok)
+	reorgLogPollerService := fmt.Sprintf("EVM.%d.LogPoller", reorgSourceChain.EvmChainID)
+	noreorgLogPollerService := fmt.Sprintf("EVM.%d.LogPoller", noreorgSourceChain.EvmChainID)
+	l.Info().
+		Msgf("reorging log poller service name: %s, no reorg log poller service name: %s",
+			reorgLogPollerService, noreorgLogPollerService)
+	destChainSelector := allChains[2]
 
 	dockerEnv, ok := tEnv.(*testsetups.DeployedLocalDevEnvironment)
 	require.True(t, ok)
@@ -105,26 +112,39 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
 	}
 
-	sourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[sourceChainSelector], nil)
+	reorgSourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[reorgSourceSelector], nil)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChainSelector, destChainSelector, false)
+	// setup lanes from s1 and s2 to destChainSelector
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, reorgSourceSelector, destChainSelector, false)
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, noreorgSourceSelector, destChainSelector, false)
 
 	// wait for log poller filters to get registered.
 	l.Info().Msg("waiting for log poller filters to get registered")
-	time.Sleep(30 * time.Second)
-	msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, sourceChainSelector, destChainSelector, false, router.ClientEVM2AnyMessage{
+	time.Sleep(15 * time.Second)
+	reorgingMsgEvent := testhelpers.TestSendRequest(t, e.Env, state, reorgSourceSelector, destChainSelector, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
 		Data:         []byte("hello world"),
 		TokenAmounts: nil,
 		FeeToken:     common.HexToAddress("0x0"),
 		ExtraArgs:    nil,
 	})
-	l.Info().Msgf("sent CCIP message, msgSentEvent: %+v", msgSentEvent)
+	l.Info().Msgf("sent CCIP message that will get re-orged, msg id: %x", reorgingMsgEvent.Message.Header.MessageId)
+	msgEvent := testhelpers.TestSendRequest(t, e.Env, state, noreorgSourceSelector, destChainSelector, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	l.Info().Msgf("sent CCIP message that will not get re-orged, msgSentEvent: %x", msgEvent.Message.Header.MessageId)
 
 	// Run reorg above finality depth
 	const reorgDepth = 50
-	l.Info().Int("reorgDepth", reorgDepth).Msgf("starting blockchain reorg on Simulated Geth chain")
-	err = sourceClient.GethSetHead(reorgDepth)
+	l.Info().
+		Int("reorgDepth", reorgDepth).
+		Uint64("sourceChainSelector", reorgSourceSelector).
+		Msg("starting blockchain reorg on Simulated Geth chain")
+	err = reorgSourceClient.GethSetHead(reorgDepth)
 	require.NoError(t, err, "error starting blockchain reorg on Simulated Geth chain")
 
 	nodeAPIs := dockerEnv.GetCLClusterTestEnv().ClCluster.NodeAPIs()
@@ -148,7 +168,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 			resp, _, err := node.Health()
 			require.NoError(t, err)
 			for _, d := range resp.Data {
-				if d.Attributes.Name == logPollerService &&
+				if d.Attributes.Name == reorgLogPollerService &&
 					d.Attributes.Output == "finality violated" &&
 					d.Attributes.Status == "failing" {
 					violatedResponses[p2pKeys.Data[0].Attributes.PeerID] = struct{}{}
@@ -161,7 +181,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 			} else {
 				l.Info().Msgf("node %s did not report finality violation, log poller response: %+v",
 					p2pKeys.Data[0].Attributes.PeerID,
-					getLogPollerHealth(logPollerService, resp.Data),
+					getLogPollerHealth(reorgLogPollerService, resp.Data),
 				)
 			}
 		}
@@ -171,7 +191,26 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	}, 3*time.Minute, 5*time.Second, "not all the nodes report finality violation")
 	l.Info().Msg("All nodes reported finality violation")
 
-	// TODO: assert that the plugin does not commit the message?
+	// expect the commit to still go through on the non-reorged source chain.
+	testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		e.Env.Chains[noreorgSourceSelector],
+		e.Env.Chains[destChainSelector],
+		state.Chains[destChainSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
+
+	// Works but super slow.
+	// testhelpers.ConfirmExecWithSeqNrs(
+	// 	t,
+	// 	e.Env.Chains[noreorgSourceSelector],
+	// 	e.Env.Chains[destChainSelector],
+	// 	state.Chains[destChainSelector].OffRamp,
+	// 	nil,         // startBlock
+	// 	[]uint64{1}, // expectedSeqNrs
+	// )
 }
 
 func getLogPollerHealth(logPollerService string, healthResponses []nodeclient.HealthResponseDetail) nodeclient.HealthCheck {
