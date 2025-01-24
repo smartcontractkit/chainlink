@@ -35,12 +35,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
 	}
 
-	var message ccip_router.Any2SolanaRampMessage
+	var message ccip_router.Any2SVMRampMessage
 	var offChainTokenData [][]byte
 	if len(chainReport.Messages) > 0 {
 		// currently only allow executing one message at a time
 		msg := chainReport.Messages[0]
-		tokenAmounts := make([]ccip_router.Any2SolanaTokenTransfer, 0, len(msg.TokenAmounts))
+		tokenAmounts := make([]ccip_router.Any2SVMTokenTransfer, 0, len(msg.TokenAmounts))
 		for _, tokenAmount := range msg.TokenAmounts {
 			if tokenAmount.Amount.IsEmpty() {
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
@@ -50,11 +50,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
-			tokenAmounts = append(tokenAmounts, ccip_router.Any2SolanaTokenTransfer{
+			tokenAmounts = append(tokenAmounts, ccip_router.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32)),
+				Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
 				DestGasAmount:     bytesToUint32LE(tokenAmount.DestExecData),
 			})
 		}
@@ -66,7 +66,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 		// if source chain is Solana the Borsh decoder will be used, for EVM we will construct the extra args from
 		// the chain agnostic extra args map
-		var extraArgs ccip_router.SolanaExtraArgs
+		var extraArgs ccip_router.SVMExtraArgs
 		switch family {
 		case chainsel.FamilySolana:
 			decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
@@ -87,7 +87,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("invalid receiver address: %v", msg.Receiver)
 		}
 
-		message = ccip_router.Any2SolanaRampMessage{
+		message = ccip_router.Any2SVMRampMessage{
 			Header: ccip_router.RampMessageHeader{
 				MessageId:           msg.Header.MessageID,
 				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
@@ -95,9 +95,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SequenceNumber:      uint64(msg.Header.SequenceNumber),
 				Nonce:               msg.Header.Nonce,
 			},
-			Sender:       msg.Sender,
-			Data:         msg.Data,
-			Receiver:     solana.PublicKeyFromBytes(msg.Receiver),
+			Sender:        msg.Sender,
+			Data:          msg.Data,
+			LogicReceiver: solana.PublicKeyFromBytes(msg.Receiver),
+			// TODO how to get the TokenReceiver ?
+			//TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
 			TokenAmounts: tokenAmounts,
 			ExtraArgs:    extraArgs,
 		}
@@ -147,7 +149,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
 			DestTokenAddress:  tokenAmount.DestTokenAddress.Bytes(),
 			ExtraData:         tokenAmount.ExtraData,
-			Amount:            decodeLEToBigInt(tokenAmount.Amount[:]),
+			Amount:            decodeLEToBigInt(tokenAmount.Amount.LeBytes[:]),
 			DestExecData:      destData,
 		})
 	}
@@ -172,7 +174,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			},
 			Sender:         executeReport.Message.Sender,
 			Data:           executeReport.Message.Data,
-			Receiver:       executeReport.Message.Receiver.Bytes(),
+			Receiver:       executeReport.Message.LogicReceiver.Bytes(),
 			ExtraArgs:      buf.Bytes(),
 			FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
 			FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
@@ -204,9 +206,9 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	return report, nil
 }
 
-func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error) {
+func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 	// Parse input map into SolanaExtraArgs
-	var out ccip_router.SolanaExtraArgs
+	var out ccip_router.SVMExtraArgs
 
 	// Iterate through the expected fields in the struct
 	for fieldName, fieldValue := range input {
