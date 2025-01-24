@@ -62,11 +62,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:           d.logger,
-		Workflow:       sdkSpec,
-		WorkflowID:     spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:   spec.WorkflowSpec.WorkflowName,
+		Lggr:          d.logger,
+		Workflow:      sdkSpec,
+		WorkflowID:    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName: defaultName{
+			name: spec.WorkflowSpec.WorkflowName,
+		},
 		Registry:       d.registry,
 		Store:          d.store,
 		Config:         config,
