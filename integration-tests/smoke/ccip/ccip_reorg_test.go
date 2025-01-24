@@ -10,6 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -18,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
@@ -101,7 +102,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 		details, err := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", chain.ChainID), chainsel.FamilyEVM)
 		require.NoError(t, err)
 
-		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0]
+		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
 	}
 
 	sourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[sourceChainSelector], nil)
