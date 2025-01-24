@@ -8,7 +8,7 @@ import {Client} from "../../libraries/Client.sol";
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
 /// @title CCIPReceiver - Base contract for CCIP applications that can receive messages.
-abstract contract CCIPReceiver is IAny2EVMMessageReceiver, IERC165 {
+abstract contract CCIPReceiverLegacy is IAny2EVMMessageReceiver, IERC165 {
   address internal immutable i_ccipRouter;
 
   constructor(
