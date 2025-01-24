@@ -6,46 +6,126 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-// UpdateOnRampsDests updates the onramp destinations for each onramp
-// in the chains specified. Multichain support is important - consider when we add a new chain
-// and need to update the onramp destinations for all chains to support the new chain.
-func updateOnRampsDestsSolana(e deployment.Environment, cfg UpdateOnRampDestsConfig, s CCIPOnChainState, chainSel uint64, updates map[uint64]OnRampDestinationUpdate) (deployment.ChangesetOutput, error) {
-	e.Logger.Infow("Updating onramp destinations", "chain", chainSel, "updates", updates)
-	chain := e.SolChains[chainSel]
+type AddRemoteChainToSolanaConfig struct {
+	// UpdatesByChain is a mapping of source -> dest -> update
+	UpdatesByChain map[uint64]map[uint64]RemoteChainConfigSolana
+	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
+	// (can still be achieved by calling this function multiple times)
+	MCMS *MCMSConfig
+}
 
-	validSourceChainConfig := ccip_router.SourceChainConfig{
-		OnRamp:    []byte{1, 2, 3},
-		IsEnabled: true,
+type RemoteChainConfigSolana struct {
+	EnabledAsSource      bool
+	EnabledAsDestination bool
+	// TODO: what if remote chain family is solana ? will this be the router address ?
+	RemoteChainOnRampAddress string
+	DefaultTxGasLimit        uint32
+	MaxPerMsgGasLimit        uint32
+	MaxDataBytes             uint32
+	MaxNumberOfTokensPerMsg  uint16
+	ChainFamilySelector      [4]uint8
+}
+
+func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
 	}
+
+	supportedChains := state.SupportedChains()
+	for chainSel, updates := range cfg.UpdatesByChain {
+		chainState, ok := state.SolChains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+
+		if chainState.Router.IsZero() {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+			return err
+		}
+
+		var routerConfigAccount solRouter.Config
+		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
+		}
+
+		for destination := range updates {
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("destination chain %d is not supported", destination)
+			}
+			if destination == routerConfigAccount.SolanaChainSelector {
+				return fmt.Errorf("cannot add remote chain with same chain selector as current chain")
+			}
+		}
+	}
+
+	return nil
+}
+
+// AddRemoteChainToSolana adds new remote chain configurations to Solana CCIP routers
+func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolanaConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	s, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	for chainSel, updates := range cfg.UpdatesByChain {
+		_, err := addRemoteChainToSolana(e, s, chainSel, updates)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+func addRemoteChainToSolana(e deployment.Environment, s CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("Adding remote chain to solana", "chain", chainSel, "updates", updates)
+	chain := e.SolChains[chainSel]
 
 	ccipRouterID := s.SolChains[chainSel].Router
 
 	for destination, update := range updates {
-		EvmSourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
-		e.Logger.Infow("EvmSourceChainStatePDA", "EvmSourceChainStatePDA", EvmSourceChainStatePDA)
-		EvmDestChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
-		validDestChainConfig := ccip_router.DestChainConfig{
-			IsEnabled: update.IsEnabled,
-
-			// minimal valid config
-			DefaultTxGasLimit:       1,
-			MaxPerMsgGasLimit:       100,
-			MaxDataBytes:            32,
-			MaxNumberOfTokensPerMsg: 1,
+		// TODO: this should be GetSourceChainStatePDA
+		sourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
+		validSourceChainConfig := solRouter.SourceChainConfig{
+			OnRamp:    []byte(update.RemoteChainOnRampAddress),
+			IsEnabled: update.EnabledAsSource,
+		}
+		// TODO: this should be GetDestChainStatePDA
+		destChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
+		validDestChainConfig := solRouter.DestChainConfig{
+			IsEnabled:               update.EnabledAsDestination,
+			DefaultTxGasLimit:       update.DefaultTxGasLimit,
+			MaxPerMsgGasLimit:       update.MaxPerMsgGasLimit,
+			MaxDataBytes:            update.MaxDataBytes,
+			MaxNumberOfTokensPerMsg: update.MaxNumberOfTokensPerMsg,
+			// TODO: what if chain family is solana ?
 			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
 			ChainFamilySelector: [4]uint8{40, 18, 213, 44},
 		}
-
-		instruction, err := ccip_router.NewAddChainSelectorInstruction(
+		instruction, err := solRouter.NewAddChainSelectorInstruction(
 			destination,
 			validSourceChainConfig,
 			validDestChainConfig,
-			EvmSourceChainStatePDA,
-			EvmDestChainStatePDA,
+			sourceChainStatePDA,
+			destChainStatePDA,
 			GetRouterConfigPDA(ccipRouterID),
 			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID,
@@ -142,36 +222,4 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 	}
 
 	return deployment.ChangesetOutput{}, nil
-
-	// var batches []timelock.BatchChainOperation
-	// timelocks := make(map[uint64]common.Address)
-	// proposers := make(map[uint64]*mcm.MCM)
-	// else {
-	// 	batches = append(batches, timelock.BatchChainOperation{
-	// 		ChainIdentifier: mcms.ChainIdentifier(remote),
-	// 		Batch: []mcms.Operation{
-	// 			{
-	// 				To:    offRamp.Address(),
-	// 				Data:  tx.Data(),
-	// 				Value: big.NewInt(0),
-	// 			},
-	// 		},
-	// 	})
-	// 	timelocks[remote] = state.Chains[remote].Timelock.Address()
-	// 	proposers[remote] = state.Chains[remote].ProposerMcm
-	// }
-	// p, err := proposalutils.BuildProposalFromBatches(
-	// 	timelocks,
-	// 	proposers,
-	// 	batches,
-	// 	"Update OCR3 config",
-	// 	cfg.MCMS.MinDelay,
-	// )
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, err
-	// }
-	// e.Logger.Infof("Proposing OCR3 config update for", cfg.RemoteChainSels)
-	// return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-	// 	*p,
-	// }}, nil
 }
