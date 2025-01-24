@@ -394,6 +394,8 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOps := e.Chains[chainSel].DeployerKey
+		// nolint:fatcontext
+		// context is stored outside the loop
 		txOps.Context = ctx
 		if cfg.MCMS != nil {
 			txOps = deployment.SimTransactOpts()
@@ -487,6 +489,8 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	ctx := e.GetContext()
 	for srcSel, updates := range cfg.UpdatesByChain {
 		txOps := e.Chains[srcSel].DeployerKey
+		// nolint:fatcontext
+		// context is stored outside the loop
 		txOps.Context = ctx
 		onRamp := onchain.Chains[srcSel].OnRamp
 		args := make([]onramp.OnRampAllowlistConfigArgs, len(updates))
@@ -581,6 +585,8 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	ctx := e.GetContext()
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
 		txOps := e.Chains[chainSel].DeployerKey
+		// nolint:fatcontext
+		// context is stored outside the loop
 		txOps.Context = ctx
 		onRamp := onchain.Chains[chainSel].OnRamp
 		tx, err := onRamp.WithdrawFeeTokens(txOps, feeTokens)
