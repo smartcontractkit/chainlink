@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {EfficientCall} from "@zksync/contracts/system-contracts/contracts/libraries/EfficientCall.sol";
-import {ISystemContext} from "@zksync/contracts/gas-bound-caller/contracts/ISystemContext.sol";
+import {EfficientCall} from "../../vendor/@matter-labs/era-contracts/system-contracts/contracts/libraries/EfficientCall.sol";
+import {ISystemContext} from "../../vendor/@matter-labs/era-contracts/gas-bound-caller/contracts/ISystemContext.sol";
 
 ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
-
-error GasLimitTooLow();
-error NotEnoughGasForPubdata();
 
 /**
  * @title CallWithExactGasZKSync
@@ -16,12 +13,17 @@ error NotEnoughGasForPubdata();
  * Implementation based on the GasBoundCaller contract, https://github.com/matter-labs/era-contracts/blob/main/gas-bound-caller/contracts/GasBoundCaller.sol
  */
 library CallWithExactGasZKSync {
+  error NoContract();
+  error NotEnoughGasForPubdata();
+  error NotEnoughGasForCall();
   /// @notice We assume that no more than `CALL_ENTRY_OVERHEAD` ergs are used for the O(1) operations at the start
   /// of execution of the contract, such as abi decoding the parameters, jumping to the correct function, etc.
   uint256 internal constant CALL_ENTRY_OVERHEAD = 800;
   /// @notice We assume that no more than `CALL_RETURN_OVERHEAD` ergs are used for the O(1) operations at the end of the execution,
   /// as such relaying the return.
   uint256 internal constant CALL_RETURN_OVERHEAD = 400;
+
+  bytes4 internal constant NO_CONTRACT_SIG = 0x0c3b563c;
 
   /// @notice The function that implements limiting of the total gas expenditure of the call.
   /// @dev On Era, the gas for pubdata is charged at the end of the execution of the entire transaction, meaning
@@ -37,14 +39,23 @@ library CallWithExactGasZKSync {
   /// @param _data The calldata for the call.
   /// @param _maxReturnBytes the maximum amount of bytes that can be returned by the call.
   /// @return success whether the call succeeded
-  /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
   /// @return retData the return data from the call, capped at maxReturnBytes bytes
+  /// @return pubdataGas the gas used by the external call. Does not include the overhead of this function.
+  /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
   function _callWithExactGasSafeReturnData(
     address _to,
     uint256 _maxTotalGas,
     bytes calldata _data,
     uint16 _maxReturnBytes
-  ) external returns (bool, uint256, bytes memory) {
+  ) external returns (bool, bytes memory, uint256 pubdataGas, uint256 gasUsed) {
+    assembly {
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      // Note we do this check prior to measuring gas.
+      if iszero(extcodesize(_to)) {
+        mstore(0x0, NO_CONTRACT_SIG)
+        revert(0x0, 0x4)
+      }
+    }
     // At the start of the execution we deduce how much gas be spent on things that will be
     // paid for later on by the transaction.
     // The `expectedForCompute` variable is an upper bound of how much this contract can spend on compute and
@@ -56,7 +67,7 @@ library CallWithExactGasZKSync {
     //
     // Ultimately, the entire `gas` sent to this call can be spent on compute regardless of the `_maxTotalGas` parameter.
     if (_maxTotalGas < gasleft()) {
-      revert GasLimitTooLow();
+      revert NotEnoughGasForCall();
     }
 
     // This is the amount of gas that can be spent *exclusively* on pubdata in addition to the `gas` provided to this function.
@@ -64,31 +75,26 @@ library CallWithExactGasZKSync {
 
     uint256 pubdataPublishedBefore = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
 
-    // We never permit system contract calls.
-    // If the call fails, the `EfficientCall.call` will propagate the revert.
-    // Since the revert is propagated, the pubdata published wouldn't change and so no
-    // other checks are needed.
-    // solhint-disable-next-line avoid-low-level-calls
-    bytes memory returnData = EfficientCall.call({
-      _gas: gasleft(),
+    uint256 gasBeforeCall = gasleft();
+    bool success = EfficientCall.rawCall({
+      _gas: gasBeforeCall,
       _address: _to,
       _value: msg.value,
       _data: _data,
       _isSystem: false
     });
-
-    // We will calculate the length of the returndata to be used at the end of the function.
-    // We need additional `96` bytes to encode the offset `0x40` for the entire pubdata,
-    // the gas spent on pubdata as well as the length of the original returndata.
-    // Note, that it has to be padded to the 32 bytes to adhere to proper ABI encoding.
-    uint256 paddedReturndataLen = returnData.length + 96;
-    if (paddedReturndataLen % 32 != 0) {
-      paddedReturndataLen += 32 - (paddedReturndataLen % 32);
-    }
-
-    // limit our paddedReturndataLen to maxReturnBytes bytes
-    if (paddedReturndataLen > _maxReturnBytes) {
-      paddedReturndataLen = _maxReturnBytes;
+    bytes memory returnData = new bytes(_maxReturnBytes);
+    assembly {
+      gasUsed := sub(gasBeforeCall, gas())
+      // limit our copy to maxReturnBytes bytes
+      let toCopy := returndatasize()
+      if gt(toCopy, _maxReturnBytes) {
+        toCopy := _maxReturnBytes
+      }
+      // Store the length of the copied bytes
+      mstore(returnData, toCopy)
+      // copy the bytes from retData[0:_toCopy]
+      returndatacopy(add(returnData, 0x20), 0x0, toCopy)
     }
 
     uint256 pubdataPublishedAfter = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
@@ -103,8 +109,7 @@ library CallWithExactGasZKSync {
 
     // In case there is an overflow here, the `_maxTotalGas` wouldn't be able to cover it anyway, so
     // we don't mind the contract panicking here in case of it.
-    uint256 pubdataGas = pubdataGasRate * pubdataSpent;
-
+    pubdataGas = pubdataGasRate * pubdataSpent;
     if (pubdataGas != 0) {
       // Here we double check that the additional cost is not higher than the maximum allowed.
       // Note, that the `gasleft()` can be spent on pubdata too.
@@ -112,18 +117,6 @@ library CallWithExactGasZKSync {
         revert NotEnoughGasForPubdata();
       }
     }
-
-    assembly {
-      // This place does interfere with the memory layout, however, it is done right before
-      // the `return` statement, so it is safe to do.
-      // We need to transform `bytes memory returnData` into (bytes memory returndata, gasSpentOnPubdata)
-      // `bytes memory returnData` is encoded as `length` + `data`.
-      // We need to prepend it with 0x40 and `pubdataGas`.
-      //
-      // It is assumed that the position of returndata is >= 0x40, since 0x40 is the free memory pointer location.
-      mstore(sub(returnData, 0x40), 0x40)
-      mstore(sub(returnData, 0x20), pubdataGas)
-      return(sub(returnData, 0x40), paddedReturndataLen)
-    }
+    return (success, returnData, pubdataGas, gasUsed);
   }
 }
