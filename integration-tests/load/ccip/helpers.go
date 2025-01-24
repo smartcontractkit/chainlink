@@ -3,9 +3,16 @@ package ccip
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -14,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
@@ -27,6 +35,10 @@ const (
 	ErrLokiClient  = "failed to create Loki client for monitoring"
 	ErrLokiPush    = "failed to push metrics to Loki"
 	tickerDuration = 30 * time.Second
+)
+
+var (
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(10), deployment.UBigInt(1e18)) // 5 eth
 )
 
 // todo: Have a different struct for commit/exec?
@@ -82,8 +94,7 @@ func subscribeDeferredCommitEvents(
 	defer wg.Done()
 
 	lggr.Infow("starting commit event subscriber for ",
-		"destChainSelector", chainSelector,
-		"offRamp", offRamp.Address().String(),
+		"destChain", chainSelector,
 		"startblock", startBlock,
 	)
 	seenMessages := make(map[uint64][]uint64)
@@ -118,7 +129,7 @@ func subscribeDeferredCommitEvents(
 				for _, mr := range report.MerkleRoots {
 					lggr.Infow("Received commit report ",
 						"sourceChain", mr.SourceChainSelector,
-						"offRamp", offRamp.Address().String(),
+						"destChain", chainSelector,
 						"minSeqNr", mr.MinSeqNr,
 						"maxSeqNr", mr.MaxSeqNr)
 
@@ -146,7 +157,7 @@ func subscribeDeferredCommitEvents(
 			}
 		case <-ctx.Done():
 			lggr.Errorw("timed out waiting for commit report",
-				"offRamp", offRamp.Address().String(),
+				"destChain", chainSelector,
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange)
 			errChan <- errors.New("timed out waiting for commit report")
@@ -159,6 +170,7 @@ func subscribeDeferredCommitEvents(
 
 		case <-ticker.C:
 			lggr.Infow("ticking, checking committed events",
+				"destChain", chainSelector,
 				"seenMessages", seenMessages,
 				"expectedRange", expectedRange,
 				"completedSrcChains", completedSrcChains)
@@ -186,7 +198,7 @@ func subscribeDeferredCommitEvents(
 				}
 			}
 			if allComplete {
-				lggr.Infow("all chains have committed all expected sequence numbers")
+				lggr.Infof("received commits from expected source chains for all expected sequence numbers to chainSelector %d", chainSelector)
 				return
 			}
 		}
@@ -210,8 +222,7 @@ func subscribeExecutionEvents(
 	defer close(errChan)
 
 	lggr.Infow("starting execution event subscriber for ",
-		"destChainSelector", chainSelector,
-		"offRamp", offRamp.Address().String(),
+		"destChain", chainSelector,
 		"startblock", startBlock,
 	)
 	seenMessages := make(map[uint64][]uint64)
@@ -226,7 +237,7 @@ func subscribeExecutionEvents(
 	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
 		Context: context.Background(),
 		Start:   startBlock,
-	}, sink, srcChains, nil, nil)
+	}, sink, nil, nil, nil)
 	if err != nil {
 		errChan <- err
 		return
@@ -243,8 +254,10 @@ func subscribeExecutionEvents(
 			errChan <- subErr
 			return
 		case event := <-sink:
-			lggr.Debugw("received execution event",
-				"event", event)
+			lggr.Debugw("received execution event for",
+				"destChain", chainSelector,
+				"sourceChain", event.SourceChainSelector,
+				"sequenceNumber", event.SequenceNumber)
 			lokiLabels, err := setLokiLabels(event.SourceChainSelector, chainSelector)
 			if err != nil {
 				errChan <- err
@@ -267,7 +280,7 @@ func subscribeExecutionEvents(
 
 		case <-ctx.Done():
 			lggr.Errorw("timed out waiting for execution event",
-				"offRamp", offRamp.Address().String(),
+				"destChain", chainSelector,
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange,
 				"seenMessages", seenMessages,
@@ -280,6 +293,7 @@ func subscribeExecutionEvents(
 
 		case <-ticker.C:
 			lggr.Infow("ticking, checking executed events",
+				"destChain", chainSelector,
 				"seenMessages", seenMessages,
 				"expectedRange", expectedRange,
 				"completedSrcChains", completedSrcChains)
@@ -291,8 +305,8 @@ func subscribeExecutionEvents(
 					if len(seenMessages[srcChain]) >= seqNumRange.Length() {
 						completedSrcChains[srcChain] = true
 						lggr.Infow("executed all sequence numbers for ",
-							"sourceChain", srcChain,
 							"destChain", chainSelector,
+							"sourceChain", srcChain,
 							"seqNumRange", seqNumRange)
 					}
 				}
@@ -306,10 +320,51 @@ func subscribeExecutionEvents(
 				}
 			}
 			if allComplete {
-				lggr.Infow("all chains have executed all expected sequence numbers",
+				lggr.Infow("all messages have been executed for all expected sequence numbers",
+					"destChain", chainSelector,
 					"expectedSeqNumbers", expectedRange)
 				return
 			}
 		}
 	}
+}
+
+// this function will create len(targetChains) new addresses, and send funds to them on every targetChain
+func fundAdditionalKeys(lggr logger.Logger, wg *sync.WaitGroup, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
+	deployerMap := make(map[uint64][]*bind.TransactOpts)
+	addressMap := make(map[uint64][]common.Address)
+	numAccounts := len(destChains)
+	for chain, _ := range e.Chains {
+		deployerMap[chain] = make([]*bind.TransactOpts, 0)
+		addressMap[chain] = make([]common.Address, 0)
+		for range numAccounts {
+			addr, pk, err := seth.NewAddress()
+			pvtKey, err := crypto.HexToECDSA(pk)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
+			}
+			chainID, err := chainselectors.ChainIdFromSelector(chain)
+			if err != nil {
+				return nil, fmt.Errorf("could not get chain id from selector: %w", err)
+			}
+
+			deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(chainID))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create transactor: %w", err)
+			}
+			deployerMap[chain] = append(deployerMap[chain], deployer)
+			addressMap[chain] = append(addressMap[chain], common.HexToAddress(addr))
+		}
+	}
+
+	for sel, addresses := range addressMap {
+		wg.Add(1)
+		go func(selector uint64, addresses []common.Address) {
+			defer wg.Done()
+			crib.SendFundsToAccounts(lggr, e.Chains[selector], addresses, fundingAmount, selector)
+		}(sel, addresses)
+	}
+
+	wg.Wait()
+	return deployerMap, nil
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/stretchr/testify/require"
 
 	"context"
@@ -39,19 +41,13 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 // Stop the chains, cleanup the environment
 func TestCCIPLoad_RPS(t *testing.T) {
 	// comment out when executing the test
-	t.Skip("Skipping test as this test should not be auto triggered")
+	//t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
-	lggr.Infof("loaded ccip test config: %+v", config.CCIP.Load)
 	userOverrides := config.CCIP.Load
-	userOverrides.Validate(t)
-
-	// apply user defined test duration
-	ctx, cancel := context.WithTimeout(context.Background(), userOverrides.GetTestDuration())
-	defer cancel()
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
@@ -60,11 +56,17 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
+	userOverrides.Validate(t, env)
 
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(userOverrides.LokiEndpoint, nil, nil, nil))
 	require.NoError(t, err)
 	defer loki.StopNow()
+
+	// initialize additional accounts on other chains
+	transmitKeys, err := fundAdditionalKeys(lggr, &wg, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	lggr.Infow("transmitKeys", "len", len(transmitKeys), "key1", transmitKeys[3379446385462418246], "key2", transmitKeys[909606746561742123])
+	require.NoError(t, err)
 
 	// Keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
@@ -79,13 +81,21 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 	// Only create a destination gun if we have decided to send traffic to this chain
-	for _, cs := range *userOverrides.EnabledDestionationChains {
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
+	for ind := range *userOverrides.NumDestinationChains {
+		cs := env.AllChainSelectors()[ind]
+		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[cs] = &block
 
-		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki)
+		messageKeys := make(map[uint64]*bind.TransactOpts)
+		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		lggr.Infow("otherChains", "chains", other, "currentcs", cs)
+		for _, sel := range other {
+			messageKeys[sel] = transmitKeys[sel][ind]
+		}
+
+		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki, messageKeys)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
 			t.Fatal(err)
@@ -97,7 +107,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 		wg.Add(2)
 		go subscribeDeferredCommitEvents(
-			ctx,
+			context.Background(),
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,
@@ -109,7 +119,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			errChan,
 			&wg)
 		go subscribeExecutionEvents(
-			ctx,
+			context.Background(),
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,

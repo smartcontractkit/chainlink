@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -229,8 +231,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			// Enable the OCR config on the remote chains.
 			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
 			Config: changeset.SetOCR3OffRampConfig{
-				HomeChainSel:    homeChainSel,
-				RemoteChainSels: chainSelectors,
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    chainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		},
 	})

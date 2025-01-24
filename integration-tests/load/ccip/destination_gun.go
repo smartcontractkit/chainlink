@@ -38,9 +38,10 @@ type DestinationGun struct {
 	receiver      common.Address
 	testConfig    *ccip.LoadConfig
 	loki          *wasp.LokiClient
+	messageKeys   map[uint64]*bind.TransactOpts
 }
 
-func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
+func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient, messageKeys map[uint64]*bind.TransactOpts) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 		// query for the actual sequence number
@@ -61,6 +62,7 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 		receiver:      receiver,
 		testConfig:    overrides,
 		loki:          loki,
+		messageKeys:   messageKeys,
 	}
 
 	err := dg.Validate()
@@ -102,6 +104,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
+	acc := m.messageKeys[src]
+
 	lokiLabels, err := setLokiLabels(src, m.chainSelector)
 	if err != nil {
 		m.l.Errorw("Failed setting loki labels", "error", err)
@@ -130,8 +134,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		m.env.Chains[src].DeployerKey.Value = fee
-		defer func() { m.env.Chains[src].DeployerKey.Value = nil }()
+		acc.Value = fee
+		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
 		"srcChain", src,
@@ -140,7 +144,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		"fee", fee,
 		"msg", msg)
 	tx, err := r.CcipSend(
-		m.env.Chains[src].DeployerKey,
+		acc,
 		m.chainSelector,
 		msg)
 	if err != nil {

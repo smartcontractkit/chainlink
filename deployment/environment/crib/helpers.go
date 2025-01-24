@@ -11,10 +11,10 @@ import (
 
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var wg = &sync.WaitGroup{}
@@ -50,43 +50,47 @@ func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.
 					transmittersStr = append(transmittersStr, addr)
 				}
 			}
-			latesthdr, err := chain.Client.HeaderByNumber(context.Background(), nil)
-			if err != nil {
-				lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)
-				return
-			}
-			block := latesthdr.Number
-
-			nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, block)
-			if err != nil {
-				lggr.Warnw("could not get latest nonce for deployer key", "err", err)
-				return
-			}
-			for _, transmitter := range transmittersStr {
-				tx := gethtypes.NewTransaction(nonce, transmitter, fundingAmount, uint64(1000000), big.NewInt(1000000), nil)
-
-				signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
-				if err != nil {
-					lggr.Errorw("could not sign transaction to transmitter on ", "chain", sel, "transmitter", transmitter, "err", err)
-					continue
-				}
-
-				lggr.Infow("sending transaction for ", "transmitter", transmitter.String(), "chain", sel)
-				err = chain.Client.SendTransaction(context.Background(), signedTx)
-				if err != nil {
-					lggr.Errorw("could not send transaction to transmitter on ", "chain", sel, "transmitter", transmitter, "err", err)
-					continue
-				}
-
-				_, err = bind.WaitMined(context.Background(), chain.Client, signedTx)
-				if err != nil {
-					lggr.Errorw("could not mine transaction to transmitter on ", "chain", sel)
-					continue
-				}
-				nonce++
-			}
+			SendFundsToAccounts(lggr, chain, transmittersStr, fundingAmount, sel)
 		}(sel, chain)
 	}
 
 	wg.Wait()
+}
+
+func SendFundsToAccounts(lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) {
+	latesthdr, err := chain.Client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)
+		return
+	}
+	block := latesthdr.Number
+
+	nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, block)
+	if err != nil {
+		lggr.Warnw("could not get latest nonce for deployer key", "err", err)
+		return
+	}
+	for _, address := range accounts {
+		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(1000000), nil)
+
+		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
+		if err != nil {
+			lggr.Errorw("could not sign transaction for sending funds to ", "chain", sel, "account", address, "err", err)
+			continue
+		}
+
+		lggr.Infow("sending transaction for ", "account", address.String(), "chain", sel)
+		err = chain.Client.SendTransaction(context.Background(), signedTx)
+		if err != nil {
+			lggr.Errorw("could not send transaction to address on ", "chain", sel, "address", address, "err", err)
+			continue
+		}
+
+		_, err = bind.WaitMined(context.Background(), chain.Client, signedTx)
+		if err != nil {
+			lggr.Errorw("could not mine transaction to address on ", "chain", sel)
+			continue
+		}
+		nonce++
+	}
 }
