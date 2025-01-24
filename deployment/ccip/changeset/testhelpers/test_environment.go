@@ -670,7 +670,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrConfigs[chain] = ocrParams
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
@@ -793,6 +794,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NotNil(t, state.Chains[chain].OffRamp)
 		require.NotNil(t, state.Chains[chain].OnRamp)
 	}
+	ValidateSolanaState(t, e.Env, solChains)
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
 }

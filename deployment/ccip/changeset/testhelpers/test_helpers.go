@@ -44,6 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+
 	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -58,7 +60,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_receiver"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
 
 const (
@@ -512,7 +513,6 @@ func AddLane(
 		}
 		changesets = append(changesets, evmChangesets...)
 	case chainsel.FamilySolana:
-		validTimestamp := int64(100)
 		value := [28]uint8{}
 		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 		require.True(t, ok)
@@ -534,32 +534,6 @@ func AddLane(
 							},
 						},
 					},
-				},
-			},
-			{
-				// maybe add this in chain setup for solana in cs_deploy_chain.go
-				Changeset: commoncs.WrapChangeSet(changeset.AddBillingToken),
-				Config: changeset.AddBillingTokenPoolConfig{
-					ChainSelector:    to,
-					TokenName:        "LinkToken",
-					TokenProgramName: "spl-token-2022",
-					Config: ccip_router.BillingTokenConfig{
-						Enabled: true,
-						UsdPerToken: ccip_router.TimestampedPackedU224{
-							Value:     value,
-							Timestamp: validTimestamp,
-						},
-						PremiumMultiplierWeiPerEth: 11000000,
-					}},
-			},
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.AddBillingTokenForRemoteChain),
-				Config: changeset.BillingTokenForRemoteChainConfig{
-					ChainSelector:       to,
-					RemoteChainSelector: from,
-					TokenName:           "LinkToken",
-					TokenProgramName:    "spl-token-2022",
-					Config:              ccip_router.TokenBilling{},
 				},
 			},
 		}
@@ -1344,9 +1318,6 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
 	require.NoError(t, err)
-	tv = deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
-	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
 	require.NoError(t, err)
@@ -1359,6 +1330,9 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
 		require.False(t, solState.SolChains[sel].Router.IsZero())
 		require.False(t, solState.SolChains[sel].AddressLookupTable.IsZero())
+		var routerConfigAccount solRouter.Config
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), changeset.GetRouterConfigPDA(solState.SolChains[sel].Router), &routerConfigAccount)
+		require.NoError(t, err)
 	}
 }
 

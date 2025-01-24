@@ -22,7 +22,6 @@ var (
 type SolCCIPChainState struct {
 	LinkToken          solana.PublicKey
 	Router             solana.PublicKey
-	TokenPool          solana.PublicKey
 	Timelock           solana.PublicKey
 	AddressLookupTable solana.PublicKey // for chain writer
 	Receiver           solana.PublicKey // for tests only
@@ -64,9 +63,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.AddressLookupTable = pub
-		case deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0).String():
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.TokenPool = pub
 		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
