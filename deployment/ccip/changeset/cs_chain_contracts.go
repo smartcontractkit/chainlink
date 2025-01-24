@@ -388,9 +388,9 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
-	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOps := e.Chains[chainSel].DeployerKey
@@ -482,9 +482,9 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
-	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	ctx := e.GetContext()
 	for srcSel, updates := range cfg.UpdatesByChain {
 		txOps := e.Chains[srcSel].DeployerKey
@@ -577,9 +577,9 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if err := cfg.Validate(onchain); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	batches := make([]timelock.BatchChainOperation, len(cfg.FeeTokensByChain))
-	timelocks := make(map[uint64]common.Address, len(cfg.FeeTokensByChain))
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.FeeTokensByChain))
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 	ctx := e.GetContext()
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
 		txOps := e.Chains[chainSel].DeployerKey
@@ -616,7 +616,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 		timelocks,
 		proposers,
 		batches,
-		"",
+		"withdraw onramp fee tokens",
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {

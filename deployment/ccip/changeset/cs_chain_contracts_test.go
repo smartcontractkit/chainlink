@@ -266,6 +266,9 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			source := allChains[0]
 			dest := allChains[1]
 
+			require.NotNil(t, state.Chains[source].ProposerMcm)
+			require.NotNil(t, state.Chains[dest].ProposerMcm)
+
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				transferToTimelock(t, tenv, state, source, dest)
