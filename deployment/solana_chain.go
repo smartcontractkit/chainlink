@@ -14,9 +14,14 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+var (
+	SolDefaultCommitment = rpc.CommitmentConfirmed
 )
 
 // SolChain represents a Solana chain.
