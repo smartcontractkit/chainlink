@@ -54,8 +54,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            bigIntToBytes32(tokenAmount.Amount),
-				DestGasAmount:     bytesToUint32(tokenAmount.DestExecData),
+				Amount:            [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32)),
+				DestGasAmount:     bytesToUint32LE(tokenAmount.DestExecData),
 			})
 		}
 
@@ -141,13 +141,13 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	tokenAmounts := make([]cciptypes.RampTokenAmount, 0, len(executeReport.Message.TokenAmounts))
 	for _, tokenAmount := range executeReport.Message.TokenAmounts {
 		destData := make([]byte, 4)
-		binary.BigEndian.PutUint32(destData, tokenAmount.DestGasAmount)
+		binary.LittleEndian.PutUint32(destData, tokenAmount.DestGasAmount)
 
 		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
 			SourcePoolAddress: tokenAmount.SourcePoolAddress,
 			DestTokenAddress:  tokenAmount.DestTokenAddress.Bytes(),
 			ExtraData:         tokenAmount.ExtraData,
-			Amount:            priceHelper(tokenAmount.Amount[:]),
+			Amount:            decodeLEToBigInt(tokenAmount.Amount[:]),
 			DestExecData:      destData,
 		})
 	}
@@ -242,21 +242,14 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SolanaExtraArgs, error
 	return out, nil
 }
 
-func bytesToUint32(b []byte) uint32 {
+func bytesToUint32LE(b []byte) uint32 {
 	if len(b) < 4 {
 		var padded [4]byte
-		copy(padded[4-len(b):], b) // Pad from the right for big-endian
-		return binary.BigEndian.Uint32(padded[:])
+		copy(padded[4-len(b):], b) // Pad from the left for little-endian
+		return binary.LittleEndian.Uint32(padded[:])
 	}
 
-	return binary.BigEndian.Uint32(b)
-}
-
-func bigIntToBytes32(n cciptypes.BigInt) [32]uint8 {
-	var b [32]uint8
-	raw := n.Bytes()
-	copy(b[32-len(raw):], raw) // Right-align and zero-pad
-	return b
+	return binary.LittleEndian.Uint32(b)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

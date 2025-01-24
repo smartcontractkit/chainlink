@@ -125,18 +125,6 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	}, nil
 }
 
-func priceHelper(input []byte) cciptypes.BigInt {
-	var tokenPrice cciptypes.BigInt
-	price := new(big.Int).SetBytes(input)
-	if price.Int64() == 0 {
-		tokenPrice = cciptypes.NewBigInt(big.NewInt(0))
-	} else {
-		tokenPrice = cciptypes.NewBigInt(price)
-	}
-
-	return tokenPrice
-}
-
 func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
 	// Create a fixed-length byte array
 	paddedBytes := make([]byte, length)
