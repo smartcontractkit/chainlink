@@ -423,7 +423,7 @@ func AddLane(
 		t.Fatalf("from family is not evm, %s", fromFamily)
 	}
 
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+	changesets := []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 			Config: changeset.UpdateOnRampDestsConfig{
@@ -470,20 +470,14 @@ func AddLane(
 							to: true,
 						},
 					},
-					// offramp update on dest chain
-					to: {
-						OffRampUpdates: map[uint64]bool{
-							from: true,
-						},
-					},
 				},
 			},
 		},
-	})
+	}
 
 	switch toFamily {
 	case chainsel.FamilyEVM:
-		e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+		evmChangesets := []commoncs.ChangesetApplication{
 			{
 				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 				Config: changeset.UpdateOffRampSourcesConfig{
@@ -497,15 +491,29 @@ func AddLane(
 					},
 				},
 			},
-		})
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+				Config: changeset.UpdateRouterRampsConfig{
+					TestRouter: isTestRouter,
+					UpdatesByChain: map[uint64]changeset.RouterUpdates{
+						// offramp update on dest chain
+						to: {
+							OffRampUpdates: map[uint64]bool{
+								from: true,
+							},
+						},
+					},
+				},
+			},
+		}
+		changesets = append(changesets, evmChangesets...)
 	case chainsel.FamilySolana:
-		// evm to solana
 		validTimestamp := int64(100)
 		value := [28]uint8{}
 		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 		require.True(t, ok)
 		bigNum.FillBytes(value[:])
-		e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+		solanaChangesets := []commoncs.ChangesetApplication{
 			{
 				Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 				Config: changeset.UpdateOnRampDestsConfig{
@@ -546,9 +554,13 @@ func AddLane(
 					Config:              ccip_router.TokenBilling{},
 				},
 			},
-		})
+		}
+		changesets = append(changesets, solanaChangesets...)
 	}
+
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
 	require.NoError(t, err)
+
 }
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
