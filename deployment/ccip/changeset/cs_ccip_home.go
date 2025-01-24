@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -31,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 var (
@@ -613,11 +614,18 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donOps []mcms.Operation
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
+		family, err := chain_selectors.GetSelectorFamily(chainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 		var offRampAddress []byte
-		if deployment.IsSolanaChainFamily(chainSelector) {
-			offRampAddress = state.SolChains[chainSelector].Router.Bytes()
-		} else {
+		switch family {
+		case chain_selectors.FamilyEVM:
 			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
+		case chain_selectors.FamilySolana:
+			offRampAddress = state.SolChains[chainSelector].Router.Bytes()
+		default:
+			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,
@@ -806,11 +814,18 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			var offRampAddress []byte
-			if deployment.IsSolanaChainFamily(chainSelector) {
-				offRampAddress = state.SolChains[chainSelector].Router.Bytes()
-			} else {
+			switch family {
+			case chain_selectors.FamilyEVM:
 				offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
+			case chain_selectors.FamilySolana:
+				offRampAddress = state.SolChains[chainSelector].Router.Bytes()
+			default:
+				return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 				e.OCRSecrets,
