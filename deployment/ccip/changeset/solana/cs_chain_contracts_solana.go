@@ -187,14 +187,8 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
+		// TODO: check if ocr3 has already been set
 		// set, err := isOCR3ConfigSetSolana(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
-		// if err != nil {
-		// 	return deployment.ChangesetOutput{}, err
-		// }
-		// if set {
-		// 	e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
-		// 	continue
-		// }
 		var instructions []solana.Instruction
 		ccipRouterID := solChains[remote].Router
 		for _, arg := range args {
