@@ -103,6 +103,7 @@ func addRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, cha
 
 	ccipRouterID := s.SolChains[chainSel].Router
 
+	// TODO: will this fail if chain has already been added?
 	for destination, update := range updates {
 		// TODO: this should be GetSourceChainStatePDA
 		sourceChainStatePDA := cs.GetEvmSourceChainStatePDA(ccipRouterID, destination)
