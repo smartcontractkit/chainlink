@@ -28,6 +28,7 @@ type ChangesetOutput struct {
 	JobSpecs    map[string][]string
 	Proposals   []timelock.MCMSWithTimelockProposal
 	AddressBook AddressBook
+	Reports     []Report[any, any, any]
 }
 
 // ViewState produces a product specific JSON representation of
