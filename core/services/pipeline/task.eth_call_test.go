@@ -312,7 +312,15 @@ func TestETHCallTask(t *testing.T) {
 
 			var legacyChains legacyevm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+					DB:             db,
+					GeneralConfig:  cfg,
+					DatabaseConfig: cfg.Database(),
+					FeatureConfig:  cfg.Feature(),
+					ListenerConfig: cfg.Database().Listener(),
+					TxManager:      txManager,
+					KeyStore:       keyStore,
+				})
 			} else {
 				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)
 			}
