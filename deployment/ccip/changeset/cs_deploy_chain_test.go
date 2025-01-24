@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -118,8 +121,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
 
+	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
+	var routerConfigAccount solRouter.Config
+	ctx := testcontext.Get(t)
+	err = solCommonUtil.GetAccountDataBorshInto(ctx, e.SolChains[solChainSelectors[0]].Client, changeset.GetRouterConfigPDA(state.SolChains[solChainSelectors[0]].Router), deployment.SolDefaultCommitment, &routerConfigAccount)
+	require.NoError(t, err)
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
