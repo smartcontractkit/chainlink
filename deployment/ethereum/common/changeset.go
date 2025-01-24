@@ -9,9 +9,10 @@ import (
 )
 
 type ChangesetLinkInput struct {
-	Amount  *big.Int
-	To      common.Address
-	chainId uint64
+	MintAmount *big.Int
+	Amount     *big.Int
+	To         common.Address
+	chainId    uint64
 }
 
 // This changeset deploys and transfers an specific amount of LINK to an address
@@ -20,17 +21,40 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 	// TODO: Previous reports should come from the user. If present, would allow retryability
 	reporter := deployment.NewMemoryReporter([]deployment.Report[any, any, any]{})
 
+	// Prepare operation context
 	auth := e.Chains[config.chainId].DeployerKey
 	client := e.Chains[config.chainId].Client
 	ethCtx := deployment.Context[deployment_ethereum.EthereumDeps]{
-		deployment.NewBaseContext(),
-		deployment_ethereum.EthereumDeps{
-			Auth:   auth,
-			Client: client,
+		Log: e.Logger,
+		Deps: deployment_ethereum.EthereumDeps{
+			Auth:    auth,
+			Client:  client,
+			Confirm: e.Chains[config.chainId].Confirm,
 		},
 	}
 
 	linkDeployReport, err := deployment.Execute(reporter, DeployLinkOp, ethCtx, deployment.EmptyInput{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	grantMintInput := GrantLinkInput{
+		contractAddress: linkDeployReport.Output.Address,
+		To:              auth.From,
+	}
+
+	_, err = deployment.Execute(reporter, GrantMintLinkOp, ethCtx, grantMintInput)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	mintInput := MintLinkInput{
+		contractAddress: linkDeployReport.Output.Address,
+		To:              auth.From,
+		Amount:          config.MintAmount,
+	}
+
+	_, err = deployment.Execute(reporter, MintLinkOp, ethCtx, mintInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -46,7 +70,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// TODO: Changeset should return its own Report with a unique ID, holding low level operation reports
+	// TODO: Changeset should return its own Report with a unique ID, storing low level operation reports
 	return deployment.ChangesetOutput{
 		// Should include Address Book and other relevant information
 		Reports: reporter.GetReports(),

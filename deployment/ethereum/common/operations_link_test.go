@@ -1,0 +1,80 @@
+package deployment_common
+
+import (
+	"math/big"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	deployment_ethereum "github.com/smartcontractkit/chainlink/deployment/ethereum/extension"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/test-go/testify/require"
+	"go.uber.org/zap/zapcore"
+)
+
+func TestLinkOps(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains: 1,
+	})
+	chain1 := e.AllChainSelectors()[0]
+
+	chain := e.Chains[chain1]
+	client := e.Chains[chain1].Client
+	auth := e.Chains[chain1].DeployerKey
+
+	ctx := deployment.Context[deployment_ethereum.EthereumDeps]{
+		Log: lggr,
+		Deps: deployment_ethereum.EthereumDeps{
+			Auth:    auth,
+			Client:  client,
+			Confirm: chain.Confirm,
+		},
+	}
+
+	// DEPLOY
+	deployRes, err := DeployLinkOp.Execute(ctx, deployment.EmptyInput{})
+	require.NoError(t, err)
+	require.NotNil(t, deployRes.Address)
+	require.NotNil(t, deployRes.Tx)
+
+	// GRANT MINT ROLE
+	grantMint, err := GrantMintLinkOp.Execute(ctx, GrantLinkInput{
+		contractAddress: deployRes.Address,
+		To:              auth.From,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, grantMint.Tx)
+
+	// MINT SOME TO SELF
+	mint, err := MintLinkOp.Execute(ctx, MintLinkInput{
+		contractAddress: deployRes.Address,
+		To:              auth.From,
+		Amount:          big.NewInt(1000000000000000000),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, mint.Tx)
+
+	// TRANSFER SOME TO DEST
+	dest := common.HexToAddress("0x1")
+	transferInput := TransferLinkInput{
+		contractAddress: deployRes.Address,
+		To:              dest,
+		Amount:          big.NewInt(1000000000000000),
+	}
+
+	transferRes, err := TransferLinkOp.Execute(ctx, transferInput)
+	require.NoError(t, err)
+	require.NotNil(t, transferRes.Tx)
+
+	link, err := link_token.NewLinkToken(deployRes.Address, client)
+
+	// CHECK BALANCE
+	balanceOfDest, err := link.BalanceOf(nil, dest)
+	require.NoError(t, err)
+	require.NotNil(t, balanceOfDest)
+
+}

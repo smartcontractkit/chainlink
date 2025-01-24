@@ -13,22 +13,16 @@ type Context[Deps any] struct {
 	Deps Deps
 }
 
-func NewBaseContext() Context[any] {
-	return Context[any]{
-		Log: logger.DefaultLogger(),
-	}
-}
-
 type ExecuteFunc[I, O, Deps any] func(context Context[Deps], input I) (output O, err error)
 
 // An Operation is defined by a unique ID and version. It has a description explaining what it does.
 type OperationDefinition struct {
-	id          string
-	version     string
-	description string
+	Id          string
+	Version     string
+	Description string
 }
 
-// TODO: We might want to enforce inputs to have Validation
+// TODO: We might want to enforce Validation on inputs
 type Input interface {
 	Validate() error
 }
@@ -46,16 +40,16 @@ func NewOperation[I, O, Deps any](version string, description string, execFunc E
 	return &Operation[I, O, Deps]{
 		def: OperationDefinition{
 			// Id and version are useful to identify the operation
-			id:          "__placeholder__",
-			version:     version,
-			description: description,
+			Id:          "__placeholder__",
+			Version:     version,
+			Description: description,
 		},
 		execFunc: execFunc,
 	}
 }
 
 func (o *Operation[I, O, Deps]) Execute(ctx Context[Deps], input I) (output O, err error) {
-	ctx.Log.Infow("Executing operation", "id", o.def.id, "version", o.def.version, "description", o.def.description)
+	ctx.Log.Infow("Executing operation", "id", o.def.Id, "version", o.def.Version, "description", o.def.Description)
 	return o.execFunc(ctx, input)
 }
 
@@ -65,16 +59,16 @@ func (o *Operation[I, O, Deps]) Inspect(ctx Context[Deps], input I) (err error) 
 }
 
 func (o *Operation[I, O, Deps]) ID() string {
-	return o.def.id
+	return o.def.Id
 }
 
 // TODO: Version should be a standard semver
 func (o *Operation[I, O, Deps]) Version() string {
-	return o.def.version
+	return o.def.Version
 }
 
 func (o *Operation[I, O, Deps]) Description() string {
-	return o.def.description
+	return o.def.Description
 }
 
 type EmptyInput struct{}
@@ -98,7 +92,7 @@ func NewReport[I, O, Deps any](operation Operation[I, O, Deps], input I, output 
 	}
 }
 
-// Allows to store reports in different ways
+// Reprter manages reports. It can store them in memory, in the FS, etc.
 type IReporter interface {
 	GetReports() []Report[any, any, any]
 	AddReport(report Report[any, any, any])
@@ -141,9 +135,9 @@ func Execute[I, O, Deps any](
 	// We store a generic report as is only for storing, we don't mind losing types there
 	genericReport := Report[any, any, any]{
 		OpDef: OperationDefinition{
-			id:          operation.ID(),
-			version:     operation.Version(),
-			description: operation.Description(),
+			Id:          operation.ID(),
+			Version:     operation.Version(),
+			Description: operation.Description(),
 		},
 		Output:    report.Output,
 		Input:     report.Input,
