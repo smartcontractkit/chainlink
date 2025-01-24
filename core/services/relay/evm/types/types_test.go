@@ -13,9 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 // ChainID   *big.Big   `json:"chainID"`

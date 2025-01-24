@@ -227,7 +227,7 @@ func TestDSLParser(t *testing.T) {
 		t.Parallel()
 
 		wordFilter := NewEventByWordFilter(8, []HashedValueComparator{
-			{Value: common.HexToHash(""), Operator: primitives.Gt},
+			{Values: []common.Hash{common.HexToHash("0x1"), common.HexToHash("0x2")}, Operator: primitives.Gt},
 		})
 
 		parser := &pgDSLParser{}
@@ -238,20 +238,24 @@ func TestDSLParser(t *testing.T) {
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := logsQuery(
 			" WHERE evm_chain_id = :evm_chain_id " +
-				"AND substring(data from 32*:word_index_0+1 for 32) > :word_value_0 ORDER BY " + defaultSort)
+				"AND substring(data from 32*8+1 for 32) > ANY(:word_value_0) ORDER BY " + defaultSort)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 3)
+		values, err := args.toArgs()
+		require.NoError(t, err)
+		require.Len(t, values, 2)
+		// HashedValueComparator values should be concatenated into single slice
+		require.Len(t, values["word_value_0"], 2)
 	})
 
 	t.Run("query for event topic", func(t *testing.T) {
 		t.Parallel()
 
 		topicFilter := NewEventByTopicFilter(2, []HashedValueComparator{
-			{Value: common.HexToHash("a"), Operator: primitives.Gt},
-			{Value: common.HexToHash("b"), Operator: primitives.Lt},
+			{Values: []common.Hash{common.HexToHash("a")}, Operator: primitives.Gt},
+			{Values: []common.Hash{common.HexToHash("b"), common.HexToHash("c")}, Operator: primitives.Lt},
 		})
 
 		parser := &pgDSLParser{}
@@ -262,12 +266,12 @@ func TestDSLParser(t *testing.T) {
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := logsQuery(
 			" WHERE evm_chain_id = :evm_chain_id " +
-				"AND topics[:topic_index_0] > :topic_value_0 AND topics[:topic_index_0] < :topic_value_1 ORDER BY " + defaultSort)
+				"AND topics[3] > :topic_value_0 AND topics[3] < ANY(:topic_value_1) ORDER BY " + defaultSort)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 4)
+		assertArgs(t, args, 3)
 	})
 
 	// nested query -> a & (b || c)
@@ -312,8 +316,8 @@ func TestDSLParser(t *testing.T) {
 		t.Parallel()
 
 		wordFilter := NewEventByWordFilter(8, []HashedValueComparator{
-			{Value: common.HexToHash("a"), Operator: primitives.Gt},
-			{Value: common.HexToHash("b"), Operator: primitives.Lte},
+			{Values: []common.Hash{common.HexToHash("a")}, Operator: primitives.Gt},
+			{Values: []common.Hash{common.HexToHash("b"), common.HexToHash("c")}, Operator: primitives.Lte},
 		})
 
 		parser := &pgDSLParser{}
@@ -348,12 +352,19 @@ func TestDSLParser(t *testing.T) {
 				"AND (block_timestamp = :block_timestamp_0 " +
 				"AND (tx_hash = :tx_hash_0 " +
 				"OR (block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) " +
-				"AND substring(data from 32*:word_index_0+1 for 32) > :word_value_0 " +
-				"AND substring(data from 32*:word_index_0+1 for 32) <= :word_value_1))) ORDER BY " + defaultSort)
+				"AND substring(data from 32*8+1 for 32) > :word_value_0 " +
+				"AND substring(data from 32*8+1 for 32) <= ANY(:word_value_1)))) ORDER BY " + defaultSort)
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 7)
+		values, err := args.toArgs()
+		require.NoError(t, err)
+		require.Len(t, values, 6)
+		// unwraps slice of len 1
+		require.IsType(t, []uint8{}, values["word_value_0"])
+		// HashedValueComparator values should be concatenated into single slice
+		require.IsType(t, [][]uint8{}, values["word_value_1"])
+		require.Len(t, values["word_value_1"], 2)
 	})
 }

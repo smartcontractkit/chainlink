@@ -8,22 +8,20 @@ import (
 	"strconv"
 	"time"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/lib/utils/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
+
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type FunctionsTest struct {
@@ -89,7 +87,7 @@ func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsCo
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a new subscription: %w", err)
 		}
-		encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subID)
+		encodedSubId, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode subscription ID for funding: %w", err)
 		}

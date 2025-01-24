@@ -6,12 +6,11 @@ import (
 	"math/big"
 	"strings"
 
-	pkgerrors "github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"golang.org/x/exp/constraints"
 
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (
@@ -184,7 +183,7 @@ func (w *Wei) UnmarshalText(b []byte) error {
 		t = strings.TrimSuffix(t, " ")
 		d, err := decimal.NewFromString(t)
 		if err != nil {
-			return pkgerrors.Wrapf(err, "unable to parse %q", s)
+			return fmt.Errorf("unable to parse %q: %w", s, err)
 		}
 		se := suffixExp(suf)
 		if d.IsInteger() {
@@ -195,8 +194,7 @@ func (w *Wei) UnmarshalText(b []byte) error {
 
 		d = d.Mul(decimal.New(1, se))
 		if !d.IsInteger() {
-			err := pkgerrors.New("maximum precision is wei")
-			return pkgerrors.Wrapf(err, "unable to parse %q", s)
+			return fmt.Errorf("unable to parse %q: maximum precision is wei", s)
 		}
 		*w = (Wei)(*d.BigInt())
 		return nil
@@ -204,13 +202,13 @@ func (w *Wei) UnmarshalText(b []byte) error {
 	// unrecognized or missing suffix
 	d, err := decimal.NewFromString(s)
 	if err != nil {
-		return pkgerrors.Wrapf(err, "unable to parse %q", s)
+		return fmt.Errorf("unable to parse %q: %w", s, err)
 	}
 	if d.IsInteger() {
 		*w = (Wei)(*d.BigInt())
 		return nil
 	}
-	return pkgerrors.Errorf("unable to parse %q", s)
+	return fmt.Errorf("unable to parse %q: %w", s, err)
 }
 
 func (w *Wei) ToInt() *big.Int {

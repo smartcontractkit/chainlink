@@ -11,16 +11,18 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plusconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func DeployVRFV2_5Contracts(
@@ -142,7 +144,7 @@ func FundSubscriptionWithLink(
 	subscriptionID *big.Int,
 	linkFundingAmountJuels *big.Int,
 ) error {
-	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID)
+	encodedSubId, err := utils.ABIEncode(`[{"type":"uint256"}]`, subscriptionID)
 	if err != nil {
 		return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrABIEncodingFunding, err)
 	}
