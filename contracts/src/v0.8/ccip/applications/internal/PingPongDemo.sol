@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IRouter} from "../../interfaces/IRouter.sol";
+
 import {Client} from "../../libraries/Client.sol";
 import {CCIPClient} from "../external/CCIPClient.sol";
-
 import {FeeQuoter} from "../../FeeQuoter.sol";
-import {IRouter} from "../../interfaces/IRouter.sol";
 import {OnRamp} from "../../onRamp/OnRamp.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-/// @title PingPongDemo - A simple ping-pong contract for demonstrating cross-chain communication
+/// @title PingPongDemo
+/// @notice A simple ping-pong contract for demonstrating cross-chain communication
 contract PingPongDemo is CCIPClient {
   event Ping(uint256 pingPongCount);
   event Pong(uint256 pingPongCount);
@@ -27,7 +28,7 @@ contract PingPongDemo is CCIPClient {
 
   bool private s_allowOutOfOrderExecution;
 
-  // CCIPClient will handle the token approval so there's no need to do it here
+  // CCIPClient will handle the token approval so there's no need to do it in the constructor
   constructor(address router, IERC20 feeToken) CCIPClient(router, feeToken, true) {}
 
   function typeAndVersion() external pure virtual override returns (string memory) {
@@ -73,18 +74,18 @@ contract PingPongDemo is CCIPClient {
   // ================================================================
 
   /// @notice Set the counterpart chain selector and address
-  /// @param counterpartChainSelector The chain ID of the counterpart ping pong contract
-  /// @param counterpartAddress The contract address of the counterpart ping pong contract
+  /// @param counterpartChainSelector The chain ID of the counterpart ping pong contract.
+  /// @param counterpartAddress The contract address of the counterpart ping pong contract.
   function setCounterpart(uint64 counterpartChainSelector, address counterpartAddress) external onlyOwner {
     if (counterpartAddress == address(0) || counterpartChainSelector == 0) revert ZeroAddressNotAllowed();
 
     s_counterpartChainSelector = counterpartChainSelector;
     s_counterpartAddress = counterpartAddress;
 
-    // Approve the counterpart contract under validSender
+    // Approve the counterpart contract under validSender.
     s_chainConfigs[counterpartChainSelector].approvedSender[abi.encode(counterpartAddress)] = true;
 
-    // Approve the counterpart Chain selector under validChain
+    // Approve the counterpart Chain selector under validChain.
     s_chainConfigs[counterpartChainSelector].recipient = abi.encode(counterpartAddress);
   }
 
@@ -106,20 +107,20 @@ contract PingPongDemo is CCIPClient {
     return s_counterpartChainSelector;
   }
 
-  /// @notice Get the counterpart address
+  /// @notice Get the counterpart address.
   /// @return counterpart address
   function getCounterpartAddress() external view returns (address) {
     return s_counterpartAddress;
   }
 
-  /// @notice Get the paused state
-  /// @return The paused state
+  /// @notice Get the paused state.
+  /// @return The paused state.
   function isPaused() external view returns (bool) {
     return s_isPaused;
   }
 
-  /// @notice Get the out of order execution flag
-  /// @return The out of order execution flag
+  /// @notice Get the out of order execution flag.
+  /// @return The out of order execution flag.
   function getOutOfOrderExecution() external view virtual returns (bool) {
     return s_allowOutOfOrderExecution;
   }

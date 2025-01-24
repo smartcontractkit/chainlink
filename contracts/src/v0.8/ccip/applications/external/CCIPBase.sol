@@ -31,8 +31,8 @@ abstract contract CCIPBase is OwnerIsCreator {
   event ChainRemoved(uint64 indexed removeChainSelector);
 
   struct ApprovedSenderUpdate {
-    uint64 destChainSelector; // ChainSelector for a source chain that is allowed to call this dapp
-    bytes sender; // The sender address on source chain that is allowed to call, ABI encoded in the case of a remote EVM chain
+    uint64 destChainSelector; // ChainSelector for a source chain that is allowed to call this dapp.
+    bytes sender; // The sender address on source chain that is allowed to call, ABI encoded in the case of a remote EVM chain.
   }
 
   struct ChainUpdate {
@@ -65,7 +65,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   // │                      Router Management                       │
   // ================================================================
 
-  /// @notice returns the address of the CCIP Router set at contract deployment
+  /// @notice returns the address of the CCIP Router set at contract deployment.
   function getRouter() public view virtual returns (address) {
     return s_ccipRouter;
   }
@@ -86,10 +86,10 @@ abstract contract CCIPBase is OwnerIsCreator {
   // │                  Sender/Receiver Management                  │
   // ================================================================
 
-  /// @notice modify the list of approved source chain contracts which can send messages to this contract through CCIP
-  /// @dev removes are executed before additions, so a contract present in both will be approved at the end of execution
-  /// @param adds an array of ApprovedSenderUpdate structs to add to the approved senders list
-  /// @param removes an array of ApprovedSenderUpdate structs to remove from the approved senders list
+  /// @notice modify the list of approved source chain contracts which can send messages to this contract through CCIP.
+  /// @dev removes are executed before additions, so a contract present in both will be approved at the end of execution.
+  /// @param adds an array of ApprovedSenderUpdate structs to add to the approved senders list.
+  /// @param removes an array of ApprovedSenderUpdate structs to remove from the approved senders list.
   function updateApprovedSenders(
     ApprovedSenderUpdate[] calldata adds,
     ApprovedSenderUpdate[] calldata removes
@@ -107,12 +107,12 @@ abstract contract CCIPBase is OwnerIsCreator {
     }
   }
 
-  /// @notice Return whether a contract on the specified source chain is authorized to send messages to this contract through CCIP
+  /// @notice Return whether a contract on the specified source chain is authorized to send messages to this contract through CCIP.
   /// @dev This function does not revert on an unapproved-sender, and should only be used as a getter-function for
-  /// querying approvals from a ChainConfig object. The isValidSender modifier should be used instead for incoming message-validation
-  /// @param sourceChainSelector A unique CCIP-specific identifier for the source chain
-  /// @param senderAddr The address which sent the message on the source chain, abi-encoded if evm-compatible
-  /// @return bool Whether the address is approved or not to invoke functions on this contract
+  /// querying approvals from a ChainConfig object. The isValidSender modifier should be used instead for incoming message-validation.
+  /// @param sourceChainSelector A unique CCIP-specific identifier for the source chain.
+  /// @param senderAddr The address which sent the message on the source chain, abi-encoded if evm-compatible.
+  /// @return bool Whether the address is approved or not to invoke functions on this contract.
   function isApprovedSender(uint64 sourceChainSelector, bytes calldata senderAddr) external view returns (bool) {
     return s_chainConfigs[sourceChainSelector].approvedSender[senderAddr];
   }
@@ -126,7 +126,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   receive() external payable {}
 
   /// @notice Allow the owner to recover any ERC-20 tokens sent to this contract out of error or withdraw any fee-tokens
-  /// which were sent as a source of fee-token pre-funding
+  /// which were sent as a source of fee-token pre-funding.
   /// @dev This should NOT be used for recovering tokens from a failed message. Token recoveries can happen only if
   /// the failed message is guaranteed to not succeed upon retry, otherwise this can lead to double spend.
   /// For implementation of token recovery, see inheriting contracts.
@@ -163,7 +163,7 @@ abstract contract CCIPBase is OwnerIsCreator {
     emit CCIPRouterModified(currentRouter, newRouter);
   }
 
-  /// @notice Enable a remote-chain to send and receive messages to/from this contract via CCIP
+  /// @notice Enable a remote-chain to send and receive messages to/from this contract via CCIP.
   /// @param chains an array of ChainUpdate structs to apply to the contract.
   ///
   function applyChainUpdates(
@@ -173,11 +173,11 @@ abstract contract CCIPBase is OwnerIsCreator {
       ChainUpdate memory chain = chains[i];
 
       if (!chain.allowed) {
-        // The existence of a recipient is used to denote a chain enablement, so deleting the recipient will disable the chain
+        // The existence of a recipient is used to denote a chain enablement, so deleting the recipient will disable the chain.
         delete s_chainConfigs[chain.chainSelector].recipient;
         emit ChainRemoved(chain.chainSelector);
       } else {
-        // The existence of a stored recipient is used to denote a chain being enabled, so the length here cannot be zero
+        // The existence of a stored recipient is used to denote a chain being enabled, so the length here cannot be zero.
         if (chain.recipient.length == 0) revert ZeroAddressNotAllowed();
 
         s_chainConfigs[chain.chainSelector].recipient = chain.recipient;
@@ -206,12 +206,12 @@ abstract contract CCIPBase is OwnerIsCreator {
     _;
   }
 
-  /// @notice Ensures if the specified chain is not enabled, or if the sender of an incoming message has not been approved by contract owner
+  /// @notice Ensures if the specified chain is not enabled, or if the sender of an incoming message has not been approved by contract owner.
   /// @param chainSelector the CCIP specific chain selector for a given remote-chain.
   /// @param sender the address of the sender of the message on the source-chain.
   /// @dev The modifier will revert if either the sender is not approved OR if the relevant chain is currently disabled.
   modifier isValidSender(uint64 chainSelector, bytes memory sender) virtual {
-    // If the chain is disabled, then short-circuit trigger a revert because no sender should be valid
+    // If the chain is disabled, then short-circuit trigger a revert because no sender should be valid.
     if (s_chainConfigs[chainSelector].recipient.length == 0 || !s_chainConfigs[chainSelector].approvedSender[sender]) {
       revert InvalidSender(sender);
     }
