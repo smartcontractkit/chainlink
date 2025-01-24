@@ -25,7 +25,6 @@ func TestTokenTransfer(t *testing.T) {
 	ctx := tests.Context(t)
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithMineBlocks(),
 		testhelpers.WithNumOfUsersPerChain(3))
 
 	e := tenv.Env

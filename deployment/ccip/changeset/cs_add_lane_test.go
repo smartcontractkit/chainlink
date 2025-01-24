@@ -15,7 +15,7 @@ import (
 
 func TestAddLanesWithTestRouter(t *testing.T) {
 	t.Parallel()
-	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithMineBlocks())
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Here we have CR + nodes set up, but no CCIP contracts deployed.
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

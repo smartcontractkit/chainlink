@@ -60,7 +60,7 @@ type TestConfigs struct {
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
-	MineBlocks                 bool
+	BlockTime                  time.Duration
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -99,14 +99,15 @@ func DefaultTestConfigs() *TestConfigs {
 		LinkPrice:             changeset.MockLinkPrice,
 		WethPrice:             changeset.MockWethPrice,
 		CreateJobAndContracts: true,
+		BlockTime:             2 * time.Second,
 	}
 }
 
 type TestOps func(testCfg *TestConfigs)
 
-func WithMineBlocks() TestOps {
+func WithBlockTime(blockTime time.Duration) TestOps {
 	return func(testCfg *TestConfigs) {
-		testCfg.MineBlocks = true
+		testCfg.BlockTime = blockTime
 	}
 }
 
@@ -347,8 +348,7 @@ func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining fu
 	}
 }
 
-func (m *MemoryEnvironment) MineBlocks(t *testing.T) {
-	blockTime := 2 * time.Second
+func (m *MemoryEnvironment) MineBlocks(t *testing.T, blockTime time.Duration) {
 	for _, chain := range m.Chains {
 		if backend, ok := chain.Client.(*memory.Backend); ok {
 			stopMining := mineBlocks(backend, blockTime)
@@ -379,8 +379,8 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 		dEnv = NewEnvironment(t, env)
 	}
 	env.UpdateDeployedEnvironment(dEnv)
-	if testCfg.MineBlocks {
-		env.MineBlocks(t)
+	if testCfg.BlockTime > 0 {
+		env.MineBlocks(t, testCfg.BlockTime)
 	}
 	return dEnv, env
 }

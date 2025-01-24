@@ -587,7 +587,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
-	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithMineBlocks())
+	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
 

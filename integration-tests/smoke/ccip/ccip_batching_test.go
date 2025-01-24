@@ -42,7 +42,6 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithMineBlocks(),
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithNumOfUsersPerChain(2),
