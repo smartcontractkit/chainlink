@@ -32,13 +32,16 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDestsChangeset
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSourcesChangeset
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRampsChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDestsChangeset
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRampChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesChangeset
-	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersChangeset
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]       = UpdateOnRampsDestsChangeset
+	_ deployment.ChangeSet[UpdateOnRampDynamicConfig]     = UpdateOnRampDynamicConfigChangeset
+	_ deployment.ChangeSet[UpdateOnRampAllowListConfig]   = UpdateOnRampAllowListChangeset
+	_ deployment.ChangeSet[WithdrawOnRampFeeTokensConfig] = WithdrawOnRampFeeTokensChangeset
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]    = UpdateOffRampSourcesChangeset
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]       = UpdateRouterRampsChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]    = UpdateFeeQuoterDestsChangeset
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]          = SetOCR3OffRampChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig]   = UpdateFeeQuoterPricesChangeset
+	_ deployment.ChangeSet[UpdateNonceManagerConfig]      = UpdateNonceManagersChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -335,7 +338,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-
 	p, err := proposalutils.BuildProposalFromBatches(
 		timelocks,
 		proposers,
@@ -349,6 +351,274 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
+}
+
+type UpdateOnRampDynamicConfig struct {
+	// UpdatesByChain is a mapping of source -> update.
+	UpdatesByChain map[uint64]OnRampDynamicConfigUpdate
+	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
+	// (can still be achieved by calling this function multiple times)
+	MCMS *MCMSConfig
+}
+
+type OnRampDynamicConfigUpdate struct {
+	FeeQuoter          common.Address
+	MessageInterceptor common.Address
+	FeeAggregator      common.Address
+	AllowlistAdmin     common.Address
+}
+
+func (cfg UpdateOnRampDynamicConfig) Validate() error {
+	for chainSel, config := range cfg.UpdatesByChain {
+		if config.FeeQuoter == (common.Address{}) {
+			return fmt.Errorf("FeeQuoter is not specified for chain=%d", chainSel)
+		}
+		if config.FeeAggregator == (common.Address{}) {
+			return fmt.Errorf("FeeAggregator is not specified for chain=%d", chainSel)
+		}
+	}
+	return nil
+}
+
+func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRampDynamicConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	onchain, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
+	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	for chainSel, update := range cfg.UpdatesByChain {
+		txOps := e.Chains[chainSel].DeployerKey
+		txOps.Context = e.GetContext()
+		if cfg.MCMS != nil {
+			txOps = deployment.SimTransactOpts()
+		}
+		onRamp := onchain.Chains[chainSel].OnRamp
+		tx, err := onRamp.SetDynamicConfig(txOps, onramp.OnRampDynamicConfig{
+			FeeQuoter:              update.FeeQuoter,
+			ReentrancyGuardEntered: false,
+			MessageInterceptor:     update.MessageInterceptor,
+			FeeAggregator:          update.FeeAggregator,
+			AllowlistAdmin:         update.AllowlistAdmin,
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    onRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[chainSel] = onchain.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = onchain.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	proposal, err := proposalutils.BuildProposalFromBatches(
+		timelocks, proposers, batches,
+		"update onramp dynamic config",
+		cfg.MCMS.MinDelay)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+	}, nil
+}
+
+type UpdateOnRampAllowListConfig struct {
+	// UpdatesByChain is a mapping of source -> dest -> update.
+	UpdatesByChain map[uint64]map[uint64]OnRampAllowListUpdate
+	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
+	// (can still be achieved by calling this function multiple times)
+	MCMS *MCMSConfig
+}
+
+type OnRampAllowListUpdate struct {
+	AllowListEnabled          bool
+	AddedAllowlistedSenders   []common.Address
+	RemovedAllowlistedSenders []common.Address
+}
+
+func (cfg UpdateOnRampAllowListConfig) Validate() error {
+	for srcSel, updates := range cfg.UpdatesByChain {
+		for destSel, update := range updates {
+			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
+				return fmt.Errorf("can't allowlist senders with disabled allowlist for src=%d, dest=%d", srcSel, destSel)
+			}
+			for _, sender := range update.AddedAllowlistedSenders {
+				if sender == (common.Address{}) {
+					return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAllowListConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	onchain, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	batches := make([]timelock.BatchChainOperation, len(cfg.UpdatesByChain))
+	timelocks := make(map[uint64]common.Address, len(cfg.UpdatesByChain))
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.UpdatesByChain))
+	for srcSel, updates := range cfg.UpdatesByChain {
+		txOps := e.Chains[srcSel].DeployerKey
+		txOps.Context = e.GetContext()
+		onRamp := onchain.Chains[srcSel].OnRamp
+		args := make([]onramp.OnRampAllowlistConfigArgs, len(updates))
+		for destSel, update := range updates {
+			args = append(args, onramp.OnRampAllowlistConfigArgs{
+				DestChainSelector:         destSel,
+				AllowlistEnabled:          update.AllowListEnabled,
+				AddedAllowlistedSenders:   update.AddedAllowlistedSenders,
+				RemovedAllowlistedSenders: update.RemovedAllowlistedSenders,
+			})
+		}
+		tx, err := onRamp.ApplyAllowlistUpdates(txOps, args)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[srcSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(srcSel),
+				Batch: []mcms.Operation{
+					{
+						To:    onRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address()
+			proposers[srcSel] = onchain.Chains[srcSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	proposal, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"update onramp allowlist",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+	}, nil
+}
+
+type WithdrawOnRampFeeTokensConfig struct {
+	FeeTokensByChain map[uint64][]common.Address
+	MCMS             *MCMSConfig
+}
+
+func (cfg WithdrawOnRampFeeTokensConfig) Validate(onchain CCIPOnChainState) error {
+	for chainSel, feeTokens := range cfg.FeeTokensByChain {
+		feeQuoter := onchain.Chains[chainSel].FeeQuoter
+		onchainFeeTokens, err := feeQuoter.GetFeeTokens(nil)
+		if err != nil {
+			return err
+		}
+		for _, feeToken := range feeTokens {
+			found := false
+			for _, onchainFeeToken := range onchainFeeTokens {
+				if onchainFeeToken == feeToken {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("unknown fee token address=%s on chain=%d", feeToken.Hex(), chainSel)
+			}
+		}
+	}
+	return nil
+}
+
+func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRampFeeTokensConfig) (deployment.ChangesetOutput, error) {
+	onchain, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(onchain); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	batches := make([]timelock.BatchChainOperation, len(cfg.FeeTokensByChain))
+	timelocks := make(map[uint64]common.Address, len(cfg.FeeTokensByChain))
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig, len(cfg.FeeTokensByChain))
+	for chainSel, feeTokens := range cfg.FeeTokensByChain {
+		txOps := e.Chains[chainSel].DeployerKey
+		txOps.Context = e.GetContext()
+		onRamp := onchain.Chains[chainSel].OnRamp
+		tx, err := onRamp.WithdrawFeeTokens(txOps, feeTokens)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    onRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[chainSel] = onchain.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = onchain.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	proposal, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"",
+		cfg.MCMS.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{
+		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+	}, nil
 }
 
 type UpdateFeeQuoterPricesConfig struct {
