@@ -18,6 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -262,19 +264,19 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return err
 		}
+		var routerConfigAccount solRouter.Config
+		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
+		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.Router)
 			}
-			// TODO SOLANA_CCIP
-			// sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-			// if err != nil {
-			// 	return fmt.Errorf("failed to get onramp static config %s: %w", chainState.CcipRouter, err)
-			// }
-			// if destination == sc.ChainSelector {
-			// 	return fmt.Errorf("cannot update onramp destination to the same chain")
-			// }
+			if destination == routerConfigAccount.SolanaChainSelector {
+				return errors.New("cannot add remote chain with same chain selector as current chain")
+			}
 		}
 	case chain_selectors.FamilyEVM:
 		chainState, ok := state.Chains[chainSel]
@@ -293,15 +295,14 @@ func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
-
+		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
+		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
-			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-			if err != nil {
-				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
 				return errors.New("cannot update onramp destination to the same chain")
