@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -475,6 +476,9 @@ func AddLane(
 		},
 	}
 
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	switch toFamily {
 	case chainsel.FamilyEVM:
 		evmChangesets := []commoncs.ChangesetApplication{
@@ -515,14 +519,18 @@ func AddLane(
 		bigNum.FillBytes(value[:])
 		solanaChangesets := []commoncs.ChangesetApplication{
 			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-				Config: changeset.UpdateOnRampDestsConfig{
-					UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
+				Config: changeset_solana.AddRemoteChainToSolanaConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
 						to: {
 							from: {
-								IsEnabled:        true,
-								TestRouter:       true,
-								AllowListEnabled: false,
+								EnabledAsSource:          true,
+								EnabledAsDestination:     true,
+								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
+								DefaultTxGasLimit:        1,
+								MaxPerMsgGasLimit:        100,
+								MaxDataBytes:             32,
+								MaxNumberOfTokensPerMsg:  1,
 							},
 						},
 					},
