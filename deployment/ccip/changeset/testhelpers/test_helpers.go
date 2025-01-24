@@ -1587,26 +1587,27 @@ func WaitForTheTokenBalance(
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
-func GetTokenBalance(
+func WaitForTheTokenBalanceSol(
 	ctx context.Context,
 	t *testing.T,
-	token common.Address,
-	receiver common.Address,
-	chain deployment.Chain,
-) *big.Int {
-	tokenContract, err := burn_mint_erc677.NewBurnMintERC677(token, chain.Client)
-	require.NoError(t, err)
+	token solana.PublicKey,
+	receiver solana.PublicKey,
+	chain deployment.SolChain,
+	expected uint64,
+) {
+	require.Eventually(t, func() bool {
+		_, balance, berr := solTokenUtil.TokenBalance(ctx, chain.Client, receiver, solTestConfig.DefaultCommitment)
+		require.NoError(t, berr)
+		// TODO: validate receiver's token mint == token
 
-	balance, err := tokenContract.BalanceOf(&bind.CallOpts{Context: ctx}, receiver)
-	require.NoError(t, err)
-
-	t.Log("Getting token balance",
-		"actual", balance,
-		"token", token,
-		"receiver", receiver,
-	)
-
-	return balance
+		t.Log("Waiting for the token balance",
+			"expected", expected,
+			"actual", balance,
+			"token", token,
+			"receiver", receiver,
+		)
+		return uint64(balance) == expected
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
 func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMessage {
