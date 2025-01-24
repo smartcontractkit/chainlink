@@ -1,4 +1,4 @@
-package changeset
+package changeset_solana
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -19,7 +21,7 @@ type AddRemoteChainToSolanaConfig struct {
 	UpdatesByChain map[uint64]map[uint64]RemoteChainConfigSolana
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *MCMSConfig
+	MCMS *cs.MCMSConfig
 }
 
 type RemoteChainConfigSolana struct {
@@ -35,7 +37,7 @@ type RemoteChainConfigSolana struct {
 }
 
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := cs.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -56,7 +58,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		}
 
 		var routerConfigAccount solRouter.Config
-		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
+		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, cs.GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
 		}
@@ -80,7 +82,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 		return deployment.ChangesetOutput{}, err
 	}
 
-	s, err := LoadOnchainState(e)
+	s, err := cs.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -95,7 +97,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 	return deployment.ChangesetOutput{}, nil
 }
 
-func addRemoteChainToSolana(e deployment.Environment, s CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
+func addRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
 	e.Logger.Infow("Adding remote chain to solana", "chain", chainSel, "updates", updates)
 	chain := e.SolChains[chainSel]
 
@@ -103,13 +105,13 @@ func addRemoteChainToSolana(e deployment.Environment, s CCIPOnChainState, chainS
 
 	for destination, update := range updates {
 		// TODO: this should be GetSourceChainStatePDA
-		sourceChainStatePDA := GetEvmSourceChainStatePDA(ccipRouterID, destination)
+		sourceChainStatePDA := cs.GetEvmSourceChainStatePDA(ccipRouterID, destination)
 		validSourceChainConfig := solRouter.SourceChainConfig{
 			OnRamp:    []byte(update.RemoteChainOnRampAddress),
 			IsEnabled: update.EnabledAsSource,
 		}
 		// TODO: this should be GetDestChainStatePDA
-		destChainStatePDA := GetEvmDestChainStatePDA(ccipRouterID, destination)
+		destChainStatePDA := cs.GetEvmDestChainStatePDA(ccipRouterID, destination)
 		validDestChainConfig := solRouter.DestChainConfig{
 			IsEnabled:               update.EnabledAsDestination,
 			DefaultTxGasLimit:       update.DefaultTxGasLimit,
@@ -126,7 +128,7 @@ func addRemoteChainToSolana(e deployment.Environment, s CCIPOnChainState, chainS
 			validDestChainConfig,
 			sourceChainStatePDA,
 			destChainStatePDA,
-			GetRouterConfigPDA(ccipRouterID),
+			cs.GetRouterConfigPDA(ccipRouterID),
 			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -159,12 +161,12 @@ func btoi(b bool) uint8 {
 // run after the candidate is confirmed to be working correctly.
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
-func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := cs.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -204,8 +206,8 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 				},
 				arg.Signers,
 				arg.Transmitters,
-				GetRouterConfigPDA(ccipRouterID),
-				GetRouterStatePDA(ccipRouterID),
+				changeset.GetRouterConfigPDA(ccipRouterID),
+				changeset.GetRouterStatePDA(ccipRouterID),
 				e.SolChains[remote].DeployerKey.PublicKey(),
 			).ValidateAndBuild()
 			if err != nil {
@@ -222,4 +224,6 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg SetOCR3OffRampConfig) (de
 	}
 
 	return deployment.ChangesetOutput{}, nil
+
+	// TOOD: timelock mcms support
 }

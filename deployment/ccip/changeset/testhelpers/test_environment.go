@@ -24,6 +24,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -719,7 +720,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		},
 		{
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3ConfigSolana),
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.SetOCR3ConfigSolana),
 			Config: changeset.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    solChains,

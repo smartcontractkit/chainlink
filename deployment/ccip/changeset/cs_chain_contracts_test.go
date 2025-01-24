@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
@@ -124,9 +125,9 @@ func TestAddRemoteChainToSolana(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.AddRemoteChainToSolana),
-			Config: changeset.AddRemoteChainToSolanaConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.RemoteChainConfigSolana{
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
+			Config: changeset_solana.AddRemoteChainToSolanaConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
 					solChain: {
 						evmChain: {
 							EnabledAsSource:          true,
