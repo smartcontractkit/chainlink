@@ -9,7 +9,6 @@ import (
 	"golang.org/x/exp/maps"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -17,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
@@ -150,19 +147,15 @@ func TestAddRemoteChainToSolana(t *testing.T) {
 
 	var sourceChainStateAccount solRouter.SourceChain
 	evmSourceChainStatePDA := changeset.GetEvmSourceChainStatePDA(state.SolChains[solChain].Router, evmChain)
-	err = solCommonUtil.GetAccountDataBorshInto(ctx, tenv.Env.SolChains[solChain].Client, evmSourceChainStatePDA, deployment.SolDefaultCommitment, &sourceChainStateAccount)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmSourceChainStatePDA, &sourceChainStateAccount)
 	require.NoError(t, err)
-	// require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
-	// require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
-	// require.Equal(t, config.OnRampAddress, sourceChainStateAccount.Config.OnRamp)
+	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
+	require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
 
 	var destChainStateAccount solRouter.DestChain
 	evmDestChainStatePDA := changeset.GetEvmDestChainStatePDA(state.SolChains[solChain].Router, evmChain)
-	err = solCommonUtil.GetAccountDataBorshInto(ctx, tenv.Env.SolChains[solChain].Client, evmDestChainStatePDA, deployment.SolDefaultCommitment, &destChainStateAccount)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
-	// require.Equal(t, uint64(0), destChainStateAccount.State.SequenceNumber)
-	// require.Equal(t, validDestChainConfig, destChainStateAccount.Config)
-
 }
 
 func TestUpdateOffRampsSources(t *testing.T) {
