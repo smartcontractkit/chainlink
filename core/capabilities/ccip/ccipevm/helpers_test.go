@@ -78,15 +78,13 @@ func Test_decodeExtraArgs(t *testing.T) {
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		key, err := solana.NewRandomPrivateKey()
 		require.NoError(t, err)
-		encoded, err := d.contract.EncodeSVMExtraArgsV1(nil, message_hasher.ClientSVMExtraArgsV1{
-			ComputeUnits:             10000,
-			AccountIsWritableBitmap:  4,
-			AllowOutOfOrderExecution: false,
-			TokenReceiver:            [32]byte(key.PublicKey().Bytes()),
-			Accounts: [][32]byte{
-				[32]byte(key.PublicKey().Bytes()),
-			},
+		decoded, err := d.contract.DecodeSVMExtraArgsV1(nil, 10000, 4, false, [32]byte(key.PublicKey().Bytes()), [][32]byte{
+			[32]byte(key.PublicKey().Bytes()),
 		})
+		if err != nil {
+			return
+		}
+		encoded, err := d.contract.EncodeSVMExtraArgsV1(nil, decoded)
 		require.NoError(t, err)
 
 		_, err = DecodeExtraArgsToMap(encoded)
