@@ -1,13 +1,20 @@
 package messagingtest
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -116,10 +123,14 @@ func getLatestNonce(tc TestCase) uint64 {
 		}, tc.SourceChain, tc.Sender)
 		require.NoError(tc.T, err)
 	case chain_selectors.FamilySolana:
-		// var nonceCounterAccount ccip_router.Nonce
-		// err = common.GetAccountDataBorshInto(ctx, solanaGoClient, nonceEvmPDA, config.DefaultCommitment, &nonceCounterAccount)
-		// require.NoError(t, err, "failed to get account info")
-		// require.Equal(t, uint64(1), nonceCounterAccount.Counter)
+		ctx := context.Background()
+		client := tc.Env.SolChains[tc.DestChain].Client
+		noncePDA, err := solccip.NoncePDA(tc.SourceChain, solana.PublicKeyFromBytes(tc.Sender))
+		require.NoError(tc.T, err)
+		var nonceCounterAccount ccip_router.Nonce
+		err = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
+		require.NoError(tc.T, err, "failed to get nonce account info")
+		latestNonce = nonceCounterAccount.Counter
 	}
 	return latestNonce
 }
@@ -141,7 +152,7 @@ func Run(tc TestCase) (out TestCaseOutput) {
 		tc.DestChain,
 		tc.TestRouter,
 		router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver.Bytes(), 32),
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
