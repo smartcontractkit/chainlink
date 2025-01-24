@@ -8,12 +8,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // TODO: test solana here
@@ -91,6 +95,55 @@ func TestUpdateOnRampsDests(t *testing.T) {
 			require.True(t, destCfg.AllowlistEnabled)
 		})
 	}
+}
+
+func TestUpdateOnRampsDestsSolana(t *testing.T) {
+	ctx := testcontext.Get(t)
+	// Default env just has 2 chains with all contracts
+	// deployed but no lanes.
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+
+	evmChains := tenv.Env.AllChainSelectors()
+	solChains := tenv.Env.AllChainSelectorsSolana()
+	source := solChains[0]
+	dest := evmChains[0]
+
+	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+					source: {
+						dest: {
+							IsEnabled:        true,
+							TestRouter:       false,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err := changeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	var sourceChainStateAccount solRouter.SourceChain
+	evmSourceChainStatePDA := changeset.GetEvmSourceChainStatePDA(state.SolChains[source].Router, dest)
+	err = solCommonUtil.GetAccountDataBorshInto(ctx, tenv.Env.SolChains[source].Client, evmSourceChainStatePDA, deployment.SolDefaultCommitment, &sourceChainStateAccount)
+	require.NoError(t, err)
+	// require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
+	// require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
+	// require.Equal(t, config.OnRampAddress, sourceChainStateAccount.Config.OnRamp)
+
+	var destChainStateAccount solRouter.DestChain
+	evmDestChainStatePDA := changeset.GetEvmDestChainStatePDA(state.SolChains[source].Router, dest)
+	err = solCommonUtil.GetAccountDataBorshInto(ctx, tenv.Env.SolChains[source].Client, evmDestChainStatePDA, deployment.SolDefaultCommitment, &destChainStateAccount)
+	require.NoError(t, err)
+	// require.Equal(t, uint64(0), destChainStateAccount.State.SequenceNumber)
+	// require.Equal(t, validDestChainConfig, destChainStateAccount.Config)
+
 }
 
 func TestUpdateOffRampsSources(t *testing.T) {
