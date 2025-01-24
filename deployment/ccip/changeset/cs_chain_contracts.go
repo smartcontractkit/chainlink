@@ -18,8 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -222,6 +220,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 type UpdateOnRampDestsConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
+
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
@@ -248,68 +247,34 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 }
 
 func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, supportedChains map[uint64]struct{}, chainSel uint64, updates map[uint64]OnRampDestinationUpdate) error {
-	family, err := chain_selectors.GetSelectorFamily(chainSel)
-	if err != nil {
+	chainState, ok := state.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain %d not found in onchain state", chainSel)
+	}
+	if chainState.TestRouter == nil {
+		return fmt.Errorf("missing test router for chain %d", chainSel)
+	}
+	if chainState.Router == nil {
+		return fmt.Errorf("missing router for chain %d", chainSel)
+	}
+	if chainState.OnRamp == nil {
+		return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
+	}
+	if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 		return err
 	}
-	switch family {
-	case chain_selectors.FamilySolana:
-		chainState, ok := state.SolChains[chainSel]
-		if !ok {
-			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+	sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+	if err != nil {
+		return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
+	}
+	for destination := range updates {
+		// Destination cannot be an unknown destination.
+		if _, ok := supportedChains[destination]; !ok {
+			return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
 		}
-		if chainState.Router.IsZero() {
-			return fmt.Errorf("missing router for chain %d", chainSel)
+		if destination == sc.ChainSelector {
+			return errors.New("cannot update onramp destination to the same chain")
 		}
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
-			return err
-		}
-		var routerConfigAccount solRouter.Config
-		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
-		if err != nil {
-			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
-		}
-		for destination := range updates {
-			// Destination cannot be an unknown destination.
-			if _, ok := supportedChains[destination]; !ok {
-				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.Router)
-			}
-			if destination == routerConfigAccount.SolanaChainSelector {
-				return errors.New("cannot add remote chain with same chain selector as current chain")
-			}
-		}
-	case chain_selectors.FamilyEVM:
-		chainState, ok := state.Chains[chainSel]
-		if !ok {
-			return fmt.Errorf("chain %d not found in onchain state", chainSel)
-		}
-		if chainState.TestRouter == nil {
-			return fmt.Errorf("missing test router for chain %d", chainSel)
-		}
-		if chainState.Router == nil {
-			return fmt.Errorf("missing router for chain %d", chainSel)
-		}
-		if chainState.OnRamp == nil {
-			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
-		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
-			return err
-		}
-		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-		if err != nil {
-			return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
-		}
-		for destination := range updates {
-			// Destination cannot be an unknown destination.
-			if _, ok := supportedChains[destination]; !ok {
-				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
-			}
-			if destination == sc.ChainSelector {
-				return errors.New("cannot update onramp destination to the same chain")
-			}
-		}
-	default:
-		return fmt.Errorf("unsupported chain family %s", family)
 	}
 	return nil
 }
@@ -332,23 +297,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 		Proposals: make([]timelock.MCMSWithTimelockProposal, 0),
 	}
 	for chainSel, updates := range cfg.UpdatesByChain {
-		family, err := chain_selectors.GetSelectorFamily(chainSel)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		switch family {
-		case chain_selectors.FamilySolana:
-			cs, err := updateOnRampsDestsSolana(e, cfg, s, chainSel, updates)
-			if err != nil {
-				return deployment.ChangesetOutput{}, err
-			}
-			cso.Proposals = append(cso.Proposals, cs.Proposals...)
-			continue
-		case chain_selectors.FamilyEVM:
-			break // follow logic below
-		default:
-			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
-		}
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
 		if cfg.MCMS != nil {
