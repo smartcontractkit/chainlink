@@ -108,7 +108,7 @@ contract CCIPReceiver is CCIPBase {
   }
 
   /// @notice A function that should contain any special logic needed to "retry" processing of a previously failed message.
-  /// @dev If the owner wants to retrieve tokens without special logic, then abandonFailedMessage(), 
+  /// @dev If the owner wants to retrieve tokens without special logic, then abandonFailedMessage(),
   /// withdrawNativeTokens(), or withdrawTokens() should be used instead. This function is marked onlyOwner, but is virtual. Allowing permissionless execution is not recommended but may be allowed if function is overridden.
   function _retryFailedMessage(
     Client.Any2EVMMessage memory message
