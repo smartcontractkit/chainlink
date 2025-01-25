@@ -247,7 +247,7 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 func bytesToUint32LE(b []byte) uint32 {
 	if len(b) < 4 {
 		var padded [4]byte
-		copy(padded[4-len(b):], b) // Pad from the left for little-endian
+		copy(padded[:len(b)], b) // Pad from the right for little-endian
 		return binary.LittleEndian.Uint32(padded[:])
 	}
 
