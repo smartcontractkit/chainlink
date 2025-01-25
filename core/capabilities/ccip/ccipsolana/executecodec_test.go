@@ -53,11 +53,11 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				}
 			}
 
-			extraArgs := ccip_router.SolanaExtraArgs{
+			extraArgs := ccip_router.SVMExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
 				Accounts: []solana.PublicKey{
-					config.CcipReceiverProgram,
+					config.CcipLogicReceiver,
 					config.ReceiverTargetAccountPDA,
 					solana.SystemProgramID,
 				},
@@ -67,7 +67,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				"ComputeUnits":     uint32(1000),
 				"IsWritableBitmap": uint64(2),
 				"Accounts": [][32]byte{
-					[32]byte(config.CcipReceiverProgram.Bytes()),
+					[32]byte(config.CcipLogicReceiver.Bytes()),
 					[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
 					[32]byte(solana.SystemProgramID.Bytes()),
 				},
