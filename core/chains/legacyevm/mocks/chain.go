@@ -26,7 +26,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	monitor "github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
+	monitor "github.com/smartcontractkit/chainlink/v2/evm/monitor"
 
 	txmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 

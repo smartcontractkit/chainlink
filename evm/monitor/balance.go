@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
@@ -25,10 +25,11 @@ import (
 )
 
 type (
+	HeadTrackable = headtracker.HeadTrackable[*evmtypes.Head, common.Hash]
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
-		httypes.HeadTrackable
-		GetEthBalance(gethCommon.Address) *assets.Eth
+		HeadTrackable
+		GetEthBalance(common.Address) *assets.Eth
 		services.Service
 	}
 
@@ -40,7 +41,7 @@ type (
 		chainID        *big.Int
 		chainIDStr     string
 		ethKeyStore    keystore.Eth
-		ethBalances    map[gethCommon.Address]*assets.Eth
+		ethBalances    map[common.Address]*assets.Eth
 		ethBalancesMtx sync.RWMutex
 		sleeperTask    *utils.SleeperTask
 	}
@@ -58,7 +59,7 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, lgg
 		chainID:     chainId,
 		chainIDStr:  chainId.String(),
 		ethKeyStore: ethKeyStore,
-		ethBalances: make(map[gethCommon.Address]*assets.Eth),
+		ethBalances: make(map[common.Address]*assets.Eth),
 	}
 	bm.Service, bm.eng = services.Config{
 		Name:  "BalanceMonitor",
@@ -89,7 +90,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, _ *evmtypes.Head)
 	}
 }
 
-func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {
+func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address common.Address) {
 	bm.promUpdateEthBalance(&ethBal, address)
 
 	bm.ethBalancesMtx.Lock()
@@ -113,7 +114,7 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	}
 }
 
-func (bm *balanceMonitor) GetEthBalance(address gethCommon.Address) *assets.Eth {
+func (bm *balanceMonitor) GetEthBalance(address common.Address) *assets.Eth {
 	bm.ethBalancesMtx.RLock()
 	defer bm.ethBalancesMtx.RUnlock()
 	return bm.ethBalances[address]
@@ -127,7 +128,7 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account", "evmChainID"},
 )
 
-func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
+func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from common.Address) {
 	balanceFloat, err := ApproximateFloat64(balance)
 
 	if err != nil {
@@ -156,7 +157,7 @@ func (w *worker) Work(ctx context.Context) {
 
 	wg.Add(len(enabledAddresses))
 	for _, address := range enabledAddresses {
-		go func(k gethCommon.Address) {
+		go func(k common.Address) {
 			defer wg.Done()
 			w.checkAccountBalance(ctx, k)
 		}(address)
@@ -167,7 +168,7 @@ func (w *worker) Work(ctx context.Context) {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Address) {
+func (w *worker) checkAccountBalance(ctx context.Context, address common.Address) {
 	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
@@ -188,7 +189,7 @@ func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Add
 	}
 }
 
-func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
+func (*NullBalanceMonitor) GetEthBalance(common.Address) *assets.Eth {
 	return nil
 }
 

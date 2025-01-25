@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
@@ -972,7 +971,7 @@ func FinalizeLatest(t *testing.T, backend evmtypes.Backend) {
 // the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
 // ends on a 32-block boundary (blockNumber % 32 == 0)
 func FinalizeThroughBlock(t *testing.T, backend evmtypes.Backend, client HeadReader, blockNumber int64) {
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	targetBlockNumber := blockNumber
 	if targetBlockNumber%32 != 0 {
 		targetBlockNumber = 32 * (blockNumber/32 + 1)

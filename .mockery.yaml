@@ -47,9 +47,9 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
+  github.com/smartcontractkit/chainlink/v2/evm/client:
     config:
-      dir: core/chains/evm/client/clienttest
+      dir: evm/client/clienttest
       outpkg: clienttest
     interfaces:
       Client:
@@ -88,11 +88,9 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor:
+  github.com/smartcontractkit/chainlink/v2/evm/monitor:
     interfaces:
       BalanceMonitor:
-        config:
-          dir: "{{ .InterfaceDir }}/../mocks"
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
     interfaces:
       Client:

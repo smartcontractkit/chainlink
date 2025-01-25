@@ -18,10 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/evm/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 

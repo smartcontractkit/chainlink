@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
-	evmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -32,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/evm/config/mocks"
+	evmMonMocks "github.com/smartcontractkit/chainlink/v2/evm/monitor/mocks"
 )
 
 type mocks struct {
@@ -60,7 +60,7 @@ type mocks struct {
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
 	ethClient            *clienttest.Client
 	eIMgr                *webhookmocks.ExternalInitiatorManager
-	balM                 *evmORMMocks.BalanceMonitor
+	balM                 *evmMonMocks.BalanceMonitor
 	txmStore             *evmtxmgrmocks.EvmTxStore
 	auditLogger          *audit.AuditLoggerService
 }
@@ -119,7 +119,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
 		ethClient:            clienttest.NewClient(t),
 		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
-		balM:                 evmORMMocks.NewBalanceMonitor(t),
+		balM:                 evmMonMocks.NewBalanceMonitor(t),
 		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
 		auditLogger:          &audit.AuditLoggerService{},
 	}
