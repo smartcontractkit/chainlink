@@ -640,24 +640,6 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	// var tokenPoolProgram solana.PublicKey
-	// if chainState.TokenPool.IsZero() {
-	// 	programID, err := chain.DeployProgram(e.Logger, "token_pool")
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to deploy program: %w", err)
-	// 	}
-	// 	tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
-	// 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-	// 	tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
-	// 	err = ab.Save(chain.Selector, programID, tv)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to save address: %w", err)
-	// 	}
-	// } else {
-	// 	e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
-	// 	tokenPoolProgram = chainState.TokenPool
-	// }
-
 	// initialize this last with every address we need
 	if chainState.AddressLookupTable.IsZero() {
 		table, err := solCommonUtil.SetupLookupTable(
@@ -675,8 +657,6 @@ func deployChainContractsSolana(
 				GetRouterStatePDA(ccipRouterProgram),
 				GetExternalExecutionConfigPDA(ccipRouterProgram),
 				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
-				// token pool
-				// tokenPoolProgram,
 				// token
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,

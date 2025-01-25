@@ -461,20 +461,6 @@ func AddLane(
 				},
 			},
 		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
-				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
-					// onRamp update on source chain
-					from: {
-						OnRampUpdates: map[uint64]bool{
-							to: true,
-						},
-					},
-				},
-			},
-		},
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
