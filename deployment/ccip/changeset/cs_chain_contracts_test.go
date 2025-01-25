@@ -150,7 +150,7 @@ func TestAddRemoteChainToSolana(t *testing.T) {
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmSourceChainStatePDA, &sourceChainStateAccount)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
-	require.Equal(t, true, sourceChainStateAccount.Config.IsEnabled)
+	require.True(t, sourceChainStateAccount.Config.IsEnabled)
 
 	var destChainStateAccount solRouter.DestChain
 	evmDestChainStatePDA := changeset.GetEvmDestChainStatePDA(state.SolChains[solChain].Router, evmChain)

@@ -501,6 +501,12 @@ func AddLane(
 				Config: changeset.UpdateRouterRampsConfig{
 					TestRouter: isTestRouter,
 					UpdatesByChain: map[uint64]changeset.RouterUpdates{
+						// onRamp update on source chain
+						from: {
+							OnRampUpdates: map[uint64]bool{
+								to: true,
+							},
+						},
 						// offramp update on dest chain
 						to: {
 							OffRampUpdates: map[uint64]bool{

@@ -68,7 +68,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 				return fmt.Errorf("destination chain %d is not supported", destination)
 			}
 			if destination == routerConfigAccount.SolanaChainSelector {
-				return fmt.Errorf("cannot add remote chain with same chain selector as current chain")
+				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", destination)
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 	}
 
 	for chainSel, updates := range cfg.UpdatesByChain {
-		_, err := addRemoteChainToSolana(e, s, chainSel, updates)
+		_, err := doAddRemoteChainToSolana(e, s, chainSel, updates)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -97,7 +97,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 	return deployment.ChangesetOutput{}, nil
 }
 
-func addRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
+func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
 	e.Logger.Infow("Adding remote chain to solana", "chain", chainSel, "updates", updates)
 	chain := e.SolChains[chainSel]
 
@@ -220,5 +220,5 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 
 	return deployment.ChangesetOutput{}, nil
 
-	// TOOD: timelock mcms support
+	// TODO: timelock mcms support
 }
