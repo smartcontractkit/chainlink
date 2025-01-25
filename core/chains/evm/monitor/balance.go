@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
