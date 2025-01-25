@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 func newSendErrorWrapped(s string) *evmclient.SendError {

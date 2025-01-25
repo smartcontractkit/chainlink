@@ -6,7 +6,7 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	client "github.com/smartcontractkit/chainlink/v2/evm/client"
 
 	config "github.com/smartcontractkit/chainlink/v2/evm/config"
 

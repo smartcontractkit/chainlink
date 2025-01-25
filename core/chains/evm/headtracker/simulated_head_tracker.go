@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

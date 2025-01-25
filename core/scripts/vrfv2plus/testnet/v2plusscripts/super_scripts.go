@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

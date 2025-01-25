@@ -7,7 +7,7 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
-	client "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	client "github.com/smartcontractkit/chainlink/v2/evm/client"
 
 	common "github.com/ethereum/go-ethereum/common"
 
