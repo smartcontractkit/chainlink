@@ -11,10 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -1034,41 +1037,81 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		set, err := isOCR3ConfigSetOnOffRamp(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
+		family, err := chain_selectors.GetSelectorFamily(remote)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		if set {
-			e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
-			continue
-		}
-		txOpts := e.Chains[remote].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		offRamp := state.Chains[remote].OffRamp
-		tx, err := offRamp.SetOCR3Configs(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
+		switch family {
+		case chain_selectors.FamilyEVM:
+			set, err := isOCR3ConfigSetOnOffRamp(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args.EVMArgs)
+			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(remote),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+			if set {
+				e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
+				continue
+			}
+			txOpts := e.Chains[remote].DeployerKey
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			offRamp := state.Chains[remote].OffRamp
+			tx, err := offRamp.SetOCR3Configs(txOpts, args.EVMArgs)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
+					return deployment.ChangesetOutput{}, err
+				}
+			} else {
+				batches = append(batches, timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(remote),
+					Batch: []mcms.Operation{
+						{
+							To:    offRamp.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[remote] = state.Chains[remote].Timelock.Address()
-			proposers[remote] = state.Chains[remote].ProposerMcm
+				})
+				timelocks[remote] = state.Chains[remote].Timelock.Address()
+				proposers[remote] = state.Chains[remote].ProposerMcm
+			}
+		case chain_selectors.FamilySolana:
+			// TODO: check if ocr3 has already been set
+			// set, err := isOCR3ConfigSetSolana(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
+			var instructions []solana.Instruction
+			ccipRouterID := state.SolChains[remote].Router
+			for _, arg := range args.SVMArgs {
+				instruction, err := ccip_router.NewSetOcrConfigInstruction(
+					arg.OcrPluginType,
+					ccip_router.Ocr3ConfigInfo{
+						ConfigDigest:                   arg.ConfigDigest,
+						F:                              arg.F,
+						IsSignatureVerificationEnabled: btoi(arg.IsSignatureVerificationEnabled),
+					},
+					arg.Signers,
+					arg.Transmitters,
+					GetRouterConfigPDA(ccipRouterID),
+					GetRouterStatePDA(ccipRouterID),
+					e.SolChains[remote].DeployerKey.PublicKey(),
+				).ValidateAndBuild()
+				if err != nil {
+					return deployment.ChangesetOutput{}, err
+				}
+				instructions = append(instructions, instruction)
+			}
+			if cfg.MCMS == nil {
+				err := e.SolChains[remote].Confirm(instructions)
+				if err != nil {
+					return deployment.ChangesetOutput{}, err
+				}
+			}
+		default:
+			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 		}
+
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
@@ -1087,6 +1130,13 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
+}
+
+func btoi(b bool) uint8 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func isOCR3ConfigSetOnOffRamp(
