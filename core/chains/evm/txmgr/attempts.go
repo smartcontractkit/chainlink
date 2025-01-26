@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

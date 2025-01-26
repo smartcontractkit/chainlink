@@ -60,7 +60,7 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas:
+  github.com/smartcontractkit/chainlink/v2/evm/gas:
     interfaces:
       Config:
       EvmFeeEstimator:
@@ -71,13 +71,13 @@ packages:
         config:
           mockname: FeeHistoryEstimatorClient
       EvmEstimator:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
+  github.com/smartcontractkit/chainlink/v2/evm/gas/rollups:
     interfaces:
       L1Oracle:
       l1OracleClient:
         config:
           mockname: L1OracleClient
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore:
+  github.com/smartcontractkit/chainlink/v2/evm/keystore:
     interfaces:
       Eth:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:

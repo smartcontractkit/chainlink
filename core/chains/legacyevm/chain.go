@@ -17,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -28,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/evm/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"

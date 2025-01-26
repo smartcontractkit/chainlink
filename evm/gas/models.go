@@ -17,11 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
+	"github.com/smartcontractkit/chainlink/v2/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

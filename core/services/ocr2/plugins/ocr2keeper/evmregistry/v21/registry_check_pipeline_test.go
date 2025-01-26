@@ -22,7 +22,6 @@ import (
 
 	types3 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
-	gasMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	gasMocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

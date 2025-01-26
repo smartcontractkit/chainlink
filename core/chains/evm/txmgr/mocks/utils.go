@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

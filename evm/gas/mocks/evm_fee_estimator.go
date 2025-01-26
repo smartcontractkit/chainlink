@@ -13,11 +13,11 @@ import (
 
 	fees "github.com/smartcontractkit/chainlink-framework/chains/fees"
 
-	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gas "github.com/smartcontractkit/chainlink/v2/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
 
-	rollups "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
+	rollups "github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 
 	types "github.com/smartcontractkit/chainlink/v2/evm/types"
 )

@@ -63,7 +63,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	}
 
 	t.Run("happy path", func(t *testing.T) {
-		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt.json")
+		result := mustReadResult(t, "../../core/testdata/jsonrpc/getTransactionReceipt.json")
 
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
@@ -94,7 +94,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	})
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
-		result := mustReadResult(t, "../../../testdata/jsonrpc/getTransactionReceipt_notFound.json")
+		result := mustReadResult(t, "../../core/testdata/jsonrpc/getTransactionReceipt_notFound.json")
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":

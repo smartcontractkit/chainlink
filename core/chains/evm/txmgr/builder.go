@@ -13,7 +13,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/clientwrappers"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )

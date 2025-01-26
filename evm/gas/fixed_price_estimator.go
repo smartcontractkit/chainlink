@@ -8,8 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 

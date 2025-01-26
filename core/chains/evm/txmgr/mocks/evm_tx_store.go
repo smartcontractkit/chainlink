@@ -10,7 +10,7 @@ import (
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
-	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gas "github.com/smartcontractkit/chainlink/v2/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
 
