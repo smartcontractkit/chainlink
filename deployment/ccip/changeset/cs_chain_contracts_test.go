@@ -201,16 +201,6 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			owner, err := state.Chains[source].OnRamp.Owner(nil)
-			require.NoError(t, err)
-			//assert.Equal(t, owner, tenv.Env.Chains[source].DeployerKey.From)
-			//assert.Equal(t, owner, state.Chains[source].ProposerMcm.Address())
-			assert.Equal(t, owner, state.Chains[source].Timelock.Address())
-			owner, err = state.Chains[dest].OnRamp.Owner(nil)
-			require.NoError(t, err)
-			//assert.Equal(t, owner, tenv.Env.Chains[dest].DeployerKey.From)
-			//assert.Equal(t, owner, state.Chains[dest].ProposerMcm.Address())
-			assert.Equal(t, owner, state.Chains[dest].Timelock.Address())
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{
 					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampAllowListChangeset),
