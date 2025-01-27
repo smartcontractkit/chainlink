@@ -2724,7 +2724,7 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 	reqStat *testreporters.RequestStat,
 ) error {
 	lggr.Info().
-		Str("MsgID", fmt.Sprintf("0x%x", string(messageID))).
+		Str("MsgID", fmt.Sprintf("0x%x", messageID)).
 		Str("Timeout", timeout.String()).
 		Msg("Waiting for message content to match")
 	timer := time.NewTimer(timeout)
@@ -2744,9 +2744,9 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 			receivedContent, ok := value.([]uint8)
 			if !ok {
 				lggr.Warn().
-					Str("MsgID", fmt.Sprintf("0x%x", string(messageID))).
+					Str("MsgID", fmt.Sprintf("0x%x", messageID)).
 					Msg("Invalid content type in MessageReceivedWatcher")
-				return fmt.Errorf("invalid content type in MessageReceivedWatcher")
+				return errors.New("invalid content type in MessageReceivedWatcher")
 			}
 
 			// Compare the received content with the expected content
@@ -3650,20 +3650,20 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		return sub, err
 	})
 	if messageReceivedSub == nil {
-		return fmt.Errorf("failed to subscribe to message received event")
+		return errors.New("failed to subscribe to message received event")
 	}
 	go func(sub event.Subscription) {
 		defer sub.Unsubscribe()
 		for {
 			select {
 			case e := <-messageReceivedEvent:
-				messageId := string(e.MessageId[:])
+				messageID := string(e.MessageId[:])
 				messageContent := e.Data
-				messageSender := string(e.Sender[:])
-				log.Info().Msgf("Message event received for message id: 0x%x", messageId)
+				messageSender := string(e.Sender)
+				log.Info().Msgf("Message event received for message id: 0x%x", messageID)
 				log.Info().Msgf("Message event received with content: %+v", string(messageContent))
 				log.Info().Msgf("Message event received with sender: 0x%x", messageSender[len(messageSender)-20:])
-				lane.Dest.MessageReceivedWatcher.Store(messageId, messageContent)
+				lane.Dest.MessageReceivedWatcher.Store(messageID, messageContent)
 			case <-lane.Context.Done():
 				return
 			}
