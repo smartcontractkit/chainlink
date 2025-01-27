@@ -316,13 +316,6 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	return c, ok
 }
 
-func (n Node) FirstOCRKeybundle() OCRConfig {
-	for _, ocrConfig := range n.SelToOCRConfig {
-		return ocrConfig
-	}
-	return OCRConfig{}
-}
-
 func MustPeerIDFromString(s string) p2pkey.PeerID {
 	p := p2pkey.PeerID{}
 	if err := p.UnmarshalString(s); err != nil {

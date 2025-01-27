@@ -39,7 +39,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -248,10 +247,6 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
 func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2key.KeyBundle, error) {
 	ocrKeys := make(map[string]ocr2key.KeyBundle)
 	for networkType, bundleIDRaw := range ocrKeyBundleIDs {
-		if networkType != relay.NetworkEVM {
-			return nil, fmt.Errorf("unsupported chain type: %s", networkType)
-		}
-
 		bundleID, ok := bundleIDRaw.(string)
 		if !ok {
 			return nil, fmt.Errorf("OCRKeyBundleIDs must be a map of chain types to OCR key bundle IDs, got: %T", bundleIDRaw)
