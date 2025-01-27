@@ -31,7 +31,7 @@ func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
 	h.lggr.Debugw("hashing message", "msg", msg)
 
-	anyToSolanaMessage := ccip_router.Any2SolanaRampMessage{}
+	anyToSolanaMessage := ccip_router.Any2SVMRampMessage{}
 	anyToSolanaMessage.Header = ccip_router.RampMessageHeader{
 		SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 		DestChainSelector:   uint64(msg.Header.DestChainSelector),
@@ -39,15 +39,15 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		MessageId:           msg.Header.MessageID,
 		Nonce:               msg.Header.Nonce,
 	}
-	anyToSolanaMessage.Receiver = solana.PublicKeyFromBytes(msg.Receiver)
+	anyToSolanaMessage.LogicReceiver = solana.PublicKeyFromBytes(msg.Receiver)
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
 	for _, ta := range msg.TokenAmounts {
-		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_router.Any2SolanaTokenTransfer{
+		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_router.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
 			ExtraData:         ta.ExtraData,
-			Amount:            tokens.ToLittleEndianU256(ta.Amount.Int.Uint64()),
+			Amount:            ccip_router.CrossChainAmount{LeBytes: tokens.ToLittleEndianU256(ta.Amount.Int.Uint64())},
 		})
 	}
 	decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
@@ -56,7 +56,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
 
-	hash, err := ccip.HashEvmToSolanaMessage(anyToSolanaMessage, msg.Header.OnRamp)
+	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp)
 
 	return [32]byte(hash), err
 }
