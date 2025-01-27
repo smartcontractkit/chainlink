@@ -482,22 +482,8 @@ func AddLane(
 	require.NoError(t, err)
 }
 
-// UpdateLane updates the lane to enable or disable between the source and destination chains.
-// It applies a series of changesets to update the router ramps, on-ramp destinations, and off-ramp sources.
-//
-// Parameters:
-//   - t: The testing object.
-//   - e: The deployed environment.
-//   - src: The source chain selector.
-//   - dest: The destination chain selector.
-//   - isTestRouter: Boolean flag indicating if the test router is used.
-//   - isEnabled: Boolean flag indicating if the lane is enabled.
-func UpdateLane(
-	t *testing.T,
-	e *DeployedEnv,
-	src, dest uint64,
-	isTestRouter, isEnabled bool,
-) {
+// RemoveLane removes a lane between the source and destination chains in the deployed environment.
+func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter bool) {
 	var err error
 	apps := []commoncs.ChangesetApplication{
 		{
@@ -507,14 +493,18 @@ func UpdateLane(
 					// onRamp update on source chain
 					src: {
 						OnRampUpdates: map[uint64]bool{
-							dest: isEnabled,
+							dest: false,
 						},
 					},
-					// offramp update on dest chain
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					src: {
-						OffRampUpdates: map[uint64]bool{
-							dest: isEnabled,
-						},
+						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
 					},
 				},
 			},
@@ -525,7 +515,7 @@ func UpdateLane(
 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					src: {
 						dest: {
-							IsEnabled:        isEnabled,
+							IsEnabled:        false,
 							TestRouter:       isTestRouter,
 							AllowListEnabled: false,
 						},
@@ -539,7 +529,7 @@ func UpdateLane(
 				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
 						src: {
-							IsEnabled:  isEnabled,
+							IsEnabled:  false,
 							TestRouter: isTestRouter,
 						},
 					},
@@ -563,7 +553,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		}, map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, changeset.DefaultFeeQuoterDestChainConfig())
+		}, changeset.DefaultFeeQuoterDestChainConfig(true))
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

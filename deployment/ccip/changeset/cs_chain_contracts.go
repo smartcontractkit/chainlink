@@ -1113,7 +1113,9 @@ func isOCR3ConfigSetOnOffRamp(
 	return true, nil
 }
 
-func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+// DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
+// with the config enabled/disabled based on the configEnabled flag.
+func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -1122,7 +1124,7 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		```
 	*/
 	evmFamilySelector, _ := hex.DecodeString("2812d52c")
-	return fee_quoter.FeeQuoterDestChainConfig{
+	feeQuoterDestChainConfig := fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         true,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
@@ -1141,4 +1143,8 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 		NetworkFeeUSDCents:                1,
 		ChainFamilySelector:               [4]byte(evmFamilySelector),
 	}
+	if !configEnabled {
+		feeQuoterDestChainConfig.IsEnabled = false
+	}
+	return feeQuoterDestChainConfig
 }

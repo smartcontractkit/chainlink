@@ -667,7 +667,7 @@ func feeQuoterDestUpdates(t *testing.T, dests []uint64, sources []uint64) (updat
 			if _, ok := updates[source]; !ok {
 				updates[source] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 			}
-			updates[source][dest] = ccipcs.DefaultFeeQuoterDestChainConfig()
+			updates[source][dest] = ccipcs.DefaultFeeQuoterDestChainConfig(true)
 		}
 	}
 	return

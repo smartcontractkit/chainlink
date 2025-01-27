@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -8,7 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -76,13 +79,13 @@ func TestDisableLane(t *testing.T) {
 	)
 
 	// disable lane A -> B
-	testhelpers.UpdateLane(t, &tenv, chainA, chainB, false, false)
+	testhelpers.RemoveLane(t, &tenv, chainA, chainB, false)
 	// send a message to confirm it is reverted between chainA and chainB
 	assertSendRequestReverted(chainA, chainB, e.Chains[chainA].Users[0])
 	// send a message between chainB and chainA to confirm it is not reverted
 	assertRequestSent(chainB, chainA, e.Chains[chainB].Users[0])
 	// disable lane B -> A
-	testhelpers.UpdateLane(t, &tenv, chainB, chainA, false, false)
+	testhelpers.RemoveLane(t, &tenv, chainB, chainA, false)
 	assertSendRequestReverted(chainB, chainA, e.Chains[chainB].Users[0])
 
 	// send message in other lanes and ensure they are delivered
@@ -93,17 +96,37 @@ func TestDisableLane(t *testing.T) {
 		assertRequestSent(chainC, chainB, e.Chains[chainC].Users[1])
 	}()
 	// disable lanes between A & C and C & B while requests are getting sent
-	testhelpers.UpdateLane(t, &tenv, chainA, chainC, false, false)
-	testhelpers.UpdateLane(t, &tenv, chainC, chainA, false, false)
-	testhelpers.UpdateLane(t, &tenv, chainB, chainC, false, false)
-	testhelpers.UpdateLane(t, &tenv, chainC, chainB, false, false)
+	testhelpers.RemoveLane(t, &tenv, chainA, chainC, false)
+	testhelpers.RemoveLane(t, &tenv, chainC, chainA, false)
+	testhelpers.RemoveLane(t, &tenv, chainB, chainC, false)
+	testhelpers.RemoveLane(t, &tenv, chainC, chainB, false)
+	// check fee quoter returns error when the lane is disabled
+	gp, err := state.Chains[chainA].FeeQuoter.GetTokenAndGasPrices(&bind.CallOpts{
+		Context: tests.Context(t),
+	}, state.Chains[chainB].Weth9.Address(), chainB)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "execution reverted")
+	require.Nil(t, gp.GasPriceValue)
+	require.Nil(t, gp.TokenPrice)
 	// confirm that message sent in all lanes are reverted after disabling the lanes
 	for _, pair := range pairs {
 		assertSendRequestReverted(pair.SourceChainSelector, pair.DestChainSelector, e.Chains[pair.SourceChainSelector].Users[0])
 	}
 	// re-enable all the lanes
+	var (
+		linkPrice = deployment.E18Mult(100)
+		wethPrice = deployment.E18Mult(4000)
+	)
 	for _, pair := range pairs {
-		testhelpers.UpdateLane(t, &tenv, pair.SourceChainSelector, pair.DestChainSelector, false, true)
+		testhelpers.AddLane(t, &tenv, pair.SourceChainSelector, pair.DestChainSelector, false,
+			map[uint64]*big.Int{
+				pair.DestChainSelector: testhelpers.DefaultGasPrice,
+			},
+			map[common.Address]*big.Int{
+				state.Chains[pair.SourceChainSelector].LinkToken.Address(): linkPrice,
+				state.Chains[pair.SourceChainSelector].Weth9.Address():     wethPrice,
+			},
+			changeset.DefaultFeeQuoterDestChainConfig(true))
 	}
 	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {
