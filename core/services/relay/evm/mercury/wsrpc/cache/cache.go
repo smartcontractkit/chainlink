@@ -173,7 +173,7 @@ type memCache struct {
 func newMemCache(lggr logger.Logger, client Client, cfg Config) *memCache {
 	return &memCache{
 		services.StateMachine{},
-		logger.Sugared(logger.Named(logger.Named(lggr, "MemCache"), client.ServerURL())),
+		logger.Sugared(lggr).Named("MemCache").Named(client.ServerURL()),
 		client,
 		cfg,
 		sync.Map{},
