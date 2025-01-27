@@ -55,10 +55,11 @@ import (
 )
 
 const (
-	chainS1 = cciptypes.ChainSelector(1)
-	chainS2 = cciptypes.ChainSelector(2)
-	chainS3 = cciptypes.ChainSelector(3)
-	chainD  = cciptypes.ChainSelector(4)
+	chainS1   = cciptypes.ChainSelector(1)
+	chainS2   = cciptypes.ChainSelector(2)
+	chainS3   = cciptypes.ChainSelector(3)
+	chainD    = cciptypes.ChainSelector(4)
+	chainSEVM = cciptypes.ChainSelector(5009297550715157269)
 )
 
 var (
@@ -509,7 +510,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	require.Eventually(t, func() bool {
 		msgs, err = s.reader.MsgsBetweenSeqNums(
 			ctx,
-			chainS1,
+			chainSEVM,
 			cciptypes.NewSeqNumRange(5, 20),
 		)
 		require.NoError(t, err)
@@ -534,7 +535,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	require.Equal(t, int64(4), msgs[1].TokenAmounts[1].Amount.Int64())
 
 	for _, msg := range msgs {
-		require.Equal(t, chainS1, msg.Header.SourceChainSelector)
+		require.Equal(t, chainSEVM, msg.Header.SourceChainSelector)
 		require.Equal(t, chainD, msg.Header.DestChainSelector)
 	}
 }
