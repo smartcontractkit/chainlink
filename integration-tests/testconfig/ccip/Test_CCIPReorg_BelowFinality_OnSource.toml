@@ -1,0 +1,11 @@
+[NodeConfig.ChainConfigTOMLByChainID]
+#! FinalityDepth on 1337 overridden to 10.
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 10
+MinContractPayment = 0
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
