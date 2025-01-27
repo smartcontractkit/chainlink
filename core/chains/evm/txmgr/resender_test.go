@@ -17,11 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -31,7 +32,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("IsL2").Return(false).Maybe()
 	ccfg := testutils.NewTestChainScopedConfig(t, nil)
 
@@ -101,7 +102,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("IsL2").Return(false).Maybe()
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
 	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
@@ -151,7 +152,7 @@ func Test_EthResender_Start(t *testing.T) {
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ctx := tests.Context(t)
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("IsL2").Return(false).Maybe()
 
 		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())

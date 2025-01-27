@@ -1,0 +1,108 @@
+
+[blockchain_a]
+  type = "anvil"
+  docker_cmd_params = ["-b", "5"]
+
+[workflow_config]
+  use_chainlink_cli = false
+  use_existing = true
+
+  [workflow_config.existing]
+    binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    config_url = "https://gist.githubusercontent.com/Tofel/5b9ccb1cc1a5aa68aa08a5b2066d60a7/raw/7dcdda86b9d50d17029614f370fd2acab1e7fb27/config.json3175390991"
+
+[nodeset]
+  nodes = 5
+  override_mode = "each"
+
+[nodeset.db]
+  image = "postgres:15.6"
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me0"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """

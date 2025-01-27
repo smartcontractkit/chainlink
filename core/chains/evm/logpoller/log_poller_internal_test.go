@@ -29,11 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -226,7 +226,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 		Data:        EvmWord(uint64(300)).Bytes(),
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 
@@ -257,7 +257,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	assert.Equal(t, int64(2), lp.backupPollerNextBlock)
 }
 
-func mockBatchCallContext(t *testing.T, ec *evmclimocks.Client) {
+func mockBatchCallContext(t *testing.T, ec *clienttest.Client) {
 	mockBatchCallContextWithHead(t, ec, newHeadVal)
 }
 
@@ -274,7 +274,7 @@ func newHead(num int64) *evmtypes.Head {
 	return &r
 }
 
-func mockBatchCallContextWithHead(t *testing.T, ec *evmclimocks.Client, newHead func(num int64) evmtypes.Head) {
+func mockBatchCallContextWithHead(t *testing.T, ec *clienttest.Client, newHead func(num int64) evmtypes.Head) {
 	ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		for _, e := range elems {
@@ -319,7 +319,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		Data:        EvmWord(uint64(300)).Bytes(),
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.EXPECT().HeadByHash(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
 		return &evmtypes.Head{Number: hash.Big().Int64(), Hash: hash}, nil
 	}).Maybe()
@@ -618,7 +618,7 @@ func Test_FetchBlocks(t *testing.T) {
 		FinalityDepth:            3,
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	mockBatchCallContext(t, ec) // This will return 5 for "finalized" and 8 for "latest"
 
 	cases := []struct {
@@ -696,7 +696,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).RunAndReturn(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
 			return latest, finalized, nil
 		}).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -715,7 +715,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -735,7 +735,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -753,7 +753,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().ConfiguredChainID().Return(chainID)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil

@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
@@ -41,7 +41,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 
 	digestStr := "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776"
 	lggr := logger.Test(t)
-	c := evmclimocks.NewClient(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	digestAndEpochDontScanLogs, err := hex.DecodeString(
 		"0000000000000000000000000000000000000000000000000000000000000000" + // scan logs = false
@@ -93,7 +93,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress := testutils.NewAddress(), testutils.NewAddress()
 	lggr := logger.Test(t)
-	c := evmclimocks.NewClient(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
@@ -171,7 +171,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress1, coordinatorAddress2 := testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()
 	lggr := logger.Test(t)
-	c := evmclimocks.NewClient(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
