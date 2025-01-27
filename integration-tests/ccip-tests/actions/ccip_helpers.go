@@ -2765,13 +2765,13 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 				Str("Expected Content", string(expectedContent)).
 				Msg("Message content mismatch")
 
-			return fmt.Errorf("message content did not match for MessageID 0x%x", string(messageID))
+			return fmt.Errorf("message content did not match for MessageID 0x%x", messageID)
 
 		case <-timer.C:
 			// Handle timeout with potential connection issue recovery
 			if destCCIP.Common.IsConnectionRestoredRecently != nil && !destCCIP.Common.IsConnectionRestoredRecently.Load() {
 				if resetTimerCount > 2 {
-					return fmt.Errorf("possible RPC issue - message content did not match for MessageID 0x%x", string(messageID))
+					return fmt.Errorf("possible RPC issue - message content did not match for MessageID 0x%x", messageID)
 				}
 				timer.Reset(timeout)
 				resetTimerCount++
@@ -2779,7 +2779,7 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 				continue
 			}
 
-			return fmt.Errorf("timeout - message was not received for MessageID 0x%x", string(messageID))
+			return fmt.Errorf("timeout - message was not received for MessageID 0x%x", messageID)
 		}
 	}
 }
