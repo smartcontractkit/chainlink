@@ -2752,7 +2752,7 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 			// Compare the received content with the expected content
 			if string(receivedContent) == string(expectedContent) {
 				lggr.Info().
-					Str("MessageID 0x%x", string(messageID)).
+					Str("MessageID 0x%x", messageID).
 					Str("Received Content", string(receivedContent)).
 					Str("Expected Content", string(expectedContent)).
 					Msg("Message received and its content matches the sent content")
@@ -2760,7 +2760,7 @@ func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 			}
 
 			lggr.Warn().
-				Str("MessageID 0x%x", string(messageID)).
+				Str("MessageID 0x%x", messageID).
 				Str("Received Content", string(receivedContent)).
 				Str("Expected Content", string(expectedContent)).
 				Msg("Message content mismatch")
