@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -63,11 +63,11 @@ const processHeadTimeout = 10 * time.Minute
 type finalizerTxStore interface {
 	DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error
 	FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (hashes []TxAttempt, err error)
-	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error)
+	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*types.Receipt, err error)
 	FindTxesPendingCallback(ctx context.Context, latest, finalized int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
 	PreloadTxes(ctx context.Context, attempts []TxAttempt) error
-	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) (err error)
+	SaveFetchedReceipts(ctx context.Context, r []*types.Receipt) (err error)
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunID uuid.UUID, chainID *big.Int) error
 	UpdateTxFatalErrorAndDeleteAttempts(ctx context.Context, etx *Tx) error
 	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
@@ -75,12 +75,12 @@ type finalizerTxStore interface {
 
 type finalizerChainClient interface {
 	BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error
-	BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error)
+	BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*types.Receipt, txErr []error, funcErr error)
 	CallContract(ctx context.Context, a TxAttempt, blockNumber *big.Int) (rpcErr fmt.Stringer, extractErr error)
 }
 
 type finalizerHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *types.Head, err error)
 }
 
 type resumeCallback = func(context.Context, uuid.UUID, interface{}, error) error
@@ -97,7 +97,7 @@ type evmFinalizer struct {
 	client      finalizerChainClient
 	headTracker finalizerHeadTracker
 
-	mb     *mailbox.Mailbox[*evmtypes.Head]
+	mb     *mailbox.Mailbox[*types.Head]
 	stopCh services.StopChan
 	wg     sync.WaitGroup
 
@@ -123,7 +123,7 @@ func NewEvmFinalizer(
 		txStore:           txStore,
 		client:            client,
 		headTracker:       headTracker,
-		mb:                mailbox.NewSingle[*evmtypes.Head](),
+		mb:                mailbox.NewSingle[*types.Head](),
 		resumeCallback:    nil,
 	}
 }
@@ -188,11 +188,11 @@ func (f *evmFinalizer) runLoop() {
 	}
 }
 
-func (f *evmFinalizer) DeliverLatestHead(head *evmtypes.Head) bool {
+func (f *evmFinalizer) DeliverLatestHead(head *types.Head) bool {
 	return f.mb.Deliver(head)
 }
 
-func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
+func (f *evmFinalizer) ProcessHead(ctx context.Context, head *types.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	_, latestFinalizedHead, err := f.headTracker.LatestAndFinalizedBlock(ctx)
@@ -216,7 +216,7 @@ func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) err
 
 // processFinalizedHead determines if any confirmed transactions can be marked as finalized by comparing their receipts against the latest finalized block
 // Fetches receipts directly from on-chain so re-org detection is not needed during finalization
-func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalizedHead *evmtypes.Head) error {
+func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalizedHead *types.Head) error {
 	// Cannot determine finality without a finalized head for comparison
 	if latestFinalizedHead == nil || !latestFinalizedHead.IsValid() {
 		return fmt.Errorf("invalid latestFinalizedHead")
@@ -245,9 +245,9 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	}
 	mark = time.Now()
 
-	finalizedReceipts := make([]*evmtypes.Receipt, 0, len(unfinalizedReceipts))
+	finalizedReceipts := make([]*types.Receipt, 0, len(unfinalizedReceipts))
 	// Group by block hash transactions whose receipts cannot be validated using the cached heads
-	blockNumToReceiptsMap := make(map[int64][]*evmtypes.Receipt)
+	blockNumToReceiptsMap := make(map[int64][]*types.Receipt)
 	// Find receipts with block nums older than or equal to the latest finalized block num
 	for _, receipt := range unfinalizedReceipts {
 		// The tx store query ensures transactions have receipts but leaving this check here for a belts and braces approach
@@ -307,7 +307,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	return nil
 }
 
-func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, blockNumToReceiptsMap map[int64][]*evmtypes.Receipt) []*evmtypes.Receipt {
+func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, blockNumToReceiptsMap map[int64][]*types.Receipt) []*types.Receipt {
 	if len(blockNumToReceiptsMap) == 0 {
 		return nil
 	}
@@ -321,7 +321,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 				hexutil.EncodeBig(big.NewInt(blockNum)),
 				false,
 			},
-			Result: new(evmtypes.Head),
+			Result: new(types.Head),
 		}
 		rpcBatch = append(rpcBatch, elem)
 		if len(rpcBatch) >= f.rpcBatchSize {
@@ -333,7 +333,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 		rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
 	}
 
-	finalizedReceipts := make([]*evmtypes.Receipt, 0, len(blockNumToReceiptsMap))
+	finalizedReceipts := make([]*types.Receipt, 0, len(blockNumToReceiptsMap))
 	for _, rpcBatch := range rpcBatchGroups {
 		err := f.client.BatchCallContext(ctx, rpcBatch)
 		if err != nil {
@@ -347,7 +347,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 				f.lggr.Errorw("failed to find block by number", "blockNum", req.Args[0], "error", req.Error)
 				continue
 			}
-			head, ok := req.Result.(*evmtypes.Head)
+			head, ok := req.Result.(*types.Head)
 			if !ok || !head.IsValid() {
 				// Continue if particular RPC call yielded a nil block so other txs can still be considered for finalization
 				f.lggr.Errorw("retrieved nil head for block number", "blockNum", req.Args[0])
@@ -376,7 +376,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 	return finalizedReceipts
 }
 
-func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFinalizedHead *evmtypes.Head) error {
+func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFinalizedHead *types.Head) error {
 	attempts, err := f.txStore.FindAttemptsRequiringReceiptFetch(ctx, f.chainID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch broadcasted attempts for confirmed transactions: %w", err)
@@ -392,7 +392,7 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 	if batchSize == 0 {
 		batchSize = len(attempts)
 	}
-	allReceipts := make([]*evmtypes.Receipt, 0, len(attempts))
+	allReceipts := make([]*types.Receipt, 0, len(attempts))
 	errorList := make([]error, 0, len(attempts))
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
@@ -428,7 +428,7 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 	return nil
 }
 
-func (f *evmFinalizer) batchFetchReceipts(ctx context.Context, attempts []TxAttempt) (receipts []*evmtypes.Receipt, err error) {
+func (f *evmFinalizer) batchFetchReceipts(ctx context.Context, attempts []TxAttempt) (receipts []*types.Receipt, err error) {
 	// Metadata is required to determine whether a tx is forwarded or not.
 	if f.forwardersEnabled {
 		err = f.txStore.PreloadTxes(ctx, attempts)
@@ -460,7 +460,7 @@ func (f *evmFinalizer) batchFetchReceipts(ctx context.Context, attempts []TxAtte
 }
 
 // Note this function will increment promRevertedTxCount upon receiving a reverted transaction receipt
-func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *evmtypes.Receipt, attempt TxAttempt) bool {
+func (f *evmFinalizer) validateReceipt(ctx context.Context, receipt *types.Receipt, attempt TxAttempt) bool {
 	l := attempt.Tx.GetLogger(f.lggr).With("txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
 		"txID", attempt.TxID, "nonce", attempt.Tx.Sequence,
 	)
@@ -563,7 +563,7 @@ func (f *evmFinalizer) ResumePendingTaskRuns(ctx context.Context, latest, finali
 	return nil
 }
 
-func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxIDs []int64, head, latestFinalizedHead *evmtypes.Head) error {
+func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxIDs []int64, head, latestFinalizedHead *types.Head) error {
 	if len(oldTxIDs) == 0 {
 		return nil
 	}
@@ -615,7 +615,7 @@ func (f *evmFinalizer) ProcessOldTxsWithoutReceipts(ctx context.Context, oldTxID
 }
 
 // findOldTxIDsWithoutReceipts finds IDs for transactions without receipts and attempts broadcasted at or before the finalized head
-func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*evmtypes.Receipt, latestFinalizedHead *evmtypes.Head) []int64 {
+func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*types.Receipt, latestFinalizedHead *types.Head) []int64 {
 	if len(attempts) == 0 {
 		return nil
 	}
@@ -654,7 +654,7 @@ func findOldTxIDsWithoutReceipts(attempts []TxAttempt, receipts []*evmtypes.Rece
 }
 
 // buildTxHashList builds list of transaction hashes from receipts considered finalized
-func (f *evmFinalizer) buildTxHashList(finalizedReceipts []*evmtypes.Receipt) []common.Hash {
+func (f *evmFinalizer) buildTxHashList(finalizedReceipts []*types.Receipt) []common.Hash {
 	txHashes := make([]common.Hash, len(finalizedReceipts))
 	for i, receipt := range finalizedReceipts {
 		f.lggr.Debugw("transaction considered finalized",

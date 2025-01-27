@@ -100,7 +100,7 @@ jobs:
               - '.github/workflows/integration-tests.yml'
               - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
               - '.github/e2e-tests.yml'
-            core_changes:
+            core_changes: &core_changes
               - '**/*.go'
               - '**/*go.sum'
               - '**/*go.mod'
@@ -108,6 +108,13 @@ jobs:
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
+            keystone_changes:
+              - *core_changes
+              - 'contracts/src/**/keystone/**'
+              - 'core/gethwrappers/keystone/**'
+              - 'contracts/GNUmakefile'
+              - 'contracts/foundry.toml'
+              - 'contracts/package.json'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
@@ -119,6 +126,7 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      keystone_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.keystone_changes }}
 
   build-chainlink:
     environment: integration
@@ -164,6 +172,50 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
+
+  run-core-e2e-keystone-tests-for-pr:
+    name: Run Core Keystone Engine E2E Tests For PR
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.keystone_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9226c702d15c0ef44c953aa12d3eb547aaec2532
+    with:
+      workflow_name: Run Core Workflow Engine Tests For PR
+      chainlink_version: ${{ inputs.evm-ref || github.sha }}
+      chainlink_upgrade_version: ${{ github.sha }}
+      test_path: .github/e2e-tests.yml
+      test_trigger: PR Workflow Engine E2E Core Tests
+      upload_cl_node_coverage_artifact: true
+      upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   run-core-e2e-tests-for-pr:
     name: Run Core E2E Tests For PR
@@ -343,12 +395,22 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [run-core-e2e-tests-for-pr, run-core-e2e-keystone-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     steps:
       - name: Check Core test results
         id: check_core_results
         run: |
           results='${{ needs.run-core-e2e-tests-for-pr.outputs.test_results }}'
+          echo "Core test results:"
+          echo "$results" | jq .
+
+          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
+
+      - name: Check Core Keystone test results
+        id: check_core_keystone_results
+        run: |
+          results='${{ needs.run-core-e2e-keystone-tests-for-pr.outputs.test_results }}'
           echo "Core test results:"
           echo "$results" | jq .
 
@@ -406,7 +468,8 @@ jobs:
 
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
-    if: always()
+    if: false
+    # if: always()
     needs: [run-core-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     runs-on: ubuntu-latest
     steps:
@@ -427,7 +490,7 @@ jobs:
 
   ## Solana Section
   get_solana_sha:
-    # We don't directly merge dependabot PRs, so let's not waste the resources
+    # We don't directly merge dependabot PRs, so let's not waste the resources\
     if: ${{ github.actor != 'dependabot[bot]' && inputs.run_solana != 'false' }}
     name: Get Solana Sha From Go Mod
     environment: Integration

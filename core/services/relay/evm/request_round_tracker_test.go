@@ -14,21 +14,21 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -47,7 +47,7 @@ type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
 	hb                  *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
-	ec                  *evmclimocks.Client
+	ec                  *clienttest.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
 
@@ -75,10 +75,10 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
 	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
-	uni.ec = evmclimocks.NewClient(t)
+	uni.ec = clienttest.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	uni.requestRoundTracker = evm.NewRequestRoundTracker(
 		contract,
 		filterer,

@@ -12,21 +12,21 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/clientwrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type latestAndFinalizedBlockHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *types.Head, err error)
 }
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
@@ -179,7 +179,7 @@ func NewEvmConfirmer(
 	stuckTxDetector StuckTxDetector,
 	headTracker latestAndFinalizedBlockHeadTracker,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
+	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
@@ -189,7 +189,7 @@ func NewEvmTracker(
 	chainID *big.Int,
 	lggr logger.Logger,
 ) *Tracker {
-	return txmgr.NewTracker[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt](txStore, keyStore, chainID, lggr)
+	return txmgr.NewTracker[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt](txStore, keyStore, chainID, lggr)
 }
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster

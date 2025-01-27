@@ -8,9 +8,9 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
-	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	gas "github.com/smartcontractkit/chainlink/v2/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
 

@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmClient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const (
