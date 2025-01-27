@@ -467,7 +467,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
-			SourceChainSelector: uint64(chainS1),
+			SourceChainSelector: uint64(chainSEVM),
 			DestChainSelector:   uint64(chainD),
 			SequenceNumber:      10,
 		},
@@ -485,7 +485,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	_, err = s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 1},
-			SourceChainSelector: uint64(chainS1),
+			SourceChainSelector: uint64(chainSEVM),
 			DestChainSelector:   uint64(chainD),
 			SequenceNumber:      15,
 		},
