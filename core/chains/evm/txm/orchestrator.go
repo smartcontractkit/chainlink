@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -86,7 +87,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 	return o.StartOnce("Orchestrator", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, o.attemptBuilder); err != nil {
-			return fmt.Errorf("Orchestrator: AttemptBuilder failed to start: %w", err)
+			// TODO: hacky fix for DualBroadcast
+			if !strings.Contains(err.Error(), "already been started once") {
+				return fmt.Errorf("Orchestrator: AttemptBuilder failed to start: %w", err)
+			}
 		}
 		addresses, err := o.keystore.EnabledAddressesForChain(ctx, o.chainID)
 		if err != nil {
@@ -121,7 +125,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 			merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop Txm: %w", err))
 		}
 		if err := o.attemptBuilder.Close(); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop AttemptBuilder: %w", err))
+			// TODO: hacky fix for DualBroadcast
+			if !strings.Contains(err.Error(), "already been stopped") {
+				merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop AttemptBuilder: %w", err))
+			}
 		}
 		return merr
 	})
