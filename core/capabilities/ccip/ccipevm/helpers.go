@@ -56,16 +56,16 @@ func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 
 	var method string
 	var extraByteOffset int
-	// for EVMExtraArgs, the first four bytes is the method name
-	// for SVMExtraArgs there's the four bytes plus another 32 bytes padding for the dynamic array
 	switch string(extraArgs[:4]) {
 	case string(evmExtraArgsV1Tag):
+		// for EVMExtraArgs, the first four bytes is the method name
 		method = evmV1DecodeName
 		extraByteOffset = 4
 	case string(evmExtraArgsV2Tag):
 		method = evmV2DecodeName
 		extraByteOffset = 4
 	case string(svmExtraArgsV1Tag):
+		// for SVMExtraArgs there's the four bytes plus another 32 bytes padding for the dynamic array
 		method = svmV1DecodeName
 		extraByteOffset = 36
 	default:
