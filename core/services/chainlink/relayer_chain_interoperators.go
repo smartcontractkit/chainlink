@@ -9,11 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -413,41 +408,3 @@ func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 type legacyChains struct {
 	EVMChains legacyevm.LegacyChainContainer
 }
-
-// LegacyCosmosContainer is container interface for Cosmos chains
-type LegacyCosmosContainer interface {
-	Get(id string) (adapters.Chain, error)
-	Len() int
-	List(ids ...string) ([]adapters.Chain, error)
-	Slice() []adapters.Chain
-}
-
-type LegacyCosmos = chains.ChainsKV[adapters.Chain]
-
-var _ LegacyCosmosContainer = &LegacyCosmos{}
-
-func NewLegacyCosmos(m map[string]adapters.Chain) *LegacyCosmos {
-	return chains.NewChainsKV[adapters.Chain](m)
-}
-
-type LOOPRelayAdapter interface {
-	loop.Relayer
-	Chain() adapters.Chain
-}
-
-type loopRelayAdapter struct {
-	loop.Relayer
-	chain adapters.Chain
-}
-
-func NewCosmosLOOPRelayerChain(r *cosmos.Relayer) *loopRelayAdapter {
-	return &loopRelayAdapter{
-		Relayer: relay.NewServerAdapter(r),
-		chain:   r.Chain(),
-	}
-}
-func (r *loopRelayAdapter) Chain() adapters.Chain {
-	return r.chain
-}
-
-var _ LOOPRelayAdapter = &loopRelayAdapter{}

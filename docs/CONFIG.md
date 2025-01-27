@@ -9862,7 +9862,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true
@@ -9977,7 +9977,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true

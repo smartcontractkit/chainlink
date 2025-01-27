@@ -15,11 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -43,7 +43,7 @@ func (m mockCfg) TransmitTimeout() commonconfig.Duration {
 }
 
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
@@ -142,7 +142,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 
 func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
 	codec := new(mockCodec)
@@ -251,7 +251,7 @@ func (m *mockCodec) ObservationTimestampFromReport(ctx context.Context, report o
 
 func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
 
@@ -331,7 +331,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := pgtest.NewSqlxDB(t)
 	var jobID int32
 	codec := new(mockCodec)
@@ -464,7 +464,7 @@ func (m *mockQ) IsEmpty() bool                      { return false }
 
 func Test_MercuryTransmitter_runQueueLoop(t *testing.T) {
 	feedIDHex := utils.NewHash().Hex()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	c := &mocks.MockWSRPCClient{}
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(db)

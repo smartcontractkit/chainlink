@@ -63,11 +63,14 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	legacyChains := evmtest.NewLegacyChains(
 		t,
 		evmtest.TestChainOpts{
-			DB:            db,
-			KeyStore:      kst,
-			GeneralConfig: cfg,
-			Client:        ethClient,
-			LogPoller:     lp,
+			GeneralConfig:  cfg,
+			DatabaseConfig: cfg.Database(),
+			FeatureConfig:  cfg.Feature(),
+			ListenerConfig: cfg.Database().Listener(),
+			DB:             db,
+			KeyStore:       kst,
+			Client:         ethClient,
+			LogPoller:      lp,
 		},
 	)
 	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{

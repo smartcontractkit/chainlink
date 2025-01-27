@@ -417,9 +417,12 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig: cfg,
-			MailMon:   mailMon,
-			DS:        ds,
+			AppConfig:      cfg,
+			DatabaseConfig: cfg.Database(),
+			ListenerConfig: cfg.Database().Listener(),
+			FeatureConfig:  cfg.Feature(),
+			MailMon:        mailMon,
+			DS:             ds,
 		},
 		CSAETHKeystore: keyStore,
 		MercuryConfig:  cfg.Mercury(),

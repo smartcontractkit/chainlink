@@ -14,7 +14,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @smartcontractkit/core
+/core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain

@@ -8,9 +8,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+)
+
+const (
+	// DANoDeviationThresholdUSD is the lower bound no deviation threshold for DA gas. If the DA gas price is less
+	// than this value, we should never trigger a deviation. This is set to 20 gwei in USD terms.
+	DANoDeviationThresholdUSD = 20e9
 )
 
 type DAGasPriceEstimator struct {
@@ -134,7 +141,7 @@ func (g DAGasPriceEstimator) Deviates(ctx context.Context, p1, p2 *big.Int) (boo
 		return execDeviates, nil
 	}
 
-	return ccipcalc.Deviates(p1DAGasPrice, p2DAGasPrice, g.daDeviationPPB), nil
+	return ccipcalc.DeviatesOnCurve(p1DAGasPrice, p2DAGasPrice, big.NewInt(DANoDeviationThresholdUSD), g.daDeviationPPB), nil
 }
 
 func (g DAGasPriceEstimator) EstimateMsgCostUSD(ctx context.Context, p *big.Int, wrappedNativePrice *big.Int, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) (*big.Int, error) {

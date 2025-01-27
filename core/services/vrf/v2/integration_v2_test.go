@@ -2103,7 +2103,16 @@ func TestStartingCountsV1(t *testing.T) {
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
 	txm := makeTestTxm(t, txStore, ks, ec)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		KeyStore:       ks.Eth(),
+		Client:         ec,
+		DB:             db,
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		TxManager:      txm,
+	})
 	chain, err := legacyChains.Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	listenerV1 := &v1.Listener{

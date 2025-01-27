@@ -123,7 +123,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil, // startBlock
@@ -299,7 +299,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil,
@@ -310,7 +310,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil,
@@ -341,7 +341,7 @@ func assertExecAsync(
 	defer wg.Done()
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
-		e.Env.Chains[sourceChainSelector],
+		sourceChainSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil,
@@ -365,7 +365,7 @@ func assertCommitReportsAsync(
 	defer wg.Done()
 	commitReport, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChainSelector],
+		sourceChainSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil,

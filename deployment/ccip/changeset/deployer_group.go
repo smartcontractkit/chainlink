@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
+
+// MCMSConfig defines timelock duration.
+type MCMSConfig struct {
+	MinDelay time.Duration
+}
 
 type DeployerGroup struct {
 	e            deployment.Environment

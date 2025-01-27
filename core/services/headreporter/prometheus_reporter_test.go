@@ -1,6 +1,7 @@
 package headreporter_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -42,6 +43,18 @@ func Test_PrometheusReporter(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).Return()
 		err = reporter.ReportPeriodic(testutils.Context(t))
+		require.NoError(t, err)
+	})
+
+	t.Run("with null txm", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		backend := headreporter.NewMockPrometheusBackend(t)
+
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainerWithNullTxm(t))
+		reporter.SetBackend(backend)
+
+		head := headreporter.NewHead()
+		err := reporter.ReportNewHead(testutils.Context(t), &head)
 		require.NoError(t, err)
 	})
 
@@ -139,6 +152,13 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		nil)
 	require.NoError(t, err)
 
+	cfg := configtest.NewGeneralConfig(t, nil)
+	return cltest.NewLegacyChainsWithMockChainAndTxManager(t, ethClient, cfg, txm)
+}
+
+func newLegacyChainContainerWithNullTxm(t *testing.T) legacyevm.LegacyChainContainer {
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	txm := &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", ethClient.ConfiguredChainID())}
 	cfg := configtest.NewGeneralConfig(t, nil)
 	return cltest.NewLegacyChainsWithMockChainAndTxManager(t, ethClient, cfg, txm)
 }

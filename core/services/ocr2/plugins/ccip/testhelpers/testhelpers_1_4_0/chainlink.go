@@ -444,7 +444,10 @@ func setupNodeCCIP(
 	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig: config,
+			AppConfig:      config,
+			DatabaseConfig: config.Database(),
+			ListenerConfig: config.Database().Listener(),
+			FeatureConfig:  config.Feature(),
 			GenEthClient: func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
 					return sourceClient
