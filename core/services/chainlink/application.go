@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bytecodealliance/wasmtime-go/v28"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -31,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -202,7 +199,6 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 	FetcherFunc                syncer.FetcherFunc
 	FetcherFactoryFn           compute.FetcherFactory
-	WasmModuleFactoryFn        host.WasmModuleFactoryFn
 }
 
 type Heartbeat struct {
@@ -367,7 +363,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
 				var fetcherFunc syncer.FetcherFunc
 				if opts.FetcherFunc == nil {
-
 					if gatewayConnectorWrapper == nil {
 						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
 					}
@@ -391,19 +386,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				var wasmModuleFactory host.WasmModuleFactoryFn
-				if opts.WasmModuleFactoryFn != nil {
-					wasmModuleFactory = opts.WasmModuleFactoryFn
-				} else {
-					// TODO need a non-test implementation of this that will serialise and cache the modules and ensure that
-					// wasmtime.NewModule is only called in a single threaded way, cached in DB?  or would local file system
-					// be good enough?  whatever it does it needs to handle the case where the serialised version does not
-					// correctly deserialise and recreates the cached serialised version, note serialisation can fail for
-					// issues such as a change to the cfg passed into module creation, wasmtime.NewModule version change etc
-					// basically it should assume serialisation will fail and handle that.
-					wasmModuleFactory = wasmtime.NewModule
-				}
-
 				eventHandler := syncer.NewEventHandler(
 					lggr,
 					syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
@@ -421,7 +403,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 							MaxConfigSize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxConfigSize()),
 						},
 					),
-					wasmModuleFactory,
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
@@ -683,7 +664,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
-		opts.WasmModuleFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -1076,7 +1056,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()}, // requestID
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

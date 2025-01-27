@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -51,7 +50,6 @@ type Delegate struct {
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
 	computeFetcherFactoryFn compute.FetcherFactory
-	wasmModuleFactory       host.WasmModuleFactoryFn
 
 	isNewlyCreatedJob bool
 }
@@ -78,7 +76,6 @@ func NewDelegate(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
 	fetcherFactoryFn compute.FetcherFactory,
-	wasmModuleFactory host.WasmModuleFactoryFn,
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -95,7 +92,6 @@ func NewDelegate(
 		peerWrapper:             peerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
 		computeFetcherFactoryFn: fetcherFactoryFn,
-		wasmModuleFactory:       wasmModuleFactory,
 	}
 }
 
@@ -274,7 +270,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, errors.New("config is empty")
 		}
 
-		computeSrvc, err := compute.NewAction(cfg, log, d.registry, fetcherFactoryFn, d.wasmModuleFactory)
+		computeSrvc, err := compute.NewAction(cfg, log, d.registry, fetcherFactoryFn)
 		if err != nil {
 			return nil, err
 		}

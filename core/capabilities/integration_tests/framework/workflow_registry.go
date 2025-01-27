@@ -37,7 +37,6 @@ func (r *WorkflowRegistry) UpdateAllowedDons(donIDs []uint32) {
 
 func (r *WorkflowRegistry) RegisterWorkflow(input Workflow, donID uint32) {
 	registerWorkflow(r.t, r.backend, r.contract, input, donID)
-
 }
 
 func updateAuthorizedAddress(

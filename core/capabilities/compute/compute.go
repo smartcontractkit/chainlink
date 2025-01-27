@@ -94,8 +94,7 @@ type Compute struct {
 	// of a request.
 	transformer *transformer
 
-	fetcherFactory    FetcherFactory
-	wasmModuleFactory host.WasmModuleFactoryFn
+	fetcherFactory FetcherFactory
 
 	numWorkers int
 	queue      chan request
@@ -192,8 +191,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 
 	cfg.Fetch = c.fetcherFactory.NewFetcher(c.log, c.emitter)
 
-	// TODO - here also use the module factory
-	mod, err := host.NewModule(cfg, binary, c.wasmModuleFactory)
+	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
 	}
@@ -309,7 +307,6 @@ func NewOutgoingConnectorFetcherFactory(
 	outgoingConnectorHandler *webapi.OutgoingConnectorHandler,
 	idGenerator func() string,
 ) (FetcherFactory, error) {
-
 	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
@@ -426,31 +423,23 @@ func NewAction(
 	log logger.Logger,
 	registry coretypes.CapabilitiesRegistry,
 	fetcherFactory FetcherFactory,
-	wasmModuleFactory host.WasmModuleFactoryFn,
 	opts ...func(*Compute),
 ) (*Compute, error) {
 	config.ApplyDefaults()
-	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
-	}
+
 	var (
 		lggr    = logger.Named(log, "CustomCompute")
 		labeler = custmsg.NewLabeler()
 		compute = &Compute{
-			stopCh:                   make(services.StopChan),
-			log:                      lggr,
-			emitter:                  labeler,
-			metrics:                  metricsLabeler,
-			registry:                 registry,
-			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-			transformer:              NewTransformer(lggr, labeler, config),
-			fetcherFactory:    fetcherFactory,
-			outgoingConnectorHandler: handler,
-			idGenerator:              idGenerator,
-			queue:                    make(chan request),
-			numWorkers:               config.NumWorkers,
-			wasmModuleFactory: wasmModuleFactory,
+			stopCh:         make(services.StopChan),
+			log:            lggr,
+			emitter:        labeler,
+			registry:       registry,
+			modules:        newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:    NewTransformer(lggr, labeler, config),
+			fetcherFactory: fetcherFactory,
+			queue:          make(chan request),
+			numWorkers:     config.NumWorkers,
 		}
 	)
 

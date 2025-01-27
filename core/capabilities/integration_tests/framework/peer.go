@@ -164,7 +164,6 @@ func (t p2pPeer) Receive() <-chan p2ptypes.Message {
 }
 
 func NewPeerID(donName string, nodeOrdinal int) string {
-
 	privKeyString := fmt.Sprintf("privatekey:%s:%d", donName, nodeOrdinal)
 	privKey := sha256.Sum256([]byte(privKeyString))
 	peerID := append(libp2pMagic(), privKey[:]...)

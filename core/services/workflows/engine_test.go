@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bytecodealliance/wasmtime-go/v28"
 	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -1587,7 +1586,9 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute, err := compute.NewAction(cfg, log, reg, compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn), wasmtime.NewModule)
+	fetcher, err := compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn)
+	require.NoError(t, err)
+	compute, err := compute.NewAction(cfg, log, reg, fetcher)
 	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
@@ -1601,7 +1602,6 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
-		wasmtime.NewModule,
 		nil, // config
 	)
 	require.NoError(t, err)
@@ -1654,7 +1654,9 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
-	compute, err := compute.NewAction(cfg, log, reg, compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn), wasmtime.NewModule)
+	fetcher, err := compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn)
+	require.NoError(t, err)
+	compute, err := compute.NewAction(cfg, log, reg, fetcher)
 	require.NoError(t, err)
 	require.NoError(t, compute.Start(ctx))
 	defer compute.Close()
@@ -1668,7 +1670,6 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 		ctx,
 		&host.ModuleConfig{Logger: log},
 		binaryB,
-		wasmtime.NewModule,
 		nil, // config
 	)
 	require.NoError(t, err)

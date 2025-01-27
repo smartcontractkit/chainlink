@@ -71,7 +71,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Sug
 func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
 	writeTargetDon := framework.NewDON(ctx, t, lggr, targetDonInfo,
 		[]commoncap.DON{}, donContext, false, 1*time.Second)
-	_, err := writeTargetDon.AddEthereumWriteTargetNonStandardCapability(forwarderAddr)
+	_, err := writeTargetDon.AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr)
 	require.NoError(t, err)
 	writeTargetDon.Initialise()
 	return writeTargetDon
