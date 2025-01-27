@@ -213,9 +213,12 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
-						AppConfig: cfg,
-						MailMon:   &mailbox.Monitor{},
-						DS:        db,
+						AppConfig:      cfg,
+						DatabaseConfig: cfg.Database(),
+						ListenerConfig: cfg.Database().Listener(),
+						FeatureConfig:  cfg.Feature(),
+						MailMon:        &mailbox.Monitor{},
+						DS:             db,
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -286,7 +289,10 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
-						AppConfig: cfg,
+						AppConfig:      cfg,
+						DatabaseConfig: cfg.Database(),
+						ListenerConfig: cfg.Database().Listener(),
+						FeatureConfig:  cfg.Feature(),
 
 						MailMon: &mailbox.Monitor{},
 						DS:      db,

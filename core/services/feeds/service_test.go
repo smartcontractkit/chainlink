@@ -225,8 +225,15 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
 	keyStore := new(ksmocks.Master)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
-		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  gcfg,
+		DatabaseConfig: gcfg.Database(),
+		FeatureConfig:  gcfg.Feature(),
+		ListenerConfig: gcfg.Database().Listener(),
+		DB:             db,
+		HeadTracker:    headtracker.NullTracker,
+		KeyStore:       ethKeyStore,
+	})
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)

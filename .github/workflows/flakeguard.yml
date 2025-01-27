@@ -251,42 +251,43 @@ jobs:
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
+
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
+
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
           restore-build-cache-only: "true"
+
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+
       - name: Build Solana artifacts
         uses: ./.github/actions/setup-solana/build-contracts
+
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
+
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
+
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
       - name: Download Go vendor packages
         run: go mod download
+
       - name: Build binary
         run: go build -o chainlink.test .
+
       - name: Setup DB
         run: ./chainlink.test local db preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}        
+
       - name: Install LOOP Plugins
-        run: |
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
-          go install ./cmd/chainlink-feeds
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
-          go install ./mercury/cmd/chainlink-mercury
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
-          go install ./pkg/solana/cmd/chainlink-solana
-          popd
-          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
-          go install ./pkg/chainlink/cmd/chainlink-starknet
-          popd
+        run: make install-plugins
 
       - name: Go mod tidy
         shell: bash

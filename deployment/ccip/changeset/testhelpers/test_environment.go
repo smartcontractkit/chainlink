@@ -66,6 +66,7 @@ type TestConfigs struct {
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
+	BlockTime                  time.Duration
 
 	// Test env related configs
 
@@ -116,6 +117,7 @@ func DefaultTestConfigs() *TestConfigs {
 		LinkPrice:             changeset.MockLinkPrice,
 		WethPrice:             changeset.MockWethPrice,
 		CreateJobAndContracts: true,
+		BlockTime:             2 * time.Second,
 	}
 }
 
@@ -130,6 +132,12 @@ func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
 func WithExtraConfigTomls(extraTomls []string) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.ExtraConfigTomls = extraTomls
+	}
+}
+
+func WithBlockTime(blockTime time.Duration) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.BlockTime = blockTime
 	}
 }
 
@@ -346,6 +354,39 @@ func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttest
 	return endpoint
 }
 
+// mineBlocks forces the simulated backend to produce a new block every X seconds
+// NOTE: based on implementation in cltest/simulated_backend.go
+func mineBlocks(backend *memory.Backend, blockTime time.Duration) (stopMining func()) {
+	timer := time.NewTicker(blockTime)
+	chStop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-timer.C:
+				backend.Commit()
+			case <-chStop:
+				return
+			}
+		}
+	}()
+	return func() {
+		close(chStop)
+		timer.Stop()
+		<-done
+	}
+}
+
+func (m *MemoryEnvironment) MineBlocks(t *testing.T, blockTime time.Duration) {
+	for _, chain := range m.Chains {
+		if backend, ok := chain.Client.(*memory.Backend); ok {
+			stopMining := mineBlocks(backend, blockTime)
+			t.Cleanup(stopMining)
+		}
+	}
+}
+
 // NewMemoryEnvironment creates an in-memory environment based on the testconfig requested
 func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvironment) {
 	testCfg := DefaultTestConfigs()
@@ -356,23 +397,21 @@ func NewMemoryEnvironment(t *testing.T, opts ...TestOps) (DeployedEnv, TestEnvir
 	env := &MemoryEnvironment{
 		TestConfig: testCfg,
 	}
-	if testCfg.PrerequisiteDeploymentOnly {
-		dEnv := NewEnvironmentWithPrerequisitesContracts(t, env)
-		env.UpdateDeployedEnvironment(dEnv)
-		return dEnv, env
+	var dEnv DeployedEnv
+	switch {
+	case testCfg.PrerequisiteDeploymentOnly:
+		dEnv = NewEnvironmentWithPrerequisitesContracts(t, env)
+	case testCfg.CreateJobAndContracts:
+		dEnv = NewEnvironmentWithJobsAndContracts(t, env)
+	case testCfg.CreateJob:
+		dEnv = NewEnvironmentWithJobs(t, env)
+	default:
+		dEnv = NewEnvironment(t, env)
 	}
-	if testCfg.CreateJobAndContracts {
-		dEnv := NewEnvironmentWithJobsAndContracts(t, env)
-		env.UpdateDeployedEnvironment(dEnv)
-		return dEnv, env
-	}
-	if testCfg.CreateJob {
-		dEnv := NewEnvironmentWithJobs(t, env)
-		env.UpdateDeployedEnvironment(dEnv)
-		return dEnv, env
-	}
-	dEnv := NewEnvironment(t, env)
 	env.UpdateDeployedEnvironment(dEnv)
+	if testCfg.BlockTime > 0 {
+		env.MineBlocks(t, testCfg.BlockTime)
+	}
 	return dEnv, env
 }
 

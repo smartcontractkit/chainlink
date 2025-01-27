@@ -204,7 +204,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	// expect the commit to still go through on the non-reorged source chain.
 	testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[reorgSourceSelector],
+		reorgSourceSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil, // startBlock
@@ -308,7 +308,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	// expect the commit to still go through for the message.
 	reportEvent, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceSelector],
+		sourceSelector,
 		e.Env.Chains[destSelector],
 		state.Chains[destSelector].OffRamp,
 		nil, // startBlock
@@ -354,7 +354,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	// commit should be re-submitted after the re-org
 	reportEvent, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceSelector],
+		sourceSelector,
 		e.Env.Chains[destSelector],
 		state.Chains[destSelector].OffRamp,
 		nil, // startBlock
@@ -527,7 +527,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	// expect the commit to still go through on the non-reorged source chain.
 	testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[noreorgSourceSelector],
+		noreorgSourceSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil, // startBlock

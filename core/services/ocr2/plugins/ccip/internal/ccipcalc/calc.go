@@ -1,10 +1,17 @@
 package ccipcalc
 
 import (
+	"math"
 	"math/big"
 	"sort"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+const (
+	// CurveBasedDeviationPPB is the deviation threshold when writing to ethereum's PriceRegistry and is the trigger for
+	// using curve-based deviation logic.
+	CurveBasedDeviationPPB = 4e9
 )
 
 // ContiguousReqs checks if seqNrs contains all numbers from min to max.
@@ -62,6 +69,51 @@ func Deviates(x1, x2 *big.Int, ppb int64) bool {
 		diff.Div(diff, x1)
 	}
 	return diff.CmpAbs(big.NewInt(ppb)) > 0 // abs(diff) > ppb
+}
+
+// DeviatesOnCurve calculates a deviation threshold on the fly using xNew. For now it's only used for gas price
+// deviation calculation. It's important to make sure the order of xNew and xOld is correct when passed into this
+// function to get an accurate deviation threshold.
+func DeviatesOnCurve(xNew, xOld, noDeviationLowerBound *big.Int, ppb int64) bool {
+	// This is a temporary gating mechanism that ensures we only apply the gas curve deviation logic to eth-bound price
+	// updates. If ppb from config is not equal to 4000000000, do not apply the gas curve.
+	if ppb != CurveBasedDeviationPPB {
+		return Deviates(xOld, xNew, ppb)
+	}
+
+	// If xNew < noDeviationLowerBound, Deviates should never be true
+	if xNew.Cmp(noDeviationLowerBound) < 0 {
+		return false
+	}
+
+	xNewFloat := new(big.Float).SetInt(xNew)
+	xNewFloat64, _ := xNewFloat.Float64()
+
+	// We use xNew to generate the threshold so that when going from cheap --> expensive, xNew generates a smaller
+	// deviation threshold so we are more likely to update the gas price on chain. When going from expensive --> cheap,
+	// xNew generates a larger deviation threshold since it's not as urgent to update the gas price on chain.
+	curveThresholdPPB := calculateCurveThresholdPPB(xNewFloat64)
+	return Deviates(xNew, xOld, curveThresholdPPB)
+}
+
+// calculateCurveThresholdPPB calculates the deviation threshold percentage with x using the formula:
+// y = (10e11) / (x^0.665). This sliding scale curve was created by collecting several thousands of historical
+// PriceRegistry gas price update samples from chains with volatile gas prices like Zircuit and Mode and then using that
+// historical data to define thresholds of gas deviations that were acceptable given their USD value. The gas prices
+// (X coordinates) and these new thresholds (Y coordinates) were used to fit this sliding scale curve that returns large
+// thresholds at low gas prices and smaller thresholds at higher gas prices. Constructing the curve in USD terms allows
+// us to more easily reason about these thresholds and also better translates to non-evm chains. For example, when the
+// per unit gas price is 0.000006 USD, (6e12 USDgwei), the curve will output a threshold of around 3,000%. However, when
+// the per unit gas price is 0.005 USD (5e15 USDgwei), the curve will output a threshold of only ~30%.
+func calculateCurveThresholdPPB(x float64) int64 {
+	const constantFactor = 10e11
+	const exponent = 0.665
+	xPower := math.Pow(x, exponent)
+	threshold := constantFactor / xPower
+
+	// Convert curve output percentage to PPB
+	thresholdPPB := int64(threshold * 1e7)
+	return thresholdPPB
 }
 
 func MergeEpochAndRound(epoch uint32, round uint8) uint64 {
