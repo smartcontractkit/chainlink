@@ -162,8 +162,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 			testCodec, err := codec.NewCodec(codecConfig)
 			require.NoError(t, err)
-			bc := read.NewDynamicLimitedBatchCaller(
-        .Test(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+			bc := read.NewDynamicLimitedBatchCaller(logger.Test(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
 
 			// make the call and make sure the results are there
 			results, err := bc.BatchCall(ctx, 0, calls)
