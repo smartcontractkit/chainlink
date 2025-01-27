@@ -78,16 +78,40 @@ func Test_decodeExtraArgs(t *testing.T) {
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		key, err := solana.NewRandomPrivateKey()
 		require.NoError(t, err)
-		decoded, err := d.contract.DecodeSVMExtraArgsV1(nil, 10000, 4, false, [32]byte(key.PublicKey().Bytes()), [][32]byte{
-			[32]byte(key.PublicKey().Bytes()),
-		})
+		cu := uint32(10000)
+		bitmap := uint64(4)
+		ooe := false
+		tokenReceiver := [32]byte(key.PublicKey().Bytes())
+		accounts := [][32]byte{[32]byte(key.PublicKey().Bytes())}
+		decoded, err := d.contract.DecodeSVMExtraArgsV1(nil, cu, bitmap, ooe, tokenReceiver, accounts)
 		if err != nil {
 			return
 		}
 		encoded, err := d.contract.EncodeSVMExtraArgsV1(nil, decoded)
 		require.NoError(t, err)
 
-		_, err = DecodeExtraArgsToMap(encoded)
+		m, err := DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
+		require.Len(t, m, 5)
+
+		cuDecoded, exist := m["computeUnits"]
+		require.True(t, exist)
+		require.Equal(t, cuDecoded, cu)
+
+		bitmapDecoded, exist := m["accountIsWritableBitmap"]
+		require.True(t, exist)
+		require.Equal(t, bitmapDecoded, bitmap)
+
+		ooeDecoded, exist := m["allowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, ooeDecoded, ooe)
+
+		tokenReceiverDecoded, exist := m["tokenReceiver"]
+		require.True(t, exist)
+		require.Equal(t, tokenReceiverDecoded, tokenReceiver)
+
+		accountsDecoded, exist := m["accounts"]
+		require.True(t, exist)
+		require.Equal(t, accountsDecoded, accounts)
 	})
 }
