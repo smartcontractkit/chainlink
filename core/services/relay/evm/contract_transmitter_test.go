@@ -52,6 +52,7 @@ func (*mockTransmitter) FromAddress(ctx context.Context) gethcommon.Address { re
 
 func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
+	
 	lggr := logger.Test(t)
 	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
