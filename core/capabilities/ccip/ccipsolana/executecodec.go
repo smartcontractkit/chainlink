@@ -9,8 +9,6 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -59,28 +57,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(chainReport.SourceChainSelector))
-		if err != nil {
-			return nil, fmt.Errorf("invalid source chain selector: %w", err)
-		}
-
-		// if source chain is Solana the Borsh decoder will be used, for EVM we will construct the extra args from
-		// the chain agnostic extra args map
 		var extraArgs ccip_router.SVMExtraArgs
-		switch sourceChainFamily {
-		case chainsel.FamilySolana:
-			decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
-			err = extraArgs.UnmarshalWithDecoder(decoder)
-			if err != nil {
-				return nil, fmt.Errorf("invalid extra arguments: %w", err)
-			}
-		case chainsel.FamilyEVM:
-			extraArgs, err = parseExtraArgsMap(msg.ExtraArgsDecoded)
-			if err != nil {
-				return nil, fmt.Errorf("invalid extra args map: %w", err)
-			}
-		default:
-			return nil, fmt.Errorf("unsupported source chain sourceChainFamily: %s", sourceChainFamily)
+		extraArgs, err := parseExtraArgsMap(msg.ExtraArgsDecoded)
+		if err != nil {
+			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
 
 		if len(msg.Receiver) != solana.PublicKeyLength {
