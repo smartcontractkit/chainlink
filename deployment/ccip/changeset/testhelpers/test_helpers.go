@@ -482,41 +482,71 @@ func AddLane(
 	require.NoError(t, err)
 }
 
+// UpdateLane updates the lane to enable or disable between the source and destination chains.
+// It applies a series of changesets to update the router ramps, on-ramp destinations, and off-ramp sources.
+//
+// Parameters:
+//   - t: The testing object.
+//   - e: The deployed environment.
+//   - src: The source chain selector.
+//   - dest: The destination chain selector.
+//   - isTestRouter: Boolean flag indicating if the test router is used.
+//   - isEnabled: Boolean flag indicating if the lane is enabled.
 func UpdateLane(
 	t *testing.T,
 	e *DeployedEnv,
-	from, to uint64,
+	src, dest uint64,
 	isTestRouter, isEnabled bool,
 ) {
 	var err error
-	var apps []commoncs.ChangesetApplication
-	apps = append(apps, commoncs.ChangesetApplication{
-		Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-		Config: changeset.UpdateOnRampDestsConfig{
-			UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
-				from: {
-					to: {
-						IsEnabled:        isEnabled,
-						TestRouter:       isTestRouter,
-						AllowListEnabled: false,
+	apps := []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+					// onRamp update on source chain
+					src: {
+						OnRampUpdates: map[uint64]bool{
+							dest: isEnabled,
+						},
+					},
+					// offramp update on dest chain
+					src: {
+						OffRampUpdates: map[uint64]bool{
+							dest: isEnabled,
+						},
 					},
 				},
 			},
 		},
-	})
-	apps = append(apps, commoncs.ChangesetApplication{
-		Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-		Config: changeset.UpdateOffRampSourcesConfig{
-			UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-				to: {
-					from: {
-						IsEnabled:  isEnabled,
-						TestRouter: isTestRouter,
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+					src: {
+						dest: {
+							IsEnabled:        isEnabled,
+							TestRouter:       isTestRouter,
+							AllowListEnabled: false,
+						},
 					},
 				},
 			},
 		},
-	})
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+			Config: changeset.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+					dest: {
+						src: {
+							IsEnabled:  isEnabled,
+							TestRouter: isTestRouter,
+						},
+					},
+				},
+			},
+		},
+	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
 }
