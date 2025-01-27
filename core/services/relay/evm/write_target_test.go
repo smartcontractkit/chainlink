@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -143,7 +143,7 @@ func TestEvmWrite(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	cRegistry := evmcapabilities.NewRegistry(lggr)
 	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
@@ -224,7 +224,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails with invalid config", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.Test(t))
 		require.NoError(t, err)
 
 		invalidConfig, err := values.NewMap(map[string]any{
@@ -244,7 +244,7 @@ func TestEvmWrite(t *testing.T) {
 
 	t.Run("fails when TXM CreateTransaction returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.TestLogger(t))
+		capability, err := evm.NewWriteTarget(ctx, relayer, chain, gasLimitDefault, logger.Test(t))
 		require.NoError(t, err)
 
 		req := capabilities.CapabilityRequest{
