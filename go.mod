@@ -128,8 +128,6 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
-require github.com/XSAM/otelsql v0.29.0 // indirect
-
 require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 
 require (
@@ -154,6 +152,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/XSAM/otelsql v0.29.0 // indirect
 	github.com/apache/arrow-go/v18 v18.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
