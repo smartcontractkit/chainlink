@@ -490,6 +490,9 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 		txOps := e.Chains[srcSel].DeployerKey
 		//nolint:fatcontext // context is stored outside the loop
 		txOps.Context = ctx
+		if cfg.MCMS != nil {
+			txOps = deployment.SimTransactOpts()
+		}
 		onRamp := onchain.Chains[srcSel].OnRamp
 		args := make([]onramp.OnRampAllowlistConfigArgs, len(updates))
 		for destSel, update := range updates {
