@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
@@ -192,22 +193,23 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 
 	// Iterate through the expected fields in the struct
 	for fieldName, fieldValue := range input {
-		switch fieldName {
-		case "ComputeUnits":
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "computeunits":
 			// Expect uint32
 			if v, ok := fieldValue.(uint32); ok {
 				out.ComputeUnits = v
 			} else {
 				return out, errors.New("invalid type for ComputeUnits, expected uint32")
 			}
-		case "IsWritableBitmap":
+		case "iswritablebitmap":
 			// Expect uint64
 			if v, ok := fieldValue.(uint64); ok {
 				out.IsWritableBitmap = v
 			} else {
 				return out, errors.New("invalid type for IsWritableBitmap, expected uint64")
 			}
-		case "Accounts":
+		case "accounts":
 			// Expect [][32]byte
 			if v, ok := fieldValue.([][32]byte); ok {
 				accounts := make([]solana.PublicKey, len(v))
