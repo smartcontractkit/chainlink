@@ -1,0 +1,13 @@
+[NodeConfig.ChainConfigTOMLByChainID]
+# Chain-specific EVMNode config TOML for chainlink nodes; applicable to all EVM node configs in chainlink TOML. It takes precedence
+# over CommonChainConfigTOML and Chainlink Node's defaults. Passing blockchain nodes URLs here will have no effect.
+#! FinalityDepth overridden to 10.
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 10
+MinContractPayment = 0
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""

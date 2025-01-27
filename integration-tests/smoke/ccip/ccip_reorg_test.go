@@ -8,9 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -25,6 +28,188 @@ import (
 )
 
 func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
+	require.Equal(
+		t,
+		os.Getenv(testhelpers.ENVTESTTYPE),
+		string(testhelpers.Docker),
+		"Reorg tests are only supported in docker environments",
+	)
+
+	l := logging.GetTestLogger(t)
+
+	// This test sends a ccip message and re-orgs the chain
+	// prior to the message block being finalized.
+	e, _, tEnv := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithLogMessagesToIgnore([]testhelpers.LogMessageToIgnore{
+			{
+				Msg:    "Got very old block.",
+				Reason: "We are expecting a re-org beyond finality",
+				Level:  zapcore.DPanicLevel,
+			},
+			{
+				Msg:    "Reorg greater than finality depth detected",
+				Reason: "We are expecting a re-org beyond finality",
+				Level:  zapcore.DPanicLevel,
+			},
+			{
+				Msg:    "Failed to poll and save logs due to finality violation, retrying later",
+				Reason: "We are expecting a re-org beyond finality",
+				Level:  zapcore.DPanicLevel,
+			},
+		}),
+		testhelpers.WithExtraConfigTomls([]string{
+			"ccipv1_6_reorg_below_finality.toml",
+		}),
+	)
+
+	nodeInfos, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+
+	var nonBootstrapP2PIDs = make([]string, 0, len(nodeInfos.NonBootstraps()))
+	for _, n := range nodeInfos.NonBootstraps() {
+		nonBootstrapP2PIDs = append(nonBootstrapP2PIDs, strings.TrimPrefix(n.PeerID.String(), "p2p_"))
+	}
+
+	l.Info().Msgf("nonBootstrapP2PIDs: %s", nonBootstrapP2PIDs)
+
+	state, err := ccipcs.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChains := e.Env.AllChainSelectors()
+	require.GreaterOrEqual(t, len(allChains), 2)
+	reorgSourceSelector := allChains[0]
+	reorgSourceChain, ok := chainsel.ChainBySelector(reorgSourceSelector)
+	require.True(t, ok)
+	reorgLogPollerService := fmt.Sprintf("EVM.%d.LogPoller", reorgSourceChain.EvmChainID)
+	l.Info().
+		Msgf("reorging log poller service name: %s", reorgLogPollerService)
+	destChainSelector := allChains[1]
+
+	dockerEnv, ok := tEnv.(*testsetups.DeployedLocalDevEnvironment)
+	require.True(t, ok)
+
+	chainSelToRPCURL := make(map[uint64]string)
+	for _, chain := range dockerEnv.GetDevEnvConfig().Chains {
+		require.GreaterOrEqual(t, len(chain.HTTPRPCs), 1)
+		details, err := chainsel.GetChainDetailsByChainIDAndFamily(fmt.Sprintf("%d", chain.ChainID), chainsel.FamilyEVM)
+		require.NoError(t, err)
+
+		chainSelToRPCURL[details.ChainSelector] = chain.HTTPRPCs[0].Internal
+	}
+
+	reorgSourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[reorgSourceSelector], nil)
+
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, reorgSourceSelector, destChainSelector, false)
+
+	// wait for log poller filters to get registered.
+	l.Info().Msg("waiting for log poller filters to get registered")
+	time.Sleep(15 * time.Second)
+	reorgingMsgEvent := testhelpers.TestSendRequest(t, e.Env, state, reorgSourceSelector, destChainSelector, false, router.ClientEVM2AnyMessage{
+		Receiver:     common.LeftPadBytes(state.Chains[destChainSelector].Receiver.Address().Bytes(), 32),
+		Data:         []byte("hello world"),
+		TokenAmounts: nil,
+		FeeToken:     common.HexToAddress("0x0"),
+		ExtraArgs:    nil,
+	})
+	l.Info().Msgf("sent CCIP message that will get re-orged before getting finalized, msg id: %x, block num: %d, block hash: %x",
+		reorgingMsgEvent.Message.Header.MessageId,
+		reorgingMsgEvent.Raw.BlockNumber,
+		reorgingMsgEvent.Raw.BlockHash,
+	)
+
+	const reorgDepth = 5
+	var minChainBlockNumberBeforeReorg = reorgingMsgEvent.Raw.BlockNumber + reorgDepth
+	// let reorgDepth blocks pass by before re-orging the message so it doesn't get "lost".
+	// Wait for chain to progress
+	require.Eventually(t, func() bool {
+		bn, err := reorgSourceClient.BlockNumber()
+		require.NoError(t, err)
+		l.Info().
+			Int64("blockNumber", bn).
+			Uint64("targetBlockNumber", minChainBlockNumberBeforeReorg).
+			Msg("Waiting for chain to progress above target block number")
+		return bn >= int64(minChainBlockNumberBeforeReorg)
+	}, 1*time.Minute, 500*time.Millisecond, "timeout exceeded: chain did not progress above the target block number")
+
+	// Run reorg below finality depth
+	l.Info().
+		Uint64("messageBlockNumber", reorgingMsgEvent.Raw.BlockNumber).
+		Int("reorgDepth", reorgDepth).
+		Uint64("sourceChainSelector", reorgSourceSelector).
+		Msg("starting blockchain reorg on Simulated Geth chain")
+	err = reorgSourceClient.GethSetHead(reorgDepth)
+	require.NoError(t, err, "error starting blockchain reorg on Simulated Geth chain")
+
+	bnAfterReorg, err := reorgSourceClient.BlockNumber()
+	require.NoError(t, err, "error getting block number after reorg")
+
+	l.Info().Int64("blockNumberAfterReorg", bnAfterReorg).Msg("block number after reorg")
+
+	// assert that the message is still in the chain
+	it, err := state.Chains[reorgSourceSelector].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+		Start:   0,
+		Context: tests.Context(t),
+	}, []uint64{destChainSelector}, []uint64{reorgingMsgEvent.Message.Header.SequenceNumber})
+	require.NoError(t, err)
+	require.True(t, it.Next(), "message not found in the chain")
+	require.Equal(t, reorgingMsgEvent.Message.Header.MessageId, it.Event.Message.Header.MessageId)
+	l.
+		Info().
+		Str("blockHashAfterReorg", it.Event.Raw.BlockHash.String()).
+		Str("blockHashBeforeReorg", reorgingMsgEvent.Raw.BlockHash.String()).
+		Msg("message blockhash after re-org")
+
+	nodeAPIs := dockerEnv.GetCLClusterTestEnv().ClCluster.NodeAPIs()
+	nonBootstrapCount := len(nodeAPIs) - 1
+	l.Info().Msgf("waiting for %d non-bootstrap nodes to NOT report finality violation on the logpoller, since re-org is less than finality", nonBootstrapCount)
+	gomega.NewWithT(t).Consistently(func() bool {
+		violatedResponses := make(map[string]struct{})
+		for _, node := range nodeAPIs {
+			// skip bootstrap nodes, they won't have any logpoller filters
+			p2pKeys, err := node.MustReadP2PKeys()
+			require.NoError(t, err)
+
+			require.GreaterOrEqual(t, len(p2pKeys.Data), 1)
+			if !slices.Contains(nonBootstrapP2PIDs, p2pKeys.Data[0].Attributes.PeerID) {
+				continue
+			}
+
+			resp, _, err := node.Health()
+			require.NoError(t, err)
+			for _, d := range resp.Data {
+				if d.Attributes.Name == reorgLogPollerService &&
+					d.Attributes.Output == "finality violated" &&
+					d.Attributes.Status == "failing" {
+					violatedResponses[p2pKeys.Data[0].Attributes.PeerID] = struct{}{}
+					break
+				}
+			}
+
+			if _, ok := violatedResponses[p2pKeys.Data[0].Attributes.PeerID]; ok {
+				l.Info().Msgf("node %s reported finality violation", p2pKeys.Data[0].Attributes.PeerID)
+			} else {
+				l.Info().Msgf("node %s did not report finality violation, log poller response: %+v",
+					p2pKeys.Data[0].Attributes.PeerID,
+					getLogPollerHealth(reorgLogPollerService, resp.Data),
+				)
+			}
+		}
+
+		l.Info().Msgf("%d nodes reported finality violation", len(violatedResponses))
+		return len(violatedResponses) == 0
+	}, time.Minute, 10*time.Second).Should(gomega.BeTrue())
+
+	// expect the commit to still go through on the non-reorged source chain.
+	testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+		t,
+		e.Env.Chains[reorgSourceSelector],
+		e.Env.Chains[destChainSelector],
+		state.Chains[destChainSelector].OffRamp,
+		nil, // startBlock
+		ccipocr3.NewSeqNumRange(1, 1),
+		false, // enforceSingleCommit
+	)
 }
 
 func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {

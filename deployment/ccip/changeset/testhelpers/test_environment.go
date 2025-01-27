@@ -74,6 +74,10 @@ type TestConfigs struct {
 	// In some tests we don't want this to happen where a failure is expected, e.g
 	// we are purposely re-orging beyond finality.
 	LogMessagesToIgnore []LogMessageToIgnore
+
+	// ExtraConfigTomls contains the filenames of additional toml files to be loaded
+	// to potentially override default configs.
+	ExtraConfigTomls []string
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -120,6 +124,12 @@ type TestOps func(testCfg *TestConfigs)
 func WithLogMessagesToIgnore(logMessages []LogMessageToIgnore) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.LogMessagesToIgnore = logMessages
+	}
+}
+
+func WithExtraConfigTomls(extraTomls []string) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.ExtraConfigTomls = extraTomls
 	}
 }
 

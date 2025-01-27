@@ -340,7 +340,9 @@ func CreateDockerEnv(t *testing.T, v1_6TestConfig *testhelpers.TestConfigs) (
 		require.NoError(t, gotenv.Load(".env"), "Error loading .env file")
 	}
 
-	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP)
+	t.Logf("extra config tomls: %+v", v1_6TestConfig.ExtraConfigTomls)
+
+	cfg, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.CCIP, v1_6TestConfig.ExtraConfigTomls...)
 	require.NoError(t, err, "Error getting config")
 
 	evmNetworks := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())
