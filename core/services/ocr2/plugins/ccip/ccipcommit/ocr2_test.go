@@ -27,9 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestCommitReportingPlugin_Observation(t *testing.T) {
@@ -1910,9 +1911,9 @@ func Test_calculateIntervalConsensus(t *testing.T) {
 		}, 0, 1, 0, 0, true},
 		{
 			"range limit", []cciptypes.CommitStoreInterval{
-				{Min: 10, Max: 100},
-				{Min: 1, Max: 1000},
-			}, 256, 1, 10, 265, false,
+			{Min: 10, Max: 100},
+			{Min: 1, Max: 1000},
+		}, 256, 1, 10, 265, false,
 		},
 	}
 	for _, tt := range tests {

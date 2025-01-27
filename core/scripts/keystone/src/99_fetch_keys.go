@@ -10,9 +10,9 @@ import (
 	"github.com/urfave/cli"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 // NodeSet represents a set of nodes with associated metadata.

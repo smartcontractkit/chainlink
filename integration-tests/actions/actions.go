@@ -46,7 +46,7 @@ import (
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"

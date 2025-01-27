@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
@@ -53,7 +52,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			capabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}

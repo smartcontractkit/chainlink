@@ -52,7 +52,7 @@ func newShouldRetireCache(lggr logger.Logger, lp LogPoller, addr common.Address,
 		logpoller.NewAddressFilter(addr),
 		logpoller.NewEventSigFilter(PromoteStagingConfig),
 		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-			{Value: donIDTopic, Operator: primitives.Eq},
+			{Values: []common.Hash{donIDTopic}, Operator: primitives.Eq},
 		}),
 		// NOTE: Optimize for fast retirement detection. On Arbitrum,
 		// finalization can take tens of minutes

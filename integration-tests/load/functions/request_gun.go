@@ -20,8 +20,8 @@ type SingleFunctionCallGun struct {
 	slotID         uint8
 	slotVersion    uint64
 	args           []string
-	subscriptionId uint64
-	jobId          [32]byte
+	subscriptionID uint64
+	jobID          [32]byte
 }
 
 func NewSingleFunctionCallGun(
@@ -32,8 +32,8 @@ func NewSingleFunctionCallGun(
 	slotID uint8,
 	slotVersion uint64,
 	args []string,
-	subscriptionId uint64,
-	jobId [32]byte,
+	subscriptionID uint64,
+	jobID [32]byte,
 ) *SingleFunctionCallGun {
 	return &SingleFunctionCallGun{
 		ft:             ft,
@@ -43,8 +43,8 @@ func NewSingleFunctionCallGun(
 		slotID:         slotID,
 		slotVersion:    slotVersion,
 		args:           args,
-		subscriptionId: subscriptionId,
-		jobId:          jobId,
+		subscriptionID: subscriptionID,
+		jobID:          jobID,
 	}
 }
 
@@ -55,8 +55,8 @@ func (m *SingleFunctionCallGun) callReal() *wasp.Response {
 		m.slotID,
 		m.slotVersion,
 		m.args,
-		m.subscriptionId,
-		m.jobId,
+		m.subscriptionID,
+		m.jobID,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
@@ -71,8 +71,8 @@ func (m *SingleFunctionCallGun) callWithSecrets() *wasp.Response {
 		m.slotID,
 		m.slotVersion,
 		m.args,
-		m.subscriptionId,
-		m.jobId,
+		m.subscriptionID,
+		m.jobID,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
@@ -80,14 +80,14 @@ func (m *SingleFunctionCallGun) callWithSecrets() *wasp.Response {
 	return &wasp.Response{}
 }
 
-func (m *SingleFunctionCallGun) callWithHttp() *wasp.Response {
+func (m *SingleFunctionCallGun) callWithHTTP() *wasp.Response {
 	err := m.ft.LoadTestClient.SendRequest(
 		m.times,
 		m.source,
 		[]byte{},
 		m.args,
-		m.subscriptionId,
-		m.jobId,
+		m.subscriptionID,
+		m.jobID,
 	)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Failed: true}
@@ -101,7 +101,7 @@ func (m *SingleFunctionCallGun) Call(_ *wasp.Generator) *wasp.Response {
 	case ModeSecretsOnlyPayload:
 		return m.callWithSecrets()
 	case ModeHTTPPayload:
-		return m.callWithHttp()
+		return m.callWithHTTP()
 	case ModeReal:
 		return m.callReal()
 	default:

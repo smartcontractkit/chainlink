@@ -28,12 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.ChainScopedConfig {
@@ -56,6 +56,9 @@ type TestChainOpts struct {
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
 	GeneralConfig  legacyevm.AppConfig
+	DatabaseConfig txmgr.DatabaseConfig
+	FeatureConfig  legacyevm.FeatureConfig
+	ListenerConfig txmgr.ListenerConfig
 	HeadTracker    httypes.HeadTracker
 	DB             sqlutil.DataSource
 	TxManager      txmgr.TxManager
@@ -87,10 +90,13 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		Logger:   lggr,
 		KeyStore: testopts.KeyStore,
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:    testopts.GeneralConfig,
-			MailMon:      testopts.MailMon,
-			GasEstimator: testopts.GasEstimator,
-			DS:           testopts.DB,
+			AppConfig:      testopts.GeneralConfig,
+			DatabaseConfig: testopts.DatabaseConfig,
+			ListenerConfig: testopts.ListenerConfig,
+			FeatureConfig:  testopts.FeatureConfig,
+			MailMon:        testopts.MailMon,
+			GasEstimator:   testopts.GasEstimator,
+			DS:             testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {

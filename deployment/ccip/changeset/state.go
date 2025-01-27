@@ -1,15 +1,21 @@
 package changeset
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
@@ -32,6 +38,7 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
@@ -41,7 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
@@ -79,19 +86,23 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter          deployment.ContractType = "TestRouter"
-	Multicall3          deployment.ContractType = "Multicall3"
-	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	TestRouter             deployment.ContractType = "TestRouter"
+	Multicall3             deployment.ContractType = "Multicall3"
+	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
+	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
+	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken      deployment.ContractType = "BurnMintToken"
-	ERC20Token         deployment.ContractType = "ERC20Token"
-	ERC677Token        deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool  deployment.ContractType = "BurnMintTokenPool"
-	USDCToken          deployment.ContractType = "USDCToken"
-	USDCTokenMessenger deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool      deployment.ContractType = "USDCTokenPool"
+	BurnMintToken             deployment.ContractType = "BurnMintToken"
+	ERC20Token                deployment.ContractType = "ERC20Token"
+	ERC677Token               deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                 deployment.ContractType = "USDCToken"
+	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -100,8 +111,8 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
+	OnRamp             onramp.OnRampInterface
+	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
@@ -111,11 +122,15 @@ type CCIPChainState struct {
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
-	// and the respective token contract
-	ERC20Tokens        map[TokenSymbol]*erc20.ERC20
-	ERC677Tokens       map[TokenSymbol]*erc677.ERC677
-	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
+	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
+	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
+	ERC20Tokens                map[TokenSymbol]*erc20.ERC20
+	ERC677Tokens               map[TokenSymbol]*erc677.ERC677
+	BurnMintTokens677          map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
+	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -126,7 +141,8 @@ type CCIPChainState struct {
 	RMNHome            *rmn_home.RMNHome
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
+	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
@@ -370,6 +386,9 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range s.Chains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range s.SolChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 
@@ -398,8 +417,13 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+	solState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return CCIPOnChainState{}, err
+	}
 	state := CCIPOnChainState{
-		Chains: make(map[uint64]CCIPChainState),
+		Chains:    make(map[uint64]CCIPChainState),
+		SolChains: solState.SolChains,
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -411,7 +435,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 				return state, err
 			}
 		}
-		chainState, err := LoadChainState(chain, addresses)
+		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
 			return state, err
 		}
@@ -421,7 +445,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -566,6 +590,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LogMessageDataReceiver = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -590,26 +620,33 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.USDFeeds[key] = feed
 		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
-			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			if state.BurnMintTokenPools == nil {
-				state.BurnMintTokenPools = make(map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool)
-			}
-			tokAddress, err := pool.GetToken(nil)
+			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			symbol, err := tok.Symbol(nil)
+			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
+			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
 		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {

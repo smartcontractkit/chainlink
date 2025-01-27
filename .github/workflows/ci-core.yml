@@ -240,6 +240,10 @@ jobs:
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-solana
 
+      - name: Build Solana artifacts
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        uses: ./.github/actions/setup-solana/build-contracts
+
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         uses: ./.github/actions/setup-wasmd

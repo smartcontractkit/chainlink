@@ -5,7 +5,7 @@ FinalityDepth = 1000
 LinkContractAddress = '0xDEE94506570cA186BC1e3516fCf4fd719C312cCD'
 LogPollInterval = "2s"
 NoNewHeadsThreshold = "40s"
-NoNewFinalizedHeadsThreshold = "15m"
+NoNewFinalizedHeadsThreshold = "40m"
 
 [GasEstimator]
 EIP1559DynamicFees = true

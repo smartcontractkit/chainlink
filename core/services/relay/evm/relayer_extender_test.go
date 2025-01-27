@@ -10,7 +10,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestChainRelayExtenders(t *testing.T) {
@@ -35,7 +35,14 @@ func TestChainRelayExtenders(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	opts := evmtest.NewChainOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts := evmtest.NewChainOpts(t, evmtest.TestChainOpts{
+		DB:             db,
+		KeyStore:       kst.Eth(),
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+	})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
