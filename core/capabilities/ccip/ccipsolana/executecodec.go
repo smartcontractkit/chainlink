@@ -59,7 +59,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		family, err := chainsel.GetSelectorFamily(uint64(chainReport.SourceChainSelector))
+		sourceChainFamily, err := chainsel.GetSelectorFamily(uint64(chainReport.SourceChainSelector))
 		if err != nil {
 			return nil, fmt.Errorf("invalid source chain selector: %w", err)
 		}
@@ -67,7 +67,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		// if source chain is Solana the Borsh decoder will be used, for EVM we will construct the extra args from
 		// the chain agnostic extra args map
 		var extraArgs ccip_router.SVMExtraArgs
-		switch family {
+		switch sourceChainFamily {
 		case chainsel.FamilySolana:
 			decoder := agbinary.NewBorshDecoder(msg.ExtraArgs)
 			err = extraArgs.UnmarshalWithDecoder(decoder)
@@ -80,7 +80,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid extra args map: %w", err)
 			}
 		default:
-			return nil, fmt.Errorf("unsupported source chain family: %s", family)
+			return nil, fmt.Errorf("unsupported source chain sourceChainFamily: %s", sourceChainFamily)
 		}
 
 		if len(msg.Receiver) != solana.PublicKeyLength {
