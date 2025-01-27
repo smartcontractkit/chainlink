@@ -15,13 +15,13 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -79,7 +79,7 @@ func (m *mockChainReader) LatestHeads(context.Context, int) ([]mercurytypes.Head
 
 func TestMercury_Observe(t *testing.T) {
 	orm := &mockORM{}
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ds := NewDataSource(orm, nil, job.Job{}, pipeline.Spec{}, lggr, nil, nil, nil, nil, nil, mercuryutils.FeedID{})
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
@@ -395,7 +395,7 @@ func TestMercury_Observe(t *testing.T) {
 }
 
 func TestMercury_SetLatestBlocks(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	ds := NewDataSource(nil, nil, job.Job{}, pipeline.Spec{}, lggr, nil, nil, nil, nil, nil, mercuryutils.FeedID{})
 
 	h := evmtypes.Head{
