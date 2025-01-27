@@ -54,7 +54,7 @@ func newEvmTxm(
 				opts.KeyStore,
 				estimator,
 			)
-			if cfg.Transactions().TransactionManagerV2().DualBroadcast() != nil && *cfg.Transactions().TransactionManagerV2().DualBroadcast() {
+			if cfg.Transactions().TransactionManagerV2().DualBroadcast() == nil || !*cfg.Transactions().TransactionManagerV2().DualBroadcast() {
 				return txmv2, err
 			}
 		}
