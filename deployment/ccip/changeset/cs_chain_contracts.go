@@ -842,7 +842,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			if err := state.ValidateState(destination); err != nil {
+			if err := state.ValidateOffRamp(destination); err != nil {
 				return err
 			}
 		}

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -304,7 +303,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			if err := state.ValidateState(chainSelector); err != nil {
+			if err := state.ValidateOffRamp(chainSelector); err != nil {
 				return nil, err
 			}
 
@@ -458,7 +457,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if err := state.ValidateState(chainSelector); err != nil {
+		if err := state.ValidateOffRamp(chainSelector); err != nil {
 			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
@@ -614,18 +613,9 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donOps []mcms.Operation
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
-		family, err := chain_selectors.GetSelectorFamily(chainSelector)
+		offRampAddress, err := state.GetOffRampAddress(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
-		}
-		var offRampAddress []byte
-		switch family {
-		case chain_selectors.FamilyEVM:
-			offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
-		case chain_selectors.FamilySolana:
-			offRampAddress = state.SolChains[chainSelector].Router.Bytes()
-		default:
-			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,
@@ -814,18 +804,9 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
-			family, err := chain_selectors.GetSelectorFamily(chainSelector)
+			offRampAddress, err := state.GetOffRampAddress(chainSelector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
-			}
-			var offRampAddress []byte
-			switch family {
-			case chain_selectors.FamilyEVM:
-				offRampAddress = state.Chains[chainSelector].OffRamp.Address().Bytes()
-			case chain_selectors.FamilySolana:
-				offRampAddress = state.SolChains[chainSelector].Router.Bytes()
-			default:
-				return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s", family)
 			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 				e.OCRSecrets,

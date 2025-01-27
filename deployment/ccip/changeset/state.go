@@ -418,6 +418,25 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
+func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var offRampAddress []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	return offRampAddress, nil
+}
+
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	solState, err := LoadOnchainStateSolana(e)
 	if err != nil {
@@ -753,7 +772,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func (s CCIPOnChainState) ValidateState(chainSelector uint64) error {
+func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
