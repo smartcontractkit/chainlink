@@ -7,7 +7,9 @@ import {Client} from "../../libraries/Client.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/introspection/IERC165.sol";
 
-/// @title CCIPReceiver - Base contract for CCIP applications that can receive messages.
+/// @title CCIPReceiverLegacy - Base contract for CCIP applications that can receive messages.
+/// @notice This contract is not intended for deployment. It is an inherited contract for EtherSenderReceiver, a legacy
+/// contract currently in deployment, so it is being preserved in order to maintain bytecode parity with gethwrappers.
 abstract contract CCIPReceiverLegacy is IAny2EVMMessageReceiver, IERC165 {
   address internal immutable i_ccipRouter;
 

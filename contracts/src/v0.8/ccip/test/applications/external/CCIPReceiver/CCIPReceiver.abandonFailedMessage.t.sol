@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {CCIPReceiver} from "../../../../applications/external/CCIPReceiver.sol";
+
+import {CCIPReceiver} from "../../../../applications/external/CCIPReceiver.sol";
 import {Client} from "../../../../libraries/Client.sol";
-import {CCIPReceiverReverting} from "../../../helpers/receivers/CCIPReceiverReverting.sol";
 import {CCIPReceiverSetup} from "./CCIPReceiverSetup.t.sol";
 
 import {IERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -16,27 +17,30 @@ contract CCIPReceiver_abandonFailedMessage is CCIPReceiverSetup {
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](1);
     destTokenAmounts[0] = Client.EVMTokenAmount({token: token, amount: amount});
 
+    Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
+      messageId: messageId,
+      sourceChainSelector: s_sourceChainSelector,
+      sender: abi.encode(address(s_receiver)),
+      data: "",
+      destTokenAmounts: destTokenAmounts
+    });
+
     // Make sure we give the receiver contract enough tokens like CCIP would.
     deal(token, address(s_receiver), amount);
 
     // Make sure the contract call reverts so we can test recovery.
-    s_receiver.setSimRevert(true);
+    bytes memory revertMessage = "INTENTIONAL_FAKE_ERROR";
+    vm.mockCallRevert(
+      address(s_receiver), abi.encodeWithSelector(CCIPReceiver.processMessage.selector, message), revertMessage
+    );
 
     // The receiver contract will revert if the router is not the sender.
     vm.startPrank(address(s_destRouter));
 
     vm.expectEmit();
-    emit MessageFailed(messageId, abi.encodeWithSelector(CCIPReceiverReverting.ErrorCase.selector));
+    emit MessageFailed(messageId, revertMessage);
 
-    s_receiver.ccipReceive(
-      Client.Any2EVMMessage({
-        messageId: messageId,
-        sourceChainSelector: s_sourceChainSelector,
-        sender: abi.encode(address(s_receiver)),
-        data: "",
-        destTokenAmounts: destTokenAmounts
-      })
-    );
+    s_receiver.ccipReceive(message);
 
     address tokenReceiver = OWNER;
     uint256 tokenReceiverBalancePre = IERC20(token).balanceOf(tokenReceiver);

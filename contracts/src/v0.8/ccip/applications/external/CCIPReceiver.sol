@@ -15,7 +15,7 @@ import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contra
 /// @notice This contract is capable of receiving incoming messages from the CCIP Router.
 /// @dev This contract implements various "defensive" measures to enhance security and efficiency. These include the
 /// ability to implement custom-retry logic and ownership-based token-recovery functions.
-contract CCIPReceiver is CCIPBase {
+contract CCIPReceiver is CCIPBase, IAny2EVMMessageReceiver {
   using SafeERC20 for IERC20;
   using EnumerableSet for EnumerableSet.Bytes32Set;
 

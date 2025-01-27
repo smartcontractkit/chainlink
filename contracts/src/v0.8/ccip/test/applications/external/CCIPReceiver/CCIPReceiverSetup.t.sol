@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {CCIPBase} from "../../../../applications/external/CCIPBase.sol";
 
-import {CCIPReceiverReverting} from "../../../helpers/receivers/CCIPReceiverReverting.sol";
+import {CCIPReceiver} from "../../../../applications/external/CCIPReceiver.sol";
 import {OnRampSetup} from "../../../onRamp/OnRamp/OnRampSetup.t.sol";
 
 contract CCIPReceiverSetup is OnRampSetup {
@@ -11,13 +11,13 @@ contract CCIPReceiverSetup is OnRampSetup {
   event MessageSucceeded(bytes32 indexed messageId);
   event MessageRecovered(bytes32 indexed messageId);
 
-  CCIPReceiverReverting internal s_receiver;
+  CCIPReceiver internal s_receiver;
   uint64 internal s_sourceChainSelector = 7331;
 
   function setUp() public virtual override {
     OnRampSetup.setUp();
 
-    s_receiver = new CCIPReceiverReverting(address(s_destRouter));
+    s_receiver = new CCIPReceiver(address(s_destRouter));
 
     CCIPBase.ChainUpdate[] memory chainUpdates = new CCIPBase.ChainUpdate[](1);
     chainUpdates[0] = CCIPBase.ChainUpdate({
