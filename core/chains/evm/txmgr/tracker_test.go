@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -62,7 +62,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 	ctx := tests.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
-		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
 		unstartedAddr := cltest.MustGenerateRandomKey(t).Address

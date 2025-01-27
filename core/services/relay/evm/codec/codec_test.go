@@ -14,14 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
-
 	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports

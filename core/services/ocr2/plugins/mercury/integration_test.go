@@ -38,7 +38,6 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -58,6 +57,7 @@ import (
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

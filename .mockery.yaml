@@ -47,17 +47,20 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
+  github.com/smartcontractkit/chainlink/v2/evm/client:
+    config:
+      dir: evm/client/clienttest
+      outpkg: clienttest
     interfaces:
       Client:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
+  github.com/smartcontractkit/chainlink/v2/evm/config:
     interfaces:
       GasEstimator:
       ChainScopedConfig:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas:
+  github.com/smartcontractkit/chainlink/v2/evm/gas:
     interfaces:
       Config:
       EvmFeeEstimator:
@@ -68,13 +71,13 @@ packages:
         config:
           mockname: FeeHistoryEstimatorClient
       EvmEstimator:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
+  github.com/smartcontractkit/chainlink/v2/evm/gas/rollups:
     interfaces:
       L1Oracle:
       l1OracleClient:
         config:
           mockname: L1OracleClient
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore:
+  github.com/smartcontractkit/chainlink/v2/evm/keystore:
     interfaces:
       Eth:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
@@ -85,11 +88,9 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor:
+  github.com/smartcontractkit/chainlink/v2/evm/monitor:
     interfaces:
       BalanceMonitor:
-        config:
-          dir: "{{ .InterfaceDir }}/../mocks"
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
     interfaces:
       Client:

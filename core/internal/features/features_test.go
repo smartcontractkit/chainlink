@@ -41,13 +41,11 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
@@ -74,6 +72,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -294,7 +295,7 @@ type OperatorContracts struct {
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
 	operator                  *operator_wrapper.Operator
-	sim                       evmtypes.Backend
+	sim                       types.Backend
 }
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
@@ -647,7 +648,7 @@ observationSource   = """
 	})
 }
 
-func setupOCRContracts(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
+func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
@@ -691,7 +692,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, comm
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
-	b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
+	b types.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
@@ -737,7 +738,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV2 int,
 	return app, p2pKey.PeerID().Raw(), transmitter, key
 }
 
-func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b evmtypes.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
+func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 int, b types.Backend, overrides func(c *chainlink.Config, s *chainlink.Secrets)) (*cltest.TestApplication, string, common.Address, common.Address, ocrkey.KeyV2) {
 	ctx := testutils.Context(t)
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(portV2)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -831,7 +832,7 @@ func TestIntegration_OCR(t *testing.T) {
 			ports := freeport.GetN(t, numOracles)
 			for i := 0; i < numOracles; i++ {
 				app, peerID, transmitter, key := setupNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
+					c.EVM[0].FlagsContractAddress = ptr(types.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
 
 					c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
@@ -1055,7 +1056,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		for i := 0; i < numOracles; i++ {
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, ports[i], b, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
-				c.EVM[0].FlagsContractAddress = ptr(evmtypes.EIP55AddressFromAddress(flagsContractAddress))
+				c.EVM[0].FlagsContractAddress = ptr(types.EIP55AddressFromAddress(flagsContractAddress))
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 				c.P2P.V2.DefaultBootstrappers = &[]ocrcommontypes.BootstrapperLocator{
 					{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePortV2)}},
@@ -1278,7 +1279,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	ethClient := cltest.NewEthMocks(t)
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
-	chchNewHeads := make(chan evmtestutils.RawSub[*evmtypes.Head], 1)
+	chchNewHeads := make(chan evmtestutils.RawSub[*types.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db)
@@ -1294,32 +1295,32 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Client:         ethClient,
 	})
 
-	b41 := evmtypes.Block{
+	b41 := types.Block{
 		Number:       41,
 		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(41_000_000_000, 41_500_000_000),
 	}
-	b42 := evmtypes.Block{
+	b42 := types.Block{
 		Number:       42,
 		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(44_000_000_000, 45_000_000_000),
 	}
-	b43 := evmtypes.Block{
+	b43 := types.Block{
 		Number:       43,
 		Hash:         evmutils.NewHash(),
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
 	evmChainID := ubig.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
-	h40 := evmtypes.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
-	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
-	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
+	h40 := types.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
+	h41 := types.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
+	h42 := types.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
-	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeToHeads", mock.Anything).
 		Return(
-			func(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
-				ch := make(chan *evmtypes.Head)
+			func(ctx context.Context) (<-chan *types.Head, ethereum.Subscription, error) {
+				ch := make(chan *types.Head)
 				sub := mockEth.NewSub(t)
 				chchNewHeads <- evmtestutils.NewRawSub(ch, sub.Err())
 				return ch, sub, nil
@@ -1351,7 +1352,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	for _, re := range chainsAndConfig.Slice() {
 		servicetest.Run(t, re)
 	}
-	var newHeads evmtestutils.RawSub[*evmtypes.Head]
+	var newHeads evmtestutils.RawSub[*types.Head]
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):

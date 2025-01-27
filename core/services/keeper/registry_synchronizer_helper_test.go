@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -23,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -31,7 +31,7 @@ const syncUpkeepQueueSize = 10
 func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*evmclimocks.Client,
+	*clienttest.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {

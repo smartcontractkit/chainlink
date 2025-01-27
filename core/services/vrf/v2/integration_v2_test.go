@@ -34,12 +34,8 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -79,6 +75,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -108,7 +108,7 @@ type coordinatorV2UniverseCommon struct {
 	proxyAdminAddress            common.Address
 
 	// Abstract representation of the ethereum blockchain
-	backend        evmtypes.Backend
+	backend        types.Backend
 	coordinatorABI *abi.ABI
 	consumerABI    *abi.ABI
 
@@ -136,7 +136,7 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress    common.Address
 }
 
-func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *evmclimocks.Client) txmgrcommon.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *clienttest.Client) txmgrcommon.TxManager[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee] {
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
@@ -444,7 +444,7 @@ func deployOldCoordinator(
 	linkAddress common.Address,
 	bhsAddress common.Address,
 	linkEthFeed common.Address,
-	backend evmtypes.Backend,
+	backend types.Backend,
 	neil *bind.TransactOpts,
 ) (
 	common.Address,
@@ -476,7 +476,7 @@ func deployOldCoordinator(
 
 // Send eth from prefunded account.
 // Amount is number of ETH not wei.
-func sendEth(t *testing.T, key ethkey.KeyV2, b evmtypes.Backend, to common.Address, eth int) {
+func sendEth(t *testing.T, key ethkey.KeyV2, b types.Backend, to common.Address, eth int) {
 	ctx := testutils.Context(t)
 	nonce, err := b.Client().PendingNonceAt(ctx, key.Address)
 	require.NoError(t, err)
@@ -507,7 +507,7 @@ func subscribeVRF(
 	author *bind.TransactOpts,
 	consumerContract vrftesthelpers.VRFConsumerContract,
 	coordinator v22.CoordinatorV2_X,
-	backend evmtypes.Backend,
+	backend types.Backend,
 	fundingAmount *big.Int,
 	nativePayment bool,
 ) (v22.Subscription, *big.Int) {
@@ -680,7 +680,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	numWords uint32,
 	cbGasLimit uint32,
 	coordinator v22.CoordinatorV2_X,
-	backend evmtypes.Backend,
+	backend types.Backend,
 	nativePayment bool,
 ) (requestID *big.Int, requestBlockNumber uint64) {
 	minRequestConfirmations := uint16(2)
@@ -729,7 +729,7 @@ func subscribeAndAssertSubscriptionCreatedEvent(
 	consumerContractAddress common.Address,
 	fundingAmount *big.Int,
 	coordinator v22.CoordinatorV2_X,
-	backend evmtypes.Backend,
+	backend types.Backend,
 	nativePayment bool,
 ) *big.Int {
 	// Create a subscription and fund with LINK.
@@ -796,7 +796,7 @@ func assertNumRandomWords(
 	}
 }
 
-func mine(t *testing.T, requestID, subID *big.Int, backend evmtypes.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
+func mine(t *testing.T, requestID, subID *big.Int, backend types.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
@@ -825,7 +825,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend evmtypes.Backend, db 
 	}, testutils.WaitTimeout(t), time.Second)
 }
 
-func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend evmtypes.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
+func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend types.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
 	requestIDMap := map[string]bool{}
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
@@ -1940,7 +1940,7 @@ func TestRequestCost(t *testing.T) {
 		_, err = uni.rootContract.GetSubscription(nil, subId)
 		require.NoError(tt, err)
 
-		theAbi := evmtypes.MustGetABI(vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.ABI)
+		theAbi := types.MustGetABI(vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.ABI)
 		estimate := estimateGas(tt, uni.backend, common.Address{},
 			consumerContractAddress, &theAbi,
 			"requestRandomness", vrfkey.PublicKey.MustHash(), subId.Uint64(), uint16(2), uint32(10000), uint32(1))
@@ -2099,7 +2099,7 @@ func TestStartingCountsV1(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
 	txm := makeTestTxm(t, txStore, ks, ec)
@@ -2128,7 +2128,7 @@ func TestStartingCountsV1(t *testing.T) {
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	b := time.Now()
-	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
+	n1, n2, n3, n4 := types.Nonce(0), types.Nonce(1), types.Nonce(2), types.Nonce(3)
 	reqID := evmutils.PadByteToHash(0x10)
 	m1 := txmgr.TxMeta{
 		RequestID: &reqID,
@@ -2203,7 +2203,7 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 		require.NoError(t, err2)
 		mdSQL := sqlutil.JSON(md)
-		newNonce := evmtypes.Nonce(i + 1)
+		newNonce := types.Nonce(i + 1)
 		unconfirmedTxes = append(unconfirmedTxes, txmgr.Tx{
 			Sequence:           &newNonce,
 			FromAddress:        k.Address,
@@ -2259,9 +2259,9 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 
 	// add evm.receipts
-	receipts := []evmtypes.Receipt{}
+	receipts := []types.Receipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, evmtypes.Receipt{
+		receipts = append(receipts, types.Receipt{
 			BlockHash:        evmutils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      big.NewInt(broadcastBlock),
@@ -2335,7 +2335,7 @@ func AssertLinkBalance(t *testing.T, linkContract *link_token_interface.LinkToke
 	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
 }
 
-func AssertNativeBalance(t *testing.T, backend evmtypes.Backend, address common.Address, balance *big.Int) {
+func AssertNativeBalance(t *testing.T, backend types.Backend, address common.Address, balance *big.Int) {
 	b, err := backend.Client().BalanceAt(testutils.Context(t), address, nil)
 	require.NoError(t, err)
 	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
@@ -2355,7 +2355,7 @@ func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
 // estimateGas returns the estimated gas cost of running the given method on the
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
-func estimateGas(t *testing.T, backend evmtypes.Backend,
+func estimateGas(t *testing.T, backend types.Backend,
 	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)

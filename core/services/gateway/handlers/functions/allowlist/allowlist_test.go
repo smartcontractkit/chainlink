@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	amocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	clienttest "github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 const (
@@ -37,7 +37,7 @@ func TestUpdateAndCheck(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
@@ -78,7 +78,7 @@ func TestUpdateAndCheck(t *testing.T) {
 	})
 
 	t.Run("OK-with_ToS_V1.1.0", func(t *testing.T) {
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		typeAndVersionResponse, err := encodeTypeAndVersionResponse(ToSContractV110)
@@ -122,7 +122,7 @@ func TestUpdateAndCheck(t *testing.T) {
 func TestUnsupportedVersion(t *testing.T) {
 	t.Parallel()
 
-	client := mocks.NewClient(t)
+	client := clienttest.NewClient(t)
 	config := allowlist.OnchainAllowlistConfig{
 		ContractVersion:    0,
 		ContractAddress:    common.Address{},
@@ -139,7 +139,7 @@ func TestUpdatePeriodically(t *testing.T) {
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
@@ -183,7 +183,7 @@ func TestUpdatePeriodically(t *testing.T) {
 
 	t.Run("OK-with_ToS_V1.1.0", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
@@ -231,7 +231,7 @@ func TestUpdateFromContract(t *testing.T) {
 
 	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")
@@ -274,7 +274,7 @@ func TestUpdateFromContract(t *testing.T) {
 
 	t.Run("OK-iterate_over_list_of_allowed_senders", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
-		client := mocks.NewClient(t)
+		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
 		addr := common.HexToAddress("0x0000000000000000000000000000000000000020")

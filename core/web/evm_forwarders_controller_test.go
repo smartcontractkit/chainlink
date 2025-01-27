@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -46,8 +46,8 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	chainId := big.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM = evmcfg.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
+		c.EVM = toml.EVMConfigs{
+			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
 		}
 	})
 
@@ -83,8 +83,8 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 
 	chainId := big.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM = evmcfg.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: evmcfg.Defaults(chainId)},
+		c.EVM = toml.EVMConfigs{
+			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
 		}
 	})
 

@@ -17,7 +17,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")

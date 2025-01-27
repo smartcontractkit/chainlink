@@ -48,11 +48,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -92,6 +89,9 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -530,18 +530,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmclimocks.Client) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *clienttest.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
 	c.On("ConfiguredChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) *evmclimocks.Client {
-	return evmclimocks.NewClient(t)
+func NewEthMocks(t testing.TB) *clienttest.Client {
+	return clienttest.NewClient(t)
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
+func NewEthMocksWithStartupAssertions(t testing.TB) *clienttest.Client {
 	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
@@ -564,7 +564,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *clienttest.Client {
 	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
@@ -1311,7 +1311,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *commonmocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *commonmocks.Subscription) {
 	t.Helper()
 
 	// Start

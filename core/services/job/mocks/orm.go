@@ -16,7 +16,7 @@ import (
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	types "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	uuid "github.com/google/uuid"
 )
