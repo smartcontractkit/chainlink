@@ -7,7 +7,8 @@ import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
   function testFuzz_applyDestChainConfigUpdates_Success(
-    FeeQuoter.DestChainConfigArgs memory destChainConfigArgs
+    FeeQuoter.DestChainConfigArgs memory destChainConfigArgs,
+    uint8 randomSelector
   ) public {
     vm.assume(destChainConfigArgs.destChainSelector != 0);
     vm.assume(destChainConfigArgs.destChainConfig.maxPerMsgGasLimit != 0);
@@ -16,7 +17,10 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
         destChainConfigArgs.destChainConfig.defaultTxGasLimit, 1, destChainConfigArgs.destChainConfig.maxPerMsgGasLimit
       )
     );
-    destChainConfigArgs.destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_EVM;
+
+    // Constrain chain family selector to valid options
+    destChainConfigArgs.destChainConfig.chainFamilySelector =
+      randomSelector % 2 == 0 ? Internal.CHAIN_FAMILY_SELECTOR_EVM : Internal.CHAIN_FAMILY_SELECTOR_SVM;
 
     bool isNewChain = destChainConfigArgs.destChainSelector != DEST_CHAIN_SELECTOR;
 
