@@ -220,7 +220,7 @@ func BuildSetOCR3ConfigArgsSolana(
 		for _, node := range activeConfig.Config.Nodes {
 			var signer [20]uint8
 			// can assert len(node.SignerKey) == 20, error otherwise
-			copy(signer[:], node.SignerKey[:])
+			copy(signer[:], node.SignerKey)
 			signerAddresses = append(signerAddresses, signer)
 			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
 			if err != nil {
