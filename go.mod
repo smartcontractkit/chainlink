@@ -79,9 +79,9 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.36
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250123161904-c40aa8ca45b2
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128193522-bdbfcc588847
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250121181523-2c505d8a351a
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250121163309-3e179a73cb92
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250127125541-a8fa42cc0f36
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
@@ -130,6 +130,8 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
+require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
+
 require (
 	cel.dev/expr v0.17.0 // indirect
 	cloud.google.com/go/auth v0.9.9 // indirect
@@ -164,7 +166,6 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect

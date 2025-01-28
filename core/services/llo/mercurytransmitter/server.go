@@ -180,8 +180,8 @@ func (s *server) runDeleteQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup
 	for {
 		select {
 		case hash := <-s.deleteQueue:
+			s.deleteThreadBusyCountInc()
 			for {
-				s.deleteThreadBusyCountInc()
 				if err := s.pm.orm.Delete(ctx, [][32]byte{hash}); err != nil {
 					s.lggr.Errorw("Failed to delete transmission record", "err", err, "transmissionHash", hash)
 					s.transmitQueueDeleteErrorCount.Inc()

@@ -7,16 +7,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -72,14 +71,14 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	chainID := big.NewI(evmclient.NullClientChainID)
 
-	chainCfg := evmcfg.Defaults(chainID)
+	chainCfg := toml.Defaults(chainID)
 	chainCfg.LogPollInterval = commonconfig.MustNewDuration(1 * time.Second) // speed it up from the standard 15s for tests
 
-	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+	c.EVM = append(c.EVM, &toml.EVMConfig{
 		ChainID: chainID,
 		Chain:   chainCfg,
-		Nodes: evmcfg.EVMNodes{
-			&evmcfg.Node{
+		Nodes: toml.EVMNodes{
+			&toml.Node{
 				Name:     ptr("test"),
 				WSURL:    &commonconfig.URL{},
 				HTTPURL:  &commonconfig.URL{},
@@ -107,11 +106,11 @@ func NewGeneralConfigSimulated(t testing.TB, overrideFn func(*chainlink.Config, 
 func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 	chainID := big.New(testutils.SimulatedChainID)
 	enabled := true
-	cfg := evmcfg.EVMConfig{
+	cfg := toml.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.Defaults(chainID),
+		Chain:   toml.Defaults(chainID),
 		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{&validTestNode},
+		Nodes:   toml.EVMNodes{&validTestNode},
 	}
 	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(big.NewI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
@@ -120,7 +119,7 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 	}
 }
 
-var validTestNode = evmcfg.Node{
+var validTestNode = toml.Node{
 	Name:     ptr("simulated-node"),
 	WSURL:    commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
 	HTTPURL:  commonconfig.MustParseURL("http://simulated.com"),

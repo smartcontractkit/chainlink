@@ -15,12 +15,13 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -36,7 +37,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	// - ethClient methods are invoked
 
 	lggr := logger.Test(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.NoNewHeadsThreshold = &commonconfig.Duration{}
 	})
@@ -88,7 +89,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	// - do not send any heads within BlockEmissionIdleWarningThreshold and check ReceivingHeads() is false
 
 	lggr := logger.Test(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.NoNewHeadsThreshold = commonconfig.MustNewDuration(time.Second)
@@ -147,7 +148,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			lggr := logger.Test(t)
-			ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+			ethClient := clienttest.NewClientWithDefaultChainID(t)
 			evmcfg := testutils.NewTestChainScopedConfig(t, nil)
 
 			hnhCalled := make(chan *evmtypes.Head)

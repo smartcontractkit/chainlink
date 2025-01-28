@@ -86,6 +86,16 @@ func NewHash() common.Hash {
 	return common.BytesToHash(b)
 }
 
+// NewAddress return a random new address
+func NewAddress() common.Address {
+	b := make([]byte, 20)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return common.BytesToAddress(b)
+}
+
 // PadByteToHash returns a hash with zeros padded on the left of the given byte.
 func PadByteToHash(b byte) common.Hash {
 	var h [32]byte

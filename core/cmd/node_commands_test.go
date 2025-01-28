@@ -13,13 +13,13 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	starkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
@@ -35,27 +35,27 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
 	chainID := newRandChainID()
-	node1 := evmcfg.Node{
+	node1 := configtoml.Node{
 		Name:     ptr("Test node 1"),
 		WSURL:    config.MustParseURL("ws://localhost:8546"),
 		HTTPURL:  config.MustParseURL("http://localhost:8546"),
 		SendOnly: ptr(false),
 		Order:    ptr(int32(15)),
 	}
-	node2 := evmcfg.Node{
+	node2 := configtoml.Node{
 		Name:     ptr("Test node 2"),
 		WSURL:    config.MustParseURL("ws://localhost:8547"),
 		HTTPURL:  config.MustParseURL("http://localhost:8547"),
 		SendOnly: ptr(false),
 		Order:    ptr(int32(36)),
 	}
-	chain := evmcfg.EVMConfig{
+	chain := configtoml.EVMConfig{
 		ChainID: chainID,
-		Chain:   evmcfg.Defaults(chainID),
-		Nodes:   evmcfg.EVMNodes{&node1, &node2},
+		Chain:   configtoml.Defaults(chainID),
+		Nodes:   configtoml.EVMNodes{&node1, &node2},
 	}
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM = evmcfg.EVMConfigs{&chain}
+		c.EVM = configtoml.EVMConfigs{&chain}
 	})
 	client, r := app.NewShellAndRenderer()
 

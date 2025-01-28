@@ -10,7 +10,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
@@ -49,7 +50,7 @@ func makeHTTPRequest(
 		Client:  client,
 		Request: request,
 		Config:  clhttp.HTTPRequestConfig{SizeLimit: httpLimit},
-		Logger:  lggr.Named("HTTPRequest"),
+		Logger:  logger.Sugared(lggr).Named("HTTPRequest"),
 	}
 
 	start := time.Now()

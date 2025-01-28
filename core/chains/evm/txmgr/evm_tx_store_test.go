@@ -21,11 +21,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -33,6 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -67,8 +67,8 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
-	assert.Equal(t, evmtypes.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, types.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, types.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
 	assert.Len(t, txs[0].TxAttempts, 2, "all eth tx attempts are preloaded")
 	assert.Len(t, txs[1].TxAttempts, 1)
 	assert.Equal(t, int64(3), *txs[0].TxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
@@ -78,7 +78,7 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
-	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, types.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
 }
 
 func TestORM_Transactions(t *testing.T) {
@@ -112,8 +112,8 @@ func TestORM_Transactions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
-	assert.Equal(t, evmtypes.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
-	assert.Equal(t, evmtypes.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, types.Nonce(1), *txs[0].Sequence, "transactions should be sorted by nonce")
+	assert.Equal(t, types.Nonce(0), *txs[1].Sequence, "transactions should be sorted by nonce")
 	assert.Empty(t, txs[0].TxAttempts, "eth tx attempts should not be preloaded")
 	assert.Empty(t, txs[1].TxAttempts)
 }
@@ -353,7 +353,7 @@ func TestORM_UpdateBroadcastAts(t *testing.T) {
 		ctx := tests.Context(t)
 		time1 := time.Now()
 		etx := cltest.NewEthTx(fromAddress)
-		etx.Sequence = new(evmtypes.Nonce)
+		etx.Sequence = new(types.Nonce)
 		etx.State = txmgrcommon.TxUnconfirmed
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
@@ -483,20 +483,20 @@ func TestORM_SaveFetchedReceipts(t *testing.T) {
 	require.Len(t, tx2.TxAttempts, 1)
 
 	// create receipts associated with transactions
-	txmReceipt1 := evmtypes.Receipt{
+	txmReceipt1 := types.Receipt{
 		TxHash:           tx1.TxAttempts[0].Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
 	}
-	txmReceipt2 := evmtypes.Receipt{
+	txmReceipt2 := types.Receipt{
 		TxHash:           tx2.TxAttempts[0].Hash,
 		BlockHash:        utils.NewHash(),
 		BlockNumber:      big.NewInt(42),
 		TransactionIndex: uint(1),
 	}
 
-	err := txStore.SaveFetchedReceipts(tests.Context(t), []*evmtypes.Receipt{&txmReceipt1, &txmReceipt2})
+	err := txStore.SaveFetchedReceipts(tests.Context(t), []*types.Receipt{&txmReceipt1, &txmReceipt2})
 	require.NoError(t, err)
 
 	tx1, err = txStore.FindTxWithAttempts(ctx, tx1.ID)
@@ -579,16 +579,16 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
-	h8 := &evmtypes.Head{
+	h8 := &types.Head{
 		Number: 8,
 		Hash:   testutils.NewHash(),
 	}
-	h9 := &evmtypes.Head{
+	h9 := &types.Head{
 		Hash:   testutils.NewHash(),
 		Number: 9,
 	}
 	h9.Parent.Store(h8)
-	head := evmtypes.Head{
+	head := types.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
 	}
@@ -695,16 +695,16 @@ func TestORM_FindTxWithSequence(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		etx, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, evmtypes.Nonce(777))
+		etx, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, types.Nonce(777))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
 
 	t.Run("returns transaction if it exists", func(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 777, 1, fromAddress)
-		require.Equal(t, evmtypes.Nonce(777), *etx.Sequence)
+		require.Equal(t, types.Nonce(777), *etx.Sequence)
 
-		res, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, evmtypes.Nonce(777))
+		res, err := txStore.FindTxWithSequence(tests.Context(t), fromAddress, types.Nonce(777))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 	})
@@ -1238,7 +1238,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	nonce := evmtypes.Nonce(123)
+	nonce := types.Nonce(123)
 
 	t.Run("update successful", func(t *testing.T) {
 		etx := mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, testutils.FixtureChainID)
@@ -1567,7 +1567,7 @@ func TestORM_CheckTxQueueCapacity(t *testing.T) {
 	})
 
 	var n int64
-	mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(n), fromAddress)
+	mustInsertInProgressEthTxWithAttempt(t, txStore, types.Nonce(n), fromAddress)
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, n, fromAddress)
 	n++
@@ -1856,7 +1856,7 @@ func TestORM_UpdateTxStatesToFinalizedUsingTxHashes(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 
 	t.Run("successfully finalizes a confirmed transaction", func(t *testing.T) {
-		nonce := evmtypes.Nonce(0)
+		nonce := types.Nonce(0)
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
 			FromAddress:        fromAddress,
@@ -1907,7 +1907,7 @@ func TestORM_FindReorgOrIncludedTxs(t *testing.T) {
 		mustInsertConfirmedEthTxWithReceipt(t, txStore, otherAddress, 1, blockNum)
 		mustInsertConfirmedEthTxWithReceipt(t, txStore, otherAddress, 0, blockNum)
 
-		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, evmtypes.Nonce(1), testutils.FixtureChainID)
+		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, types.Nonce(1), testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, reorgTxs, 2)
 		require.Empty(t, includedTxs)
@@ -1935,7 +1935,7 @@ func TestORM_FindReorgOrIncludedTxs(t *testing.T) {
 		mustInsertConfirmedEthTxWithReceipt(t, txStore, otherAddress, 1, blockNum)
 		mustInsertConfirmedEthTxWithReceipt(t, txStore, otherAddress, 0, blockNum)
 
-		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, evmtypes.Nonce(4), testutils.FixtureChainID)
+		reorgTxs, includedTxs, err := txStore.FindReorgOrIncludedTxs(ctx, fromAddress, types.Nonce(4), testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Len(t, includedTxs, 2)
 		require.Empty(t, reorgTxs)
@@ -2058,7 +2058,7 @@ func TestORM_Abandon(t *testing.T) {
 func mustInsertTerminallyStuckTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonceInt int64, broadcastBeforeBlockNum int64) txmgr.Tx {
 	ctx := tests.Context(t)
 	broadcast := time.Now()
-	nonce := evmtypes.Nonce(nonceInt)
+	nonce := types.Nonce(nonceInt)
 	tx := txmgr.Tx{
 		Sequence:           &nonce,
 		FromAddress:        fromAddress,

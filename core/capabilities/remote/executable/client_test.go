@@ -39,10 +39,12 @@ func Test_Client_DonTopologies(t *testing.T) {
 	require.NoError(t, err)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		mp, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+		if assert.NoError(t, responseError) {
+			mp, err := response.Value.Unwrap()
+			if assert.NoError(t, err) {
+				assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+			}
+		}
 	}
 
 	capability := &TestCapability{}
@@ -53,8 +55,9 @@ func Test_Client_DonTopologies(t *testing.T) {
 
 	methods = append(methods, func(caller commoncap.ExecutableCapability) {
 		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-		require.NoError(t, err)
-		executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+		if assert.NoError(t, err) {
+			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+		}
 	})
 
 	for _, method := range methods {
@@ -79,10 +82,12 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		mp, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+		if assert.NoError(t, responseError) {
+			mp, err := response.Value.Unwrap()
+			if assert.NoError(t, err) {
+				assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+			}
+		}
 	}
 
 	capability := &TestCapability{}
@@ -98,14 +103,16 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	testClient(t, 1, responseTimeOut, 1, 0,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err2)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err2) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 	testClient(t, 10, responseTimeOut, 10, 3,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err2)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err2) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
@@ -117,14 +124,16 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	testClient(t, 1, responseTimeOut, 1, 0,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 	testClient(t, 10, responseTimeOut, 10, 3,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 }
 
@@ -132,8 +141,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.Error(t, responseError)
-		require.ErrorIs(t, responseError, executable.ErrRequestExpired)
+		assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
 	}
 
 	capability := &TestCapability{}
@@ -150,8 +158,9 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 		capability,
 		func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 }
 
@@ -159,8 +168,7 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.Error(t, responseError)
-		require.ErrorIs(t, responseError, executable.ErrContextDoneBeforeResponseQuorum)
+		assert.ErrorIs(t, responseError, executable.ErrContextDoneBeforeResponseQuorum)
 	}
 
 	capability := &TestCapability{}
@@ -175,8 +183,9 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 		capability,
 		func(caller commoncap.ExecutableCapability) {
 			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			require.NoError(t, err)
-			executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
 		})
 }
 
