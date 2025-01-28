@@ -6,13 +6,18 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
+
+var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
+var _ deployment.ChangeSet[AddTokenPoolConfig] = AddTokenPool
 
 type AddRemoteChainToSolanaConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update
@@ -142,6 +147,109 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 		}
 		e.Logger.Infow("Confirmed instruction", "instruction", instruction)
 	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+// ADD TOKEN POOL
+type AddTokenPoolConfig struct {
+	ChainSelector    uint64
+	PoolType         string
+	RampAuthority    string
+	Authority        string
+	TokenPubKey      string
+	TokenProgramName string
+}
+
+func (cfg AddTokenPoolConfig) Validate(e deployment.Environment) error {
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	if chainState.TokenPool.IsZero() {
+		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+	}
+	_, err = deployment.GetTokenProgramID(cfg.TokenProgramName)
+	if err != nil {
+		return err
+	}
+	_, err = deployment.GetPoolType(cfg.PoolType)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func AddTokenPool(e deployment.Environment, cfg AddTokenPoolConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	tokenprogramID, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	poolType, _ := deployment.GetPoolType(cfg.PoolType)
+
+	// Convert string addresses to public keys
+	rampAuthorityPubKey := solana.MustPublicKeyFromBase58(cfg.RampAuthority)
+	authorityPubKey := solana.MustPublicKeyFromBase58(cfg.Authority)
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+
+	poolConfig, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenprogramID)
+	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenprogramID)
+
+	// ata for token pool
+	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
+		tokenprogramID,
+		tokenPubKey,
+		poolSigner,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	token_pool.SetProgramID(chainState.TokenPool)
+	// initialize token pool for token
+	poolInitI, err := token_pool.NewInitializeInstruction(
+		poolType,
+		rampAuthorityPubKey,
+		poolConfig,
+		tokenPubKey,
+		poolSigner,
+		authorityPubKey,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	// make pool mint_authority for token (required for burn/mint)
+	authI, err := solTokenUtil.SetTokenMintAuthority(
+		tokenprogramID,
+		poolSigner,
+		tokenPubKey,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	instructions := []solana.Instruction{createI, poolInitI, authI}
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfig.String(), "pool_signer", poolSigner.String())
+	e.Logger.Infow("Set mint authority", "poolSigner", poolSigner.String())
 
 	return deployment.ChangesetOutput{}, nil
 }
