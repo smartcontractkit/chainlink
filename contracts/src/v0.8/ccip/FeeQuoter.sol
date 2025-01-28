@@ -921,7 +921,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     }
 
     bytes4 tag = bytes4(extraArgs[:4]);
-    if (tag != Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG) {
+    if (tag != Client.SVM_EXTRA_ARGS_V1_TAG) {
       revert InvalidExtraArgsTag();
     }
 
