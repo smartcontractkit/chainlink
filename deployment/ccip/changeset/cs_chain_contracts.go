@@ -165,12 +165,12 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 		if cfg.MCMS == nil {
 			if authTx != nil {
 				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], authTx, err); err != nil {
-					return deployment.ChangesetOutput{}, err
+					return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, nonce_manager.NonceManagerABI)
 				}
 			}
 			if prevRampsTx != nil {
 				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], prevRampsTx, err); err != nil {
-					return deployment.ChangesetOutput{}, err
+					return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, nonce_manager.NonceManagerABI)
 				}
 			}
 		} else {
@@ -219,18 +219,18 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	}}, nil
 }
 
+type OnRampDestinationUpdate struct {
+	IsEnabled        bool // If false, disables the destination by setting router to 0x0.
+	TestRouter       bool // Flag for safety only allow specifying either router or testRouter.
+	AllowListEnabled bool
+}
+
 type UpdateOnRampDestsConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
-}
-
-type OnRampDestinationUpdate struct {
-	IsEnabled        bool // If false, disables the destination by setting router to 0x0.
-	TestRouter       bool // Flag for safety only allow specifying either router or testRouter.
-	AllowListEnabled bool
 }
 
 func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
@@ -240,6 +240,9 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
+		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+			return err
+		}
 		chainState, ok := state.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
@@ -318,7 +321,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -353,6 +356,12 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	}}, nil
 }
 
+type OnRampDynamicConfigUpdate struct {
+	MessageInterceptor common.Address
+	FeeAggregator      common.Address
+	AllowlistAdmin     common.Address
+}
+
 type UpdateOnRampDynamicConfig struct {
 	// UpdatesByChain is a mapping of source -> update.
 	UpdatesByChain map[uint64]OnRampDynamicConfigUpdate
@@ -361,47 +370,43 @@ type UpdateOnRampDynamicConfig struct {
 	MCMS *MCMSConfig
 }
 
-type OnRampDynamicConfigUpdate struct {
-	FeeQuoter          common.Address
-	MessageInterceptor common.Address
-	FeeAggregator      common.Address
-	AllowlistAdmin     common.Address
-}
-
-func (cfg UpdateOnRampDynamicConfig) Validate() error {
+func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, config := range cfg.UpdatesByChain {
-		if config.FeeQuoter == (common.Address{}) {
-			return fmt.Errorf("FeeQuoter is not specified for chain=%d", chainSel)
+		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+			return err
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
+			return err
+		}
+		if state.Chains[chainSel].FeeQuoter == nil {
+			return fmt.Errorf("FeeQuoter is not on state of chain %d", chainSel)
 		}
 		if config.FeeAggregator == (common.Address{}) {
-			return fmt.Errorf("FeeAggregator is not specified for chain=%d", chainSel)
+			return fmt.Errorf("FeeAggregator is not specified for chain %d", chainSel)
 		}
 	}
 	return nil
 }
 
 func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRampDynamicConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(); err != nil {
+	state, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	onchain, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOps := e.Chains[chainSel].DeployerKey
-		//nolint:fatcontext // context is stored outside the loop
-		txOps.Context = ctx
 		if cfg.MCMS != nil {
 			txOps = deployment.SimTransactOpts()
 		}
-		onRamp := onchain.Chains[chainSel].OnRamp
+		onRamp := state.Chains[chainSel].OnRamp
 		tx, err := onRamp.SetDynamicConfig(txOps, onramp.OnRampDynamicConfig{
-			FeeQuoter:              update.FeeQuoter,
+			FeeQuoter:              state.Chains[chainSel].FeeQuoter.Address(),
 			ReentrancyGuardEntered: false,
 			MessageInterceptor:     update.MessageInterceptor,
 			FeeAggregator:          update.FeeAggregator,
@@ -412,7 +417,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -425,8 +430,8 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 					},
 				},
 			})
-			timelocks[chainSel] = onchain.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = onchain.Chains[chainSel].ProposerMcm
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -444,6 +449,12 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	}, nil
 }
 
+type OnRampAllowListUpdate struct {
+	AllowListEnabled          bool
+	AddedAllowlistedSenders   []common.Address
+	RemovedAllowlistedSenders []common.Address
+}
+
 type UpdateOnRampAllowListConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampAllowListUpdate
@@ -452,15 +463,43 @@ type UpdateOnRampAllowListConfig struct {
 	MCMS *MCMSConfig
 }
 
-type OnRampAllowListUpdate struct {
-	AllowListEnabled          bool
-	AddedAllowlistedSenders   []common.Address
-	RemovedAllowlistedSenders []common.Address
-}
-
-func (cfg UpdateOnRampAllowListConfig) Validate() error {
+func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) error {
+	state, err := LoadOnchainState(env)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
 	for srcSel, updates := range cfg.UpdatesByChain {
+		if err := ValidateChainSelector(env, srcSel, state, cfg.MCMS != nil); err != nil {
+			return err
+		}
+		onRamp := state.Chains[srcSel].OnRamp
+		if onRamp == nil {
+			return fmt.Errorf("missing onRamp on %s", srcSel)
+		}
+		config, err := onRamp.GetDynamicConfig(nil)
+		if err != nil {
+			return err
+		}
+		owner, err := onRamp.Owner(nil)
+		if err != nil {
+			return fmt.Errorf("failed to get owner: %w", err)
+		}
+		var signer common.Address
+		if cfg.MCMS == nil {
+			signer = env.Chains[srcSel].DeployerKey.From
+			if signer != config.AllowlistAdmin && signer != owner {
+				return fmt.Errorf("deployer key is not onramp's %s owner nor allowlist admin", onRamp.Address())
+			}
+		} else {
+			signer = state.Chains[srcSel].Timelock.Address()
+			if signer != config.AllowlistAdmin && signer != owner {
+				return fmt.Errorf("timelock is not onramp's %s owner nor allowlist admin", onRamp.Address())
+			}
+		}
 		for destSel, update := range updates {
+			if err := ValidateChainSelector(env, srcSel, state, false); err != nil {
+				return err
+			}
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
 				return fmt.Errorf("can't allowlist senders with disabled allowlist for src=%d, dest=%d", srcSel, destSel)
 			}
@@ -474,8 +513,32 @@ func (cfg UpdateOnRampAllowListConfig) Validate() error {
 	return nil
 }
 
+func ValidateChainSelector(env deployment.Environment, chainSel uint64, state CCIPOnChainState, checkMCMS bool) error {
+	err := deployment.IsValidChainSelector(chainSel)
+	if err != nil {
+		return fmt.Errorf("failed to validate chain selector %d: %w", chainSel, err)
+	}
+	chain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
+	}
+	chainState, ok := state.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("%s does not exist in state", chain)
+	}
+	if checkMCMS {
+		if timelock := chainState.Timelock; timelock == nil {
+			return fmt.Errorf("missing timelock on %s", chain)
+		}
+		if proposerMcm := chainState.ProposerMcm; proposerMcm == nil {
+			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+	}
+	return nil
+}
+
 func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAllowListConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	onchain, err := LoadOnchainState(e)
@@ -485,11 +548,8 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for srcSel, updates := range cfg.UpdatesByChain {
 		txOps := e.Chains[srcSel].DeployerKey
-		//nolint:fatcontext // context is stored outside the loop
-		txOps.Context = ctx
 		if cfg.MCMS != nil {
 			txOps = deployment.SimTransactOpts()
 		}
@@ -509,7 +569,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[srcSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -549,10 +609,22 @@ type WithdrawOnRampFeeTokensConfig struct {
 	MCMS             *MCMSConfig
 }
 
-func (cfg WithdrawOnRampFeeTokensConfig) Validate(onchain CCIPOnChainState) error {
+func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
-		feeQuoter := onchain.Chains[chainSel].FeeQuoter
+		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+			return err
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
+			return err
+		}
+		feeQuoter := state.Chains[chainSel].FeeQuoter
+		if feeQuoter == nil {
+			return fmt.Errorf("no fee quoter for chain %d", chainSel)
+		}
 		onchainFeeTokens, err := feeQuoter.GetFeeTokens(nil)
+		if onchainFeeTokens == nil || len(onchainFeeTokens) == 0 {
+			return fmt.Errorf("no fee tokens configured on fee quoter %s for chain %d", feeQuoter.Address().Hex(), chainSel)
+		}
 		if err != nil {
 			return err
 		}
@@ -573,29 +645,26 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(onchain CCIPOnChainState) erro
 }
 
 func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRampFeeTokensConfig) (deployment.ChangesetOutput, error) {
-	onchain, err := LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	if err := cfg.Validate(onchain); err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	ctx := e.GetContext()
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
 		txOps := e.Chains[chainSel].DeployerKey
-		//nolint:fatcontext // context is stored outside the loop
-		txOps.Context = ctx
-		onRamp := onchain.Chains[chainSel].OnRamp
+		onRamp := state.Chains[chainSel].OnRamp
 		tx, err := onRamp.WithdrawFeeTokens(txOps, feeTokens)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -608,8 +677,8 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 					},
 				},
 			})
-			timelocks[chainSel] = onchain.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = onchain.Chains[chainSel].ProposerMcm
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -755,7 +824,8 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("error confirming transaction for chain %s: %w", e.Chains[chainSel].String(), err)
+				decodedErr := deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
+				return deployment.ChangesetOutput{}, fmt.Errorf("error confirming transaction for chain %s: %w", e.Chains[chainSel].String(), decodedErr)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -871,7 +941,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -907,6 +977,11 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	}}, nil
 }
 
+type OffRampSourceUpdate struct {
+	IsEnabled  bool // If false, disables the source by setting router to 0x0.
+	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
+}
+
 type UpdateOffRampSourcesConfig struct {
 	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
 	// update on the dest chain offramp.
@@ -914,16 +989,7 @@ type UpdateOffRampSourcesConfig struct {
 	MCMS           *MCMSConfig
 }
 
-type OffRampSourceUpdate struct {
-	IsEnabled  bool // If false, disables the source by setting router to 0x0.
-	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
-}
-
-func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
-	if err != nil {
-		return err
-	}
+func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -965,11 +1031,11 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
 
 // UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
 func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -981,18 +1047,18 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
-		offRamp := s.Chains[chainSel].OffRamp
+		offRamp := state.Chains[chainSel].OffRamp
 		var args []offramp.OffRampSourceChainConfigArgs
 		for source, update := range updates {
 			router := common.HexToAddress("0x0")
 			if update.IsEnabled {
 				if update.TestRouter {
-					router = s.Chains[chainSel].TestRouter.Address()
+					router = state.Chains[chainSel].TestRouter.Address()
 				} else {
-					router = s.Chains[chainSel].Router.Address()
+					router = state.Chains[chainSel].Router.Address()
 				}
 			}
-			onRamp := s.Chains[source].OnRamp
+			onRamp := state.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
 				SourceChainSelector: source,
 				Router:              router,
@@ -1006,7 +1072,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -1019,8 +1085,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 					},
 				},
 			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -1042,6 +1108,11 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	}}, nil
 }
 
+type RouterUpdates struct {
+	OffRampUpdates map[uint64]bool
+	OnRampUpdates  map[uint64]bool
+}
+
 type UpdateRouterRampsConfig struct {
 	// TestRouter means the updates will be applied to the test router
 	// on all chains. Disallow mixing test router/non-test router per chain for simplicity.
@@ -1050,18 +1121,12 @@ type UpdateRouterRampsConfig struct {
 	MCMS           *MCMSConfig
 }
 
-type RouterUpdates struct {
-	OffRampUpdates map[uint64]bool
-	OnRampUpdates  map[uint64]bool
-}
-
-func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
-	if err != nil {
-		return err
-	}
+func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
+		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+			return err
+		}
 		chainState, ok := state.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
@@ -1125,11 +1190,11 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -1141,14 +1206,14 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 		if cfg.MCMS != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
-		routerC := s.Chains[chainSel].Router
+		routerC := state.Chains[chainSel].Router
 		if cfg.TestRouter {
-			routerC = s.Chains[chainSel].TestRouter
+			routerC = state.Chains[chainSel].TestRouter
 		}
 		// Note if we add distinct offramps per source to the state,
 		// we'll need to add support here for looking them up.
 		// For now its simple, all sources use the same offramp.
-		offRamp := s.Chains[chainSel].OffRamp
+		offRamp := state.Chains[chainSel].OffRamp
 		var removes, adds []router.RouterOffRamp
 		for source, enabled := range update.OffRampUpdates {
 			if enabled {
@@ -1164,7 +1229,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 			}
 		}
 		// Ditto here, only one onramp expected until 1.7.
-		onRamp := s.Chains[chainSel].OnRamp
+		onRamp := state.Chains[chainSel].OnRamp
 		var onRampUpdates []router.RouterOnRamp
 		for dest, enabled := range update.OnRampUpdates {
 			if enabled {
@@ -1185,7 +1250,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, router.RouterABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -1198,8 +1263,8 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 					},
 				},
 			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -1228,19 +1293,21 @@ type SetOCR3OffRampConfig struct {
 	MCMS               *MCMSConfig
 }
 
-func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
-	if err != nil {
-		return err
-	}
+func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
+	}
+	if err := ValidateChainSelector(e, c.HomeChainSel, state, c.MCMS != nil); err != nil {
+		return err
 	}
 	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
 		c.CCIPHomeConfigType != globals.ConfigTypeCandidate {
 		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", globals.ConfigTypeActive, globals.ConfigTypeCandidate)
 	}
 	for _, remote := range c.RemoteChainSels {
+		if err := ValidateChainSelector(e, remote, state, c.MCMS != nil); err != nil {
+			return err
+		}
 		chainState, ok := state.Chains[remote]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", remote)
@@ -1259,11 +1326,11 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 	state, err := LoadOnchainState(e)
 	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	var batches []timelock.BatchChainOperation
@@ -1298,7 +1365,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		}
 		if cfg.MCMS == nil {
 			if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
