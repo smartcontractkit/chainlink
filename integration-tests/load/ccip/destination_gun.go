@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"time"
@@ -49,7 +50,7 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 			SourceChainSelector: cs,
 			DestChainSelector:   chainSelector,
 		}] = SeqNumRange{
-			Start: atomic.NewUint64(0),
+			Start: atomic.NewUint64(math.MaxUint64),
 			End:   atomic.NewUint64(0),
 		}
 	}
@@ -188,13 +189,12 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		SequenceNumber: it.Event.SequenceNumber,
 	})
 
-	// if this is the first time we are sending a message, set the start sequence number
-	// if we ran into a concurrency issue, store the lowest sequence number
-	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() || m.seqNums[csPair].End.Load() == 0 {
+	// always store the lowest seen number as the start seq num
+	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() {
 		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
 	}
 
-	// only store the greatest sequence number we have seen as the maximum
+	// always store the greatest sequence number we have seen as the maximum
 	if it.Event.SequenceNumber > m.seqNums[csPair].End.Load() {
 		m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
 	}

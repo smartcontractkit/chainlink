@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -59,7 +60,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides.Validate(t, env)
 
 	// initialize loki using endpoint from user defined env vars
-	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(userOverrides.LokiEndpoint, nil, nil, nil))
+	lokiToken := os.Getenv("LOKI_TOKEN")
+	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(userOverrides.LokiEndpoint, nil, nil, &lokiToken))
 	require.NoError(t, err)
 	defer loki.StopNow()
 
@@ -183,6 +185,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	wg.Wait()
 	lggr.Infow("finished wait group")
+	// todo: Fix the error channel handling
 	for err := range errChan {
 		require.NoError(t, err)
 	}

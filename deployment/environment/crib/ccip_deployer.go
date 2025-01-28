@@ -29,7 +29,7 @@ import (
 )
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
-// Afterwards, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
+// Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -93,28 +93,64 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
+// This is executed from CRIB for one click setup of a new instance of CCIP
 func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
 	e.ExistingAddresses = ab
-	chainSelectors := e.AllChainSelectors()
-	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
-	for _, chain := range e.AllChainSelectors() {
-		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
-			ChainSelector: chain,
-		})
+
+	// Setup because we only need to deploy the contracts and distribute job specs
+	*e, err = setupChains(e, homeChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
 
-	// set up chains
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	// Add all lanes
+	*e, err = setupLanes(e, state)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+	}
+
+	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+
+	// distribute funds to transmitters
+	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
+	// populated in the environment variable
+	distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, err
+}
+
+func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
+	chainSelectors := e.AllChainSelectors()
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get node info from env: %w", err)
+		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
+	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range chainSelectors {
+		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
+			ChainSelector: chain,
+		})
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  1,
@@ -129,9 +165,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
-
-	// Setup because we only need to deploy the contracts and distribute job specs
-	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
 			Config: changeset.UpdateChainConfigConfig{
@@ -167,19 +201,17 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			Config:    struct{}{},
 		},
 	})
-	state, err := changeset.LoadOnchainState(*e)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
+}
 
+func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
+	chainSelectors := e.AllChainSelectors()
 	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
 	for selector := range e.Chains {
 		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
 			changeset.WithDefaultExecuteOffChainConfig(nil),
 		)
 	}
-
-	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			// Add the DONs and candidate commit OCR instances for the chain.
 			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
@@ -237,110 +269,77 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 			},
 		},
 	})
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
-	}
+}
 
-	// Add all lanes
+func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
+	onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
+	pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
+	feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+	updateOffRampSources := make(map[uint64]map[uint64]changeset.OffRampSourceUpdate)
+	updateRouterChanges := make(map[uint64]changeset.RouterUpdates)
 	for src := range e.Chains {
+		onRampUpdatesByChain[src] = make(map[uint64]changeset.OnRampDestinationUpdate)
+		pricesByChain[src] = changeset.FeeQuoterPriceUpdatePerSource{
+			TokenPrices: map[common.Address]*big.Int{
+				state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+				state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
+			},
+			GasPrices: make(map[uint64]*big.Int),
+		}
+		feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+		updateOffRampSources[src] = make(map[uint64]changeset.OffRampSourceUpdate)
+		updateRouterChanges[src] = changeset.RouterUpdates{
+			OffRampUpdates: make(map[uint64]bool),
+			OnRampUpdates:  make(map[uint64]bool),
+		}
 		for dst := range e.Chains {
 			if src != dst {
-				stateChain1 := state.Chains[src]
-				newEnv, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-						Config: changeset.UpdateOnRampDestsConfig{
-							UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
-								src: {
-									dst: {
-										IsEnabled:        true,
-										AllowListEnabled: false,
-									},
-								},
-							},
-						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-						Config: changeset.UpdateFeeQuoterPricesConfig{
-							PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
-								src: {
-									TokenPrices: map[common.Address]*big.Int{
-										stateChain1.LinkToken.Address(): testhelpers.DefaultLinkPrice,
-										stateChain1.Weth9.Address():     testhelpers.DefaultWethPrice,
-									},
-									GasPrices: map[uint64]*big.Int{
-										dst: testhelpers.DefaultGasPrice,
-									},
-								},
-							},
-						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-						Config: changeset.UpdateFeeQuoterDestsConfig{
-							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-								src: {
-									dst: changeset.DefaultFeeQuoterDestChainConfig(),
-								},
-							},
-						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-						Config: changeset.UpdateOffRampSourcesConfig{
-							UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-								dst: {
-									src: {
-										IsEnabled: true,
-									},
-								},
-							},
-						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-						Config: changeset.UpdateRouterRampsConfig{
-							UpdatesByChain: map[uint64]changeset.RouterUpdates{
-								src: {
-									OffRampUpdates: map[uint64]bool{
-										dst: true,
-									},
-									OnRampUpdates: map[uint64]bool{
-										dst: true,
-									},
-								},
-								dst: {
-									OffRampUpdates: map[uint64]bool{
-										src: true,
-									},
-									OnRampUpdates: map[uint64]bool{
-										src: true,
-									},
-								},
-							},
-						},
-					},
-				})
-				if err != nil {
-					return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
+				onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
+					IsEnabled:        true,
+					AllowListEnabled: false,
 				}
-				e = &newEnv
+				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
+				feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig()
+
+				updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
+					IsEnabled: true,
+				}
+
+				updateRouterChanges[src].OffRampUpdates[dst] = true
+				updateRouterChanges[src].OnRampUpdates[dst] = true
 			}
 		}
 	}
-
-	// distribute funds to transmitters
-	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
-	// populated in the environment variable
-	distributeFunds(lggr, don.PluginNodes(), *e)
-
-	addresses, err := e.ExistingAddresses.Addresses()
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, err
+	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: onRampUpdatesByChain,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			Config: changeset.UpdateFeeQuoterPricesConfig{
+				PricesByChain: pricesByChain,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: feeQuoterDestsUpdatesByChain,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+			Config: changeset.UpdateOffRampSourcesConfig{
+				UpdatesByChain: updateOffRampSources,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
+				UpdatesByChain: updateRouterChanges,
+			},
+		},
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -38,7 +39,7 @@ const (
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(10), deployment.UBigInt(1e18)) // 5 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(10), deployment.UBigInt(1e18)) // 100 eth
 )
 
 // todo: Have a different struct for commit/exec?
@@ -107,6 +108,7 @@ func subscribeCommitEvents(
 	}
 
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
+	// todo: add event.Resubscriber if we move to unreliable rpcs
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
 		Start:   startBlock,
@@ -164,7 +166,11 @@ func subscribeCommitEvents(
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
-			if ok { // only add to range if channel is still open
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
+				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
+			} else if ok {
+				// only add to range if channel is still open
 				expectedRange[finalSeqNrUpdate.sourceChainSelector] = finalSeqNrUpdate.expectedSeqNrRange
 			}
 
@@ -181,10 +187,11 @@ func subscribeCommitEvents(
 					// todo: We might need to modify if there are other non-load test txns on network
 					if len(seenMessages[srcChain]) >= seqNumRange.Length() {
 						completedSrcChains[srcChain] = true
+						delete(expectedRange, srcChain)
+						delete(seenMessages, srcChain)
 						lggr.Infow("committed all sequence numbers for ",
 							"sourceChain", srcChain,
-							"destChain", chainSelector,
-							"seqNumRange", seqNumRange)
+							"destChain", chainSelector)
 					}
 				}
 			}
@@ -233,6 +240,7 @@ func subscribeExecutionEvents(
 	}
 
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
+	// todo: add event.Resubscriber if we move to unreliable rpcs
 	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
 		Context: context.Background(),
 		Start:   startBlock,
@@ -288,7 +296,12 @@ func subscribeExecutionEvents(
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
-			expectedRange[finalSeqNrUpdate.sourceChainSelector] = finalSeqNrUpdate.expectedSeqNrRange
+			if finalSeqNrUpdate.expectedSeqNrRange.Start() == math.MaxUint64 {
+				delete(completedSrcChains, finalSeqNrUpdate.sourceChainSelector)
+				delete(seenMessages, finalSeqNrUpdate.sourceChainSelector)
+			} else {
+				expectedRange[finalSeqNrUpdate.sourceChainSelector] = finalSeqNrUpdate.expectedSeqNrRange
+			}
 
 		case <-ticker.C:
 			lggr.Infow("ticking, checking executed events",
@@ -320,8 +333,7 @@ func subscribeExecutionEvents(
 			}
 			if allComplete {
 				lggr.Infow("all messages have been executed for all expected sequence numbers",
-					"destChain", chainSelector,
-					"expectedSeqNumbers", expectedRange)
+					"destChain", chainSelector)
 				return
 			}
 		}

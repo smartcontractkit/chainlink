@@ -19,10 +19,10 @@ import (
 
 var wg = &sync.WaitGroup{}
 
-func distributeFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) {
+func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) {
 	transmittersStr := make([]common.Address, 0)
-	fundingAmount := new(big.Int).Mul(deployment.UBigInt(5), deployment.UBigInt(1e17)) // 0.5 ETH
-	minThreshold := new(big.Int).Mul(deployment.UBigInt(5), deployment.UBigInt(1e16))  // 0.05 ETH
+	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
+	minThreshold := new(big.Int).Mul(deployment.UBigInt(5), deployment.UBigInt(1e16))    // 0.05 ETH
 
 	for sel, chain := range env.Chains {
 		wg.Add(1)
