@@ -2,12 +2,12 @@ package changeset
 
 import (
 	"github.com/smartcontractkit/chainlink/deployment"
-	llodeployment "github.com/smartcontractkit/chainlink/deployment/llo"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams"
 )
 
-func DeployChannelConfigStoreChangeSet(env deployment.Environment, cc llodeployment.DeployLLOContractConfig) (deployment.ChangesetOutput, error) {
+func DeployChannelConfigStoreChangeSet(env deployment.Environment, cc data_streams.DeployContractConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
-	err := llodeployment.DeployChannelConfigStore(env, ab, cc)
+	err := data_streams.DeployChannelConfigStore(env, ab, cc)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)

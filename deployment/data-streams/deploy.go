@@ -1,4 +1,4 @@
-package llo
+package data_streams
 
 import (
 	"fmt"
@@ -13,13 +13,13 @@ import (
 )
 
 type (
-	DeployLLOContractConfig struct {
+	DeployContractConfig struct {
 		// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 		ChainsToDeploy []uint64
 	}
 
-	// LLOContract covers contracts such as channel_config_store.ChannelConfigStore and fee_manager.FeeManager.
-	LLOContract interface {
+	// Contract covers contracts such as channel_config_store.ChannelConfigStore and fee_manager.FeeManager.
+	Contract interface {
 		// Caller:
 		Owner(opts *bind.CallOpts) (common.Address, error)
 		SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error)
@@ -30,9 +30,9 @@ type (
 		TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	}
 
-	ContractDeployFn[C LLOContract] func(chain deployment.Chain) *ContractDeployment[C]
+	ContractDeployFn[C Contract] func(chain deployment.Chain) *ContractDeployment[C]
 
-	ContractDeployment[C LLOContract] struct {
+	ContractDeployment[C Contract] struct {
 		Address  common.Address
 		Contract C
 		Tx       *types.Transaction
@@ -48,7 +48,7 @@ const (
 // DeployChannelConfigStore deploys ChannelConfigStore to the chains specified in the config.
 //
 // Note that this function modifies the given address book variable, so it should be passed by reference.
-func DeployChannelConfigStore(env deployment.Environment, ab deployment.AddressBook, cc DeployLLOContractConfig) error {
+func DeployChannelConfigStore(env deployment.Environment, ab deployment.AddressBook, cc DeployContractConfig) error {
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil || len(nodes) == 0 {
 		env.Logger.Errorw("Failed to get node info", "err", err)
@@ -109,7 +109,7 @@ func channelConfigStoreDeployFn() ContractDeployFn[*channel_config_store.Channel
 // deployContract deploys a contract and saves the address to the address book.
 //
 // Note that this function modifies the given address book variable, so it should be passed by reference.
-func deployContract[C LLOContract](
+func deployContract[C Contract](
 	env deployment.Environment,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
