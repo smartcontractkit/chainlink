@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -23,15 +22,11 @@ func TestSaveExistingCCIP(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
-		SolChains:  1,
 		Nodes:      4,
 	})
 	chains := e.AllChainSelectors()
 	chain1 := chains[0]
 	chain2 := chains[1]
-	solChain := e.AllChainSelectorsSolana()[0]
-	solAddr1 := solana.NewWallet().PublicKey().String()
-	solAddr2 := solana.NewWallet().PublicKey().String()
 	cfg := commonchangeset.ExistingContractsConfig{
 		ExistingContracts: []commonchangeset.Contract{
 			{
@@ -59,16 +54,6 @@ func TestSaveExistingCCIP(t *testing.T) {
 				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},
-			{
-				Address:        solAddr1,
-				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0),
-				ChainSelector:  solChain,
-			},
-			{
-				Address:        solAddr2,
-				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
-				ChainSelector:  solChain,
-			},
 		},
 	}
 
@@ -83,6 +68,4 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
 	require.Equal(t, state.Chains[chain2].RegistryModule.Address(), common.BigToAddress(big.NewInt(4)))
 	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
-	require.Equal(t, state.SolChains[solChain].Router.String(), solAddr1)
-	require.Equal(t, state.SolChains[solChain].LinkToken.String(), solAddr2)
 }

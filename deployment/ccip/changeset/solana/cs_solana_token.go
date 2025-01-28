@@ -1,4 +1,4 @@
-package changeset
+package changeset_solana
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -38,7 +40,7 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	mintPublicKey := mint.PublicKey()
 
 	instructions, err := solTokenUtil.CreateToken(
-		context.Background(), tokenprogramID, mintPublicKey, adminPublicKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
+		context.Background(), tokenprogramID, mintPublicKey, adminPublicKey, commonchangeset.TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

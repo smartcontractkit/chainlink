@@ -981,6 +981,7 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
 
+		// TODO: introduce interface when MCMS is ready
 		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return err
 		}
