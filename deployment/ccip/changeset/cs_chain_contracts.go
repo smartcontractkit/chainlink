@@ -242,41 +242,34 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := cfg.validateRemoteChain(&e, &state, supportedChains, chainSel, updates); err != nil {
+		chainState, ok := state.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		if chainState.TestRouter == nil {
+			return fmt.Errorf("missing test router for chain %d", chainSel)
+		}
+		if chainState.Router == nil {
+			return fmt.Errorf("missing router for chain %d", chainSel)
+		}
+		if chainState.OnRamp == nil {
+			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (cfg UpdateOnRampDestsConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, supportedChains map[uint64]struct{}, chainSel uint64, updates map[uint64]OnRampDestinationUpdate) error {
-	chainState, ok := state.Chains[chainSel]
-	if !ok {
-		return fmt.Errorf("chain %d not found in onchain state", chainSel)
-	}
-	if chainState.TestRouter == nil {
-		return fmt.Errorf("missing test router for chain %d", chainSel)
-	}
-	if chainState.Router == nil {
-		return fmt.Errorf("missing router for chain %d", chainSel)
-	}
-	if chainState.OnRamp == nil {
-		return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
-	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
-		return err
-	}
-	sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-	if err != nil {
-		return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
-	}
-	for destination := range updates {
-		// Destination cannot be an unknown destination.
-		if _, ok := supportedChains[destination]; !ok {
-			return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
+		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 		}
-		if destination == sc.ChainSelector {
-			return errors.New("cannot update onramp destination to the same chain")
+		for destination := range updates {
+			// Destination cannot be an unknown destination.
+			if _, ok := supportedChains[destination]; !ok {
+				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
+			}
+			if destination == sc.ChainSelector {
+				return errors.New("cannot update onramp destination to the same chain")
+			}
 		}
 	}
 	return nil
@@ -296,9 +289,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
-	cso := deployment.ChangesetOutput{
-		Proposals: make([]timelock.MCMSWithTimelockProposal, 0),
-	}
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -360,8 +350,9 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	cso.Proposals = append(cso.Proposals, *p)
-	return cso, nil
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
 }
 
 type UpdateFeeQuoterPricesConfig struct {
@@ -1032,6 +1023,9 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 		args, err := internal.BuildSetOCR3ConfigArgs(
 			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
