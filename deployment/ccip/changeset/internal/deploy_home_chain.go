@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-
 )
 
 const (
@@ -188,10 +187,10 @@ func BuildSetOCR3ConfigArgs(
 
 type MultiOCR3BaseOCRConfigArgsSolana struct {
 	ConfigDigest                   [32]byte
-	OcrPluginType                  uint8
+	OCRPluginType                  uint8
 	F                              uint8
 	IsSignatureVerificationEnabled bool
-	Signers                        [][20]uint8
+	Signers                        [][20]byte
 	Transmitters                   []solana.PublicKey
 }
 
@@ -216,18 +215,23 @@ func BuildSetOCR3ConfigArgsSolana(
 		}
 
 		activeConfig := ocrConfig.ActiveConfig
-		var signerAddresses [][20]uint8
+		var signerAddresses [][20]byte
 		var transmitterAddresses []solana.PublicKey
 		for _, node := range activeConfig.Config.Nodes {
 			var signer [20]uint8
-			copy(signer[:], node.SignerKey[:20])
+			// can assert len(node.SignerKey) == 20, error otherwise
+			copy(signer[:], node.SignerKey[:])
 			signerAddresses = append(signerAddresses, signer)
-			transmitterAddresses = append(transmitterAddresses, solana.MustPublicKeyFromBase58(string(node.TransmitterKey)))
+			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
+			if err != nil {
+				return nil, err
+			}
+			transmitterAddresses = append(transmitterAddresses, key)
 		}
 
 		ocr3Configs = append(ocr3Configs, MultiOCR3BaseOCRConfigArgsSolana{
 			ConfigDigest:                   activeConfig.ConfigDigest,
-			OcrPluginType:                  uint8(pluginType),
+			OCRPluginType:                  uint8(pluginType),
 			F:                              activeConfig.Config.FRoleDON,
 			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,
 			Signers:                        signerAddresses,

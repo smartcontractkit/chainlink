@@ -193,7 +193,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 		ccipRouterID := solChains[remote].Router
 		for _, arg := range args {
 			instruction, err := ccip_router.NewSetOcrConfigInstruction(
-				arg.OcrPluginType,
+				arg.OCRPluginType,
 				ccip_router.Ocr3ConfigInfo{
 					ConfigDigest:                   arg.ConfigDigest,
 					F:                              arg.F,
