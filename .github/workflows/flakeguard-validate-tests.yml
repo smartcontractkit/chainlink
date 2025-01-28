@@ -13,6 +13,11 @@ on:
         required: false
         type: string
         default: '5'
+      testRunner:
+        description: 'The default tests runner to use.'
+        required: false
+        type: string
+        default: 'ubuntu-20.04'
       runTestsWithRace:
         description: 'Run tests with the race detector enabled.'
         required: false
@@ -34,7 +39,7 @@ jobs:
           "run_custom_test_packages": "${{ inputs.testPackages }}",
           "test_repeat_count": "${{ inputs.testRepeatCount }}",
           "run_with_race": "${{ inputs.runTestsWithRace }}",
-          "default_tests_runner": "ubuntu22.04-8cores-32GB",
+          "default_tests_runner": "${{ inputs.testRunner }}",
           "skipped_tests": ""
         }
 
