@@ -1,0 +1,40 @@
+ChainID = '48900'
+ChainType = 'zircuit'
+FinalityTagEnabled = true
+FinalityDepth = 1000
+LinkContractAddress = '0x5D6d033B4FbD2190D99D930719fAbAcB64d2439a'
+LogPollInterval = "2s"
+NoNewHeadsThreshold = "40s"
+NoNewFinalizedHeadsThreshold = "40m"
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '100 wei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 2000
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1
+
+[OCR2.Automation]
+GasLimit = 6500000
+
+[Transactions.AutoPurge]
+Enabled = true
+Threshold = 90 # 90 blocks at 2s block time ~3 minutes
+MinAttempts = 3

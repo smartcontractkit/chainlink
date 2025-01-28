@@ -1,6 +1,8 @@
 package headtracker
 
-import evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+import (
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+)
 
 type headsHeap struct {
 	values []*evmtypes.Head

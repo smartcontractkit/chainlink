@@ -18,13 +18,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
@@ -40,6 +34,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	v2 "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func testSingleConsumerHappyPath(
@@ -66,14 +65,14 @@ func testSingleConsumerHappyPath(
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr[types.EIP55Address](key1.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		}, toml.KeySpecific{
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		}, v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr[types.EIP55Address](key2.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -189,23 +188,23 @@ func testMultipleConsumersNeedBHS(
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
 	var bhsKeyAddresses []string
-	var keySpecificOverrides []toml.KeySpecific
+	var keySpecificOverrides []v2.KeySpecific
 	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
-		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+		keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 			Key:          ptr(bhsKey.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})
 		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 	}
-	keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+	keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 		// Gas lane.
 		Key:          ptr(vrfKey.EIP55Address),
-		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 	})
 
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -329,7 +328,7 @@ func testMultipleConsumersNeedTrustedBHS(
 	// generate n BHS keys to make sure BHS job rotates sending keys
 	var bhsKeyAddresses []common.Address
 	var bhsKeyAddressesStrings []string
-	var keySpecificOverrides []toml.KeySpecific
+	var keySpecificOverrides []v2.KeySpecific
 	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
@@ -337,16 +336,16 @@ func testMultipleConsumersNeedTrustedBHS(
 		bhsKeyAddressesStrings = append(bhsKeyAddressesStrings, bhsKey.Address.String())
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address)
 		keys = append(keys, bhsKey)
-		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+		keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 			Key:          ptr(bhsKey.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})
 		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 	}
-	keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+	keySpecificOverrides = append(keySpecificOverrides, v2.KeySpecific{
 		// Gas lane.
 		Key:          ptr(vrfKey.EIP55Address),
-		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 	})
 
 	// Whitelist vrf key for trusted BHS.
@@ -540,10 +539,10 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -647,10 +646,10 @@ func testSingleConsumerNeedsTopUp(
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(1000), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(1000), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -754,10 +753,10 @@ func testBlockHeaderFeeder(
 	gasLanePriceWei := assets.GWei(10)
 
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, gasLanePriceWei, toml.KeySpecific{
+		simulatedOverrides(t, gasLanePriceWei, v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(vrfKey.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -910,14 +909,14 @@ func testSingleConsumerForcedFulfillment(
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		}, toml.KeySpecific{
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		}, v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key2.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -1774,10 +1773,10 @@ func testReplayOldRequestsOnStartUp(
 	sendingKey := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(sendingKey.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
@@ -1815,10 +1814,10 @@ func testReplayOldRequestsOnStartUp(
 	}
 
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
 			// Gas lane.
 			Key:          ptr(sendingKey.EIP55Address),
-			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)

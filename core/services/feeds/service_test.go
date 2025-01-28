@@ -23,8 +23,6 @@ import (
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmbig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -46,6 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmbig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const FluxMonitorTestSpecTemplate = `
@@ -225,8 +225,15 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
 	keyStore := new(ksmocks.Master)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
-		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  gcfg,
+		DatabaseConfig: gcfg.Database(),
+		FeatureConfig:  gcfg.Feature(),
+		ListenerConfig: gcfg.Database().Listener(),
+		DB:             db,
+		HeadTracker:    headtracker.NullTracker,
+		KeyStore:       ethKeyStore,
+	})
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)

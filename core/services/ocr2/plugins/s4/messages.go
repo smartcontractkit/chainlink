@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"math/big"
 
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func MarshalQuery(rows []*SnapshotRow, addressRange *s4.AddressRange) ([]byte, error) {

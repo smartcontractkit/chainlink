@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestUtils_GetTxBlock(t *testing.T) {
@@ -48,7 +47,7 @@ func TestUtils_GetTxBlock(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		client := new(evmClientMocks.Client)
+		client := new(clienttest.Client)
 		client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", tt.txHash).
 			Return(tt.ethCallError).Run(func(args mock.Arguments) {
 			receipt := tt.receipt
