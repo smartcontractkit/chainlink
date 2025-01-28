@@ -14,7 +14,7 @@ var (
 	AddressLookupTable deployment.ContractType = "AddressLookupTable"
 	TokenPool          deployment.ContractType = "TokenPool"
 	Receiver           deployment.ContractType = "Receiver"
-	Sol2022Tokens      deployment.ContractType = "Sol2022Tokens"
+	SPL2022Tokens      deployment.ContractType = "SPL2022Tokens"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -25,7 +25,7 @@ type SolCCIPChainState struct {
 	Timelock           solana.PublicKey
 	AddressLookupTable solana.PublicKey // for chain writer
 	Receiver           solana.PublicKey // for tests only
-	Sol2022Tokens      []solana.PublicKey
+	SPL2022Tokens      []solana.PublicKey
 	TokenPool          solana.PublicKey
 }
 
@@ -54,7 +54,7 @@ func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) 
 // LoadChainStateSolana Loads all state for a SolChain into state
 func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deployment.TypeAndVersion) (SolCCIPChainState, error) {
 	var state SolCCIPChainState
-	var sol2022Tokens []solana.PublicKey
+	var spl2022Tokens []solana.PublicKey
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
@@ -69,9 +69,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
-		case deployment.NewTypeAndVersion(Sol2022Tokens, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(SPL2022Tokens, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			sol2022Tokens = append(sol2022Tokens, pub)
+			spl2022Tokens = append(spl2022Tokens, pub)
 		case deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.TokenPool = pub
@@ -79,6 +79,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
-	state.Sol2022Tokens = sol2022Tokens
+	state.SPL2022Tokens = spl2022Tokens
 	return state, nil
 }

@@ -27,6 +27,7 @@ var (
 	SolDefaultCommitment        = rpc.CommitmentConfirmed
 	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
+	SPL2022Tokens               = "SPL2022Tokens"
 )
 
 // SolChain represents a Solana chain.
@@ -134,8 +135,8 @@ func parseProgramID(output string) (string, error) {
 // GetTokenProgramID returns the program ID for the given token program name
 func GetTokenProgramID(programName string) (solana.PublicKey, error) {
 	tokenPrograms := map[string]solana.PublicKey{
-		"spl-token":      solana.TokenProgramID,
-		"spl-token-2022": solana.Token2022ProgramID,
+		// "spl-token":      solana.TokenProgramID,
+		SPL2022Tokens: solana.Token2022ProgramID,
 	}
 
 	programID, ok := tokenPrograms[programName]

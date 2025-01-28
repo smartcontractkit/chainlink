@@ -4,20 +4,20 @@ import (
 	"context"
 	"testing"
 
+	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
-
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestDeploySolanaToken(t *testing.T) {
+func TestSolanaTokenOps(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -29,35 +29,47 @@ func TestDeploySolanaToken(t *testing.T) {
 			Changeset: changeset.WrapChangeSet(changeset.DeploySolanaToken),
 			Config: &changeset.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenSymbol:      "spl-token-2022",
-				TokenProgramName: "spl-token-2022",
-				ATAList: []string{
-					e.SolChains[solChain1].DeployerKey.PublicKey().String(),
-				},
+				TokenProgramName: deployment.SPL2022Tokens,
+				TokenDecimals:    9,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	tokenAddress := state.SolChains[solChain1].SPL2022Tokens[0]
+	testUser, _ := solana.NewRandomPrivateKey()
+	testUserPubKey := testUser.PublicKey()
+
+	e, err = changeset.ApplyChangesets(t, e, nil, []changeset.ChangesetApplication{
+		{
+			Changeset: changeset.WrapChangeSet(changeset.CreateSolanaTokenATA),
+			Config: &changeset.CreateSolanaTokenATAConfig{
+				ChainSelector: solChain1,
+				TokenPubkey:   tokenAddress,
+				TokenProgram:  deployment.SPL2022Tokens,
+				ATAList:       []string{testUserPubKey.String()},
 			},
 		},
 		{
 			Changeset: changeset.WrapChangeSet(changeset.MintSolanaToken),
 			Config: &changeset.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
-				TokenSymbol:   "spl-token-2022",
-				TokenProgram:  "spl-token-2022",
-				Amount:        uint64(1000),
-				ToAddressList: []string{
-					e.SolChains[solChain1].DeployerKey.PublicKey().String(),
+				TokenPubkey:   tokenAddress,
+				TokenProgram:  deployment.SPL2022Tokens,
+				AmountToAddress: map[string]uint64{
+					testUserPubKey.String(): uint64(1000),
 				},
 			},
 		},
 	})
 	require.NoError(t, err)
 
-	// solana test
-	tokenAddress, err := deployment.FindTokenAddress(e, solChain1, "spl-token-2022")
-	require.NoError(t, err)
-	toAddressBase58 := solana.MustPublicKeyFromBase58(e.SolChains[solChain1].DeployerKey.PublicKey().String())
-	ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, toAddressBase58)
+	ata, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, testUserPubKey)
 	outDec, outVal, err := solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, ata, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
+
 }
