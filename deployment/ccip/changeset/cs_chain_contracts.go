@@ -1124,8 +1124,8 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDes
 		```
 	*/
 	evmFamilySelector, _ := hex.DecodeString("2812d52c")
-	feeQuoterDestChainConfig := fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         true,
+	return fee_quoter.FeeQuoterDestChainConfig{
+		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
 		MaxPerMsgGasLimit:                 3_000_000,
@@ -1143,8 +1143,4 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDes
 		NetworkFeeUSDCents:                1,
 		ChainFamilySelector:               [4]byte(evmFamilySelector),
 	}
-	if !configEnabled {
-		feeQuoterDestChainConfig.IsEnabled = false
-	}
-	return feeQuoterDestChainConfig
 }

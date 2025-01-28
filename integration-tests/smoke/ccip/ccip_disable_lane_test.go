@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"math/big"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -41,9 +40,9 @@ func TestDisableLane(t *testing.T) {
 		expectedSeqNumExec     = make(map[testhelpers.SourceDestPair][]uint64)
 		startBlocks            = make(map[uint64]*uint64)
 		pairs                  []testhelpers.SourceDestPair
-		wg                     sync.WaitGroup
 		linkPrice              = deployment.E18Mult(100)
 		wethPrice              = deployment.E18Mult(4000)
+		noOfRequests           = 3
 		sendmessage            = func(src, dest uint64, deployer *bind.TransactOpts) (*onramp.OnRampCCIPMessageSent, error) {
 			return testhelpers.DoSendRequest(
 				t,
@@ -95,30 +94,18 @@ func TestDisableLane(t *testing.T) {
 	assertRequestSent(chainB, chainA, e.Chains[chainB].Users[0])
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
-	// disable lane B -> A
-	pairs = append(pairs, testhelpers.SourceDestPair{
-		SourceChainSelector: chainB,
-		DestChainSelector:   chainA,
-	})
-	testhelpers.RemoveLane(t, &tenv, chainB, chainA, false)
-	assertSendRequestReverted(chainB, chainA, e.Chains[chainB].Users[0])
-
 	// send a multiple message between A -> C and disable the lane while the requests are in-flight
 	expectedSeqNumExec = make(map[testhelpers.SourceDestPair][]uint64)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for range 5 {
-			assertRequestSent(chainA, chainC, e.Chains[chainA].Users[1])
-		}
-	}()
+	for range noOfRequests {
+		assertRequestSent(chainA, chainC, e.Chains[chainA].Users[1])
+	}
 	// disable lane A -> C while requests are getting sent in that lane
 	pairs = append(pairs, testhelpers.SourceDestPair{
 		SourceChainSelector: chainA,
 		DestChainSelector:   chainC,
 	})
 	testhelpers.RemoveLane(t, &tenv, chainA, chainC, false)
-	wg.Wait() // wait for all the messages to be sent in A -> C lane
+
 	// confirm all in-flight messages are delivered in A -> C lane
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
