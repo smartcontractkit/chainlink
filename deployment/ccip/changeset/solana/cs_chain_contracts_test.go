@@ -3,7 +3,7 @@ package changeset_solana_test
 import (
 	"testing"
 
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"

@@ -80,6 +80,7 @@ func TestSaveExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
 	require.Len(t, addresses, 1)
 	addressForSolana, exists := addresses[chainsel.SOLANA_DEVNET.Selector]
 	require.True(t, exists)

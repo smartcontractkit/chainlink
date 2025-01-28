@@ -3,7 +3,7 @@ package changeset_solana_test
 import (
 	"testing"
 
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -34,7 +34,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
@@ -67,7 +67,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIds,
+					"NodeOperator": p2pIDs,
 				},
 			},
 		},
@@ -119,5 +119,4 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
 }

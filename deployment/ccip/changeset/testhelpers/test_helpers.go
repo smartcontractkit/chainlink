@@ -1422,7 +1422,7 @@ func DoDeployLinkToken(t *testing.T, solChains int) {
 	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(commoncs.DeployLinkToken),
-			Config:    []uint64{chain1, solChain1},
+			Config:    config,
 		},
 	})
 	require.NoError(t, err)
