@@ -1,6 +1,7 @@
 name: Flakeguard Validate Tests
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       testPackages:
