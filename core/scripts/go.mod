@@ -320,7 +320,7 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250121195549-294ec6a40b92 // indirect
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250121215559-e428185de51a // indirect
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250128184730-0aeab85dda8e // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250121222331-a7010b4b8ce5 // indirect

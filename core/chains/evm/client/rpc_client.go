@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"strconv"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -99,11 +99,10 @@ type RPCClient struct {
 	chainType                  chaintype.ChainType
 	clientErrors               config.ClientErrors
 
-	rawClientLock sync.RWMutex
-	ws            *rawclient
-	http          *rawclient
+	ws   atomic.Pointer[rawclient]
+	http atomic.Pointer[rawclient]
 
-	*multinode.Adapter[RPCClient, *evmtypes.Head]
+	*multinode.Adapter[*evmtypes.Head]
 }
 
 var _ multinode.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
@@ -129,8 +128,7 @@ func NewRPCClient(
 		clientErrors:           cfg.Errors(),
 	}
 
-	r.Adapter = multinode.NewAdapter[RPCClient, *evmtypes.Head](
-		cfg, r, QueryTimeout, lggr, latestBlock, latestFinalizedBlock)
+	r.Adapter = multinode.NewAdapter[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
 
 	r.cfg = cfg
 	r.name = name
@@ -140,10 +138,10 @@ func NewRPCClient(
 	r.finalizedBlockPollInterval = cfg.FinalizedBlockPollInterval()
 	r.newHeadsPollInterval = cfg.NewHeadsPollInterval()
 	if wsuri != nil {
-		r.ws = &rawclient{uri: *wsuri}
+		r.ws.Store(&rawclient{uri: *wsuri})
 	}
 	if httpuri != nil {
-		r.http = &rawclient{uri: *httpuri}
+		r.http.Store(&rawclient{uri: *httpuri})
 	}
 	lggr = logger.Named(lggr, "Client")
 	lggr = logger.With(lggr,
@@ -168,29 +166,31 @@ func (r *RPCClient) Ping(ctx context.Context) error {
 
 // Not thread-safe, pure dial.
 func (r *RPCClient) Dial(callerCtx context.Context) error {
-	ctx, cancel := multinode.MakeQueryCtx(callerCtx, r.GetChStopInflight(), r.rpcTimeout)
+	ctx, cancel, _ := r.AcquireQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws == nil && r.http == nil {
+	if r.ws.Load() == nil && r.http.Load() == nil {
 		return errors.New("cannot dial rpc client when both ws and http info are missing")
 	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
 	lggr := r.rpcLog
-	if r.ws != nil {
-		lggr = lggr.With("wsuri", r.ws.uri.Redacted())
-		wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
+	ws := r.ws.Load()
+	if ws != nil {
+		lggr = lggr.With("wsuri", ws.uri.Redacted())
+		wsrpc, err := rpc.DialWebsocket(ctx, ws.uri.String(), "")
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
+			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", ws.uri.Redacted()))
 		}
 
-		r.ws.rpc = wsrpc
-		r.ws.geth = ethclient.NewClient(wsrpc)
+		ws.rpc = wsrpc
+		ws.geth = ethclient.NewClient(wsrpc)
 	}
 
-	if r.http != nil {
-		lggr = lggr.With("httpuri", r.http.uri.Redacted())
+	http := r.http.Load()
+	if http != nil {
+		lggr = lggr.With("httpuri", http.uri.Redacted())
 		if err := r.DialHTTP(); err != nil {
 			return err
 		}
@@ -205,19 +205,20 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 // DialHTTP doesn't actually make any external HTTP calls
 // It can only return error if the URL is malformed.
 func (r *RPCClient) DialHTTP() error {
+	http := r.http.Load()
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.rpcLog.With("httpuri", r.http.uri.Redacted())
+	lggr := r.rpcLog.With("httpuri", http.uri.Redacted())
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
 	var httprpc *rpc.Client
-	httprpc, err := rpc.DialHTTP(r.http.uri.String())
+	httprpc, err := rpc.DialHTTP(http.uri.String())
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted()))
+		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing HTTP: %v", http.uri.Redacted()))
 	}
 
-	r.http.rpc = httprpc
-	r.http.geth = ethclient.NewClient(httprpc)
+	http.rpc = httprpc
+	http.geth = ethclient.NewClient(httprpc)
 
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
 
@@ -226,22 +227,23 @@ func (r *RPCClient) DialHTTP() error {
 
 func (r *RPCClient) Close() {
 	defer func() {
-		if r.ws != nil && r.ws.rpc != nil {
-			r.ws.rpc.Close()
+		ws := r.ws.Load()
+		if ws != nil && ws.rpc != nil {
+			ws.rpc.Close()
 		}
 	}()
-	r.CancelInflightRequests()
-	r.UnsubscribeAllExcept()
-	r.ResetLatestChainInfo()
+	r.Adapter.Close()
 }
 
 func (r *RPCClient) String() string {
 	s := fmt.Sprintf("(%s)%s", r.tier.String(), r.name)
-	if r.ws != nil {
-		s = s + fmt.Sprintf(":%s", r.ws.uri.Redacted())
+	ws := r.ws.Load()
+	if ws != nil {
+		s = s + fmt.Sprintf(":%s", ws.uri.Redacted())
 	}
-	if r.http != nil {
-		s = s + fmt.Sprintf(":%s", r.http.uri.Redacted())
+	http := r.http.Load()
+	if http != nil {
+		s = s + fmt.Sprintf(":%s", http.uri.Redacted())
 	}
 	return s
 }
@@ -279,10 +281,11 @@ func (r *RPCClient) logResult(
 }
 
 func (r *RPCClient) getRPCDomain() string {
-	if r.http != nil {
-		return r.http.uri.Host
+	http := r.http.Load()
+	if http != nil {
+		return http.uri.Host
 	}
-	return r.ws.uri.Host
+	return r.ws.Load().uri.Host
 }
 
 // RPC wrappers
@@ -425,7 +428,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return channel, sub, nil
 	}
 
-	if ws == nil {
+	if ws.Load() == nil {
 		return nil, nil, errors.New("SubscribeNewHead is not allowed without ws url")
 	}
 
@@ -443,7 +446,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return head, nil
 	}, r.wrapRPCClientError)
 
-	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
+	err = forwarder.start(ws.Load().rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -589,27 +592,27 @@ func (r *RPCClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func latestFinalizedBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
+func (r *RPCClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.BlockByNumber(ctx, nil)
+}
+
+func (r *RPCClient) latestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
 	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
-	ctx, cancel, _, _, _ := rawRPC.acquireQueryCtx(ctx, rawRPC.rpcTimeout)
+	ctx, cancel, _, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
-	if rawRPC.chainType == chaintype.ChainAstar {
+	if r.chainType == chaintype.ChainAstar {
 		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
-		err = rawRPC.astarLatestFinalizedBlock(ctx, &head)
+		err = r.astarLatestFinalizedBlock(ctx, &head)
 	} else {
-		err = rawRPC.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
+		err = r.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
 	}
 
 	if head == nil {
-		err = rawRPC.wrapRPCClientError(ethereum.NotFound)
+		err = r.wrapRPCClientError(ethereum.NotFound)
 		return
 	}
-	head.EVMChainID = ubig.New(rawRPC.chainID)
+	head.EVMChainID = ubig.New(r.chainID)
 	return
-}
-
-func latestBlock(ctx context.Context, rawRPC *RPCClient) (head *evmtypes.Head, err error) {
-	return rawRPC.BlockByNumber(ctx, nil)
 }
 
 func (r *RPCClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {
@@ -1159,7 +1162,7 @@ func (r *RPCClient) ClientVersion(ctx context.Context) (version string, err erro
 func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
-	if ws == nil {
+	if ws.Load() == nil {
 		return nil, errors.New("SubscribeFilterLogs is not allowed without ws url")
 	}
 	lggr := r.newRqLggr().With("q", q)
@@ -1172,7 +1175,7 @@ func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 		err = r.wrapWS(err)
 	}()
 	sub := newSubForwarder(ch, r.makeLogValid, r.wrapRPCClientError)
-	err = sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
+	err = sub.start(ws.Load().geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
 	if err != nil {
 		return
 	}
@@ -1219,6 +1222,7 @@ func (r *RPCClient) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 		chainID, err = http.geth.ChainID(ctx)
 		err = r.wrapHTTP(err)
 	} else {
+		// TODO: ws is nil...
 		chainID, err = ws.geth.ChainID(ctx)
 		err = r.wrapWS(err)
 	}
@@ -1250,12 +1254,12 @@ func wrapCallError(err error, tp string) error {
 }
 
 func (r *RPCClient) wrapWS(err error) error {
-	err = wrapCallError(err, fmt.Sprintf("%s websocket (%s)", r.tier.String(), r.ws.uri.Redacted()))
+	err = wrapCallError(err, fmt.Sprintf("%s websocket (%s)", r.tier.String(), r.ws.Load().uri.Redacted()))
 	return r.wrapRPCClientError(err)
 }
 
 func (r *RPCClient) wrapHTTP(err error) error {
-	err = wrapCallError(err, fmt.Sprintf("%s http (%s)", r.tier.String(), r.http.uri.Redacted()))
+	err = wrapCallError(err, fmt.Sprintf("%s http (%s)", r.tier.String(), r.http.Load().uri.Redacted()))
 	err = r.wrapRPCClientError(err)
 	if err != nil {
 		r.rpcLog.Debugw("Call failed", "err", err)
@@ -1266,25 +1270,23 @@ func (r *RPCClient) wrapHTTP(err error) error {
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
-func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, ws *rawclient, http *rawclient) {
-	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx, timeout)
-	return
+func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
+	ws *rawclient, http *rawclient) {
+	ctx, cancel, _, wsClient, httpClient := r.acquireQueryCtx(parentCtx, timeout)
+	return ctx, cancel, wsClient.Load(), httpClient.Load()
 }
 
 func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
-	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
-	r.rawClientLock.Lock()
-	defer r.rawClientLock.Unlock()
-	chStopInFlight = r.GetChStopInflight()
-	if r.ws != nil {
-		cp := *r.ws
-		ws = &cp
+	chStopInFlight chan struct{}, ws atomic.Pointer[rawclient], http atomic.Pointer[rawclient]) {
+	ctx, cancel, chStopInFlight = r.AcquireQueryCtx(parentCtx, timeout)
+	if loadedWs := r.ws.Load(); loadedWs != nil {
+		cp := *loadedWs
+		ws.Store(&cp)
 	}
-	if r.http != nil {
-		cp := *r.http
-		http = &cp
+	if loadedHttp := r.http.Load(); loadedHttp != nil {
+		cp := *loadedHttp
+		http.Store(&cp)
 	}
-	ctx, cancel = multinode.MakeQueryCtx(parentCtx, chStopInFlight, timeout)
 	return
 }
 
