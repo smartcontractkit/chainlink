@@ -15,6 +15,7 @@ var (
 	TokenPool          deployment.ContractType = "TokenPool"
 	Receiver           deployment.ContractType = "Receiver"
 	SPL2022Tokens      deployment.ContractType = "SPL2022Tokens"
+	WSOL               deployment.ContractType = "WSOL"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -27,6 +28,7 @@ type SolCCIPChainState struct {
 	Receiver           solana.PublicKey // for tests only
 	SPL2022Tokens      []solana.PublicKey
 	TokenPool          solana.PublicKey
+	WSOL               solana.PublicKey
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -79,6 +81,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
+	state.WSOL = solana.SolMint
 	state.SPL2022Tokens = spl2022Tokens
 	return state, nil
 }
