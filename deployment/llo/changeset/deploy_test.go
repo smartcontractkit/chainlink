@@ -9,11 +9,11 @@ import (
 )
 
 func TestDeployChannelConfigStoreChangeSet(t *testing.T) {
-	e := newMemoryEnv(t)
-	c := llo.DeployLLOContractConfig{
+	env := newMemoryEnv(t)
+	cc := llo.DeployLLOContractConfig{
 		ChainsToDeploy: []uint64{TestChain.Selector},
 	}
-	out, err := DeployChannelConfigStoreChangeSet(e, c)
+	out, err := DeployChannelConfigStoreChangeSet(env, cc)
 	require.NoError(t, err)
 
 	ab, err := out.AddressBook.Addresses()
