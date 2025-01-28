@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-// TriggerSink is a TriggerFactory implementation that sends output to all triggers created by it.
+// TriggerSink is a TriggerFactory implementation that sends output to all triggers that are created by it.
 type TriggerSink struct {
 	services.StateMachine
 	triggerID   string
