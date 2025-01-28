@@ -943,6 +943,8 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			txOpts = deployment.SimTransactOpts()
 		}
 
+		lggr.Debugw("calling add don", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F,
+			"p2pids", p2pIds, "node count", len(p2pIds))
 		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)

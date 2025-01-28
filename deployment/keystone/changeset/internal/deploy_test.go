@@ -320,6 +320,100 @@ func Test_RegisterDons(t *testing.T) {
 		require.Len(t, resp.Ops.Batch, 1)
 	})
 
+	t.Run("no new dons to add results in no mcms ops", func(t *testing.T) {
+		var (
+			existingNOP              = testNop(t, "testNop")
+			existingP2Pkey           = testPeerID(t, "0x1")
+			initialp2pToCapabilities = map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability{
+				existingP2Pkey: {
+					{
+						LabelledName:   "test",
+						Version:        "1.0.0",
+						CapabilityType: 0,
+					},
+				},
+				testPeerID(t, "0x2"): {
+					{
+						LabelledName:   "test",
+						Version:        "1.0.0",
+						CapabilityType: 0,
+					},
+				},
+				testPeerID(t, "0x3"): {
+					{
+						LabelledName:   "test",
+						Version:        "1.0.0",
+						CapabilityType: 0,
+					},
+				},
+			}
+			nopToNodes = map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
+				existingNOP: {
+					{
+						Signer:              [32]byte{0: 1},
+						P2PKey:              existingP2Pkey,
+						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
+					},
+					{
+						Signer:              [32]byte{0: 1, 1: 1},
+						P2PKey:              testPeerID(t, "0x2"),
+						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
+					},
+					{
+						Signer:              [32]byte{0: 1, 1: 1, 2: 1},
+						P2PKey:              testPeerID(t, "0x3"),
+						EncryptionPublicKey: [32]byte{3: 16, 4: 2},
+					},
+				},
+			}
+
+			setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{
+				P2pToCapabilities: initialp2pToCapabilities,
+				NopToNodes:        nopToNodes,
+				Dons: []kstest.Don{
+					{
+						Name:   "test-don",
+						P2PIDs: []p2pkey.PeerID{existingP2Pkey, testPeerID(t, "0x2"), testPeerID(t, "0x3")},
+					},
+				},
+			})
+			registry = setupResp.Registry
+			chain    = setupResp.Chain
+			useMCMS  = true
+		)
+
+		env := &deployment.Environment{
+			Logger: lggr,
+			Chains: map[uint64]deployment.Chain{
+				chain.Selector: chain,
+			},
+			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
+				chain.Selector: {
+					registry.Address().String(): deployment.TypeAndVersion{
+						Type:    internal.CapabilitiesRegistry,
+						Version: deployment.Version1_0_0,
+					},
+				},
+			}),
+		}
+		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
+			Env:                   env,
+			RegistryChainSelector: chain.Selector,
+			DonToCapabilities: map[string][]internal.RegisteredCapability{
+				"test-don": {},
+			},
+			DonsToRegister: []internal.DONToRegister{
+				{
+					Name: "test-don",
+					F:    1,
+				},
+			},
+			UseMCMS: useMCMS,
+		})
+		require.NoError(t, err)
+		require.Nil(t, resp.Ops)
+	})
+
 	t.Run("success create add DONs mcms proposal with multiple DONs", func(t *testing.T) {
 		useMCMS = true
 		env := &deployment.Environment{
