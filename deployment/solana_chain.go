@@ -115,6 +115,14 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 	return parseProgramID(output)
 }
 
+func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // parseProgramID parses the program ID from the deploy output.
 func parseProgramID(output string) (string, error) {
 	// Look for the program ID in the CLI output
@@ -132,6 +140,7 @@ func parseProgramID(output string) (string, error) {
 	return output[startIdx : startIdx+endIdx], nil
 }
 
+// TODO: move these to the solana folder
 // GetTokenProgramID returns the program ID for the given token program name
 func GetTokenProgramID(programName string) (solana.PublicKey, error) {
 	tokenPrograms := map[string]solana.PublicKey{
@@ -158,27 +167,4 @@ func GetPoolType(poolType string) (token_pool.PoolType, error) {
 		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
 	}
 	return poolTypeConstant, nil
-}
-
-func FindTokenAddress(e Environment, chainSelector uint64, tokenName string) (solana.PublicKey, error) {
-	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-	if err != nil {
-		return solana.PublicKey{}, err
-	}
-
-	tv := NewTypeAndVersion(ContractType(tokenName), Version1_0_0)
-	for address, tvStr := range addresses {
-		if tvStr == tv {
-			return solana.MustPublicKeyFromBase58(address), nil
-		}
-	}
-	return solana.PublicKey{}, fmt.Errorf("token address not found in address book: %s", tokenName)
-}
-
-func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
-	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
-	if err != nil {
-		return err
-	}
-	return nil
 }
