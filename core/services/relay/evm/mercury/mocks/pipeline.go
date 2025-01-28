@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -131,7 +132,12 @@ type DonCapabilities struct {
 	Name         string
 	F            uint8
 	Nops         []NOP
-	Capabilities []kcr.CapabilitiesRegistryCapability // every capability is hosted on each nop
+	Capabilities []DONCapabilityWithConfig // every capability is hosted on each nop
+}
+
+type DONCapabilityWithConfig struct {
+	Capability kcr.CapabilitiesRegistryCapability
+	Config     *capabilitiespb.CapabilityConfig
 }
 
 func (v DonCapabilities) Validate() error {
@@ -195,8 +201,8 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 }
 
 // mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonInfo) map[string][]kcr.CapabilitiesRegistryCapability {
-	out := make(map[string][]kcr.CapabilitiesRegistryCapability)
+func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
+	out := make(map[string][]DONCapabilityWithConfig)
 	for _, don := range dons {
 		out[don.Name] = don.Capabilities
 	}
