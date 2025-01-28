@@ -40,7 +40,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 
 			destGasAmount := uint32(10)
 			destExecData := make([]byte, 4)
-			binary.BigEndian.PutUint32(destExecData, destGasAmount)
+			binary.LittleEndian.PutUint32(destExecData, destGasAmount)
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
@@ -50,6 +50,9 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 					DestExecData:      destExecData,
+					DestExecDataDecoded: map[string]any{
+						"destGasAmount": uint32(10),
+					},
 				}
 			}
 
@@ -167,7 +170,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			// ignore msg hash and extraArgsDecoded map in comparison
+			// ignore msg hash, extraArgsDecoded map and DestExecDataDecoded map in comparison
 			for i := range report.ChainReports {
 				for j := range report.ChainReports[i].Messages {
 					report.ChainReports[i].Messages[j].Header.MsgHash = cciptypes.Bytes32{}
@@ -175,6 +178,9 @@ func TestExecutePluginCodecV1(t *testing.T) {
 					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
 					report.ChainReports[i].Messages[j].ExtraArgsDecoded = nil
+					for k := range report.ChainReports[i].Messages[j].TokenAmounts {
+						report.ChainReports[i].Messages[j].TokenAmounts[k].DestExecDataDecoded = nil
+					}
 				}
 			}
 

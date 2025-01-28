@@ -50,12 +50,17 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
+			destGasAmount, err := extractDestGasAmountFromMap(tokenAmount.DestExecDataDecoded)
+			if err != nil {
+				return nil, err
+			}
+
 			tokenAmounts = append(tokenAmounts, ccip_router.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
 				Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
-				DestGasAmount:     bytesToUint32LE(tokenAmount.DestExecData),
+				DestGasAmount:     destGasAmount,
 			})
 		}
 
@@ -221,20 +226,35 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 			} else {
 				return out, errors.New("invalid type for Accounts, expected [][32]byte")
 			}
+		default:
+			// should we just ignore unknown fields instead of return error ?
+			return out, fmt.Errorf("invalid field %s", lowercase)
 		}
 	}
 
 	return out, nil
 }
 
-func bytesToUint32LE(b []byte) uint32 {
-	if len(b) < 4 {
-		var padded [4]byte
-		copy(padded[:len(b)], b) // Pad from the right for little-endian
-		return binary.LittleEndian.Uint32(padded[:])
+func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
+	var out uint32
+
+	// Iterate through the expected fields in the struct
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "destgasamount":
+			// Expect uint32
+			if v, ok := fieldValue.(uint32); ok {
+				out = v
+			} else {
+				return out, errors.New("invalid type for destgasamount, expected uint32")
+			}
+		default:
+			return out, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+		}
 	}
 
-	return binary.LittleEndian.Uint32(b)
+	return out, nil
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
