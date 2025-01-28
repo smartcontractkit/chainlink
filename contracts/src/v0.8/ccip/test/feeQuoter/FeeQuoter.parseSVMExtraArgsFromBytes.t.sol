@@ -94,7 +94,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
         computeUnits: 1_000_000,
         accountIsWritableBitmap: 0,
         tokenReceiver: bytes32(0),
-        allowOutOfOrderExecution: false, // mismatch with enforcedOutOfOrder = true
+        allowOutOfOrderExecution: false, // mismatch with enforceOutOfOrder = true
         accounts: new bytes32[](0)
       })
     );

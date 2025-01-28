@@ -914,7 +914,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function _parseSVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint256 maxPerMsgGasLimit,
-    bool enforcedOutOfOrder
+    bool enforceOutOfOrder
   ) internal pure returns (Client.SVMExtraArgsV1 memory svmExtraArgs) {
     if (extraArgs.length == 0) {
       revert InvalidExtraArgsData();
@@ -927,7 +927,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     svmExtraArgs = abi.decode(extraArgs[4:], (Client.SVMExtraArgsV1));
 
-    if (enforcedOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
+    if (enforceOutOfOrder && !svmExtraArgs.allowOutOfOrderExecution) {
       revert ExtraArgOutOfOrderExecutionMustBeTrue();
     }
 
