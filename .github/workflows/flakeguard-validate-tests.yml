@@ -24,7 +24,6 @@ jobs:
     name: Run Custom Tests with Flakeguard
     uses: ./.github/workflows/flakeguard.yml
     with:
-      # Minimal required inputs for your reusable workflow
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
       projectPath: '.'
       runAllTests: false
