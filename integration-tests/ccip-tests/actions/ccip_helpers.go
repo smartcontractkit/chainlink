@@ -3428,7 +3428,7 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, opts validatio
 		}
 
 		if wasReceiverDappDeployed {
-			err = lane.Dest.AssertMessageContentMatch(lane.Logger, string(msgLog.MessageId[:]), []byte(lane.SentReqs[txHash][0].MessageData), timeout, reqStat)
+			err = lane.Dest.AssertMessageContentMatch(lane.Logger, string(msgLog.MessageId[:]), lane.SentReqs[txHash][0].MessageData, timeout, reqStat)
 			if err != nil {
 				return errors.Wrap(err, "message validation failed")
 			}
