@@ -14,6 +14,7 @@ var (
 	AddressLookupTable deployment.ContractType = "AddressLookupTable"
 	TokenPool          deployment.ContractType = "TokenPool"
 	Receiver           deployment.ContractType = "Receiver"
+	Sol2022Tokens      deployment.ContractType = "Sol2022Tokens"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -24,6 +25,9 @@ type SolCCIPChainState struct {
 	Timelock           solana.PublicKey
 	AddressLookupTable solana.PublicKey // for chain writer
 	Receiver           solana.PublicKey // for tests only
+	// TODO: i dont know how to load a token from its address and type
+	// because unlike evm, solana does not store the symbol on chain
+	Sol2022Tokens map[TokenSymbol]solana.PublicKey
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -65,6 +69,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
+		// case deployment.NewTypeAndVersion(Sol2022Tokens, deployment.Version1_0_0).String():
+		// 	pub := solana.MustPublicKeyFromBase58(address)
+		// 	state.Sol2022Tokens[TokenSymbol(pub)] = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

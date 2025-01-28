@@ -29,7 +29,7 @@ func TestDeploySolanaToken(t *testing.T) {
 			Changeset: changeset.WrapChangeSet(changeset.DeploySolanaToken),
 			Config: &changeset.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenName:        "spl-token-2022",
+				TokenSymbol:      "spl-token-2022",
 				TokenProgramName: "spl-token-2022",
 				ATAList: []string{
 					e.SolChains[solChain1].DeployerKey.PublicKey().String(),
@@ -40,7 +40,7 @@ func TestDeploySolanaToken(t *testing.T) {
 			Changeset: changeset.WrapChangeSet(changeset.MintSolanaToken),
 			Config: &changeset.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
-				TokenName:     "spl-token-2022",
+				TokenSymbol:   "spl-token-2022",
 				TokenProgram:  "spl-token-2022",
 				Amount:        uint64(1000),
 				ToAddressList: []string{

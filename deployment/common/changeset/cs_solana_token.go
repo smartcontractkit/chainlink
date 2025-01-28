@@ -13,11 +13,8 @@ import (
 )
 
 type DeploySolanaTokenConfig struct {
-	ChainSelector uint64
-	// not sure how to handle this in state
-	// TODO: figure this out
-	// Just using this with LinkToken for now
-	TokenName        string
+	ChainSelector    uint64
+	TokenSymbol      string
 	TokenProgramName string
 	ATAList          []string // addresses to create ATAs for
 }
@@ -32,13 +29,12 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	adminPublicKey := chain.DeployerKey.PublicKey()
+	tokenAdminPubKey := chain.DeployerKey.PublicKey()
 	mint, _ := solana.NewRandomPrivateKey()
-	// this is the token address
-	mintPublicKey := mint.PublicKey()
+	mintPublicKey := mint.PublicKey() // this is the token address
 
 	instructions, err := solTokenUtil.CreateToken(
-		context.Background(), tokenprogramID, mintPublicKey, adminPublicKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
+		context.Background(), tokenprogramID, mintPublicKey, tokenAdminPubKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -49,7 +45,7 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	// hence they are PDAs and dont need to be stored in the address book
 	for _, ata := range cfg.ATAList {
 		createATAIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
-			tokenprogramID, mintPublicKey, solana.MustPublicKeyFromBase58(ata), adminPublicKey)
+			tokenprogramID, mintPublicKey, solana.MustPublicKeyFromBase58(ata), tokenAdminPubKey)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -63,8 +59,10 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 	}
 
 	// address book update
+	// i am storing using TokenSymbol but i dont know how to load state
+	// from the address book given the address alone
 	newAddresses := deployment.NewMemoryAddressBook()
-	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenName), deployment.Version1_0_0)
+	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenSymbol), deployment.Version1_0_0)
 	err = newAddresses.Save(chain.Selector, mintPublicKey.String(), tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
@@ -80,7 +78,7 @@ func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (
 
 type MintSolanaTokenConfig struct {
 	ChainSelector uint64
-	TokenName     string
+	TokenSymbol   string
 	TokenProgram  string
 	Amount        uint64
 	ToAddressList []string
@@ -90,7 +88,7 @@ func MintSolanaToken(e deployment.Environment, cfg *MintSolanaTokenConfig) (depl
 	// get chain
 	chain := e.SolChains[cfg.ChainSelector]
 	// get addresses
-	tokenAddress, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenName)
+	tokenAddress, err := deployment.FindTokenAddress(e, cfg.ChainSelector, cfg.TokenSymbol)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
