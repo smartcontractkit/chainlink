@@ -75,6 +75,19 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.Equal(t, true, ooe)
 	})
 
+	t.Run("decode dest exec data into map", func(t *testing.T) {
+		destGasAmount := uint32(10000)
+		encoded, err := abiEncodeUint32(destGasAmount)
+		require.NoError(t, err)
+		m, err := DecodeDestExecDataToMap(encoded)
+		require.NoError(t, err)
+		require.Len(t, m, 1)
+
+		decoded, exist := m[evmDestExecDataKey]
+		require.True(t, exist)
+		require.Equal(t, destGasAmount, decoded)
+	})
+
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		key, err := solana.NewRandomPrivateKey()
 		require.NoError(t, err)

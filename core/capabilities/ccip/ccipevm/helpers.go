@@ -6,12 +6,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 const (
-	svmV1DecodeName = "decodeSVMExtraArgsV1"
-	evmV1DecodeName = "decodeEVMExtraArgsV1"
-	evmV2DecodeName = "decodeEVMExtraArgsV2"
+	svmV1DecodeName    = "decodeSVMExtraArgsV1"
+	evmV1DecodeName    = "decodeEVMExtraArgsV1"
+	evmV2DecodeName    = "decodeEVMExtraArgsV2"
+	evmDestExecDataKey = "destGasAmount"
 )
 
 var (
@@ -47,6 +49,17 @@ func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
 		return nil, fmt.Errorf("expected *big.Int, got %T", ifaces[0])
 	}
 	return ifaces[0].(*big.Int), nil
+}
+
+func DecodeDestExecDataToMap(DestExecData cciptypes.Bytes) (map[string]interface{}, error) {
+	destGasAmount, err := abiDecodeUint32(DestExecData)
+	if err != nil {
+		return nil, fmt.Errorf("decode dest gas amount: %w", err)
+	}
+
+	return map[string]interface{}{
+		evmDestExecDataKey: destGasAmount,
+	}, nil
 }
 
 func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
