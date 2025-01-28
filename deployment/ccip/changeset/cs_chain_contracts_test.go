@@ -137,11 +137,9 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 					Config: changeset.UpdateOnRampDynamicConfig{
 						UpdatesByChain: map[uint64]changeset.OnRampDynamicConfigUpdate{
 							source: {
-								FeeQuoter:     common.HexToAddress("0x1001"),
 								FeeAggregator: common.HexToAddress("0x1002"),
 							},
 							dest: {
-								FeeQuoter:     common.HexToAddress("0x2001"),
 								FeeAggregator: common.HexToAddress("0x2002"),
 							},
 						},
@@ -154,11 +152,11 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 			// Assert the onramp configuration is as we expect.
 			sourceCfg, err := state.Chains[source].OnRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 			require.NoError(t, err)
-			require.Equal(t, common.HexToAddress("0x1001"), sourceCfg.FeeQuoter)
+			require.Equal(t, state.Chains[source].FeeQuoter.Address(), sourceCfg.FeeQuoter)
 			require.Equal(t, common.HexToAddress("0x1002"), sourceCfg.FeeAggregator)
 			destCfg, err := state.Chains[dest].OnRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 			require.NoError(t, err)
-			require.Equal(t, common.HexToAddress("0x2001"), destCfg.FeeQuoter)
+			require.Equal(t, state.Chains[dest].FeeQuoter.Address(), destCfg.FeeQuoter)
 			require.Equal(t, common.HexToAddress("0x2002"), destCfg.FeeAggregator)
 		})
 	}

@@ -240,7 +240,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -372,7 +372,7 @@ type UpdateOnRampDynamicConfig struct {
 
 func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, config := range cfg.UpdatesByChain {
-		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -469,12 +469,12 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for srcSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChainSelector(env, srcSel, state, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(env, state, srcSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		onRamp := state.Chains[srcSel].OnRamp
 		if onRamp == nil {
-			return fmt.Errorf("missing onRamp on %s", srcSel)
+			return fmt.Errorf("missing onRamp on %d", srcSel)
 		}
 		config, err := onRamp.GetDynamicConfig(nil)
 		if err != nil {
@@ -497,7 +497,7 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 			}
 		}
 		for destSel, update := range updates {
-			if err := ValidateChainSelector(env, srcSel, state, false); err != nil {
+			if err := ValidateChain(env, state, srcSel, false); err != nil {
 				return err
 			}
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
@@ -508,30 +508,6 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 					return fmt.Errorf("can't allowlist 0-address sender for src=%d, dest=%d", srcSel, destSel)
 				}
 			}
-		}
-	}
-	return nil
-}
-
-func ValidateChainSelector(env deployment.Environment, chainSel uint64, state CCIPOnChainState, checkMCMS bool) error {
-	err := deployment.IsValidChainSelector(chainSel)
-	if err != nil {
-		return fmt.Errorf("failed to validate chain selector %d: %w", chainSel, err)
-	}
-	chain, ok := env.Chains[chainSel]
-	if !ok {
-		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
-	}
-	chainState, ok := state.Chains[chainSel]
-	if !ok {
-		return fmt.Errorf("%s does not exist in state", chain)
-	}
-	if checkMCMS {
-		if timelock := chainState.Timelock; timelock == nil {
-			return fmt.Errorf("missing timelock on %s", chain)
-		}
-		if proposerMcm := chainState.ProposerMcm; proposerMcm == nil {
-			return fmt.Errorf("missing proposerMcm on %s", chain)
 		}
 	}
 	return nil
@@ -611,7 +587,7 @@ type WithdrawOnRampFeeTokensConfig struct {
 
 func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
-		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -1124,7 +1100,7 @@ type UpdateRouterRampsConfig struct {
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
-		if err := ValidateChainSelector(e, chainSel, state, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -1297,7 +1273,7 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnCha
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
 	}
-	if err := ValidateChainSelector(e, c.HomeChainSel, state, c.MCMS != nil); err != nil {
+	if err := ValidateChain(e, state, c.HomeChainSel, c.MCMS != nil); err != nil {
 		return err
 	}
 	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
@@ -1305,7 +1281,7 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnCha
 		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", globals.ConfigTypeActive, globals.ConfigTypeCandidate)
 	}
 	for _, remote := range c.RemoteChainSels {
-		if err := ValidateChainSelector(e, remote, state, c.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, remote, c.MCMS != nil); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[remote]
