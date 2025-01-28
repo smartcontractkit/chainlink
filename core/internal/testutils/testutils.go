@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/base64"
-	"flag"
 	"fmt"
 	"math"
 	"math/big"
@@ -50,6 +49,7 @@ var SimulatedChainID = big.NewInt(1337)
 
 // MustNewSimTransactor returns a transactor for interacting with the
 // geth simulated backend.
+// TODO use evm/testutils
 func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -416,10 +416,6 @@ func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected
 	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
-}
-
-func NewTestFlagSet() *flag.FlagSet {
-	return flag.NewFlagSet("test", flag.PanicOnError)
 }
 
 // Ptr takes pointer of anything

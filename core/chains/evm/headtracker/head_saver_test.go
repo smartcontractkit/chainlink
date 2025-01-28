@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
@@ -74,7 +73,7 @@ func configureSaver(t *testing.T, opts saverOpts) (httypes.HeadSaver, headtracke
 	if opts.headTrackerConfig == nil {
 		opts.headTrackerConfig = &headTrackerConfig{historyDepth: 6}
 	}
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	htCfg := &config{finalityDepth: uint32(1)}
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
