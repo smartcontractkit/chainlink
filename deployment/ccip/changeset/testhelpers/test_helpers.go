@@ -523,19 +523,6 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 				},
 			},
 		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-					dest: {
-						src: {
-							IsEnabled:  false,
-							TestRouter: isTestRouter,
-						},
-					},
-				},
-			},
-		},
 	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
