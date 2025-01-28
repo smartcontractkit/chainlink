@@ -14,14 +14,13 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
   ) public {
     vm.assume(destChainConfigArgs.destChainSelector != 0);
     vm.assume(destChainConfigArgs.destChainConfig.maxPerMsgGasLimit != 0);
+    destChainConfigArgs.destChainConfig.defaultTxGasLimit = uint32(
+      bound(
+        destChainConfigArgs.destChainConfig.defaultTxGasLimit, 1, destChainConfigArgs.destChainConfig.maxPerMsgGasLimit
+      )
+    );
+
     for (uint256 i = 0; i < s_validChainFamilySelector.length; i++) {
-      destChainConfigArgs.destChainConfig.defaultTxGasLimit = uint32(
-        bound(
-          destChainConfigArgs.destChainConfig.defaultTxGasLimit,
-          1,
-          destChainConfigArgs.destChainConfig.maxPerMsgGasLimit
-        )
-      );
       destChainConfigArgs.destChainConfig.chainFamilySelector = s_validChainFamilySelector[i];
       destChainConfigArgs.destChainSelector = uint64(
         uint256(keccak256(abi.encodePacked(destChainConfigArgs.destChainSelector, s_validChainFamilySelector[i])))
