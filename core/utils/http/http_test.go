@@ -29,7 +29,7 @@ func TestUnrestrictedHTTPClient(t *testing.T) {
 		Client:  client,
 		Request: netReq,
 		Config:  http.HTTPRequestConfig{SizeLimit: 1000},
-		Logger:  logger.TestSugared(t),
+		Logger:  logger.Nop(),
 	}
 
 	response, statusCode, headers, err := req.SendRequest()
