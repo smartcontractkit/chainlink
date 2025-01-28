@@ -95,7 +95,7 @@ func TestDisableLane(t *testing.T) {
 	assertRequestSent(chainB, chainA, e.Chains[chainB].Users[0])
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e, state, expectedSeqNumExec, startBlocks)
 
-	//disable lane B -> A
+	// disable lane B -> A
 	pairs = append(pairs, testhelpers.SourceDestPair{
 		SourceChainSelector: chainB,
 		DestChainSelector:   chainA,
