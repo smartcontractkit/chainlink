@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -112,10 +111,11 @@ func (l *DeployedLocalAnvilDevEnvironment) StartChains(t *testing.T) {
 func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
+	l.in.NodeSet.Nodes = l.GenericTCConfig.Nodes
 	nodeOut := startCLNodes(t, crConfig, l.bcs, l.in)
 	ctx := testcontext.Get(t)
 	lggr := logger.TestLogger(t)
-	nodeInfo, err := getNodeInfo(nodeOut, pointer.GetInt(l.devEnvTestCfg.CCIP.CLNode.NoOfBootstraps))
+	nodeInfo, err := getNodeInfo(nodeOut, l.GenericTCConfig.Bootstraps)
 	require.NoError(t, err, "failed to get node info")
 	l.devEnvCfg.JDConfig.NodeInfo = nodeInfo
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, *l.devEnvCfg)
@@ -125,7 +125,7 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig dep
 	l.DeployedEnv.Env = *e
 
 	// fund the nodes
-	for _, chain := range l.bcs {
+	fundNodes := func(chain *blockchain.Output) {
 		scSrc, err := seth.NewClientBuilder().
 			WithRpcUrl(chain.Nodes[0].HostWSUrl).
 			WithGasPriceEstimations(true, 0, seth.Priority_Fast).
@@ -137,6 +137,10 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig dep
 		require.NoError(t, err, "failed to create node clients")
 		err = ns.FundNodes(scSrc.Client, nodeClients, l.pvtKeys[0], l.in.Common.NodeFundingAmount)
 		require.NoError(t, err, "failed to fund nodes")
+	}
+	// fund the nodes
+	for _, chain := range l.bcs {
+		go fundNodes(chain)
 	}
 }
 
@@ -222,9 +226,10 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		require.NoError(t, err, "failed to convert port number to int")
 		for i := 1; i <= networksNeeded; i++ {
 			in.BlockchainNetworks = append(in.BlockchainNetworks, &blockchain.Input{
-				ChainID: strconv.Itoa(90000000 + i),
-				Type:    "anvil",
-				Port:    strconv.Itoa(finalPortID + i),
+				ChainID:                  strconv.Itoa(90000000 + i),
+				Type:                     "anvil",
+				Port:                     strconv.Itoa(finalPortID + i),
+				DockerCmdParamsOverrides: in.BlockchainNetworks[0].DockerCmdParamsOverrides,
 			})
 		}
 	}
@@ -259,11 +264,19 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainID))
 		require.NoError(t, err, "failed to create deployer")
 		chainCfg := devenv.ChainConfig{
-			ChainID:     id,
-			ChainName:   DefaultChainNamePrefix + chain.ChainID,
-			ChainType:   devenv.EVMChainType,
-			WSRPCs:      []string{chain.Nodes[0].HostWSUrl},
-			HTTPRPCs:    []string{chain.Nodes[0].HostHTTPUrl},
+			ChainID:   id,
+			ChainName: DefaultChainNamePrefix + chain.ChainID,
+			ChainType: devenv.EVMChainType,
+			WSRPCs: []devenv.CribRPCs{
+				{
+					External: chain.Nodes[0].HostWSUrl,
+				},
+			},
+			HTTPRPCs: []devenv.CribRPCs{
+				{
+					Internal: chain.Nodes[0].HostHTTPUrl,
+				},
+			},
 			DeployerKey: deployer,
 		}
 		err = chainCfg.SetUsers(in.Network.PrivateKeys[1:])
