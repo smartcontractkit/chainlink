@@ -128,12 +128,18 @@ func TestAddRemoteChainToSolana(t *testing.T) {
 					solChain: {
 						evmChain: {
 							EnabledAsSource:          true,
-							EnabledAsDestination:     true,
 							RemoteChainOnRampAddress: state.Chains[evmChain].OnRamp.Address().String(),
-							DefaultTxGasLimit:        1,
-							MaxPerMsgGasLimit:        100,
-							MaxDataBytes:             32,
-							MaxNumberOfTokensPerMsg:  1,
+							DestinationConfig: solRouter.DestChainConfig{
+								IsEnabled:                   true,
+								DefaultTxGasLimit:           200000,
+								MaxPerMsgGasLimit:           3000000,
+								MaxDataBytes:                30000,
+								MaxNumberOfTokensPerMsg:     5,
+								DefaultTokenDestGasOverhead: 5000,
+								// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+								// TODO: do a similar test for other chain families
+								ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+							},
 						},
 					},
 				},

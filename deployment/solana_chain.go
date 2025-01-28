@@ -24,8 +24,9 @@ import (
 )
 
 var (
-	SolDefaultCommitment = rpc.CommitmentConfirmed
-	SolDefaultGasLimit   = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+	SolDefaultCommitment        = rpc.CommitmentConfirmed
+	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
 )
 
 // SolChain represents a Solana chain.

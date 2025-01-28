@@ -223,7 +223,6 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 type UpdateOnRampDestsConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
-
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig

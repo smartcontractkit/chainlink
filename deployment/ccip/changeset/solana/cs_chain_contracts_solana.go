@@ -21,16 +21,19 @@ type AddRemoteChainToSolanaConfig struct {
 	MCMS *cs.MCMSConfig
 }
 
+// We are not using solRouter.SourceChainConfig because that would involve the user
+// converting the onRamp address into [2][64]byte{} which is not intuitive.
+// The solRouter.DestChainConfig on the other hand has a lot of fields and most of them are uint
+// So we are using that directly instead of copying over the fields here to reduce
+// overhead cost if that type is bumped in chainlink-ccip
 type RemoteChainConfigSolana struct {
-	EnabledAsSource      bool
-	EnabledAsDestination bool
+	// source
+	EnabledAsSource bool
 	// TODO: what if remote chain family is solana ? will this be the router address ?
 	RemoteChainOnRampAddress string
-	DefaultTxGasLimit        uint32
-	MaxPerMsgGasLimit        uint32
-	MaxDataBytes             uint32
-	MaxNumberOfTokensPerMsg  uint16
-	ChainFamilySelector      [4]uint8
+
+	// destination
+	DestinationConfig solRouter.DestChainConfig
 }
 
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
@@ -64,7 +67,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not supported", destination)
 			}
-			if destination == routerConfigAccount.SolanaChainSelector {
+			if destination == routerConfigAccount.SvmChainSelector {
 				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", destination)
 			}
 		}
@@ -104,26 +107,22 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 	for destination, update := range updates {
 		// TODO: this should be GetSourceChainStatePDA
 		sourceChainStatePDA := cs.GetEvmSourceChainStatePDA(ccipRouterID, destination)
+
+		// Convert string address to bytes and pad to 64 bytes
+		var onRampBytes [64]byte
+		addressBytes := []byte(update.RemoteChainOnRampAddress)
+		copy(onRampBytes[:], addressBytes)
+
 		validSourceChainConfig := solRouter.SourceChainConfig{
-			OnRamp:    []byte(update.RemoteChainOnRampAddress),
+			OnRamp:    [2][64]byte{onRampBytes, [64]byte{}},
 			IsEnabled: update.EnabledAsSource,
 		}
 		// TODO: this should be GetDestChainStatePDA
 		destChainStatePDA := cs.GetEvmDestChainStatePDA(ccipRouterID, destination)
-		validDestChainConfig := solRouter.DestChainConfig{
-			IsEnabled:               update.EnabledAsDestination,
-			DefaultTxGasLimit:       update.DefaultTxGasLimit,
-			MaxPerMsgGasLimit:       update.MaxPerMsgGasLimit,
-			MaxDataBytes:            update.MaxDataBytes,
-			MaxNumberOfTokensPerMsg: update.MaxNumberOfTokensPerMsg,
-			// TODO: what if chain family is solana ?
-			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-			ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-		}
 		instruction, err := solRouter.NewAddChainSelectorInstruction(
 			destination,
 			validSourceChainConfig,
-			validDestChainConfig,
+			update.DestinationConfig,
 			sourceChainStatePDA,
 			destChainStatePDA,
 			cs.GetRouterConfigPDA(ccipRouterID),

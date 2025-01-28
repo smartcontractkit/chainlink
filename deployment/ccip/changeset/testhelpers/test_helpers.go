@@ -517,12 +517,18 @@ func AddLane(
 						to: {
 							from: {
 								EnabledAsSource:          true,
-								EnabledAsDestination:     true,
 								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
-								DefaultTxGasLimit:        1,
-								MaxPerMsgGasLimit:        100,
-								MaxDataBytes:             32,
-								MaxNumberOfTokensPerMsg:  1,
+								DestinationConfig: solRouter.DestChainConfig{
+									IsEnabled:                   true,
+									DefaultTxGasLimit:           200000,
+									MaxPerMsgGasLimit:           3000000,
+									MaxDataBytes:                30000,
+									MaxNumberOfTokensPerMsg:     5,
+									DefaultTokenDestGasOverhead: 5000,
+									// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+									// TODO: do a similar test for other chain families
+									ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+								},
 							},
 						},
 					},
@@ -1311,20 +1317,31 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipLogicReceiver.String(), tv)
 	require.NoError(t, err)
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
 	solState, err := changeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
+	require.NoError(t, err, "Failed to load Solana state")
+
 	for _, sel := range solChainSelectors {
-		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
-		require.False(t, solState.SolChains[sel].Router.IsZero())
-		require.False(t, solState.SolChains[sel].AddressLookupTable.IsZero())
+		// Validate chain exists in state
+		chainState, exists := solState.SolChains[sel]
+		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
+
+		// Validate addresses
+		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
+		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
+		require.False(t, chainState.AddressLookupTable.IsZero(), "Address lookup table is zero for chain %d", sel)
+
+		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), changeset.GetRouterConfigPDA(solState.SolChains[sel].Router), &routerConfigAccount)
-		require.NoError(t, err)
+		routerConfigPDA := changeset.GetRouterConfigPDA(chainState.Router)
+
+		// Check if account exists first
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), routerConfigPDA, &routerConfigAccount)
+		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
 	}
 }
 

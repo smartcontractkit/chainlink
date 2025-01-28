@@ -120,7 +120,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
 }
 
 func TestDeployCCIPContracts(t *testing.T) {

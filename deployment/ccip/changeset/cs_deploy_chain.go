@@ -556,18 +556,20 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 	return programData, nil
 }
 
-func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
+func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey, linkTokenAddress solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
 
 	instruction, err := solRouter.NewInitializeInstruction(
-		chain.Selector,                // chain selector
-		deployment.SolDefaultGasLimit, // default gas limit
-		true,                          // allow out of order execution
-		EnableExecutionAfter,          // period to wait before allowing manual execution
-		solana.PublicKey{},
+		chain.Selector,                         // chain selector
+		deployment.SolDefaultGasLimit,          // default gas limit
+		true,                                   // allow out of order execution
+		EnableExecutionAfter,                   // period to wait before allowing manual execution
+		solana.PublicKey{},                     // fee aggregator
+		linkTokenAddress,                       // link token mint
+		deployment.SolDefaultMaxFeeJuelsPerMsg, // max fee juels per msg
 		GetRouterConfigPDA(ccipRouterProgram),
 		GetRouterStatePDA(ccipRouterProgram),
 		chain.DeployerKey.PublicKey(),
@@ -586,6 +588,7 @@ func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRo
 	if err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
+	e.Logger.Infow("Initialized router", "chain", chain.String())
 	return nil
 }
 
@@ -603,8 +606,9 @@ func deployChainContractsSolana(
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
 	}
-	linkTokenContract := chainState.LinkToken
-	e.Logger.Infow("link token", "addr", linkTokenContract.String())
+	if chainState.LinkToken.IsZero() {
+		return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err)
+	}
 
 	// ROUTER DEPLOY AND INITIALIZE
 	var ccipRouterProgram solana.PublicKey
@@ -633,7 +637,7 @@ func deployChainContractsSolana(
 	var routerConfigAccount solRouter.Config
 	err = chain.GetAccountDataBorshInto(e.GetContext(), GetRouterConfigPDA(ccipRouterProgram), &routerConfigAccount)
 	if err != nil {
-		if err := initialzeRouter(e, chain, ccipRouterProgram); err != nil {
+		if err := initialzeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err != nil {
 			return err
 		}
 	} else {
