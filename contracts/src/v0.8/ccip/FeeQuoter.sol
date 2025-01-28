@@ -1155,8 +1155,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
-          || (destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM &&
-        destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_SVM)
+          || (
+            destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM
+              && destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_SVM
+          )
       ) {
         revert InvalidDestChainConfig(destChainSelector);
       }
