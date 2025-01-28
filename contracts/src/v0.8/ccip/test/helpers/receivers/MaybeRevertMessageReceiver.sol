@@ -14,7 +14,7 @@ contract MaybeRevertMessageReceiver is IAny2EVMMessageReceiver, IERC165 {
   error TransferFailed();
 
   event ValueReceived(uint256 amount);
-  event FundsWithdrawn(address indexed owner, uint256 amount);
+  event NativeFundsWithdrawn(address indexed owner, uint256 amount);
   event TokensWithdrawn(address indexed token, address indexed owner, uint256 amount);
   event MessageReceived(
     bytes32 messageId, uint64 sourceChainSelector, bytes sender, bytes data, Client.EVMTokenAmount[] destTokenAmounts
@@ -83,16 +83,13 @@ contract MaybeRevertMessageReceiver is IAny2EVMMessageReceiver, IERC165 {
   /// @notice Allows the manager (deployer) to withdraw all Ether from the contract
   function withdrawFunds() external onlyManager {
     uint256 balance = address(this).balance;
-    if (balance == 0) {
-      revert InsufficientBalance(0, 1);
-    }
 
     (bool success,) = i_manager.call{value: balance}("");
     if (!success) {
       revert TransferFailed();
     }
 
-    emit FundsWithdrawn(i_manager, balance);
+    emit NativeFundsWithdrawn(i_manager, balance);
   }
 
   /// @notice Allows the manager to withdraw ERC-20 tokens from the contract
