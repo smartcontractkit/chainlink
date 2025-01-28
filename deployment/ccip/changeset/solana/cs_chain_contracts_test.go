@@ -15,6 +15,7 @@ import (
 )
 
 func TestAddRemoteChain(t *testing.T) {
+	t.Parallel()
 	ctx := testcontext.Get(t)
 	// Default env just has 2 chains with all contracts
 	// deployed but no lanes.
@@ -79,5 +80,6 @@ func TestAddRemoteChain(t *testing.T) {
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
+	t.Parallel()
 	testhelpers.DoDeployCCIPContracts(t, 1)
 }

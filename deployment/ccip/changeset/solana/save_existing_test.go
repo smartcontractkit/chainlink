@@ -55,6 +55,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 }
 
 func TestSaveExisting(t *testing.T) {
+	t.Parallel()
 	dummyEnv := deployment.Environment{
 		Name:              "dummy",
 		Logger:            logger.TestLogger(t),

@@ -7,5 +7,6 @@ import (
 )
 
 func TestDeployLinkToken(t *testing.T) {
+	t.Parallel()
 	testhelpers.DoDeployLinkToken(t, 0)
 }
