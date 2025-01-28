@@ -1,0 +1,10 @@
+ChainID = '978658'
+ChainType = 'zksync'
+LogPollInterval = '10s'
+NoNewHeadsThreshold = '10m' #blocks production can sometimes be delayed by ~10min
+
+[EVM.GasEstimator.DAOracle]
+OracleType = 'zksync'
+
+[EVM.HeadTracker]
+HistoryDepth = 250

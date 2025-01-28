@@ -1,0 +1,16 @@
+ChainID = '978658'
+
+[EVM.GasEstimator]
+# no EIP1559 to ensure our estimator doesnot estimate gas with MaxPriorityFee which will break minFunding requirement
+EIP1559DynamicFees = false 
+# high LimitDefault for worst case pubdata bytes with BatchGasLimit reduced to 4M in OCR2Config
+LimitDefault = 2_500_000_000
+FeeCapDefault = '500 mwei'
+PriceDefault = '25 mwei'
+# p999 value for gasPrice based on historical data
+PriceMax = '500 mwei'
+PriceMin = '25 mwei'
+
+[EVM.GasEstimator.BlockHistory]
+# increasing this to smooth out gas estimation
+BlockHistorySize = 200
