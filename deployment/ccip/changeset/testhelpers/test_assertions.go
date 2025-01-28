@@ -288,8 +288,8 @@ func (c *CommitReportTracker) allCommited(sourceChainSelector uint64) bool {
 // Waiting is done in parallel per every sourceChain/destChain (lane) passed as argument.
 func ConfirmMultipleCommits(
 	t *testing.T,
-	chains map[uint64]deployment.Chain,
-	state map[uint64]changeset.CCIPChainState,
+	env deployment.Environment,
+	state changeset.CCIPOnChainState,
 	startBlocks map[uint64]*uint64,
 	enforceSingleCommit bool,
 	expectedSeqNums map[SourceDestPair]ccipocr3.SeqNumRange,
@@ -302,16 +302,36 @@ func ConfirmMultipleCommits(
 		destChain := sourceDest.DestChainSelector
 
 		errGrp.Go(func() error {
-			_, err := ConfirmCommitWithExpectedSeqNumRange(
-				t,
-				srcChain,
-				chains[destChain],
-				state[destChain].OffRamp,
-				startBlocks[destChain],
-				seqRange,
-				enforceSingleCommit,
-			)
-			return err
+			family, err := chainsel.GetSelectorFamily(destChain)
+			if err != nil {
+				return err
+			}
+			switch family {
+			case chainsel.FamilyEVM:
+				_, err := ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					srcChain,
+					env.Chains[destChain],
+					state.Chains[destChain].OffRamp,
+					startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			case chainsel.FamilySolana:
+				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
+					t,
+					srcChain,
+					env.SolChains[destChain],
+					state.SolChains[destChain].Router,
+					*startBlocks[destChain],
+					seqRange,
+					enforceSingleCommit,
+				)
+				return err
+			default:
+				return fmt.Errorf("unsupported chain family; %v", family)
+			}
 		})
 	}
 

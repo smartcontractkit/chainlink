@@ -200,8 +200,8 @@ func TestTokenTransfer(t *testing.T) {
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
-		e.Chains,
-		state.Chains,
+		e,
+		state,
 		startBlocks,
 		false,
 		expectedSeqNums,
