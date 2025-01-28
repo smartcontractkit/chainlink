@@ -555,6 +555,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     Client.EVM2AnyMessage calldata message
   ) external view returns (uint256 feeTokenAmount) {
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    if (!destChainConfig.isEnabled) revert DestinationChainNotEnabled(destChainSelector);
     if (!s_feeTokens.contains(message.feeToken)) revert FeeTokenNotSupported(message.feeToken);
 
     uint256 numberOfTokens = message.tokenAmounts.length;
@@ -1150,9 +1151,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       DestChainConfig memory destChainConfig = destChainConfigArg.destChainConfig;
 
       // destChainSelector must be non-zero, defaultTxGasLimit must be set, must be less than maxPerMsgGasLimit
+      // supported chain family is EVM and SVM
       if (
         destChainSelector == 0 || destChainConfig.defaultTxGasLimit == 0
           || destChainConfig.defaultTxGasLimit > destChainConfig.maxPerMsgGasLimit
+          || (destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_EVM &&
+        destChainConfig.chainFamilySelector != Internal.CHAIN_FAMILY_SELECTOR_SVM)
       ) {
         revert InvalidDestChainConfig(destChainSelector);
       }
