@@ -14,9 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -48,7 +48,7 @@ var upkeepConfig1_1 = registry1_1.GetUpkeep{
 
 func mockRegistry1_1(
 	t *testing.T,
-	ethMock *evmclimocks.Client,
+	ethMock *clienttest.Client,
 	contractAddress common.Address,
 	config registry1_1.GetConfig,
 	keeperList []common.Address,

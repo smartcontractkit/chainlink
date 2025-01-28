@@ -11,9 +11,9 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
 )
 
 func TestExecPriceEstimator_GetGasPrice(t *testing.T) {

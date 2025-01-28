@@ -16,7 +16,7 @@ func main() {
 			panic(err)
 		}
 		filename := fmt.Sprintf("../../.goreleaser.%s.yaml", e)
-		err = os.WriteFile(filename, data, 0644)
+		err = os.WriteFile(filename, data, 0644) //nolint:gosec // G306
 		if err != nil {
 			panic(err)
 		}

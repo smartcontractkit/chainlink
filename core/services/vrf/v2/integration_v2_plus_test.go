@@ -19,8 +19,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -52,6 +50,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 

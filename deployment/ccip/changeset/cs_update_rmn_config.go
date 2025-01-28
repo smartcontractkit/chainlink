@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -167,10 +166,6 @@ func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) 
 	}
 
 	return deployment.SimTransactOpts()
-}
-
-type MCMSConfig struct {
-	MinDelay time.Duration
 }
 
 type SetRMNHomeCandidateConfig struct {

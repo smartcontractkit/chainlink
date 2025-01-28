@@ -23,17 +23,16 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 

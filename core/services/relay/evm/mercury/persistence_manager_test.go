@@ -11,17 +11,17 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 func bootstrapPersistenceManager(t *testing.T, jobID int32, db *sqlx.DB) (*PersistenceManager, *observer.ObservedLogs) {
 	t.Helper()
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 	orm := NewORM(db)
 	return NewPersistenceManager(lggr, "mercuryserver.example", orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
 }

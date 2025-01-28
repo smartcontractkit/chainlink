@@ -6,9 +6,9 @@ import (
 	"time"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	"github.com/ethereum/go-ethereum/common"

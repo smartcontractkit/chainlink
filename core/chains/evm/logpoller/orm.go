@@ -16,8 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -118,7 +117,7 @@ func (o *DSORM) InsertBlock(ctx context.Context, blockHash common.Hash, blockNum
 // Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *DSORM) InsertFilter(ctx context.Context, filter Filter) (err error) {
-	topicArrays := []types.HashArray{filter.Topic2, filter.Topic3, filter.Topic4}
+	topicArrays := []evmtypes.HashArray{filter.Topic2, filter.Topic3, filter.Topic4}
 	args, err := newQueryArgs(o.chainID).
 		withField("name", filter.Name).
 		withRetention(filter.Retention).

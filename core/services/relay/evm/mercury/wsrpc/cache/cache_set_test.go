@@ -6,13 +6,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func Test_CacheSet(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	cs := newCacheSet(lggr, Config{LatestReportTTL: 1})
 	disabledCs := newCacheSet(lggr, Config{LatestReportTTL: 0})
 	ctx := testutils.Context(t)
