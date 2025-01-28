@@ -123,12 +123,10 @@ func (l *DeployedLocalAnvilDevEnvironment) StartNodes(t *testing.T, crConfig dep
 	require.NotNil(t, e)
 	l.DON = don
 	l.DeployedEnv.Env = *e
-
-	// fund the nodes
 	fundNodes := func(chain *blockchain.Output) {
 		scSrc, err := seth.NewClientBuilder().
 			WithRpcUrl(chain.Nodes[0].HostWSUrl).
-			WithGasPriceEstimations(true, 0, seth.Priority_Fast).
+			WithGasPriceEstimations(false, 0, seth.Priority_Fast).
 			WithTracing(seth.TracingLevel_All, []string{seth.TraceOutput_Console}).
 			WithPrivateKeys(l.pvtKeys).
 			Build()
@@ -226,9 +224,9 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		require.NoError(t, err, "failed to convert port number to int")
 		for i := 1; i <= networksNeeded; i++ {
 			in.BlockchainNetworks = append(in.BlockchainNetworks, &blockchain.Input{
-				ChainID:                  strconv.Itoa(90000000 + i),
-				Type:                     "anvil",
-				Port:                     strconv.Itoa(finalPortID + i),
+				ChainID: strconv.Itoa(90000000 + i),
+				Type:    "anvil",
+				Port:    strconv.Itoa(finalPortID + i),
 				DockerCmdParamsOverrides: in.BlockchainNetworks[0].DockerCmdParamsOverrides,
 			})
 		}
@@ -264,9 +262,9 @@ func createAnvilDockerNetwork(t *testing.T, chainsCount int) (
 		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, big.NewInt(chainID))
 		require.NoError(t, err, "failed to create deployer")
 		chainCfg := devenv.ChainConfig{
-			ChainID:   id,
-			ChainName: DefaultChainNamePrefix + chain.ChainID,
-			ChainType: devenv.EVMChainType,
+			ChainID:     id,
+			ChainName:   DefaultChainNamePrefix + chain.ChainID,
+			ChainType:   devenv.EVMChainType,
 			WSRPCs: []devenv.CribRPCs{
 				{
 					External: chain.Nodes[0].HostWSUrl,
