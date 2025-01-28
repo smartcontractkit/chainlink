@@ -338,13 +338,14 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				continue
 			}
 			switch txStatus {
+			// TxStatus Unconfirmed actually means "Confirmed" for the transaction manager, i.e. the transaction has landed on chain but isn't finalized.
 			case commontypes.Unconfirmed:
-				transmissionInfo, err := cap.getTransmissionInfo(ctx, request, rawExecutionID)
+				transmissionInfo, err = cap.getTransmissionInfo(ctx, request, rawExecutionID)
 				if err != nil {
 					return capabilities.CapabilityResponse{}, err
 				}
 
-				// This is contraintuitive, but the tx manager is currently returning unconfirmed whenever the tx is confirmed
+				// This is counterintuitive, but the tx manager is currently returning unconfirmed whenever the tx is confirmed
 				// current implementation here: https://github.com/smartcontractkit/chainlink-framework/blob/main/chains/txmgr/txmgr.go#L697
 				// so we need to check if we where able to write to the consumer contract to determine if the transaction was successful
 				if transmissionInfo.State == TransmissionStateSucceeded {
@@ -400,11 +401,11 @@ func (cap *WriteTarget) getTransmissionInfo(ctx context.Context, request Request
 	queryInputs := struct {
 		Receiver            string
 		WorkflowExecutionID []byte
-		ReportId            []byte
+		ReportID            []byte
 	}{
 		Receiver:            request.Config.Address,
 		WorkflowExecutionID: rawExecutionID,
-		ReportId:            request.Inputs.SignedReport.ID,
+		ReportID:            request.Inputs.SignedReport.ID,
 	}
 	var transmissionInfo TransmissionInfo
 	if err := cap.cr.GetLatestValue(ctx, cap.binding.ReadIdentifier("getTransmissionInfo"), primitives.Unconfirmed, queryInputs, &transmissionInfo); err != nil {

@@ -24,7 +24,6 @@ import (
 )
 
 type testHarness struct {
-	ctx           context.Context
 	lggr          logger.Logger
 	cw            *mocks.ContractWriter
 	cr            *mocks.ContractValueGetter
@@ -98,7 +97,6 @@ func setup(t *testing.T) testHarness {
 	cr.On("Bind", mock.Anything, []types.BoundContract{binding}).Return(nil)
 
 	return testHarness{
-		ctx:           testutils.Context(t),
 		lggr:          lggr,
 		cw:            cw,
 		cr:            cr,
@@ -132,7 +130,8 @@ func TestWriteTarget(t *testing.T) {
 		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Finalized, nil).Once()
 		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
 
-		response, err2 := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		response, err2 := th.writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)
 		require.NotNil(t, response)
 	})
@@ -145,7 +144,8 @@ func TestWriteTarget(t *testing.T) {
 		}
 		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
 
-		_, err := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err)
 	})
 
@@ -164,7 +164,8 @@ func TestWriteTarget(t *testing.T) {
 		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
 		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
 
-		_, err2 = th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
@@ -195,7 +196,8 @@ func TestWriteTarget(t *testing.T) {
 			Inputs:   th.validInputs,
 		}
 
-		_, err2 = th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
@@ -207,7 +209,8 @@ func TestWriteTarget(t *testing.T) {
 		}
 		th.cr.EXPECT().GetLatestValue(mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
-		_, err := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err)
 	})
 
@@ -224,7 +227,8 @@ func TestWriteTarget(t *testing.T) {
 			Config: invalidConfig,
 			Inputs: th.validInputs,
 		}
-		_, err2 = th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
@@ -234,7 +238,8 @@ func TestWriteTarget(t *testing.T) {
 			Config:   nil,
 			Inputs:   th.validInputs,
 		}
-		_, err2 := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
@@ -244,7 +249,8 @@ func TestWriteTarget(t *testing.T) {
 			Config:   th.config,
 			Inputs:   nil,
 		}
-		_, err2 := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 }
@@ -281,7 +287,8 @@ func TestWriteTarget_ValidateRequest(t *testing.T) {
 			}
 			tt.modifyRequest(&req)
 
-			_, err := th.writeTarget.Execute(th.ctx, req)
+			ctx := testutils.Context(t)
+			_, err := th.writeTarget.Execute(ctx, req)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 			} else {
@@ -328,7 +335,8 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 
 		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
 
-		response, err2 := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		response, err2 := th.writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)
 		require.NotNil(t, response)
 	})
@@ -367,7 +375,8 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		}
 
 		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
-		_, err2 := th.writeTarget.Execute(th.ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 		require.Contains(t, err2.Error(), "submitted transaction failed")
 	})
