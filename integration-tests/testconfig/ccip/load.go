@@ -11,7 +11,6 @@ import (
 
 type LoadConfig struct {
 	LoadDuration         *string
-	LokiEndpoint         *string
 	MessageTypeWeights   *[]int
 	RequestFrequency     *string
 	CribEnvDirectory     *string

@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -64,13 +65,18 @@ func DeployMCMSWithTimelockContractsBatch(
 	ab deployment.AddressBook,
 	cfgByChain map[uint64]types.MCMSWithTimelockConfig,
 ) error {
+	deployGrp := errgroup.Group{}
 	for chainSel, cfg := range cfgByChain {
-		_, err := DeployMCMSWithTimelockContracts(lggr, chains[chainSel], ab, cfg)
-		if err != nil {
-			return err
-		}
+		deployGrp.Go(func() error {
+			_, err := DeployMCMSWithTimelockContracts(lggr, chains[chainSel], ab, cfg)
+			if err != nil {
+				lggr.Errorw("Failed to deploy MCMS contracts", "chain", chainSel)
+				return err
+			}
+			return nil
+		})
 	}
-	return nil
+	return deployGrp.Wait()
 }
 
 // DeployMCMSWithTimelockContracts deploys an MCMS for

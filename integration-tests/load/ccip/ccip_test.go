@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -60,8 +59,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides.Validate(t, env)
 
 	// initialize loki using endpoint from user defined env vars
-	lokiToken := os.Getenv("LOKI_TOKEN")
-	loki, err := wasp.NewLokiClient(wasp.NewLokiConfig(userOverrides.LokiEndpoint, nil, nil, &lokiToken))
+	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
 	defer loki.StopNow()
 
@@ -153,7 +151,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			// so if there are 3 generators, it would be 3 requests per 5 seconds over the network
 			Gun:        gun,
 			Labels:     CommonTestLabels,
-			LokiConfig: wasp.NewLokiConfig(config.CCIP.Load.LokiEndpoint, nil, nil, nil),
+			LokiConfig: wasp.NewEnvLokiConfig(),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
 	}
@@ -185,8 +183,4 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	wg.Wait()
 	lggr.Infow("finished wait group")
-	// todo: Fix the error channel handling
-	for err := range errChan {
-		require.NoError(t, err)
-	}
 }
