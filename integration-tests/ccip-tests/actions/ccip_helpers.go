@@ -2716,6 +2716,9 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 	}
 }
 
+// AssertMessageContentMatch checks if the content of a received message matches the expected content within a specified timeout.
+// It periodically polls the `MessageReceivedWatcher` for the specified message ID, compares the received content with the expected content,
+// and returns an error if the content does not match or the timeout is exceeded.
 func (destCCIP *DestCCIPModule) AssertMessageContentMatch(
 	lggr *zerolog.Logger,
 	messageID string,

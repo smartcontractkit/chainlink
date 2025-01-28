@@ -1104,6 +1104,7 @@ func (rDapp *ReceiverDapp) ToggleRevert(revert bool) error {
 	return rDapp.client.ProcessTransaction(tx)
 }
 
+// WatchMessageReceived watches for `MessageReceived` events from the ReceiverDapp contract.
 func (rDapp *ReceiverDapp) WatchMessageReceived(opts *bind.WatchOpts, messageReceivedEvent chan *maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived) (event.Subscription, error) {
 	if rDapp.instance != nil {
 		return rDapp.instance.WatchMessageReceived(opts, messageReceivedEvent)
