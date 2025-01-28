@@ -20,17 +20,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -1008,12 +1008,12 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		expectedBlock = 5
 	)
 	var (
-		ethClient = evmclimocks.NewClient(t)
+		ethClient = clienttest.NewClient(t)
 		contract0 = newMockContract(t)
 		contract1 = newMockContract(t)
 		contract2 = newMockContract(t)
 	)
-	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
@@ -1530,8 +1530,8 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	testutils.SkipShortDB(t)
 	gm := gomega.NewWithT(t)
 
-	ethClient := evmclimocks.NewClient(t)
-	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+	ethClient := clienttest.NewClient(t)
+	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
 	logsChCh := make(chan evmtestutils.RawSub[types.Log])
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).

@@ -26,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/label"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -40,16 +40,16 @@ var (
 // EvmTxStore combines the txmgr tx store interface and the interface needed for the API to read from the tx DB
 type EvmTxStore interface {
 	// redeclare TxStore for mockery
-	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *types.Receipt, types.Nonce, gas.EvmFee]
 	TxStoreWebApi
 
 	// methods used solely in EVM components
 	DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error
 	FindAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) (hashes []TxAttempt, err error)
-	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error)
+	FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*types.Receipt, err error)
 	FindTxesPendingCallback(ctx context.Context, latest, finalized int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error)
 	FindTxesByIDs(ctx context.Context, etxIDs []int64, chainID *big.Int) (etxs []*Tx, err error)
-	SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) (err error)
+	SaveFetchedReceipts(ctx context.Context, r []*types.Receipt) (err error)
 	UpdateTxStatesToFinalizedUsingTxHashes(ctx context.Context, txHashes []common.Hash, chainID *big.Int) error
 }
 
@@ -69,7 +69,7 @@ type TestEvmTxStore interface {
 	EvmTxStore
 
 	// methods only used for testing purposes
-	InsertReceipt(ctx context.Context, receipt *evmtypes.Receipt) (int64, error)
+	InsertReceipt(ctx context.Context, receipt *types.Receipt) (int64, error)
 	InsertTx(ctx context.Context, etx *Tx) error
 	FindTxAttemptsByTxIDs(ctx context.Context, ids []int64) ([]TxAttempt, error)
 	InsertTxAttempt(ctx context.Context, attempt *TxAttempt) error
@@ -100,11 +100,11 @@ type DbReceipt struct {
 	BlockHash        common.Hash
 	BlockNumber      int64
 	TransactionIndex uint
-	Receipt          evmtypes.Receipt
+	Receipt          types.Receipt
 	CreatedAt        time.Time
 }
 
-func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) DbReceipt {
+func DbReceiptFromEvmReceipt(evmReceipt *types.Receipt) DbReceipt {
 	return DbReceipt{
 		TxHash:           evmReceipt.TxHash,
 		BlockHash:        evmReceipt.BlockHash,
@@ -114,12 +114,12 @@ func DbReceiptFromEvmReceipt(evmReceipt *evmtypes.Receipt) DbReceipt {
 	}
 }
 
-func DbReceiptToEvmReceipt(receipt *DbReceipt) *evmtypes.Receipt {
+func DbReceiptToEvmReceipt(receipt *DbReceipt) *types.Receipt {
 	return &receipt.Receipt
 }
 
 // Directly maps to onchain receipt schema.
-type rawOnchainReceipt = evmtypes.Receipt
+type rawOnchainReceipt = types.Receipt
 
 func (o *evmTxStore) Transact(ctx context.Context, readOnly bool, fn func(*evmTxStore) error) (err error) {
 	opts := &sqlutil.TxOptions{TxOptions: sql.TxOptions{ReadOnly: readOnly}}
@@ -133,13 +133,13 @@ func (o *evmTxStore) new(q sqlutil.DataSource) *evmTxStore { return NewTxStore(q
 // Does not map to a single database table.
 // It's comprised of fields from different tables.
 type dbReceiptPlus struct {
-	ID           uuid.UUID        `db:"pipeline_task_run_id"`
-	Receipt      evmtypes.Receipt `db:"receipt"`
-	FailOnRevert bool             `db:"FailOnRevert"`
+	ID           uuid.UUID     `db:"pipeline_task_run_id"`
+	Receipt      types.Receipt `db:"receipt"`
+	FailOnRevert bool          `db:"FailOnRevert"`
 }
 
-func fromDBReceipts(rs []DbReceipt) []*evmtypes.Receipt {
-	receipts := make([]*evmtypes.Receipt, len(rs))
+func fromDBReceipts(rs []DbReceipt) []*types.Receipt {
+	receipts := make([]*types.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = DbReceiptToEvmReceipt(&rs[i])
 	}
@@ -158,7 +158,7 @@ func fromDBReceiptsPlus(rs []dbReceiptPlus) []ReceiptPlus {
 	return receipts
 }
 
-func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
+func toOnchainReceipt(rs []*types.Receipt) []rawOnchainReceipt {
 	receipts := make([]rawOnchainReceipt, len(rs))
 	for i := 0; i < len(rs); i++ {
 		receipts[i] = *rs[i]
@@ -237,7 +237,7 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 func (db DbEthTx) ToTx(tx *Tx) {
 	tx.ID = db.ID
 	if db.Nonce != nil {
-		n := evmtypes.Nonce(*db.Nonce)
+		n := types.Nonce(*db.Nonce)
 		tx.Sequence = &n
 	}
 	tx.IdempotencyKey = db.IdempotencyKey
@@ -562,7 +562,7 @@ func (o *evmTxStore) InsertTxAttempt(ctx context.Context, attempt *TxAttempt) er
 }
 
 // InsertReceipt only used in tests. Use SaveFetchedReceipts instead
-func (o *evmTxStore) InsertReceipt(ctx context.Context, receipt *evmtypes.Receipt) (int64, error) {
+func (o *evmTxStore) InsertReceipt(ctx context.Context, receipt *types.Receipt) (int64, error) {
 	// convert to database representation
 	r := DbReceiptFromEvmReceipt(receipt)
 
@@ -696,7 +696,7 @@ func (o *evmTxStore) loadEthTxesAttemptsReceipts(ctx context.Context, etxs []*Tx
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
 	}
 
-	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
+	var receipts []*types.Receipt = fromDBReceipts(rs)
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
@@ -719,9 +719,9 @@ func (o *evmTxStore) loadEthTxesAttemptsWithPartialReceipts(ctx context.Context,
 		return pkgerrors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load evm.receipts")
 	}
 
-	receipts := make([]*evmtypes.Receipt, len(rs))
+	receipts := make([]*types.Receipt, len(rs))
 	for i := 0; i < len(rs); i++ {
-		receipts[i] = &evmtypes.Receipt{
+		receipts[i] = &types.Receipt{
 			BlockHash:        rs[i].BlockHash,
 			BlockNumber:      big.NewInt(rs[i].BlockNumber),
 			TransactionIndex: rs[i].TransactionIndex,
@@ -749,7 +749,7 @@ func loadConfirmedAttemptsReceipts(ctx context.Context, q sqlutil.DataSource, at
 	if err := q.SelectContext(ctx, &rs, `SELECT * FROM evm.receipts WHERE tx_hash = ANY($1)`, pq.Array(hashes)); err != nil {
 		return pkgerrors.Wrap(err, "loadConfirmedAttemptsReceipts failed to load evm.receipts")
 	}
-	var receipts []*evmtypes.Receipt = fromDBReceipts(rs)
+	var receipts []*types.Receipt = fromDBReceipts(rs)
 	for _, receipt := range receipts {
 		attempt := byHash[receipt.TxHash.String()]
 		attempt.Receipts = append(attempt.Receipts, receipt)
@@ -879,7 +879,7 @@ func (o *evmTxStore) FindTxsByStateAndFromAddresses(ctx context.Context, address
 	return
 }
 
-func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Receipt) (err error) {
+func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*types.Receipt) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1012,7 +1012,7 @@ func (o *evmTxStore) UpdateTxCallbackCompleted(ctx context.Context, pipelineTask
 	return nil
 }
 
-func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (nonce evmtypes.Nonce, err error) {
+func (o *evmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainID *big.Int) (nonce types.Nonce, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1050,7 +1050,7 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 }
 
 // FindTxWithSequence returns any broadcast ethtx with the given nonce
-func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
+func (o *evmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, nonce types.Nonce) (etx *Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1940,7 +1940,7 @@ func (o *evmTxStore) FindAttemptsRequiringReceiptFetch(ctx context.Context, chai
 }
 
 // FindConfirmedTxesReceipts returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
-func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*evmtypes.Receipt, err error) {
+func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (receipts []*types.Receipt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1953,7 +1953,7 @@ func (o *evmTxStore) FindConfirmedTxesReceipts(ctx context.Context, finalizedBlo
 		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
 	err = o.q.SelectContext(ctx, &dbReceipts, query, finalizedBlockNum, chainID.String())
 	for _, dbReceipt := range dbReceipts {
-		receipts = append(receipts, &evmtypes.Receipt{
+		receipts = append(receipts, &types.Receipt{
 			TxHash:      dbReceipt.TxHash,
 			BlockHash:   dbReceipt.BlockHash,
 			BlockNumber: big.NewInt(dbReceipt.BlockNumber),
@@ -1987,7 +1987,7 @@ UPDATE evm.txes SET state = 'finalized' WHERE evm.txes.evm_chain_id = $1 AND evm
 // If the mined transaction count receeds, transactions could have beeen re-org'd
 // If it proceeds, transactions could have been included
 // This check assumes transactions are broadcasted in ascending order and not out of order
-func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, minedTxCount evmtypes.Nonce, chainID *big.Int) (reorgTxs []*Tx, includedTxs []*Tx, err error) {
+func (o *evmTxStore) FindReorgOrIncludedTxs(ctx context.Context, fromAddress common.Address, minedTxCount types.Nonce, chainID *big.Int) (reorgTxs []*Tx, includedTxs []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()

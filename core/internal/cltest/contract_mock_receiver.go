@@ -12,14 +12,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 // funcSigLength is the length of the function signature (including the 0x)
 // ex: 0x1234ABCD
 const funcSigLength = 10
 
-func NewContractMockReceiver(t *testing.T, ethMock *evmclimocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {
+func NewContractMockReceiver(t *testing.T, ethMock *clienttest.Client, abi abi.ABI, address common.Address) contractMockReceiver {
 	return contractMockReceiver{
 		t:       t,
 		ethMock: ethMock,
@@ -30,7 +30,7 @@ func NewContractMockReceiver(t *testing.T, ethMock *evmclimocks.Client, abi abi.
 
 type contractMockReceiver struct {
 	t       *testing.T
-	ethMock *evmclimocks.Client
+	ethMock *clienttest.Client
 	abi     abi.ABI
 	address common.Address
 }

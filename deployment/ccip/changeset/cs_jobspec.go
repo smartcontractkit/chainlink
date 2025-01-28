@@ -8,11 +8,12 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 	corejob "github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
@@ -54,6 +55,24 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 	// Find the bootstrap nodes
 	nodesToJobSpecs := make(map[string][]string)
 	for _, node := range nodes {
+		// pick first keybundle of each type (by default nodes will auto create one key of each type for each defined chain family)
+		keyBundles := map[string]string{}
+		for details, config := range node.SelToOCRConfig {
+			family, err := chainsel.GetSelectorFamily(details.ChainSelector)
+			if err != nil {
+				env.Logger.Warnf("skipping unknown/invalid chain family for selector %v", details.ChainSelector)
+				continue
+			}
+			_, exists := keyBundles[family]
+			if exists {
+				if keyBundles[family] != config.KeyBundleID {
+					return deployment.ChangesetOutput{}, fmt.Errorf("multiple different %v OCR keys found for node %v", family, node.PeerID)
+				}
+				continue
+			}
+			keyBundles[family] = config.KeyBundleID
+		}
+
 		var spec string
 		var err error
 		if !node.IsBootstrap {
@@ -61,13 +80,10 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 				P2PV2Bootstrappers:     nodes.BootstrapLocators(),
 				CapabilityVersion:      internal.CapabilityVersion,
 				CapabilityLabelledName: internal.CapabilityLabelledName,
-				OCRKeyBundleIDs: map[string]string{
-					// TODO: Validate that that all EVM chains are using the same keybundle.
-					relay.NetworkEVM: node.FirstOCRKeybundle().KeyBundleID,
-				},
-				P2PKeyID:     node.PeerID.String(),
-				RelayConfigs: nil,
-				PluginConfig: map[string]any{},
+				OCRKeyBundleIDs:        keyBundles,
+				P2PKeyID:               node.PeerID.String(),
+				RelayConfigs:           nil,
+				PluginConfig:           map[string]any{},
 			})
 		} else {
 			spec, err = validate.NewCCIPSpecToml(validate.SpecArgs{
@@ -75,10 +91,9 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 				CapabilityVersion:      internal.CapabilityVersion,
 				CapabilityLabelledName: internal.CapabilityLabelledName,
 				OCRKeyBundleIDs:        map[string]string{},
-				// TODO: validate that all EVM chains are using the same keybundle
-				P2PKeyID:     node.PeerID.String(),
-				RelayConfigs: nil,
-				PluginConfig: map[string]any{},
+				P2PKeyID:               node.PeerID.String(),
+				RelayConfigs:           nil,
+				PluginConfig:           map[string]any{},
 			})
 		}
 		if err != nil {

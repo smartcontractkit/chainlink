@@ -328,7 +328,7 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 				return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayID, err)
 			}
 
-			relayers[relayID] = NewCosmosLOOPRelayerChain(cosmos.NewRelayer(lggr, chain))
+			relayers[relayID] = cosmos.NewRelayer(lggr, chain)
 		}
 	}
 	return relayers, nil

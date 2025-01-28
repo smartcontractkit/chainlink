@@ -24,15 +24,16 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -43,17 +44,17 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	feeLimit := uint64(10_000)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	h99 := &evmtypes.Head{
+	h99 := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 99,
 	}
 	h99.IsFinalized.Store(true)
-	head := &evmtypes.Head{
+	head := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
 	}
@@ -65,7 +66,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
+		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
@@ -95,7 +96,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
+		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
@@ -127,7 +128,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
+		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
@@ -157,7 +158,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
+		nonce := types.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
@@ -174,7 +175,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		receiptBlockHash1 := utils.NewHash()
 		mustInsertEthReceipt(t, txStore, head.Parent.Load().Number-2, receiptBlockHash1, attemptHash)
 		idempotencyKey = uuid.New().String()
-		nonce = evmtypes.Nonce(1)
+		nonce = types.Nonce(1)
 		tx = &txmgr.Tx{
 			Sequence:           &nonce,
 			IdempotencyKey:     &idempotencyKey,
@@ -200,11 +201,11 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 			reqBlockNum := rpcElements[0].Args[0].(string)
 			req1BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Load().Number - 2))
 			req2BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Load().Number - 1))
-			var headResult evmtypes.Head
+			var headResult types.Head
 			if req1BlockNum == reqBlockNum {
-				headResult = evmtypes.Head{Number: head.Parent.Load().Number - 2, Hash: receiptBlockHash1}
+				headResult = types.Head{Number: head.Parent.Load().Number - 2, Hash: receiptBlockHash1}
 			} else if req2BlockNum == reqBlockNum {
-				headResult = evmtypes.Head{Number: head.Parent.Load().Number - 1, Hash: receiptBlockHash2}
+				headResult = types.Head{Number: head.Parent.Load().Number - 1, Hash: receiptBlockHash2}
 			} else {
 				require.Fail(t, "unrecognized block hash")
 			}
@@ -257,21 +258,21 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	grandParentHead := &evmtypes.Head{
+	grandParentHead := &types.Head{
 		Number: 8,
 		Hash:   testutils.NewHash(),
 	}
-	parentHead := &evmtypes.Head{
+	parentHead := &types.Head{
 		Hash:   testutils.NewHash(),
 		Number: 9,
 	}
 	parentHead.Parent.Store(grandParentHead)
-	head := evmtypes.Head{
+	head := types.Head{
 		Hash:   testutils.NewHash(),
 		Number: 10,
 	}
@@ -327,7 +328,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes transactions with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
-		nonce := evmtypes.Nonce(3)
+		nonce := types.Nonce(3)
 		var err error
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
@@ -365,8 +366,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 		case data := <-ch:
 			require.NoError(t, err)
 
-			require.IsType(t, &evmtypes.Receipt{}, data)
-			r := data.(*evmtypes.Receipt)
+			require.IsType(t, &types.Receipt{}, data)
+			r := data.(*types.Receipt)
 			require.Equal(t, receipt.TxHash, r.TxHash)
 
 		case <-time.After(time.Second):
@@ -382,7 +383,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 			error
 		}
 		ch := make(chan data)
-		nonce := evmtypes.Nonce(4)
+		nonce := types.Nonce(4)
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		finalizer.SetResumeCallback(func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
@@ -430,7 +431,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("does not mark callback complete if callback fails", func(t *testing.T) {
-		nonce := evmtypes.Nonce(5)
+		nonce := types.Nonce(5)
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		finalizer.SetResumeCallback(func(ctx context.Context, id uuid.UUID, value interface{}, err error) error {
@@ -460,17 +461,17 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	ctx := tests.Context(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	config := evmtest.NewChainScopedConfig(t, cfg)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := config.EVM().RPCDefaultBatchSize()
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	latestFinalizedHead := &evmtypes.Head{
+	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
-	head := &evmtypes.Head{
+	head := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
 	}
@@ -508,7 +509,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -530,7 +531,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           testutils.NewHash(),
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -542,7 +543,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt
 		}).Once()
 
 		// No error because it is merely logged
@@ -563,7 +564,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           etx.TxAttempts[0].Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -575,7 +576,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt
 			elems[0].Error = errors.New("foo")
 		}).Once()
 
@@ -599,7 +600,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// Insert confirmed transaction without receipt
 		etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, head.Number, fromAddress)
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           etx1.TxAttempts[0].Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -614,9 +615,9 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt
 			// Second transaction still unconfirmed
-			elems[1].Result = &evmtypes.Receipt{}
+			elems[1].Result = &types.Receipt{}
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -660,7 +661,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt3))
 		require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt2))
 
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           attempt2.Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -676,11 +677,11 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// Most expensive attempt still unconfirmed
-			elems[2].Result = &evmtypes.Receipt{}
+			elems[2].Result = &types.Receipt{}
 			// Second most expensive attempt is confirmed
-			*(elems[1].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[1].Result.(*types.Receipt)) = txmReceipt
 			// Cheapest attempt still unconfirmed
-			elems[0].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -705,7 +706,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
-		receipt := evmtypes.Receipt{
+		receipt := types.Receipt{
 			TxHash: etx.TxAttempts[0].Hash,
 			Status: uint64(1),
 		}
@@ -713,7 +714,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = receipt
+			*(elems[0].Result.(*types.Receipt)) = receipt
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -738,7 +739,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		// NOTE: This should never happen, but we shouldn't panic regardless
-		receipt := evmtypes.Receipt{
+		receipt := types.Receipt{
 			TxHash:    etx.TxAttempts[0].Hash,
 			BlockHash: testutils.NewHash(),
 			Status:    uint64(1),
@@ -747,7 +748,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = receipt
+			*(elems[0].Result.(*types.Receipt)) = receipt
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -771,7 +772,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		attempt := etx.TxAttempts[0]
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           attempt.Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -785,7 +786,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First attempt still unconfirmed
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt
 		}).Once()
 		data, err := utils.ABIEncode(`[{"type":"uint256"}]`, big.NewInt(10))
 		require.NoError(t, err)
@@ -819,7 +820,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		// Insert confirmed transaction without receipt
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, latestFinalizedHead.Number, fromAddress)
 
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           etx.TxAttempts[0].Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -832,7 +833,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -859,7 +860,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], etx.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -876,16 +877,16 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	latestFinalizedHead := &evmtypes.Head{
+	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
-	head := &evmtypes.Head{
+	head := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
 	}
@@ -917,8 +918,8 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 				cltest.BatchElemMatchesParams(b[1], attempts[3].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &evmtypes.Receipt{}
-			elems[1].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
+			elems[1].Result = &types.Receipt{}
 		}).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -926,15 +927,15 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 				cltest.BatchElemMatchesParams(b[1], attempts[1].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &evmtypes.Receipt{}
-			elems[1].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
+			elems[1].Result = &types.Receipt{}
 		}).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				cltest.BatchElemMatchesParams(b[0], attempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &evmtypes.Receipt{}
+			elems[0].Result = &types.Receipt{}
 		}).Once()
 
 		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -952,7 +953,7 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 		etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, head.Number, fromAddress)
 		etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, head.Number, fromAddress)
 
-		txmReceipt := evmtypes.Receipt{
+		txmReceipt := types.Receipt{
 			TxHash:           etx2.TxAttempts[0].Hash,
 			BlockHash:        testutils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -969,7 +970,7 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 				cltest.BatchElemMatchesParams(b[0], etx2.TxAttempts[0].Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt // confirmed
+			*(elems[0].Result.(*types.Receipt)) = txmReceipt // confirmed
 		}).Once()
 
 		// Returns error due to batch call failure
@@ -988,16 +989,16 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	latestFinalizedHead := &evmtypes.Head{
+	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
-	head := &evmtypes.Head{
+	head := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
 	}
@@ -1018,7 +1019,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	require.NoError(t, err)
 	require.Empty(t, dbtx.TxAttempts[0].Receipts)
 
-	txmReceipt := evmtypes.Receipt{
+	txmReceipt := types.Receipt{
 		TxHash:           attempt.Hash,
 		BlockHash:        testutils.NewHash(),
 		BlockNumber:      big.NewInt(42),
@@ -1031,7 +1032,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 			cltest.BatchElemMatchesParams(b[0], attempt.Hash, "eth_getTransactionReceipt")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt // confirmed
+		*(elems[0].Result.(*types.Receipt)) = txmReceipt // confirmed
 	}).Once()
 
 	require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
@@ -1045,16 +1046,16 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	latestFinalizedHead := &evmtypes.Head{
+	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 99,
 	}
 	latestFinalizedHead.IsFinalized.Store(true)
-	head := &evmtypes.Head{
+	head := &types.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
 	}
@@ -1105,7 +1106,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		// Insert confirmed transaction with pending task run
 		etx := cltest.NewEthTx(fromAddress)
 		etx.State = txmgrcommon.TxConfirmed
-		n := evmtypes.Nonce(0)
+		n := types.Nonce(0)
 		etx.Sequence = &n
 		now := time.Now()
 		etx.BroadcastAt = &now
@@ -1140,7 +1141,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 		// Insert confirmed transaction with pending task run
 		etx := cltest.NewEthTx(fromAddress)
 		etx.State = txmgrcommon.TxConfirmed
-		n := evmtypes.Nonce(0)
+		n := types.Nonce(0)
 		etx.Sequence = &n
 		now := time.Now()
 		etx.BroadcastAt = &now

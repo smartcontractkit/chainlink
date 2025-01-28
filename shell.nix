@@ -101,7 +101,7 @@ in
       ] ++ lib.optionals isCrib [
         nur.repos.goreleaser.goreleaser-pro
         patchelf
-      ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64) [
+      ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64 && !isCrib) [
         solanaBinaries.aarch64-apple-darwin
       ];
 

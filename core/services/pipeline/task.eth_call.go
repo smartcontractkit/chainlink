@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 

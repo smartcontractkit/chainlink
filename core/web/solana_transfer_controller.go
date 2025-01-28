@@ -64,7 +64,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 
 	err = relayer.Transact(c.Request.Context(), tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
-		if errors.Is(err, chains.ErrNotFound) || errors.Is(err, chains.ErrChainIDEmpty) {
+		if errors.Is(err, chains.ErrNotFound) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
