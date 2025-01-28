@@ -32,10 +32,11 @@ jobs:
       maxPassRatio: '1.0' 
       extraArgs: >-
         {
-          "runCustomTestPackages": "${{ inputs.testPackages }}",
+          "run_custom_test_packages": "${{ inputs.testPackages }}",
           "test_repeat_count": "${{ inputs.testRepeatCount }}",
-          "skipped_tests": "",
-          "run_with_race": "${{ inputs.runTestsWithRace }}"
+          "run_with_race": "${{ inputs.runTestsWithRace }}",
+          "default_tests_runner": "ubuntu22.04-8cores-32GB",
+          "skipped_tests": ""
         }
 
     secrets:
