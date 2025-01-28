@@ -1078,7 +1078,7 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 	}
 
 	// we need to restart all nodes for configuration changes to take effect
-	nodeset, err := ns.UpgradeNodeSet(in.NodeSet, bc, 5*time.Second)
+	nodeset, err := ns.UpgradeNodeSet(t, in.NodeSet, bc, 5*time.Second)
 	require.NoError(t, err, "failed to upgrade node set")
 
 	// we need to recreate chainlink clients after the nodes are restarted
