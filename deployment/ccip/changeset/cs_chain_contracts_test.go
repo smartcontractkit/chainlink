@@ -9,6 +9,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -152,14 +153,16 @@ func TestAddRemoteChainToSolana(t *testing.T) {
 	require.NoError(t, err)
 
 	var sourceChainStateAccount solRouter.SourceChain
-	evmSourceChainStatePDA := changeset.GetEvmSourceChainStatePDA(state.SolChains[solChain].Router, evmChain)
+	evmSourceChainStatePDA, err := solState.FindSourceChainStatePDA(evmChain, state.SolChains[solChain].Router)
+	require.NoError(t, err)
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmSourceChainStatePDA, &sourceChainStateAccount)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
 	require.True(t, sourceChainStateAccount.Config.IsEnabled)
 
 	var destChainStateAccount solRouter.DestChain
-	evmDestChainStatePDA := changeset.GetEvmDestChainStatePDA(state.SolChains[solChain].Router, evmChain)
+	evmDestChainStatePDA, err := solState.FindDestChainStatePDA(evmChain, state.SolChains[solChain].Router)
+	require.NoError(t, err)
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 }

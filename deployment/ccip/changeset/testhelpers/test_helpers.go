@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
@@ -1322,12 +1323,12 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
-	solState, err := changeset.LoadOnchainStateSolana(e)
+	state, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err, "Failed to load Solana state")
 
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
-		chainState, exists := solState.SolChains[sel]
+		chainState, exists := state.SolChains[sel]
 		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
 
 		// Validate addresses
@@ -1337,10 +1338,10 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		routerConfigPDA := changeset.GetRouterConfigPDA(chainState.Router)
+		configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
 		// Check if account exists first
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), routerConfigPDA, &routerConfigAccount)
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), configPDA, &routerConfigAccount)
 		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
 	}
 }
@@ -1348,11 +1349,12 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 	state, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	for solSelector, solState := range state.SolChains {
-		ccip_receiver.SetProgramID(solState.Receiver)
+	for solSelector, chainState := range state.SolChains {
+		ccip_receiver.SetProgramID(chainState.Receiver)
+		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Receiver)
 		instruction, ixErr := ccip_receiver.NewInitializeInstruction(
-			changeset.GetReceiverTargetAccountPDA(solState.Receiver),
-			changeset.GetReceiverExternalExecutionConfigPDA(solState.Receiver),
+			FindReceiverTargetAccount(chainState.Receiver),
+			externalExecutionConfigPDA,
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -1360,6 +1362,11 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
 		require.NoError(t, err)
 	}
+}
+
+func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
+	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
+	return receiverTargetAccount
 }
 
 func GenTestTransferOwnershipConfig(

@@ -17,6 +17,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -561,6 +562,10 @@ func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRo
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
+	configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	statePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
 	instruction, err := solRouter.NewInitializeInstruction(
 		chain.Selector,                         // chain selector
@@ -570,14 +575,14 @@ func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRo
 		solana.PublicKey{},                     // fee aggregator
 		linkTokenAddress,                       // link token mint
 		deployment.SolDefaultMaxFeeJuelsPerMsg, // max fee juels per msg
-		GetRouterConfigPDA(ccipRouterProgram),
-		GetRouterStatePDA(ccipRouterProgram),
+		configPDA,
+		statePDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		ccipRouterProgram,
 		programData.Address,
-		GetExternalExecutionConfigPDA(ccipRouterProgram),
-		GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+		externalExecutionConfigPDA,
+		externalTokenPoolsSignerPDA,
 	).ValidateAndBuild()
 
 	if err != nil {
@@ -635,7 +640,8 @@ func deployChainContractsSolana(
 
 	// check if solana router is initialised
 	var routerConfigAccount solRouter.Config
-	err = chain.GetAccountDataBorshInto(e.GetContext(), GetRouterConfigPDA(ccipRouterProgram), &routerConfigAccount)
+	configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), configPDA, &routerConfigAccount)
 	if err != nil {
 		if err := initialzeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err != nil {
 			return err
@@ -646,6 +652,10 @@ func deployChainContractsSolana(
 
 	// initialize this last with every address we need
 	if chainState.AddressLookupTable.IsZero() {
+		configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+		statePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		table, err := solCommonUtil.SetupLookupTable(
 			e.GetContext(),
 			chain.Client,
@@ -657,10 +667,10 @@ func deployChainContractsSolana(
 				solana.SysVarInstructionsPubkey,
 				// router
 				ccipRouterProgram,
-				GetRouterConfigPDA(ccipRouterProgram),
-				GetRouterStatePDA(ccipRouterProgram),
-				GetExternalExecutionConfigPDA(ccipRouterProgram),
-				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+				configPDA,
+				statePDA,
+				externalExecutionConfigPDA,
+				externalTokenPoolsSignerPDA,
 				// token
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,

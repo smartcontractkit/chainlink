@@ -18,6 +18,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -1077,6 +1078,8 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			var instructions []solana.Instruction
 			ccipRouterID := state.SolChains[remote].Router
 			for _, arg := range args.SVMArgs {
+				configPDA, _, _ := solState.FindConfigPDA(ccipRouterID)
+				statePDA, _, _ := solState.FindStatePDA(ccipRouterID)
 				instruction, err := ccip_router.NewSetOcrConfigInstruction(
 					arg.OcrPluginType,
 					ccip_router.Ocr3ConfigInfo{
@@ -1086,8 +1089,8 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 					},
 					arg.Signers,
 					arg.Transmitters,
-					GetRouterConfigPDA(ccipRouterID),
-					GetRouterStatePDA(ccipRouterID),
+					configPDA,
+					statePDA,
 					e.SolChains[remote].DeployerKey.PublicKey(),
 				).ValidateAndBuild()
 				if err != nil {

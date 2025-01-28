@@ -7,6 +7,7 @@ import (
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -58,7 +59,8 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		}
 
 		var routerConfigAccount solRouter.Config
-		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, cs.GetRouterConfigPDA(chainState.Router), deployment.SolDefaultCommitment, &routerConfigAccount)
+		configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, configPDA, deployment.SolDefaultCommitment, &routerConfigAccount)
 		if err != nil {
 			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
 		}
@@ -105,8 +107,7 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 
 	// TODO: will this fail if chain has already been added?
 	for destination, update := range updates {
-		// TODO: this should be GetSourceChainStatePDA
-		sourceChainStatePDA := cs.GetEvmSourceChainStatePDA(ccipRouterID, destination)
+		sourceChainStatePDA, _ := solState.FindSourceChainStatePDA(destination, ccipRouterID)
 
 		// Convert string address to bytes and pad to 64 bytes
 		var onRampBytes [64]byte
@@ -117,15 +118,15 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 			OnRamp:    [2][64]byte{onRampBytes, [64]byte{}},
 			IsEnabled: update.EnabledAsSource,
 		}
-		// TODO: this should be GetDestChainStatePDA
-		destChainStatePDA := cs.GetEvmDestChainStatePDA(ccipRouterID, destination)
+		configPDA, _, _ := solState.FindConfigPDA(ccipRouterID)
+		destChainStatePDA, _ := solState.FindDestChainStatePDA(destination, ccipRouterID)
 		instruction, err := solRouter.NewAddChainSelectorInstruction(
 			destination,
 			validSourceChainConfig,
 			update.DestinationConfig,
 			sourceChainStatePDA,
 			destChainStatePDA,
-			cs.GetRouterConfigPDA(ccipRouterID),
+			configPDA,
 			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID,
 		).ValidateAndBuild()
