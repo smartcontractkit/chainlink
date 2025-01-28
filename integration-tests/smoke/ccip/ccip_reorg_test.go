@@ -18,7 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -370,7 +369,6 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 }
 
 func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
-	t.Skip("Not working")
 	require.Equal(
 		t,
 		os.Getenv(testhelpers.ENVTESTTYPE),
@@ -457,7 +455,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 	l.Info().Msgf("sent CCIP message that will get re-orged, msg id: %x", reorgingMsgEvent.Message.Header.MessageId)
 
 	// Run reorg above finality depth
-	const reorgDepth = 50
+	const reorgDepth = 60
 	l.Info().
 		Int("reorgDepth", reorgDepth).
 		Uint64("destChainSelector", destChainSelector).
@@ -517,7 +515,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 		})
 		require.NoError(t, err)
 		return !it.Next()
-	}, tests.WaitTimeout(t), 10*time.Second).Should(gomega.BeTrue())
+	}, 1*time.Minute, 10*time.Second).Should(gomega.BeTrue())
 }
 
 // This test sends a ccip message and re-orgs the chain
