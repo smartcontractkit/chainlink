@@ -15,12 +15,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrEmptyContractReturnValue = errors.New("the contract return value was empty")
@@ -34,7 +33,7 @@ type MethodBinding struct {
 	client               evmclient.Client
 	ht                   logpoller.HeadTracker
 	lggr                 logger.Logger
-	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
+	confirmationsMapping map[primitives.ConfidenceLevel]types.Confirmations
 
 	// internal state properties
 	codec    commontypes.Codec
@@ -46,7 +45,7 @@ func NewMethodBinding(
 	name, method string,
 	client evmclient.Client,
 	heads logpoller.HeadTracker,
-	confs map[primitives.ConfidenceLevel]evmtypes.Confirmations,
+	confs map[primitives.ConfidenceLevel]types.Confirmations,
 	lggr logger.Logger,
 ) *MethodBinding {
 	return &MethodBinding{
@@ -136,7 +135,7 @@ func (b *MethodBinding) GetLatestValueWithHeadData(ctx context.Context, addr com
 	}
 
 	var blockNum *big.Int
-	if block != nil && confirmations != evmtypes.Unconfirmed {
+	if block != nil && confirmations != types.Unconfirmed {
 		blockNum = big.NewInt(block.Number)
 	}
 
@@ -215,7 +214,7 @@ func (b *MethodBinding) QueryKey(
 func (b *MethodBinding) Register(_ context.Context) error   { return nil }
 func (b *MethodBinding) Unregister(_ context.Context) error { return nil }
 
-func (b *MethodBinding) blockAndConfirmationsFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*evmtypes.Head, evmtypes.Confirmations, error) {
+func (b *MethodBinding) blockAndConfirmationsFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*types.Head, types.Confirmations, error) {
 	confirmations, err := confidenceToConfirmations(b.confirmationsMapping, confidenceLevel)
 	if err != nil {
 		err = fmt.Errorf("%w: contract: %s; method: %s", err, b.contractName, b.method)
@@ -233,9 +232,9 @@ func (b *MethodBinding) blockAndConfirmationsFromConfidence(ctx context.Context,
 		return nil, 0, fmt.Errorf("%w: head tracker: %w", commontypes.ErrInternal, err)
 	}
 
-	if confirmations == evmtypes.Finalized {
+	if confirmations == types.Finalized {
 		return finalized, confirmations, nil
-	} else if confirmations == evmtypes.Unconfirmed {
+	} else if confirmations == types.Unconfirmed {
 		return latest, confirmations, nil
 	}
 

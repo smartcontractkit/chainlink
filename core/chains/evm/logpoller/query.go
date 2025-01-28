@@ -8,8 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -153,7 +152,7 @@ func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
 	return q.withField("word_value", wordValue)
 }
 
-func (q *queryArgs) withConfs(confs evmtypes.Confirmations) *queryArgs {
+func (q *queryArgs) withConfs(confs types.Confirmations) *queryArgs {
 	return q.withField("confs", confs)
 }
 

@@ -19,8 +19,6 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -28,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
@@ -40,18 +40,18 @@ func Test_EVMChainsController_Show(t *testing.T) {
 		name           string
 		inputID        string
 		wantStatusCode int
-		want           *evmcfg.EVMConfig
+		want           *toml.EVMConfig
 	}{
 		{
 			inputID: validID.String(),
 			name:    "success",
-			want: &evmcfg.EVMConfig{
+			want: &toml.EVMConfig{
 				ChainID: validID,
 				Enabled: ptr(true),
-				Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
-					GasEstimator: evmcfg.GasEstimator{
+				Chain: toml.Defaults(nil, &toml.Chain{
+					GasEstimator: toml.GasEstimator{
 						EIP1559DynamicFees: ptr(true),
-						BlockHistory: evmcfg.BlockHistoryEstimator{
+						BlockHistory: toml.BlockHistoryEstimator{
 							BlockHistorySize: ptr[uint16](50),
 						},
 					},
@@ -84,7 +84,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 
 			controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				if tc.want != nil {
-					c.EVM = evmcfg.EVMConfigs{tc.want}
+					c.EVM = toml.EVMConfigs{tc.want}
 				}
 			}))
 
@@ -118,15 +118,15 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		return chainIDs[i].String() < chainIDs[j].String()
 	})
 
-	configuredChains := evmcfg.EVMConfigs{
-		{ChainID: ubig.New(chainIDs[0]), Chain: evmcfg.Defaults(nil)},
+	configuredChains := toml.EVMConfigs{
+		{ChainID: ubig.New(chainIDs[0]), Chain: toml.Defaults(nil)},
 		{
 			ChainID: ubig.New(chainIDs[1]),
-			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
+			Chain: toml.Defaults(nil, &toml.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
-				GasEstimator: evmcfg.GasEstimator{
+				GasEstimator: toml.GasEstimator{
 					EIP1559DynamicFees: ptr(true),
-					BlockHistory: evmcfg.BlockHistoryEstimator{
+					BlockHistory: toml.BlockHistoryEstimator{
 						BlockHistorySize: ptr[uint16](1),
 					},
 				},
@@ -135,11 +135,11 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		},
 		{
 			ChainID: ubig.New(chainIDs[2]),
-			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
+			Chain: toml.Defaults(nil, &toml.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
-				GasEstimator: evmcfg.GasEstimator{
+				GasEstimator: toml.GasEstimator{
 					EIP1559DynamicFees: ptr(false),
-					BlockHistory: evmcfg.BlockHistoryEstimator{
+					BlockHistory: toml.BlockHistoryEstimator{
 						BlockHistorySize: ptr[uint16](2),
 					},
 				},

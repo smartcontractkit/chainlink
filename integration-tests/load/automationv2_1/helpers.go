@@ -1,4 +1,4 @@
-package automationv2_1
+package automation
 
 import (
 	"fmt"

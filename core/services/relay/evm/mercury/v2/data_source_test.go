@@ -10,11 +10,11 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
@@ -82,7 +82,7 @@ func Test_Datasource(t *testing.T) {
 			},
 		},
 	}
-	ds := &datasource{orm: orm, lggr: logger.TestLogger(t), jb: jb}
+	ds := &datasource{orm: orm, lggr: logger.Test(t), jb: jb}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 

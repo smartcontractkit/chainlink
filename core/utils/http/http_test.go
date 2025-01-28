@@ -9,8 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
 
@@ -28,7 +29,7 @@ func TestUnrestrictedHTTPClient(t *testing.T) {
 		Client:  client,
 		Request: netReq,
 		Config:  http.HTTPRequestConfig{SizeLimit: 1000},
-		Logger:  logger.NullLogger,
+		Logger:  logger.Nop(),
 	}
 
 	response, statusCode, headers, err := req.SendRequest()

@@ -1,4 +1,4 @@
-package automationv2_1
+package automation
 
 import (
 	"context"
@@ -119,7 +119,7 @@ Password = '%s'`
 	}
 )
 
-func setUpDataStreamsWireMock(url string) error {
+func setUpDataStreamsWireMock(ctx context.Context, url string) error {
 	wm := gowiremock.NewClient(url)
 	rule200 := gowiremock.Get(gowiremock.URLPathEqualTo("/api/v1/reports/bulk")).
 		WithQueryParam("feedIDs", gowiremock.EqualTo("0x000200")).
@@ -130,7 +130,12 @@ func setUpDataStreamsWireMock(url string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.Post(fmt.Sprintf("%s/__admin/mappings/save", url), "application/json", nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url+"/__admin/mappings/save", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return errors.New("error saving wiremock mappings")
 	}
@@ -273,7 +278,7 @@ Load Config:
 			if !testEnvironment.Cfg.InsideK8s {
 				wiremockURL = testEnvironment.URLs[wiremock.LocalURLsKey][0]
 			}
-			err = setUpDataStreamsWireMock(wiremockURL)
+			err = setUpDataStreamsWireMock(ctx, wiremockURL)
 			require.NoError(t, err, "Error setting up wiremock server")
 		} else {
 			secretsTOML = fmt.Sprintf(
