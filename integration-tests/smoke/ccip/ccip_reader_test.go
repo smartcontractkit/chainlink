@@ -20,10 +20,6 @@ import (
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
-<<<<<<< HEAD
-=======
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 
@@ -292,11 +288,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
-<<<<<<< HEAD
-		ccipcommon.NewExtraArgsCodec(),
-=======
 		ccipcommon.NewExtraDataCodec(),
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1416,11 +1408,7 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-<<<<<<< HEAD
-	edc := ccipcommon.NewExtraArgsCodec()
-=======
 	edc := ccipcommon.NewExtraDataCodec()
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, edc)
 
 	return reader
@@ -1536,11 +1524,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-<<<<<<< HEAD
-	edc := ccipcommon.NewExtraArgsCodec()
-=======
 	edc := ccipcommon.NewExtraDataCodec()
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, edc)
 
 	t.Cleanup(func() {
