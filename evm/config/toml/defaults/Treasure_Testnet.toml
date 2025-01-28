@@ -3,13 +3,13 @@ ChainType = 'zksync'
 LogPollInterval = '10s'
 NoNewHeadsThreshold = '10m' #blocks production can sometimes be delayed by ~10min
 
-[EVM.GasEstimator]
+[GasEstimator]
 # no EIP1559 to ensure our estimator doesnot estimate gas with MaxPriorityFee which will break minFunding requirement
 EIP1559DynamicFees = false 
 PriceMin = '25 mwei'
 
-[EVM.GasEstimator.DAOracle]
+[GasEstimator.DAOracle]
 OracleType = 'zksync'
 
-[EVM.HeadTracker]
+[HeadTracker]
 HistoryDepth = 250
