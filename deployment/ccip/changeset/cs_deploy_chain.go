@@ -633,6 +633,8 @@ func deployChainContractsSolana(
 		true,                 // allow out of order execution
 		EnableExecutionAfter, // period to wait before allowing manual execution
 		solana.PublicKey{},
+		solana.PublicKey{},
+		solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
 		GetRouterConfigPDA(ccipRouterProgram),
 		GetRouterStatePDA(ccipRouterProgram),
 		chain.DeployerKey.PublicKey(),
