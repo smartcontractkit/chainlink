@@ -8,7 +8,11 @@ import (
 )
 
 // Contract should be a contract binding
-type DeployContractBindingParamsFn[Contract any] func(auth *bind.TransactOpts, backend bind.ContractBackend, params ...any) (common.Address, *types.Transaction, *Contract, error)
+type DeployContractBindingFn[I, Contract any] func(
+	auth *bind.TransactOpts,
+	backend bind.ContractBackend,
+	input I,
+) (common.Address, *types.Transaction, *Contract, error)
 type DeployContractBindingNoParamsFn[Contract any] func(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *Contract, error)
 
 type ContractCtorFn func(address common.Address, backend bind.ContractBackend) (*bind.BoundContract, error)
@@ -36,20 +40,24 @@ type EthMethodInput interface {
 	Address() common.Address
 }
 
-func NewEthDeployOperationFromBinding[I EthInput, C any](binding DeployContractBindingParamsFn[C], version string) *deployment.Operation[I, EthereumTxOutput, EthereumDeps] {
-	return deployment.NewOperation[I](version, "Deploy Contract Operation", func(ctx deployment.Context[EthereumDeps], input I) (EthereumTxOutput, error) {
-		address, tx, _, err := binding(ctx.Deps.Auth, ctx.Deps.Client, input.GetOrderedParams()...)
-		if err != nil {
-			return EthereumTxOutput{}, err
-		}
+func NewEthDeployOperationFromBinding[I, C any](
+	binding DeployContractBindingFn[I, C],
+	version string,
+) *deployment.Operation[I, EthereumTxOutput, EthereumDeps] {
+	return deployment.NewOperation[I](version, "Deploy Contract Operation",
+		func(ctx deployment.Context[EthereumDeps], input I) (EthereumTxOutput, error) {
+			address, tx, _, err := binding(ctx.Deps.Auth, ctx.Deps.Client, input)
+			if err != nil {
+				return EthereumTxOutput{}, err
+			}
 
-		_, err = ctx.Deps.Confirm(tx)
-		if err != nil {
-			return EthereumTxOutput{}, err
-		}
+			_, err = ctx.Deps.Confirm(tx)
+			if err != nil {
+				return EthereumTxOutput{}, err
+			}
 
-		return EthereumTxOutput{Tx: tx, Address: address}, nil
-	})
+			return EthereumTxOutput{Tx: tx, Address: address}, nil
+		})
 }
 
 func NewEthDeployOperationFromBindingNoParams[C any](binding DeployContractBindingNoParamsFn[C], version string) *deployment.Operation[deployment.EmptyInput, EthereumTxOutput, EthereumDeps] {

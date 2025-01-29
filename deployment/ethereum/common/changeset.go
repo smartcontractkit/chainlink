@@ -33,7 +33,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		},
 	}
 
-	linkDeployReport, err := deployment.Execute(reporter, DeployLinkOp, ethCtx, deployment.EmptyInput{})
+	linkDeployReport, err := deployment.ExecuteOp(reporter, DeployLinkOp, ethCtx, deployment.EmptyInput{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -43,7 +43,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		To:              auth.From,
 	}
 
-	_, err = deployment.Execute(reporter, GrantMintLinkOp, ethCtx, grantMintInput)
+	_, err = deployment.ExecuteOp(reporter, GrantMintLinkOp, ethCtx, grantMintInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -54,7 +54,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		Amount:          config.MintAmount,
 	}
 
-	_, err = deployment.Execute(reporter, MintLinkOp, ethCtx, mintInput)
+	_, err = deployment.ExecuteOp(reporter, MintLinkOp, ethCtx, mintInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -65,7 +65,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		Amount:          config.Amount,
 	}
 
-	_, err = deployment.Execute(reporter, TransferLinkOp, ethCtx, transferInput)
+	_, err = deployment.ExecuteOp(reporter, TransferLinkOp, ethCtx, transferInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
