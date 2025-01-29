@@ -16,6 +16,6 @@ func (ExtraArgsCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSele
 }
 
 func (c ExtraArgsCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	//TODO implement me
-	panic("implement me")
+	// Not implemented and not return error
+	return nil, nil
 }
