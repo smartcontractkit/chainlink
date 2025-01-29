@@ -5,8 +5,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
@@ -167,8 +168,8 @@ func TestAddTokenPool(t *testing.T) {
 	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), poolConfigPDA, &configAccount)
 	t.Logf("configAccount: %+v", configAccount)
 	require.NoError(t, err)
-	require.Equal(t, configAccount.PoolType, token_pool.LockAndRelease_PoolType)
-	require.Equal(t, configAccount.Mint, tokenAddress)
+	require.Equal(t, token_pool.LockAndRelease_PoolType, configAccount.PoolType)
+	require.Equal(t, tokenAddress, configAccount.Mint)
 	// try minting after this and see if the pool or the deployer key is the authority
 
 	// test SetupTokenPoolForRemoteChain results
@@ -251,13 +252,13 @@ func TestBilling(t *testing.T) {
 	var token0ConfigAccount solRouter.BillingTokenConfigWrapper
 	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount)
 	require.NoError(t, err)
-	require.Equal(t, token0ConfigAccount.Config.Enabled, true)
-	require.Equal(t, token0ConfigAccount.Config.Mint, tokenAddress)
+	require.True(t, token0ConfigAccount.Config.Enabled)
+	require.Equal(t, tokenAddress, token0ConfigAccount.Config.Mint)
 
 	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(evmChain, tokenAddress, state.SolChains[solChain].Router)
 	var remoteBillingAccount solRouter.PerChainPerTokenConfig
 	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount)
 	require.NoError(t, err)
-	require.Equal(t, remoteBillingAccount.Mint, tokenAddress)
-	require.Equal(t, remoteBillingAccount.Billing.MinFeeUsdcents, uint32(800))
+	require.Equal(t, tokenAddress, remoteBillingAccount.Mint)
+	require.Equal(t, uint32(800), remoteBillingAccount.Billing.MinFeeUsdcents)
 }

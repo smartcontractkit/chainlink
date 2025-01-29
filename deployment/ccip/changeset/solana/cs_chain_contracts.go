@@ -14,6 +14,7 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -79,13 +80,13 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 
 func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
 	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first chain %d", chain.Selector)
 	}
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	var routerConfigAccount ccip_router.Config
 	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first")
+		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first %d", chain.Selector)
 	}
 	return nil
 }
@@ -176,7 +177,6 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 
 	ccipRouterID := s.SolChains[chainSel].Router
 
-	// TODO: will this fail if chain has already been added?
 	for destination, update := range updates {
 		sourceChainStatePDA, _ := solState.FindSourceChainStatePDA(destination, ccipRouterID)
 
@@ -312,7 +312,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
-		return fmt.Errorf("token pool not found in existing state, deploy the token pool first")
+		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
 	}
 	_, err = GetPoolType(cfg.PoolType)
 	if err != nil {
