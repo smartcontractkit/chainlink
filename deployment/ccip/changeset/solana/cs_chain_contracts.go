@@ -17,13 +17,15 @@ import (
 )
 
 type AddRemoteChainToSolanaConfig struct {
-	// UpdatesByChain is a mapping of source -> dest -> update
+	// UpdatesByChain is a mapping of SVM chain selector -> remote chain selector -> remote chain config update
 	UpdatesByChain map[uint64]map[uint64]RemoteChainConfigSolana
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *cs.MCMSConfig
 }
 
+// https://github.com/smartcontractkit/chainlink-ccip/blob/771fb9957d818253d833431e7e980669984e1d6a/chains/solana/gobindings/ccip_router/types.go#L1141
+// https://github.com/smartcontractkit/chainlink-ccip/blob/771fb9957d818253d833431e7e980669984e1d6a/chains/solana/contracts/tests/ccip/ccip_router_test.go#L130
 type RemoteChainConfigSolana struct {
 	EnabledAsSource      bool
 	EnabledAsDestination bool
@@ -63,12 +65,12 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
 		}
 
-		for destination := range updates {
-			if _, ok := supportedChains[destination]; !ok {
-				return fmt.Errorf("destination chain %d is not supported", destination)
+		for remote := range updates {
+			if _, ok := supportedChains[remote]; !ok {
+				return fmt.Errorf("remote chain %d is not supported", remote)
 			}
-			if destination == routerConfigAccount.SolanaChainSelector {
-				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", destination)
+			if remote == routerConfigAccount.SolanaChainSelector {
+				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", remote)
 			}
 		}
 	}

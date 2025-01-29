@@ -225,6 +225,7 @@ func BuildSetOCR3ConfigArgsSolana(
 			}
 			copy(signer[:], node.SignerKey)
 			signerAddresses = append(signerAddresses, signer)
+			// https://smartcontract-it.atlassian.net/browse/NONEVM-1254
 			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
 			if err != nil {
 				return nil, err
