@@ -460,8 +460,8 @@ func TestUpdateFQDests(t *testing.T) {
 				}
 			}
 
-			fqCfg1 := changeset.DefaultFeeQuoterDestChainConfig()
-			fqCfg2 := changeset.DefaultFeeQuoterDestChainConfig()
+			fqCfg1 := changeset.DefaultFeeQuoterDestChainConfig(true)
+			fqCfg2 := changeset.DefaultFeeQuoterDestChainConfig(true)
 			fqCfg2.DestGasOverhead = 1000
 			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
 				{

@@ -12,8 +12,8 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250120230622-566643da09fd
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250121175436-6a8b51d8b5f5
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250128231431-9279badae2f0
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250128231431-9279badae2f0
 )
 
 require (
@@ -315,7 +315,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-salt-fix // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.36 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250123161904-c40aa8ca45b2 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128193522-bdbfcc588847 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250103152858-8973fd0c912b // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect

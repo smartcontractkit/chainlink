@@ -1027,12 +1027,10 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		var args []offramp.OffRampSourceChainConfigArgs
 		for source, update := range updates {
 			router := common.HexToAddress("0x0")
-			if update.IsEnabled {
-				if update.TestRouter {
-					router = state.Chains[chainSel].TestRouter.Address()
-				} else {
-					router = state.Chains[chainSel].Router.Address()
-				}
+			if update.TestRouter {
+				router = state.Chains[chainSel].TestRouter.Address()
+			} else {
+				router = state.Chains[chainSel].Router.Address()
 			}
 			onRamp := state.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
@@ -1437,7 +1435,9 @@ func isOCR3ConfigSetOnOffRamp(
 	return true, nil
 }
 
-func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+// DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
+// with the config enabled/disabled based on the configEnabled flag.
+func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -1447,7 +1447,7 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 	*/
 	evmFamilySelector, _ := hex.DecodeString("2812d52c")
 	return fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         true,
+		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
 		MaxPerMsgGasLimit:                 3_000_000,

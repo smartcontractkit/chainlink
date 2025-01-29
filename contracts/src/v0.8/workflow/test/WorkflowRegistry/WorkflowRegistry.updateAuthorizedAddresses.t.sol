@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
-import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
+import {WorkflowRegistry} from "../../WorkflowRegistry.sol";
 import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_updateAuthorizedAddresses is WorkflowRegistrySetup {
