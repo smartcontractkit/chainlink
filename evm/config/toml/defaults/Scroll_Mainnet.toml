@@ -1,7 +1,8 @@
 ChainID = '534352'
+ChainType = 'scroll'
 FinalityDepth = 10
 FinalityTagEnabled = true
-ChainType = 'scroll'
+LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 # Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful

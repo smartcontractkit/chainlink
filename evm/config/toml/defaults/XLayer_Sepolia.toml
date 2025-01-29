@@ -1,6 +1,7 @@
 ChainID = '195'
 ChainType = 'xlayer'
 FinalityDepth = 500
+LinkContractAddress = '0x724593f6FCb0De4E6902d4C55D7C74DaA2AF0E55'
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'

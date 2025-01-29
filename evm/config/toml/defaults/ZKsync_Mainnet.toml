@@ -1,6 +1,7 @@
 ChainID = '324'
 ChainType = 'zksync'
 FinalityDepth = 10
+LinkContractAddress = '0x52869bae3E091e36b0915941577F2D47d8d8B534'
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
