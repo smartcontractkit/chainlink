@@ -63,6 +63,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	return [32]byte(hash), err
 }
 
+// TODO combine parseExtraArgsMapWithAccounts with parseExtraArgsMap once https://github.com/smartcontractkit/chainlink/pull/15816 merged
 func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_router.SVMExtraArgs, []solana.PublicKey, error) {
 	// Parse input map into SolanaExtraArgs
 	var out ccip_router.SVMExtraArgs
