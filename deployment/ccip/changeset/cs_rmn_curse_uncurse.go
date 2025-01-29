@@ -219,7 +219,8 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+	deploymentContext := NewDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
+	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -263,7 +264,7 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 		}
 	}
 
-	return deployerGroup.Enact("proposal to curse RMNs: " + cfg.Reason)
+	return deployerGroup.Enact()
 }
 
 // RMNUncurseChangeset creates a new changeset for uncursing chains or lanes on RMNRemote contracts.
@@ -289,7 +290,8 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+	deploymentContext := NewDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
+	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -335,5 +337,5 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 		}
 	}
 
-	return deployerGroup.Enact("proposal to uncurse RMNs: %s" + cfg.Reason)
+	return deployerGroup.Enact()
 }
