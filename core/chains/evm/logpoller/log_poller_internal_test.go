@@ -30,9 +30,8 @@ import (
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
@@ -64,7 +63,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 
 	orm := NewORM(chainID, db, lggr)
@@ -208,7 +207,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 	latestBlock := int64(4)
 	const finalityDepth = 2
@@ -302,7 +301,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 
 	var head atomic.Pointer[evmtypes.Head]
@@ -606,7 +605,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 func Test_FetchBlocks(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 	ctx := testutils.Context(t)
 
@@ -678,7 +677,7 @@ func Test_FetchBlocks(t *testing.T) {
 func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lpOpts := Opts{
 		PollPeriod:               time.Second,
 		FinalityDepth:            3,

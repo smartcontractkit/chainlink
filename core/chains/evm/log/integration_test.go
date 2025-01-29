@@ -87,7 +87,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
 
-	blockBackfillDepth := helper.config.EVM().BlockBackfillDepth()
+	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
 	var backfillCount atomic.Int64
 
@@ -163,7 +163,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	listener2 := helper.newLogListenerWithJob("two")
 	helper.register(listener2, newMockContract(t), uint32(2))
 
-	blockBackfillDepth := helper.config.EVM().BlockBackfillDepth()
+	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
@@ -467,7 +467,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	})
 	helper.mockEth = mockEth
 
-	blockBackfillDepth := helper.config.EVM().BlockBackfillDepth()
+	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
 	var backfillCount atomic.Int64
 

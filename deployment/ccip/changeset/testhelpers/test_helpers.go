@@ -482,6 +482,52 @@ func AddLane(
 	require.NoError(t, err)
 }
 
+// RemoveLane removes a lane between the source and destination chains in the deployed environment.
+func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter bool) {
+	var err error
+	apps := []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+					// onRamp update on source chain
+					src: {
+						OnRampUpdates: map[uint64]bool{
+							dest: false,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					src: {
+						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+					src: {
+						dest: {
+							IsEnabled:        false,
+							TestRouter:       isTestRouter,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		},
+	}
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	require.NoError(t, err)
+}
+
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
 	stateChainFrom := state.Chains[from]
 	AddLane(
@@ -494,7 +540,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		}, map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, changeset.DefaultFeeQuoterDestChainConfig())
+		}, changeset.DefaultFeeQuoterDestChainConfig(true))
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain

@@ -31,17 +31,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	evmtestutils "github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
@@ -51,10 +50,10 @@ type broadcasterHelper struct {
 	db           *sqlx.DB
 	mockEth      *clienttest.MockEth
 	globalConfig config.AppConfig
-	config       evmconfig.ChainScopedConfig
+	config       evmconfig.EVM
 
 	// each received channel corresponds to one eth subscription
-	chchRawLogs    chan evmtestutils.RawSub[types.Log]
+	chchRawLogs    chan testutils.RawSub[types.Log]
 	toUnsubscribe  []func()
 	pipelineHelper cltest.JobPipelineV2TestHelper
 }
@@ -70,7 +69,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, f
 		FilterLogsResult:    filterLogsResult,
 	}
 
-	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], timesSubscribe)
+	chchRawLogs := make(chan testutils.RawSub[types.Log], timesSubscribe)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, nil, overridesFn)
 	helper.chchRawLogs = chchRawLogs
@@ -87,14 +86,14 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 		if overridesFn != nil {
 			overridesFn(c, s)
 		}
-	})
-	config := evmtest.NewChainScopedConfig(t, globalConfig)
+	}) //TODO make evm directly
+	config := evmtest.NewChainScopedConfig(t, globalConfig).EVM()
 	lggr := logger.Test(t)
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
+	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, db)
 
 	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
@@ -366,7 +365,7 @@ type mockEthClientExpectedCalls struct {
 	FilterLogsResult []types.Log
 }
 
-func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtestutils.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *clienttest.MockEth {
+func newMockEthClient(t *testing.T, chchRawLogs chan<- testutils.RawSub[types.Log], blockHeight int64, expectedCalls mockEthClientExpectedCalls) *clienttest.MockEth {
 	ethClient := clienttest.NewClient(t)
 	mockEth := &clienttest.MockEth{EthClient: ethClient}
 	mockEth.EthClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
@@ -374,7 +373,7 @@ func newMockEthClient(t *testing.T, chchRawLogs chan<- evmtestutils.RawSub[types
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchRawLogs <- evmtestutils.NewRawSub(ch, sub.Err())
+				chchRawLogs <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {

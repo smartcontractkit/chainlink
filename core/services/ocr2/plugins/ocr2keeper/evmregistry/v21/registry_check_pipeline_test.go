@@ -16,11 +16,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
-	types3 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
@@ -378,9 +377,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 func TestRegistry_CheckUpkeeps(t *testing.T) {
 	lggr := logger.Test(t)
-	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -538,9 +537,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 }
 
 func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
-	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -692,7 +691,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
-			cred: &types2.MercuryCredentials{
+			cred: &commontypes.MercuryCredentials{
 				LegacyURL: "https://google.old.com",
 				URL:       "https://google.com",
 				Username:  "FakeClientID",
