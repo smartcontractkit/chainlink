@@ -298,7 +298,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 					AllowListEnabled: false,
 				}
 				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
-				feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig()
+				feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig(true)
 
 				updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
 					IsEnabled: true,
