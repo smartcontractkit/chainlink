@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#internal Add missing LINK token addresses
+Add missing LINK token addresses #internal
