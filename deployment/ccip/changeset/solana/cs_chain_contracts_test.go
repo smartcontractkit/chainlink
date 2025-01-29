@@ -1,4 +1,4 @@
-package changeset_solana_test
+package solana_test
 
 import (
 	"testing"

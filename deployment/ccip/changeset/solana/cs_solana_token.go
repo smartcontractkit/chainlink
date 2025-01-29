@@ -1,4 +1,4 @@
-package changeset_solana
+package solana
 
 import (
 	"context"
