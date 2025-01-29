@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -191,7 +190,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	maxRetries := 5
+	maxRetries := 10
 	var url, wsURL string
 	for i := 0; i < maxRetries; i++ {
 		port := freeport.GetOne(t)
@@ -214,10 +213,10 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {
-			if strings.Contains(err.Error(), "port is already allocated") {
-				maxRetries -= 1
-				continue
-			}
+			t.Logf("Error creating solana network: %v", err)
+			time.Sleep(time.Second)
+			maxRetries -= 1
+			continue
 		}
 		require.NoError(t, err)
 		testcontainers.CleanupContainer(t, output.Container)
@@ -225,6 +224,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		wsURL = output.Nodes[0].HostWSUrl
 		break
 	}
+	require.NoError(t, err)
 
 	// Wait for api server to boot
 	client := solRpc.New(url)

@@ -14,8 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
@@ -154,7 +155,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	lggr.Tracew("Bridge task: sending request",
+	logger.Sugared(lggr).Tracew("Bridge task: sending request",
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
@@ -239,7 +240,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
-	lggr.Tracew("Bridge task: fetched answer",
+	logger.Sugared(lggr).Tracew("Bridge task: fetched answer",
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),

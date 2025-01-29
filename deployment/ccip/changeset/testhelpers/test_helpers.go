@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -30,6 +31,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -1404,5 +1406,60 @@ func GenTestTransferOwnershipConfig(
 
 	return commoncs.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contracts,
+	}
+}
+
+func DoDeployCCIPContracts(t *testing.T, solChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
+	// Deploy all the CCIP contracts.
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	snap, err := state.View(e.Env.AllChainSelectors())
+	require.NoError(t, err)
+	if solChains > 0 {
+		DeploySolanaCcipReceiver(t, e.Env)
+	}
+
+	// Assert expect every deployed address to be in the address book.
+	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
+	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+}
+
+func DoDeployLinkToken(t *testing.T, solChains int) {
+	lggr := logger.Test(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains:    1,
+		SolChains: solChains,
+	})
+	chain1 := e.AllChainSelectors()[0]
+	config := []uint64{chain1}
+	var solChain1 uint64
+	if solChains > 0 {
+		solChain1 = e.AllChainSelectorsSolana()[0]
+		config = append(config, solChain1)
+	}
+
+	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(commoncs.DeployLinkToken),
+			Config:    config,
+		},
+	})
+	require.NoError(t, err)
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	require.NoError(t, err)
+	state, err := commoncs.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	require.NoError(t, err)
+	// View itself already unit tested
+	_, err = state.GenerateLinkView()
+	require.NoError(t, err)
+
+	// solana test
+	if solChains > 0 {
+		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		require.NoError(t, err)
+		require.NotEmpty(t, addrs)
 	}
 }

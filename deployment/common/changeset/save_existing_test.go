@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
@@ -21,9 +20,6 @@ func TestSaveExisting(t *testing.T) {
 		Chains: map[uint64]deployment.Chain{
 			chainsel.TEST_90000001.Selector: {},
 			chainsel.TEST_90000002.Selector: {},
-		},
-		SolChains: map[uint64]deployment.SolChain{
-			chainsel.SOLANA_DEVNET.Selector: {},
 		},
 	}
 	ExistingContracts := ExistingContractsConfig{
@@ -44,14 +40,6 @@ func TestSaveExisting(t *testing.T) {
 				},
 				ChainSelector: chainsel.TEST_90000002.Selector,
 			},
-			{
-				Address: solana.NewWallet().PublicKey().String(),
-				TypeAndVersion: deployment.TypeAndVersion{
-					Type:    "dummy3",
-					Version: deployment.Version1_1_0,
-				},
-				ChainSelector: chainsel.SOLANA_DEVNET.Selector,
-			},
 		},
 	}
 
@@ -59,11 +47,8 @@ func TestSaveExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
-	require.Len(t, addresses, 3)
+	require.Len(t, addresses, 2)
 	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
 	require.True(t, exists)
 	require.Len(t, addressForChain1, 1)
-	addressForSolana, exists := addresses[chainsel.SOLANA_DEVNET.Selector]
-	require.True(t, exists)
-	require.Len(t, addressForSolana, 1)
 }

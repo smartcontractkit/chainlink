@@ -1,4 +1,4 @@
-package changeset
+package changeset_solana
 
 import (
 	"context"
@@ -12,9 +12,9 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
-var _ deployment.ChangeSet[*DeploySolanaTokenConfig] = DeploySolanaToken
-var _ deployment.ChangeSet[*MintSolanaTokenConfig] = MintSolanaToken
-var _ deployment.ChangeSet[*CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
+var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
+var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
+var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 
 type DeploySolanaTokenConfig struct {
 	ChainSelector    uint64
@@ -22,7 +22,7 @@ type DeploySolanaTokenConfig struct {
 	TokenDecimals    uint8
 }
 
-func newTokenInstruction(chain deployment.SolChain, cfg *DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
+func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
 	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err
@@ -45,13 +45,12 @@ func newTokenInstruction(chain deployment.SolChain, cfg *DeploySolanaTokenConfig
 	return instructions, mint, nil
 }
 
-func DeploySolanaToken(e deployment.Environment, cfg *DeploySolanaTokenConfig) (deployment.ChangesetOutput, error) {
-
+func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (deployment.ChangesetOutput, error) {
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	instructions, mint, err := newTokenInstruction(chain, cfg)
+	instructions, mint, err := NewTokenInstruction(chain, cfg)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -85,7 +84,7 @@ type MintSolanaTokenConfig struct {
 	AmountToAddress map[string]uint64 // address -> amount
 }
 
-func MintSolanaToken(e deployment.Environment, cfg *MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
+func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
 	// get chain
 	chain := e.SolChains[cfg.ChainSelector]
 	// get addresses
@@ -123,11 +122,9 @@ type CreateSolanaTokenATAConfig struct {
 	ATAList       []string // addresses to create ATAs for
 }
 
-func CreateSolanaTokenATA(e deployment.Environment, cfg *CreateSolanaTokenATAConfig) (deployment.ChangesetOutput, error) {
-	// get chain
+func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 
-	// get token program id
 	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

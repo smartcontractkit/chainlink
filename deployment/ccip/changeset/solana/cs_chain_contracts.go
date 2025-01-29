@@ -17,6 +17,7 @@ import (
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -213,11 +214,14 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
-		return deployment.ChangesetOutput{}, err
+func btoi(b bool) uint8 {
+	if b {
+		return 1
 	}
+	return 0
+}
 
+func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
@@ -474,4 +478,69 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	}
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
+}
+
+// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+// to the active configuration on CCIPHome. This
+// is used to complete the candidate->active promotion cycle, it's
+// run after the candidate is confirmed to be working correctly.
+// Multichain is especially helpful for NOP rotations where we have
+// to touch all the chain to change signers.
+func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	state, _ := cs.LoadOnchainState(e)
+	solChains := state.SolChains
+
+	// cfg.RemoteChainSels will be a bunch of solana chains
+	// can add this in validate
+	for _, remote := range cfg.RemoteChainSels {
+		donID, err := internal.DonIDForChain(
+			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
+			state.Chains[cfg.HomeChainSel].CCIPHome,
+			remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		// TODO: check if ocr3 has already been set
+		// set, err := isOCR3ConfigSetSolana(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
+		var instructions []solana.Instruction
+		ccipRouterID := solChains[remote].Router
+		configPDA, _, _ := solState.FindConfigPDA(ccipRouterID)
+		routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterID)
+		for _, arg := range args {
+			instruction, err := ccip_router.NewSetOcrConfigInstruction(
+				arg.OCRPluginType,
+				ccip_router.Ocr3ConfigInfo{
+					ConfigDigest:                   arg.ConfigDigest,
+					F:                              arg.F,
+					IsSignatureVerificationEnabled: btoi(arg.IsSignatureVerificationEnabled),
+				},
+				arg.Signers,
+				arg.Transmitters,
+				configPDA,
+				routerStatePDA,
+				e.SolChains[remote].DeployerKey.PublicKey(),
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			instructions = append(instructions, instruction)
+		}
+		if cfg.MCMS == nil {
+			err := e.SolChains[remote].Confirm(instructions)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+		}
+	}
+
+	return deployment.ChangesetOutput{}, nil
+
+	// TODO: timelock mcms support
 }

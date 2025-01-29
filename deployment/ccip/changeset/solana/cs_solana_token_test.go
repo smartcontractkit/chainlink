@@ -1,4 +1,4 @@
-package changeset_test
+package changeset_solana_test
 
 import (
 	"context"
@@ -12,7 +12,10 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -24,10 +27,10 @@ func TestSolanaTokenOps(t *testing.T) {
 		SolChains: 1,
 	})
 	solChain1 := e.AllChainSelectorsSolana()[0]
-	e, err := changeset.ApplyChangesets(t, e, nil, []changeset.ChangesetApplication{
+	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: changeset.WrapChangeSet(changeset.DeploySolanaToken),
-			Config: &changeset.DeploySolanaTokenConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.DeploySolanaToken),
+			Config: changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
 				TokenProgramName: deployment.SPL2022Tokens,
 				TokenDecimals:    9,
@@ -44,8 +47,8 @@ func TestSolanaTokenOps(t *testing.T) {
 
 	e, err = changeset.ApplyChangesets(t, e, nil, []changeset.ChangesetApplication{
 		{
-			Changeset: changeset.WrapChangeSet(changeset.CreateSolanaTokenATA),
-			Config: &changeset.CreateSolanaTokenATAConfig{
+			Changeset: changeset.WrapChangeSet(changeset_solana.CreateSolanaTokenATA),
+			Config: changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
 				TokenProgram:  deployment.SPL2022Tokens,
@@ -53,8 +56,8 @@ func TestSolanaTokenOps(t *testing.T) {
 			},
 		},
 		{
-			Changeset: changeset.WrapChangeSet(changeset.MintSolanaToken),
-			Config: &changeset.MintSolanaTokenConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.MintSolanaToken),
+			Config: changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
 				TokenProgram:  deployment.SPL2022Tokens,
@@ -71,5 +74,8 @@ func TestSolanaTokenOps(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
+}
 
+func TestDeployLinkToken(t *testing.T) {
+	testhelpers.DoDeployLinkToken(t, 1)
 }

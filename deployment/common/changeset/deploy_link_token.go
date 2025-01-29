@@ -1,11 +1,16 @@
 package changeset
 
 import (
+	"context"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -19,7 +24,6 @@ const (
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
-
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -83,11 +87,18 @@ func deployLinkTokenContractSolana(
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
 ) error {
-	instructions, mint, err := newTokenInstruction(chain, &DeploySolanaTokenConfig{
-		TokenProgramName: deployment.SPL2022Tokens,
-		ChainSelector:    chain.Selector,
-		TokenDecimals:    TokenDecimalsSolana,
-	})
+	tokenAdminPubKey := chain.DeployerKey.PublicKey()
+	mint, _ := solana.NewRandomPrivateKey()
+	mintPublicKey := mint.PublicKey() // this is the token address
+	instructions, err := solTokenUtil.CreateToken(
+		context.Background(),
+		solana.Token2022ProgramID,
+		mintPublicKey,
+		tokenAdminPubKey,
+		TokenDecimalsSolana,
+		chain.Client,
+		deployment.SolDefaultCommitment,
+	)
 	if err != nil {
 		lggr.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
 		return err
