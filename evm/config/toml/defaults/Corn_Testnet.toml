@@ -1,6 +1,7 @@
 ChainID = '21000001'
-FinalityTagEnabled = true
 ChainType = 'arbitrum'
+FinalityTagEnabled = true
+LinkContractAddress = '0x996EfAb6011896Be832969D91E9bc1b3983cfdA1'
 
 [GasEstimator]
 Mode = 'Arbitrum'

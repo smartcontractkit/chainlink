@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -33,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -95,7 +96,7 @@ func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityD
 	return s, finalityDepth, onRampAddress
 }
 
-func setupExecutedMessageRangesTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
+func setupExecutedMessagesTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
 		ReaderChain:    chainD,
@@ -285,7 +286,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
-		ccipevm.NewExtraArgsCodec(),
+		ccipcommon.NewExtraDataCodec(),
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -403,10 +404,10 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
 }
 
-func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
+func TestCCIPReader_ExecutedMessages(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	s := setupExecutedMessageRangesTest(ctx, t, false)
+	s := setupExecutedMessagesTest(ctx, t, false)
 	_, err := s.contract.EmitExecutionStateChanged(
 		s.auth,
 		uint64(chainS1),
@@ -437,23 +438,19 @@ func TestCCIPReader_ExecutedMessageRanges(t *testing.T) {
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var executedRanges []cciptypes.SeqNumRange
+	var executedMsgs []cciptypes.SeqNum
 	require.Eventually(t, func() bool {
-		executedRanges, err = s.reader.ExecutedMessageRanges(
+		executedMsgs, err = s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
 			chainD,
 			cciptypes.NewSeqNumRange(14, 15),
 		)
 		require.NoError(t, err)
-		return len(executedRanges) == 2
+		return len(executedMsgs) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, cciptypes.SeqNum(14), executedRanges[0].Start())
-	assert.Equal(t, cciptypes.SeqNum(14), executedRanges[0].End())
-
-	assert.Equal(t, cciptypes.SeqNum(15), executedRanges[1].Start())
-	assert.Equal(t, cciptypes.SeqNum(15), executedRanges[1].End())
+	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs)
 }
 
 func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
@@ -802,7 +799,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
 	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
 		feeQuoter := state.Chains[selector].FeeQuoter
-		destChainCfg := changeset.DefaultFeeQuoterDestChainConfig()
+		destChainCfg := changeset.DefaultFeeQuoterDestChainConfig(true)
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
 		//nolint:gosec // disable G115
@@ -1019,12 +1016,12 @@ func populateDatabaseForCommitReportAccepted(
 }
 
 // Benchmark Results:
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_0_StartSeq_0_EndSeq_10-14               13599            93414 ns/op           43389 B/op        654 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_10_EndSeq_20-14             13471            88392 ns/op           43011 B/op        651 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_10_StartSeq_0_EndSeq_9-14                2799           473396 ns/op          303737 B/op       4535 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100_StartSeq_0_EndSeq_100-14              438          2724414 ns/op         2477573 B/op      37468 allocs/op
-// Benchmark_CCIPReader_ExecutedMessageRanges/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14     40         29118796 ns/op        12607995 B/op     179396 allocs/op
-func Benchmark_CCIPReader_ExecutedMessageRanges(b *testing.B) {
+// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_0_StartSeq_0_EndSeq_10-14               13599            93414 ns/op           43389 B/op        654 allocs/op
+// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_10_StartSeq_10_EndSeq_20-14             13471            88392 ns/op           43011 B/op        651 allocs/op
+// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_10_StartSeq_0_EndSeq_9-14                2799           473396 ns/op          303737 B/op       4535 allocs/op
+// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_100_StartSeq_0_EndSeq_100-14              438          2724414 ns/op         2477573 B/op      37468 allocs/op
+// Benchmark_CCIPReader_ExecutedMessages/LogsInserted_100000_StartSeq_99744_EndSeq_100000-14     40         29118796 ns/op        12607995 B/op     179396 allocs/op
+func Benchmark_CCIPReader_ExecutedMessages(b *testing.B) {
 	tests := []struct {
 		logsInserted int
 		startSeqNum  cciptypes.SeqNum
@@ -1039,15 +1036,15 @@ func Benchmark_CCIPReader_ExecutedMessageRanges(b *testing.B) {
 
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("LogsInserted_%d_StartSeq_%d_EndSeq_%d", tt.logsInserted, tt.startSeqNum, tt.endSeqNum), func(b *testing.B) {
-			benchmarkExecutedMessageRanges(b, tt.logsInserted, tt.startSeqNum, tt.endSeqNum)
+			benchmarkExecutedMessages(b, tt.logsInserted, tt.startSeqNum, tt.endSeqNum)
 		})
 	}
 }
 
-func benchmarkExecutedMessageRanges(b *testing.B, logsInsertedFirst int, startSeqNum, endSeqNum cciptypes.SeqNum) {
+func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum, endSeqNum cciptypes.SeqNum) {
 	// Initialize test setup
 	ctx := tests.Context(b)
-	s := setupExecutedMessageRangesTest(ctx, b, true)
+	s := setupExecutedMessagesTest(ctx, b, true)
 	expectedRangeLen := calculateExpectedRangeLen(logsInsertedFirst, startSeqNum, endSeqNum)
 
 	// Insert logs in two phases based on parameters
@@ -1059,7 +1056,7 @@ func benchmarkExecutedMessageRanges(b *testing.B, logsInsertedFirst int, startSe
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		executedRanges, err := s.reader.ExecutedMessageRanges(
+		executedRanges, err := s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
 			chainD,
@@ -1405,7 +1402,7 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraArgsCodec()
+	edc := ccipcommon.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, edc)
 
 	return reader
@@ -1521,7 +1518,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraArgsCodec()
+	edc := ccipcommon.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, edc)
 
 	t.Cleanup(func() {

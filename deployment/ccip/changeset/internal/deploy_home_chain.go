@@ -17,13 +17,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-
 )
 
 const (
@@ -191,7 +190,7 @@ func BuildOCR3ConfigForCCIPHome(
 	dest deployment.Chain,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
-	ocrParams types2.OCRParameters,
+	ocrParams commontypes.OCRParameters,
 	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {

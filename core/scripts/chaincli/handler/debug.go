@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
@@ -270,7 +270,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 
 	// handle data streams lookup
 	if checkResult.UpkeepFailureReason == uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
-		mc := &types2.MercuryCredentials{LegacyURL: k.cfg.DataStreamsLegacyURL, URL: k.cfg.DataStreamsURL, Username: k.cfg.DataStreamsID, Password: k.cfg.DataStreamsKey}
+		mc := &commontypes.MercuryCredentials{LegacyURL: k.cfg.DataStreamsLegacyURL, URL: k.cfg.DataStreamsURL, Username: k.cfg.DataStreamsID, Password: k.cfg.DataStreamsKey}
 		mercuryConfig := evm21.NewMercuryConfig(mc, core.StreamsCompatibleABI)
 		lggr, _ := logger.NewLogger()
 		blockSub := &blockSubscriber{k.client}

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -300,7 +300,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps(ctx context.Context) error {
 			continue
 		}
 		switch core.GetUpkeepType(*uid) {
-		case types2.LogTrigger:
+		case autotypes.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
 		default:
 		}
@@ -522,7 +522,7 @@ func (r *EvmRegistry) removeFromActive(ctx context.Context, id *big.Int) {
 	uid.FromBigInt(id)
 	trigger := core.GetUpkeepType(*uid)
 	switch trigger {
-	case types2.LogTrigger:
+	case autotypes.LogTrigger:
 		if err := r.logEventProvider.UnregisterFilter(ctx, id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
@@ -590,7 +590,7 @@ func (r *EvmRegistry) updateTriggerConfig(ctx context.Context, id *big.Int, cfg 
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
 	switch core.GetUpkeepType(*uid) {
-	case types2.LogTrigger:
+	case autotypes.LogTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(ctx, id)
 			if err != nil {

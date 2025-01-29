@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
-import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
+import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
 
-import {Strings} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Strings.sol";
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
+import {Strings} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/Strings.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/utils/structs/EnumerableSet.sol";
 
 contract WorkflowRegistry is Ownable2StepMsgSender, ITypeAndVersion {
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  string public constant override typeAndVersion = "WorkflowRegistry 1.0.0-dev";
+  string public constant override typeAndVersion = "WorkflowRegistry 1.0.0";
   uint8 private constant MAX_WORKFLOW_NAME_LENGTH = 64;
   uint8 private constant MAX_URL_LENGTH = 200;
   uint8 private constant MAX_PAGINATION_LIMIT = 100;

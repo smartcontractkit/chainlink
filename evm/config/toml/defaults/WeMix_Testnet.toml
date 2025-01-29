@@ -2,6 +2,7 @@ ChainID = '1112'
 ChainType = 'wemix'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x3580c7A817cCD41f7e02143BFa411D4EeAE78093'
 MinIncomingConfirmations = 1
 # WeMix emits a block every 1 second, regardless of transactions
 LogPollInterval = '3s'
