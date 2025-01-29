@@ -1,0 +1,28 @@
+ChainID = '168587773'
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+FinalityTagEnabled = true
+LinkContractAddress = '0x02c359ebf98fc8BF793F970F9B8302bb373BdF32'
+# block rate is ~2sec, so this ensures blocks are polled correctly
+LogPollInterval = '2s'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMax = '120 gwei'
+FeeCapDefault = '120 gwei'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+# 4 block sync time between nodes to ensure they aren't labelled unreachable too soon
+PollFailureThreshold = 4
+# polls every 4sec to check if there is a block produced, since blockRate is ~3sec
+PollInterval = '4s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

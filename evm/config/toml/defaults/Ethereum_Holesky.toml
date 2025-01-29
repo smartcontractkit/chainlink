@@ -1,0 +1,12 @@
+ChainID = '17000'
+FinalityTagEnabled = true
+LinkContractAddress = '0x685cE6742351ae9b618F383883D6d1e0c5A31B4B'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'

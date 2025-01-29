@@ -1,0 +1,28 @@
+ChainId = '57054'
+FinalityDepth = 10
+FinalityTagEnabled = false
+LinkContractAddress = '0x61876F0429726D7777B46f663e1C9ab75d08Fc56'
+LogPollInterval = "1s"       #1s block rate
+MinIncomingConfirmations = 5
+RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100
+
+[GasEstimator]
+Mode = 'FeeHistory'
+EIP1559DynamicFees = true
+BumpPercent = 10
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '2s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[HeadTracker]
+HistoryDepth = 50
+
+[NodePool]
+SyncThreshold = 10
+
+[Transactions]
+MaxQueued = 500

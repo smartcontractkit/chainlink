@@ -1,0 +1,31 @@
+ChainID = '195'
+ChainType = 'xlayer'
+FinalityDepth = 500
+LinkContractAddress = '0x724593f6FCb0De4E6902d4C55D7C74DaA2AF0E55'
+NoNewHeadsThreshold = '12m'
+MinIncomingConfirmations = 1
+LogPollInterval = '30s'
+RPCBlockQueryDelay = 15
+RPCDefaultBatchSize = 100
+FinalizedBlockOffset = 2
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[GasEstimator]
+PriceMin = '1 mwei'
+BumpPercent = 40
+BumpMin = '20 mwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 12
+
+[HeadTracker]
+HistoryDepth = 2000
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3

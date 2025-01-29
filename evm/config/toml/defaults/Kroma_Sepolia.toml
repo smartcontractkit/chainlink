@@ -1,0 +1,33 @@
+ChainID = '2358'
+ChainType = 'kroma' # Kroma is based on the Optimism Bedrock architechture
+FinalityDepth = 400
+FinalityTagEnabled = true
+LinkContractAddress = '0xa75cCA5b404ec6F4BB6EC4853D177FE7057085c8'
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '40s'
+MinIncomingConfirmations = 1
+FinalizedBlockOffset = 2
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '100 wei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x4200000000000000000000000000000000000005'
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 400
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1

@@ -26,7 +26,6 @@ import (
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -76,10 +75,15 @@ var (
 
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
+type FetcherFn func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error)
+
+type FetcherFactory interface {
+	NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn
+}
+
 type Compute struct {
-	stopCh  services.StopChan
-	log     logger.Logger
-	metrics *computeMetricsLabeler
+	stopCh services.StopChan
+	log    logger.Logger
 
 	// emitter is used to emit messages from the WASM module to a configured collector.
 	emitter  custmsg.MessageEmitter
@@ -88,9 +92,9 @@ type Compute struct {
 
 	// transformer is used to transform a values.Map into a ParsedConfig struct on each execution
 	// of a request.
-	transformer              *transformer
-	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
-	idGenerator              func() string
+	transformer *transformer
+
+	fetcherFactory FetcherFactory
 
 	numWorkers int
 	queue      chan request
@@ -185,7 +189,8 @@ func (c *Compute) execute(ctx context.Context, respCh chan response, req capabil
 func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, requestMetadata capabilities.RequestMetadata) (*module, error) {
 	initStart := time.Now()
 
-	cfg.Fetch = c.createFetcher()
+	cfg.Fetch = c.fetcherFactory.NewFetcher(c.log, c.emitter)
+
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -292,7 +297,31 @@ func (c *Compute) Close() error {
 	return nil
 }
 
-func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
+type outgoingConnectorFetcherFactory struct {
+	outgoingConnectorHandler *webapi.OutgoingConnectorHandler
+	idGenerator              func() string
+	metrics                  *computeMetricsLabeler
+}
+
+func NewOutgoingConnectorFetcherFactory(
+	outgoingConnectorHandler *webapi.OutgoingConnectorHandler,
+	idGenerator func() string,
+) (FetcherFactory, error) {
+	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
+	}
+
+	factory := &outgoingConnectorFetcherFactory{
+		outgoingConnectorHandler: outgoingConnectorHandler,
+		idGenerator:              idGenerator,
+		metrics:                  metricsLabeler,
+	}
+
+	return factory, nil
+}
+
+func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn {
 	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
 		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowId); err != nil {
 			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowId, err)
@@ -301,7 +330,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
 		}
 
-		cma := c.emitter.With(
+		cma := emitter.With(
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
 			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
@@ -312,7 +341,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 		messageID := strings.Join([]string{
 			req.Metadata.WorkflowExecutionId,
 			ghcapabilities.MethodComputeAction,
-			c.idGenerator(),
+			f.idGenerator(),
 		}, "/")
 
 		fields := req.Headers.GetFields()
@@ -321,7 +350,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			headersReq[k] = v.String()
 		}
 
-		resp, err := c.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
+		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
 			URL:       req.Url,
 			Method:    req.Method,
 			Headers:   headersReq,
@@ -332,14 +361,14 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			return nil, err
 		}
 
-		c.log.Debugw("received gateway response", "resp", resp)
+		log.Debugw("received gateway response", "resp", resp)
 		var response wasmpb.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
 		}
 
-		c.metrics.with(
+		f.metrics.with(
 			"status", strconv.FormatUint(uint64(response.StatusCode), 10),
 			platform.KeyWorkflowID, req.Metadata.WorkflowId,
 			platform.KeyWorkflowName, req.Metadata.WorkflowName,
@@ -351,7 +380,7 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 			msg := fmt.Sprintf("compute fetch request failed with status code %d", response.StatusCode)
 			err = cma.Emit(ctx, msg)
 			if err != nil {
-				c.log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
+				log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 			}
 		}
 
@@ -393,30 +422,24 @@ func NewAction(
 	config Config,
 	log logger.Logger,
 	registry coretypes.CapabilitiesRegistry,
-	handler *webapi.OutgoingConnectorHandler,
-	idGenerator func() string,
+	fetcherFactory FetcherFactory,
 	opts ...func(*Compute),
 ) (*Compute, error) {
 	config.ApplyDefaults()
-	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
-	}
+
 	var (
 		lggr    = logger.Named(log, "CustomCompute")
 		labeler = custmsg.NewLabeler()
 		compute = &Compute{
-			stopCh:                   make(services.StopChan),
-			log:                      lggr,
-			emitter:                  labeler,
-			metrics:                  metricsLabeler,
-			registry:                 registry,
-			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-			transformer:              NewTransformer(lggr, labeler, config),
-			outgoingConnectorHandler: handler,
-			idGenerator:              idGenerator,
-			queue:                    make(chan request),
-			numWorkers:               config.NumWorkers,
+			stopCh:         make(services.StopChan),
+			log:            lggr,
+			emitter:        labeler,
+			registry:       registry,
+			modules:        newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:    NewTransformer(lggr, labeler, config),
+			fetcherFactory: fetcherFactory,
+			queue:          make(chan request),
+			numWorkers:     config.NumWorkers,
 		}
 	)
 

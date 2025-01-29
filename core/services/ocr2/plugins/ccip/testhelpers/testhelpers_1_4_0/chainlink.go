@@ -40,8 +40,6 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -71,6 +69,8 @@ import (
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	evmUtils "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -406,7 +406,7 @@ func setupNodeCCIP(
 		c.P2P.V2.ListenAddresses = &p2pAddresses
 		c.P2P.V2.AnnounceAddresses = &p2pAddresses
 
-		c.EVM = []*v2.EVMConfig{createConfigV2Chain(sourceChainID), createConfigV2Chain(destChainID)}
+		c.EVM = []*toml.EVMConfig{createConfigV2Chain(sourceChainID), createConfigV2Chain(destChainID)}
 
 		if bootstrapPeerID != "" {
 			// Supply the bootstrap IP and port as a V2 peer address
@@ -531,12 +531,12 @@ func setupNodeCCIP(
 	return app, peerID.Raw(), transmitter, kb
 }
 
-func createConfigV2Chain(chainID *big.Int) *v2.EVMConfig {
+func createConfigV2Chain(chainID *big.Int) *toml.EVMConfig {
 	// NOTE: For the executor jobs, the default of 500k is insufficient for a 3 message batch
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := v2.Defaults((*evmUtils.Big)(chainID))
+	sourceC := toml.Defaults((*evmUtils.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
@@ -544,11 +544,11 @@ func createConfigV2Chain(chainID *big.Int) *v2.EVMConfig {
 	sourceC.LogPollInterval = &d
 	fd := uint32(2)
 	sourceC.FinalityDepth = &fd
-	return &v2.EVMConfig{
+	return &toml.EVMConfig{
 		ChainID: (*evmUtils.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
-		Nodes:   v2.EVMNodes{&v2.Node{}},
+		Nodes:   toml.EVMNodes{&toml.Node{}},
 	}
 }
 

@@ -1,0 +1,31 @@
+ChainID = '534351'
+ChainType = 'scroll'
+FinalityDepth = 10
+FinalityTagEnabled = true
+LinkContractAddress = '0x231d45b53C905c3d6201318156BDC725c9c3B9B1'
+LogPollInterval = '5s'
+MinIncomingConfirmations = 1
+# Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '1 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x5300000000000000000000000000000000000002'
+
+[HeadTracker]
+HistoryDepth = 50
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions.AutoPurge]
+Enabled = true
+DetectionApiUrl = 'https://sepolia-venus.scroll.io'
