@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -354,7 +355,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 					cap.lggr.Debugw("Transaction confirmed", "request", request, "transaction", txID)
 					return capabilities.CapabilityResponse{}, nil
 				} else {
-					cap.lggr.Errorw("Transaction written to the forwarder, but failed to be written to the consumer contract", "request", request, "transaction", txID)
+					cap.lggr.Errorw("Transaction written to the forwarder, but failed to be written to the consumer contract", "request", request, "transaction", txID, "transmissionState", transmissionInfo.State)
 					msg := "failed to submit transaction with ID: " + txID.String()
 					err = cap.emitter.With(
 						platform.KeyWorkflowID, request.Metadata.WorkflowID,
@@ -365,7 +366,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 					if err != nil {
 						cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 					}
-					return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
+					return capabilities.CapabilityResponse{}, errors.New("submitted transaction failed")
 				}
 			case commontypes.Finalized:
 				cap.lggr.Debugw("Transaction finalized", "request", request, "transaction", txID)
@@ -383,7 +384,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				if err != nil {
 					cap.lggr.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 				}
-				return capabilities.CapabilityResponse{}, fmt.Errorf("submitted transaction failed: %w", err)
+				return capabilities.CapabilityResponse{}, errors.New("submitted transaction failed")
 			default:
 				cap.lggr.Debugw("Unexpected transaction status", "request", request, "transaction", txID, "status", txStatus)
 			}
