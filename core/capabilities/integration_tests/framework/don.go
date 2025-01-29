@@ -3,6 +3,7 @@ package framework
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -13,6 +14,9 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
@@ -41,9 +45,12 @@ import (
 )
 
 type DonContext struct {
-	EthBlockchain      *EthBlockchain
-	p2pNetwork         *FakeRageP2PNetwork
-	capabilityRegistry *CapabilitiesRegistry
+	EthBlockchain         *EthBlockchain
+	p2pNetwork            *FakeRageP2PNetwork
+	capabilityRegistry    *CapabilitiesRegistry
+	workflowRegistry      *WorkflowRegistry
+	syncerFetcherFunc     syncer.FetcherFunc
+	computeFetcherFactory compute.FetcherFactory
 }
 
 func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
@@ -54,6 +61,16 @@ func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	servicetest.Run(t, rageP2PNetwork)
 	servicetest.Run(t, ethBlockchain)
 	return DonContext{EthBlockchain: ethBlockchain, p2pNetwork: rageP2PNetwork, capabilityRegistry: capabilitiesRegistry}
+}
+
+func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc syncer.FetcherFunc,
+	computeFetcherFactory compute.FetcherFactory) DonContext {
+	donContext := CreateDonContext(ctx, t)
+	workflowRegistry := NewWorkflowRegistry(ctx, t, donContext.EthBlockchain)
+	donContext.workflowRegistry = workflowRegistry
+	donContext.syncerFetcherFunc = syncerFetcherFunc
+	donContext.computeFetcherFactory = computeFetcherFactory
+	return donContext
 }
 
 func (c DonContext) WaitForCapabilitiesToBeExposed(t *testing.T, dons ...*DON) {
@@ -91,15 +108,21 @@ type capabilityNode struct {
 type DON struct {
 	services.StateMachine
 	t                      *testing.T
+	id                     *uint32
 	config                 DonConfiguration
 	lggr                   logger.Logger
 	nodes                  []*capabilityNode
 	standardCapabilityJobs []*job.Job
 	publishedCapabilities  []capability
-	capabilitiesRegistry   *CapabilitiesRegistry
+
+	initialised bool
+
+	capabilitiesRegistry *CapabilitiesRegistry
+	workflowRegistry     *WorkflowRegistry
 
 	nodeConfigModifiers []func(c *chainlink.Config, node *capabilityNode)
 
+	fakeLibOcr                   *FakeLibOCR
 	addOCR3NonStandardCapability bool
 
 	triggerFactories []TriggerFactory
@@ -107,17 +130,15 @@ type DON struct {
 }
 
 func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig DonConfiguration,
-	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool) *DON {
-	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry}
-
-	protocolRoundInterval := 1 * time.Second
+	dependentDONs []commoncap.DON, donContext DonContext, supportsOCR bool, protocolRoundInterval time.Duration) *DON {
+	don := &DON{t: t, lggr: lggr.Named(donConfig.name), config: donConfig, capabilitiesRegistry: donContext.capabilityRegistry,
+		workflowRegistry: donContext.workflowRegistry}
 
 	var newOracleFactoryFn standardcapabilities.NewOracleFactoryFn
-	var libOcr *FakeLibOCR
 	if supportsOCR {
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
-		libOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
-		servicetest.Run(t, libOcr)
+		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
+		servicetest.Run(t, don.fakeLibOcr)
 	}
 
 	for i, member := range donConfig.Members {
@@ -152,7 +173,7 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 					for _, modifier := range don.nodeConfigModifiers {
 						modifier(c, cn)
 					}
-				})
+				}, donContext.syncerFetcherFunc, donContext.computeFetcherFactory)
 
 			require.NoError(t, node.Start(testutils.Context(t)))
 			cn.TestApplication = node
@@ -168,6 +189,16 @@ func (d *DON) Initialise() {
 
 	//nolint:gosec // disable G115
 	d.config.DON.ID = uint32(id)
+	d.id = &d.config.DON.ID
+
+	if d.config.AcceptsWorkflows && d.workflowRegistry != nil {
+		d.workflowRegistry.UpdateAllowedDons([]uint32{d.config.DON.ID})
+		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
+			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
+			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
+		})
+	}
+	d.initialised = true
 }
 
 func (d *DON) GetID() uint32 {
@@ -237,11 +268,12 @@ func (d *DON) Start(ctx context.Context) error {
 	}
 
 	if d.addOCR3NonStandardCapability {
-		libocr := NewFakeLibOCR(d.t, d.lggr, d.config.F, 1*time.Second)
-		servicetest.Run(d.t, libocr)
+		if d.fakeLibOcr == nil {
+			return errors.New("don does not support OCR")
+		}
 
 		for _, node := range d.nodes {
-			addOCR3Capability(ctx, d.t, d.lggr, node.registry, libocr, d.config.F, node.KeyBundle)
+			addOCR3Capability(ctx, d.t, d.lggr, node.registry, d.fakeLibOcr, d.config.F, node.KeyBundle)
 		}
 	}
 
@@ -342,6 +374,20 @@ func (d *DON) AddJob(ctx context.Context, j *job.Job) error {
 	return nil
 }
 
+func (d *DON) AddWorkflow(workflow Workflow) error {
+	if !d.config.AcceptsWorkflows {
+		return errors.New("cannot add workflow to non-workflow DON")
+	}
+
+	if !d.initialised {
+		return errors.New("cannot add workflow to non-initialised DON")
+	}
+
+	d.workflowRegistry.RegisterWorkflow(workflow, *d.id)
+
+	return nil
+}
+
 type TriggerFactory interface {
 	CreateNewTrigger(t *testing.T) commoncap.TriggerCapability
 	GetTriggerID() string
@@ -365,12 +411,15 @@ func startNewNode(ctx context.Context,
 	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
+	fetcherFunc syncer.FetcherFunc,
+	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
 		c.Capabilities.Peering.V2.Enabled = ptr(true)
 		c.Feature.FeedsManager = ptr(false)
+		c.Feature.LogPoller = ptr(true)
 
 		if setupCfg != nil {
 			setupCfg(c)
@@ -393,7 +442,7 @@ func startNewNode(ctx context.Context,
 	ethBlockchain.Commit()
 
 	return cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, ethBlockchain.Backend, nodeInfo,
-		dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr)
+		dispatcher, peerWrapper, newOracleFactoryFn, localCapabilities, keyV2, lggr, fetcherFunc, fetcherFactoryFunc)
 }
 
 // Functions below this point are for adding non-standard capabilities to a DON, deliberately verbose. Eventually these
@@ -415,24 +464,51 @@ func (d *DON) AddOCR3NonStandardCapability() {
 	})
 }
 
-func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.Address) error {
+func (d *DON) AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr common.Address) (string, error) {
+	published := true
+
+	capabilityID, s, err := d.addEthereumWriteTarget(forwarderAddr, published)
+	if err != nil {
+		return s, err
+	}
+
+	return capabilityID, nil
+}
+
+func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.Address) (string, error) {
+	published := false
+
+	capabilityID, s, err := d.addEthereumWriteTarget(forwarderAddr, published)
+	if err != nil {
+		return s, err
+	}
+
+	return capabilityID, nil
+}
+
+func (d *DON) addEthereumWriteTarget(forwarderAddr common.Address, published bool) (string, string, error) {
 	d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 		eip55Address := types.EIP55AddressFromAddress(forwarderAddr)
 		c.EVM[0].Chain.Workflow.ForwarderAddress = &eip55Address
 		c.EVM[0].Chain.Workflow.FromAddress = &node.key.EIP55Address
 	})
 
+	labelledName := "write_geth-testnet"
+	version := "1.0.0"
+
 	writeChain := kcr.CapabilitiesRegistryCapability{
-		LabelledName:   "write_geth-testnet",
-		Version:        "1.0.0",
+		LabelledName:   labelledName,
+		Version:        version,
 		CapabilityType: uint8(registrysyncer.ContractCapabilityTypeTarget),
 	}
+
+	capabilityID := fmt.Sprintf("%s@%s", labelledName, version)
 
 	targetCapabilityConfig := newCapabilityConfig()
 
 	configWithLimit, err := values.WrapMap(map[string]any{"gasLimit": 500000})
 	if err != nil {
-		return fmt.Errorf("failed to wrap map: %w", err)
+		return "", "", fmt.Errorf("failed to wrap map: %w", err)
 	}
 
 	targetCapabilityConfig.DefaultConfig = values.Proto(configWithLimit).GetMapValue()
@@ -443,12 +519,13 @@ func (d *DON) AddEthereumWriteTargetNonStandardCapability(forwarderAddr common.A
 		},
 	}
 
-	d.publishedCapabilities = append(d.publishedCapabilities, capability{
-		donCapabilityConfig: targetCapabilityConfig,
-		registryConfig:      writeChain,
-	})
-
-	return nil
+	if published {
+		d.publishedCapabilities = append(d.publishedCapabilities, capability{
+			donCapabilityConfig: targetCapabilityConfig,
+			registryConfig:      writeChain,
+		})
+	}
+	return capabilityID, "", nil
 }
 
 func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, capabilityRegistry *capabilities.Registry,

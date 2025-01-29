@@ -1,6 +1,6 @@
 ChainID = '1868'
 ChainType = 'optimismBedrock'
-LinkContractAddress = '0x7ea13478Ea3961A0e8b538cb05a9DF0477c79Cd2'
+LinkContractAddress = '0x32D8F819C8080ae44375F8d383Ffd39FC642f3Ec'
 FinalityDepth = 200
 LogPollInterval = '2s'
 NoNewHeadsThreshold = '40s'

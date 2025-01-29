@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type roundRobinKeystore interface {
@@ -94,7 +94,7 @@ func NewOCR2FeedsTransmitter(
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	ks keystore.Eth,
-	dualTransmissionConfig *types2.DualTransmissionConfig,
+	dualTransmissionConfig *evmtypes.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if ks == nil {

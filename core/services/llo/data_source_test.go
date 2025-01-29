@@ -2,12 +2,15 @@ package llo
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
@@ -86,10 +90,14 @@ func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	return ocr2types.ConfigDigest{6, 5, 4}
 }
+func (m *mockOpts) ObservationTimestamp() time.Time {
+	return time.Unix(1737936858, 0)
+}
 
 type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
+	ch                     chan interface{}
 }
 
 type v3PremiumLegacyPacket struct {
@@ -107,6 +115,11 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
+}
+
+func (m *mockTelemeter) MakeTelemChannel(opts llo.DSOpts, size int) (ch chan<- interface{}) {
+	m.ch = make(chan interface{}, size)
+	return m.ch
 }
 
 func Test_DataSource(t *testing.T) {
@@ -165,7 +178,7 @@ func Test_DataSource(t *testing.T) {
 
 			vals := makeStreamValues()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
 				2: llo.ToDecimal(decimal.NewFromInt(40602)),
@@ -184,7 +197,28 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, 1, int(pkt.streamID))
 			assert.Equal(t, opts, pkt.opts)
 			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
-			assert.Nil(t, pkt.err)
+			require.NoError(t, pkt.err)
+
+			telems := []interface{}{}
+			for p := range tm.ch {
+				telems = append(telems, p)
+			}
+			require.Len(t, telems, 3)
+			sort.Slice(telems, func(i, j int) bool {
+				return telems[i].(*telem.LLOObservationTelemetry).StreamId < telems[j].(*telem.LLOObservationTelemetry).StreamId
+			})
+			require.IsType(t, &telem.LLOObservationTelemetry{}, telems[0])
+			obsTelem := telems[0].(*telem.LLOObservationTelemetry)
+			assert.Equal(t, uint32(1), obsTelem.StreamId)
+			assert.Equal(t, int32(llo.LLOStreamValue_Decimal), obsTelem.StreamValueType)
+			assert.Equal(t, "00000000020885", hex.EncodeToString(obsTelem.StreamValueBinary))
+			assert.Equal(t, "2181", obsTelem.StreamValueText)
+			assert.Nil(t, obsTelem.ObservationError)
+			assert.Equal(t, int64(1737936858000000000), obsTelem.ObservationTimestamp)
+			assert.Greater(t, obsTelem.ObservationFinishedAt, int64(1737936858000000000))
+			assert.Equal(t, uint32(0), obsTelem.DonId)
+			assert.Equal(t, opts.SeqNr(), obsTelem.SeqNr)
+			assert.Equal(t, opts.ConfigDigest().Hex(), hex.EncodeToString(obsTelem.ConfigDigest))
 		})
 
 		t.Run("records telemetry for errors", func(t *testing.T) {

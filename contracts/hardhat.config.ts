@@ -132,7 +132,7 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
-      'src/v0.8/workflow/dev/WorkflowRegistry.sol': {
+      'src/v0.8/workflow/WorkflowRegistry.sol': {
         version: '0.8.24',
         settings: {
           optimizer: {

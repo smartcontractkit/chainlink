@@ -13,8 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
@@ -129,7 +130,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
-	lggr = lggr.With("gas", call.Gas).
+	lggr = logger.Sugared(lggr).With("gas", call.Gas).
 		With("gasPrice", call.GasPrice).
 		With("gasTipCap", call.GasTipCap).
 		With("gasFeeCap", call.GasFeeCap)
