@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
@@ -49,7 +50,7 @@ func newMockClient(lggr logger.Logger) *mockClient {
 }
 
 func Test_Pool(t *testing.T) {
-	lggr := logger.TestLogger(t).Named("PoolTestLogger")
+	lggr := logger.Sugared(logger.Test(t)).Named("PoolTestLogger")
 
 	ctx := testutils.Context(t)
 

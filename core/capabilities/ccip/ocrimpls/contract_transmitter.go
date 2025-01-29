@@ -36,6 +36,14 @@ func ToCommitCalldata(
 	// to the argument name in the function call.
 	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
 	// for that field.
+	var info ccipocr3.CommitReportInfo
+	if len(report.Info) != 0 {
+		var err error
+		info, err = ccipocr3.DecodeCommitReportInfo(report.Info)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// WARNING: Be careful if you change the data types.
 	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
@@ -46,12 +54,14 @@ func ToCommitCalldata(
 		Rs            [][32]byte
 		Ss            [][32]byte
 		RawVs         [32]byte
+		Info          ccipocr3.CommitReportInfo
 	}{
 		ReportContext: rawReportCtx,
 		Report:        report.Report,
 		Rs:            rs,
 		Ss:            ss,
 		RawVs:         vs,
+		Info:          info,
 	}, nil
 }
 

@@ -15,10 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_2_0"
@@ -27,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -117,7 +117,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 		offRampV120:    mockOffRamp,
 		lp:             lp,
 		Logger:         logger.Test(t),
-		Client:         evmclimocks.NewClient(t),
+		Client:         clienttest.NewClient(t),
 		evmBatchCaller: rpclibmocks.NewEvmBatchCaller(t),
 		cachedOffRampTokens: cache.NewLogpollerEventsBased[cciptypes.OffRampTokens](
 			lp,
@@ -197,7 +197,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 			lp.On("IndexedLogsTopicRange", mock.Anything, ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), evmtypes.Confirmations(0)).
 				Return(inputLogs, nil)
 
-			offRamp, err := NewOffRamp(logger.Test(t), offrampAddress, evmclimocks.NewClient(t), lp, nil, nil, nil)
+			offRamp, err := NewOffRamp(logger.Test(t), offrampAddress, clienttest.NewClient(t), lp, nil, nil, nil)
 			require.NoError(t, err)
 			logs, err := offRamp.GetExecutionStateChangesBetweenSeqNums(testutils.Context(t), minSeqNr, maxSeqNr, 0)
 			require.NoError(t, err)

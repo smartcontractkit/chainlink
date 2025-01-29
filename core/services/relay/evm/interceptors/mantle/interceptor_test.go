@@ -10,15 +10,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var randomAddress = types.MustEIP55Address(utils.RandomAddress().String())
 
 func TestInterceptor(t *testing.T) {
-	ethClient := mocks.NewClient(t)
+	ethClient := clienttest.NewClient(t)
 	ctx := context.Background()
 
 	_, err := NewInterceptor(ctx, ethClient, nil)
@@ -84,7 +84,7 @@ func TestModifyGasPriceComponents(t *testing.T) {
 
 	for tcName, tc := range testCases {
 		t.Run(tcName, func(t *testing.T) {
-			ethClient := mocks.NewClient(t)
+			ethClient := clienttest.NewClient(t)
 			ctx := context.Background()
 
 			interceptor, err := NewInterceptor(ctx, ethClient, &randomAddress)

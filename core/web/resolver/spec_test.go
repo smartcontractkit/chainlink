@@ -15,13 +15,13 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 

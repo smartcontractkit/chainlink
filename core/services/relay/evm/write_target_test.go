@@ -20,12 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -37,9 +34,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
-var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
+var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func newMockedEncodeTransmissionInfo() ([]byte, error) {
 	info := targets.TransmissionInfo{
@@ -101,7 +101,7 @@ func newMockedEncodeTransmissionInfo() ([]byte, error) {
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	evmClient := evmclimocks.NewClient(t)
+	evmClient := clienttest.NewClient(t)
 	poller := pollermocks.NewLogPoller(t)
 
 	// This is a very error-prone way to mock an on-chain response to a GetLatestValue("getTransmissionInfo") call
@@ -117,20 +117,20 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
 
-	ht := mocks.NewHeadTracker[*types.Head, common.Hash](t)
-	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&types.Head{}, &types.Head{}, nil)
+	ht := mocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
 	chain.On("Client").Return(evmClient)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()
-		addr, err2 := types.NewEIP55Address(a.Hex())
+		addr, err2 := evmtypes.NewEIP55Address(a.Hex())
 		require.NoError(t, err2)
 		c.EVM[0].Workflow.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
-		forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
+		forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err2)
 		c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 	})
@@ -266,7 +266,7 @@ func TestEvmWrite(t *testing.T) {
 			c.EVM[0].Workflow.FromAddress = nil
 
 			forwarderA := testutils.NewAddress()
-			forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
+			forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})

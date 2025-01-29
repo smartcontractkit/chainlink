@@ -3,14 +3,15 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -21,7 +22,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	_, err := sqlDB.Exec(`SET CONSTRAINTS offchainreporting2_latest_round_oracle_spec_fkey DEFERRED`)
 	require.NoError(t, err)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	db := evm.NewRoundRequestedDB(sqlDB, 1, lggr)
 	db2 := evm.NewRoundRequestedDB(sqlDB, 2, lggr)
 

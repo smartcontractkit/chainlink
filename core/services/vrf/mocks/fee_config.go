@@ -6,7 +6,7 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	assets "github.com/smartcontractkit/chainlink/v2/evm/assets"
 
-	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	config "github.com/smartcontractkit/chainlink/v2/evm/config"
 
 	mock "github.com/stretchr/testify/mock"
 )

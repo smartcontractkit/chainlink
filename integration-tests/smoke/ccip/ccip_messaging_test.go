@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -294,6 +296,26 @@ func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destCh
 	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
 
+func getLatestNonce(tc messagingTestCase) uint64 {
+	family, err := chain_selectors.GetSelectorFamily(tc.destChain)
+	require.NoError(tc.t, err)
+
+	var latestNonce uint64
+	switch family {
+	case chain_selectors.FamilyEVM:
+		latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
+			Context: tests.Context(tc.t),
+		}, tc.sourceChain, tc.sender)
+		require.NoError(tc.t, err)
+	case chain_selectors.FamilySolana:
+		// var nonceCounterAccount ccip_router.Nonce
+		// err = common.GetAccountDataBorshInto(ctx, solanaGoClient, nonceEvmPDA, config.DefaultCommitment, &nonceCounterAccount)
+		// require.NoError(t, err, "failed to get account info")
+		// require.Equal(t, uint64(1), nonceCounterAccount.Counter)
+	}
+	return latestNonce
+}
+
 func runMessagingTestCase(
 	tc messagingTestCase,
 	receiver common.Address,
@@ -303,10 +325,7 @@ func runMessagingTestCase(
 	extraAssertions ...func(t *testing.T),
 ) (out messagingTestCaseOutput) {
 	// check latest nonce
-	latestNonce, err := tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-		Context: tests.Context(tc.t),
-	}, tc.sourceChain, tc.sender)
-	require.NoError(tc.t, err)
+	latestNonce := getLatestNonce(tc)
 	require.Equal(tc.t, tc.nonce, latestNonce)
 
 	startBlocks := make(map[uint64]*uint64)
@@ -357,10 +376,7 @@ func runMessagingTestCase(
 	)
 
 	// check the sender latestNonce on the dest, should be incremented
-	latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-		Context: tests.Context(tc.t),
-	}, tc.sourceChain, tc.sender)
-	require.NoError(tc.t, err)
+	latestNonce = getLatestNonce(tc)
 	require.Equal(tc.t, tc.nonce+1, latestNonce)
 	out.nonce = latestNonce
 	tc.t.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.sender, latestNonce)

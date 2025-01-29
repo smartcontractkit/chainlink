@@ -130,6 +130,8 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
+require github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
+
 require (
 	cel.dev/expr v0.17.0 // indirect
 	cloud.google.com/go/auth v0.9.9 // indirect
@@ -164,7 +166,6 @@ require (
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
-	github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect

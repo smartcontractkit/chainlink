@@ -10,27 +10,25 @@ import (
 	"testing"
 	"time"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/robfig/cron/v3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/robfig/cron/v3"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // MockSubscription a mock subscription

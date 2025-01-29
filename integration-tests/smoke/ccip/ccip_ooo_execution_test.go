@@ -211,7 +211,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Chains[sourceChain],
+		sourceChain,
 		e.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		startBlocks[destChain],
