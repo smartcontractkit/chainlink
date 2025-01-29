@@ -338,6 +338,8 @@ func (cap *WriteTarget) Execute(ctx context.Context, rawRequest capabilities.Cap
 				continue
 			}
 			switch txStatus {
+			case commontypes.Pending:
+				cap.lggr.Debugw("Transaction pending, retrying...", "request", request, "transaction", txID)
 			// TxStatus Unconfirmed actually means "Confirmed" for the transaction manager, i.e. the transaction has landed on chain but isn't finalized.
 			case commontypes.Unconfirmed:
 				transmissionInfo, err = cap.getTransmissionInfo(ctx, request, rawExecutionID)
