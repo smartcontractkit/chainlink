@@ -116,10 +116,10 @@ func setupExecutedMessageRangesTest(ctx context.Context, t testing.TB, useHeavyD
 	})
 }
 
-func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
+func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool, sourceChainSel cciptypes.ChainSelector) *testSetupData {
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:        chainS1,
+		ReaderChain:        sourceChainSel,
 		DestChain:          chainD,
 		OnChainSeqNums:     nil,
 		Cfg:                evmconfig.SourceReaderConfig,
@@ -463,7 +463,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	s := setupMsgsBetweenSeqNumsTest(ctx, t, false)
+	s := setupMsgsBetweenSeqNumsTest(ctx, t, false, chainSEVM)
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
@@ -1169,7 +1169,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, endSeqNum cciptypes.SeqNum) {
 	// Initialize test setup
 	ctx := tests.Context(b)
-	s := setupMsgsBetweenSeqNumsTest(ctx, b, true)
+	s := setupMsgsBetweenSeqNumsTest(ctx, b, true, chainS1)
 	expectedRangeLen := calculateExpectedRangeLen(logsInserted, startSeqNum, endSeqNum)
 
 	err := s.extendedCR.Bind(ctx, []types.BoundContract{

@@ -17,6 +17,11 @@ func NewExtraDataCodec() ExtraDataCodec {
 }
 
 func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
+	if len(extraArgs) == 0 {
+		// return empty map if extraArgs is empty
+		return nil, nil
+	}
+
 	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
@@ -35,6 +40,11 @@ func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSe
 }
 
 func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
+	if len(destExecData) == 0 {
+		// return empty map if destExecData is empty
+		return nil, nil
+	}
+
 	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
