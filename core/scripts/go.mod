@@ -315,7 +315,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-salt-fix // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.36 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128193522-bdbfcc588847 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250123190454-a0491362f884 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250129142905-771fb9957d81 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250121195549-294ec6a40b92 // indirect

@@ -84,11 +84,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			},
 			Sender:        msg.Sender,
 			Data:          msg.Data,
-			LogicReceiver: solana.PublicKeyFromBytes(msg.Receiver),
-			// TODO how to get the TokenReceiver ?
-			//TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
-			TokenAmounts: tokenAmounts,
-			ExtraArgs:    extraArgs,
+			TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
+			TokenAmounts:  tokenAmounts,
+			ExtraArgs:     extraArgs,
 		}
 
 		// should only have an offchain token data if there are tokens as part of the message
@@ -161,7 +159,7 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 			},
 			Sender:         executeReport.Message.Sender,
 			Data:           executeReport.Message.Data,
-			Receiver:       executeReport.Message.LogicReceiver.Bytes(),
+			Receiver:       executeReport.Message.TokenReceiver.Bytes(),
 			ExtraArgs:      buf.Bytes(),
 			FeeToken:       cciptypes.UnknownAddress{}, // <-- todo: info not available, but not required atm
 			FeeTokenAmount: cciptypes.BigInt{},         // <-- todo: info not available, but not required atm
@@ -198,6 +196,8 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 	var out ccip_router.SVMExtraArgs
 
 	// Iterate through the expected fields in the struct
+	// the field name should match with the one in SVMExtraArgsV1
+	// https://github.com/smartcontractkit/chainlink/blob/33c0bda696b0ed97f587a46eacd5c65bed9fb2c1/contracts/src/v0.8/ccip/libraries/Client.sol#L57
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
@@ -208,27 +208,15 @@ func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
 			} else {
 				return out, errors.New("invalid type for ComputeUnits, expected uint32")
 			}
-		case "iswritablebitmap":
+		case "accountiswritablebitmap":
 			// Expect uint64
 			if v, ok := fieldValue.(uint64); ok {
 				out.IsWritableBitmap = v
 			} else {
 				return out, errors.New("invalid type for IsWritableBitmap, expected uint64")
 			}
-		case "accounts":
-			// Expect [][32]byte
-			if v, ok := fieldValue.([][32]byte); ok {
-				accounts := make([]solana.PublicKey, len(v))
-				for i, val := range v {
-					accounts[i] = solana.PublicKeyFromBytes(val[:])
-				}
-				out.Accounts = accounts
-			} else {
-				return out, errors.New("invalid type for Accounts, expected [][32]byte")
-			}
-		default:
-			// should we just ignore unknown fields instead of return error ?
-			return out, fmt.Errorf("invalid field %s", lowercase)
+			// we only need the keys to construct SVMExtraArgs, other keys can be skipped without return errors
+			// because there's no guarantee SVMExtraArgs will match with SVMExtraArgsV1
 		}
 	}
 
