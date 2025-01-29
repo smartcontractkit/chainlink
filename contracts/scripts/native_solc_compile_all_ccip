@@ -12,9 +12,11 @@ OPTIMIZE_RUNS_OFFRAMP=800
 OPTIMIZE_RUNS_FEE_QUOTER=10000
 PROJECT="ccip"
 FOUNDRY_PROJECT_SUFFIX="-compile"
+export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
 
 CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
-export FOUNDRY_PROFILE="$PROJECT"$FOUNDRY_PROJECT_SUFFIX
+ABI_DIR="$CONTRACTS_DIR"/abi/v0.8/
+mkdir -p "$ABI_DIR"
 
 compileContract() {
   local contract
@@ -29,6 +31,9 @@ compileContract() {
    -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
 
   $command
+
+  # Copy the generated abi files to a single folder
+  cp "$CONTRACTS_DIR"/solc/$PROJECT/"$contract"/"$contract".sol/"$contract".abi.json "$ABI_DIR""$contract".abi
 }
 
 # Define optimization overrides in this function. Anything that is not an override will use the default value

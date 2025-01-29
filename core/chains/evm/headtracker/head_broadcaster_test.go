@@ -19,13 +19,13 @@ import (
 	commonhtrk "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -49,11 +49,11 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	evmCfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.HeadTracker.SamplingInterval = &commonconfig.Duration{}
 	})
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	logger := logger.Test(t)
 
 	sub := commonmocks.NewSubscription(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
 	chHead := make(chan *evmtypes.Head)

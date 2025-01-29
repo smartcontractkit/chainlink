@@ -14,16 +14,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
-
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type (
@@ -214,7 +213,7 @@ func (v *VRFV1Checker) Check(
 
 	// Construct and execute batch call to retrieve most the recent block number and the
 	// block number of the request transaction.
-	mostRecentHead := &types.Head{}
+	mostRecentHead := &evmtypes.Head{}
 	requestTransactionReceipt := &gethtypes.Receipt{}
 	batch := []rpc.BatchElem{{
 		Method: "eth_getBlockByNumber",
@@ -275,7 +274,7 @@ type VRFV2Checker struct {
 
 	// HeadByNumber fetches the head given the number. If nil is provided,
 	// the latest header is fetched.
-	HeadByNumber func(ctx context.Context, n *big.Int) (*types.Head, error)
+	HeadByNumber func(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 
 	// RequestBlockNumber is the block number of the VRFV2 request.
 	RequestBlockNumber *big.Int

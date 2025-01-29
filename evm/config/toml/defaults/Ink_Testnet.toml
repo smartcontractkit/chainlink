@@ -1,0 +1,29 @@
+ChainID = '763373'
+# OP stack: https://github.com/inkonchain/node
+ChainType = 'optimismBedrock'
+# finality_depth was: ~2094
+FinalityDepth = 3000
+LinkContractAddress = '0x3423C922911956b1Ccbc2b5d4f38216a6f4299b4'
+# block_time was:  ~1s, adding 1 second buffer 
+LogPollInterval = '2s'
+
+# batching_size_finalization_percentage = 30% according to the explorer batching view
+# ( batching_size_finalization_percentage * finality_depth) * block_time / 60 secs = ~10  min (finality time)
+NoNewFinalizedHeadsThreshold = '60m0s'
+
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 1s, per recommendation skip 1-2 blocks
+CacheTimeout = '2s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

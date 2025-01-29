@@ -1,0 +1,20 @@
+ChainID = '80084'
+# finality_depth: instant
+FinalityDepth = 10
+LinkContractAddress = '0x52CEEed7d3f8c6618e4aaD6c6e555320d0D83271'
+# block_time: 5s, adding 1 second buffer 
+LogPollInterval = '6s'
+
+# finality_depth * block_time / 60 secs = ~0.8  min (finality time)
+NoNewFinalizedHeadsThreshold = '5m'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 5s, per recommendation skip 1-2 blocks
+CacheTimeout = '10s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100

@@ -15,25 +15,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type ConfigureContractsRequest struct {
@@ -142,7 +134,7 @@ type DonInfo struct {
 	Name         string
 	F            uint8
 	Nodes        []deployment.Node
-	Capabilities []capabilities_registry.CapabilitiesRegistryCapability // every capability is hosted on each node
+	Capabilities []DONCapabilityWithConfig // every capability is hosted on each node
 }
 
 func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
@@ -415,7 +407,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 type RegisterCapabilitiesRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
-	DonToCapabilities     map[string][]capabilities_registry.CapabilitiesRegistryCapability
+	DonToCapabilities     map[string][]DONCapabilityWithConfig
 
 	// if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 	UseMCMS bool
@@ -428,21 +420,26 @@ type RegisterCapabilitiesResponse struct {
 
 type RegisteredCapability struct {
 	capabilities_registry.CapabilitiesRegistryCapability
-	ID [32]byte
+	ID     [32]byte
+	Config *capabilitiespb.CapabilityConfig
 }
 
-func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
+func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
 	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capReg.LabelledName, capReg.Version)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capReg, err)
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required for capability %v", capReg)
 	}
 	return &RegisteredCapability{
-		CapabilitiesRegistryCapability: *cap,
+		CapabilitiesRegistryCapability: *capReg,
 		ID:                             id,
+		Config:                         cfg,
 	}, nil
 }
 
@@ -468,29 +465,31 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	uniqueCaps := make(map[capabilities_registry.CapabilitiesRegistryCapability][32]byte)
 	for don, caps := range req.DonToCapabilities {
 		var registerCaps []RegisteredCapability
-		for _, cap := range caps {
-			id, ok := uniqueCaps[cap]
+		for i := range caps {
+			regCap := &caps[i]
+			id, ok := uniqueCaps[regCap.Capability]
 			if !ok {
 				var err error
-				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, regCap.Capability.LabelledName, regCap.Capability.Version)
 				if err != nil {
-					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", regCap, err)
 				}
-				uniqueCaps[cap] = id
+				uniqueCaps[regCap.Capability] = id
 			}
 			registerCap := RegisteredCapability{
-				CapabilitiesRegistryCapability: cap,
 				ID:                             id,
+				Config:                         regCap.Config,
+				CapabilitiesRegistryCapability: regCap.Capability,
 			}
-			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
+			lggr.Debugw("hashed capability id", "capability", regCap, "id", id)
 			registerCaps = append(registerCaps, registerCap)
 		}
 		resp.DonToCapabilities[don] = registerCaps
 	}
 
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
-	for cap := range uniqueCaps {
-		capabilities = append(capabilities, cap)
+	for uniqueCap := range uniqueCaps {
+		capabilities = append(capabilities, uniqueCap)
 	}
 	if len(capabilities) == 0 {
 		lggr.Warn("no new capabilities to register")
@@ -613,41 +612,6 @@ func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, n
 			},
 		},
 	}, nil
-}
-
-func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
-	switch capType {
-	// TODO: use the enum defined in ??
-	case uint8(0): // trigger
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-				RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-					RegistrationRefresh: durationpb.New(20 * time.Second),
-					RegistrationExpiry:  durationpb.New(60 * time.Second),
-					// F + 1; assuming n = 3f+1
-					MinResponsesToAggregate: uint32(nNodes/3) + 1,
-				},
-			},
-		}
-	case uint8(2): // consensus
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
-	case uint8(3): // target
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-				RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-					RequestHashExcludedAttributes: []string{"signed_report.Signatures"}, // TODO: const defn in a common place
-				},
-			},
-		}
-	default:
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
-	}
 }
 
 // register nodes
@@ -916,26 +880,26 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		}
 
 		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
-
-		caps, ok := req.DonToCapabilities[don.Name]
+		regCaps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for DON %s", don.Name)
 		}
 		wfSupported := false
 		var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
-		for _, cap := range caps {
-			if cap.CapabilityType == 2 { // OCR3 capability => WF supported
+		for _, regCap := range regCaps {
+			if regCap.CapabilityType == 2 { // OCR3 capability => WF supported
 				wfSupported = true
 			}
-			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := DefaultCapConfig(cap.CapabilityType, len(p2pIds))
-			cfgb, err := proto.Marshal(capCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)
+			if regCap.Config == nil {
+				return nil, fmt.Errorf("config not found for capability %v", regCap)
+			}
+			cfgB, capErr := proto.Marshal(regCap.Config)
+			if capErr != nil {
+				return nil, fmt.Errorf("failed to marshal config for capability %v: %w", regCap, capErr)
 			}
 			cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-				CapabilityId: cap.ID,
-				Config:       cfgb,
+				CapabilityId: regCap.ID,
+				Config:       cfgB,
 			})
 		}
 

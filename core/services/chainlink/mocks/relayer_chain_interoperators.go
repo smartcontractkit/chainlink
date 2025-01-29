@@ -61,10 +61,6 @@ func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {
 	return relayers
 }
 
-func (f *FakeRelayerChainInteroperators) LegacyCosmosChains() chainlink.LegacyCosmosContainer {
-	panic("unimplemented")
-}
-
 func (f *FakeRelayerChainInteroperators) ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error) {
 	panic("unimplemented")
 }

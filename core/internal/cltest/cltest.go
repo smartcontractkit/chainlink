@@ -37,6 +37,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -48,11 +51,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -92,6 +92,9 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -276,7 +279,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 
 func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
 	ctx := testutils.Context(t)
-	require.NoError(t, app.KeyStore.Unlock(ctx, Password))
 
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
@@ -357,6 +359,22 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var syncerFetcherFunc syncer.FetcherFunc
+	for _, dep := range flagsAndDeps {
+		syncerFetcherFunc, _ = dep.(syncer.FetcherFunc)
+		if syncerFetcherFunc != nil {
+			break
+		}
+	}
+
+	var computeFetcherFactory compute.FetcherFactory
+	for _, dep := range flagsAndDeps {
+		computeFetcherFactory, _ = dep.(compute.FetcherFactory)
+		if computeFetcherFactory != nil {
+			break
+		}
+	}
+
 	var peerWrapper p2ptypes.PeerWrapper
 	for _, dep := range flagsAndDeps {
 		peerWrapper, _ = dep.(p2ptypes.PeerWrapper)
@@ -392,6 +410,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
+	require.NoError(t, keyStore.Unlock(ctx, Password))
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewTestLoopRegistry(lggr)
@@ -417,9 +436,12 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig: cfg,
-			MailMon:   mailMon,
-			DS:        ds,
+			AppConfig:      cfg,
+			DatabaseConfig: cfg.Database(),
+			ListenerConfig: cfg.Database().Listener(),
+			FeatureConfig:  cfg.Feature(),
+			MailMon:        mailMon,
+			DS:             ds,
 		},
 		CSAETHKeystore: keyStore,
 		MercuryConfig:  cfg.Mercury(),
@@ -502,6 +524,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
+		FetcherFunc:                syncerFetcherFunc,
+		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
 	})
 
@@ -527,18 +551,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmclimocks.Client) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *clienttest.Client) {
 	testutils.SkipShortDB(t)
 	c = NewEthMocks(t)
 	c.On("ConfiguredChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) *evmclimocks.Client {
-	return evmclimocks.NewClient(t)
+func NewEthMocks(t testing.TB) *clienttest.Client {
+	return clienttest.NewClient(t)
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
+func NewEthMocksWithStartupAssertions(t testing.TB) *clienttest.Client {
 	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
@@ -561,7 +585,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmclimocks.Client {
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Client {
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *clienttest.Client {
 	tests.SkipShort(t, "long test")
 	c := NewEthMocks(t)
 	chHead := make(<-chan *evmtypes.Head)
@@ -1308,7 +1332,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *commonmocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *commonmocks.Subscription) {
 	t.Helper()
 
 	// Start

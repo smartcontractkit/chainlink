@@ -27,7 +27,7 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
   }
 
   function test_SVMExtraArgsV1TagSelector() public view {
-    assertEq(Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP SVMExtraArgsV1")));
+    assertEq(Client.SVM_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP SVMExtraArgsV1")));
   }
 
   function test_SVMExtraArgsV1() public view {
@@ -89,12 +89,12 @@ contract FeeQuoter_parseSVMExtraArgsFromBytes is FeeQuoterSetup {
 
   function test_RevertWhen_ExtraArgOutOfOrderExecutionIsFalse() public {
     bytes memory inputExtraArgs = abi.encodeWithSelector(
-      Client.SVM_EXTRA_EXTRA_ARGS_V1_TAG,
+      Client.SVM_EXTRA_ARGS_V1_TAG,
       Client.SVMExtraArgsV1({
         computeUnits: 1_000_000,
         accountIsWritableBitmap: 0,
         tokenReceiver: bytes32(0),
-        allowOutOfOrderExecution: false, // mismatch with enforcedOutOfOrder = true
+        allowOutOfOrderExecution: false, // mismatch with enforceOutOfOrder = true
         accounts: new bytes32[](0)
       })
     );

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -211,25 +212,26 @@ func (cc *CapabilityCache) Get(cap capabilities_registry.CapabilitiesRegistryCap
 // AddCapabilities adds the capabilities to the registry and returns the registered capabilities
 // if the capability is already registered, it will not be re-registered
 // if duplicate capabilities are passed, they will be deduped
-func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
+func (cc *CapabilityCache) AddCapabilities(_ logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, capabilities []capabilities_registry.CapabilitiesRegistryCapability) []internal.RegisteredCapability {
 	t := cc.t
 	var out []internal.RegisteredCapability
 	// get the registered capabilities & dedup
 	seen := make(map[capabilities_registry.CapabilitiesRegistryCapability]struct{})
 	var toRegister []capabilities_registry.CapabilitiesRegistryCapability
-	for _, cap := range capabilities {
-		id, cached := cc.nameToId[internal.CapabilityID(cap)]
+	for _, c := range capabilities {
+		id, cached := cc.nameToId[internal.CapabilityID(c)]
 		if cached {
 			out = append(out, internal.RegisteredCapability{
-				CapabilitiesRegistryCapability: cap,
+				CapabilitiesRegistryCapability: c,
 				ID:                             id,
+				Config:                         GetDefaultCapConfig(t, c),
 			})
 			continue
 		}
 		// dedup
-		if _, exists := seen[cap]; !exists {
-			seen[cap] = struct{}{}
-			toRegister = append(toRegister, cap)
+		if _, exists := seen[c]; !exists {
+			seen[c] = struct{}{}
+			toRegister = append(toRegister, c)
 		}
 	}
 	if len(toRegister) == 0 {
@@ -251,6 +253,7 @@ func (cc *CapabilityCache) AddCapabilities(lggr logger.Logger, chain deployment.
 		out = append(out, internal.RegisteredCapability{
 			CapabilitiesRegistryCapability: capb,
 			ID:                             id,
+			Config:                         GetDefaultCapConfig(t, capb),
 		})
 		// cache the id
 		cc.nameToId[internal.CapabilityID(capb)] = id
@@ -293,4 +296,30 @@ func MustCapabilityId(t *testing.T, registry *capabilities_registry.Capabilities
 	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
 	require.NoError(t, err)
 	return id
+}
+
+func GetDefaultCapConfig(t *testing.T, capability capabilities_registry.CapabilitiesRegistryCapability) *capabilitiespb.CapabilityConfig {
+	t.Helper()
+	defaultCfg := &capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+	}
+	switch capability.CapabilityType {
+	case uint8(0): // trigger
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(20 * time.Second),
+				RegistrationExpiry:      durationpb.New(60 * time.Second),
+				MinResponsesToAggregate: uint32(10),
+			},
+		}
+	case uint8(3): // target
+		defaultCfg.RemoteConfig = &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
+			RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
+				RequestHashExcludedAttributes: []string{"signed_report.Signatures"},
+			},
+		}
+	case uint8(2): // consensus
+	default:
+	}
+	return defaultCfg
 }

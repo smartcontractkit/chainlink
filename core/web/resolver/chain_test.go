@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
+	evmtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 

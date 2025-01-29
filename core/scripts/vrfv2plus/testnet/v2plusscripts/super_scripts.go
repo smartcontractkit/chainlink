@@ -10,13 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -24,16 +17,23 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var coordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
@@ -797,18 +797,18 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
-		compressedPkHex,            //publicKey
-		coordinatorConfig.MinConfs, //minIncomingConfirmations
-		e.ChainID,                  //evmChainID
-		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
-		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
-		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
+		contractAddresses.CoordinatorAddress,                   // coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              // batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       // batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, // batchFulfillmentGasMultiplier
+		compressedPkHex,            // publicKey
+		coordinatorConfig.MinConfs, // minIncomingConfirmations
+		e.ChainID,                  // evmChainID
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), // fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     // pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, // requestTimeout
 		contractAddresses.CoordinatorAddress,
-		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		coordinatorJobSpecConfig.EstimateGasMultiplier, // estimateGasMultiplier
 		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
@@ -823,18 +823,18 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedVrfV2PlusBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2PlusJobFormatted,
-		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
-		compressedPkHex, //publicKey
-		100,             //minIncomingConfirmations
-		e.ChainID,       //evmChainID
-		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
-		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
-		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
+		contractAddresses.CoordinatorAddress,                   // coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              // batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       // batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, // batchFulfillmentGasMultiplier
+		compressedPkHex, // publicKey
+		100,             // minIncomingConfirmations
+		e.ChainID,       // evmChainID
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), // fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     // pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, // requestTimeout
 		contractAddresses.CoordinatorAddress,
-		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		coordinatorJobSpecConfig.EstimateGasMultiplier, // estimateGasMultiplier
 		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
@@ -849,37 +849,37 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
-		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
-		contractAddresses.BhsContractAddress, //bhs address
-		bhsJobSpecConfig.PollPeriod,          //pollPeriod
-		bhsJobSpecConfig.RunTimeout,          //runTimeout
-		e.ChainID,                            //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		bhsJobSpecConfig.WaitBlocks,          // waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      // lookbackBlocks
+		contractAddresses.BhsContractAddress, // bhs address
+		bhsJobSpecConfig.PollPeriod,          // pollPeriod
+		bhsJobSpecConfig.RunTimeout,          // runTimeout
+		e.ChainID,                            // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSPlusJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		100,                                  //waitBlocks
-		200,                                  //lookbackBlocks
-		contractAddresses.BhsContractAddress, //bhs adreess
-		bhsJobSpecConfig.PollPeriod,          //pollPeriod
-		bhsJobSpecConfig.RunTimeout,          //runTimeout
-		e.ChainID,                            //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		100,                                  // waitBlocks
+		200,                                  // lookbackBlocks
+		contractAddresses.BhsContractAddress, // bhs adreess
+		bhsJobSpecConfig.PollPeriod,          // pollPeriod
+		bhsJobSpecConfig.RunTimeout,          // runTimeout
+		e.ChainID,                            // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	formattedBHFJobSpec := fmt.Sprintf(
 		jobs.BHFPlusJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		contractAddresses.BhsContractAddress, //bhs adreess
-		contractAddresses.BatchBHSAddress,    //batchBHS
-		e.ChainID,                            //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHFNodeName].SendingKeys), "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		contractAddresses.BhsContractAddress, // bhs adreess
+		contractAddresses.BatchBHSAddress,    // batchBHS
+		e.ChainID,                            // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHFNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	fmt.Println(

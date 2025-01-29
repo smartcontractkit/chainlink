@@ -30,17 +30,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -81,6 +80,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -197,6 +197,8 @@ type ApplicationOpts struct {
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
+	FetcherFunc                syncer.FetcherFunc
+	FetcherFactoryFn           compute.FetcherFactory
 }
 
 type Heartbeat struct {
@@ -358,8 +360,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
 			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
-				if gatewayConnectorWrapper == nil {
-					return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+				lggr := globalLogger.Named("WorkflowRegistrySyncer")
+				var fetcherFunc syncer.FetcherFunc
+				if opts.FetcherFunc == nil {
+					if gatewayConnectorWrapper == nil {
+						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+					}
+					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
+					fetcherFunc = fetcher.Fetch
+					srvcs = append(srvcs, fetcher)
+				} else {
+					fetcherFunc = opts.FetcherFunc
 				}
 
 				err = keyStore.Workflow().EnsureKey(context.Background())
@@ -375,13 +386,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
-
 				eventHandler := syncer.NewEventHandler(
 					lggr,
 					syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					fetcher.Fetch,
+					fetcherFunc,
 					workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(),
@@ -411,7 +419,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					workflowDonNotifier,
 				)
 
-				srvcs = append(srvcs, fetcher, wfSyncer)
+				srvcs = append(srvcs, wfSyncer)
 			}
 		}
 	} else {
@@ -655,6 +663,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		keyStore,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
+		opts.FetcherFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -1047,7 +1056,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()}, // requestID
+					evmutils.NewHash().Bytes()},              // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),

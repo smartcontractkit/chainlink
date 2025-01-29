@@ -1,0 +1,10 @@
+ChainID = '592'
+ChainType = 'astar'
+FinalityTagEnabled = true
+FinalityDepth = 100
+LinkContractAddress = '0x31EFB841d5e0b4082F7E1267dab8De1b853f2A9d'
+LogPollInterval = '6s'
+
+[GasEstimator]
+EIP1559DynamicFees = false
+PriceMax = '100000 gwei'

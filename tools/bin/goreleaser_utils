@@ -4,7 +4,7 @@ set -xe
 # global goreleaser before hook
 # moves native libraries to temp directories used by docker images / archives
 before_hook() {
-  local -r lib_path=tmp
+  local -r lib_path=$PWD/tmp
 
   mkdir -p "$lib_path/libs"
   # Copy over all platform versions of the wasmvm library
@@ -73,12 +73,19 @@ get_remote_plugin_paths() {
 }
 
 build_standard_capabilities() {
-  cd ./capabilities
+  echo "Building standard capabilities"
+  cpath=./capabilities
+  if [ ! -z "$CAPABILITIES_REPO" ]; then
+    echo "Using capabilities repo at $CAPABILITIES_REPO"
+    cpath=$CAPABILITIES_REPO
+  fi
+  pushd "$cpath"
+  
   npx nx@19.8.2 init
   ./nx run-many -t build
   # binaries get put into /bin under /bin/amd64/ and /bin/arm64/
-  cp "./bin/$(go env GOARCH)"/* "../$lib_path/plugins" 
-  cd ../
+  cp "./bin/$(go env GOARCH)"/* "$lib_path/plugins" 
+  popd
 }
 
 install_remote_plugins() {

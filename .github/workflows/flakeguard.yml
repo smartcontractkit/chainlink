@@ -57,10 +57,10 @@ on:
         required: true
       FLAKEGUARD_SPLUNK_ENDPOINT:
         description: "The Splunk HTTP Event Collector (HEC) endpoint."
-        required: true
+        required: false
       FLAKEGUARD_SPLUNK_HEC:
         description: "The Splunk HTTP Event Collector (HEC) token."
-        required: true
+        required: false
 
 env:
   GIT_BASE_REF: ${{ inputs.baseRef }}
@@ -71,6 +71,7 @@ env:
   TEST_REPEAT_COUNT: ${{ fromJSON(inputs.extraArgs)['test_repeat_count'] || '5' }} # The number of times each runner should run a test to detect flaky tests.
   RUN_WITH_RACE: ${{ fromJSON(inputs.extraArgs)['run_with_race'] || 'true' }} # Whether to run tests with -race flag.
   RUN_WITH_SHUFFLE: ${{ fromJSON(inputs.extraArgs)['run_with_shuffle'] || 'false' }} # Whether to run tests with -shuffle flag.
+  RUN_CUSTOM_TEST_PACKAGES: ${{ fromJSON(inputs.extraArgs)['run_custom_test_packages'] || '' }} # Comma-separated custom test packages to run.
   SHUFFLE_SEED: ${{ fromJSON(inputs.extraArgs)['shuffle_seed'] || '999' }} # The seed to use when -shuffle flag is enabled. Requires RUN_WITH_SHUFFLE to be true.
   ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
   DEFAULT_RUNNER: ${{ fromJSON(inputs.extraArgs)['default_tests_runner'] || 'ubuntu-latest' }} # The runner to use for running custom tests (e.g. in PRs).
@@ -135,7 +136,7 @@ jobs:
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@96581547bab07e3982df522dd4343c998619ca77 # flakguard@0.1.0
 
       - name: Find new or updated test packages
-        if: ${{ inputs.runAllTests == false }}
+        if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
         id: get-tests
         shell: bash
         env:
@@ -153,7 +154,7 @@ jobs:
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
       - name: Find changed test files 
-        if: ${{ inputs.runAllTests == false }}
+        if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
         id: find-changed-test-files
         shell: bash
         env:
@@ -173,7 +174,11 @@ jobs:
         shell: bash
         env:
           GH_INPUTS_RUN_ALL_TESTS: ${{ inputs.runAllTests }}
+          RUN_CUSTOM_TEST_PACKAGES: ${{ env.RUN_CUSTOM_TEST_PACKAGES }}
         run: |
+          # ---------------------------------------------------------
+          # Run all tests if RUN_ALL_TESTS is set
+          # ---------------------------------------------------------
           if [[ "$GH_INPUTS_RUN_ALL_TESTS" == "true" ]]; then
             # Use ALL_TESTS_RUNNER for a specified number of groups, each with "./..." to run all tests
             ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
@@ -189,6 +194,30 @@ jobs:
             exit 0
           fi
 
+          # ---------------------------------------------------------
+          # If RUN_CUSTOM_TEST_PACKAGES is set, skip diff-based logic and run the specified packages
+          # ---------------------------------------------------------
+          if [[ -n "$RUN_CUSTOM_TEST_PACKAGES" ]]; then
+            IFS=',' read -ra cpkgs <<< "$RUN_CUSTOM_TEST_PACKAGES"
+            groups=()
+
+            for pkg in "${cpkgs[@]}"; do
+              # Trim whitespace around package name
+              pkg=$(echo "$pkg" | xargs)
+              groups+=("{\"testPackages\":\"$pkg\",\"runs_on\":\"${{ env.DEFAULT_RUNNER }}\"}")
+            done
+
+            json_groups=$(printf '%s\n' "${groups[@]}" | jq -s .)
+            echo "$json_groups"
+            echo "matrix<<EOF" >> $GITHUB_OUTPUT
+            echo "$json_groups" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # -------------------------------------------
+          # Otherwise, use the normal find & split logic
+          # -------------------------------------------
           PACKAGES=(${{ steps.get-tests.outputs.packages }})
           DESIRED_GROUP_COUNT=$((${{ env.DEFAULT_MAX_RUNNER_COUNT }}))
           TOTAL_PACKAGES=${#PACKAGES[@]}
