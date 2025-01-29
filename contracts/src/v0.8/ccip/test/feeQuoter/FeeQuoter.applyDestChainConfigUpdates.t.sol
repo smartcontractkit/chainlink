@@ -6,6 +6,9 @@ import {Internal} from "../../libraries/Internal.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
+  bytes4[] internal s_validChainFamilySelector =
+    [Internal.CHAIN_FAMILY_SELECTOR_EVM, Internal.CHAIN_FAMILY_SELECTOR_SVM];
+
   function testFuzz_applyDestChainConfigUpdates_Success(
     FeeQuoter.DestChainConfigArgs memory destChainConfigArgs
   ) public {
@@ -16,26 +19,25 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
         destChainConfigArgs.destChainConfig.defaultTxGasLimit, 1, destChainConfigArgs.destChainConfig.maxPerMsgGasLimit
       )
     );
-    destChainConfigArgs.destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_EVM;
 
-    bool isNewChain = destChainConfigArgs.destChainSelector != DEST_CHAIN_SELECTOR;
+    for (uint256 i = 0; i < s_validChainFamilySelector.length; i++) {
+      destChainConfigArgs.destChainConfig.chainFamilySelector = s_validChainFamilySelector[i];
+      destChainConfigArgs.destChainSelector = uint64(
+        uint256(keccak256(abi.encodePacked(destChainConfigArgs.destChainSelector, s_validChainFamilySelector[i])))
+      );
 
-    FeeQuoter.DestChainConfigArgs[] memory newDestChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
-    newDestChainConfigArgs[0] = destChainConfigArgs;
+      FeeQuoter.DestChainConfigArgs[] memory newDestChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](1);
+      newDestChainConfigArgs[0] = destChainConfigArgs;
 
-    if (isNewChain) {
       vm.expectEmit();
       emit FeeQuoter.DestChainAdded(destChainConfigArgs.destChainSelector, destChainConfigArgs.destChainConfig);
-    } else {
-      vm.expectEmit();
-      emit FeeQuoter.DestChainConfigUpdated(destChainConfigArgs.destChainSelector, destChainConfigArgs.destChainConfig);
+
+      s_feeQuoter.applyDestChainConfigUpdates(newDestChainConfigArgs);
+
+      _assertFeeQuoterDestChainConfigsEqual(
+        destChainConfigArgs.destChainConfig, s_feeQuoter.getDestChainConfig(destChainConfigArgs.destChainSelector)
+      );
     }
-
-    s_feeQuoter.applyDestChainConfigUpdates(newDestChainConfigArgs);
-
-    _assertFeeQuoterDestChainConfigsEqual(
-      destChainConfigArgs.destChainConfig, s_feeQuoter.getDestChainConfig(destChainConfigArgs.destChainSelector)
-    );
   }
 
   function test_applyDestChainConfigUpdates() public {
@@ -104,6 +106,18 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
     FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
 
     destChainConfigArg.destChainSelector = 0;
+    vm.expectRevert(
+      abi.encodeWithSelector(FeeQuoter.InvalidDestChainConfig.selector, destChainConfigArg.destChainSelector)
+    );
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+  }
+
+  function test_RevertWhen_InvalidChainFamilySelector() public {
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    FeeQuoter.DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[0];
+
+    destChainConfigArg.destChainConfig.chainFamilySelector = bytes4(uint32(1));
+
     vm.expectRevert(
       abi.encodeWithSelector(FeeQuoter.InvalidDestChainConfig.selector, destChainConfigArg.destChainSelector)
     );

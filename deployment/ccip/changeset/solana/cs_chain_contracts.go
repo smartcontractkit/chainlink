@@ -1,7 +1,6 @@
-package changeset_solana
+package solana
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -51,6 +50,16 @@ func GetPoolType(poolType string) (token_pool.PoolType, error) {
 	return poolTypeConstant, nil
 }
 
+func validateRouterConfig(chain deployment.SolChain, router solana.PublicKey) error {
+	routerConfigPDA, _, _ := solState.FindConfigPDA(router)
+	var routerConfigAccount ccip_router.Config
+	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first")
+	}
+	return nil
+}
+
 // ADD REMOTE CHAIN
 type AddRemoteChainToSolanaConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update
@@ -79,7 +88,9 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if err != nil {
 		return err
 	}
-
+	if err := validateRouterConfig(e, state); err != nil {
+		return err
+	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.SolChains[chainSel]
@@ -95,19 +106,12 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 			return err
 		}
 
-		var routerConfigAccount solRouter.Config
-		configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-		err = solCommonUtil.GetAccountDataBorshInto(e.GetContext(), e.SolChains[chainSel].Client, configPDA, deployment.SolDefaultCommitment, &routerConfigAccount)
-		if err != nil {
-			return fmt.Errorf("failed to get router config %s: %w", chainState.Router, err)
-		}
-
-		for destination := range updates {
-			if _, ok := supportedChains[destination]; !ok {
-				return fmt.Errorf("destination chain %d is not supported", destination)
+		for remote := range updates {
+			if _, ok := supportedChains[remote]; !ok {
+				return fmt.Errorf("remote chain %d is not supported", remote)
 			}
-			if destination == routerConfigAccount.SvmChainSelector {
-				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", destination)
+			if remote == routerConfigAccount.SolanaChainSelector {
+				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", remote)
 			}
 		}
 	}
@@ -184,12 +188,6 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 }
 
 // SET OCR3 CONFIG
-// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
-// to the active configuration on CCIPHome. This
-// is used to complete the candidate->active promotion cycle, it's
-// run after the candidate is confirmed to be working correctly.
-// Multichain is especially helpful for NOP rotations where we have
-// to touch all the chain to change signers.
 func btoi(b bool) uint8 {
 	if b {
 		return 1
@@ -197,11 +195,21 @@ func btoi(b bool) uint8 {
 	return 0
 }
 
+// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+// to the active configuration on CCIPHome. This
+// is used to complete the candidate->active promotion cycle, it's
+// run after the candidate is confirmed to be working correctly.
+// Multichain is especially helpful for NOP rotations where we have
+// to touch all the chain to change signers.
 func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	state, _ := cs.LoadOnchainState(e)
+
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	solChains := state.SolChains
 
 	// cfg.RemoteChainSels will be a bunch of solana chains
@@ -480,16 +488,6 @@ type BillingTokenPoolConfig struct {
 	TokenPubKey      string
 	TokenProgramName string
 	Config           solRouter.BillingTokenConfig
-}
-
-func validateRouterConfig(chain deployment.SolChain, router solana.PublicKey) error {
-	routerConfigPDA, _, _ := solState.FindConfigPDA(router)
-	var routerConfigAccount ccip_router.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
-	if err != nil {
-		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first")
-	}
-	return nil
 }
 
 func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {

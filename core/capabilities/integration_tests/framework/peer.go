@@ -2,7 +2,7 @@ package framework
 
 import (
 	"context"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -70,11 +70,11 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
-func getKeyBundlesAndPeerIDs(numNodes int) ([]ocr2key.KeyBundle, []peer, error) {
+func getKeyBundlesAndPeerIDs(donName string, numNodes int) ([]ocr2key.KeyBundle, []peer, error) {
 	var keyBundles []ocr2key.KeyBundle
 	var donPeerIDs []peer
 	for i := 0; i < numNodes; i++ {
-		peerID := NewPeerID()
+		peerID := NewPeerID(donName, i)
 
 		keyBundle, err := ocr2key.New(chaintype.EVM)
 		if err != nil {
@@ -163,13 +163,9 @@ func (t p2pPeer) Receive() <-chan p2ptypes.Message {
 	return nil
 }
 
-func NewPeerID() string {
-	var privKey [32]byte
-	_, err := rand.Read(privKey[:])
-	if err != nil {
-		panic(err)
-	}
-
+func NewPeerID(donName string, nodeOrdinal int) string {
+	privKeyString := fmt.Sprintf("privatekey:%s:%d", donName, nodeOrdinal)
+	privKey := sha256.Sum256([]byte(privKeyString))
 	peerID := append(libp2pMagic(), privKey[:]...)
 
 	return base58.Encode(peerID)

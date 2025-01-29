@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
+import {WorkflowRegistry} from "../../WorkflowRegistry.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract WorkflowRegistrySetup is Test {

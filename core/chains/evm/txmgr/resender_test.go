@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
@@ -29,7 +28,7 @@ import (
 func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -99,7 +98,7 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
@@ -137,7 +136,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ccfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		// This can be anything as long as it isn't zero
 		c.Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(42 * time.Hour)

@@ -112,11 +112,4 @@ contract FeeQuoterHelper is FeeQuoter {
   ) external pure returns (uint224) {
     return _calculateRebasedValue(dataFeedDecimal, tokenDecimal, feedValue);
   }
-
-  function resolveGasLimitForDestination(
-    bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
-  ) external pure returns (uint256 gasLimit) {
-    return _resolveGasLimitForDestination(extraArgs, destChainConfig);
-  }
 }

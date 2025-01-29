@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
@@ -107,7 +106,7 @@ func mustInsertConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce 
 func TestEthConfirmer_Lifecycle(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	gconfig, config := newTestChainScopedConfig(t)
 	txStore := newTxStore(t, db)
 
@@ -187,7 +186,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
@@ -416,7 +415,7 @@ func TestEthConfirmer_CheckForConfirmation(t *testing.T) {
 func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
@@ -710,7 +709,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 	t.Parallel()
 	lggr := logger.Test(t)
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	t.Run("should retry previous attempt if connectivity check failed for legacy transactions", func(t *testing.T) {
@@ -815,7 +814,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
@@ -893,7 +892,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	currentHead := int64(30)
 
 	t.Run("does nothing if no transactions require bumping", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -903,7 +902,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -932,7 +931,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("does nothing and continues on fatal error", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -951,7 +950,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -978,7 +977,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("does nothing if there is an attempt without BroadcastBeforeBlockNum set", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -994,7 +993,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1021,7 +1020,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1051,7 +1050,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("saves in-progress attempt on temporary error and returns error", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1102,7 +1101,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("re-bumps attempt if initial bump is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -1133,7 +1132,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped transactions would exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		priceMax := assets.GWei(30)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1165,7 +1164,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("resubmits at the old price and does not create a new attempt if the current price is exactly EVM.GasEstimator.PriceMax", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		priceMax := assets.GWei(30)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1196,7 +1195,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.BumpMin = assets.GWei(1)
@@ -1228,7 +1227,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("EIP-1559: resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(1)
@@ -1258,7 +1257,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	t.Run("EIP-1559: re-bumps attempt if initial bump is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.BumpMin = assets.GWei(1)
@@ -1296,7 +1295,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesThrough(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
@@ -1408,7 +1407,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Parallel()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ctx := tests.Context(t)
 
@@ -1546,7 +1545,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
 	})
@@ -1598,7 +1597,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyStuckError(t *testing.
 func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -1698,7 +1697,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -1746,7 +1745,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		// Create attempts broadcasted autoPurgeThreshold block ago to ensure broadcast block num check is not being triggered
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 		// Update tx to signal callback once it is identified as terminally stuck
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, uuid.New(), tx.ID)
 		head := evmtypes.Head{
 			Hash:   testutils.NewHash(),
 			Number: blockNum,

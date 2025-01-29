@@ -18,7 +18,7 @@ contract OnRampWithMessageTransformer is OnRamp {
     DestChainConfigArgs[] memory destChainConfigs,
     address messageTransformerAddr
   ) OnRamp(staticConfig, dynamicConfig, destChainConfigs) {
-    if (address(messageTransformerAddr) == address(0)) {
+    if (messageTransformerAddr == address(0)) {
       revert ZeroAddressNotAllowed();
     }
     s_messageTransformer = messageTransformerAddr;
@@ -35,7 +35,7 @@ contract OnRampWithMessageTransformer is OnRamp {
   function setMessageTransformer(
     address messageTransformerAddr
   ) external onlyOwner {
-    if (address(messageTransformerAddr) == address(0)) {
+    if (messageTransformerAddr == address(0)) {
       revert ZeroAddressNotAllowed();
     }
     s_messageTransformer = messageTransformerAddr;

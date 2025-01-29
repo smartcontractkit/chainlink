@@ -539,3 +539,26 @@ func selectBlock(block string) (string, error) {
 	}
 	return "", pkgerrors.Errorf("unsupported block param: %s", block)
 }
+
+// WithTelemetry adds an optional telemetry channel to the context. If ch is
+// non-nil, certain tasks MAY choose to send arbitrary telemetry data on this
+// channel. The provided channel SHOULD be buffered, but if it blocks, the task
+// SHOULD NOT block.
+type contextKey string
+
+const ctxTelemetryKey contextKey = "telemetry"
+
+func WithTelemetryCh(ctx context.Context, ch chan<- interface{}) context.Context {
+	if ch == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxTelemetryKey, ch)
+}
+
+func GetTelemetryCh(ctx context.Context) chan<- interface{} {
+	ch, ok := ctx.Value(ctxTelemetryKey).(chan<- interface{})
+	if !ok {
+		return nil
+	}
+	return ch
+}

@@ -214,6 +214,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
+	telemCh := make(chan interface{}, 1)
+	ctx := pipeline.WithTelemetryCh(testutils.Context(t), telemCh)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -231,11 +233,11 @@ func TestBridgeTask_Happy(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
-	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -248,6 +250,22 @@ func TestBridgeTask_Happy(t *testing.T) {
 	err = json.Unmarshal([]byte(result.Value.(string)), &x)
 	require.NoError(t, err)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
+
+	telem := <-telemCh
+	require.IsType(t, &pipeline.BridgeTelemetry{}, telem)
+	btelem := telem.(*pipeline.BridgeTelemetry)
+	assert.Equal(t, string(bridge.Name), btelem.Name)
+	assert.Equal(t, btcUSDPairing, string(btelem.RequestData))
+	assert.Equal(t, `{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{"result":"9700"}}
+`, string(btelem.ResponseData))
+	assert.Nil(t, btelem.ResponseError)
+	assert.NotZero(t, btelem.RequestStartTimestamp)
+	assert.NotZero(t, btelem.RequestFinishTimestamp)
+	assert.Equal(t, 200, btelem.ResponseStatusCode)
+	assert.False(t, btelem.LocalCacheHit)
+	assert.Equal(t, specID, btelem.SpecID)
+	assert.NotEqual(t, uuid.Nil, btelem.StreamID)
+	assert.NotEqual(t, uuid.Nil, btelem.DotID)
 }
 
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {

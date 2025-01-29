@@ -1,4 +1,4 @@
-package changeset_solana_test
+package solana_test
 
 import (
 	"context"
@@ -77,5 +77,5 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DoDeployLinkToken(t, 1)
+	testhelpers.DeployLinkTokenTest(t, 1)
 }

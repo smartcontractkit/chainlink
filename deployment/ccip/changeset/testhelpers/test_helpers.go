@@ -520,6 +520,122 @@ func AddLane(
 						to: {
 							from: {
 								EnabledAsSource:          true,
+								EnabledAsDestination:     true,
+								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
+								DefaultTxGasLimit:        1,
+								MaxPerMsgGasLimit:        100,
+								MaxDataBytes:             32,
+								MaxNumberOfTokensPerMsg:  1,
+							},
+						},
+					},
+				},
+			},
+		}
+		changesets = append(changesets, solanaChangesets...)
+	}
+
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
+	require.NoError(t, err)
+
+}
+
+// RemoveLane removes a lane between the source and destination chains in the deployed environment.
+func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter bool) {
+	var err error
+	apps := []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+			Config: changeset.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+					// onRamp update on source chain
+					src: {
+						OnRampUpdates: map[uint64]bool{
+							dest: false,
+						},
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			Config: changeset.UpdateFeeQuoterDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					src: {
+						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
+					},
+				},
+			},
+		},
+		{
+			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			Config: changeset.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+					src: {
+						dest: {
+							IsEnabled:        false,
+							TestRouter:       isTestRouter,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		},
+	}
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
+	require.NoError(t, err)
+
+	switch toFamily {
+	case chainsel.FamilyEVM:
+		evmChangesets := []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+				Config: changeset.UpdateOffRampSourcesConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+						to: {
+							from: {
+								IsEnabled:  true,
+								TestRouter: isTestRouter,
+							},
+						},
+					},
+				},
+			},
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+				Config: changeset.UpdateRouterRampsConfig{
+					TestRouter: isTestRouter,
+					UpdatesByChain: map[uint64]changeset.RouterUpdates{
+						// onRamp update on source chain
+						from: {
+							OnRampUpdates: map[uint64]bool{
+								to: true,
+							},
+						},
+						// offramp update on dest chain
+						to: {
+							OffRampUpdates: map[uint64]bool{
+								from: true,
+							},
+						},
+					},
+				},
+			},
+		}
+		changesets = append(changesets, evmChangesets...)
+	case chainsel.FamilySolana:
+		value := [28]uint8{}
+		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+		require.True(t, ok)
+		bigNum.FillBytes(value[:])
+		solanaChangesets := []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
+				Config: changeset_solana.AddRemoteChainToSolanaConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
+						to: {
+							from: {
+								EnabledAsSource:          true,
 								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
 								DestinationConfig: solRouter.DestChainConfig{
 									IsEnabled:                   true,
@@ -558,7 +674,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		}, map[common.Address]*big.Int{
 			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, changeset.DefaultFeeQuoterDestChainConfig())
+		}, changeset.DefaultFeeQuoterDestChainConfig(true))
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
@@ -1412,7 +1528,7 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DoDeployCCIPContracts(t *testing.T, solChains int) {
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
 	// Deploy all the CCIP contracts.
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -1430,7 +1546,7 @@ func DoDeployCCIPContracts(t *testing.T, solChains int) {
 	fmt.Println(string(b))
 }
 
-func DoDeployLinkToken(t *testing.T, solChains int) {
+func DeployLinkTokenTest(t *testing.T, solChains int) {
 	lggr := logger.Test(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains:    1,

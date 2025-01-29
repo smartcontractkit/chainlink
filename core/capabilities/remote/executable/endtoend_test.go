@@ -30,10 +30,12 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
-		mp, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+		if assert.NoError(t, responseError) {
+			mp, err := response.Value.Unwrap()
+			if assert.NoError(t, err) {
+				assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
+			}
+		}
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{

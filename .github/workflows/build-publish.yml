@@ -59,6 +59,11 @@ jobs:
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Tag Signature
+        uses: smartcontractkit/.github/actions/check-if-verified@6319f88a06e307c360dff43c3ac25d0581894a75 # check-if-verified@1.0.0
+        with:
+          tag: ${{ github.ref_name }}
+          assert: true
 
   build-sign-publish-chainlink:
     needs: [checks]
@@ -128,18 +133,18 @@ jobs:
               ) || ''
             }}
           docker-image-name: >-
-            ${{ 
-              github.ref_type == 'tag' && 
+            ${{
+              github.ref_type == 'tag' &&
               format(
-                '{0}/{1}:{2}', 
-                env.ECR_HOSTNAME, 
+                '{0}/{1}:{2}',
+                env.ECR_HOSTNAME,
                 needs.checks.outputs.ecr-image-name,
                 needs.build-sign-publish-chainlink.outputs.docker-image-tag
               ) || ''
             }}
           docker-image-digest: >-
-            ${{ 
-              github.ref_type == 'tag' && 
+            ${{
+              github.ref_type == 'tag' &&
               needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
             }}
   crib:
