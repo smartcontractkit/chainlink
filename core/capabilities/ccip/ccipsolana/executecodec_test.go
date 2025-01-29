@@ -10,14 +10,12 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -59,21 +57,11 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 			extraArgs := ccip_router.SVMExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
-				Accounts: []solana.PublicKey{
-					config.CcipLogicReceiver,
-					config.ReceiverTargetAccountPDA,
-					solana.SystemProgramID,
-				},
 			}
 
 			extraArgsMap := map[string]any{
-				"ComputeUnits":     uint32(1000),
-				"IsWritableBitmap": uint64(2),
-				"Accounts": [][32]byte{
-					[32]byte(config.CcipLogicReceiver.Bytes()),
-					[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
-					[32]byte(solana.SystemProgramID.Bytes()),
-				},
+				"ComputeUnits":            uint32(1000),
+				"accountIsWritableBitmap": uint64(2),
 			}
 
 			var buf bytes.Buffer
