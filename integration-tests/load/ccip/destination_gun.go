@@ -185,7 +185,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
 		EventType:      transmitted,
-		Timestamp:      time.Now(),
+		Timestamp:      time.Now().Unix(),
 		SequenceNumber: it.Event.SequenceNumber,
 	})
 

@@ -145,7 +145,7 @@ func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Env
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
-	var prereqCfgs []changeset.DeployPrerequisiteConfigPerChain
+	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{

@@ -44,10 +44,10 @@ var (
 
 // todo: Have a different struct for commit/exec?
 type LokiMetric struct {
-	EventType      int       `json:"event_type"`
-	Timestamp      time.Time `json:"timestamp"`
-	GasUsed        uint64    `json:"gas_used"`
-	SequenceNumber uint64    `json:"sequence_number"`
+	EventType      int    `json:"event_type"`
+	Timestamp      int64  `json:"timestamp"`
+	GasUsed        uint64 `json:"gas_used"`
+	SequenceNumber uint64 `json:"sequence_number"`
 }
 
 func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[string]string, metrics *LokiMetric) {
@@ -150,7 +150,7 @@ func subscribeCommitEvents(
 						timestamp := time.Unix(int64(header.Time), 0) //nolint:gosec // disable G115
 						SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 							EventType:      committed,
-							Timestamp:      timestamp,
+							Timestamp:      timestamp.Unix(),
 							SequenceNumber: i,
 						})
 						seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
@@ -279,7 +279,7 @@ func subscribeExecutionEvents(
 			timestamp := time.Unix(int64(header.Time), 0) //nolint:gosec // disable G115
 			SendMetricsToLoki(lggr, loki, lokiLabels, &LokiMetric{
 				EventType:      executed,
-				Timestamp:      timestamp,
+				Timestamp:      timestamp.Unix(),
 				GasUsed:        event.GasUsed.Uint64(),
 				SequenceNumber: event.SequenceNumber,
 			})
@@ -345,11 +345,14 @@ func fundAdditionalKeys(lggr logger.Logger, wg *sync.WaitGroup, e deployment.Env
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
-	for chain, _ := range e.Chains {
+	for chain := range e.Chains {
 		deployerMap[chain] = make([]*bind.TransactOpts, 0)
 		addressMap[chain] = make([]common.Address, 0)
 		for range numAccounts {
 			addr, pk, err := seth.NewAddress()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create new address: %w", err)
+			}
 			pvtKey, err := crypto.HexToECDSA(pk)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)

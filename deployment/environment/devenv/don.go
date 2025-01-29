@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
@@ -74,20 +75,33 @@ func (don *DON) NodeIds() []string {
 }
 
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
-	var err error
+	var (
+		err error
+		wg  sync.WaitGroup
+	)
+	errChan := make(chan error)
 	for i := range don.Nodes {
-		node := &don.Nodes[i]
-		var jdChains []JDChainConfigInput
-		for _, chain := range chains {
-			jdChains = append(jdChains, JDChainConfigInput{
-				ChainID:   chain.ChainID,
-				ChainType: chain.ChainType,
-			})
-		}
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
-			err = multierror.Append(err, err1)
-		}
-		don.Nodes[i] = *node
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			node := &don.Nodes[i]
+			var jdChains []JDChainConfigInput
+			for _, chain := range chains {
+				jdChains = append(jdChains, JDChainConfigInput{
+					ChainID:   chain.ChainID,
+					ChainType: chain.ChainType,
+				})
+			}
+			if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
+				errChan <- err1
+			}
+			don.Nodes[i] = *node
+		}(i)
+	}
+	wg.Wait()
+	close(errChan)
+	for e := range errChan {
+		err = multierror.Append(err, e)
 	}
 	return err
 }
