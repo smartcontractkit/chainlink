@@ -34,19 +34,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	evmUtils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -76,6 +70,10 @@ import (
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	evmUtils "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -407,7 +405,7 @@ func setupNodeCCIP(
 		c.P2P.V2.ListenAddresses = &p2pAddresses
 		c.P2P.V2.AnnounceAddresses = &p2pAddresses
 
-		c.EVM = []*v2.EVMConfig{createConfigV2Chain(sourceChainID, sourceFinalityDepth), createConfigV2Chain(destChainID, destFinalityDepth)}
+		c.EVM = []*toml.EVMConfig{createConfigV2Chain(sourceChainID, sourceFinalityDepth), createConfigV2Chain(destChainID, destFinalityDepth)}
 
 		if bootstrapPeerID != "" {
 			// Supply the bootstrap IP and port as a V2 peer address
@@ -446,7 +444,10 @@ func setupNodeCCIP(
 	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig: config,
+			AppConfig:      config,
+			DatabaseConfig: config.Database(),
+			ListenerConfig: config.Database().Listener(),
+			FeatureConfig:  config.Feature(),
 			GenEthClient: func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
 					return sourceClient
@@ -464,7 +465,7 @@ func setupNodeCCIP(
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
 	require.NoError(t, err)
 
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:               lggr,
 		LoopRegistry:         loopRegistry,
@@ -494,7 +495,7 @@ func setupNodeCCIP(
 		RestrictedHTTPClient:       &http.Client{},
 		AuditLogger:                audit.NoopLogger,
 		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -532,23 +533,23 @@ func setupNodeCCIP(
 	return app, peerID.Raw(), transmitter, kb
 }
 
-func createConfigV2Chain(chainID *big.Int, finalityDepth uint32) *v2.EVMConfig {
+func createConfigV2Chain(chainID *big.Int, finalityDepth uint32) *toml.EVMConfig {
 	// NOTE: For the executor jobs, the default of 500k is insufficient for a 3 message batch
 	defaultGasLimit := uint64(5000000)
 	tr := true
 
-	sourceC := v2.Defaults((*evmUtils.Big)(chainID))
+	sourceC := toml.Defaults((*evmUtils.Big)(chainID))
 	sourceC.GasEstimator.LimitDefault = &defaultGasLimit
 	fixedPrice := "FixedPrice"
 	sourceC.GasEstimator.Mode = &fixedPrice
 	d, _ := config.NewDuration(100 * time.Millisecond)
 	sourceC.LogPollInterval = &d
 	sourceC.FinalityDepth = &finalityDepth
-	return &v2.EVMConfig{
+	return &toml.EVMConfig{
 		ChainID: (*evmUtils.Big)(chainID),
 		Enabled: &tr,
 		Chain:   sourceC,
-		Nodes:   v2.EVMNodes{&v2.Node{}},
+		Nodes:   toml.EVMNodes{&toml.Node{}},
 	}
 }
 

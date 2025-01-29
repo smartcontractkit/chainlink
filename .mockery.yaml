@@ -3,15 +3,24 @@ mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
 packages:
-  github.com/smartcontractkit/chainlink/v2/common/headtracker:
+  github.com/smartcontractkit/chainlink-framework/chains/headtracker:
+    config:
+      dir: common/headtracker/mocks
+      outpkg: mocks
     interfaces:
       HeadTrackable:
       HeadTracker:
       HeadBroadcaster:
-  github.com/smartcontractkit/chainlink/v2/common/txmgr:
+  github.com/smartcontractkit/chainlink-framework/chains/txmgr:
+    config:
+      dir: common/txmgr/mocks
+      outpkg: mocks
     interfaces:
       TxManager:
-  github.com/smartcontractkit/chainlink/v2/common/txmgr/types:
+  github.com/smartcontractkit/chainlink-framework/chains/txmgr/types:
+    config:
+      dir: common/txmgr/types/mocks
+      outpkg: mocks
     interfaces:
       ReaperChainConfig:
         config:
@@ -38,17 +47,20 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
+  github.com/smartcontractkit/chainlink/v2/evm/client:
+    config:
+      dir: evm/client/clienttest
+      outpkg: clienttest
     interfaces:
       Client:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
+  github.com/smartcontractkit/chainlink/v2/evm/config:
     interfaces:
       GasEstimator:
       ChainScopedConfig:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas:
+  github.com/smartcontractkit/chainlink/v2/evm/gas:
     interfaces:
       Config:
       EvmFeeEstimator:
@@ -59,13 +71,13 @@ packages:
         config:
           mockname: FeeHistoryEstimatorClient
       EvmEstimator:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
+  github.com/smartcontractkit/chainlink/v2/evm/gas/rollups:
     interfaces:
       L1Oracle:
       l1OracleClient:
         config:
           mockname: L1OracleClient
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore:
+  github.com/smartcontractkit/chainlink/v2/evm/keystore:
     interfaces:
       Eth:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
@@ -76,11 +88,15 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor:
+  github.com/smartcontractkit/chainlink/v2/evm/monitor:
     interfaces:
       BalanceMonitor:
-        config:
-          dir: "{{ .InterfaceDir }}/../mocks"
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
+    interfaces:
+      Client:
+      TxStore:
+      AttemptBuilder:
+      Keystore:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
     interfaces:
       ChainConfig:

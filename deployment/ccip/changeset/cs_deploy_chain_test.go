@@ -1,4 +1,4 @@
-package changeset
+package changeset_test
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -22,31 +24,48 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
+		SolChains:  1,
 		Nodes:      4,
 	})
-	selectors := e.AllChainSelectors()
-	homeChainSel := selectors[0]
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := e.AllChainSelectorsSolana()
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
+	selectors = append(selectors, evmSelectors...)
+	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
 	}
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	for _, chain := range solChainSelectors {
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -61,30 +80,30 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
-			Config: DeployPrerequisiteConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    selectors,
-				HomeChainSelector: homeChainSel,
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParams,
 			},
 		},
 	})
 	require.NoError(t, err)
 
 	// load onchain state
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	for _, sel := range selectors {
+	for _, sel := range evmSelectors {
 		require.NotNil(t, state.Chains[sel].LinkToken)
 		require.NotNil(t, state.Chains[sel].Weth9)
 		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
@@ -97,13 +116,21 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
+
+	solState, err := changeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for _, sel := range solChainSelectors {
+		require.NotNil(t, solState.SolChains[sel].LinkToken)
+		require.NotNil(t, solState.SolChains[sel].SolCcipRouter)
+	}
+
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e, _ := NewMemoryEnvironment(t)
+	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// Deploy all the CCIP contracts.
-	state, err := LoadOnchainState(e.Env)
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	snap, err := state.View(e.Env.AllChainSelectors())
 	require.NoError(t, err)

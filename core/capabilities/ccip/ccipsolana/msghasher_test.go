@@ -8,15 +8,14 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -26,12 +25,12 @@ func TestMessageHasher_Any2Solana(t *testing.T) {
 	msgHasher := NewMessageHasherV1(logger.Test(t))
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
-	expectedHash, err := ccip.HashEvmToSolanaMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp)
+	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp)
 	require.NoError(t, err)
 	require.Equal(t, actualHash[:32], expectedHash)
 }
 
-func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2SolanaRampMessage) {
+func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2SVMRampMessage) {
 	messageID := utils.RandomBytes32()
 
 	sourceChain := rand.Uint64()
@@ -46,20 +45,16 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 	sender := abiEncodedAddress(t)
 	receiver := solana.MustPublicKeyFromBase58("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb")
 
-	extraArgs := ccip_router.SolanaExtraArgs{
-		ComputeUnits: 1000,
-		Accounts: []ccip_router.SolanaAccountMeta{
-			{Pubkey: config.CcipReceiverProgram},
-			{Pubkey: config.ReceiverTargetAccountPDA, IsWritable: true},
-			{Pubkey: solana.SystemProgramID, IsWritable: false},
-		},
+	extraArgs := ccip_router.SVMExtraArgs{
+		ComputeUnits:     1000,
+		IsWritableBitmap: 10,
 	}
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
 	extraArgs.MarshalWithEncoder(encoder)
 	require.NoError(t, err)
 
-	any2SolanaMsg := ccip_router.Any2SolanaRampMessage{
+	any2SolanaMsg := ccip_router.Any2SVMRampMessage{
 		Header: ccip_router.RampMessageHeader{
 			MessageId:           messageID,
 			SourceChainSelector: sourceChain,
@@ -67,11 +62,11 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 			SequenceNumber:      seqNum,
 			Nonce:               nonce,
 		},
-		Sender:       sender,
-		Receiver:     receiver,
-		Data:         messageData,
-		TokenAmounts: nil,
-		ExtraArgs:    extraArgs,
+		Sender:        sender,
+		LogicReceiver: receiver,
+		Data:          messageData,
+		TokenAmounts:  nil,
+		ExtraArgs:     extraArgs,
 	}
 	any2AnyMsg := cciptypes.Message{
 		Header: cciptypes.RampMessageHeader{

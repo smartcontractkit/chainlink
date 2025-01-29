@@ -97,17 +97,21 @@ func TestTelemetryConfig_ResourceAttributes(t *testing.T) {
 			"DefaultAttributes",
 			toml.Telemetry{ResourceAttributes: nil},
 			map[string]string{
-				"service.name":    "chainlink",
-				"service.version": static.Version,
+				"service.name":         "chainlink",
+				"service.sha":          "unset",
+				"service.shortversion": "unset@unset",
+				"service.version":      static.Version,
 			},
 		},
 		{
 			"CustomAttributes",
 			toml.Telemetry{ResourceAttributes: map[string]string{"custom.key": "custom.value"}},
 			map[string]string{
-				"service.name":    "chainlink",
-				"service.version": static.Version,
-				"custom.key":      "custom.value",
+				"service.name":         "chainlink",
+				"service.sha":          "unset",
+				"service.shortversion": "unset@unset",
+				"service.version":      static.Version,
+				"custom.key":           "custom.value",
 			},
 		},
 	}

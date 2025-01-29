@@ -3,6 +3,7 @@ package evm
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -37,14 +38,15 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
@@ -66,6 +68,7 @@ import (
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -738,11 +741,25 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
-		clients := make(map[string]wsrpc.Client)
+		clients := make(map[string]grpc.Client)
 		for _, server := range lloCfg.GetServers() {
-			client, err2 := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-			if err2 != nil {
-				return nil, err2
+			var client grpc.Client
+			switch r.mercuryCfg.Transmitter().Protocol() {
+			case config.MercuryTransmitterProtocolGRPC:
+				client = grpc.NewClient(grpc.ClientOpts{
+					Logger:        r.lggr,
+					ClientPrivKey: privKey.PrivateKey(),
+					ServerPubKey:  ed25519.PublicKey(server.PubKey),
+					ServerURL:     server.URL,
+				})
+			case config.MercuryTransmitterProtocolWSRPC:
+				wsrpcClient, checkoutErr := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
+				if checkoutErr != nil {
+					return nil, checkoutErr
+				}
+				client = wsrpc.GRPCCompatibilityWrapper{Client: wsrpcClient}
+			default:
+				return nil, fmt.Errorf("unsupported protocol %q", r.mercuryCfg.Transmitter().Protocol())
 			}
 			clients[server.URL] = client
 		}
@@ -936,6 +953,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		ethKeystore,
 		ocrTransmitterOpts...,
 	)
 }
@@ -955,6 +973,7 @@ func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, 
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
+		ethKeystore,
 		ocrTransmitterOpts...,
 	)
 }
@@ -1022,6 +1041,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	switch commontypes.OCR2PluginType(rargs.ProviderType) {
 	case commontypes.Median:
 		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
+			ctx,
 			configWatcher.chain.TxManager(),
 			fromAddresses,
 			common.HexToAddress(rargs.ContractID),

@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -49,7 +48,15 @@ func (skr *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes
 }
 
 func (skr *solanaKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return nil, errors.New("not implemented")
+	return skr.signBlob(skr.reportToSigData3(digest, seqNr, r))
+}
+
+func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
+	rawReportContext := RawReportContext3(digest, seqNr)
+	sigData := crypto.Keccak256(r)
+	sigData = append(sigData, rawReportContext[0][:]...)
+	sigData = append(sigData, rawReportContext[1][:]...)
+	return crypto.Keccak256(sigData)
 }
 
 func (skr *solanaKeyring) signBlob(b []byte) (sig []byte, err error) {
@@ -62,7 +69,8 @@ func (skr *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx 
 }
 
 func (skr *solanaKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	return false
+	hash := skr.reportToSigData3(cd, seqNr, r)
+	return skr.verifyBlob(publicKey, hash, signature)
 }
 
 func (skr *solanaKeyring) verifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {

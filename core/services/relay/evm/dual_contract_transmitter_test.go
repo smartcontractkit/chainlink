@@ -12,13 +12,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -30,6 +31,10 @@ var sampleAddressPrimary = testutils.NewAddress()
 type mockDualTransmitter struct {
 	lastPrimaryPayload   []byte
 	lastSecondaryPayload []byte
+}
+
+func (m *mockDualTransmitter) SecondaryFromAddress(ctx context.Context) (gethcommon.Address, error) {
+	return gethcommon.Address{}, nil
 }
 
 func (*mockDualTransmitter) FromAddress(ctx context.Context) gethcommon.Address {
@@ -49,8 +54,9 @@ func (m *mockDualTransmitter) CreateSecondaryEthTransaction(ctx context.Context,
 func TestDualContractTransmitter(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	c := evmclimocks.NewClient(t)
+	keyStore := mocks.NewEth(t)
+	lggr := logger.Test(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	ctx := testutils.Context(t)
 	// scanLogs = false
@@ -64,8 +70,7 @@ func TestDualContractTransmitter(t *testing.T) {
 	reportToEvmTxMeta := func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}
-	ot, err := NewOCRDualContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockDualTransmitter{}, lp, lggr,
-		WithReportToEthMetadata(reportToEvmTxMeta))
+	ot, err := NewOCRDualContractTransmitter(ctx, gethcommon.Address{}, c, contractABI, &mockDualTransmitter{}, lp, lggr, keyStore, WithReportToEthMetadata(reportToEvmTxMeta))
 	require.NoError(t, err)
 	digest, epoch, err := ot.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -145,6 +150,7 @@ func Test_dualContractTransmitter_Transmit_SignaturesAreTransmitted(t *testing.T
 }
 
 func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitter Transmitter, ops ...OCRTransmitterOption) *dualContractTransmitter {
+	keyStore := mocks.NewEth(t)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	require.NoError(t, err)
 	lp := lpmocks.NewLogPoller(t)
@@ -152,11 +158,12 @@ func createDualContractTransmitter(ctx context.Context, t *testing.T, transmitte
 	contractTransmitter, err := NewOCRDualContractTransmitter(
 		ctx,
 		gethcommon.Address{},
-		evmclimocks.NewClient(t),
+		clienttest.NewClient(t),
 		contractABI,
 		transmitter,
 		lp,
-		logger.TestLogger(t),
+		logger.Test(t),
+		keyStore,
 		ops...,
 	)
 	require.NoError(t, err)

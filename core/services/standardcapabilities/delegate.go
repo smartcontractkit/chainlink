@@ -105,7 +105,7 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
 
-	kvStore := job.NewKVStore(spec.ID, d.ds, log)
+	kvStore := job.NewKVStore(spec.ID, d.ds)
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
 	errorLog := &ErrorLog{jobID: spec.ID, recordError: d.jobORM.RecordError}
 	pr := generic.NewPipelineRunnerAdapter(log, spec, d.pipelineRunner)

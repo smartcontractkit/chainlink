@@ -18,15 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -48,6 +44,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type vrfUniverse struct {
@@ -55,7 +55,7 @@ type vrfUniverse struct {
 	pr           pipeline.Runner
 	prm          pipeline.ORM
 	lb           *log_mocks.Broadcaster
-	ec           *evmclimocks.Client
+	ec           *clienttest.Client
 	ks           keystore.Master
 	vrfkey       vrfkey.KeyV2
 	submitter    common.Address
@@ -71,7 +71,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
 	lb.On("Register", mock.Anything, mock.Anything).Return(func() {}).Maybe()
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
@@ -82,12 +82,22 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	btORM := bridges.NewORM(db)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil, nil)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil, nil, nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		LogBroadcaster: lb,
+		KeyStore:       ks.Eth(),
+		Client:         ec,
+		DB:             db,
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		TxManager:      txm,
+	})
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(ctx, testutils.Password))
 	k, err2 := ks.Eth().Create(testutils.Context(t), testutils.FixtureChainID)

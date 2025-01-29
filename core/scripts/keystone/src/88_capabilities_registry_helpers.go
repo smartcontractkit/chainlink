@@ -23,9 +23,9 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type CapabilityRegistryProvisioner struct {
@@ -554,13 +554,23 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert signer: %w", err)
 	}
 
+	epk := strings.TrimPrefix(p.EncryptionPublicKey, "0x")
+	epkB, err := hex.DecodeString(epk)
+	if err != nil {
+		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to convert encryptionPublicKey: %w", err)
+	}
+
+	var epkb [32]byte
+	copy(epkb[:], epkB)
+
 	var sigb [32]byte
 	copy(sigb[:], signerB)
 
 	return kcr.CapabilitiesRegistryNodeParams{
-		NodeOperatorId: nopID,
-		P2pId:          peerIDB,
-		Signer:         sigb,
+		NodeOperatorId:      nopID,
+		P2pId:               peerIDB,
+		Signer:              sigb,
+		EncryptionPublicKey: epkb,
 	}, nil
 }
 

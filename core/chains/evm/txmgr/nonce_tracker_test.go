@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	clientmock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txstoremock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestNonceTracker_LoadSequenceMap(t *testing.T) {
@@ -30,7 +30,7 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))
@@ -81,7 +81,7 @@ func TestNonceTracker_syncOnChain(t *testing.T) {
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))
@@ -137,7 +137,7 @@ func TestNonceTracker_SyncSequence(t *testing.T) {
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))
@@ -184,7 +184,7 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))
@@ -234,7 +234,7 @@ func TestNonceTracker_GenerateNextSequence(t *testing.T) {
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))
@@ -264,7 +264,7 @@ func Test_SetNonceAfterInit(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	txStore := txmgr.NewTxStore(db, logger.Test(t))
 
-	client := clientmock.NewClient(t)
+	client := clienttest.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
 
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(client, nil))

@@ -18,7 +18,7 @@ type OffRampView struct {
 }
 
 func GenerateOffRampView(
-	offRampContract *offramp.OffRamp,
+	offRampContract offramp.OffRampInterface,
 	routerContract *router1_2.Router,
 ) (OffRampView, error) {
 	tv, err := types.NewContractMetaData(offRampContract, offRampContract.Address())

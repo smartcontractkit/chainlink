@@ -33,7 +33,7 @@ func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, 
 	// Cannot drop test database if we are connected to it, so we must connect
 	// to a different one. 'postgres' should be present on all postgres installations
 	parsed.Path = "/postgres"
-	db, err := sql.Open(string(pgcommon.Postgres), parsed.String())
+	db, err := sql.Open(pgcommon.DriverPostgres, parsed.String())
 	if err != nil {
 		return "", fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
 			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
@@ -66,7 +66,7 @@ func Drop(dbURL url.URL) error {
 	// Cannot drop test database if we are connected to it, so we must connect
 	// to a different one. 'postgres' should be present on all postgres installations
 	dbURL.Path = "/postgres"
-	db, err := sql.Open(string(pgcommon.Postgres), dbURL.String())
+	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
 	if err != nil {
 		return fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
 			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)

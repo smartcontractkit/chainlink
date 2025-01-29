@@ -23,6 +23,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+	"github.com/jmoiron/sqlx"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -31,18 +32,11 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jmoiron/sqlx"
-
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -53,6 +47,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
@@ -434,6 +432,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.AptosEnabled() {
 			enabledChains = append(enabledChains, chaintype.Aptos)
 		}
+		if s.Config.TronEnabled() {
+			enabledChains = append(enabledChains, chaintype.Tron)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
@@ -812,7 +813,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.Database().URL()
-	db, err := sqlx.Open(string(pgcommon.Postgres), dbUrl.String())
+	db, err := sqlx.Open(pgcommon.DriverPostgres, dbUrl.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -1095,7 +1096,7 @@ type dbConfig interface {
 	MaxOpenConns() int
 	MaxIdleConns() int
 	URL() url.URL
-	Dialect() pgcommon.DialectName
+	DriverName() string
 }
 
 func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
@@ -1103,7 +1104,7 @@ func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
 	if parsed.String() == "" {
 		return nil, errDBURLMissing
 	}
-	return pg.NewConnection(ctx, parsed.String(), cfg.Dialect(), cfg)
+	return pg.NewConnection(ctx, parsed.String(), cfg.DriverName(), cfg)
 }
 
 func dropAndCreateDB(parsed url.URL, force bool) (err error) {
@@ -1111,7 +1112,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
-	db, err := sql.Open(string(pgcommon.Postgres), parsed.String())
+	db, err := sql.Open(pgcommon.DriverPostgres, parsed.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -1210,7 +1211,7 @@ func checkSchema(dbURL url.URL, prevSchema string) error {
 }
 
 func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
-	db, err := sql.Open(string(pgcommon.Postgres), dbURL.String())
+	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}

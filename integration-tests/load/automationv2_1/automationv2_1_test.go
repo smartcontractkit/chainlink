@@ -1,4 +1,4 @@
-package automationv2_1
+package automation
 
 import (
 	"context"
@@ -119,7 +119,7 @@ Password = '%s'`
 	}
 )
 
-func setUpDataStreamsWireMock(url string) error {
+func setUpDataStreamsWireMock(ctx context.Context, url string) error {
 	wm := gowiremock.NewClient(url)
 	rule200 := gowiremock.Get(gowiremock.URLPathEqualTo("/api/v1/reports/bulk")).
 		WithQueryParam("feedIDs", gowiremock.EqualTo("0x000200")).
@@ -130,7 +130,12 @@ func setUpDataStreamsWireMock(url string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.Post(fmt.Sprintf("%s/__admin/mappings/save", url), "application/json", nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url+"/__admin/mappings/save", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return errors.New("error saving wiremock mappings")
 	}
@@ -194,7 +199,7 @@ Load Config:
 	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
 	testType := "load"
 	loadDuration := time.Duration(*loadedTestConfig.Automation.General.Duration) * time.Second
-	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) //10000 LINK
+	automationDefaultLinkFunds := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(10000))) // 10000 LINK
 
 	nsLabels, err := environment.GetRequiredChainLinkNamespaceLabels(string(tc.Automation), testType)
 	require.NoError(t, err, "Error creating required chain.link labels for namespace")
@@ -253,7 +258,6 @@ Load Config:
 		dbSpec = map[string]interface{}{"stateful": true}
 	default:
 		// minimum:
-
 	}
 
 	if *loadedTestConfig.Pyroscope.Enabled {
@@ -274,7 +278,7 @@ Load Config:
 			if !testEnvironment.Cfg.InsideK8s {
 				wiremockURL = testEnvironment.URLs[wiremock.LocalURLsKey][0]
 			}
-			err = setUpDataStreamsWireMock(wiremockURL)
+			err = setUpDataStreamsWireMock(ctx, wiremockURL)
 			require.NoError(t, err, "Error setting up wiremock server")
 		} else {
 			secretsTOML = fmt.Sprintf(
@@ -383,7 +387,7 @@ Load Config:
 		loadConfigs = append(loadConfigs, deploymentData.LoadConfigs...)
 	}
 
-	require.Equal(t, expectedTotalUpkeepCount, len(consumerContracts), "Incorrect number of consumer/trigger contracts deployed")
+	require.Len(t, consumerContracts, expectedTotalUpkeepCount, "Incorrect number of consumer/trigger contracts deployed")
 
 	for i, consumerContract := range consumerContracts {
 		logTriggerConfigStruct := ac.IAutomationV21PlusCommonLogTriggerConfig{
@@ -429,16 +433,16 @@ Load Config:
 		upkeepConfigs = append(upkeepConfigs, upkeepConfig)
 	}
 
-	require.Equal(t, expectedTotalUpkeepCount, len(upkeepConfigs), "Incorrect number of upkeep configs created")
+	require.Len(t, upkeepConfigs, expectedTotalUpkeepCount, "Incorrect number of upkeep configs created")
 	registrationTxHashes, err := a.RegisterUpkeeps(upkeepConfigs, maxDeploymentConcurrency)
 	require.NoError(t, err, "Error registering upkeeps")
 
-	upkeepIds, err := a.ConfirmUpkeepsRegistered(registrationTxHashes, maxDeploymentConcurrency)
+	upkeepIDs, err := a.ConfirmUpkeepsRegistered(registrationTxHashes, maxDeploymentConcurrency)
 	require.NoError(t, err, "Error confirming upkeeps registered")
-	require.Equal(t, expectedTotalUpkeepCount, len(upkeepIds), "Incorrect number of upkeeps registered")
+	require.Len(t, upkeepIDs, expectedTotalUpkeepCount, "Incorrect number of upkeeps registered")
 
 	l.Info().Msg("Successfully registered all Automation Upkeeps")
-	l.Info().Interface("Upkeep IDs", upkeepIds).Msg("Upkeeps Registered")
+	l.Info().Interface("Upkeep IDs", upkeepIDs).Msg("Upkeeps Registered")
 	l.Info().Str("STARTUP_WAIT_TIME", StartupWaitTime.String()).Msg("Waiting for plugin to start")
 	time.Sleep(StartupWaitTime)
 
@@ -458,7 +462,7 @@ Load Config:
 			NumberOfSpamMatchingEvents:    int64(*loadConfigs[i].NumberOfSpamMatchingEvents),
 			NumberOfSpamNonMatchingEvents: int64(*loadConfigs[i].NumberOfSpamNonMatchingEvents),
 		}
-		numberOfEventsEmittedPerSec = numberOfEventsEmittedPerSec + int64(*loadConfigs[i].NumberOfEvents)
+		numberOfEventsEmittedPerSec += int64(*loadConfigs[i].NumberOfEvents)
 		configs = append(configs, c)
 	}
 
@@ -550,7 +554,7 @@ Load Config:
 				ToBlock:   big.NewInt(0).SetUint64(fromBlock + batchSize),
 				Topics:    [][]common.Hash{{consumerABI.Events["PerformingUpkeep"].ID}},
 			}
-			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			err = errors.New("initial error") // to ensure our for loop runs at least once
 			for err != nil {
 				var (
 					logsInBatch []types.Log
@@ -615,7 +619,7 @@ Load Config:
 				ToBlock:   big.NewInt(0).SetUint64(fromBlock + batchSize),
 				Topics:    [][]common.Hash{{emitterABI.Events["Log4"].ID}, {bytes1}, {bytes1}},
 			}
-			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+			err = errors.New("initial error") // to ensure our for loop runs at least once
 			for err != nil {
 				var (
 					logsInBatch []types.Log
@@ -641,7 +645,7 @@ Load Config:
 				logs = append(logs, logsInBatch...)
 			}
 		}
-		numberOfEventsEmitted = numberOfEventsEmitted + int64(len(logs))
+		numberOfEventsEmitted += int64(len(logs))
 	}
 
 	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
@@ -753,5 +757,4 @@ Test Duration: %s`
 			}
 		}
 	})
-
 }
