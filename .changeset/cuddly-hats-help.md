@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Unconditionally track bridge task latency
+#changed Unconditionally track bridge task latency
