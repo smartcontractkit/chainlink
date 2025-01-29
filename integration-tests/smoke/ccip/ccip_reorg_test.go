@@ -43,23 +43,6 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	// prior to the message block being finalized.
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithLogMessagesToIgnore([]testhelpers.LogMessageToIgnore{
-			{
-				Msg:    "Got very old block.",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-			{
-				Msg:    "Reorg greater than finality depth detected",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-			{
-				Msg:    "Failed to poll and save logs due to finality violation, retrying later",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-		}),
 		testhelpers.WithExtraConfigTomls([]string{
 			t.Name() + ".toml",
 		}),
@@ -132,7 +115,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 			Int64("blockNumber", bn).
 			Uint64("targetBlockNumber", minChainBlockNumberBeforeReorg).
 			Msg("Waiting for chain to progress above target block number")
-		return bn >= int64(minChainBlockNumberBeforeReorg) //nolint:gosec
+		return bn >= int64(minChainBlockNumberBeforeReorg) //nolint:gosec // this will not overflow in the current test
 	}, 1*time.Minute, 500*time.Millisecond, "timeout exceeded: chain did not progress above the target block number")
 
 	// Run reorg below finality depth
@@ -231,23 +214,6 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	// prior to the message block being finalized.
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
-		testhelpers.WithLogMessagesToIgnore([]testhelpers.LogMessageToIgnore{
-			{
-				Msg:    "Got very old block.",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-			{
-				Msg:    "Reorg greater than finality depth detected",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-			{
-				Msg:    "Failed to poll and save logs due to finality violation, retrying later",
-				Reason: "We are expecting a re-org beyond finality",
-				Level:  zapcore.DPanicLevel,
-			},
-		}),
 		testhelpers.WithExtraConfigTomls([]string{
 			t.Name() + ".toml",
 		}),
@@ -338,7 +304,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 			Int64("blockNumber", bn).
 			Uint64("targetBlockNumber", minChainBlockNumberBeforeReorg).
 			Msg("Waiting for chain to progress above target block number")
-		return bn >= int64(minChainBlockNumberBeforeReorg) //nolint:gosec
+		return bn >= int64(minChainBlockNumberBeforeReorg) //nolint:gosec // this will not overflow in the current test
 	}, 1*time.Minute, 500*time.Millisecond, "timeout exceeded: chain did not progress above the target block number")
 
 	// Run reorg below finality depth
@@ -356,7 +322,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	l.Info().Int64("blockNumberAfterReorg", bnAfterReorg).Msg("block number after reorg")
 
 	// commit should be re-submitted after the re-org
-	reportEvent, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
 		sourceSelector,
 		e.Env.Chains[destSelector],

@@ -33,12 +33,14 @@ type ResponseSlice struct {
 	Data []map[string]interface{}
 }
 
+// HealthCheck corresponds to presenters.Check.
 type HealthCheck struct {
 	Name   string `json:"name"`
 	Status string `json:"status"`
 	Output string `json:"output"`
 }
 
+// HealthResponseDetails is the generic model for services health statuses.
 type HealthResponseDetail struct {
 	Type       string      `json:"type"`
 	ID         string      `json:"id"`

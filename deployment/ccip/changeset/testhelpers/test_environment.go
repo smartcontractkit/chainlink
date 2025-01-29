@@ -487,7 +487,6 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
 	allChains := e.Env.AllChainSelectors()
-	t.Log("number of chains:", len(allChains))
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.AllChainSelectors() {

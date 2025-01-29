@@ -83,6 +83,9 @@ evm_supports_eip1559 = true
 evm_default_gas_limit = 6000000
 evm_finality_depth = 1
 
+# SIMULATED_1_DEEPER_FINALITY, SIMULATED_2_DEEPER_FINALITY, SIMULATED_3_DEEPER_FINALITY
+# are the same as SIMULATED_1, SIMULATED_2, SIMULATED_3, but with finality_depth = 10.
+# These are primarily used in the reorg tests, but can technically be used in any tests.
 [Network.EVMNetworks.SIMULATED_1_DEEPER_FINALITY]
 evm_name = 'chain-1337'
 evm_chain_id = 1337
