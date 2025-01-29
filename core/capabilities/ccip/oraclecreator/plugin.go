@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -227,7 +228,7 @@ var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipevm.ExtraArgsCodec{},
+		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
 		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
@@ -236,7 +237,7 @@ var plugins = map[string]plugin{
 	chainsel.FamilySolana: {
 		CommitPluginCodec:   nil,
 		ExecutePluginCodec:  nil,
-		ExtraArgsCodec:      nil,
+		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return nil },
 		TokenDataEncoder:    nil,
 		GasEstimateProvider: nil,

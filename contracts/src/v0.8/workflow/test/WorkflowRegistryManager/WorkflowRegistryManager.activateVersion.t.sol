@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {Ownable2Step} from "../../../shared/access/Ownable2Step.sol";
-import {WorkflowRegistryManager} from "../../dev/WorkflowRegistryManager.sol";
+import {WorkflowRegistryManager} from "../../WorkflowRegistryManager.sol";
 import {WorkflowRegistryManagerSetup} from "./WorkflowRegistryManagerSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
 

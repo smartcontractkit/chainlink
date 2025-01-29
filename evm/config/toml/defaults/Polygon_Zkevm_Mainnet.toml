@@ -1,9 +1,10 @@
 ChainID = '1101'
 ChainType = 'zkevm'
 FinalityDepth = 500
-NoNewHeadsThreshold = '6m'
-MinIncomingConfirmations = 1
+LinkContractAddress = '0xdB7A504CF869484dd6aC5FaF925c8386CBF7573D'
 LogPollInterval = '30s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '6m'
 RPCBlockQueryDelay = 15
 RPCDefaultBatchSize = 100
 

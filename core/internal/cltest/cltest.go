@@ -37,6 +37,9 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -276,7 +279,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 
 func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
 	ctx := testutils.Context(t)
-	require.NoError(t, app.KeyStore.Unlock(ctx, Password))
 
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
@@ -357,6 +359,22 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var syncerFetcherFunc syncer.FetcherFunc
+	for _, dep := range flagsAndDeps {
+		syncerFetcherFunc, _ = dep.(syncer.FetcherFunc)
+		if syncerFetcherFunc != nil {
+			break
+		}
+	}
+
+	var computeFetcherFactory compute.FetcherFactory
+	for _, dep := range flagsAndDeps {
+		computeFetcherFactory, _ = dep.(compute.FetcherFactory)
+		if computeFetcherFactory != nil {
+			break
+		}
+	}
+
 	var peerWrapper p2ptypes.PeerWrapper
 	for _, dep := range flagsAndDeps {
 		peerWrapper, _ = dep.(p2ptypes.PeerWrapper)
@@ -392,6 +410,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
+	require.NoError(t, keyStore.Unlock(ctx, Password))
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewTestLoopRegistry(lggr)
@@ -505,6 +524,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		CapabilitiesDispatcher:     dispatcher,
 		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
+		FetcherFunc:                syncerFetcherFunc,
+		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
 	})
 
