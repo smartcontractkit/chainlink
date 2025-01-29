@@ -133,7 +133,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 			return nil, err
 		}
 
-		currentNone := big.NewInt(0).Add(startingNonce, txCount)
+		currentNonce := big.NewInt(0).Add(startingNonce, txCount)
 
 		// Update the nonce to consider the transactions that have been sent
 		sim.Nonce = big.NewInt(0).Add(currentNone, big.NewInt(1))
