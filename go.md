@@ -76,13 +76,12 @@ flowchart LR
 	wsrpc
 	click wsrpc href "https://github.com/smartcontractkit/wsrpc"
 
-<<<<<<< HEAD
 	subgraph chainlink-ccip-repo[chainlink-ccip]
 		 chainlink-ccip
 		 chainlink-ccip/chains/solana
 	end
 	click chainlink-ccip-repo href "https://github.com/smartcontractkit/chainlink-ccip"
-=======
+
 	subgraph chainlink-framework-repo[chainlink-framework]
 		 chainlink-framework/chains
 		 chainlink-framework/multinode
@@ -94,7 +93,6 @@ flowchart LR
 		 chainlink-protos/svr
 	end
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
 
 	subgraph tdh2-repo[tdh2]
 		 tdh2/go/ocr2/decryptionplugin
@@ -103,11 +101,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-<<<<<<< HEAD
-	class chainlink-ccip-repo,tdh2-repo outline
-=======
-	class chainlink-framework-repo,chainlink-protos-repo,tdh2-repo outline
->>>>>>> 81b30de54509d1a49a9456c63d3fecf0e0b32213
+	class chainlink-ccip-repo,chainlink-framework-repo,chainlink-protos-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
