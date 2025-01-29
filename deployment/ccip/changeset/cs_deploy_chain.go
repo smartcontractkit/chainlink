@@ -556,7 +556,7 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 	return programData, nil
 }
 
-func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
+func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -567,7 +567,7 @@ func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRo
 		deployment.SolDefaultGasLimit, // default gas limit
 		true,                          // allow out of order execution
 		EnableExecutionAfter,          // period to wait before allowing manual execution
-		solana.PublicKey{},
+		solana.PublicKey{},            // fee aggregator
 		GetRouterConfigPDA(ccipRouterProgram),
 		GetRouterStatePDA(ccipRouterProgram),
 		chain.DeployerKey.PublicKey(),
@@ -581,11 +581,12 @@ func initialzeRouter(e deployment.Environment, chain deployment.SolChain, ccipRo
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	err = chain.Confirm([]solana.Instruction{instruction})
 
+	err = chain.Confirm([]solana.Instruction{instruction})
 	if err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
+
 	return nil
 }
 
@@ -633,8 +634,8 @@ func deployChainContractsSolana(
 	var routerConfigAccount solRouter.Config
 	err = chain.GetAccountDataBorshInto(e.GetContext(), GetRouterConfigPDA(ccipRouterProgram), &routerConfigAccount)
 	if err != nil {
-		if err := initialzeRouter(e, chain, ccipRouterProgram); err != nil {
-			return err
+		if err2 := initializeRouter(e, chain, ccipRouterProgram); err2 != nil {
+			return err2
 		}
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())

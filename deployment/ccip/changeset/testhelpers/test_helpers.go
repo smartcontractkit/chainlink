@@ -1431,7 +1431,7 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DoDeployCCIPContracts(t *testing.T, solChains int) {
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
 	// Deploy all the CCIP contracts.
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -1449,7 +1449,7 @@ func DoDeployCCIPContracts(t *testing.T, solChains int) {
 	fmt.Println(string(b))
 }
 
-func DoDeployLinkToken(t *testing.T, solChains int) {
+func DeployLinkTokenTest(t *testing.T, solChains int) {
 	lggr := logger.Test(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains:    1,

@@ -1,10 +1,9 @@
 package changeset
 
 import (
-	"encoding/hex"
 	"fmt"
-	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
@@ -50,13 +49,9 @@ func (cfg ExistingContractsConfig) Validate() error {
 				return fmt.Errorf("address must be a valid Solana address, got %d bytes expected 32", len(decoded))
 			}
 		case chain_selectors.FamilyEVM:
-			// aggregator must be an ethereum address
-			decoded, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(ec.Address, "0x")))
-			if err != nil {
-				return fmt.Errorf("address must be a valid ethereum address (i.e hex encoded 20 bytes): %w", err)
-			}
-			if len(decoded) != 20 {
-				return fmt.Errorf("address must be a valid ethereum address, got %d bytes expected 20", len(decoded))
+			a := common.HexToAddress(ec.Address)
+			if a == (common.Address{}) {
+				return fmt.Errorf("invalid address: %s", ec.Address)
 			}
 		default:
 			return fmt.Errorf("unsupported chain family: %s", family)

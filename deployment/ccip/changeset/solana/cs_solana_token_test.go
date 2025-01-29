@@ -65,5 +65,5 @@ func TestDeploySolanaToken(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
-	testhelpers.DoDeployLinkToken(t, 1)
+	testhelpers.DeployLinkTokenTest(t, 1)
 }

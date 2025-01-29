@@ -185,6 +185,7 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
+// https://github.com/smartcontractkit/chainlink-ccip/blob/bdbfcc588847d70817333487a9883e94c39a332e/chains/solana/gobindings/ccip_router/SetOcrConfig.go#L23
 type MultiOCR3BaseOCRConfigArgsSolana struct {
 	ConfigDigest                   [32]byte
 	OCRPluginType                  uint8
@@ -219,7 +220,9 @@ func BuildSetOCR3ConfigArgsSolana(
 		var transmitterAddresses []solana.PublicKey
 		for _, node := range activeConfig.Config.Nodes {
 			var signer [20]uint8
-			// can assert len(node.SignerKey) == 20, error otherwise
+			if len(node.SignerKey) != 20 {
+				return nil, fmt.Errorf("node signer key not 20 bytes long, got: %d", len(node.SignerKey))
+			}
 			copy(signer[:], node.SignerKey)
 			signerAddresses = append(signerAddresses, signer)
 			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
