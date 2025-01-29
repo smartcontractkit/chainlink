@@ -8,10 +8,11 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -28,7 +29,7 @@ func TestMessageHasher_Any2Solana(t *testing.T) {
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
 	require.NoError(t, err)
-	require.Equal(t, actualHash[:32], expectedHash)
+	require.Equal(t, expectedHash, actualHash[:32])
 }
 
 func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2SVMRampMessage, []solana.PublicKey) {
