@@ -150,7 +150,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 			}
 
 			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
-				cp.eng.SugaredLogger.Errorf("failed to store production config: %v", err)
+				cp.eng.Errorf("failed to store production config: %v", err)
 			}
 
 			isProduction := (cp.instanceType != InstanceTypeBlue) == event.IsGreenProduction
@@ -168,7 +168,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 			}
 
 			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
-				cp.eng.SugaredLogger.Errorf("failed to store staging config: %v", err)
+				cp.eng.Errorf("failed to store staging config: %v", err)
 			}
 
 			isProduction := (cp.instanceType != InstanceTypeBlue) == event.IsGreenProduction
@@ -190,10 +190,11 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 
 // LatestConfig returns the latest config from the logs starting from a certain block
 func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	cfg, _, err := cp.latestConfig(ctx, int64(changedInBlock), math.MaxInt64) // #nosec G115
+	cfg, latestLog, err := cp.latestConfig(ctx, int64(changedInBlock), math.MaxInt64) // #nosec G115
 	if err != nil {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to get latest config: %w", err)
 	}
+	cp.eng.Infow("LatestConfig fetched", "config", cfg.ContractConfig, "txHash", latestLog.TxHash, "blockNumber", latestLog.BlockNumber, "blockHash", latestLog.BlockHash, "logIndex", latestLog.LogIndex, "instanceType", cp.instanceType, "donID", cp.donID, "changedInBlock", changedInBlock)
 	return cfg.ContractConfig, nil
 }
 
