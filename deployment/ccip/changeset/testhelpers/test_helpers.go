@@ -520,12 +520,18 @@ func AddLane(
 						to: {
 							from: {
 								EnabledAsSource:          true,
-								EnabledAsDestination:     true,
 								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
-								DefaultTxGasLimit:        1,
-								MaxPerMsgGasLimit:        100,
-								MaxDataBytes:             32,
-								MaxNumberOfTokensPerMsg:  1,
+								DestinationConfig: solRouter.DestChainConfig{
+									IsEnabled:                   true,
+									DefaultTxGasLimit:           200000,
+									MaxPerMsgGasLimit:           3000000,
+									MaxDataBytes:                30000,
+									MaxNumberOfTokensPerMsg:     5,
+									DefaultTokenDestGasOverhead: 5000,
+									// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+									// TODO: do a similar test for other chain families
+									ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+								},
 							},
 						},
 					},
@@ -584,82 +590,6 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
-
-	switch toFamily {
-	case chainsel.FamilyEVM:
-		evmChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-				Config: changeset.UpdateOffRampSourcesConfig{
-					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-						to: {
-							from: {
-								IsEnabled:  true,
-								TestRouter: isTestRouter,
-							},
-						},
-					},
-				},
-			},
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-				Config: changeset.UpdateRouterRampsConfig{
-					TestRouter: isTestRouter,
-					UpdatesByChain: map[uint64]changeset.RouterUpdates{
-						// onRamp update on source chain
-						from: {
-							OnRampUpdates: map[uint64]bool{
-								to: true,
-							},
-						},
-						// offramp update on dest chain
-						to: {
-							OffRampUpdates: map[uint64]bool{
-								from: true,
-							},
-						},
-					},
-				},
-			},
-		}
-		changesets = append(changesets, evmChangesets...)
-	case chainsel.FamilySolana:
-		value := [28]uint8{}
-		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-		require.True(t, ok)
-		bigNum.FillBytes(value[:])
-		solanaChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
-				Config: changeset_solana.AddRemoteChainToSolanaConfig{
-					UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
-						to: {
-							from: {
-								EnabledAsSource:          true,
-								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
-								DestinationConfig: solRouter.DestChainConfig{
-									IsEnabled:                   true,
-									DefaultTxGasLimit:           200000,
-									MaxPerMsgGasLimit:           3000000,
-									MaxDataBytes:                30000,
-									MaxNumberOfTokensPerMsg:     5,
-									DefaultTokenDestGasOverhead: 5000,
-									// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-									// TODO: do a similar test for other chain families
-									ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-		changesets = append(changesets, solanaChangesets...)
-	}
-
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
-	require.NoError(t, err)
-
 }
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {

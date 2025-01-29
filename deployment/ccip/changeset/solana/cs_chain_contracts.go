@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -50,8 +51,37 @@ func GetPoolType(poolType string) (token_pool.PoolType, error) {
 	return poolTypeConstant, nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, router solana.PublicKey) error {
-	routerConfigPDA, _, _ := solState.FindConfigPDA(router)
+func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+	chain, ok := e.SolChains[selector]
+	if !ok {
+		return fmt.Errorf("chain selector %d not found in environment", selector)
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState, chainExists := state.SolChains[selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	exists := false
+	for _, token := range chainState.SPL2022Tokens {
+		if token.Equals(tokenPubKey) {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		return fmt.Errorf("token %s not found in existing state, deploy the prerequisites first", tokenPubKey.String())
+	}
+	return nil
+}
+
+func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+	if chainState.Router.IsZero() {
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+	}
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	var routerConfigAccount ccip_router.Config
 	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
@@ -88,29 +118,29 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if err != nil {
 		return err
 	}
-	if err := validateRouterConfig(e, state); err != nil {
-		return err
-	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.SolChains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain %d not found in onchain state", chainSel)
 		}
-
-		if chainState.Router.IsZero() {
-			return fmt.Errorf("missing router for chain %d", chainSel)
+		chain := e.SolChains[chainSel]
+		if err := validateRouterConfig(chain, chainState); err != nil {
+			return err
 		}
-
 		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return err
 		}
+		routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+		var routerConfigAccount ccip_router.Config
+		// already validated that router config exists
+		_ = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 
 		for remote := range updates {
 			if _, ok := supportedChains[remote]; !ok {
 				return fmt.Errorf("remote chain %d is not supported", remote)
 			}
-			if remote == routerConfigAccount.SolanaChainSelector {
+			if remote == routerConfigAccount.SvmChainSelector {
 				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", remote)
 			}
 		}
@@ -265,32 +295,6 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 }
 
 // ADD TOKEN POOL
-func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
-	chain, ok := e.SolChains[selector]
-	if !ok {
-		return fmt.Errorf("chain selector %d not found in environment", selector)
-	}
-	state, err := cs.LoadOnchainState(e)
-	if err != nil {
-		return err
-	}
-	chainState, chainExists := state.SolChains[selector]
-	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
-	}
-	exists := false
-	for _, token := range chainState.SPL2022Tokens {
-		if token.Equals(tokenPubKey) {
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		return fmt.Errorf("token %s not found in existing state, deploy the prerequisites first", tokenPubKey.String())
-	}
-	return nil
-}
-
 type TokenPoolConfig struct {
 	ChainSelector    uint64
 	PoolType         string
@@ -499,10 +503,7 @@ func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
-	}
-	if err := validateRouterConfig(chain, chainState.Router); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	// check if already setup
@@ -593,7 +594,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 		return fmt.Errorf("router not found in existing state for chain %d", cfg.ChainSelector)
 	}
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState.Router); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return fmt.Errorf("router validation failed: %w", err)
 	}
 	// check if desired state already exists ?
@@ -786,5 +787,7 @@ func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg 
 	return deployment.ChangesetOutput{}, nil
 }
 
-// TODO: set pool
-//NewAppendRemotePoolAddressesInstruction
+// TODO:
+// token admin registry tests
+// set pool
+// NewAppendRemotePoolAddressesInstruction

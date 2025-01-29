@@ -94,7 +94,7 @@ func TestAddRemoteChain(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	testhelpers.DoDeployCCIPContracts(t, 1)
+	testhelpers.DeployCCIPContractsTest(t, 1)
 }
 
 func TestAddTokenPool(t *testing.T) {

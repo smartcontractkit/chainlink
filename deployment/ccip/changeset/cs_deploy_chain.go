@@ -557,7 +557,7 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 	return programData, nil
 }
 
-func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
+func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey, linkTokenAddress solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -643,7 +643,7 @@ func deployChainContractsSolana(
 	configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), configPDA, &routerConfigAccount)
 	if err != nil {
-		if err := initialzeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err != nil {
+		if err := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err != nil {
 			return err
 		}
 	} else {
