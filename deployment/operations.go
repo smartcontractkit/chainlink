@@ -122,7 +122,7 @@ func (e *MemoryReporter) GetReports() []Report[any, any, any] {
 // Operations are low level, and should rarely be used directly.
 // Execute is the main function to interact with the operations. Standarizes the execution API and experience.
 // Could be expanded to accept middlewares to support default logging, tracing, etc.
-func Execute[I, O, Deps any](
+func ExecuteOp[I, O, Deps any](
 	reporter IReporter,
 	operation *Operation[I, O, Deps],
 	ctx Context[Deps],
