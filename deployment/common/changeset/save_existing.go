@@ -61,5 +61,6 @@ func SaveExistingContractsChangeset(env deployment.Environment, cfg ExistingCont
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 		JobSpecs:    nil,
+		Jobs:        nil,
 	}, nil
 }
