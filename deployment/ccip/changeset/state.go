@@ -767,9 +767,7 @@ func NestedPoolMapValues[T v1_5.TokenPoolContract](m map[TokenSymbol]map[semver.
 	var flattened []v1_5.TokenPoolContract
 	for _, versionMap := range m {
 		for _, pool := range versionMap {
-			if pool != nil {
-				flattened = append(flattened, pool)
-			}
+			flattened = append(flattened, pool)
 		}
 	}
 	return flattened
