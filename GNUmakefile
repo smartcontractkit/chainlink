@@ -199,6 +199,18 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
+.PHONY: run_flakeguard_validate_tests
+run_flakeguard_validate_tests:
+	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
+	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
+	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
+	 RUNNER=$${RUNNER:-ubuntu-20.04}; \
+	 gh workflow run flakeguard-validate-tests.yml \
+	   -f testPackages="$${PKGS}" \
+	   -f testRepeatCount="$${REPS}" \
+	   -f runTestsWithRace="true" \
+	   -f testRunner="$${RUNNER}"
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
