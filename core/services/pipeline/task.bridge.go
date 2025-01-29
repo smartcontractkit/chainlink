@@ -187,6 +187,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	elapsed := finish.Sub(start)
+	promBridgeLatency.WithLabelValues(t.Name).Set(elapsed.Seconds())
 
 	defer func() {
 		telemetryCh := GetTelemetryCh(ctx)
@@ -250,8 +251,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 			"url", url.String(),
 		)
 		cachedResponse = true
-	} else {
-		promBridgeLatency.WithLabelValues(t.Name).Set(elapsed.Seconds())
 	}
 
 	if t.Async == "true" {
