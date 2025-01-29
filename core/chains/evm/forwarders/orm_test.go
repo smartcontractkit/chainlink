@@ -11,15 +11,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation
 func Test_DeleteForwarder(t *testing.T) {
 	t.Parallel()
-	orm := NewORM(pgtest.NewSqlxDB(t))
+	orm := NewORM(testutils.NewSqlxDB(t))
 	addr := testutils.NewAddress()
 	chainID := testutils.FixtureChainID
 	ctx := testutils.Context(t)

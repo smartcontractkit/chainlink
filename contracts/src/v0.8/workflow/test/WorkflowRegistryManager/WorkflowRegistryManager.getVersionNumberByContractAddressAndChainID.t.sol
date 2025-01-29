@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {WorkflowRegistryManager} from "../../dev/WorkflowRegistryManager.sol";
+import {WorkflowRegistryManager} from "../../WorkflowRegistryManager.sol";
 import {WorkflowRegistryManagerSetup} from "./WorkflowRegistryManagerSetup.t.sol";
 
 contract WorkflowRegistryManager_getVersionNumberByContractAddressAndChainID is WorkflowRegistryManagerSetup {

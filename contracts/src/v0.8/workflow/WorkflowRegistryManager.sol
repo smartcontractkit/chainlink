@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
-import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.sol";
+import {Ownable2StepMsgSender} from "../shared/access/Ownable2StepMsgSender.sol";
 
 /// @title WorkflowRegistryManager
 /// @notice This contract manages the versions of WorkflowRegistry contracts deployed over time.
@@ -11,7 +11,7 @@ import {Ownable2StepMsgSender} from "../../shared/access/Ownable2StepMsgSender.s
 /// deployment information for each version, including deployment timestamp, chain ID, and active status. Only one
 /// version can be active at any given time.
 contract WorkflowRegistryManager is Ownable2StepMsgSender, ITypeAndVersion {
-  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0-dev";
+  string public constant override typeAndVersion = "WorkflowRegistryManager 1.0.0";
   uint8 private constant MAX_PAGINATION_LIMIT = 100;
 
   struct Version {

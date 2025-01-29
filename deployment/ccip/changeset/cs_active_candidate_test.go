@@ -76,7 +76,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			Config: changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
-						dest: changeset.DefaultFeeQuoterDestChainConfig(),
+						dest: changeset.DefaultFeeQuoterDestChainConfig(true),
 					},
 				},
 			},

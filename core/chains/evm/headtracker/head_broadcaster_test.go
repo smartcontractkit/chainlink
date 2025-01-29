@@ -22,10 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	testutils2 "github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
@@ -38,7 +37,7 @@ func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
 	_, unsubscribe := hb.Subscribe(subscriber)
 	defer unsubscribe()
 
-	hb.BroadcastNewLongestChain(testutils2.Head(1))
+	hb.BroadcastNewLongestChain(testutils.Head(1))
 	g := gomega.NewWithT(t)
 	g.Eventually(subscriber.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
@@ -47,10 +46,10 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	evmCfg := testutils2.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+	evmCfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.HeadTracker.SamplingInterval = &commonconfig.Duration{}
 	})
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	logger := logger.Test(t)
 
 	sub := commonmocks.NewSubscription(t)
@@ -63,7 +62,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 			chchHeaders <- chHead
 		}).
 		Return((<-chan *evmtypes.Head)(chHead), sub, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils2.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -85,7 +84,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	assert.Equal(t, (*evmtypes.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: big.New(testutils2.FixtureChainID)}
+	h := evmtypes.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: big.New(testutils.FixtureChainID)}
 	headers <- &h
 	g.Eventually(checker1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
@@ -96,7 +95,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: big.New(testutils2.FixtureChainID)}
+	headers <- &evmtypes.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: big.New(testutils.FixtureChainID)}
 	g.Eventually(checker2.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 }
 
@@ -117,25 +116,25 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	_, unsubscribe1 := broadcaster.Subscribe(subscriber1)
 	_, unsubscribe2 := broadcaster.Subscribe(subscriber2)
 
-	broadcaster.BroadcastNewLongestChain(testutils2.Head(1))
+	broadcaster.BroadcastNewLongestChain(testutils.Head(1))
 	g.Eventually(subscriber1.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	unsubscribe1()
 
-	broadcaster.BroadcastNewLongestChain(testutils2.Head(2))
+	broadcaster.BroadcastNewLongestChain(testutils.Head(2))
 	g.Eventually(subscriber2.OnNewLongestChainCount).Should(gomega.Equal(int32(2)))
 
 	unsubscribe2()
 
 	subscriber3 := &mocks.MockHeadTrackable{}
 	_, unsubscribe3 := broadcaster.Subscribe(subscriber3)
-	broadcaster.BroadcastNewLongestChain(testutils2.Head(1))
+	broadcaster.BroadcastNewLongestChain(testutils.Head(1))
 	g.Eventually(subscriber3.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	unsubscribe3()
 
 	// no subscribers - shall do nothing
-	broadcaster.BroadcastNewLongestChain(testutils2.Head(0))
+	broadcaster.BroadcastNewLongestChain(testutils.Head(0))
 
 	err = broadcaster.Close()
 	require.NoError(t, err)
@@ -154,14 +153,14 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 
 	waitHeadBroadcasterToStart(t, broadcaster)
 
-	slowAwaiter := testutils2.NewAwaiter()
-	fastAwaiter := testutils2.NewAwaiter()
+	slowAwaiter := testutils.NewAwaiter()
+	fastAwaiter := testutils.NewAwaiter()
 	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: commonhtrk.TrackableCallbackTimeout * 2}
 	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: commonhtrk.TrackableCallbackTimeout / 2}
 	_, unsubscribe1 := broadcaster.Subscribe(slow)
 	_, unsubscribe2 := broadcaster.Subscribe(fast)
 
-	broadcaster.BroadcastNewLongestChain(testutils2.Head(1))
+	broadcaster.BroadcastNewLongestChain(testutils.Head(1))
 	slowAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 	fastAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 
@@ -176,7 +175,7 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 }
 
 type sleepySubscriber struct {
-	awaiter     testutils2.Awaiter
+	awaiter     testutils.Awaiter
 	delay       time.Duration
 	contextDone bool
 }

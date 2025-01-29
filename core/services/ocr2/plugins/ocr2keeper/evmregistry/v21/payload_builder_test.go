@@ -5,12 +5,11 @@ import (
 	"math/big"
 	"testing"
 
-	types2 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
-	types "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,8 +22,8 @@ func TestNewPayloadBuilder(t *testing.T) {
 		name         string
 		activeList   ActiveUpkeepList
 		recoverer    logprovider.LogRecoverer
-		proposals    []types.CoordinatedBlockProposal
-		wantPayloads []types.UpkeepPayload
+		proposals    []automation.CoordinatedBlockProposal
+		wantPayloads []automation.UpkeepPayload
 	}{
 		{
 			name: "for log trigger upkeeps, new payloads are created",
@@ -33,43 +32,43 @@ func TestNewPayloadBuilder(t *testing.T) {
 					return true
 				},
 			},
-			proposals: []types.CoordinatedBlockProposal{
+			proposals: []automation.CoordinatedBlockProposal{
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "abc"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
 					WorkID:   "workID1",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 				},
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
 					WorkID:   "workID2",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+				GetProposalDataFn: func(ctx context.Context, proposal automation.CoordinatedBlockProposal) ([]byte, error) {
 					return []byte{1, 2, 3}, nil
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
+			wantPayloads: []automation.UpkeepPayload{
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "abc"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
 					WorkID:   "714f83255c5b562823725748c4a75777c9b78ea8c5ba72ea819926a1fecd389e",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 					CheckData: []byte{1, 2, 3},
 				},
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
 					WorkID:   "3956daa0378d6a761fe972ee00fe98338f17fb6b7865c1d49a8a416cd85977b8",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
@@ -81,54 +80,54 @@ func TestNewPayloadBuilder(t *testing.T) {
 			name: "for an inactive log trigger upkeep, an empty payload is added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
-					return core.GenUpkeepID(types2.LogTrigger, "ghi").BigInt().Cmp(id) != 0
+					return core.GenUpkeepID(types.LogTrigger, "ghi").BigInt().Cmp(id) != 0
 				},
 			},
-			proposals: []types.CoordinatedBlockProposal{
+			proposals: []automation.CoordinatedBlockProposal{
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "abc"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
 					WorkID:   "workID1",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 				},
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
 					WorkID:   "workID2",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
 				},
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "ghi"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "ghi"),
 					WorkID:   "workID3",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 3,
 						BlockHash:   [32]byte{3},
 					},
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+				GetProposalDataFn: func(ctx context.Context, proposal automation.CoordinatedBlockProposal) ([]byte, error) {
 					return []byte{1, 2, 3}, nil
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
+			wantPayloads: []automation.UpkeepPayload{
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "abc"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
 					WorkID:   "714f83255c5b562823725748c4a75777c9b78ea8c5ba72ea819926a1fecd389e",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 					CheckData: []byte{1, 2, 3},
 				},
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
 					WorkID:   "3956daa0378d6a761fe972ee00fe98338f17fb6b7865c1d49a8a416cd85977b8",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
@@ -144,22 +143,22 @@ func TestNewPayloadBuilder(t *testing.T) {
 					return true
 				},
 			},
-			proposals: []types.CoordinatedBlockProposal{
+			proposals: []automation.CoordinatedBlockProposal{
 				{
-					UpkeepID: core.GenUpkeepID(types2.LogTrigger, "abc"),
+					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
 					WorkID:   "workID1",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+				GetProposalDataFn: func(ctx context.Context, proposal automation.CoordinatedBlockProposal) ([]byte, error) {
 					return nil, errors.New("recoverer boom")
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
+			wantPayloads: []automation.UpkeepPayload{
 				{},
 			},
 		},
@@ -170,21 +169,21 @@ func TestNewPayloadBuilder(t *testing.T) {
 					return true
 				},
 			},
-			proposals: []types.CoordinatedBlockProposal{
+			proposals: []automation.CoordinatedBlockProposal{
 				{
-					UpkeepID: core.GenUpkeepID(types2.ConditionTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.ConditionTrigger, "def"),
 					WorkID:   "workID1",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
+			wantPayloads: []automation.UpkeepPayload{
 				{
-					UpkeepID: core.GenUpkeepID(types2.ConditionTrigger, "def"),
+					UpkeepID: core.GenUpkeepID(types.ConditionTrigger, "def"),
 					WorkID:   "58f2f231792448679a75bac6efc2af4ba731901f0cb93a44a366525751cbabfb",
-					Trigger: types.Trigger{
+					Trigger: automation.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
@@ -204,9 +203,9 @@ func TestNewPayloadBuilder(t *testing.T) {
 
 type mockLogRecoverer struct {
 	logprovider.LogRecoverer
-	GetProposalDataFn func(context.Context, types.CoordinatedBlockProposal) ([]byte, error)
+	GetProposalDataFn func(context.Context, automation.CoordinatedBlockProposal) ([]byte, error)
 }
 
-func (r *mockLogRecoverer) GetProposalData(ctx context.Context, p types.CoordinatedBlockProposal) ([]byte, error) {
+func (r *mockLogRecoverer) GetProposalData(ctx context.Context, p automation.CoordinatedBlockProposal) ([]byte, error) {
 	return r.GetProposalDataFn(ctx, p)
 }
