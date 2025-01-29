@@ -80,7 +80,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.36
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128193522-bdbfcc588847
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250127182937-837b0a4b2599
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250129142905-771fb9957d81
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250127125541-a8fa42cc0f36
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
