@@ -23,7 +23,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
@@ -271,74 +271,94 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
 
+		var keys []string
+		var err error
 		switch relayID.Network {
 		case relay.NetworkEVM:
-			ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
-			if err != nil {
-				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range ethKeys {
-					r = append(r, key.Hex())
-				}
-				return
-			}()
+			keys, err = d.getEVMKeys(ctx, chainID)
 		case relay.NetworkSolana:
-			// TODO Implement EnabledAddressesForChain for Solana as well
-			solKeys, err := d.keystore.Solana().GetAll()
-			if err != nil {
-				return nil, fmt.Errorf("error getting all Solana keys: %w", err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range solKeys {
-					r = append(r, key.PublicKeyStr())
-				}
-				return
-			}()
+			keys, err = d.getSolanaKeys()
 		case relay.NetworkAptos:
-			aptosKeys, err := d.keystore.Aptos().GetAll()
-			if err != nil {
-				return nil, fmt.Errorf("error getting all Aptos keys: %w", err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range aptosKeys {
-					r = append(r, key.PublicKeyStr())
-				}
-				return
-			}()
+			keys, err = d.getAptosKeys()
 		case relay.NetworkCosmos:
-			cosmosKeys, err := d.keystore.Cosmos().GetAll()
-			if err != nil {
-				return nil, fmt.Errorf("error getting all Cosmos keys: %w", err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range cosmosKeys {
-					r = append(r, key.PublicKeyStr())
-				}
-				return
-			}()
+			keys, err = d.getCosmosKeys()
 		case relay.NetworkStarkNet:
-			startNetKeys, err := d.keystore.StarkNet().GetAll()
-			if err != nil {
-				return nil, fmt.Errorf("error getting all startNet keys: %w", err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range startNetKeys {
-					r = append(r, key.StarkKeyStr())
-				}
-				return
-			}()
-
+			keys, err = d.getStarkNetKeys()
 		default:
 			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
+
+		if err != nil {
+			return nil, err
+		}
+		transmitterKeys[relayID] = keys
 	}
 	return transmitterKeys, nil
+}
+
+func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, error) {
+	var result []string
+	ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return result, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+	}
+
+	for _, key := range ethKeys {
+		result = append(result, key.Hex())
+	}
+	return result, nil
+}
+
+func (d *Delegate) getSolanaKeys() ([]string, error) {
+	var result []string
+	keys, err := d.keystore.Solana().GetAll()
+	if err != nil {
+		return result, fmt.Errorf("error getting all Solana keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.PublicKeyStr())
+	}
+	return result, err
+}
+
+func (d *Delegate) getAptosKeys() ([]string, error) {
+	var result []string
+	keys, err := d.keystore.Aptos().GetAll()
+	if err != nil {
+		return result, fmt.Errorf("error getting all Aptos keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.PublicKeyStr())
+	}
+	return result, err
+}
+
+func (d *Delegate) getCosmosKeys() ([]string, error) {
+	var result []string
+	keys, err := d.keystore.Cosmos().GetAll()
+	if err != nil {
+		return result, fmt.Errorf("error getting all Cosmos keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.PublicKeyStr())
+	}
+	return result, err
+}
+
+func (d *Delegate) getStarkNetKeys() ([]string, error) {
+	var result []string
+	keys, err := d.keystore.StarkNet().GetAll()
+	if err != nil {
+		return result, fmt.Errorf("error getting all StarkNet keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.StarkKeyStr())
+	}
+	return result, nil
 }
 
 func (d *Delegate) getHomeChainContractReader(
@@ -376,7 +396,7 @@ func bindReader(ctx context.Context,
 		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
 
-	hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
+	hid, err := ccipcommon.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to hash capability id: %w", err)
 	}
