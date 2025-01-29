@@ -7,6 +7,13 @@
 #
 runner-test-matrix:
   # START: CCIPv1.6 tests
+  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:*
+    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_fees_test.go:*
     path: integration-tests/smoke/ccip/ccip_fees_test.go
@@ -47,14 +54,22 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 12m -test.parallel=2 -count=1 -json
-
-  - id: contracts/ccipreader_test.go:*
-    path: integration-tests/contracts/ccipreader_test.go
+  
+  - id: smoke/ccip/ccip_add_chain_test.go:*
+    path: integration-tests/smoke/ccip/ccip_add_chain_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/contracts && go test ccipreader_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_add_chain_test.go -timeout 15m -test.parallel=1 -count=1 -json
+
+  - id: smoke/ccip/ccip_reader_test.go:*
+    path: integration-tests/smoke/ccip/ccip_reader_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_usdc_test.go:*
     path: integration-tests/smoke/ccip/ccip_usdc_test.go
@@ -79,5 +94,22 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=1 -json
+
+  - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
+    path: integration-tests/smoke/ccip/ccip_cs_update_rmn_config_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_cs_update_rmn_config_test.go -timeout 20m -test.parallel=1 -count=1 -json
+
+  - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:*
+    path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
+
 
   # END: CCIP tests

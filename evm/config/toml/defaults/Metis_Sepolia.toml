@@ -1,0 +1,17 @@
+ChainID = '59902'
+ChainType = 'optimismBedrock'
+FinalityDepth = 10
+FinalityTagEnabled = true
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

@@ -1,11 +1,16 @@
 package changeset
 
 import (
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 )
@@ -15,14 +20,47 @@ type TokenSymbol string
 const (
 	LinkSymbol   TokenSymbol = "LINK"
 	WethSymbol   TokenSymbol = "WETH"
+	WAVAXSymbol  TokenSymbol = "WAVAX"
+	WBNBSymbol   TokenSymbol = "WBNB"
+	WPOLSymbol   TokenSymbol = "WPOL"
 	USDCSymbol   TokenSymbol = "USDC"
 	USDCName     string      = "USD Coin"
 	LinkDecimals             = 18
 	WethDecimals             = 18
 	UsdcDecimals             = 6
+
+	// Price Feed Descriptions
+	AvaxUSD  = "AVAX / USD"
+	LinkUSD  = "LINK / USD"
+	EthUSD   = "ETH / USD"
+	MaticUSD = "MATIC / USD"
+	BNBUSD   = "BNB / USD"
+
+	// MockLinkAggregatorDescription is the description of the MockV3Aggregator.sol contract
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/tests/MockV3Aggregator.sol#L76-L76
+	MockLinkAggregatorDescription = "v0.8/tests/MockV3Aggregator.sol"
+	// MockWETHAggregatorDescription is the description from MockETHUSDAggregator.sol
+	// https://github.com/smartcontractkit/chainlink/blob/a348b98e90527520049c580000a86fb8ceff7fa7/contracts/src/v0.8/automation/testhelpers/MockETHUSDAggregator.sol#L19-L19
+	MockWETHAggregatorDescription = "MockETHUSDAggregator"
 )
 
 var (
+	MockLinkPrice = deployment.E18Mult(500)
+	MockWethPrice = big.NewInt(9e8)
+	// DescriptionToTokenSymbol maps price feed description to token descriptor
+	DescriptionToTokenSymbol = map[string]TokenSymbol{
+		MockLinkAggregatorDescription: LinkSymbol,
+		MockWETHAggregatorDescription: WethSymbol,
+		LinkUSD:                       LinkSymbol,
+		AvaxUSD:                       WAVAXSymbol,
+		EthUSD:                        WethSymbol,
+		MaticUSD:                      WPOLSymbol,
+		BNBUSD:                        WBNBSymbol,
+	}
+	MockSymbolToDescription = map[TokenSymbol]string{
+		LinkSymbol: MockLinkAggregatorDescription,
+		WethSymbol: MockWETHAggregatorDescription,
+	}
 	TestDeviationPPB = ccipocr3.NewBigIntFromInt64(1e9)
 )
 

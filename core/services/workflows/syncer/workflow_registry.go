@@ -90,7 +90,7 @@ type WorkflowLoadConfig struct {
 }
 
 // FetcherFunc is an abstraction for fetching the contents stored at a URL.
-type FetcherFunc func(ctx context.Context, url string) ([]byte, error)
+type FetcherFunc func(ctx context.Context, url string, n uint32) ([]byte, error)
 
 // ContractReader is a subset of types.ContractReader defined locally to enable mocking.
 type ContractReader interface {

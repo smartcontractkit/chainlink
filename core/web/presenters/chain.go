@@ -2,7 +2,7 @@ package presenters
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type ChainResource struct {
@@ -18,10 +18,10 @@ func (r ChainResource) GetName() string {
 }
 
 // NewChainResource returns a new ChainResource for chain.
-func NewChainResource(chain commonTypes.ChainStatusWithID) ChainResource {
+func NewChainResource(chain chainlink.NetworkChainStatus) ChainResource {
 	return ChainResource{
-		JAID:    NewJAID(chain.RelayID.ChainID),
-		Network: chain.RelayID.Network,
+		JAID:    NewJAID(chain.ID),
+		Network: chain.Network,
 		Config:  chain.Config,
 		Enabled: chain.Enabled,
 	}

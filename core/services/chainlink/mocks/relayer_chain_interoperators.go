@@ -4,7 +4,6 @@ import (
 	"context"
 	"slices"
 
-	commonTypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	services2 "github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -62,14 +61,10 @@ func (f *FakeRelayerChainInteroperators) Slice() []loop.Relayer {
 	return relayers
 }
 
-func (f *FakeRelayerChainInteroperators) LegacyCosmosChains() chainlink.LegacyCosmosContainer {
-	panic("unimplemented")
-}
-
 func (f *FakeRelayerChainInteroperators) ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error) {
 	panic("unimplemented")
 }
 
-func (f *FakeRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]commonTypes.ChainStatusWithID, int, error) {
+func (f *FakeRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]chainlink.NetworkChainStatus, int, error) {
 	panic("unimplemented")
 }

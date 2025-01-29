@@ -7,7 +7,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type HeadProvider struct {

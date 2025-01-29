@@ -1,15 +1,14 @@
 package deployment
 
 import (
-	"errors"
 	"math/big"
 	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/v3/assert"
 )
 
 func TestAddressBook_Save(t *testing.T) {
@@ -24,17 +23,15 @@ func TestAddressBook_Save(t *testing.T) {
 
 	// Invalid address
 	err = ab.Save(chainsel.TEST_90000001.Selector, "asdlfkj", onRamp100)
-	require.Error(t, err)
-	assert.Equal(t, errors.Is(err, ErrInvalidAddress), true, "err %s", err)
+	require.ErrorIs(t, err, ErrInvalidAddress)
 
 	// Valid chain but not present.
 	_, err = ab.AddressesForChain(chainsel.TEST_90000002.Selector)
-	assert.Equal(t, errors.Is(err, ErrChainNotFound), true, "err %s", err)
+	require.ErrorIs(t, err, ErrChainNotFound)
 
 	// Invalid selector
 	err = ab.Save(0, addr1, onRamp100)
-	require.Error(t, err)
-	assert.Equal(t, errors.Is(err, ErrInvalidChainSelector), true)
+	require.ErrorIs(t, err, ErrInvalidChainSelector)
 
 	// Duplicate
 	err = ab.Save(chainsel.TEST_90000001.Selector, addr1, onRamp100)
@@ -60,7 +57,7 @@ func TestAddressBook_Save(t *testing.T) {
 
 	addresses, err := ab.Addresses()
 	require.NoError(t, err)
-	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
+	assert.Equal(t, map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
 			addr1: onRamp100,
 			addr2: onRamp100,
@@ -69,7 +66,7 @@ func TestAddressBook_Save(t *testing.T) {
 			addr1: onRamp100,
 			addr2: onRamp110,
 		},
-	})
+	}, addresses)
 }
 
 func TestAddressBook_Merge(t *testing.T) {
@@ -94,7 +91,7 @@ func TestAddressBook_Merge(t *testing.T) {
 
 	addresses, err := a1.Addresses()
 	require.NoError(t, err)
-	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
+	assert.Equal(t, map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
 			addr1: onRamp100,
 			addr2: onRamp100,
@@ -102,7 +99,7 @@ func TestAddressBook_Merge(t *testing.T) {
 		chainsel.TEST_90000002.Selector: {
 			addr1: onRamp110,
 		},
-	})
+	}, addresses)
 
 	// Merge with conflicting addresses should error
 	a3 := NewMemoryAddressBookFromMap(map[uint64]map[string]TypeAndVersion{
@@ -114,7 +111,7 @@ func TestAddressBook_Merge(t *testing.T) {
 	// a1 should not have changed
 	addresses, err = a1.Addresses()
 	require.NoError(t, err)
-	assert.DeepEqual(t, addresses, map[uint64]map[string]TypeAndVersion{
+	assert.Equal(t, map[uint64]map[string]TypeAndVersion{
 		chainsel.TEST_90000001.Selector: {
 			addr1: onRamp100,
 			addr2: onRamp100,
@@ -122,7 +119,7 @@ func TestAddressBook_Merge(t *testing.T) {
 		chainsel.TEST_90000002.Selector: {
 			addr1: onRamp110,
 		},
-	})
+	}, addresses)
 }
 
 func TestAddressBook_Remove(t *testing.T) {
@@ -193,7 +190,7 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	for i = 2; i < 1000; i++ {
 		wg.Add(1)
 		go func(input int64) {
-			require.NoError(t, baseAB.Save(
+			assert.NoError(t, baseAB.Save(
 				chainsel.TEST_90000001.Selector,
 				common.BigToAddress(big.NewInt(input)).String(),
 				onRamp100,
@@ -207,7 +204,9 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 		wg.Add(1)
 		go func(input int64) {
 			addresses, err := baseAB.Addresses()
-			require.NoError(t, err)
+			if !assert.NoError(t, err) {
+				return
+			}
 			for chainSelector, chainAddresses := range addresses {
 				// concurrent read chainAddresses from Addresses() method
 				for address := range chainAddresses {
@@ -216,12 +215,12 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 
 				// concurrent read chainAddresses from AddressesForChain() method
 				chainAddresses, err = baseAB.AddressesForChain(chainSelector)
-				require.NoError(t, err)
-				for address := range chainAddresses {
-					_ = addresses[chainSelector][address]
+				if assert.NoError(t, err) {
+					for address := range chainAddresses {
+						_ = addresses[chainSelector][address]
+					}
 				}
 			}
-			require.NoError(t, err)
 			wg.Done()
 		}(i)
 	}
@@ -236,7 +235,7 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 					common.BigToAddress(big.NewInt(input)).String(): onRamp100,
 				},
 			})
-			require.NoError(t, baseAB.Merge(additionalAB))
+			assert.NoError(t, baseAB.Merge(additionalAB))
 			wg.Done()
 		}(i)
 	}

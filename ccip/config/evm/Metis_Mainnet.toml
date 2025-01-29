@@ -1,6 +1,5 @@
 # Metis is an L2 chain based on Optimism.
 ChainID = '1088'
-ChainType = 'optimismBedrock'
 # Sequencer offers absolute finality
 # High variation on finality depth triggered a commitee to investigate
 # and set 500 as a secure finality depth.
@@ -26,7 +25,6 @@ BlockHistorySize = 0
 [NodePool]
 SyncThreshold = 10
 
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

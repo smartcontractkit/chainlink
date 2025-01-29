@@ -14,16 +14,21 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 )
 
 type mockCfg struct{}
+
+func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
+	return config.MercuryTransmitterProtocolGRPC
+}
 
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
@@ -37,16 +42,52 @@ func (m mockCfg) TransmitConcurrency() uint32 {
 	return 5
 }
 
+type MockGRPCClient struct {
+	TransmitF func(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error)
+}
+
+func (m *MockGRPCClient) Name() string                   { return "" }
+func (m *MockGRPCClient) Start(context.Context) error    { return nil }
+func (m *MockGRPCClient) Close() error                   { return nil }
+func (m *MockGRPCClient) HealthReport() map[string]error { return map[string]error{} }
+func (m *MockGRPCClient) Ready() error                   { return nil }
+func (m *MockGRPCClient) Transmit(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
+	return m.TransmitF(ctx, in)
+}
+func (m *MockGRPCClient) ServerURL() string { return "mock server url" }
+
 func Test_Transmitter_Transmit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	donID := uint32(123456)
 	orm := NewORM(db, donID)
-	clients := map[string]wsrpc.Client{}
+	clients := map[string]grpc.Client{}
+
+	t.Run("errors if not started", func(t *testing.T) {
+		mt := newTransmitter(Opts{
+			Lggr:        lggr,
+			Cfg:         mockCfg{},
+			Clients:     clients,
+			FromAccount: ed25519.PublicKey{},
+			DonID:       donID,
+			ORM:         orm,
+		})
+
+		seqNr := uint64(55)
+		report := makeSampleReport()
+		digest := makeSampleConfigDigest()
+		sigs := []types.AttributedOnchainSignature{{
+			Signature: []byte{22},
+			Signer:    commontypes.OracleID(43),
+		}}
+		err := mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transmitter is not started")
+	})
 
 	t.Run("with multiple mercury servers", func(t *testing.T) {
 		t.Run("transmission successfully enqueued", func(t *testing.T) {
-			c := &mocks.MockWSRPCClient{}
+			c := &MockGRPCClient{}
 			clients[sURL] = c
 			clients[sURL2] = c
 			clients[sURL3] = c
@@ -59,10 +100,15 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				DonID:       donID,
 				ORM:         orm,
 			})
-			// init the queue since we skipped starting transmitter
-			mt.servers[sURL].q.Init([]*Transmission{})
-			mt.servers[sURL2].q.Init([]*Transmission{})
-			mt.servers[sURL3].q.Init([]*Transmission{})
+			err := mt.StartOnce("SimulateTransmitterStart", func() error {
+				// init the queue since we simulate starting transmitter
+				mt.servers[sURL].q.Init([]*Transmission{})
+				mt.servers[sURL2].q.Init([]*Transmission{})
+				mt.servers[sURL3].q.Init([]*Transmission{})
+
+				return nil
+			})
+			require.NoError(t, err)
 
 			seqNr := uint64(55)
 			report := makeSampleReport()
@@ -71,7 +117,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				Signature: []byte{22},
 				Signer:    commontypes.OracleID(43),
 			}}
-			err := mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
+			err = mt.Transmit(testutils.Context(t), digest, seqNr, report, sigs)
 			require.NoError(t, err)
 
 			// ensure it was added to the queue
@@ -133,7 +179,7 @@ func (m *mockQ) IsEmpty() bool                      { return false }
 func Test_Transmitter_runQueueLoop(t *testing.T) {
 	donIDStr := "555"
 	lggr := logger.TestLogger(t)
-	c := &mocks.MockWSRPCClient{}
+	c := &MockGRPCClient{}
 	db := pgtest.NewSqlxDB(t)
 	donID := uint32(123456)
 	orm := NewORM(db, donID)
@@ -142,10 +188,10 @@ func Test_Transmitter_runQueueLoop(t *testing.T) {
 	s := newServer(lggr, true, cfg, c, orm, sURL)
 
 	t.Run("pulls from queue and transmits successfully", func(t *testing.T) {
-		transmit := make(chan *pb.TransmitRequest, 1)
-		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+		transmit := make(chan *rpc.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
 			transmit <- in
-			return &pb.TransmitResponse{Code: 0, Error: ""}, nil
+			return &rpc.TransmitResponse{Code: 0, Error: ""}, nil
 		}
 		q := newMockQ()
 		s.q = q
@@ -170,10 +216,10 @@ func Test_Transmitter_runQueueLoop(t *testing.T) {
 	})
 
 	t.Run("on duplicate, success", func(t *testing.T) {
-		transmit := make(chan *pb.TransmitRequest, 1)
-		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+		transmit := make(chan *rpc.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
 			transmit <- in
-			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+			return &rpc.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
 		}
 		q := newMockQ()
 		s.q = q
@@ -197,10 +243,10 @@ func Test_Transmitter_runQueueLoop(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("on server-side error, does not retry", func(t *testing.T) {
-		transmit := make(chan *pb.TransmitRequest, 1)
-		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+		transmit := make(chan *rpc.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
 			transmit <- in
-			return &pb.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
+			return &rpc.TransmitResponse{Code: DuplicateReport, Error: ""}, nil
 		}
 		q := newMockQ()
 		s.q = q
@@ -224,10 +270,10 @@ func Test_Transmitter_runQueueLoop(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("on transmit error, retries", func(t *testing.T) {
-		transmit := make(chan *pb.TransmitRequest, 1)
-		c.TransmitF = func(ctx context.Context, in *pb.TransmitRequest) (*pb.TransmitResponse, error) {
+		transmit := make(chan *rpc.TransmitRequest, 1)
+		c.TransmitF = func(ctx context.Context, in *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
 			transmit <- in
-			return &pb.TransmitResponse{}, errors.New("transmission error")
+			return &rpc.TransmitResponse{}, errors.New("transmission error")
 		}
 		q := newMockQ()
 		s.q = q

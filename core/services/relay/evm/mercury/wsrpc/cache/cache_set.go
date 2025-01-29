@@ -7,9 +7,8 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // CacheSet holds a set of mercury caches keyed by server URL
@@ -24,7 +23,7 @@ type cacheSet struct {
 	sync.RWMutex
 	services.StateMachine
 
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 	caches map[string]Cache
 
 	cfg Config
@@ -38,7 +37,7 @@ func newCacheSet(lggr logger.Logger, cfg Config) *cacheSet {
 	return &cacheSet{
 		sync.RWMutex{},
 		services.StateMachine{},
-		lggr.Named("CacheSet"),
+		logger.Sugared(lggr).Named("CacheSet"),
 		make(map[string]Cache),
 		cfg,
 	}

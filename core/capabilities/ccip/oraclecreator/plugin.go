@@ -12,9 +12,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -23,13 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
@@ -38,7 +35,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -224,9 +221,8 @@ func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	var offRampAddr string
 	switch chainFamily {
 	case relay.NetworkEVM:
-		if checkSum {
-			offRampAddr = common.BytesToAddress(addr).Hex()
-		} else {
+		offRampAddr = common.BytesToAddress(addr).Hex()
+		if !checkSum {
 			offRampAddr = hexutil.Encode(addr)
 		}
 	case relay.NetworkSolana:
@@ -236,6 +232,37 @@ func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	}
 
 	return offRampAddr
+}
+
+type plugin struct {
+	CommitPluginCodec   cciptypes.CommitPluginCodec
+	ExecutePluginCodec  cciptypes.ExecutePluginCodec
+	ExtraArgsCodec      cciptypes.ExtraDataCodec
+	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder    cciptypes.TokenDataEncoder
+	GasEstimateProvider cciptypes.EstimateProvider
+	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+}
+
+var plugins = map[string]plugin{
+	chainsel.FamilyEVM: {
+		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
+		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
+		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
+		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
+		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
+		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
+		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+	},
+	chainsel.FamilySolana: {
+		CommitPluginCodec:   nil,
+		ExecutePluginCodec:  nil,
+		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
+		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return nil },
+		TokenDataEncoder:    nil,
+		GasEstimateProvider: nil,
+		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+	},
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
@@ -257,6 +284,16 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
 	}
 
+	chainFamily, err := chainsel.GetSelectorFamily(uint64(config.Config.ChainSelector))
+	if err != nil {
+		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
+	}
+	plugin, exists := plugins[chainFamily]
+	if !exists {
+		return nil, nil, fmt.Errorf("unsupported chain %v", chainFamily)
+	}
+	messageHasher := plugin.MessageHasher(i.lggr.Named(chainFamily).Named("MessageHasherV1"))
+
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
 			return nil, nil, fmt.Errorf("peer wrapper is not started")
@@ -272,7 +309,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 			publicConfig.DeltaRound,
 		)
 
-		rmnCrypto := ccipevm.NewEVMRMNCrypto(i.lggr.Named("EVMRMNCrypto"))
+		rmnCrypto := plugin.RMNCrypto(i.lggr.Named(chainFamily).Named("RMNCrypto"))
 
 		factory = commitocr3.NewPluginFactory(
 			i.lggr.
@@ -282,8 +319,9 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			ccipevm.NewCommitPluginCodecV1(),
-			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			plugin.CommitPluginCodec,
+			messageHasher,
+			plugin.ExtraArgsCodec,
 			i.homeChainReader,
 			i.homeChainSelector,
 			contractReaders,
@@ -304,11 +342,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 			donID,
 			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			ccipevm.NewExecutePluginCodecV1(),
-			ccipevm.NewMessageHasherV1(i.lggr.Named("MessageHasherV1")),
+			plugin.ExecutePluginCodec,
+			messageHasher,
+			plugin.ExtraArgsCodec,
 			i.homeChainReader,
-			ccipevm.NewEVMTokenDataEncoder(),
-			ccipevm.NewGasEstimateProvider(),
+			plugin.TokenDataEncoder,
+			plugin.GasEstimateProvider,
 			contractReaders,
 			chainWriters,
 		)
@@ -349,9 +388,9 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		execBatchGasLimit = defaultExecGasLimit
 	}
 
-	homeChainID, err := i.getChainID(i.homeChainSelector)
+	homeChainID, err := chainsel.GetChainIDFromSelector(uint64(i.homeChainSelector))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
 
 	contractReaders := make(map[cciptypes.ChainSelector]types.ContractReader)
@@ -359,7 +398,8 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	for relayID, relayer := range i.relayers {
 		chainID := relayID.ChainID
 		relayChainFamily := relayID.Network
-		chainSelector, err1 := i.getChainSelector(chainID, relayChainFamily)
+		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
+		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
@@ -442,22 +482,6 @@ func decodeAndValidateOffchainConfig(
 	return ofc, nil
 }
 
-func (i *pluginOracleCreator) getChainSelector(chainID string, chainFamily string) (cciptypes.ChainSelector, error) {
-	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(chainID, chainFamily)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get chain selector from chain ID %s and family %s", chainID, chainFamily)
-	}
-	return cciptypes.ChainSelector(chainDetails.ChainSelector), nil
-}
-
-func (i *pluginOracleCreator) getChainID(chainSelector cciptypes.ChainSelector) (string, error) {
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(chainSelector))
-	if err != nil {
-		return "", fmt.Errorf("failed to get chain ID from chain selector %d: %w", chainSelector, err)
-	}
-	return chainID, nil
-}
-
 func getChainReaderConfig(
 	lggr logger.Logger,
 	chainID string,
@@ -504,11 +528,6 @@ func getChainReaderConfig(
 			cfg = solanaconfig.DestReaderConfig
 		} else {
 			cfg = solanaconfig.SourceReaderConfig
-		}
-
-		if chainID == homeChainID {
-			lggr.Debugw("Adding home chain reader config", "chainID", chainID)
-			cfg = solanaconfig.MergeReaderConfigs(cfg, solanaconfig.HomeChainReaderConfigRaw)
 		}
 
 		marshaledConfig, err := json.Marshal(cfg)

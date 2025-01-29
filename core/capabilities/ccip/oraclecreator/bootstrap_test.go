@@ -2,9 +2,11 @@ package oraclecreator
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"sort"
 	"testing"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -31,7 +33,7 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{1},
 			candidateDigest: cciptypes.Bytes32{}, // empty
 			expectedActions: []syncAction{
-				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionClose, endpointConfigDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -40,7 +42,7 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{1},
 			candidateDigest: cciptypes.Bytes32{2},
 			expectedActions: []syncAction{
-				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionCreate, endpointConfigDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -49,8 +51,8 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{},
 			candidateDigest: cciptypes.Bytes32{},
 			expectedActions: []syncAction{
-				{actionType: ActionClose, configDigest: cciptypes.Bytes32{1}},
-				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionClose, endpointConfigDigest: cciptypes.Bytes32{1}},
+				{actionType: ActionClose, endpointConfigDigest: cciptypes.Bytes32{2}},
 			},
 		},
 		{
@@ -59,18 +61,27 @@ func TestCalculateSyncActions(t *testing.T) {
 			activeDigest:    cciptypes.Bytes32{3},
 			candidateDigest: cciptypes.Bytes32{4},
 			expectedActions: []syncAction{
-				{actionType: ActionClose, configDigest: cciptypes.Bytes32{1}},
-				{actionType: ActionClose, configDigest: cciptypes.Bytes32{2}},
-				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{3}},
-				{actionType: ActionCreate, configDigest: cciptypes.Bytes32{4}},
+				{actionType: ActionClose, endpointConfigDigest: cciptypes.Bytes32{1}},
+				{actionType: ActionClose, endpointConfigDigest: cciptypes.Bytes32{2}},
+				{actionType: ActionCreate, endpointConfigDigest: cciptypes.Bytes32{3}},
+				{actionType: ActionCreate, endpointConfigDigest: cciptypes.Bytes32{4}},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			commitConfigDigest := cciptypes.Bytes32{1}
+
+			currentDigests := make([]cciptypes.Bytes32, len(tt.currentDigests))
+			for i, d := range tt.currentDigests {
+				currentDigests[i] = writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo,
+					sha256.Sum256(append(commitConfigDigest[:], d[:]...)))
+			}
+
 			actions := calculateSyncActions(
-				tt.currentDigests,
+				commitConfigDigest,
+				currentDigests,
 				tt.activeDigest,
 				tt.candidateDigest,
 			)
@@ -82,18 +93,22 @@ func TestCalculateSyncActions(t *testing.T) {
 				if actions[i].actionType != actions[j].actionType {
 					return actions[i].actionType < actions[j].actionType
 				}
-				return bytes.Compare(actions[i].configDigest[:], actions[j].configDigest[:]) < 0
+				return bytes.Compare(actions[i].endpointConfigDigest[:], actions[j].endpointConfigDigest[:]) < 0
 			})
 			sort.Slice(tt.expectedActions, func(i, j int) bool {
 				if tt.expectedActions[i].actionType != tt.expectedActions[j].actionType {
 					return tt.expectedActions[i].actionType < tt.expectedActions[j].actionType
 				}
-				return bytes.Compare(tt.expectedActions[i].configDigest[:], tt.expectedActions[j].configDigest[:]) < 0
+				return bytes.Compare(tt.expectedActions[i].endpointConfigDigest[:], tt.expectedActions[j].endpointConfigDigest[:]) < 0
 			})
 
 			for i := range actions {
 				require.Equal(t, tt.expectedActions[i].actionType, actions[i].actionType)
-				require.Equal(t, tt.expectedActions[i].configDigest, actions[i].configDigest)
+
+				expEndpointConfigDigest := writePrefix(ocr2types.ConfigDigestPrefixCCIPMultiRoleRMNCombo,
+					sha256.Sum256(append(commitConfigDigest[:], tt.expectedActions[i].endpointConfigDigest[:]...)))
+
+				require.Equal(t, expEndpointConfigDigest, actions[i].endpointConfigDigest)
 			}
 		})
 	}

@@ -5,12 +5,20 @@ import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
 import {FeeQuoterSetup} from "./FeeQuoterSetup.t.sol";
 
-contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
+contract FeeQuoter_resolveGasLimitForDestination is FeeQuoterSetup {
   FeeQuoter.DestChainConfig private s_destChainConfig;
 
   function setUp() public virtual override {
     super.setUp();
     s_destChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+  }
+
+  function test_EVMExtraArgsV1TagSelector() public view {
+    assertEq(Client.EVM_EXTRA_ARGS_V1_TAG, bytes4(keccak256("CCIP EVMExtraArgsV1")));
+  }
+
+  function test_EVMExtraArgsV2TagSelector() public view {
+    assertEq(Client.EVM_EXTRA_ARGS_V2_TAG, bytes4(keccak256("CCIP EVMExtraArgsV2")));
   }
 
   function test_EVMExtraArgsV1() public view {
@@ -20,7 +28,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
       Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT, allowOutOfOrderExecution: false});
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)),
+      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR)),
       abi.encode(expectedOutputArgs)
     );
   }
@@ -31,7 +39,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
     bytes memory inputExtraArgs = Client._argsToBytes(inputArgs);
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig)), abi.encode(inputArgs)
+      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR)), abi.encode(inputArgs)
     );
   }
 
@@ -40,7 +48,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
       Client.EVMExtraArgsV2({gasLimit: s_destChainConfig.defaultTxGasLimit, allowOutOfOrderExecution: false});
 
     vm.assertEq(
-      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes("", s_destChainConfig)), abi.encode(expectedOutputArgs)
+      abi.encode(s_feeQuoter.parseEVMExtraArgsFromBytes("", DEST_CHAIN_SELECTOR)), abi.encode(expectedOutputArgs)
     );
   }
 
@@ -54,7 +62,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
     inputExtraArgs[0] = bytes1(uint8(0));
 
     vm.expectRevert(FeeQuoter.InvalidExtraArgsTag.selector);
-    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR);
   }
 
   function test_RevertWhen_EVMExtraArgsEnforceOutOfOrder() public {
@@ -64,7 +72,7 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
     s_destChainConfig.enforceOutOfOrder = true;
 
     vm.expectRevert(FeeQuoter.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
-    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR, true);
   }
 
   function test_RevertWhen_EVMExtraArgsGasLimitTooHigh() public {
@@ -73,6 +81,6 @@ contract FeeQuoter_parseEVMExtraArgsFromBytes is FeeQuoterSetup {
     bytes memory inputExtraArgs = Client._argsToBytes(inputArgs);
 
     vm.expectRevert(FeeQuoter.MessageGasLimitTooHigh.selector);
-    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, s_destChainConfig);
+    s_feeQuoter.parseEVMExtraArgsFromBytes(inputExtraArgs, DEST_CHAIN_SELECTOR);
   }
 }

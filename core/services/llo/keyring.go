@@ -80,7 +80,7 @@ func (okr *onchainKeyring) MaxSignatureLength() (n int) {
 
 func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo]) (signature []byte, err error) {
 	switch r.Info.ReportFormat {
-	case llotypes.ReportFormatEVMPremiumLegacy:
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
 		rf := r.Info.ReportFormat
 		if key, exists := okr.keys[rf]; exists {
 			// NOTE: Must use legacy Sign method for compatibility with v0.3 report verification
@@ -101,7 +101,7 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 
 func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo], signature []byte) bool {
 	switch r.Info.ReportFormat {
-	case llotypes.ReportFormatEVMPremiumLegacy:
+	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
 		rf := r.Info.ReportFormat
 		if verifier, exists := okr.keys[rf]; exists {
 			// NOTE: Must use legacy Verify method for compatibility with v0.3 report verification

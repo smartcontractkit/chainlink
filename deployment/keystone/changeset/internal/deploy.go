@@ -15,25 +15,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"golang.org/x/exp/maps"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type ConfigureContractsRequest struct {
@@ -142,7 +134,7 @@ type DonInfo struct {
 	Name         string
 	F            uint8
 	Nodes        []deployment.Node
-	Capabilities []capabilities_registry.CapabilitiesRegistryCapability // every capability is hosted on each node
+	Capabilities []DONCapabilityWithConfig // every capability is hosted on each node
 }
 
 func DonInfos(dons []DonCapabilities, jd deployment.OffchainClient) ([]DonInfo, error) {
@@ -415,30 +407,39 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 type RegisterCapabilitiesRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
-	DonToCapabilities     map[string][]capabilities_registry.CapabilitiesRegistryCapability
+	DonToCapabilities     map[string][]DONCapabilityWithConfig
+
+	// if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	UseMCMS bool
 }
 
 type RegisterCapabilitiesResponse struct {
 	DonToCapabilities map[string][]RegisteredCapability
+	Ops               *timelock.BatchChainOperation
 }
 
 type RegisteredCapability struct {
 	capabilities_registry.CapabilitiesRegistryCapability
-	ID [32]byte
+	ID     [32]byte
+	Config *capabilitiespb.CapabilityConfig
 }
 
-func FromCapabilitiesRegistryCapability(cap *capabilities_registry.CapabilitiesRegistryCapability, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
+func FromCapabilitiesRegistryCapability(capReg *capabilities_registry.CapabilitiesRegistryCapability, cfg *capabilitiespb.CapabilityConfig, e deployment.Environment, registryChainSelector uint64) (*RegisteredCapability, error) {
 	registry, _, err := GetRegistryContract(&e, registryChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get registry: %w", err)
 	}
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, capReg.LabelledName, capReg.Version)
 	if err != nil {
-		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+		return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", capReg, err)
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required for capability %v", capReg)
 	}
 	return &RegisteredCapability{
-		CapabilitiesRegistryCapability: *cap,
+		CapabilitiesRegistryCapability: *capReg,
 		ID:                             id,
+		Config:                         cfg,
 	}, nil
 }
 
@@ -464,39 +465,44 @@ func RegisterCapabilities(lggr logger.Logger, req RegisterCapabilitiesRequest) (
 	uniqueCaps := make(map[capabilities_registry.CapabilitiesRegistryCapability][32]byte)
 	for don, caps := range req.DonToCapabilities {
 		var registerCaps []RegisteredCapability
-		for _, cap := range caps {
-			id, ok := uniqueCaps[cap]
+		for i := range caps {
+			regCap := &caps[i]
+			id, ok := uniqueCaps[regCap.Capability]
 			if !ok {
 				var err error
-				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+				id, err = registry.GetHashedCapabilityId(&bind.CallOpts{}, regCap.Capability.LabelledName, regCap.Capability.Version)
 				if err != nil {
-					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", cap, err)
+					return nil, fmt.Errorf("failed to call GetHashedCapabilityId for capability %v: %w", regCap, err)
 				}
-				uniqueCaps[cap] = id
+				uniqueCaps[regCap.Capability] = id
 			}
 			registerCap := RegisteredCapability{
-				CapabilitiesRegistryCapability: cap,
 				ID:                             id,
+				Config:                         regCap.Config,
+				CapabilitiesRegistryCapability: regCap.Capability,
 			}
-			lggr.Debugw("hashed capability id", "capability", cap, "id", id)
+			lggr.Debugw("hashed capability id", "capability", regCap, "id", id)
 			registerCaps = append(registerCaps, registerCap)
 		}
 		resp.DonToCapabilities[don] = registerCaps
 	}
 
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
-	for cap := range uniqueCaps {
-		capabilities = append(capabilities, cap)
+	for uniqueCap := range uniqueCaps {
+		capabilities = append(capabilities, uniqueCap)
 	}
 	if len(capabilities) == 0 {
 		lggr.Warn("no new capabilities to register")
 		return &RegisterCapabilitiesResponse{}, nil
 	}
-	// not using mcms; ignore proposals
-	_, err = AddCapabilities(lggr, &contracts, registryChain, capabilities, false)
+
+	ops, err := AddCapabilities(lggr, contracts.CapabilitiesRegistry, registryChain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
+
+	resp.Ops = ops
+
 	return resp, nil
 }
 
@@ -504,10 +510,12 @@ type RegisterNOPSRequest struct {
 	Env                   *deployment.Environment
 	RegistryChainSelector uint64
 	Nops                  []capabilities_registry.CapabilitiesRegistryNodeOperator
+	UseMCMS               bool
 }
 
 type RegisterNOPSResponse struct {
 	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	Ops  *timelock.BatchChainOperation
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -545,11 +553,23 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 		lggr.Debug("no new node operators to register")
 		return resp, nil
 	}
+
+	if req.UseMCMS {
+		ops, err := addNOPsMCMSProposal(registry, nops, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add node operators: %w", err)
+		}
+
+		resp.Ops = ops
+		return resp, nil
+	}
+
 	tx, err := registry.AddNodeOperators(registryChain.DeployerKey, nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
+
 	// for some reason that i don't understand, the confirm must be called before the WaitMined or the latter will hang
 	// (at least for a simulated backend chain)
 	_, err = registryChain.Confirm(tx)
@@ -575,39 +595,23 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func DefaultCapConfig(capType uint8, nNodes int) *capabilitiespb.CapabilityConfig {
-	switch capType {
-	// TODO: use the enum defined in ??
-	case uint8(0): // trigger
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
-				RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-					RegistrationRefresh: durationpb.New(20 * time.Second),
-					RegistrationExpiry:  durationpb.New(60 * time.Second),
-					// F + 1; assuming n = 3f+1
-					MinResponsesToAggregate: uint32(nNodes/3) + 1,
-				},
-			},
-		}
-	case uint8(2): // consensus
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
-	case uint8(3): // target
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-			RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTargetConfig{
-				RemoteTargetConfig: &capabilitiespb.RemoteTargetConfig{
-					RequestHashExcludedAttributes: []string{"signed_report.Signatures"}, // TODO: const defn in a common place
-				},
-			},
-		}
-	default:
-		return &capabilitiespb.CapabilityConfig{
-			DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
-		}
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodeOperators(deployment.SimTransactOpts(), nops)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
+	}, nil
 }
 
 // register nodes
@@ -618,9 +622,11 @@ type RegisterNodesRequest struct {
 	DonToNodes            map[string][]deployment.Node
 	DonToCapabilities     map[string][]RegisteredCapability
 	Nops                  []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
+	UseMCMS               bool
 }
 type RegisterNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
+	Ops            *timelock.BatchChainOperation
 }
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
@@ -725,6 +731,19 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		uniqueNodeParams = append(uniqueNodeParams, v)
 	}
 	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
+
+	if req.UseMCMS {
+		ops, err := addNodesMCMSProposal(registry, uniqueNodeParams, registryChain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate proposal to add nodes: %w", err)
+		}
+
+		return &RegisterNodesResponse{
+			nodeIDToParams: nodeIDToParams,
+			Ops:            ops,
+		}, nil
+	}
+
 	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -758,8 +777,29 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	}
+
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
+	}, nil
+}
+
+// addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
+func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+	tx, err := registry.AddNodes(deployment.SimTransactOpts(), params)
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
+	}
+
+	return &timelock.BatchChainOperation{
+		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
+		Batch: []mcms.Operation{
+			{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			},
+		},
 	}, nil
 }
 
@@ -776,10 +816,12 @@ type RegisterDonsRequest struct {
 	NodeIDToP2PID     map[string][32]byte
 	DonToCapabilities map[string][]RegisteredCapability
 	DonsToRegister    []DONToRegister
+	UseMCMS           bool
 }
 
 type RegisterDonsResponse struct {
 	DonInfos map[string]capabilities_registry.CapabilitiesRegistryDONInfo
+	Ops      *timelock.BatchChainOperation
 }
 
 func sortedHash(p2pids [][32]byte) string {
@@ -815,6 +857,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
+	mcmsOps := make([]mcms.Operation, 0, len(req.DonsToRegister))
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -832,37 +875,56 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		p2pIdsToDon[p2pSortedHash] = don.Name
 
 		if _, ok := existingDONs[p2pSortedHash]; ok {
-			lggr.Debugw("don already exists, ignoring", "don", don, "p2p sorted hash", p2pSortedHash)
+			lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
 			continue
 		}
 
-		caps, ok := req.DonToCapabilities[don.Name]
+		lggr.Debugw("registering DON", "don", don.Name, "p2p sorted hash", p2pSortedHash)
+		regCaps, ok := req.DonToCapabilities[don.Name]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for DON %s", don.Name)
 		}
 		wfSupported := false
 		var cfgs []capabilities_registry.CapabilitiesRegistryCapabilityConfiguration
-		for _, cap := range caps {
-			if cap.CapabilityType == 2 { // OCR3 capability => WF supported
+		for _, regCap := range regCaps {
+			if regCap.CapabilityType == 2 { // OCR3 capability => WF supported
 				wfSupported = true
 			}
-			// TODO: accept configuration from external source for each (don,capability)
-			capCfg := DefaultCapConfig(cap.CapabilityType, len(p2pIds))
-			cfgb, err := proto.Marshal(capCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal capability config for %v: %w", cap, err)
+			if regCap.Config == nil {
+				return nil, fmt.Errorf("config not found for capability %v", regCap)
+			}
+			cfgB, capErr := proto.Marshal(regCap.Config)
+			if capErr != nil {
+				return nil, fmt.Errorf("failed to marshal config for capability %v: %w", regCap, capErr)
 			}
 			cfgs = append(cfgs, capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
-				CapabilityId: cap.ID,
-				Config:       cfgb,
+				CapabilityId: regCap.ID,
+				Config:       cfgB,
 			})
 		}
 
-		tx, err := registry.AddDON(registryChain.DeployerKey, p2pIds, cfgs, true, wfSupported, don.F)
+		txOpts := registryChain.DeployerKey
+		if req.UseMCMS {
+			txOpts = deployment.SimTransactOpts()
+		}
+
+		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
 		}
+
+		if req.UseMCMS {
+			lggr.Debugw("adding mcms op for DON", "don", don.Name)
+			op := mcms.Operation{
+				To:    registry.Address(),
+				Data:  tx.Data(),
+				Value: big.NewInt(0),
+			}
+			mcmsOps = append(mcmsOps, op)
+			continue
+		}
+
 		_, err = registryChain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm AddDON transaction %s for don %s: %w", tx.Hash().String(), don.Name, err)
@@ -870,6 +932,16 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("registered DON", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F)
 		addedDons++
 	}
+
+	if req.UseMCMS {
+		return &RegisterDonsResponse{
+			Ops: &timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
+				Batch:           mcmsOps,
+			},
+		}, nil
+	}
+
 	lggr.Debugf("Registered all DONs (new=%d), waiting for registry to update", addedDons)
 
 	// occasionally the registry does not return the expected number of DONS immediately after the txns above
@@ -906,6 +978,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		lggr.Debugw("adding don info to the response (keyed by DON name)", "don", donName)
 		resp.DonInfos[donName] = donInfos[i]
 	}
+
 	return &resp, nil
 }
 

@@ -16,10 +16,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -27,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")
@@ -338,7 +336,7 @@ type Database struct {
 	DefaultIdleInTxSessionTimeout *commonconfig.Duration
 	DefaultLockTimeout            *commonconfig.Duration
 	DefaultQueryTimeout           *commonconfig.Duration
-	Dialect                       pgcommon.DialectName `toml:"-"`
+	DriverName                    string `toml:"-"`
 	LogQueries                    *bool
 	MaxIdleConns                  *int64
 	MaxOpenConns                  *int64
@@ -1327,12 +1325,16 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
+	Protocol             *config.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
+	if v := f.Protocol; v != nil {
+		m.Protocol = v
+	}
 	if v := f.TransmitQueueMaxSize; v != nil {
 		m.TransmitQueueMaxSize = v
 	}
@@ -1431,6 +1433,28 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+type EngineExecutionRateLimit struct {
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
+}
+
+func (eerl *EngineExecutionRateLimit) setFrom(f *EngineExecutionRateLimit) {
+	if f.GlobalRPS != nil {
+		eerl.GlobalRPS = f.GlobalRPS
+	}
+	if f.GlobalBurst != nil {
+		eerl.GlobalBurst = f.GlobalBurst
+	}
+	if f.PerSenderRPS != nil {
+		eerl.PerSenderRPS = f.PerSenderRPS
+	}
+	if f.PerSenderBurst != nil {
+		eerl.PerSenderBurst = f.PerSenderBurst
+	}
+}
+
 type ExternalRegistry struct {
 	Address   *string
 	NetworkID *string
@@ -1452,9 +1476,12 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 }
 
 type WorkflowRegistry struct {
-	Address   *string
-	NetworkID *string
-	ChainID   *string
+	Address                 *string
+	NetworkID               *string
+	ChainID                 *string
+	MaxBinarySize           *utils.FileSize
+	MaxEncryptedSecretsSize *utils.FileSize
+	MaxConfigSize           *utils.FileSize
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1468,6 +1495,18 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+
+	if f.MaxBinarySize != nil {
+		r.MaxBinarySize = f.MaxBinarySize
+	}
+
+	if f.MaxEncryptedSecretsSize != nil {
+		r.MaxEncryptedSecretsSize = f.MaxEncryptedSecretsSize
+	}
+
+	if f.MaxConfigSize != nil {
+		r.MaxConfigSize = f.MaxConfigSize
 	}
 }
 
@@ -1557,14 +1596,16 @@ type ConnectorGateway struct {
 }
 
 type Capabilities struct {
-	Peering          P2P              `toml:",omitempty"`
-	Dispatcher       Dispatcher       `toml:",omitempty"`
-	ExternalRegistry ExternalRegistry `toml:",omitempty"`
-	WorkflowRegistry WorkflowRegistry `toml:",omitempty"`
-	GatewayConnector GatewayConnector `toml:",omitempty"`
+	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
+	Peering          P2P                      `toml:",omitempty"`
+	Dispatcher       Dispatcher               `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
+	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
+	GatewayConnector GatewayConnector         `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
+	c.RateLimit.setFrom(&f.RateLimit)
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)

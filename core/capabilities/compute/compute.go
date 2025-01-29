@@ -197,7 +197,10 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 	computeWASMInit.WithLabelValues(requestMetadata.WorkflowID, requestMetadata.ReferenceID).Observe(float64(initDuration))
 
 	m := &module{module: mod}
-	c.modules.add(id, m)
+	err = c.modules.add(id, m)
+	if err != nil {
+		c.log.Warnf("failed to add module to cache: %s", err.Error())
+	}
 	return m, nil
 }
 
@@ -357,12 +360,33 @@ func (c *Compute) createFetcher() func(ctx context.Context, req *wasmpb.FetchReq
 }
 
 const (
-	defaultNumWorkers = 3
+	defaultNumWorkers      = 3
+	defaultMaxMemoryMBs    = 128
+	defaultMaxTickInterval = 100 * time.Millisecond
+	defaultMaxTimeout      = 10 * time.Second
 )
 
 type Config struct {
 	webapi.ServiceConfig
-	NumWorkers int
+	NumWorkers      int
+	MaxMemoryMBs    uint64
+	MaxTimeout      time.Duration
+	MaxTickInterval time.Duration
+}
+
+func (c *Config) ApplyDefaults() {
+	if c.NumWorkers == 0 {
+		c.NumWorkers = defaultNumWorkers
+	}
+	if c.MaxMemoryMBs == 0 {
+		c.MaxMemoryMBs = defaultMaxMemoryMBs
+	}
+	if c.MaxTimeout == 0 {
+		c.MaxTimeout = defaultMaxTimeout
+	}
+	if c.MaxTickInterval == 0 {
+		c.MaxTickInterval = defaultMaxTickInterval
+	}
 }
 
 func NewAction(
@@ -373,9 +397,7 @@ func NewAction(
 	idGenerator func() string,
 	opts ...func(*Compute),
 ) (*Compute, error) {
-	if config.NumWorkers == 0 {
-		config.NumWorkers = defaultNumWorkers
-	}
+	config.ApplyDefaults()
 	metricsLabeler, err := newComputeMetricsLabeler(metrics.NewLabeler().With("capability", CapabilityIDCompute))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create compute metrics labeler: %w", err)
@@ -390,11 +412,11 @@ func NewAction(
 			metrics:                  metricsLabeler,
 			registry:                 registry,
 			modules:                  newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-			transformer:              NewTransformer(lggr, labeler),
+			transformer:              NewTransformer(lggr, labeler, config),
 			outgoingConnectorHandler: handler,
 			idGenerator:              idGenerator,
 			queue:                    make(chan request),
-			numWorkers:               defaultNumWorkers,
+			numWorkers:               config.NumWorkers,
 		}
 	)
 

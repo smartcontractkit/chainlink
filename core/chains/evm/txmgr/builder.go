@@ -9,20 +9,24 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/clientwrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type latestAndFinalizedBlockHeadTracker interface {
-	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *types.Head, err error)
 }
 
 // NewTxm constructs the necessary dependencies for the EvmTxm (broadcaster, confirmer, etc) and returns a new EvmTxManager
@@ -40,6 +44,7 @@ func NewTxm(
 	keyStore keystore.Eth,
 	estimator gas.EvmFeeEstimator,
 	headTracker latestAndFinalizedBlockHeadTracker,
+	txmv2wrapper TxManager,
 ) (txm TxManager,
 	err error,
 ) {
@@ -67,7 +72,7 @@ func NewTxm(
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker, evmFinalizer)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker, evmFinalizer, txmv2wrapper)
 	return txm, nil
 }
 
@@ -87,8 +92,59 @@ func NewEvmTxm(
 	resender *Resender,
 	tracker *Tracker,
 	finalizer Finalizer,
+	txmv2wrapper TxManager,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, finalizer, client.NewTxError)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, finalizer, client.NewTxError, txmv2wrapper)
+}
+
+func NewTxmV2(
+	ds sqlutil.DataSource,
+	chainConfig ChainConfig,
+	fCfg FeeConfig,
+	txConfig config.Transactions,
+	txmV2Config config.TransactionManagerV2,
+	client client.Client,
+	lggr logger.Logger,
+	logPoller logpoller.LogPoller,
+	keyStore keystore.Eth,
+	estimator gas.EvmFeeEstimator,
+) (TxManager, error) {
+	var fwdMgr *forwarders.FwdMgr
+	if txConfig.ForwardersEnabled() {
+		fwdMgr = forwarders.NewFwdMgr(ds, client, logPoller, lggr, chainConfig)
+	} else {
+		lggr.Info("ForwarderManager: Disabled")
+	}
+
+	chainID := client.ConfiguredChainID()
+
+	var stuckTxDetector txm.StuckTxDetector
+	if txConfig.AutoPurge().Enabled() {
+		stuckTxDetectorConfig := txm.StuckTxDetectorConfig{
+			BlockTime:             *txmV2Config.BlockTime(),
+			StuckTxBlockThreshold: *txConfig.AutoPurge().Threshold(),
+			DetectionURL:          txConfig.AutoPurge().DetectionApiUrl().String(),
+		}
+		stuckTxDetector = txm.NewStuckTxDetector(lggr, chainConfig.ChainType(), stuckTxDetectorConfig)
+	}
+
+	attemptBuilder := txm.NewAttemptBuilder(chainID, fCfg.PriceMaxKey, estimator, keyStore)
+	inMemoryStoreManager := storage.NewInMemoryStoreManager(lggr, chainID)
+	config := txm.Config{
+		EIP1559:   fCfg.EIP1559DynamicFees(),
+		BlockTime: *txmV2Config.BlockTime(),
+		//nolint:gosec // reuse existing config until migration
+		RetryBlockThreshold: uint16(fCfg.BumpThreshold()),
+		EmptyTxLimitDefault: fCfg.LimitDefault(),
+	}
+	var c txm.Client
+	if txmV2Config.DualBroadcast() != nil && *txmV2Config.DualBroadcast() {
+		c = clientwrappers.NewDualBroadcastClient(client, keyStore, txmV2Config.CustomURL())
+	} else {
+		c = clientwrappers.NewChainClient(client)
+	}
+	t := txm.NewTxm(lggr, chainID, c, attemptBuilder, inMemoryStoreManager, stuckTxDetector, config, keyStore)
+	return txm.NewTxmOrchestrator(lggr, chainID, t, inMemoryStoreManager, fwdMgr, keyStore, attemptBuilder), nil
 }
 
 // NewEvmResender creates a new concrete EvmResender
@@ -123,7 +179,7 @@ func NewEvmConfirmer(
 	stuckTxDetector StuckTxDetector,
 	headTracker latestAndFinalizedBlockHeadTracker,
 ) *Confirmer {
-	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil }, stuckTxDetector)
+	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector)
 }
 
 // NewEvmTracker instantiates a new EVM tracker for abandoned transactions
@@ -133,7 +189,7 @@ func NewEvmTracker(
 	chainID *big.Int,
 	lggr logger.Logger,
 ) *Tracker {
-	return txmgr.NewTracker[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt](txStore, keyStore, chainID, lggr)
+	return txmgr.NewTracker[*big.Int, common.Address, common.Hash, common.Hash, *types.Receipt](txStore, keyStore, chainID, lggr)
 }
 
 // NewEvmBroadcaster returns a new concrete EvmBroadcaster

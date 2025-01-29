@@ -17,8 +17,3 @@ PriceMin = '25 gwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 24
-
-[HeadTracker]
-# FinalityDepth < 1k => FinalityTagBypass = false
-# https://smartcontract-it.atlassian.net/browse/SHIP-4078
-FinalityTagBypass = false

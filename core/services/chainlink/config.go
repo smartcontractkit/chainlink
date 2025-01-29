@@ -16,12 +16,12 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // Config is the root type used for TOML configuration.
@@ -37,7 +37,7 @@ import (
 type Config struct {
 	toml.Core
 
-	EVM evmcfg.EVMConfigs `toml:",omitempty"`
+	EVM configtoml.EVMConfigs `toml:",omitempty"`
 
 	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
@@ -304,9 +304,9 @@ func (c *Config) setDefaults() {
 
 	for i := range c.EVM {
 		if input := c.EVM[i]; input == nil {
-			c.EVM[i] = &evmcfg.EVMConfig{Chain: evmcfg.Defaults(nil)}
+			c.EVM[i] = &configtoml.EVMConfig{Chain: configtoml.Defaults(nil)}
 		} else {
-			input.Chain = evmcfg.Defaults(input.ChainID, &input.Chain)
+			input.Chain = configtoml.Defaults(input.ChainID, &input.Chain)
 		}
 	}
 
