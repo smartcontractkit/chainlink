@@ -803,7 +803,7 @@ func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
 	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
 	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
 		feeQuoter := state.Chains[selector].FeeQuoter
-		destChainCfg := changeset.DefaultFeeQuoterDestChainConfig()
+		destChainCfg := changeset.DefaultFeeQuoterDestChainConfig(true)
 		//nolint:gosec // disable G115
 		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
 		//nolint:gosec // disable G115

@@ -14,14 +14,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/evm/keystore"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore, keystore.Eth, []common.Address) {
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	chainID := big.NewInt(0)

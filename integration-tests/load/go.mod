@@ -14,9 +14,9 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250120230622-566643da09fd
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20241212011003-de1a8f5e5b42
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250113180450-c33ab50ac8c0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250128231431-9279badae2f0
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250128231431-9279badae2f0
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250128231431-9279badae2f0
 )
 
 require (
@@ -28,7 +28,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.36
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128162345-af4c8fd4481a
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250128193522-bdbfcc588847
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250127125541-a8fa42cc0f36
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.21
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10

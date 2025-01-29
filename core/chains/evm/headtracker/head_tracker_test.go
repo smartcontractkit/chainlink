@@ -35,8 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
@@ -56,7 +54,7 @@ func firstHead(t *testing.T, db *sqlx.DB) *evmtypes.Head {
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), nil)
 	// finalized
@@ -87,7 +85,7 @@ func TestHeadTracker_New(t *testing.T) {
 func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.HeadTracker.HistoryDepth = ptr[uint32](100)
 	})
@@ -137,7 +135,7 @@ func TestHeadTracker_Get(t *testing.T) {
 	for i := range cases {
 		test := cases[i]
 		t.Run(test.name, func(t *testing.T) {
-			db := pgtest.NewSqlxDB(t)
+			db := testutils.NewSqlxDB(t)
 			config := testutils.NewTestChainScopedConfig(t, nil)
 			orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
@@ -185,7 +183,7 @@ func TestHeadTracker_Get(t *testing.T) {
 func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
@@ -238,10 +236,10 @@ func TestHeadTracker_Start(t *testing.T) {
 			}
 		})
 		if opts.ORM == nil {
-			db := pgtest.NewSqlxDB(t)
+			db := testutils.NewSqlxDB(t)
 			opts.ORM = headtracker.NewORM(*testutils.FixtureChainID, db)
 		}
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		mockEth := &clienttest.MockEth{EthClient: ethClient}
 		sub := mockEth.NewSub(t)
 		ethClient.On("SubscribeToHeads", mock.Anything, mock.Anything).Return(nil, sub, nil).Maybe()
@@ -354,7 +352,7 @@ func TestHeadTracker_Start(t *testing.T) {
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
@@ -392,7 +390,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
@@ -429,7 +427,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
@@ -475,7 +473,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
@@ -540,7 +538,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.FinalityDepth = ptr[uint32](50)
@@ -661,7 +659,7 @@ func assertChainWithParents(t testing.TB, blocks *blocks, startBN, endBN uint64,
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		c.FinalityDepth = ptr[uint32](50)
@@ -798,7 +796,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	t.Parallel()
 	t.Run("Enabled Persistence", func(t *testing.T) {
 		testHeadTrackerBackfill(t, func(t *testing.T) headtracker.ORM {
-			db := pgtest.NewSqlxDB(t)
+			db := testutils.NewSqlxDB(t)
 			return headtracker.NewORM(*testutils.FixtureChainID, db)
 		})
 	})
@@ -1156,12 +1154,12 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 			c.FinalityDepth = ptr(opts.FinalityDepth)
 		})
 
-		db := pgtest.NewSqlxDB(t)
+		db := testutils.NewSqlxDB(t)
 		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 		for i := range opts.Heads {
 			require.NoError(t, orm.IdempotentInsertHead(tests.Context(t), opts.Heads[i]))
 		}
-		ethClient := evmtest.NewEthClientMock(t)
+		ethClient := clienttest.NewClient(t)
 		ethClient.On("ConfiguredChainID", mock.Anything).Return(testutils.FixtureChainID, nil)
 		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
 		_, err := ht.headSaver.Load(tests.Context(t), 0)

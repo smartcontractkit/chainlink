@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {WorkflowRegistryManagerSetup} from "./WorkflowRegistryManagerSetup.t.sol";
 // import {MockWorkflowRegistryContract} from "../../mocks/MockWorkflowRegistryContract.sol";
-import {WorkflowRegistryManager} from "../../dev/WorkflowRegistryManager.sol";
+import {WorkflowRegistryManager} from "../../WorkflowRegistryManager.sol";
 
 contract WorkflowRegistryManager_getVersion is WorkflowRegistryManagerSetup {
   function test_WhenVersionNumberIsNotRegistered() external {
