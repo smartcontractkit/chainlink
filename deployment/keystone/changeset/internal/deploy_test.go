@@ -377,19 +377,17 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			})
-			registry = setupResp.Registry
-			chain    = setupResp.Chain
-			useMCMS  = true
+			regContract = setupResp.Registry
 		)
 
 		env := &deployment.Environment{
 			Logger: lggr,
 			Chains: map[uint64]deployment.Chain{
-				chain.Selector: chain,
+				setupResp.Chain.Selector: setupResp.Chain,
 			},
 			ExistingAddresses: deployment.NewMemoryAddressBookFromMap(map[uint64]map[string]deployment.TypeAndVersion{
-				chain.Selector: {
-					registry.Address().String(): deployment.TypeAndVersion{
+				setupResp.Chain.Selector: {
+					regContract.Address().String(): deployment.TypeAndVersion{
 						Type:    internal.CapabilitiesRegistry,
 						Version: deployment.Version1_0_0,
 					},
@@ -398,7 +396,7 @@ func Test_RegisterDons(t *testing.T) {
 		}
 		resp, err := internal.RegisterDons(lggr, internal.RegisterDonsRequest{
 			Env:                   env,
-			RegistryChainSelector: chain.Selector,
+			RegistryChainSelector: setupResp.Chain.Selector,
 			DonToCapabilities: map[string][]internal.RegisteredCapability{
 				"test-don": {},
 			},
@@ -408,7 +406,7 @@ func Test_RegisterDons(t *testing.T) {
 					F:    1,
 				},
 			},
-			UseMCMS: useMCMS,
+			UseMCMS: true,
 		})
 		require.NoError(t, err)
 		require.Nil(t, resp.Ops)
