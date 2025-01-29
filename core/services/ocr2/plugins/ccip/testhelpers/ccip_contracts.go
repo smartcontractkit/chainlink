@@ -23,14 +23,12 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
@@ -52,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var (
@@ -75,6 +74,8 @@ var (
 	SourceChainSelector = uint64(11787463284727550157)
 	DestChainID         = uint64(1337)
 	DestChainSelector   = uint64(3379446385462418246)
+
+	TokenDecimals = uint8(18)
 )
 
 // Backwards compat, in principle these statuses are version dependent
@@ -147,20 +148,20 @@ func (c ExecOffchainConfig) Encode() ([]byte, error) {
 }
 
 func NewExecOffchainConfig(
-	DestOptimisticConfirmations uint32,
-	BatchGasLimit uint32,
-	RelativeBoostPerWaitHour float64,
-	InflightCacheExpiry config.Duration,
-	RootSnoozeTime config.Duration,
-	BatchingStrategyID uint32,
+	destOptimisticConfirmations uint32,
+	batchGasLimit uint32,
+	relativeBoostPerWaitHour float64,
+	inflightCacheExpiry config.Duration,
+	rootSnoozeTime config.Duration,
+	batchingStrategyID uint32, // 0 = Standard, 1 = Out of Order
 ) ExecOffchainConfig {
 	return ExecOffchainConfig{v1_2_0.JSONExecOffchainConfig{
-		DestOptimisticConfirmations: DestOptimisticConfirmations,
-		BatchGasLimit:               BatchGasLimit,
-		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
-		InflightCacheExpiry:         InflightCacheExpiry,
-		RootSnoozeTime:              RootSnoozeTime,
-		BatchingStrategyID:          BatchingStrategyID,
+		DestOptimisticConfirmations: destOptimisticConfirmations,
+		BatchGasLimit:               batchGasLimit,
+		RelativeBoostPerWaitHour:    relativeBoostPerWaitHour,
+		InflightCacheExpiry:         inflightCacheExpiry,
+		RootSnoozeTime:              rootSnoozeTime,
+		BatchingStrategyID:          batchingStrategyID,
 	}}
 }
 

@@ -1,0 +1,16 @@
+ChainID = '133'
+ChainType = 'optimismBedrock'
+FinalityTagEnabled = true
+LinkContractAddress = '0x8418c4d7e8e17ab90232DC72150730E6c4b84F57'
+
+[GasEstimator]
+PriceMax = '1000 gwei'
+FeeCapDefault = '1000 gwei'
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '8s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

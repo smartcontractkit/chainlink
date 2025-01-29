@@ -8,20 +8,19 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestLogPollerClient_GetSendRequestsBetweenSeqNumsV1_2_0(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)
-	lggr := logger.Test(t)
+	lggr := logger.TestLogger(t)
 
 	tests := []struct {
 		name          string

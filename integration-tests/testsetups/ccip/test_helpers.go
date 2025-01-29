@@ -9,9 +9,16 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+	"github.com/subosito/gotenv"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/credentials/insecure"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
@@ -27,18 +34,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/require"
-	"github.com/subosito/gotenv"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/credentials/insecure"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -46,24 +42,36 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	integrationnodes "github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker
 type DeployedLocalDevEnvironment struct {
-	changeset.DeployedEnv
-	testEnv       *test_env.CLClusterTestEnv
-	DON           *devenv.DON
-	devEnvTestCfg tc.TestConfig
-	devEnvCfg     *devenv.EnvironmentConfig
+	testhelpers.DeployedEnv
+	testEnv         *test_env.CLClusterTestEnv
+	DON             *devenv.DON
+	GenericTCConfig *testhelpers.TestConfigs
+	devEnvTestCfg   tc.TestConfig
+	devEnvCfg       *devenv.EnvironmentConfig
 }
 
-func (l *DeployedLocalDevEnvironment) DeployedEnvironment() changeset.DeployedEnv {
+func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
 	return l.DeployedEnv
 }
 
-func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.TestConfigs) {
+func (l *DeployedLocalDevEnvironment) UpdateDeployedEnvironment(env testhelpers.DeployedEnv) {
+	l.DeployedEnv = env
+}
+
+func (l *DeployedLocalDevEnvironment) TestConfigs() *testhelpers.TestConfigs {
+	return l.GenericTCConfig
+}
+
+func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testcontext.Get(t)
 	envConfig, testEnv, cfg := CreateDockerEnv(t)
@@ -82,7 +90,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.Tes
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := changeset.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
@@ -91,7 +99,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T, _ *changeset.Tes
 	l.DeployedEnv.ReplayBlocks = replayBlocks
 }
 
-func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, _ *changeset.TestConfigs, crConfig deployment.CapabilityRegistryConfig) {
+func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, l.testEnv, "docker env is empty, start chains first")
 	require.NotEmpty(t, l.devEnvTestCfg, "integration test config is empty, start chains first")
 	require.NotNil(t, l.devEnvCfg, "dev environment config is empty, start chains first")
@@ -143,8 +151,8 @@ func (l *DeployedLocalDevEnvironment) RestartChainlinkNodes(t *testing.T) error 
 // if CCIP_V16_TEST_ENV is set to 'docker', it creates a docker environment with test config provided under testconfig/ccip/ccip.toml
 // It also creates a RMN cluster if the test config has RMN enabled
 // It returns the deployed environment and RMN cluster ( in case of RMN enabled)
-func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changeset.DeployedEnv, devenv.RMNCluster) {
-	testCfg := changeset.DefaultTestConfigs()
+func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testhelpers.DeployedEnv, devenv.RMNCluster, testhelpers.TestEnvironment) {
+	testCfg := testhelpers.DefaultTestConfigs()
 	for _, opt := range opts {
 		opt(testCfg)
 	}
@@ -152,18 +160,21 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 	testCfg.MustSetEnvTypeOrDefault(t)
 	require.NoError(t, testCfg.Validate(), "invalid test config")
 	switch testCfg.Type {
-	case changeset.Memory:
-		memEnv := changeset.NewMemoryEnvironment(t, opts...)
-		return memEnv, devenv.RMNCluster{}
-	case changeset.Docker:
-		dockerEnv := &DeployedLocalDevEnvironment{}
-		if testCfg.LegacyDeployment {
-			deployedEnv := changeset.NewLegacyEnvironment(t, testCfg, dockerEnv)
+	case testhelpers.Memory:
+		dEnv, memEnv := testhelpers.NewMemoryEnvironment(t, opts...)
+		return dEnv, devenv.RMNCluster{}, memEnv
+	case testhelpers.Docker:
+		dockerEnv := &DeployedLocalDevEnvironment{
+			GenericTCConfig: testCfg,
+		}
+		if testCfg.PrerequisiteDeploymentOnly {
+			deployedEnv := testhelpers.NewEnvironmentWithPrerequisitesContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.RMNEnabled {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
 			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
@@ -178,25 +189,29 @@ func NewIntegrationEnvironment(t *testing.T, opts ...changeset.TestOps) (changes
 				dockerEnv.devEnvTestCfg.CCIP.RMNConfig.GetAFN2ProxyVersion(),
 			)
 			require.NoError(t, err)
-			return deployedEnv, *rmnCluster
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, *rmnCluster, dockerEnv
 		}
 		if testCfg.CreateJobAndContracts {
-			deployedEnv := changeset.NewEnvironmentWithJobsAndContracts(t, testCfg, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
 		if testCfg.CreateJob {
-			deployedEnv := changeset.NewEnvironmentWithJobs(t, testCfg, dockerEnv)
+			deployedEnv := testhelpers.NewEnvironmentWithJobs(t, dockerEnv)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			return deployedEnv, devenv.RMNCluster{}
+			dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+			return deployedEnv, devenv.RMNCluster{}, dockerEnv
 		}
-		deployedEnv := changeset.NewEnvironment(t, testCfg, dockerEnv)
+		deployedEnv := testhelpers.NewEnvironment(t, dockerEnv)
 		require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-		return deployedEnv, devenv.RMNCluster{}
+		dockerEnv.UpdateDeployedEnvironment(deployedEnv)
+		return deployedEnv, devenv.RMNCluster{}, dockerEnv
 	default:
-		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), changeset.Memory, changeset.Docker)
+		require.Failf(t, "Type %s not supported in integration tests choose between %s and %s", string(testCfg.Type), testhelpers.Memory, testhelpers.Docker)
 	}
-	return changeset.DeployedEnv{}, devenv.RMNCluster{}
+	return testhelpers.DeployedEnv{}, devenv.RMNCluster{}, nil
 }
 
 func MustNetworksToRPCMap(evmNetworks []*blockchain.EVMNetwork) map[uint64]string {
@@ -227,7 +242,7 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv changeset.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
@@ -639,8 +654,16 @@ func CreateChainConfigFromNetworks(
 			ChainID:   chainId,
 			ChainName: chainName,
 			ChainType: "EVM",
-			WSRPCs:    cd.wsRPCs,
-			HTTPRPCs:  cd.httpRPCs,
+			WSRPCs: []devenv.CribRPCs{
+				{
+					External: cd.wsRPCs[0],
+				},
+			},
+			HTTPRPCs: []devenv.CribRPCs{
+				{
+					Internal: cd.httpRPCs[0],
+				},
+			},
 		}
 		var pvtKey *string
 		// if private keys are provided, use the first private key as deployer key
@@ -695,4 +718,19 @@ func SetNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonChain string,
 	}
 	tomlStr, err := tomlCfg.TOMLString()
 	return tomlCfg, tomlStr, err
+}
+
+func GetSourceDestPairs(chains []uint64) []testhelpers.SourceDestPair {
+	var pairs []testhelpers.SourceDestPair
+	for i, src := range chains {
+		for j, dest := range chains {
+			if i != j {
+				pairs = append(pairs, testhelpers.SourceDestPair{
+					SourceChainSelector: src,
+					DestChainSelector:   dest,
+				})
+			}
+		}
+	}
+	return pairs
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {WorkflowRegistry} from "../../dev/WorkflowRegistry.sol";
+import {WorkflowRegistry} from "../../WorkflowRegistry.sol";
 import {WorkflowRegistrySetup} from "./WorkflowRegistrySetup.t.sol";
 
 contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
@@ -56,6 +56,22 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
   }
 
   // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
+  function test_RevertWhen_TheWorkflowNameIsEmpty() external {
+    vm.prank(s_authorizedAddress);
+
+    vm.expectRevert(WorkflowRegistry.WorkflowNameRequired.selector);
+    s_registry.registerWorkflow(
+      "",
+      s_validWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      s_validBinaryURL,
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
   function test_RevertWhen_TheWorkflowNameIsTooLong() external {
     vm.prank(s_authorizedAddress);
 
@@ -69,6 +85,22 @@ contract WorkflowRegistry_registerWorkflow is WorkflowRegistrySetup {
       s_allowedDonID,
       WorkflowRegistry.WorkflowStatus.ACTIVE,
       s_validBinaryURL,
+      s_validConfigURL,
+      s_validSecretsURL
+    );
+  }
+
+  // whenTheCallerIsAnAuthorizedAddress whenTheRegistryIsNotLocked whenTheDonIDIsAllowed
+  function test_RevertWhen_TheBinaryURLIsEmpty() external {
+    vm.prank(s_authorizedAddress);
+
+    vm.expectRevert(WorkflowRegistry.BinaryURLRequired.selector);
+    s_registry.registerWorkflow(
+      s_validWorkflowName,
+      s_validWorkflowID,
+      s_allowedDonID,
+      WorkflowRegistry.WorkflowStatus.ACTIVE,
+      "",
       s_validConfigURL,
       s_validSecretsURL
     );

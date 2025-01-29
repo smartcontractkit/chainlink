@@ -17,13 +17,11 @@ with pkgs; let
       inherit name;
       url = "https://github.com/anza-xyz/agave/releases/download/${version}/${filename}";
 
-      nativeBuildInputs = [
-        autoPatchelfHook
-      ];
+      nativeBuildInputs = lib.optionals stdenv.isLinux [ autoPatchelfHook ];
 
-      autoPatchelfIgnoreMissingDeps = true;
+      autoPatchelfIgnoreMissingDeps = stdenv.isLinux;
 
-      buildInputs = with pkgs; [stdenv.cc.cc.libgcc stdenv.cc.cc.lib] ++ lib.optionals stdenv.isLinux [ libudev-zero ];
+      buildInputs = with pkgs; [stdenv.cc.cc.lib] ++ lib.optionals stdenv.isLinux [ stdenv.cc.cc.libgcc libudev-zero ];
 
       src = pkgs.fetchzip {
         inherit url sha256;
@@ -101,7 +99,7 @@ in
       ] ++ lib.optionals isCrib [
         nur.repos.goreleaser.goreleaser-pro
         patchelf
-      ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64) [
+      ] ++ pkgs.lib.optionals (pkgs.stdenv.isDarwin && pkgs.stdenv.hostPlatform.isAarch64 && !isCrib) [
         solanaBinaries.aarch64-apple-darwin
       ];
 
@@ -111,11 +109,10 @@ in
           echo "GORELEASER_KEY must be set in CRIB environments. You can find it in our 1p vault under 'goreleaser-pro-license'."
           exit 1
         fi
-        ${if stdenv.isDarwin then "source ./nix-darwin-shell-hook.sh" else ""}
+        ${if stdenv.isDarwin then "source $(git rev-parse --show-toplevel)/nix-darwin-shell-hook.sh" else ""}
       ''}
     '';
 
-    GOROOT = "${go}/share/go";
     PGDATA = "db";
     CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
   }

@@ -18,13 +18,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 type (

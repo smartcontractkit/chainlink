@@ -62,7 +62,9 @@ func setup(t *testing.T, config Config) testHarness {
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
-	compute, err := NewAction(config, log, registry, connectorHandler, idGeneratorFn)
+	fetchFactory, err := NewOutgoingConnectorFetcherFactory(connectorHandler, idGeneratorFn)
+	require.NoError(t, err)
+	compute, err := NewAction(config, log, registry, fetchFactory)
 	require.NoError(t, err)
 	compute.modules.clock = clockwork.NewFakeClock()
 
@@ -91,7 +93,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -134,7 +136,7 @@ func TestComputeExecute(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, binaryLocation, true, t)
+	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),

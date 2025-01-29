@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,10 +21,12 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -31,13 +34,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -71,14 +73,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+const HeartbeatPeriod = time.Second
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -190,6 +197,62 @@ type ApplicationOpts struct {
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
+	FetcherFunc                syncer.FetcherFunc
+	FetcherFactoryFn           compute.FetcherFactory
+}
+
+type Heartbeat struct {
+	commonservices.Service
+	eng *commonservices.Engine
+
+	beat time.Duration
+}
+
+func NewHeartbeat(lggr logger.Logger) Heartbeat {
+	h := Heartbeat{
+		beat: HeartbeatPeriod,
+	}
+	h.Service, h.eng = commonservices.Config{
+		Name:  "Heartbeat",
+		Start: h.start,
+	}.NewServiceEngine(lggr)
+	return h
+}
+
+func (h *Heartbeat) start(_ context.Context) error {
+	// Setup beholder resources
+	gauge, err := beholder.GetMeter().Int64Gauge("heartbeat")
+	if err != nil {
+		return err
+	}
+	count, err := beholder.GetMeter().Int64Gauge("heartbeat_count")
+	if err != nil {
+		return err
+	}
+
+	cme := custmsg.NewLabeler()
+
+	// Define tick functions
+	beatFn := func(ctx context.Context) {
+		// TODO allow override of tracer provider into engine for beholder
+		_, innerSpan := beholder.GetTracer().Start(ctx, "heartbeat.beat")
+		defer innerSpan.End()
+
+		gauge.Record(ctx, 1)
+		count.Record(ctx, 1)
+
+		err = cme.Emit(ctx, "heartbeat")
+		if err != nil {
+			h.eng.Errorw("heartbeat emit failed", "err", err)
+		}
+	}
+
+	h.eng.GoTick(timeutil.NewTicker(h.getBeat), beatFn)
+	return nil
+}
+
+func (h *Heartbeat) getBeat() time.Duration {
+	return h.beat
 }
 
 // NewApplication initializes a new store if one is not already
@@ -199,6 +262,10 @@ type ApplicationOpts struct {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var srvcs []services.ServiceCtx
+
+	heartbeat := NewHeartbeat(opts.Logger)
+	srvcs = append(srvcs, &heartbeat)
+
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
 	relayerChainInterops := opts.RelayerChainInteroperators
@@ -212,6 +279,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
+	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
+		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
+		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
+		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),
+		PerSenderBurst: cfg.Capabilities().RateLimit().PerSenderBurst(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
@@ -283,8 +360,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
 			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
-				if gatewayConnectorWrapper == nil {
-					return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+				lggr := globalLogger.Named("WorkflowRegistrySyncer")
+				var fetcherFunc syncer.FetcherFunc
+				if opts.FetcherFunc == nil {
+					if gatewayConnectorWrapper == nil {
+						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+					}
+					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
+					fetcherFunc = fetcher.Fetch
+					srvcs = append(srvcs, fetcher)
+				} else {
+					fetcherFunc = opts.FetcherFunc
 				}
 
 				err = keyStore.Workflow().EnsureKey(context.Background())
@@ -300,12 +386,24 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
-
-				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0])
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
+					fetcherFunc,
+					workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					clockwork.NewRealClock(),
+					keys[0],
+					workflowRateLimiter,
+					syncer.WithMaxArtifactSize(
+						syncer.ArtifactConfig{
+							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
+							MaxSecretsSize: uint64(cfg.Capabilities().WorkflowRegistry().MaxEncryptedSecretsSize()),
+							MaxConfigSize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxConfigSize()),
+						},
+					),
+				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfSyncer := syncer.NewWorkflowRegistry(
@@ -321,7 +419,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					workflowDonNotifier,
 				)
 
-				srvcs = append(srvcs, fetcher, wfSyncer)
+				srvcs = append(srvcs, wfSyncer)
 			}
 		}
 	} else {
@@ -339,7 +437,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not build Beholder auth: %w", err)
 		}
-		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
+		loopRegistry = plugins.NewLoopRegistry(globalLogger, opts.Config.Database(), opts.Config.Tracing(), opts.Config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 	}
 
 	// If the audit logger is enabled
@@ -520,6 +618,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
+		workflowRateLimiter,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -564,6 +663,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		keyStore,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
+		opts.FetcherFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {
@@ -755,7 +855,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 			return multierr.Combine(err, ms.Close())
 		}
 
-		app.logger.Debugw("Starting service...", "name", service.Name())
+		app.logger.Infow("Starting service...", "name", service.Name())
 
 		if err := ms.Start(ctx, service); err != nil {
 			return err

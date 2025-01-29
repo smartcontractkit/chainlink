@@ -3,7 +3,6 @@ package types
 import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 

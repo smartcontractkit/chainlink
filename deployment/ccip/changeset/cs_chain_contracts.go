@@ -14,10 +14,12 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -31,13 +33,13 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDests
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSources
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRamps
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDests
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRamp
-	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesCS
-	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersCS
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDestsChangeset
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSourcesChangeset
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRampsChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDestsChangeset
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRampChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesChangeset
+	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -107,7 +109,7 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfig) (deployment.ChangesetOutput, error) {
+func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManagerConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -154,9 +156,6 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 				})
 			}
 			prevRampsTx, err = nm.ApplyPreviousRampsUpdates(txOpts, previousRampsArgs)
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
-			}
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error updating previous ramps for chain %s: %w", e.Chains[chainSel].String(), err)
 			}
@@ -219,7 +218,9 @@ func UpdateNonceManagersCS(e deployment.Environment, cfg UpdateNonceManagerConfi
 }
 
 type UpdateOnRampDestsConfig struct {
+	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
+
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
@@ -254,15 +255,14 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
-
+		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
+		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
-			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-			if err != nil {
-				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
 				return errors.New("cannot update onramp destination to the same chain")
@@ -272,10 +272,10 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// UpdateOnRampsDests updates the onramp destinations for each onramp
+// UpdateOnRampsDestsChangeset updates the onramp destinations for each onramp
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
-func UpdateOnRampsDests(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
+func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -428,7 +428,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 			if price == nil {
 				return fmt.Errorf("gas price for chain %d is nil", chainSel)
 			}
-			if _, ok := state.Chains[dest]; !ok {
+			if _, ok := state.SupportedChains()[dest]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", dest, chainSel)
 			}
 		}
@@ -437,7 +437,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 	return nil
 }
 
-func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
+func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -490,6 +490,8 @@ func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPrices
 					},
 				},
 			})
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
 		}
 	}
 	if cfg.MCMS == nil {
@@ -512,6 +514,7 @@ func UpdateFeeQuoterPricesCS(e deployment.Environment, cfg UpdateFeeQuoterPrices
 }
 
 type UpdateFeeQuoterDestsConfig struct {
+	// UpdatesByChain is a mapping from source -> dest -> config update.
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
@@ -559,7 +562,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
+func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -627,6 +630,8 @@ func UpdateFeeQuoterDests(e deployment.Environment, cfg UpdateFeeQuoterDestsConf
 }
 
 type UpdateOffRampSourcesConfig struct {
+	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
+	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
 	MCMS           *MCMSConfig
 }
@@ -680,8 +685,8 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-// UpdateOffRampSources updates the offramp sources for each offramp.
-func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
+// UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
+func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -702,12 +707,10 @@ func UpdateOffRampSources(e deployment.Environment, cfg UpdateOffRampSourcesConf
 		var args []offramp.OffRampSourceChainConfigArgs
 		for source, update := range updates {
 			router := common.HexToAddress("0x0")
-			if update.IsEnabled {
-				if update.TestRouter {
-					router = s.Chains[chainSel].TestRouter.Address()
-				} else {
-					router = s.Chains[chainSel].Router.Address()
-				}
+			if update.TestRouter {
+				router = s.Chains[chainSel].TestRouter.Address()
+			} else {
+				router = s.Chains[chainSel].Router.Address()
 			}
 			onRamp := s.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
@@ -792,8 +795,14 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-			return err
+		if cfg.TestRouter {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
+				return err
+			}
+		} else {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+				return err
+			}
 		}
 
 		for source := range update.OffRampUpdates {
@@ -819,23 +828,22 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			destChain := state.Chains[destination]
-			if destChain.OffRamp == nil {
-				return fmt.Errorf("missing offramp for dest %d", destination)
+			if err := state.ValidateOffRamp(destination); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-// UpdateRouterRamps updates the on/offramps
+// UpdateRouterRampsChangeset updates the on/offramps
 // in either the router or test router for a series of chains. Use cases include:
 // - Ramp upgrade. After deploying new ramps you can enable them on the test router and
 // ensure it works e2e. Then enable the ramps on the real router.
 // - New chain support. When adding a new chain, you can enable the new destination
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
-func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
+func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -933,9 +941,10 @@ func UpdateRouterRamps(e deployment.Environment, cfg UpdateRouterRampsConfig) (d
 }
 
 type SetOCR3OffRampConfig struct {
-	HomeChainSel    uint64
-	RemoteChainSels []uint64
-	MCMS            *MCMSConfig
+	HomeChainSel       uint64
+	RemoteChainSels    []uint64
+	CCIPHomeConfigType globals.ConfigType
+	MCMS               *MCMSConfig
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
@@ -946,25 +955,55 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
 	}
+	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
+		c.CCIPHomeConfigType != globals.ConfigTypeCandidate {
+		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", globals.ConfigTypeActive, globals.ConfigTypeCandidate)
+	}
 	for _, remote := range c.RemoteChainSels {
-		chainState, ok := state.Chains[remote]
-		if !ok {
-			return fmt.Errorf("remote chain %d not found in onchain state", remote)
-		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[remote].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+		if err := c.validateRemoteChain(&e, &state, remote); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, chainSelector uint64) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilySolana:
+		chainState, ok := state.SolChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+
+		// TODO: introduce interface when MCMS is ready
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+			return err
+		}
+	case chain_selectors.FamilyEVM:
+		chainState, ok := state.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported chain family %s", family)
+	}
+	return nil
+}
+
+// SetOCR3OffRampChangeset will set the OCR3 offramp for the given chain.
 // to the active configuration on CCIPHome. This
 // is used to complete the candidate->active promotion cycle, it's
 // run after the candidate is confirmed to be working correctly.
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
-func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -980,7 +1019,11 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
-		args, err := internal.BuildSetOCR3ConfigArgs(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		args, err := internal.BuildSetOCR3ConfigArgs(
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -1033,7 +1076,7 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infof("Proposing OCR3 config update for", cfg.RemoteChainSels)
+	e.Logger.Info("Proposing OCR3 config update for", cfg.RemoteChainSels)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
@@ -1042,7 +1085,7 @@ func SetOCR3OffRamp(e deployment.Environment, cfg SetOCR3OffRampConfig) (deploym
 func isOCR3ConfigSetOnOffRamp(
 	lggr logger.Logger,
 	chain deployment.Chain,
-	offRamp *offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs,
 ) (bool, error) {
 	mapOfframpOCR3Configs := make(map[cctypes.PluginType]offramp.MultiOCR3BaseOCRConfigArgs)
@@ -1099,7 +1142,9 @@ func isOCR3ConfigSetOnOffRamp(
 	return true, nil
 }
 
-func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
+// DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
+// with the config enabled/disabled based on the configEnabled flag.
+func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDestChainConfig {
 	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
 	/*
 		```Solidity
@@ -1109,13 +1154,15 @@ func DefaultFeeQuoterDestChainConfig() fee_quoter.FeeQuoterDestChainConfig {
 	*/
 	evmFamilySelector, _ := hex.DecodeString("2812d52c")
 	return fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         true,
+		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      256,
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           1,
-		DestGasPerPayloadByte:             ccipevm.CalldataGasPerByte,
+		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 		DestDataAvailabilityOverheadGas:   100,
 		DestGasPerDataAvailabilityByte:    100,
 		DestDataAvailabilityMultiplierBps: 1,

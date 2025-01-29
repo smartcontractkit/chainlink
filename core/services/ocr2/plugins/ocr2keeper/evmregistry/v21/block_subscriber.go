@@ -15,8 +15,8 @@ import (
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const (

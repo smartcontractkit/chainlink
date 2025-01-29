@@ -7,9 +7,9 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	htrktypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // HeadSaver maintains chains persisted in DB. All methods are thread-safe.

@@ -18,17 +18,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -39,13 +40,13 @@ var (
 func TestStuckTxDetector_Disabled(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	lggr := logger.Test(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	autoPurgeCfg := testAutoPurgeConfig{
 		enabled: false,
@@ -62,14 +63,14 @@ func TestStuckTxDetector_Disabled(t *testing.T) {
 func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 	blockNum := int64(100)
 
 	lggr := logger.Test(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	marketGasPrice := assets.GWei(15)
 	fee := gas.EvmFee{GasPrice: marketGasPrice}
@@ -106,14 +107,14 @@ func TestStuckTxDetector_LoadPurgeBlockNumMap(t *testing.T) {
 func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	_, config := newTestChainScopedConfig(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
 
@@ -139,7 +140,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 		var foundFromAddresses []common.Address
 		for _, stuckTx := range stuckTxs {
 			// Make sure lowest nonce tx is returned for both from addresses
-			require.Equal(t, types.Nonce(0), *stuckTx.Sequence)
+			require.Equal(t, evmtypes.Nonce(0), *stuckTx.Sequence)
 			// Make sure attempts are loaded into the tx
 			require.Len(t, stuckTx.TxAttempts, 1)
 			foundFromAddresses = append(foundFromAddresses, stuckTx.FromAddress)
@@ -184,7 +185,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
@@ -195,7 +196,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 	marketGasPrice := tenGwei
 	fee := gas.EvmFee{GasPrice: marketGasPrice}
 	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
@@ -292,7 +293,7 @@ func TestStuckTxDetector_DetectStuckTransactionsHeuristic(t *testing.T) {
 func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
@@ -303,7 +304,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 	marketGasPrice := tenGwei
 	fee := gas.EvmFee{GasPrice: marketGasPrice}
 	feeEstimator.On("GetFee", mock.Anything, []byte{}, uint64(0), mock.Anything, mock.Anything, mock.Anything).Return(fee, uint64(0), nil)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	autoPurgeThreshold := uint32(5)
 	autoPurgeMinAttempts := uint32(3)
 	autoPurgeCfg := testAutoPurgeConfig{
@@ -394,14 +395,14 @@ func TestStuckTxDetector_DetectStuckTransactionsZircuit(t *testing.T) {
 func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	autoPurgeCfg := testAutoPurgeConfig{
 		enabled: true,
 	}
@@ -417,7 +418,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempts.Hash, "eth_getTransactionByHash")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			resp, err := json.Marshal(types.Transaction{})
+			resp, err := json.Marshal(evmtypes.Transaction{})
 			require.NoError(t, err)
 			elems[0].Error = json.Unmarshal(resp, elems[0].Result)
 		}).Once()
@@ -443,7 +444,7 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = nil // Return nil to signal discarded tx
-			resp, err := json.Marshal(types.Transaction{})
+			resp, err := json.Marshal(evmtypes.Transaction{})
 			require.NoError(t, err)
 			elems[1].Error = json.Unmarshal(resp, elems[1].Result) // Return non-nil result to signal a valid tx
 		}).Once()
@@ -486,14 +487,14 @@ func TestStuckTxDetector_DetectStuckTransactionsZkEVM(t *testing.T) {
 func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)
 
 	lggr := logger.Test(t)
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	blockNum := int64(100)
 
 	t.Run("returns stuck tx identified using the custom scroll API", func(t *testing.T) {
@@ -570,7 +571,7 @@ func mustInsertFatalErrorTxWithError(t *testing.T, txStore txmgr.TestEvmTxStore,
 	broadcastAt := time.Now()
 	etx.BroadcastAt = &broadcastAt
 	etx.InitialBroadcastAt = &broadcastAt
-	n := types.Nonce(nonce)
+	n := evmtypes.Nonce(nonce)
 	etx.Sequence = &n
 	etx.ChainID = testutils.FixtureChainID
 	require.NoError(t, txStore.InsertTx(tests.Context(t), &etx))

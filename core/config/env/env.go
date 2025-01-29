@@ -20,13 +20,13 @@ var (
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
 	// Migrations env vars
 	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
-	CustomDefaults                 = Var("CL_CHAIN_DEFAULTS")
 )
 
 // LOOPP commands and vars
 var (
 	MedianPlugin   = NewPlugin("median")
 	MercuryPlugin  = NewPlugin("mercury")
+	CosmosPlugin   = NewPlugin("cosmos")
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
 	TronPlugin     = NewPlugin("tron")

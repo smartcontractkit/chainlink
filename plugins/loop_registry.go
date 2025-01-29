@@ -28,20 +28,29 @@ type LoopRegistry struct {
 	registry map[string]*RegisteredLoop
 
 	lggr                   logger.Logger
+	cfgDatabase            config.Database
 	cfgTracing             config.Tracing
 	cfgTelemetry           config.Telemetry
 	telemetryAuthHeaders   map[string]string
 	telemetryAuthPubKeyHex string
 }
 
-func NewLoopRegistry(lggr logger.Logger, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, dbConfig config.Database, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
+		cfgDatabase:            dbConfig,
 		cfgTracing:             tracing,
 		cfgTelemetry:           telemetry,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
 		telemetryAuthPubKeyHex: telemetryAuthPubKeyHex,
+	}
+}
+
+func NewTestLoopRegistry(lggr logger.Logger) *LoopRegistry {
+	return &LoopRegistry{
+		registry: map[string]*RegisteredLoop{},
+		lggr:     logger.Named(lggr, "LoopRegistry"),
 	}
 }
 
@@ -62,6 +71,17 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		return nil, fmt.Errorf("failed to get free port: no ports returned")
 	}
 	envCfg := loop.EnvConfig{PrometheusPort: ports[0]}
+
+	if m.cfgDatabase != nil {
+		dbURL := m.cfgDatabase.URL()
+		envCfg.DatabaseURL = &dbURL
+		envCfg.DatabaseIdleInTxSessionTimeout = m.cfgDatabase.DefaultIdleInTxSessionTimeout()
+		envCfg.DatabaseLockTimeout = m.cfgDatabase.DefaultLockTimeout()
+		envCfg.DatabaseQueryTimeout = m.cfgDatabase.DefaultQueryTimeout()
+		envCfg.DatabaseLogSQL = m.cfgDatabase.LogSQL()
+		envCfg.DatabaseMaxOpenConns = m.cfgDatabase.MaxOpenConns()
+		envCfg.DatabaseMaxIdleConns = m.cfgDatabase.MaxIdleConns()
+	}
 
 	if m.cfgTracing != nil {
 		envCfg.TracingEnabled = m.cfgTracing.Enabled()

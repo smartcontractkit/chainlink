@@ -24,8 +24,8 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
 
       uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD;
-      uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-      uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+      uint256 gasFeeUSD = gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS;
+      uint256 messageFeeUSD = _configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth;
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, message.data.length, message.tokenAmounts.length, 0
       );
@@ -49,8 +49,8 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
 
     uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD;
-    uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-    uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+    uint256 gasFeeUSD = gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS;
+    uint256 messageFeeUSD = _configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth;
 
     uint256 totalPriceInFeeToken = (gasFeeUSD + messageFeeUSD) / s_feeTokenPrice;
     assertEq(totalPriceInFeeToken, feeAmount);
@@ -75,9 +75,13 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
       FeeQuoter.DestChainConfig memory destChainConfig = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
 
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
-      uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD + customDataSize * DEST_GAS_PER_PAYLOAD_BYTE;
-      uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
-      uint256 messageFeeUSD = (_configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth);
+
+      uint256 callDataCostHigh = (customDataSize - DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD) * DEST_GAS_PER_PAYLOAD_BYTE_HIGH
+        + DEST_GAS_PER_PAYLOAD_BYTE_THRESHOLD * DEST_GAS_PER_PAYLOAD_BYTE_BASE;
+
+      uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD + callDataCostHigh;
+      uint256 gasFeeUSD = gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS;
+      uint256 messageFeeUSD = _configUSDCentToWei(destChainConfig.networkFeeUSDCents) * premiumMultiplierWeiPerEth;
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR, USD_PER_DATA_AVAILABILITY_GAS, message.data.length, message.tokenAmounts.length, 0
       );
@@ -103,12 +107,12 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
       uint256 feeAmount = s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
 
-      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenBytesOverhead * DEST_GAS_PER_PAYLOAD_BYTE
+      uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenBytesOverhead * DEST_GAS_PER_PAYLOAD_BYTE_BASE
         + s_feeQuoter.getTokenTransferFeeConfig(DEST_CHAIN_SELECTOR, message.tokenAmounts[0].token).destGasOverhead;
-      uint256 gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
+      uint256 gasFeeUSD = gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS;
       (uint256 transferFeeUSD,,) =
         s_feeQuoter.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, feeTokenPrices[i], message.tokenAmounts);
-      uint256 messageFeeUSD = (transferFeeUSD * s_feeQuoter.getPremiumMultiplierWeiPerEth(message.feeToken));
+      uint256 messageFeeUSD = transferFeeUSD * s_feeQuoter.getPremiumMultiplierWeiPerEth(message.feeToken);
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR,
         USD_PER_DATA_AVAILABILITY_GAS,
@@ -159,12 +163,12 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
       {
         uint256 gasUsed = customGasLimit + DEST_GAS_OVERHEAD
-          + (message.data.length + tokenTransferBytesOverhead) * DEST_GAS_PER_PAYLOAD_BYTE + tokenGasOverhead;
+          + (message.data.length + tokenTransferBytesOverhead) * DEST_GAS_PER_PAYLOAD_BYTE_BASE + tokenGasOverhead;
 
-        gasFeeUSD = (gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS);
+        gasFeeUSD = gasUsed * destChainConfig.gasMultiplierWeiPerEth * USD_PER_GAS;
       }
 
-      uint256 messageFeeUSD = (transferFeeUSD * premiumMultiplierWeiPerEth);
+      uint256 messageFeeUSD = transferFeeUSD * premiumMultiplierWeiPerEth;
 
       uint256 dataAvailabilityFeeUSD = s_feeQuoter.getDataAvailabilityCost(
         DEST_CHAIN_SELECTOR,
@@ -198,6 +202,22 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     if (enforce && !allowOutOfOrderExecution) {
       vm.expectRevert(FeeQuoter.ExtraArgOutOfOrderExecutionMustBeTrue.selector);
     }
+    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
+  }
+
+  function test_SolChainFamilySelector() public {
+    // Update config to enforce allowOutOfOrderExecution = true.
+    vm.stopPrank();
+    vm.startPrank(OWNER);
+
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+    vm.stopPrank();
+
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage2SVM();
+
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
@@ -266,6 +286,32 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
     vm.expectRevert(abi.encodeWithSelector(Internal.InvalidEVMAddress.selector, message.receiver));
 
+    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
+  }
+
+  function test_RevertWhen_SVMMessageWithTokenTransferAndInvalidTokenReceiver() public {
+    vm.stopPrank();
+    //setup to set chainFamilySelector for SVM so that token receiver's check flow is enabled
+    vm.startPrank(OWNER);
+
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+    vm.stopPrank();
+
+    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 1);
+    // replace with SVM Extra Args
+    message.extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({
+        computeUnits: GAS_LIMIT,
+        accountIsWritableBitmap: 0,
+        allowOutOfOrderExecution: true,
+        tokenReceiver: bytes32(0),
+        accounts: new bytes32[](0)
+      })
+    );
+    vm.expectRevert(FeeQuoter.InvalidTokenReceiver.selector);
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 }

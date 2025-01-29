@@ -1,14 +1,14 @@
-package changeset
+package changeset_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -24,29 +24,35 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		Chains:     2,
 		Nodes:      4,
 	})
-	selectors := e.AllChainSelectors()
-	homeChainSel := selectors[0]
+	evmSelectors := e.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
 	}
-	var prereqCfg []DeployPrerequisiteConfigPerChain
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
+
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployHomeChain),
-			Config: DeployHomeChainConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  NewTestRMNStaticConfig(),
-				RMNDynamicConfig: NewTestRMNDynamicConfig(),
-				NodeOperators:    NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
 					"NodeOperator": p2pIds,
 				},
@@ -54,37 +60,37 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    selectors,
+			Config:    evmSelectors,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
 			Config:    cfg,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployPrerequisites),
-			Config: DeployPrerequisiteConfig{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(DeployChainContracts),
-			Config: DeployChainContractsConfig{
-				ChainSelectors:    selectors,
-				HomeChainSelector: homeChainSel,
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParams,
 			},
 		},
 	})
 	require.NoError(t, err)
 
 	// load onchain state
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 
 	// verify all contracts populated
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	for _, sel := range selectors {
+	for _, sel := range evmSelectors {
 		require.NotNil(t, state.Chains[sel].LinkToken)
 		require.NotNil(t, state.Chains[sel].Weth9)
 		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
@@ -101,16 +107,5 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e := NewMemoryEnvironment(t)
-	// Deploy all the CCIP contracts.
-	state, err := LoadOnchainState(e.Env)
-	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
-	require.NoError(t, err)
-
-	// Assert expect every deployed address to be in the address book.
-	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
-	b, err := json.MarshalIndent(snap, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
+	testhelpers.DeployCCIPContractsTest(t, 0)
 }

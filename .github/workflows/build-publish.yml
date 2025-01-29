@@ -59,6 +59,11 @@ jobs:
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Tag Signature
+        uses: smartcontractkit/.github/actions/check-if-verified@6319f88a06e307c360dff43c3ac25d0581894a75 # check-if-verified@1.0.0
+        with:
+          tag: ${{ github.ref_name }}
+          assert: true
 
   build-sign-publish-chainlink:
     needs: [checks]
@@ -91,6 +96,7 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
           sign-images: true
           verify-signature: true
+          git-tag-type: ${{ needs.checks.outputs.git-tag-type }}
 
       - name: Attest Docker image
         uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
@@ -127,18 +133,18 @@ jobs:
               ) || ''
             }}
           docker-image-name: >-
-            ${{ 
-              github.ref_type == 'tag' && 
+            ${{
+              github.ref_type == 'tag' &&
               format(
-                '{0}/{1}:{2}', 
-                env.ECR_HOSTNAME, 
+                '{0}/{1}:{2}',
+                env.ECR_HOSTNAME,
                 needs.checks.outputs.ecr-image-name,
                 needs.build-sign-publish-chainlink.outputs.docker-image-tag
               ) || ''
             }}
           docker-image-digest: >-
-            ${{ 
-              github.ref_type == 'tag' && 
+            ${{
+              github.ref_type == 'tag' &&
               needs.build-sign-publish-chainlink.outputs.docker-image-digest || ''
             }}
   crib:

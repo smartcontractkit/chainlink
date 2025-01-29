@@ -1,0 +1,18 @@
+ChainID = '1111'
+ChainType = 'wemix'
+FinalityDepth = 10
+FinalityTagEnabled = true
+LinkContractAddress = '0x80f1FcdC96B55e459BF52b998aBBE2c364935d69'
+MinIncomingConfirmations = 1
+# WeMix emits a block every 1 second, regardless of transactions
+LogPollInterval = '3s'
+NoNewHeadsThreshold = '30s'
+FinalizedBlockOffset = 2
+NoNewFinalizedHeadsThreshold = '40s'
+
+[OCR]
+ContractConfirmations = 1
+
+[GasEstimator]
+EIP1559DynamicFees = true
+TipCapDefault = '100 gwei'

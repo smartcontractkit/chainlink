@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -15,7 +16,7 @@ func main() {
 			panic(err)
 		}
 		filename := fmt.Sprintf("../../.goreleaser.%s.yaml", e)
-		err = os.WriteFile(filename, data, 0644)
+		err = os.WriteFile(filename, data, 0644) //nolint:gosec // G306
 		if err != nil {
 			panic(err)
 		}

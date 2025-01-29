@@ -39,7 +39,14 @@ import (
 
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		KeyStore:       ethKeyStore,
+	})
 	orm := mocks.NewORM(t)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, logger.TestLogger(t), c, c)
@@ -508,7 +515,14 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		KeyStore:       ethKeyStore,
+	})
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 
@@ -547,7 +561,14 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T)
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		GeneralConfig:  cfg,
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		KeyStore:       ethKeyStore,
+	})
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 
@@ -1016,7 +1037,14 @@ func Test_PipelineRunner_ExecuteRun(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+			GeneralConfig:  cfg,
+			DatabaseConfig: cfg.Database(),
+			FeatureConfig:  cfg.Feature(),
+			ListenerConfig: cfg.Database().Listener(),
+			DB:             db,
+			KeyStore:       ethKeyStore,
+		})
 		lggr := logger.TestLogger(t)
 		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
 

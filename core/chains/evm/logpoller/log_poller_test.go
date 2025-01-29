@@ -29,20 +29,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
-
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func logRuntime(t testing.TB, start time.Time) {
@@ -688,7 +686,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	numChainInserts := 3
 	finalityDepth := 5
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(10e9)
@@ -1343,7 +1341,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	blockNums = []uint64{2}
 	_, err = th.LogPoller.GetBlocksRange(testutils.Context(t), blockNums)
 	require.Error(t, err)
-	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinalizedBlockNumber = 1)", err.Error())
+	assert.Equal(t, "received unfinalized block 2 while expecting finalized block (latestFinalizedBlockNumber = 1)", err.Error())
 
 	th.Backend.Commit() // Commit block #4, so that block #2 is finalized
 
@@ -1412,12 +1410,6 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	_, err = th.LogPoller.GetBlocksRange(ctx, blockNums)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
-
-	// test canceled ctx
-	ctx, cancel = context.WithCancel(testutils.Context(t))
-	cancel()
-	_, err = th.LogPoller.GetBlocksRange(ctx, blockNums)
-	require.Equal(t, err, context.Canceled)
 }
 
 func TestGetReplayFromBlock(t *testing.T) {
@@ -1470,7 +1462,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID1, db, lggr)
 
 	owner := testutils.MustNewSimTransactor(t)
@@ -1543,7 +1535,7 @@ func TestTooManyLogResults(t *testing.T) {
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 
@@ -1672,11 +1664,11 @@ func TestTooManyLogResults(t *testing.T) {
 		crit := obs.FilterLevelExact(zapcore.DPanicLevel).All()
 		errors := obs.FilterLevelExact(zapcore.ErrorLevel).All()
 		warns := obs.FilterLevelExact(zapcore.WarnLevel).All()
-		assert.Len(t, crit, 0)
-		require.Len(t, errors, 1)
-		assert.Equal(t, errors[0].Message, "Unable to query for logs")
-		require.Len(t, warns, 1)
-		assert.Contains(t, warns[0].Message, "retrying later")
+		assert.Empty(t, crit)
+		require.Len(t, errors, 2)
+		assert.Contains(t, errors[0].Message, "Unable to query for logs")
+		assert.Contains(t, errors[1].Message, "Failed to poll and save logs, retrying later")
+		require.Empty(t, warns)
 	})
 }
 
@@ -1971,7 +1963,7 @@ func TestFindLCA(t *testing.T) {
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	orm := logpoller.NewORM(chainID, db, lggr)
 

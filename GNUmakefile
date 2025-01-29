@@ -65,6 +65,19 @@ install-medianpoc: ## Build & install the chainlink-medianpoc binary.
 install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-ocr3-capability
 
+.PHONY: install-plugins
+install-plugins: ## Build & install LOOPP binaries for products and chains.
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
+	go install ./cmd/chainlink-feeds
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
+	go install ./mercury/cmd/chainlink-mercury
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-cosmos) && \
+	go install ./pkg/cosmos/cmd/chainlink-cosmos
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
+	go install ./pkg/solana/cmd/chainlink-solana
+	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
+	go install ./pkg/chainlink/cmd/chainlink-starknet
+
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \
@@ -97,7 +110,8 @@ abigen: ## Build & install abigen.
 
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	gomods -w go generate -x ./...
+	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
+	export PATH=$(HOME)/.local/bin:$(PATH); gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
@@ -136,7 +150,7 @@ testdb-user-only: ## Prepares the test database with user only.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.4
+	go install github.com/jmank88/gomods@v0.1.5
 
 .PHONY: gomodslocalupdate
 gomodslocalupdate: gomods ## Run gomod-local-update
@@ -154,7 +168,7 @@ codecgen: $(codecgen) ## Install codecgen
 
 .PHONY: protoc
 protoc: ## Install protoc
-	core/scripts/install-protoc.sh 25.1 /
+	core/scripts/install-protoc.sh 29.3 /
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
 
@@ -184,6 +198,18 @@ modgraph:
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
+
+.PHONY: run_flakeguard_validate_tests
+run_flakeguard_validate_tests:
+	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
+	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
+	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
+	 RUNNER=$${RUNNER:-ubuntu-20.04}; \
+	 gh workflow run flakeguard-validate-tests.yml \
+	   -f testPackages="$${PKGS}" \
+	   -f testRepeatCount="$${REPS}" \
+	   -f runTestsWithRace="true" \
+	   -f testRunner="$${RUNNER}"
 
 help:
 	@echo ""

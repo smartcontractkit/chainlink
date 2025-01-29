@@ -17,10 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var _ TxmClient = (*evmTxmClient)(nil)
@@ -34,7 +34,7 @@ func NewEvmTxmClient(c client.Client, clientErrors config.ClientErrors) *evmTxmC
 	return &evmTxmClient{client: c, clientErrors: clientErrors}
 }
 
-func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
+func (c *evmTxmClient) PendingSequenceAt(ctx context.Context, addr common.Address) (types.Nonce, error) {
 	return c.PendingNonceAt(ctx, addr)
 }
 
@@ -104,7 +104,7 @@ func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, at
 	return c.client.SendTransactionReturnCode(ctx, signedTx, etx.FromAddress)
 }
 
-func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n evmtypes.Nonce, err error) {
+func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Address) (n types.Nonce, err error) {
 	nextNonce, err := c.client.PendingNonceAt(ctx, fromAddress)
 	if err != nil {
 		return n, err
@@ -113,22 +113,22 @@ func (c *evmTxmClient) PendingNonceAt(ctx context.Context, fromAddress common.Ad
 	if nextNonce > math.MaxInt64 {
 		return n, fmt.Errorf("nonce overflow, got: %v", nextNonce)
 	}
-	return evmtypes.Nonce(nextNonce), nil
+	return types.Nonce(nextNonce), nil
 }
 
-func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (evmtypes.Nonce, error) {
+func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, blockNum *big.Int) (types.Nonce, error) {
 	nonce, err := c.client.NonceAt(ctx, addr, blockNum)
 	if nonce > math.MaxInt64 {
 		return 0, fmt.Errorf("overflow for nonce: %d", nonce)
 	}
 
-	return evmtypes.Nonce(nonce), err
+	return types.Nonce(nonce), err
 }
 
-func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
+func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*types.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
-		res := &evmtypes.Receipt{}
+		res := &types.Receipt{}
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
@@ -152,8 +152,8 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttemp
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(ctx context.Context, seq evmtypes.Nonce, feeLimit uint64, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
-	seq evmtypes.Nonce,
+	newTxAttempt func(ctx context.Context, seq types.Nonce, feeLimit uint64, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
+	seq types.Nonce,
 	gasLimit uint64,
 	fee gas.EvmFee,
 	fromAddress common.Address,
@@ -189,7 +189,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 	return client.ExtractRPCError(errCall)
 }
 
-func (c *evmTxmClient) HeadByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
+func (c *evmTxmClient) HeadByHash(ctx context.Context, hash common.Hash) (*types.Head, error) {
 	return c.client.HeadByHash(ctx, hash)
 }
 

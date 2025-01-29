@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -137,18 +138,22 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, c.WFDonConfig.N, 0, crConfig)
+	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, c.WriterDonConfig.N, 0, crConfig)
+	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, c.AssetDonConfig.N, 0, crConfig)
+	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
+
+	ocr3CapCfg := kstest.GetDefaultCapConfig(t, internal.OCR3Cap)
+	writerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.WriteChainCap)
+	streamTriggerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.StreamTriggerCap)
 
 	// TODO: partition nodes into multiple nops
 
@@ -160,7 +165,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(wfNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.OCR3Cap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
+		},
 	}
 	cwDon := internal.DonCapabilities{
 		Name: internal.TargetDonName,
@@ -170,7 +177,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(cwNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.WriteChainCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
+		},
 	}
 	assetDon := internal.DonCapabilities{
 		Name: internal.StreamDonName,
@@ -180,7 +189,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(assetNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.StreamTriggerCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
+		},
 	}
 
 	allChains := make(map[uint64]deployment.Chain)
@@ -190,7 +201,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	maps.Copy(allNodes, wfNodes)
 	maps.Copy(allNodes, cwNodes)
 	maps.Copy(allNodes, assetNodes)
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, allNodes)
+	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, nil, allNodes)
 	// set the env addresses to the deployed addresses that were created prior to configuring the nodes
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)
@@ -355,10 +366,6 @@ func capIDs(t *testing.T, cfgs []kcr.CapabilitiesRegistryCapabilityConfiguration
 	return out
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 func p2pIDs(t *testing.T, vals []string) [][32]byte {
 	var out [][32]byte
 	for _, v := range vals {
@@ -372,8 +379,8 @@ func p2pIDs(t *testing.T, vals []string) [][32]byte {
 func expectedHashedCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, don internal.DonCapabilities) [][32]byte {
 	out := make([][32]byte, len(don.Capabilities))
 	var err error
-	for i, cap := range don.Capabilities {
-		out[i], err = registry.GetHashedCapabilityId(nil, cap.LabelledName, cap.Version)
+	for i, capWithCfg := range don.Capabilities {
+		out[i], err = registry.GetHashedCapabilityId(nil, capWithCfg.Capability.LabelledName, capWithCfg.Capability.Version)
 		require.NoError(t, err)
 	}
 	return out

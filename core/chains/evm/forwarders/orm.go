@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
+	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type ORM interface {

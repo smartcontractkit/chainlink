@@ -1,0 +1,28 @@
+ChainID = '480'
+# OP stack: https://worldcoin.notion.site/World-Chain-Developer-Preview-Guide-23c94a67683f4e71986e5303ab88c9f3
+ChainType = 'optimismBedrock'
+# finality_depth was: ~2400
+FinalityDepth = 2500
+LinkContractAddress = '0x915b648e994d5f31059B38223b9fbe98ae185473'
+# block_time was:  2s, adding 1 second buffer   
+LogPollInterval = '3s'
+
+# finality_depth * block_time / 60 secs = ~83  min (finality time)
+NoNewFinalizedHeadsThreshold = '90m'
+
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 2s, per recommendation skip 1-2 blocks
+CacheTimeout = '4s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

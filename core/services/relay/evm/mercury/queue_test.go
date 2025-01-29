@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
@@ -65,7 +65,7 @@ func createTestTransmissions(t *testing.T) []TestTransmissionWithReport {
 
 func Test_Queue(t *testing.T) {
 	t.Parallel()
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
 	deleter := mocks.NewAsyncDeleter(t)
 	transmitQueue := NewTransmitQueue(lggr, sURL, "foo feed ID", 7, deleter)

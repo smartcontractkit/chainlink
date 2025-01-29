@@ -1,0 +1,24 @@
+ChainID = '34443'
+ChainType = 'optimismBedrock'
+FinalityDepth = 200
+FinalityTagEnabled = true
+LinkContractAddress = '0x183E3691EfF3524B2315D3703D94F922CbE51F54'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMax = '120 gwei'
+FeeCapDefault = '120 gwei'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

@@ -91,7 +91,7 @@ func NewMultiCallLoadGenerator(testCfg *testsetups.CCIPTestConfig, lanes []*acti
 			testCfg.Test, lane, testCfg.TestGroupInput.PhaseTimeout.Duration(),
 			100000,
 			testCfg.TestGroupInput.LoadProfile.MsgProfile, 0,
-			testCfg.TestGroupInput.LoadProfile.SkipRequestIfAnotherRequestTriggeredWithin,
+			testCfg.TestGroupInput.SkipRequestIfAnotherRequestTriggeredWithin,
 		)
 		ccipLoad.BeforeAllCall()
 		m.E2ELoads[fmt.Sprintf("%s-%s", lane.SourceNetworkName, lane.DestNetworkName)] = ccipLoad

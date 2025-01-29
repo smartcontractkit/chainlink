@@ -14,8 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
@@ -69,6 +70,20 @@ type BridgeTask struct {
 	config       Config
 	bridgeConfig BridgeConfig
 	httpClient   *http.Client
+}
+
+type BridgeTelemetry struct {
+	RequestStartTimestamp  time.Time `json:"requestStartTimestamp"`
+	RequestFinishTimestamp time.Time `json:"requestFinishTimestamp"`
+	RequestData            []byte    `json:"requestData"`
+	ResponseData           []byte    `json:"responseData"`
+	Name                   string    `json:"name"`
+	DotID                  string    `json:"dotID"`
+	ResponseError          *string   `json:"responseError"`
+	StreamID               *uint32   `json:"streamID"`
+	SpecID                 int32     `json:"specID"`
+	ResponseStatusCode     int       `json:"responseStatusCode"`
+	LocalCacheHit          bool      `json:"localCacheHit"`
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -154,7 +169,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	lggr.Tracew("Bridge task: sending request",
+	logger.Sugared(lggr).Tracew("Bridge task: sending request",
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
@@ -170,7 +185,37 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	var cachedResponse bool
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
+	elapsed := finish.Sub(start)
+
+	defer func() {
+		telemetryCh := GetTelemetryCh(ctx)
+		if telemetryCh != nil {
+			bt := &BridgeTelemetry{
+				Name:                   t.Name,
+				RequestData:            requestDataJSON,
+				ResponseData:           responseBytes,
+				ResponseStatusCode:     statusCode,
+				RequestStartTimestamp:  start,
+				RequestFinishTimestamp: finish,
+				LocalCacheHit:          cachedResponse,
+				SpecID:                 t.specId,
+				DotID:                  t.DotID(),
+			}
+			if err != nil {
+				bt.ResponseError = new(string)
+				*bt.ResponseError = err.Error()
+			}
+			if t.StreamID.Valid {
+				bt.StreamID = &t.StreamID.Uint32
+			}
+			select {
+			case telemetryCh <- bt:
+			default:
+				lggr.Warn("bridge task: telemetry channel is full, dropping telemetry")
+			}
+		}
+	}()
 
 	// check for external adapter response object status
 	if code, ok := eautils.BestEffortExtractEAStatus(responseBytes); ok {
@@ -239,7 +284,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
-	lggr.Tracew("Bridge task: fetched answer",
+	logger.Sugared(lggr).Tracew("Bridge task: fetched answer",
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),

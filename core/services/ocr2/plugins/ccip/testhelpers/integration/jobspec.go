@@ -13,12 +13,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
@@ -156,7 +156,7 @@ type JobType string
 const (
 	Commit    JobType = "commit"
 	Execution JobType = "exec"
-	Boostrap  JobType = "bootstrap"
+	Bootstrap JobType = "bootstrap"
 )
 
 func JobName(jobType JobType, source string, destination, version string) string {
@@ -180,6 +180,7 @@ type CCIPJobSpecParams struct {
 	DestStartBlock         uint64
 	USDCAttestationAPI     string
 	USDCConfig             *config.USDCConfig
+	LBTCConfig             *config.LBTCConfig
 	P2PV2Bootstrappers     pq.StringArray
 }
 
@@ -305,6 +306,11 @@ func (params CCIPJobSpecParams) ExecutionJobSpec() (*OCR2TaskJobSpec, error) {
 		ocrSpec.PluginConfig["USDCConfig.SourceMessageTransmitterAddress"] = fmt.Sprintf(`"%s"`, params.USDCConfig.SourceMessageTransmitterAddress)
 		ocrSpec.PluginConfig["USDCConfig.AttestationAPITimeoutSeconds"] = params.USDCConfig.AttestationAPITimeoutSeconds
 	}
+	if params.LBTCConfig != nil {
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPI"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.AttestationAPI)
+		ocrSpec.PluginConfig["LBTCConfig.SourceTokenAddress"] = fmt.Sprintf(`"%s"`, params.LBTCConfig.SourceTokenAddress)
+		ocrSpec.PluginConfig["LBTCConfig.AttestationAPITimeoutSeconds"] = params.LBTCConfig.AttestationAPITimeoutSeconds
+	}
 	return &OCR2TaskJobSpec{
 		OCR2OracleSpec: ocrSpec,
 		JobType:        "offchainreporting2",
@@ -323,7 +329,7 @@ func (params CCIPJobSpecParams) BootstrapJob(contractID string) *OCR2TaskJobSpec
 		},
 	}
 	return &OCR2TaskJobSpec{
-		Name:           fmt.Sprintf("%s-%s", Boostrap, params.DestChainName),
+		Name:           fmt.Sprintf("%s-%s-%s", Bootstrap, params.SourceChainName, params.DestChainName),
 		JobType:        "bootstrap",
 		OCR2OracleSpec: bootstrapSpec,
 	}

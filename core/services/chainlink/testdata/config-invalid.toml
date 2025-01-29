@@ -58,6 +58,9 @@ FinalizedBlockOffset = 64
 [EVM.Transactions.AutoPurge]
 Enabled = true
 
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
+
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 BumpThreshold = 0
@@ -111,6 +114,9 @@ ChainType = 'scroll'
 [EVM.Transactions.AutoPurge]
 Enabled = true
 DetectionApiUrl = ''
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = false
 
 [[EVM.Nodes]]
 Name = 'scroll node'

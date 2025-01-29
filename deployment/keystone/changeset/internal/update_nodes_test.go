@@ -7,19 +7,22 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/durationpb"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -89,9 +92,10 @@ func Test_UpdateNodesRequest_validate(t *testing.T) {
 	}
 }
 
-func newEncryptionKey() [32]byte {
+func newEncryptionKey(t *testing.T) [32]byte {
 	key := make([]byte, 32)
-	rand.Read(key)
+	_, err := rand.Read(key)
+	require.NoError(t, err)
 	return [32]byte(key)
 }
 
@@ -99,7 +103,7 @@ func TestUpdateNodes(t *testing.T) {
 	chain := testChain(t)
 	require.NotNil(t, chain)
 	lggr := logger.Test(t)
-	newKey := newEncryptionKey()
+	newKey := newEncryptionKey(t)
 	newKeyStr := hex.EncodeToString(newKey[:])
 
 	type args struct {
@@ -448,6 +452,17 @@ func TestUpdateNodes(t *testing.T) {
 				Version:        "1.0.0",
 				CapabilityType: 0,
 			}
+			phonyCapCfg := &capabilitiespb.CapabilityConfig{
+				DefaultConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+				RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+					RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+						RegistrationRefresh: durationpb.New(20 * time.Second),
+						RegistrationExpiry:  durationpb.New(60 * time.Second),
+						// F + 1; assuming n = 3f+1
+						MinResponsesToAggregate: uint32(10),
+					},
+				},
+			}
 			initMap := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 			for p2pID := range tt.args.req.P2pToUpdates {
 				initMap[p2pID] = []kcr.CapabilitiesRegistryCapability{phonyCap}
@@ -472,7 +487,7 @@ func TestUpdateNodes(t *testing.T) {
 					expectedUpdatedCaps[p2p] = expectedCaps
 				} else {
 					expectedUpdatedCaps[p2p] = []internal.RegisteredCapability{
-						{CapabilitiesRegistryCapability: phonyCap, ID: id},
+						{CapabilitiesRegistryCapability: phonyCap, ID: id, Config: phonyCapCfg},
 					}
 				}
 			}
@@ -489,20 +504,20 @@ func TestUpdateNodes(t *testing.T) {
 				require.Equal(t, expected.EncryptionPublicKey, p.EncryptionPublicKey)
 				// check the capabilities
 				expectedCaps := expectedUpdatedCaps[p.P2pId]
-				var wantHashedIds [][32]byte
+				var wantHashedIDs [][32]byte
 				for _, cap := range expectedCaps {
-					wantHashedIds = append(wantHashedIds, cap.ID)
+					wantHashedIDs = append(wantHashedIDs, cap.ID)
 				}
-				sort.Slice(wantHashedIds, func(i, j int) bool {
-					return bytes.Compare(wantHashedIds[i][:], wantHashedIds[j][:]) < 0
+				sort.Slice(wantHashedIDs, func(i, j int) bool {
+					return bytes.Compare(wantHashedIDs[i][:], wantHashedIDs[j][:]) < 0
 				})
-				gotHashedIds := p.HashedCapabilityIds
-				sort.Slice(gotHashedIds, func(i, j int) bool {
-					return bytes.Compare(gotHashedIds[i][:], gotHashedIds[j][:]) < 0
+				gotHashedIDs := p.HashedCapabilityIds
+				sort.Slice(gotHashedIDs, func(i, j int) bool {
+					return bytes.Compare(gotHashedIDs[i][:], gotHashedIDs[j][:]) < 0
 				})
-				require.Len(t, gotHashedIds, len(wantHashedIds))
-				for j, gotCap := range gotHashedIds {
-					assert.Equal(t, wantHashedIds[j], gotCap)
+				require.Len(t, gotHashedIDs, len(wantHashedIDs))
+				for j, gotCap := range gotHashedIDs {
+					assert.Equal(t, wantHashedIDs[j], gotCap)
 				}
 			}
 		})

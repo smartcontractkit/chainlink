@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 func newEvmTxm(
@@ -40,6 +40,24 @@ func newEvmTxm(
 	)
 
 	if opts.GenTxManager == nil {
+		var txmv2 txmgr.TxManager
+		if cfg.Transactions().TransactionManagerV2().Enabled() {
+			txmv2, err = txmgr.NewTxmV2(
+				ds,
+				cfg,
+				txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
+				cfg.Transactions(),
+				cfg.Transactions().TransactionManagerV2(),
+				client,
+				lggr,
+				logPoller,
+				opts.KeyStore,
+				estimator,
+			)
+			if cfg.Transactions().TransactionManagerV2().DualBroadcast() == nil || !*cfg.Transactions().TransactionManagerV2().DualBroadcast() {
+				return txmv2, err
+			}
+		}
 		txm, err = txmgr.NewTxm(
 			ds,
 			cfg,
@@ -53,7 +71,8 @@ func newEvmTxm(
 			logPoller,
 			opts.KeyStore,
 			estimator,
-			headTracker)
+			headTracker,
+			txmv2)
 	} else {
 		txm = opts.GenTxManager(chainID)
 	}

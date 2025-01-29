@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

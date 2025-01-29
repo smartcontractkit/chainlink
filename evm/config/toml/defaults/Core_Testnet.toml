@@ -1,0 +1,10 @@
+#Core Testnet
+ChainID = '1114'
+FinalityDepth = 7 # finality harcoded based on validator size of the network
+LinkContractAddress = '0x6C475841d1D7871940E93579E5DBaE01634e17aA'
+LogPollInterval = '3s' # block rate 3s
+
+[GasEstimator]
+EIP1559DynamicFees = false
+Mode = 'FeeHistory'
+PriceDefault = '35 gwei' # currently set to 35 gwei, may change in the future so using FeeHistory mode

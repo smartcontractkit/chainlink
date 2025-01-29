@@ -1,10 +1,12 @@
 package memory
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -18,20 +20,18 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
+
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-
-	solTestUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 type EVMChain struct {
@@ -42,9 +42,10 @@ type EVMChain struct {
 
 type SolanaChain struct {
 	Client      *solRpc.Client
+	DeployerKey solana.PrivateKey
 	URL         string
 	WSURL       string
-	DeployerKey solana.PrivateKey
+	KeypairPath string
 }
 
 func fundAddress(t *testing.T, from *bind.TransactOpts, to common.Address, amount *big.Int, backend *simulated.Backend) {
@@ -86,6 +87,38 @@ func getTestSolanaChainSelectors() []uint64 {
 	return result
 }
 
+func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
+	// Create a temporary directory that will be cleaned up after the test
+	tmpDir := t.TempDir()
+
+	privateKey, err := solana.NewRandomPrivateKey()
+	if err != nil {
+		return solana.PrivateKey{}, "", fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	// Convert private key bytes to JSON array
+	privateKeyBytes := []byte(privateKey)
+
+	// Convert bytes to array of integers for JSON
+	intArray := make([]int, len(privateKeyBytes))
+	for i, b := range privateKeyBytes {
+		intArray[i] = int(b)
+	}
+
+	keypairJSON, err := json.Marshal(intArray)
+	if err != nil {
+		return solana.PrivateKey{}, "", fmt.Errorf("failed to marshal keypair: %w", err)
+	}
+
+	// Create the keypair file in the temporary directory
+	keypairPath := filepath.Join(tmpDir, "solana-keypair.json")
+	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
+		return solana.PrivateKey{}, "", fmt.Errorf("failed to write keypair to file: %w", err)
+	}
+
+	return privateKey, keypairPath, nil
+}
+
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
@@ -94,12 +127,20 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	chains := make(map[uint64]SolanaChain)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
-		solChain := solChain(t)
-		admin := solChain.DeployerKey
-		solTestUtil.FundTestAccounts(t, []solana.PublicKey{admin.PublicKey()}, solChain.URL)
+		admin, keypairPath, err := generateSolanaKeypair(t)
+		require.NoError(t, err)
+		url, wsURL, err := solChain(t, chainID, &admin)
+		require.NoError(t, err)
+		client := solRpc.New(url)
+		balance, err := client.GetBalance(context.Background(), admin.PublicKey(), solRpc.CommitmentConfirmed)
+		require.NoError(t, err)
+		require.NotEqual(t, 0, balance.Value) // auto funded 500000000.000000000 SOL
 		chains[chainID] = SolanaChain{
-			Client:      solChain.Client,
-			DeployerKey: solChain.DeployerKey,
+			Client:      client,
+			DeployerKey: admin,
+			URL:         url,
+			WSURL:       wsURL,
+			KeypairPath: keypairPath,
 		}
 	}
 	return chains
@@ -142,39 +183,48 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 
 var once = &sync.Once{}
 
-func solChain(t *testing.T) SolanaChain {
+func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string, string, error) {
 	t.Helper()
 
 	// initialize the docker network used by CTF
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	deployerKey, err := solana.NewRandomPrivateKey()
-	require.NoError(t, err)
+	maxRetries := 10
+	var url, wsURL string
+	for i := 0; i < maxRetries; i++ {
+		port := freeport.GetOne(t)
 
-	t.TempDir()
-	// store the generated keypair somewhere
-	bytes, err := json.Marshal([]byte(deployerKey))
-	require.NoError(t, err)
-	keypairPath := path.Join(t.TempDir(), "solana-keypair.json")
-	err = os.WriteFile(keypairPath, bytes, 0600)
-	require.NoError(t, err)
+		programIds := map[string]string{
+			"ccip_router":   solTestConfig.CcipRouterProgram.String(),
+			"token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
+			"ccip_receiver": solTestConfig.CcipReceiverProgram.String(),
+		}
 
-	port := freeport.GetOne(t)
-
-	bcInput := &blockchain.Input{
-		Type:      "solana",
-		ChainID:   chainselectors.SOLANA_DEVNET.ChainID,
-		PublicKey: deployerKey.PublicKey().String(),
-		Port:      strconv.Itoa(port),
-		// TODO: ContractsDir & SolanaPrograms via env vars
+		bcInput := &blockchain.Input{
+			Type:         "solana",
+			ChainID:      strconv.FormatUint(chainID, 10),
+			PublicKey:    adminKey.PublicKey().String(),
+			Port:         strconv.Itoa(port),
+			ContractsDir: ProgramsPath,
+			// TODO: this should be solTestConfig.CCIPRouterProgram
+			// TODO: make this a function
+			SolanaPrograms: programIds,
+		}
+		output, err := blockchain.NewBlockchainNetwork(bcInput)
+		if err != nil {
+			t.Logf("Error creating solana network: %v", err)
+			time.Sleep(time.Second)
+			maxRetries -= 1
+			continue
+		}
+		require.NoError(t, err)
+		testcontainers.CleanupContainer(t, output.Container)
+		url = output.Nodes[0].HostHTTPUrl
+		wsURL = output.Nodes[0].HostWSUrl
+		break
 	}
-	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err)
-	testcontainers.CleanupContainer(t, output.Container)
-
-	url := output.Nodes[0].HostHTTPUrl
-	wsURL := output.Nodes[0].HostWSUrl
 
 	// Wait for api server to boot
 	client := solRpc.New(url)
@@ -194,11 +244,7 @@ func solChain(t *testing.T) SolanaChain {
 	}
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
+	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
 
-	return SolanaChain{
-		Client:      client,
-		URL:         url,
-		WSURL:       wsURL,
-		DeployerKey: deployerKey,
-	}
+	return url, wsURL, nil
 }
