@@ -22,6 +22,8 @@ package ccip
 //go:generate go run ../generation/wrap.go ccip LockReleaseTokenPool lock_release_token_pool
 //go:generate go run ../generation/wrap.go ccip TokenPool token_pool
 //go:generate go run ../generation/wrap.go ccip USDCTokenPool usdc_token_pool
+//go:generate go run ../generation/wrap.go ccip SiloedLockReleaseTokenPool siloed_lock_release_token_pool
+//go:generate go run ../generation/wrap.go ccip BurnToAddressMintTokenPool burn_to_address_mint_token_pool
 
 // Helpers
 //go:generate go run ../generation/wrap.go ccip MaybeRevertMessageReceiver maybe_revert_message_receiver
