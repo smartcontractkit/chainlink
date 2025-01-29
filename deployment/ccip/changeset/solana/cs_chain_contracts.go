@@ -2,7 +2,6 @@ package changeset_solana
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,6 +23,34 @@ import (
 var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
 var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPool
 
+// GetTokenProgramID returns the program ID for the given token program name
+func GetTokenProgramID(programName string) (solana.PublicKey, error) {
+	tokenPrograms := map[string]solana.PublicKey{
+		// "spl-token":      solana.TokenProgramID,
+		deployment.SPL2022Tokens: solana.Token2022ProgramID,
+	}
+
+	programID, ok := tokenPrograms[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: spl-token, spl-token-2022", programName)
+	}
+	return programID, nil
+}
+
+// GetPoolType returns the token pool type constant for the given string
+func GetPoolType(poolType string) (token_pool.PoolType, error) {
+	poolTypes := map[string]token_pool.PoolType{
+		"LockAndRelease": token_pool.LockAndRelease_PoolType,
+		"BurnAndMint":    token_pool.BurnAndMint_PoolType,
+	}
+
+	poolTypeConstant, ok := poolTypes[poolType]
+	if !ok {
+		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
+	}
+	return poolTypeConstant, nil
+}
+
 // ADD REMOTE CHAIN
 type AddRemoteChainToSolanaConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update
@@ -43,7 +70,6 @@ type RemoteChainConfigSolana struct {
 	EnabledAsSource bool
 	// TODO: what if remote chain family is solana ? will this be the router address ?
 	RemoteChainOnRampAddress string
-
 	// destination
 	DestinationConfig solRouter.DestChainConfig
 }
@@ -157,63 +183,13 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 	return deployment.ChangesetOutput{}, nil
 }
 
-// ADD TOKEN POOL
-func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey, tokenProgramName string) error {
-	chain, ok := e.SolChains[selector]
-	if !ok {
-		return fmt.Errorf("chain selector %d not found in environment", selector)
-	}
-	state, err := cs.LoadOnchainState(e)
-	if err != nil {
-		return err
-	}
-	chainState, chainExists := state.SolChains[selector]
-	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
-	}
-	_, err = deployment.GetTokenProgramID(tokenProgramName)
-	if err != nil {
-		return err
-	}
-	exists := false
-	for _, token := range chainState.SPL2022Tokens {
-		if token.Equals(tokenPubKey) {
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		return fmt.Errorf("token %s not found in existing state, deploy the prerequisites first", tokenPubKey.String())
-	}
-	return nil
-}
-
-type TokenPoolConfig struct {
-	ChainSelector    uint64
-	PoolType         string
-	RampAuthority    string
-	Authority        string
-	TokenPubKey      string
-	TokenProgramName string
-}
-
-func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
-	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey), cfg.TokenProgramName)
-	if err != nil {
-		return err
-	}
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	if chainState.TokenPool.IsZero() {
-		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
-	}
-	_, err = deployment.GetPoolType(cfg.PoolType)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
+// SET OCR3 CONFIG
+// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
+// to the active configuration on CCIPHome. This
+// is used to complete the candidate->active promotion cycle, it's
+// run after the candidate is confirmed to be working correctly.
+// Multichain is especially helpful for NOP rotations where we have
+// to touch all the chain to change signers.
 func btoi(b bool) uint8 {
 	if b {
 		return 1
@@ -221,271 +197,6 @@ func btoi(b bool) uint8 {
 	return 0
 }
 
-func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-
-	tokenprogramID, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
-	poolType, _ := deployment.GetPoolType(cfg.PoolType)
-
-	// Convert string addresses to public keys
-	rampAuthorityPubKey := solana.MustPublicKeyFromBase58(cfg.RampAuthority)
-	authorityPubKey := solana.MustPublicKeyFromBase58(cfg.Authority)
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-
-	poolConfig, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenprogramID)
-	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenprogramID)
-
-	// ata for token pool
-	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
-		tokenprogramID,
-		tokenPubKey,
-		poolSigner,
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	token_pool.SetProgramID(chainState.TokenPool)
-	// initialize token pool for token
-	poolInitI, err := token_pool.NewInitializeInstruction(
-		poolType,
-		rampAuthorityPubKey,
-		poolConfig,
-		tokenPubKey,
-		poolSigner,
-		authorityPubKey,
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	// make pool mint_authority for token (required for burn/mint)
-	authI, err := solTokenUtil.SetTokenMintAuthority(
-		tokenprogramID,
-		poolSigner,
-		tokenPubKey,
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	instructions := []solana.Instruction{createI, poolInitI, authI}
-	err = chain.Confirm(instructions)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfig.String(), "pool_signer", poolSigner.String())
-	e.Logger.Infow("Set mint authority", "poolSigner", poolSigner.String())
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-type RemoteChainTokenPoolConfig struct {
-	ChainSelector       uint64
-	RemoteChainSelector uint64
-	TokenPubKey         string
-	TokenProgramName    string
-	RemoteConfig        token_pool.RemoteConfig
-	InboundRateLimit    token_pool.RateLimitConfig
-	OutboundRateLimit   token_pool.RateLimitConfig
-}
-
-func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
-	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey), cfg.TokenProgramName)
-	if err != nil {
-		return err
-	}
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	if chainState.TokenPool.IsZero() {
-		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
-	}
-	return nil
-}
-
-func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainTokenPoolConfig) (deployment.ChangesetOutput, error) {
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey, cfg.TokenProgramName); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-
-	tokenprogramID, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
-	poolConfig, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenprogramID)
-	remoteChainConfigPDA, _, err := solana.FindProgramAddress(
-		[][]byte{
-			[]byte("ccip_tokenpool_chainconfig"),
-			binary.LittleEndian.AppendUint64([]byte{}, cfg.RemoteChainSelector),
-			tokenPubKey.Bytes(),
-		},
-		chainState.TokenPool,
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	token_pool.SetProgramID(chainState.TokenPool)
-	ixConfigure, err := token_pool.NewInitChainRemoteConfigInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.RemoteConfig,
-		poolConfig,
-		remoteChainConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	ixRates, err := token_pool.NewSetChainRateLimitInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.InboundRateLimit,
-		cfg.OutboundRateLimit,
-		poolConfig,
-		remoteChainConfigPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	instructions := []solana.Instruction{ixConfigure, ixRates}
-	err = chain.Confirm(instructions)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	return deployment.ChangesetOutput{}, nil
-}
-
-// BILLING
-type BillingTokenPoolConfig struct {
-	ChainSelector    uint64
-	TokenPubKey      string
-	TokenProgramName string
-	Config           solRouter.BillingTokenConfig
-}
-
-func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
-	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey), cfg.TokenProgramName)
-	if err != nil {
-		return err
-	}
-	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
-	}
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
-	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
-	err = solCommonUtil.GetAccountDataBorshInto(context.Background(), chain.Client, billingConfigPDA, deployment.SolDefaultCommitment, &token0ConfigAccount)
-	if err == nil {
-		return fmt.Errorf("billing token config already exists")
-	}
-	return nil
-}
-
-func AddBillingToken(e deployment.Environment, cfg BillingTokenPoolConfig) (deployment.ChangesetOutput, error) {
-	chain, ok := e.SolChains[cfg.ChainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
-	}
-	state, err := cs.LoadOnchainState(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-
-	ccip_router.SetProgramID(chainState.Router)
-
-	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
-	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
-	tokenprogramID, _ := deployment.GetTokenProgramID(cfg.TokenProgramName)
-	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, billingSignerPDA)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-
-	cfg.Config.Mint = tokenPubKey
-
-	ixConfig, cerr := ccip_router.NewAddBillingTokenConfigInstruction(
-		cfg.Config,
-		routerConfigPDA,
-		billingConfigPDA,
-		tokenprogramID,
-		tokenPubKey,
-		token2022Receiver,
-		chain.DeployerKey.PublicKey(),
-		billingSignerPDA,
-		ata.ProgramID,
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if cerr != nil {
-		return deployment.ChangesetOutput{}, cerr
-	}
-
-	instructions := []solana.Instruction{ixConfig}
-	err = chain.Confirm(instructions)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
-	return deployment.ChangesetOutput{}, nil
-}
-
-type BillingTokenForRemoteChainConfig struct {
-	ChainSelector       uint64
-	RemoteChainSelector uint64
-	TokenProgramName    string
-	Config              ccip_router.TokenBilling
-	TokenPubKey         string
-}
-
-func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
-	if err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey), cfg.TokenProgramName); err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.Router)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-
-	ix, err := ccip_router.NewSetTokenBillingInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.Config,
-		routerConfigPDA,
-		remoteBillingPDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-	).ValidateAndBuild()
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	instructions := []solana.Instruction{ix}
-	err = chain.Confirm(instructions)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
-	return deployment.ChangesetOutput{}, nil
-}
-
-// SetOCR3OffRamp will set the OCR3 offramp for the given chain.
-// to the active configuration on CCIPHome. This
-// is used to complete the candidate->active promotion cycle, it's
-// run after the candidate is confirmed to be working correctly.
-// Multichain is especially helpful for NOP rotations where we have
-// to touch all the chain to change signers.
 func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -544,3 +255,538 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 
 	// TODO: timelock mcms support
 }
+
+// ADD TOKEN POOL
+func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
+	chain, ok := e.SolChains[selector]
+	if !ok {
+		return fmt.Errorf("chain selector %d not found in environment", selector)
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState, chainExists := state.SolChains[selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+	}
+	exists := false
+	for _, token := range chainState.SPL2022Tokens {
+		if token.Equals(tokenPubKey) {
+			exists = true
+			break
+		}
+	}
+	if !exists {
+		return fmt.Errorf("token %s not found in existing state, deploy the prerequisites first", tokenPubKey.String())
+	}
+	return nil
+}
+
+type TokenPoolConfig struct {
+	ChainSelector    uint64
+	PoolType         string
+	Authority        string
+	TokenPubKey      string
+	TokenProgramName string
+}
+
+func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
+	if err != nil {
+		return err
+	}
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.TokenPool.IsZero() {
+		return fmt.Errorf("token pool not found in existing state, deploy the token pool first")
+	}
+	_, err = GetPoolType(cfg.PoolType)
+	if err != nil {
+		return err
+	}
+	_, err = GetTokenProgramID(cfg.TokenProgramName)
+	if err != nil {
+		return err
+	}
+	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, state.SolChains[cfg.ChainSelector].TokenPool)
+	chain := e.SolChains[cfg.ChainSelector]
+	var poolConfigAccount token_pool.Config
+	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
+	if err == nil {
+		return fmt.Errorf("token pool config already exists")
+	}
+	return nil
+}
+
+func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Adding token pool", "chain", cfg.ChainSelector, "pool_type", cfg.PoolType, "authority", cfg.Authority, "token_pubkey", cfg.TokenPubKey, "token_program_name", cfg.TokenProgramName)
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
+	poolType, _ := GetPoolType(cfg.PoolType)
+	rampAuthorityPubKey, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Router)
+	authorityPubKey := solana.MustPublicKeyFromBase58(cfg.Authority)
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
+	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, chainState.TokenPool)
+
+	// ata for token pool
+	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
+		tokenprogramID,
+		tokenPubKey,
+		poolSigner,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	token_pool.SetProgramID(chainState.TokenPool)
+	// initialize token pool for token
+	poolInitI, err := token_pool.NewInitializeInstruction(
+		poolType,
+		rampAuthorityPubKey,
+		poolConfigPDA,
+		tokenPubKey,
+		poolSigner,
+		authorityPubKey, // this is assumed to be chain.DeployerKey for now
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	// make pool mint_authority for token (required for burn/mint)
+	authI, err := solTokenUtil.SetTokenMintAuthority(
+		tokenprogramID,
+		poolSigner,
+		tokenPubKey,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	instructions := []solana.Instruction{createI, poolInitI, authI}
+
+	// add signer here if authority is different from deployer key
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
+	e.Logger.Infow("Set mint authority", "poolSigner", poolSigner.String())
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+// ADD TOKEN POOL FOR REMOTE CHAIN
+type RemoteChainTokenPoolConfig struct {
+	ChainSelector       uint64
+	RemoteChainSelector uint64
+	TokenPubKey         string
+	RemoteConfig        token_pool.RemoteConfig
+	InboundRateLimit    token_pool.RateLimitConfig
+	OutboundRateLimit   token_pool.RateLimitConfig
+}
+
+func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey))
+	if err != nil {
+		return err
+	}
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.TokenPool.IsZero() {
+		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+	}
+
+	// check if pool config exists (cannot do remote setup without it)
+	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, state.SolChains[cfg.ChainSelector].TokenPool)
+	chain := e.SolChains[cfg.ChainSelector]
+	var poolConfigAccount token_pool.Config
+	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
+	if err != nil {
+		return fmt.Errorf("token pool config not found, call AddTokenPool first")
+	}
+
+	// check if existing pool setup already has this remote chain configured
+	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
+	var remoteChainConfigAccount token_pool.RemoteConfig
+	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+	if err == nil {
+		return fmt.Errorf("remote chain config already exists")
+	}
+	return nil
+}
+
+func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainTokenPoolConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
+	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	token_pool.SetProgramID(chainState.TokenPool)
+	ixConfigure, err := token_pool.NewInitChainRemoteConfigInstruction(
+		cfg.RemoteChainSelector,
+		tokenPubKey,
+		cfg.RemoteConfig,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	ixRates, err := token_pool.NewSetChainRateLimitInstruction(
+		cfg.RemoteChainSelector,
+		tokenPubKey,
+		cfg.InboundRateLimit,
+		cfg.OutboundRateLimit,
+		poolConfigPDA,
+		remoteChainConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	instructions := []solana.Instruction{ixConfigure, ixRates}
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+// ADD BILLING TOKEN
+type BillingTokenPoolConfig struct {
+	ChainSelector    uint64
+	TokenPubKey      string
+	TokenProgramName string
+	Config           solRouter.BillingTokenConfig
+}
+
+func validateRouterConfig(chain deployment.SolChain, router solana.PublicKey) error {
+	routerConfigPDA, _, _ := solState.FindConfigPDA(router)
+	var routerConfigAccount ccip_router.Config
+	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first")
+	}
+	return nil
+}
+
+func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
+	if err != nil {
+		return err
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.Router.IsZero() {
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+	}
+	if err := validateRouterConfig(chain, chainState.Router); err != nil {
+		return err
+	}
+	// check if already setup
+	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
+	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
+	err = chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount)
+	if err == nil {
+		return fmt.Errorf("billing token config already exists")
+	}
+
+	_, err = GetTokenProgramID(cfg.TokenProgramName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func AddBillingToken(e deployment.Environment, cfg BillingTokenPoolConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain selector %d not found in environment", cfg.ChainSelector)
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+
+	ccip_router.SetProgramID(chainState.Router)
+
+	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
+	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
+	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
+	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, billingSignerPDA)
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+
+	cfg.Config.Mint = tokenPubKey
+
+	ixConfig, cerr := ccip_router.NewAddBillingTokenConfigInstruction(
+		cfg.Config,
+		routerConfigPDA,
+		billingConfigPDA,
+		tokenprogramID,
+		tokenPubKey,
+		token2022Receiver,
+		chain.DeployerKey.PublicKey(),
+		billingSignerPDA,
+		ata.ProgramID,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if cerr != nil {
+		return deployment.ChangesetOutput{}, cerr
+	}
+
+	instructions := []solana.Instruction{ixConfig}
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
+	return deployment.ChangesetOutput{}, nil
+}
+
+// ADD BILLING TOKEN FOR REMOTE CHAIN
+type BillingTokenForRemoteChainConfig struct {
+	ChainSelector       uint64
+	RemoteChainSelector uint64
+	Config              ccip_router.TokenBilling
+	TokenPubKey         string
+}
+
+func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) error {
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
+	if err != nil {
+		return err
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.Router.IsZero() {
+		return fmt.Errorf("router not found in existing state for chain %d", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateRouterConfig(chain, chainState.Router); err != nil {
+		return fmt.Errorf("router validation failed: %w", err)
+	}
+	// check if desired state already exists ?
+	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.Router)
+	var remoteBillingAccount ccip_router.TokenBilling
+	err = chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount)
+	if err == nil {
+		return fmt.Errorf("billing token config already exists")
+	}
+	return nil
+}
+
+func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.Router)
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+
+	ix, err := ccip_router.NewSetTokenBillingInstruction(
+		cfg.RemoteChainSelector,
+		tokenPubKey,
+		cfg.Config,
+		routerConfigPDA,
+		remoteBillingPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	instructions := []solana.Instruction{ix}
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
+	return deployment.ChangesetOutput{}, nil
+}
+
+// TOKEN ADMIN REGISTRY
+type RegisterTokenAdminRegistryType int
+
+const (
+	ViaGetCcipAdminInstruction RegisterTokenAdminRegistryType = iota
+	ViaOwnerInstruction
+)
+
+type RegisterTokenAdminRegistryConfig struct {
+	ChainSelector  uint64
+	TokenPubKey    string
+	TokenPoolAdmin string
+	RegisterType   RegisterTokenAdminRegistryType
+}
+
+func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
+	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey))
+	if err != nil {
+		return err
+	}
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.Router.IsZero() {
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+	}
+	// check for router setup
+	// check if tokenAdminRegistryPDA already exists
+	return nil
+}
+
+func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+
+	// Convert string addresses to public keys
+	configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(chainState.Router, tokenPubKey)
+	tokenPoolAdminPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPoolAdmin)
+	var instruction *ccip_router.Instruction
+	var err error
+	switch cfg.RegisterType {
+	case ViaGetCcipAdminInstruction:
+		instruction, err = solRouter.NewRegisterTokenAdminRegistryViaGetCcipAdminInstruction(
+			tokenPubKey,
+			tokenPoolAdminPubKey,
+			configPDA,
+			tokenAdminRegistryPDA,         // this gets created
+			chain.DeployerKey.PublicKey(), // authority defaulting to deployer key
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	case ViaOwnerInstruction:
+		instruction, err = solRouter.NewRegisterTokenAdminRegistryViaOwnerInstruction(
+			configPDA,
+			tokenAdminRegistryPDA, // this gets created
+			tokenPubKey,
+			chain.DeployerKey.PublicKey(), // authority defaulting to deployer key
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	}
+	// if we want to have a different authority, we will need to add the corresponding singer here
+	instructions := []solana.Instruction{instruction}
+	err = chain.Confirm(instructions)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+// TRANSFER AND ACCEPT TOKEN ADMIN REGISTRY
+type TransferAndAcceptAdminRoleTokenAdminRegistryConfig struct {
+	ChainSelector               uint64
+	TokenName                   string
+	NewTokenPoolAdminPrivateKey string
+}
+
+func (cfg TransferAndAcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
+	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenName))
+	if err != nil {
+		return err
+	}
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	if chainState.Router.IsZero() {
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+	}
+	// check if router is setup
+	return nil
+}
+
+func TransferAndAcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferAndAcceptAdminRoleTokenAdminRegistryConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenName)
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(chainState.Router, tokenPubKey)
+	configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	newTokenPoolAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.NewTokenPoolAdminPrivateKey)
+	newTokenPoolAdminPubKey := newTokenPoolAdminPrivKey.PublicKey()
+
+	ix1, err := ccip_router.NewTransferAdminRoleTokenAdminRegistryInstruction(
+		tokenPubKey,
+		newTokenPoolAdminPubKey,
+		configPDA,
+		tokenAdminRegistryPDA,
+		chain.DeployerKey.PublicKey(), // as we are assuming this is the default authority for everything in the beginning
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	ix2, err := ccip_router.NewAcceptAdminRoleTokenAdminRegistryInstruction(
+		tokenPubKey,
+		configPDA,
+		tokenAdminRegistryPDA,
+		newTokenPoolAdminPubKey,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	instructions := []solana.Instruction{ix1, ix2}
+	// the new authority will have to sign the acceptance
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(newTokenPoolAdminPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+// TODO: set pool
+//NewAppendRemotePoolAddressesInstruction

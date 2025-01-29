@@ -23,7 +23,7 @@ type DeploySolanaTokenConfig struct {
 }
 
 func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
-	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgramName)
+	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgramName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -90,7 +90,7 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 	// get addresses
 	tokenAddress := cfg.TokenPubkey
 	// get token program id
-	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -125,7 +125,7 @@ type CreateSolanaTokenATAConfig struct {
 func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 
-	tokenprogramID, err := deployment.GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

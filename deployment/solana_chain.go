@@ -18,7 +18,6 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -138,33 +137,4 @@ func parseProgramID(output string) (string, error) {
 		endIdx = len(output)
 	}
 	return output[startIdx : startIdx+endIdx], nil
-}
-
-// TODO: move these to the solana folder
-// GetTokenProgramID returns the program ID for the given token program name
-func GetTokenProgramID(programName string) (solana.PublicKey, error) {
-	tokenPrograms := map[string]solana.PublicKey{
-		// "spl-token":      solana.TokenProgramID,
-		SPL2022Tokens: solana.Token2022ProgramID,
-	}
-
-	programID, ok := tokenPrograms[programName]
-	if !ok {
-		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: spl-token, spl-token-2022", programName)
-	}
-	return programID, nil
-}
-
-// GetPoolType returns the token pool type constant for the given string
-func GetPoolType(poolType string) (token_pool.PoolType, error) {
-	poolTypes := map[string]token_pool.PoolType{
-		"LockAndRelease": token_pool.LockAndRelease_PoolType,
-		"BurnAndMint":    token_pool.BurnAndMint_PoolType,
-	}
-
-	poolTypeConstant, ok := poolTypes[poolType]
-	if !ok {
-		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
-	}
-	return poolTypeConstant, nil
 }
