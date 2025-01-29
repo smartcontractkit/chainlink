@@ -598,7 +598,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, stat
 			return fmt.Errorf("no fee quoter for chain %d", chainSel)
 		}
 		onchainFeeTokens, err := feeQuoter.GetFeeTokens(nil)
-		if onchainFeeTokens == nil || len(onchainFeeTokens) == 0 {
+		if len(onchainFeeTokens) == 0 {
 			return fmt.Errorf("no fee tokens configured on fee quoter %s for chain %d", feeQuoter.Address().Hex(), chainSel)
 		}
 		if err != nil {
