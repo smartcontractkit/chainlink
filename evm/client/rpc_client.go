@@ -127,9 +127,6 @@ func NewRPCClient(
 		chainType:              chainType,
 		clientErrors:           cfg.Errors(),
 	}
-
-	r.Adapter = multinode.NewAdapter[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
-
 	r.cfg = cfg
 	r.name = name
 	r.id = id
@@ -152,6 +149,7 @@ func NewRPCClient(
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
 
+	r.Adapter = multinode.NewAdapter[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
 	return r
 }
 
@@ -1222,7 +1220,6 @@ func (r *RPCClient) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 		chainID, err = http.geth.ChainID(ctx)
 		err = r.wrapHTTP(err)
 	} else {
-		// TODO: ws is nil...
 		chainID, err = ws.geth.ChainID(ctx)
 		err = r.wrapWS(err)
 	}
