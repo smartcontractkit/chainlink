@@ -327,7 +327,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	var poolConfigAccount token_pool.Config
 	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
 	if err == nil {
-		return fmt.Errorf("token pool config already exists")
+		return fmt.Errorf("token pool config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
 }
@@ -416,7 +416,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
-		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first")
+		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first for chain %d", cfg.ChainSelector)
 	}
 
 	// check if pool config exists (cannot do remote setup without it)
@@ -425,7 +425,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	var poolConfigAccount token_pool.Config
 	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
 	if err != nil {
-		return fmt.Errorf("token pool config not found, call AddTokenPool first")
+		return fmt.Errorf("token pool config not found, call AddTokenPool first for chain %d", cfg.ChainSelector)
 	}
 
 	// check if existing pool setup already has this remote chain configured
@@ -433,7 +433,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	var remoteChainConfigAccount token_pool.RemoteConfig
 	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
 	if err == nil {
-		return fmt.Errorf("remote chain config already exists")
+		return fmt.Errorf("remote chain config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
 }
@@ -511,7 +511,7 @@ func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
 	var token0ConfigAccount ccip_router.BillingTokenConfigWrapper
 	err = chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount)
 	if err == nil {
-		return fmt.Errorf("billing token config already exists")
+		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
 	}
 
 	_, err = GetTokenProgramID(cfg.TokenProgramName)
@@ -602,7 +602,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 	var remoteBillingAccount ccip_router.TokenBilling
 	err = chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount)
 	if err == nil {
-		return fmt.Errorf("billing token config already exists")
+		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
 }
@@ -663,7 +663,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first for chain %d", cfg.ChainSelector)
 	}
 	// check for router setup
 	// check if tokenAdminRegistryPDA already exists
@@ -737,7 +737,7 @@ func (cfg TransferAndAcceptAdminRoleTokenAdminRegistryConfig) Validate(e deploym
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first")
+		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first for chain %d", cfg.ChainSelector)
 	}
 	// check if router is setup
 	return nil
