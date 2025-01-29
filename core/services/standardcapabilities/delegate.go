@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -49,7 +48,8 @@ type Delegate struct {
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	ks                      keystore.Master
 	peerWrapper             *ocrcommon.SingletonPeerWrapper
-	newOracleFactoryFn      func(generic.OracleFactoryParams) (core.OracleFactory, error)
+	newOracleFactoryFn      NewOracleFactoryFn
+	computeFetcherFactoryFn compute.FetcherFactory
 
 	isNewlyCreatedJob bool
 }
@@ -75,6 +75,7 @@ func NewDelegate(
 	ks keystore.Master,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
+	fetcherFactoryFn compute.FetcherFactory,
 ) *Delegate {
 	return &Delegate{
 		logger:                  logger,
@@ -90,6 +91,7 @@ func NewDelegate(
 		ks:                      ks,
 		peerWrapper:             peerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
+		computeFetcherFactoryFn: fetcherFactoryFn,
 	}
 }
 
@@ -230,35 +232,51 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	if spec.StandardCapabilitiesSpec.Command == commandOverrideForCustomComputeAction {
-		if d.gatewayConnectorWrapper == nil {
-			return nil, errors.New("gateway connector is required for custom compute capability")
+		var fetcherFactoryFn compute.FetcherFactory
+		var services []job.ServiceCtx
+		var cfg compute.Config
+
+		tomlErr := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &cfg)
+		if tomlErr != nil {
+			return nil, tomlErr
+		}
+
+		if d.computeFetcherFactoryFn != nil {
+			fetcherFactoryFn = d.computeFetcherFactoryFn
+		} else {
+			if d.gatewayConnectorWrapper == nil {
+				return nil, errors.New("gateway connector is required for custom compute capability")
+			}
+
+			lggr := d.logger.Named("ComputeAction")
+
+			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr)
+			if err != nil {
+				return nil, err
+			}
+			services = append(services, handler)
+
+			idGeneratorFn := func() string {
+				return uuid.New().String()
+			}
+
+			fetcherFactoryFn, err = compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create fetcher factory: %w", err)
+			}
 		}
 
 		if len(spec.StandardCapabilitiesSpec.Config) == 0 {
 			return nil, errors.New("config is empty")
 		}
 
-		var cfg compute.Config
-		err := toml.Unmarshal([]byte(spec.StandardCapabilitiesSpec.Config), &cfg)
+		computeSrvc, err := compute.NewAction(cfg, log, d.registry, fetcherFactoryFn)
 		if err != nil {
 			return nil, err
 		}
-		lggr := d.logger.Named("ComputeAction")
+		services = append(services, computeSrvc)
 
-		handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr)
-		if err != nil {
-			return nil, err
-		}
-
-		idGeneratorFn := func() string {
-			return uuid.New().String()
-		}
-
-		computeSrvc, err := compute.NewAction(cfg, log, d.registry, handler, idGeneratorFn)
-		if err != nil {
-			return nil, err
-		}
-		return []job.ServiceCtx{handler, computeSrvc}, nil
+		return services, nil
 	}
 
 	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,

@@ -1,5 +1,6 @@
 ChainID = '59141'
 FinalityDepth = 900
+LinkContractAddress = '0xF64E6E064a71B45514691D397ad4204972cD6508'
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]

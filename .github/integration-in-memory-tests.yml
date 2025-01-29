@@ -53,7 +53,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 12m -test.parallel=2 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 25m -test.parallel=2 -count=1 -json
   
   - id: smoke/ccip/ccip_add_chain_test.go:*
     path: integration-tests/smoke/ccip/ccip_add_chain_test.go

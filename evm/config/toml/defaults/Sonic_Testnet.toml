@@ -1,6 +1,7 @@
 ChainId = '57054'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x61876F0429726D7777B46f663e1C9ab75d08Fc56'
 LogPollInterval = "1s"       #1s block rate
 MinIncomingConfirmations = 5
 RPCBlockQueryDelay = 10

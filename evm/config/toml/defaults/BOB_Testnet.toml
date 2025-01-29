@@ -3,6 +3,7 @@ ChainID = '808813'
 ChainType = 'optimismBedrock'
 # FinalityDepth in mainnet showed more than 3k
 FinalityDepth = 3150
+LinkContractAddress = '0xcd2AfB2933391E35e8682cbaaF75d9CA7339b183'
 # block_time was:  2s, adding 1 second buffer 
 LogPollInterval = '3s'  
 

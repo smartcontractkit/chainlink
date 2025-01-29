@@ -1,0 +1,48 @@
+name: Flakeguard Validate Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      testPackages:
+        description: 'A comma-separated list of test packages to run.'
+        required: true
+        type: string
+        default: 'github.com/smartcontractkit/chainlink/v2/core/cmd'
+      testRepeatCount:
+        description: 'The number of times to repeat the tests.'
+        required: false
+        type: string
+        default: '5'
+      testRunner:
+        description: 'The default tests runner to use.'
+        required: false
+        type: string
+        default: 'ubuntu-20.04'
+      runTestsWithRace:
+        description: 'Run tests with the race detector enabled.'
+        required: false
+        type: string
+        default: 'true'
+
+jobs:
+  run-custom-tests:
+    name: Run Custom Tests with Flakeguard
+    uses: ./.github/workflows/flakeguard.yml
+    with:
+      repoUrl: 'https://github.com/smartcontractkit/chainlink'
+      projectPath: '.'
+      runAllTests: false
+      # All tests have to pass
+      maxPassRatio: '1.0' 
+      extraArgs: >-
+        {
+          "run_custom_test_packages": "${{ inputs.testPackages }}",
+          "test_repeat_count": "${{ inputs.testRepeatCount }}",
+          "run_with_race": "${{ inputs.runTestsWithRace }}",
+          "default_tests_runner": "${{ inputs.testRunner }}",
+          "skipped_tests": ""
+        }
+
+    secrets:
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

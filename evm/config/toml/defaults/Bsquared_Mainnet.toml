@@ -3,13 +3,14 @@ ChainID = '223'
 ChainType = 'optimismBedrock'
 # finality_depth was: ~1900
 FinalityDepth = 2000
+LinkContractAddress = '0x709229D9587886a1eDFeE6b5cE636E1D70d1cE39'
 # block_time:  ~2s, adding 1 second buffer 
-LogPollInterval = '3s' 
+LogPollInterval = '3s'
 
 # finality_depth * block_time / 60 secs = ~66  min (finality time)
-NoNewFinalizedHeadsThreshold = '70m' 
+NoNewFinalizedHeadsThreshold = '70m'
 
-FinalityTagEnabled = true 
+FinalityTagEnabled = true
 
 [GasEstimator]
 EIP1559DynamicFees = true
