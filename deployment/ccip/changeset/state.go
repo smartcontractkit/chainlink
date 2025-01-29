@@ -184,6 +184,18 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
+	var pools []v1_5.TokenPoolContract
+	pools = append(pools, NestedPoolMapValues(c.BurnMintTokenPools)...)
+	pools = append(pools, NestedPoolMapValues(c.BurnWithFromMintTokenPools)...)
+	pools = append(pools, NestedPoolMapValues(c.BurnFromMintTokenPools)...)
+	pools = append(pools, NestedPoolMapValues(c.LockReleaseTokenPools)...)
+	for _, pool := range pools {
+		tokenPoolView, err := v1_5.GenerateTokenPoolView(pool)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate token pool view for %s", pool.Address().String())
+		}
+		chainView.TokenPool[pool.Address().Hex()] = tokenPoolView
+	}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
@@ -749,4 +761,16 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 		}
 	}
 	return state, nil
+}
+
+func NestedPoolMapValues[T v1_5.TokenPoolContract](m map[TokenSymbol]map[semver.Version]T) []v1_5.TokenPoolContract {
+	var flattened []v1_5.TokenPoolContract
+	for _, versionMap := range m {
+		for _, pool := range versionMap {
+			if pool != nil {
+				flattened = append(flattened, pool)
+			}
+		}
+	}
+	return flattened
 }

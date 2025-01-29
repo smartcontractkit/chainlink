@@ -18,6 +18,7 @@ type ChainView struct {
 	Router map[string]v1_2.RouterView `json:"router,omitempty"`
 	// v1.5
 	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
+	TokenPool          map[string]v1_5.TokenPoolView          `json:"tokenPool,omitempty"`
 	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
 	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
 	EVM2EVMOnRamp      map[string]v1_5.OnRampView             `json:"evm2evmOnRamp,omitempty"`
