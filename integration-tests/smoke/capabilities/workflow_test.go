@@ -73,16 +73,21 @@ type WorkflowConfig struct {
 	FeedID       string `toml:"feed_id" validate:"required"`
 }
 
+// Defines relases/versions of test dependencies that will be downloaded from Github
 type DependenciesConfig struct {
 	CapabiltiesVersion  string `toml:"capabilities_version"`
 	ChainlinkCLIVersion string `toml:"chainlink_cli_version"`
 }
 
+// Defines the location of the existing workflow binary and config files
+// They will be used if WorkflowConfig.UseExising is true
+// Otherwise test will compile and upload a new workflow
 type ExistingWorkflowConfig struct {
 	BinaryURL string `toml:"binary_url"`
 	ConfigURL string `toml:"config_url"`
 }
 
+// Tells the test where the workflow to compile is located
 type ChainlinkCLIConfig struct {
 	FolderLocation *string `toml:"folder_location"`
 }
@@ -272,6 +277,7 @@ const (
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
+	chainlinkCliCommand                = "./chainlink-cli"
 )
 
 func downloadAndInstallChainlinkCLI(ghToken, version string) error {
@@ -314,17 +320,17 @@ func downloadAndInstallChainlinkCLI(ghToken, version string) error {
 	}
 
 	extractedFileName := fmt.Sprintf("cre_%s_%s_%s", version, system, arch)
-	cmd = exec.Command("mv", extractedFileName, "chainlink-cli")
+	cmd = exec.Command("mv", extractedFileName, strings.TrimPrefix(chainlinkCliCommand, "./"))
 	if cmd.Run() != nil {
 		return errors.Wrapf(err, "failed to rename %s to chainlink-cli", extractedFileName)
 	}
 
-	cmd = exec.Command("chmod", "+x", "chainlink-cli")
+	cmd = exec.Command("chmod", "+x", chainlinkCliCommand)
 	if cmd.Run() != nil {
 		return errors.Wrapf(err, "failed to make chainlink-cli executable")
 	}
 
-	if isInstalled := isInstalled("chainlink-cli"); !isInstalled {
+	if isInstalled := isInstalled(chainlinkCliCommand); !isInstalled {
 		return errors.New("failed to install chainlink-cli or it is not available in the PATH")
 	}
 
@@ -395,7 +401,7 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 
 	if in.WorkflowConfig.UseChainlinkCLI {
-		// if !isInstalled("chainlink-cli") {
+		// if !isInstalled(chainlinkCliCommand) {
 		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
 
 		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
@@ -735,7 +741,7 @@ func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feeds
 
 	var outputBuffer bytes.Buffer
 
-	compileCmd := exec.Command("chainlink-cli", "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
+	compileCmd := exec.Command(chainlinkCliCommand, "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
 	compileCmd.Dir = *in.WorkflowConfig.ChainlinkCLI.FolderLocation
@@ -843,7 +849,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 	}
 
 	// register the workflow
-	registerCmd := exec.Command("chainlink-cli", "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
+	registerCmd := exec.Command(chainlinkCliCommand, "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
 	registerCmd.Stdout = os.Stdout
 	registerCmd.Stderr = os.Stderr
 	err = registerCmd.Run()
