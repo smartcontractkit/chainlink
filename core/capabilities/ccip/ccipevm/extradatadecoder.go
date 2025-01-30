@@ -34,8 +34,8 @@ func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 		extraByteOffset = 4
 	case string(svmExtraArgsV1Tag):
 		// for SVMExtraArgs there's the four bytes plus another 32 bytes padding for the dynamic array
-		// https://github.com/smartcontractkit/chainlink/blob/33c0bda696b0ed97f587a46eacd5c65bed9fb2c1/contracts/src/v0.8/ccip/libraries/Client.sol#L57
-		// this is a temporary solution, the evm on-chain side will fix it, so the offset should just be 4 instead of 36
+		// TODO this is a temporary solution, the evm on-chain side will fix it, so the offset should just be 4 instead of 36
+		// https://smartcontract-it.atlassian.net/browse/BCI-4180
 		method = svmV1DecodeName
 		extraByteOffset = 36
 	default:
