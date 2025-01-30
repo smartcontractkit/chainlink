@@ -84,7 +84,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250124205858-500edf2db981
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250130171809-d1adf378df86
+	github.com/smartcontractkit/chainlink-framework/multinode f9ffc7ee5eabb7231b69129a06a95b36d0ca4a15
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250130175010-4757d15a0538
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d
