@@ -181,8 +181,7 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", ws.uri.Redacted()))
 		}
 
-		ws.rpc = wsrpc
-		ws.geth = ethclient.NewClient(wsrpc)
+		r.ws.Store(&rawclient{uri: ws.uri, rpc: wsrpc, geth: ethclient.NewClient(wsrpc)})
 	}
 
 	http := r.http.Load()
@@ -424,7 +423,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return channel, sub, nil
 	}
 
-	if ws.Load() == nil {
+	if ws == nil {
 		return nil, nil, errors.New("SubscribeNewHead is not allowed without ws url")
 	}
 
@@ -442,7 +441,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return head, nil
 	}, r.wrapRPCClientError)
 
-	err = forwarder.start(ws.Load().rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
+	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -601,6 +600,10 @@ func (r *RPCClient) latestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 		err = r.astarLatestFinalizedBlock(ctx, &head)
 	} else {
 		err = r.ethGetBlockByNumber(ctx, rpc.FinalizedBlockNumber.String(), &head)
+	}
+
+	if err != nil {
+		return
 	}
 
 	if head == nil {
@@ -1158,7 +1161,7 @@ func (r *RPCClient) ClientVersion(ctx context.Context) (version string, err erro
 func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
-	if ws.Load() == nil {
+	if ws == nil {
 		return nil, errors.New("SubscribeFilterLogs is not allowed without ws url")
 	}
 	lggr := r.newRqLggr().With("q", q)
@@ -1171,7 +1174,7 @@ func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 		err = r.wrapWS(err)
 	}()
 	sub := newSubForwarder(ch, r.makeLogValid, r.wrapRPCClientError)
-	err = sub.start(ws.Load().geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
+	err = sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
 	if err != nil {
 		return
 	}
@@ -1267,20 +1270,20 @@ func (r *RPCClient) wrapHTTP(err error) error {
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
 func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	ws *rawclient, http *rawclient) {
-	ctx, cancel, _, wsClient, httpClient := r.acquireQueryCtx(parentCtx, timeout)
-	return ctx, cancel, wsClient.Load(), httpClient.Load()
+	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx, timeout)
+	return
 }
 
 func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
-	chStopInFlight chan struct{}, ws atomic.Pointer[rawclient], http atomic.Pointer[rawclient]) {
+	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
 	ctx, cancel, chStopInFlight = r.AcquireQueryCtx(parentCtx, timeout)
 	if loadedWs := r.ws.Load(); loadedWs != nil {
 		cp := *loadedWs
-		ws.Store(&cp)
+		ws = &cp
 	}
 	if loadedHttp := r.http.Load(); loadedHttp != nil {
 		cp := *loadedHttp
-		http.Store(&cp)
+		http = &cp
 	}
 	return
 }
