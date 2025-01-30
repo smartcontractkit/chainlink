@@ -276,12 +276,13 @@ func TestUpdateNodes(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "twos node, different capabilities",
+			name: "twos nodes with different capabilities",
 			args: args{
 				lggr: lggr,
 				req: &internal.UpdateNodesRequest{
 					P2pToUpdates: map[p2pkey.PeerID]internal.NodeUpdate{
-						testPeerID(t, "peerID_1"): internal.NodeUpdate{
+						testPeerID(t, "peerID_1"): {
+							NodeOperatorID: 1,
 							Capabilities: []kcr.CapabilitiesRegistryCapability{
 								{
 									LabelledName:   "cap1",
@@ -290,7 +291,8 @@ func TestUpdateNodes(t *testing.T) {
 								},
 							},
 						},
-						testPeerID(t, "peerID_2"): internal.NodeUpdate{
+						testPeerID(t, "peerID_2"): {
+							NodeOperatorID: 2,
 							Capabilities: []kcr.CapabilitiesRegistryCapability{
 								{
 									LabelledName:   "cap2",
@@ -303,14 +305,14 @@ func TestUpdateNodes(t *testing.T) {
 					Chain: chain,
 				},
 				nopsToNodes: map[kcr.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc{
-					testNop(t, "nopA"): []*internal.P2PSignerEnc{
+					testNop(t, "nopA"): {
 						{
 							P2PKey:              testPeerID(t, "peerID_1"),
 							Signer:              [32]byte{0: 1, 31: 1},
 							EncryptionPublicKey: [32]byte{0: 7, 1: 7},
 						},
 					},
-					testNop(t, "nopB"): []*internal.P2PSignerEnc{
+					testNop(t, "nopB"): {
 						{
 							P2PKey:              testPeerID(t, "peerID_2"),
 							Signer:              [32]byte{0: 2, 31: 2},
@@ -716,8 +718,8 @@ func findNodeParams(t *testing.T, nodes []kcr.CapabilitiesRegistryNodeParams, p2
 
 func assertNodeParams(t *testing.T, expected, got kcr.CapabilitiesRegistryNodeParams) {
 	t.Helper()
-	assert.Equal(t, expected.NodeOperatorId, got.NodeOperatorId, "nop ID failed : expected %d, got %d", expected.NodeOperatorId, got.NodeOperatorId)
 	assert.Equal(t, expected.P2pId, got.P2pId, "p2p ID failed : expected %v, got %v", expected.P2pId, got.P2pId)
+	assert.Equal(t, expected.NodeOperatorId, got.NodeOperatorId, "nop ID failed : expected %d, got %d", expected.NodeOperatorId, got.NodeOperatorId)
 	assert.Equal(t, expected.Signer, got.Signer, "signer failed : expected %v, got %v", expected.Signer, got.Signer)
 	assert.Equal(t, expected.EncryptionPublicKey, got.EncryptionPublicKey, "encryption key failed : expected %v, got %v", expected.EncryptionPublicKey, got.EncryptionPublicKey)
 }
