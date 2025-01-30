@@ -194,6 +194,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
       IS_CI: "true"
       CTF_CONFIGS: "environment-ci.toml"
       # Anvil developer key, not a secret
