@@ -2,9 +2,13 @@
 pragma solidity 0.8.19;
 
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
-import {GAS_BOUND_CALLER, IGasBoundCaller} from "./interfaces/zksync/IGasBoundCaller.sol";
+import {CallWithExactGasZKSync} from "../shared/call/CallWithExactGasZKSync.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 50_000;
+// We limit return data to a selector plus 4 words. This is to avoid
+// malicious contracts from returning large amounts of data and causing
+// repeated out-of-gas scenarios.
+uint16 constant MAX_CALLBACK_RETURN_BYTES = 132;
 
 /**
  * @title ZKSyncAutomationForwarder is a relayer that sits between the registry and the customer's target contract
@@ -60,17 +64,14 @@ contract ZKSyncAutomationForwarder {
       }
     }
 
-    bytes memory returnData;
-    // solhint-disable-next-line avoid-low-level-calls
-    (success, returnData) = GAS_BOUND_CALLER.delegatecall{gas: gasAmount}(
-      abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data)
+    (bool success, , uint256 pubdataGasSpent) = CallWithExactGasZKSync
+      ._callWithExactGasSafeReturnData(
+      target,
+      gasAmount,
+    data,
+      MAX_CALLBACK_RETURN_BYTES
     );
-    uint256 pubdataGasSpent;
-    if (success) {
-      (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
-    }
-    gasUsed = g1 - gasleft() + pubdataGasSpent;
-    return (success, gasUsed);
+    return (success, g1 - gasleft() + pubdataGasSpent);
   }
 
   function getTarget() external view returns (address) {
