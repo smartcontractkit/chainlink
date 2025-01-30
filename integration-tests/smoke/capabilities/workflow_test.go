@@ -421,7 +421,6 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use chainlink-cli to compile workflows. It requires gist:read and gist:write permissions")
 			err := os.Setenv("GITHUB_API_TOKEN", gistWriteToken)
 			require.NoError(t, err, "failed to set GITHUB_API_TOKEN env var")
-		} else {
 			require.NotEmpty(t, in.WorkflowConfig.ChainlinkCLI.FolderLocation, "folder_location must be set in the chainlink_cli config")
 		}
 	}
