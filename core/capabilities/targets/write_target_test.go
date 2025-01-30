@@ -23,9 +23,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestWriteTarget(t *testing.T) {
+type testHarness struct {
+	lggr          logger.Logger
+	cw            *mocks.ContractWriter
+	cr            *mocks.ContractValueGetter
+	config        *values.Map
+	validInputs   *values.Map
+	validMetadata capabilities.RequestMetadata
+	writeTarget   *targets.WriteTarget
+	forwarderAddr string
+	binding       types.BoundContract
+}
+
+func setup(t *testing.T) testHarness {
 	lggr := logger.TestLogger(t)
-	ctx := context.Background()
 
 	cw := mocks.NewContractWriter(t)
 	cr := mocks.NewContractValueGetter(t)
@@ -85,7 +96,21 @@ func TestWriteTarget(t *testing.T) {
 
 	cr.On("Bind", mock.Anything, []types.BoundContract{binding}).Return(nil)
 
-	cr.EXPECT().GetLatestValue(mock.Anything, binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, retVal any) {
+	return testHarness{
+		lggr:          lggr,
+		cw:            cw,
+		cr:            cr,
+		config:        config,
+		validInputs:   validInputs,
+		validMetadata: validMetadata,
+		writeTarget:   writeTarget,
+		forwarderAddr: forwarderAddr,
+		binding:       binding,
+	}
+}
+func TestWriteTarget(t *testing.T) {
+	th := setup(t)
+	th.cr.EXPECT().GetLatestValue(mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(_ context.Context, _ string, _ primitives.ConfidenceLevel, _, retVal any) {
 		transmissionInfo := retVal.(*targets.TransmissionInfo)
 		*transmissionInfo = targets.TransmissionInfo{
 			GasLimit:        big.NewInt(0),
@@ -96,93 +121,96 @@ func TestWriteTarget(t *testing.T) {
 			Transmitter:     common.HexToAddress("0x0"),
 		}
 	})
-
-	cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
-
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
-			Config:   config,
-			Inputs:   validInputs,
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
 		}
-		cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Finalized, nil).Once()
+		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Finalized, nil).Once()
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
 
-		response, err2 := writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		response, err2 := th.writeTarget.Execute(ctx, req)
 		require.NoError(t, err2)
 		require.NotNil(t, response)
 	})
 
 	t.Run("fails when ChainWriter's SubmitTransaction returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
-			Config:   config,
-			Inputs:   validInputs,
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
 		}
-		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(errors.New("writer error"))
 
-		_, err = writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err)
 	})
 
 	t.Run("passes gas limit set on config to the chain writer", func(t *testing.T) {
 		configGasLimit, err2 := values.NewMap(map[string]any{
-			"Address":  forwarderAddr,
+			"Address":  th.forwarderAddr,
 			"GasLimit": 500000,
 		})
 		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
+			Metadata: th.validMetadata,
 			Config:   configGasLimit,
-			Inputs:   validInputs,
+			Inputs:   th.validInputs,
 		}
 
 		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
-		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
 
-		_, err2 = writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
 	t.Run("retries without gas limit when ChainWriter's SubmitTransaction returns error due to gas limit not supported", func(t *testing.T) {
 		configGasLimit, err2 := values.NewMap(map[string]any{
-			"Address":  forwarderAddr,
+			"Address":  th.forwarderAddr,
 			"GasLimit": 500000,
 		})
 		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
+			Metadata: th.validMetadata,
 			Config:   configGasLimit,
-			Inputs:   validInputs,
+			Inputs:   th.validInputs,
 		}
 
 		meta := types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID, GasLimit: big.NewInt(500000)}
-		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, &meta, mock.Anything).Return(types.ErrSettingTransactionGasLimitNotSupported)
 		meta = types.TxMeta{WorkflowExecutionID: &req.Metadata.WorkflowExecutionID}
-		cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, forwarderAddr, &meta, mock.Anything).Return(nil)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, &meta, mock.Anything).Return(nil)
 
-		configGasLimit, err = values.NewMap(map[string]any{
-			"Address": forwarderAddr,
+		configGasLimit, err := values.NewMap(map[string]any{
+			"Address": th.forwarderAddr,
 		})
 		require.NoError(t, err)
 		req = capabilities.CapabilityRequest{
-			Metadata: validMetadata,
+			Metadata: th.validMetadata,
 			Config:   configGasLimit,
-			Inputs:   validInputs,
+			Inputs:   th.validInputs,
 		}
 
-		_, err2 = writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
 	t.Run("fails when ChainReader's GetLatestValue returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
-			Config:   config,
-			Inputs:   validInputs,
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
 		}
-		cr.EXPECT().GetLatestValue(mock.Anything, binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
+		th.cr.EXPECT().GetLatestValue(mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
-		_, err = writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err)
 	})
 
@@ -197,32 +225,38 @@ func TestWriteTarget(t *testing.T) {
 				WorkflowID: "test-id",
 			},
 			Config: invalidConfig,
-			Inputs: validInputs,
+			Inputs: th.validInputs,
 		}
-		_, err2 = writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 = th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
 	t.Run("fails with nil config", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
+			Metadata: th.validMetadata,
 			Config:   nil,
-			Inputs:   validInputs,
+			Inputs:   th.validInputs,
 		}
-		_, err2 := writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
 
 	t.Run("fails with nil inputs", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
-			Metadata: validMetadata,
-			Config:   config,
+			Metadata: th.validMetadata,
+			Config:   th.config,
 			Inputs:   nil,
 		}
-		_, err2 := writeTarget.Execute(ctx, req)
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
 	})
+}
 
+func TestWriteTarget_ValidateRequest(t *testing.T) {
+	th := setup(t)
 	tests := []struct {
 		name          string
 		modifyRequest func(*capabilities.CapabilityRequest)
@@ -247,13 +281,14 @@ func TestWriteTarget(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := capabilities.CapabilityRequest{
-				Metadata: validMetadata,
-				Config:   config,
-				Inputs:   validInputs,
+				Metadata: th.validMetadata,
+				Config:   th.config,
+				Inputs:   th.validInputs,
 			}
 			tt.modifyRequest(&req)
 
-			_, err := writeTarget.Execute(ctx, req)
+			ctx := testutils.Context(t)
+			_, err := th.writeTarget.Execute(ctx, req)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 			} else {
@@ -262,4 +297,87 @@ func TestWriteTarget(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
+	t.Run("succeeds when transaction is unconfirmed but transmission succeeded ", func(t *testing.T) {
+		th := setup(t)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+		callCount := 0
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			if callCount == 0 {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateNotAttempted,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			} else {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateSucceeded,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			}
+			callCount++
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
+
+		ctx := testutils.Context(t)
+		response, err2 := th.writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
+		require.NotNil(t, response)
+	})
+
+	t.Run("transaction written to the forwarder, but failed to be written to the consumer contract", func(t *testing.T) {
+		th := setup(t)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+		callCount := 0
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			if callCount == 0 {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateNotAttempted,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			} else {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateFailed,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			}
+			callCount++
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+		require.Contains(t, err2.Error(), "submitted transaction failed")
+	})
 }

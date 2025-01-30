@@ -1,5 +1,6 @@
 ChainID = '3636'
 FinalityTagEnabled = true
+LinkContractAddress = '0x7311DED199CC28D80E58e81e8589aa160199FCD2'
 
 [GasEstimator]
 EIP1559DynamicFees = true

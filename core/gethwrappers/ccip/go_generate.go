@@ -32,7 +32,6 @@ package ccip
 //go:generate go run ../generation/wrap.go ccip USDCReaderTester usdc_reader_tester
 //go:generate go run ../generation/wrap.go ccip ReportCodec report_codec
 //go:generate go run ../generation/wrap.go ccip EtherSenderReceiver ether_sender_receiver
-//go:generate go run ../generation/wrap.go ccip WETH9 weth9
 //go:generate go run ../generation/wrap.go ccip MockE2EUSDCTokenMessenger mock_usdc_token_messenger
 //go:generate go run ../generation/wrap.go ccip MockE2EUSDCTransmitter mock_usdc_token_transmitter
 //go:generate go run ../generation/wrap.go ccip CCIPReaderTester ccip_reader_tester

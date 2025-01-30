@@ -1,5 +1,6 @@
 ChainID = '80002'
 FinalityDepth = 500
+LinkContractAddress = '0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904'
 LogPollInterval = '1s'
 MinIncomingConfirmations = 5
 NoNewHeadsThreshold = '30s'

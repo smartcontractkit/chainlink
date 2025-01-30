@@ -15,8 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -170,7 +169,7 @@ func generateRandomLogs(chainId, count int) []Log {
 
 func createObservedORM(t *testing.T, chainId int64) *ObservedORM {
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	return NewObservedORM(big.NewInt(chainId), db, lggr)
 }
 
