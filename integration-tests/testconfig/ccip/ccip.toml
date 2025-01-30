@@ -248,6 +248,6 @@ MessageTypeWeights = [100,0,0]
 RequestFrequency = "30s"
 LoadDuration = "30m"
 # number of destination chains
-NumDestinationChains = 10
+NumDestinationChains = 30
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
