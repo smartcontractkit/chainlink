@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -32,16 +33,22 @@ var (
 )
 
 type TypeAndVersion struct {
-	Type    ContractType
-	Version semver.Version
-	Label   *string
+	Type     ContractType
+	Version  semver.Version
+	Metadata MetadataSet
 }
 
 func (tv TypeAndVersion) String() string {
-	if tv.Label != nil && *tv.Label != "" {
-		return fmt.Sprintf("%s %s %s", *tv.Label, tv.Type, tv.Version.String())
+	if len(tv.Metadata) == 0 {
+		return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
 	}
-	return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
+	mdSlice := tv.Metadata.AsSlice()
+	sort.Strings(mdSlice) // stable order
+	return fmt.Sprintf("%s %s %s",
+		tv.Type,
+		tv.Version.String(),
+		strings.Join(mdSlice, " "),
+	)
 }
 
 func (tv TypeAndVersion) Equal(other TypeAndVersion) bool {
@@ -59,25 +66,30 @@ func MustTypeAndVersionFromString(s string) TypeAndVersion {
 // Note this will become useful for validation. When we want
 // to assert an onchain call to typeAndVersion yields whats expected.
 func TypeAndVersionFromString(s string) (TypeAndVersion, error) {
-	parts := strings.Split(s, " ")
-	if len(parts) != 2 {
+	parts := strings.Fields(s) // Ignores consecutive spaces
+	if len(parts) < 2 {
 		return TypeAndVersion{}, fmt.Errorf("invalid type and version string: %s", s)
 	}
 	v, err := semver.NewVersion(parts[1])
 	if err != nil {
 		return TypeAndVersion{}, err
 	}
+	metadata := make(MetadataSet)
+	if len(parts) > 2 {
+		metadata = NewMetadataSet(parts[2:]...)
+	}
 	return TypeAndVersion{
-		Type:    ContractType(parts[0]),
-		Version: *v,
+		Type:     ContractType(parts[0]),
+		Version:  *v,
+		Metadata: metadata,
 	}, nil
 }
 
 func NewTypeAndVersion(t ContractType, v semver.Version) TypeAndVersion {
 	return TypeAndVersion{
-		Type:    t,
-		Version: v,
-		Label:   nil,
+		Type:     t,
+		Version:  v,
+		Metadata: make(MetadataSet), // empty set,
 	}
 }
 
@@ -279,36 +291,38 @@ func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool,
 	return false, nil
 }
 
+// typeVersionKey creates a comparable key from Type and Version
+type typeVersionKey struct {
+	Type    ContractType
+	Version string
+}
+
 // AddressesContainBundle checks if the addresses
 // contains a single instance of all the addresses in the bundle.
 // It returns an error if there are more than one instance of a contract.
-func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeAndVersion]struct{}) (bool, error) {
-	counts := make(map[TypeAndVersion]int)
-	for wantType := range wantTypes {
+func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAndVersion) (bool, error) {
+	counts := make(map[typeVersionKey]int)
+	for _, wantType := range wantTypes {
+		key := typeVersionKey{Type: wantType.Type, Version: wantType.Version.String()}
 		for _, haveType := range addrs {
-			if wantType == haveType {
-				counts[wantType]++
-				if counts[wantType] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s", wantType)
+			sameType := (wantType.Type == haveType.Type)
+			sameVersion := wantType.Version.String() == haveType.Version.String()
+
+			if sameType && sameVersion {
+				counts[key]++
+				if counts[key] > 1 {
+					return false, fmt.Errorf("found more than one instance of contract %s %s", key.Type, key.Version)
 				}
 			}
 		}
 	}
-	// Either 0 or 1, so we can just check the sum.
-	sum := 0
-	for _, count := range counts {
-		sum += count
+	return len(counts) == len(wantTypes), nil
+}
+
+// AddMetadata adds a string to the metadata set in the TypeAndVersion.
+func (tv *TypeAndVersion) AddMetadata(md string) {
+	if tv.Metadata == nil {
+		tv.Metadata = make(MetadataSet)
 	}
-	return sum == len(wantTypes), nil
-}
-
-// WithLabel returns a new TypeAndVersion with the given label.
-func (tv TypeAndVersion) WithLabel(label string) TypeAndVersion {
-	tv.Label = &label
-	return tv
-}
-
-// SetLabel sets the label for the TypeAndVersion.
-func (tv *TypeAndVersion) SetLabel(label string) {
-	tv.Label = &label
+	tv.Metadata.Add(md)
 }

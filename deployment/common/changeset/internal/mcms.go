@@ -18,7 +18,7 @@ type DeployMCMSOption func(*deployment.TypeAndVersion)
 // WithLabel is a functional option that sets a label on the TypeAndVersion.
 func WithLabel(label string) DeployMCMSOption {
 	return func(tv *deployment.TypeAndVersion) {
-		tv.SetLabel(label)
+		tv.AddMetadata(label)
 	}
 }
 
@@ -139,7 +139,7 @@ func DeployMCMSWithTimelockContracts(
 
 			tv := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 			if config.Label != nil {
-				tv.SetLabel(*config.Label)
+				tv.AddMetadata(*config.Label)
 			}
 
 			return deployment.ContractDeploy[*owner_helpers.RBACTimelock]{
@@ -161,7 +161,7 @@ func DeployMCMSWithTimelockContracts(
 
 			tv := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
 			if config.Label != nil {
-				tv.SetLabel(*config.Label)
+				tv.AddMetadata(*config.Label)
 			}
 
 			return deployment.ContractDeploy[*owner_helpers.CallProxy]{

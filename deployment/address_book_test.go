@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
@@ -255,14 +256,14 @@ func TestAddressesContainsBundle(t *testing.T) {
 	_, err := AddressesContainBundle(map[string]TypeAndVersion{
 		addr1: onRamp100,
 		addr2: onRamp100,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	}, []TypeAndVersion{onRamp100})
 	require.Error(t, err)
 
 	// No such instances should be false
 	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
 		addr2: onRamp110,
 		addr1: onRamp110,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}})
+	}, []TypeAndVersion{onRamp100})
 	require.NoError(t, err)
 	assert.Equal(t, exists, false)
 
@@ -271,37 +272,55 @@ func TestAddressesContainsBundle(t *testing.T) {
 		addr1: onRamp100,
 		addr2: onRamp110,
 		addr3: onRamp120,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}, onRamp110: {}})
+	}, []TypeAndVersion{onRamp100, onRamp110})
 	require.NoError(t, err)
 	assert.Equal(t, exists, true)
 }
 
-func TestTypeAndVersion_WithLabel(t *testing.T) {
+func TestTypeAndVersionFromString(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		initialLabel   *string
-		newLabel       string
-		expectedOldNil bool
+		name        string
+		input       string
+		wantErr     bool
+		wantType    ContractType
+		wantVersion semver.Version
+		wantMeta    []string
 	}{
 		{
-			name:           "with nil initial label",
-			initialLabel:   nil,
-			newLabel:       "SA",
-			expectedOldNil: true,
+			name:        "valid - no metadata",
+			input:       "CallProxy 1.0.0",
+			wantErr:     false,
+			wantType:    "CallProxy",
+			wantVersion: Version1_0_0,
+			wantMeta:    nil, // no metadata
 		},
 		{
-			name:           "with existing label changed",
-			initialLabel:   strPtr("Old"),
-			newLabel:       "New",
-			expectedOldNil: false,
+			name:        "valid - multiple metadata, normal spacing",
+			input:       "CallProxy 1.0.0 SA staging",
+			wantErr:     false,
+			wantType:    "CallProxy",
+			wantVersion: Version1_0_0,
+			wantMeta:    []string{"SA", "staging"},
 		},
 		{
-			name:           "with empty new label",
-			initialLabel:   nil,
-			newLabel:       "",
-			expectedOldNil: true,
+			name:        "valid - multiple metadata, extra spacing",
+			input:       "   CallProxy     1.0.0    SA    staging   ",
+			wantErr:     false,
+			wantType:    "CallProxy",
+			wantVersion: Version1_0_0,
+			wantMeta:    []string{"SA", "staging"},
+		},
+		{
+			name:    "invalid - not enough parts",
+			input:   "CallProxy",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - version not parseable",
+			input:   "CallProxy notASemver",
+			wantErr: true,
 		},
 	}
 
@@ -310,47 +329,59 @@ func TestTypeAndVersion_WithLabel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			tv := TypeAndVersion{
-				Type:    "ProposerManyChainMultiSig",
-				Version: Version1_0_0,
-				Label:   tt.initialLabel,
+			gotTV, gotErr := TypeAndVersionFromString(tt.input)
+			if tt.wantErr {
+				require.Error(t, gotErr, "expected error but got none")
+				return
 			}
+			require.NoError(t, gotErr, "did not expect an error but got one")
 
-			newTv := tv.WithLabel(tt.newLabel)
+			// Check ContractType
+			require.Equal(t, tt.wantType, gotTV.Type, "incorrect contract type")
 
-			// Check original (tv) unchanged
-			if tt.expectedOldNil {
-				assert.Nil(t, tv.Label, "original label should remain nil")
-			} else {
-				assert.NotNil(t, tv.Label, "original label should remain non-nil")
-			}
+			// Check Version
+			require.Equal(t, tt.wantVersion.String(), gotTV.Version.String(), "incorrect version")
 
-			// Check newTv has the correct label
-			if tt.newLabel == "" {
-				assert.NotNil(t, newTv.Label, "newTv.Label should not be nil (it will be an empty string pointer)")
-				assert.Equal(t, "", *newTv.Label, "expected empty string label in newTv")
-			} else {
-				assert.NotNil(t, newTv.Label, "newTv.Label should be non-nil")
-				assert.Equal(t, tt.newLabel, *newTv.Label, "newTv label did not match expected")
+			// Check metadata
+			gotMeta := gotTV.Metadata.AsSlice()
+			require.Equal(t, len(tt.wantMeta), len(gotMeta), "metadata length mismatch")
+			for _, wantMd := range tt.wantMeta {
+				require.Contains(t, gotMeta, wantMd, "missing metadata item")
 			}
 		})
 	}
 }
 
-func TestTypeAndVersion_SetLabel(t *testing.T) {
+func TestTypeAndVersion_AddMetadata(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		newLabel string
+		name            string
+		initialMetadata []string
+		toAdd           []string
+		wantContains    []string
+		wantLen         int
 	}{
 		{
-			name:     "non-empty label",
-			newLabel: "SA",
+			name:            "add single metadata to empty set",
+			initialMetadata: nil,
+			toAdd:           []string{"foo"},
+			wantContains:    []string{"foo"},
+			wantLen:         1,
 		},
 		{
-			name:     "empty label",
-			newLabel: "",
+			name:            "add multiple metadata to existing set",
+			initialMetadata: []string{"alpha"},
+			toAdd:           []string{"beta", "gamma"},
+			wantContains:    []string{"alpha", "beta", "gamma"},
+			wantLen:         3,
+		},
+		{
+			name:            "add duplicate metadata",
+			initialMetadata: []string{"dup"},
+			toAdd:           []string{"dup", "dup", "new"},
+			wantContains:    []string{"dup", "new"},
+			wantLen:         2,
 		},
 	}
 
@@ -359,25 +390,26 @@ func TestTypeAndVersion_SetLabel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			// Construct a TypeAndVersion with any initial metadata
 			tv := TypeAndVersion{
-				Type:    "CallProxy",
-				Version: Version1_0_0,
-				Label:   nil,
+				Type:     "CallProxy",
+				Version:  Version1_0_0,
+				Metadata: NewMetadataSet(tt.initialMetadata...),
 			}
 
-			tv.SetLabel(tt.newLabel)
-			if tt.newLabel == "" {
-				assert.NotNil(t, tv.Label, "tv.Label should be non-nil (pointer to empty string)")
-				assert.Equal(t, "", *tv.Label, "label should be empty string")
-			} else {
-				assert.NotNil(t, tv.Label, "tv.Label should be non-nil")
-				assert.Equal(t, tt.newLabel, *tv.Label, "label should match the new label")
+			// Call AddMetadata for each item in toAdd
+			for _, md := range tt.toAdd {
+				tv.AddMetadata(md)
+			}
+
+			// Check final metadata length
+			require.Len(t, tv.Metadata, tt.wantLen, "metadata size mismatch")
+
+			// Check that expected metadata is present
+			for _, md := range tt.wantContains {
+				require.True(t, tv.Metadata.Contains(md),
+					"expected metadata %q was not found in tv.Metadata", md)
 			}
 		})
 	}
-}
-
-// strPtr is a small helper for creating a *string from a string literal.
-func strPtr(s string) *string {
-	return &s
 }
