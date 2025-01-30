@@ -298,7 +298,7 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 }
 
 func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, error) {
-	var result []string
+	result := make([]string, 0)
 	ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
 	if err != nil {
 		return result, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
@@ -311,7 +311,7 @@ func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, 
 }
 
 func (d *Delegate) getSolanaKeys() ([]string, error) {
-	var result []string
+	result := make([]string, 0)
 	keys, err := d.keystore.Solana().GetAll()
 	if err != nil {
 		return result, fmt.Errorf("error getting all Solana keys: %w", err)
@@ -324,7 +324,7 @@ func (d *Delegate) getSolanaKeys() ([]string, error) {
 }
 
 func (d *Delegate) getAptosKeys() ([]string, error) {
-	var result []string
+	result := make([]string, 0)
 	keys, err := d.keystore.Aptos().GetAll()
 	if err != nil {
 		return result, fmt.Errorf("error getting all Aptos keys: %w", err)
@@ -337,7 +337,7 @@ func (d *Delegate) getAptosKeys() ([]string, error) {
 }
 
 func (d *Delegate) getCosmosKeys() ([]string, error) {
-	var result []string
+	result := make([]string, 0)
 	keys, err := d.keystore.Cosmos().GetAll()
 	if err != nil {
 		return result, fmt.Errorf("error getting all Cosmos keys: %w", err)
@@ -350,7 +350,7 @@ func (d *Delegate) getCosmosKeys() ([]string, error) {
 }
 
 func (d *Delegate) getStarkNetKeys() ([]string, error) {
-	var result []string
+	result := make([]string, 0)
 	keys, err := d.keystore.StarkNet().GetAll()
 	if err != nil {
 		return result, fmt.Errorf("error getting all StarkNet keys: %w", err)
