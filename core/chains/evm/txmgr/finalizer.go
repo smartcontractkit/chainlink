@@ -58,7 +58,10 @@ var (
 )
 
 // processHeadTimeout represents a sanity limit on how long ProcessHead should take to complete
-const processHeadTimeout = 10 * time.Minute
+const (
+	processHeadTimeout            = 10 * time.Minute
+	attemptsCacheRefreshThreshold = 5
+)
 
 type finalizerTxStore interface {
 	DeleteReceiptByTxHash(ctx context.Context, txHash common.Hash) error
@@ -103,6 +106,10 @@ type evmFinalizer struct {
 
 	lastProcessedFinalizedBlockNum int64
 	resumeCallback                 resumeCallback
+
+	attemptsCache         []TxAttempt
+	attemptsCacheMu       sync.Mutex
+	attemptsCacheHitCount int
 }
 
 func NewEvmFinalizer(
@@ -377,7 +384,7 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 }
 
 func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFinalizedHead *evmtypes.Head) error {
-	attempts, err := f.txStore.FindAttemptsRequiringReceiptFetch(ctx, f.chainID)
+	attempts, err := f.fetchAttemptsRequiringReceiptFetch(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch broadcasted attempts for confirmed transactions: %w", err)
 	}
@@ -413,6 +420,8 @@ func (f *evmFinalizer) FetchAndStoreReceipts(ctx context.Context, head, latestFi
 			errorList = append(errorList, err)
 			continue
 		}
+		// Filter out attempts with found receipts from cache, if needed
+		f.filterAttemptsCache(receipts)
 	}
 	if len(errorList) > 0 {
 		return errors.Join(errorList...)
@@ -665,4 +674,65 @@ func (f *evmFinalizer) buildTxHashList(finalizedReceipts []*evmtypes.Receipt) []
 		txHashes[i] = receipt.TxHash
 	}
 	return txHashes
+}
+
+// fetchAttemptsRequiringReceiptFetch is a wrapper around the TxStore call to fetch attempts requiring receipt fetch.
+// Attempts are cached and used for subsequent fetches to reduce the load of the query.
+// The attempts cache is refreshed every 3 requests.
+func (f *evmFinalizer) fetchAttemptsRequiringReceiptFetch(ctx context.Context) ([]TxAttempt, error) {
+	f.attemptsCacheMu.Lock()
+	defer f.attemptsCacheMu.Unlock()
+	// Return attempts from attempts cache if it is populated and the hit count has not reached the threshold for refresh
+	if len(f.attemptsCache) != 0 && f.attemptsCacheHitCount < attemptsCacheRefreshThreshold {
+		f.attemptsCacheHitCount++
+		return f.attemptsCache, nil
+	}
+	attempts, err := f.txStore.FindAttemptsRequiringReceiptFetch(ctx, f.chainID)
+	if err != nil {
+		return nil, err
+	}
+	// Refresh the cache with the latest results
+	f.attemptsCache = attempts
+	// Reset the cache hit count
+	f.attemptsCacheHitCount = 0
+	return f.attemptsCache, nil
+}
+
+// filterAttemptsCache removes attempts from the cache if a receipt was found for their transaction's ID
+func (f *evmFinalizer) filterAttemptsCache(receipts []*evmtypes.Receipt) {
+	f.attemptsCacheMu.Lock()
+	defer f.attemptsCacheMu.Unlock()
+	// Skip method if no receipts found
+	if len(receipts) == 0 {
+		return
+	}
+	// Skip method if refresh threshold has been met
+	// No need to filter the attempts cache since fresh data will be fetched on the next iteration
+	if f.attemptsCacheHitCount >= attemptsCacheRefreshThreshold {
+		return
+	}
+	attemptsWithoutReceipts := make([]TxAttempt, 0, len(f.attemptsCache))
+	txIDsWithReceipts := make([]int64, 0, len(f.attemptsCache))
+	// Gather the unique tx IDs that receipts were found for
+	for _, receipt := range receipts {
+		for _, attempt := range f.attemptsCache {
+			if attempt.Hash.Cmp(receipt.TxHash) == 0 {
+				txIDsWithReceipts = append(txIDsWithReceipts, attempt.TxID)
+			}
+		}
+	}
+	// Filter out attempts for tx with found receipts from the existing attempts cache
+	for _, attempt := range f.attemptsCache {
+		foundATxID := false
+		for _, txID := range txIDsWithReceipts {
+			if attempt.TxID == txID {
+				foundATxID = true
+				break
+			}
+		}
+		if !foundATxID {
+			attemptsWithoutReceipts = append(attemptsWithoutReceipts, attempt)
+		}
+	}
+	f.attemptsCache = attemptsWithoutReceipts
 }
