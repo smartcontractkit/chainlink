@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
