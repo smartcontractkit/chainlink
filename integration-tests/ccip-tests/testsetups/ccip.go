@@ -1234,7 +1234,8 @@ func CCIPDefaultTestSetUp(
 		setUpArgs.StartEventWatchers()
 	} else {
 		setUpArgs.SC = sentinel.NewSentinelCoordinator(*lggr)
-		setUpArgs.addChains()
+		err := setUpArgs.addChains()
+		require.NoError(t, err, "error adding chain to Sentinel")
 		setUpArgs.StartEventWatchersPolling()
 		t.Cleanup(func() {
 			if setUpArgs.SC != nil {
@@ -1277,16 +1278,23 @@ func useWebSocket(chainClientByChainID map[int64]blockchain.EVMClient) bool {
 	return true
 }
 
-func (o *CCIPTestSetUpOutputs) addChains() {
+func (o *CCIPTestSetUpOutputs) addChains() error {
 	for _, lane := range o.ReadLanes() {
 		// Add both forward and reverse lanes
-		o.addChainToSentinel(lane.ForwardLane.SourceChain)
-		o.addChainToSentinel(lane.ForwardLane.DestChain)
+		err := o.addChainToSentinel(lane.ForwardLane.SourceChain)
+		if err != nil {
+			return err
+		}
+		err = o.addChainToSentinel(lane.ForwardLane.DestChain)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // addChainToSentinel is a helper function to add a chain to Sentinel
-func (o *CCIPTestSetUpOutputs) addChainToSentinel(chain blockchain.EVMClient) {
+func (o *CCIPTestSetUpOutputs) addChainToSentinel(chain blockchain.EVMClient) error {
 	blockchainClient := blockchain_client_wrapper.NewGethClientWrapper(chain.GetEthClient())
 
 	// Define the chain poller service configuration
@@ -1298,8 +1306,9 @@ func (o *CCIPTestSetUpOutputs) addChainToSentinel(chain blockchain.EVMClient) {
 
 	// Add the chain to Sentinel
 	if err := o.SC.Sentinel.AddChain(addChainConfig); err != nil {
-		require.NoErrorf(nil, err, "error adding chain to Sentinel")
+		return err
 	}
+	return nil
 }
 
 // CreateEnvironment creates the environment for the test and registers the test clean-up function to tear down the set-up environment

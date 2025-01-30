@@ -223,8 +223,8 @@ func (p *Common) ReadFromEnvVar() error {
 		p.Logging.Loki.BearerToken = &lokiBearerToken
 	}
 
-	grafanaBaseUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-	if grafanaBaseUrl != "" {
+	grafanaBaseURL := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
+	if grafanaBaseURL != "" {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
 		}
@@ -232,11 +232,11 @@ func (p *Common) ReadFromEnvVar() error {
 			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
 		}
 		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.BaseUrl", ctfconfig.E2E_TEST_GRAFANA_BASE_URL_ENV)
-		p.Logging.Grafana.BaseUrl = &grafanaBaseUrl
+		p.Logging.Grafana.BaseUrl = &grafanaBaseURL
 	}
 
-	grafanaDashboardUrl := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-	if grafanaDashboardUrl != "" {
+	grafanaDashboardURL := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
+	if grafanaDashboardURL != "" {
 		if p.Logging == nil {
 			p.Logging = &ctfconfig.LoggingConfig{}
 		}
@@ -244,7 +244,7 @@ func (p *Common) ReadFromEnvVar() error {
 			p.Logging.Grafana = &ctfconfig.GrafanaConfig{}
 		}
 		logger.Debug().Msgf("Using %s env var to override Logging.Grafana.DashboardUrl", ctfconfig.E2E_TEST_GRAFANA_DASHBOARD_URL_ENV)
-		p.Logging.Grafana.DashboardUrl = &grafanaDashboardUrl
+		p.Logging.Grafana.DashboardUrl = &grafanaDashboardURL
 	}
 
 	grafanaBearerToken := ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_GRAFANA_BEARER_TOKEN_ENV)

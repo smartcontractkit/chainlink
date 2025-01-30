@@ -3783,7 +3783,11 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 		return err
 	}
 	go func() {
-		defer sc.Sentinel.Unsubscribe(lane.SourceChain.GetChainID().Int64(), lane.Source.OnRamp.EthAddress, evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{}.Topic(), sendReqEventSub)
+		defer func() {
+			if err := sc.Sentinel.Unsubscribe(lane.SourceChain.GetChainID().Int64(), lane.Source.OnRamp.EthAddress, evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{}.Topic(), sendReqEventSub); err != nil {
+				lane.Logger.Error().Err(err).Msg("failed to unsubscribe from CCIPSendRequested event")
+			}
+		}()
 		for {
 			select {
 			case <-sc.Ctx.Done():
@@ -3809,10 +3813,14 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("error in setting up polling to ReportAccepted event")
-		return fmt.Errorf("failed to subscribe to ReportAccepted event")
+		return errors.New("failed to subscribe to ReportAccepted event")
 	}
 	go func() {
-		defer sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.CommitStore.EthAddress, commit_store.CommitStoreReportAccepted{}.Topic(), reportAcceptedSub)
+		defer func() {
+			if err := sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.CommitStore.EthAddress, commit_store.CommitStoreReportAccepted{}.Topic(), reportAcceptedSub); err != nil {
+				lane.Logger.Error().Err(err).Msg("failed to unsubscribe from CCIPSendRequested event")
+			}
+		}()
 		for {
 			select {
 			case <-sc.Ctx.Done():
@@ -3842,7 +3850,6 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 	}()
 
 	if lane.Dest.Common.ARM != nil {
-
 		reportBlessedEventSub, err := sc.Sentinel.Subscribe(
 			lane.DestChain.GetChainID().Int64(),
 			lane.Dest.Common.ARM.EthAddress,
@@ -3850,11 +3857,15 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 		)
 		if err != nil {
 			log.Error().Err(err).Msg("error in setting up polling to TaggedRootBlessed event")
-			return fmt.Errorf("failed to subscribe to TaggedRootBlessed event")
+			return errors.New("failed to subscribe to TaggedRootBlessed event")
 		}
 
 		go func() {
-			defer sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.Common.ARM.EthAddress, rmn_contract.RMNContractTaggedRootBlessed{}.Topic(), reportBlessedEventSub)
+			defer func() {
+				if err := sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.Common.ARM.EthAddress, rmn_contract.RMNContractTaggedRootBlessed{}.Topic(), reportBlessedEventSub); err != nil {
+					lane.Logger.Error().Err(err).Msg("failed to unsubscribe from CCIPSendRequested event")
+				}
+			}()
 			for {
 				select {
 				case <-sc.Ctx.Done():
@@ -3891,7 +3902,7 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("error in setting up polling to ExecutionStateChanged event")
-		return fmt.Errorf("failed to subscribe to ExecutionStateChanged event")
+		return errors.New("failed to subscribe to ExecutionStateChanged event")
 	}
 
 	go func() {
