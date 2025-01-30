@@ -42,7 +42,7 @@ func GetTokenProgramID(programName string) (solana.PublicKey, error) {
 
 	programID, ok := tokenPrograms[programName]
 	if !ok {
-		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: spl-token, spl-token-2022", programName)
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, deployment.SPLTokens, deployment.SPL2022Tokens)
 	}
 	return programID, nil
 }
@@ -68,11 +68,11 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	}
 	state, err := cs.LoadOnchainState(e)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState, chainExists := state.SolChains[selector]
 	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
 	if tokenPubKey.Equals(chainState.LinkToken) || tokenPubKey.Equals(chainState.WSOL) {
 		return nil
@@ -85,21 +85,21 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 		}
 	}
 	if !exists {
-		return fmt.Errorf("token %s not found in existing state, deploy the prerequisites first", tokenPubKey.String())
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", tokenPubKey.String())
 	}
 	return nil
 }
 
 func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
 	if chainState.Router.IsZero() {
-		return fmt.Errorf("ccip router not found in existing state, deploy the prerequisites first chain %d", chain.Selector)
+		return fmt.Errorf("router not found in existing state, deploy the router first chain %d", chain.Selector)
 	}
 	// addressing errcheck in the next PR
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	var routerConfigAccount solRouter.Config
 	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		return fmt.Errorf("router config not found in existing state, deploy the prerequisites first %d", chain.Selector)
+		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
 	}
 	return nil
 }
@@ -130,7 +130,7 @@ type RemoteChainConfigSolana struct {
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
 	state, err := cs.LoadOnchainState(e)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
 	supportedChains := state.SupportedChains()
@@ -144,7 +144,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 			return err
 		}
 		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
-			return err
+			return fmt.Errorf("failed to validate ownership: %w", err)
 		}
 		routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 		var routerConfigAccount solRouter.Config
@@ -156,7 +156,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 				return fmt.Errorf("remote chain %d is not supported", remote)
 			}
 			if remote == routerConfigAccount.SvmChainSelector {
-				return fmt.Errorf("cannot add remote chain with same chain selector as current chain %d", remote)
+				return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, chainSel)
 			}
 		}
 	}
@@ -186,9 +186,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 }
 
 func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
-	e.Logger.Infow("Adding remote chain to solana", "chain", chainSel, "updates", updates)
 	chain := e.SolChains[chainSel]
-
 	ccipRouterID := s.SolChains[chainSel].Router
 
 	for remoteChainSel, update := range updates {
@@ -263,7 +261,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 
 	state, err := cs.LoadOnchainState(e)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	solChains := state.SolChains
 
@@ -275,11 +273,11 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get don id for chain %d: %w", remote, err)
 		}
 		args, err := internal.BuildSetOCR3ConfigArgsSolana(donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build set ocr3 config args: %w", err)
 		}
 		// TODO: check if ocr3 has already been set
 		// set, err := isOCR3ConfigSetSolana(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
@@ -303,14 +301,14 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 				e.SolChains[remote].DeployerKey.PublicKey(),
 			).ValidateAndBuild()
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 			instructions = append(instructions, instruction)
 		}
 		if cfg.MCMS == nil {
 			err := e.SolChains[remote].Confirm(instructions)
 			if err != nil {
-				return deployment.ChangesetOutput{}, err
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		}
 	}
@@ -346,14 +344,15 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, state.SolChains[cfg.ChainSelector].TokenPool)
+	tokenPool := chainState.TokenPool
+	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 	var poolConfigAccount token_pool.Config
 	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err == nil {
-		return fmt.Errorf("token pool config already exists for token %s", tokenPubKey.String())
+		return fmt.Errorf("token pool config already exists for (mint: %s, pool: %s)", tokenPubKey.String(), tokenPool.String())
 	}
 	return nil
 }
@@ -362,7 +361,6 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infow("Adding token pool", "chain", cfg.ChainSelector, "pool_type", cfg.PoolType, "authority", cfg.Authority, "token_pubkey", cfg.TokenPubKey, "token_program_name", cfg.TokenProgramName)
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
@@ -386,7 +384,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		chain.DeployerKey.PublicKey(),
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), chainState.TokenPool.String(), err)
 	}
 
 	token_pool.SetProgramID(chainState.TokenPool)
@@ -401,7 +399,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	// make pool mint_authority for token (required for burn/mint)
 	authI, err := solTokenUtil.SetTokenMintAuthority(
@@ -411,13 +409,13 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		chain.DeployerKey.PublicKey(),
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	instructions := []solana.Instruction{createI, poolInitI, authI}
 
 	// add signer here if authority is different from deployer key
 	if err := chain.Confirm(instructions); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
 	e.Logger.Infow("Set mint authority", "poolSigner", poolSigner.String())
@@ -443,29 +441,30 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
-		return fmt.Errorf("token pool not found in existing state, deploy the prerequisites first for chain %d", cfg.ChainSelector)
+		return fmt.Errorf("token pool not found in existing state, deploy token pool for chain %d", cfg.ChainSelector)
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
+	tokenPool := chainState.TokenPool
 
 	// check if pool config exists (cannot do remote setup without it)
-	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, state.SolChains[cfg.ChainSelector].TokenPool)
+	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 	}
 	var poolConfigAccount token_pool.Config
 	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
-		return fmt.Errorf("token pool config not found, call AddTokenPool first for chain %d", cfg.ChainSelector)
+		return fmt.Errorf("token pool config not found (mint: %s, pool: %s): %w", tokenPubKey.String(), chainState.TokenPool.String(), err)
 	}
 
 	// check if existing pool setup already has this remote chain configured
-	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
+	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, tokenPool)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
 	}
 	var remoteChainConfigAccount token_pool.ChainConfig
 	if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
-		return fmt.Errorf("remote chain config already exists for token %s", tokenPubKey.String())
+		return fmt.Errorf("remote chain config already exists for (remoteSelector: %d, mint: %s, pool: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String())
 	}
 	return nil
 }
@@ -478,14 +477,10 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := cs.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
-
 	// verified
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
-	remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
+	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
 
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 	token_pool.SetProgramID(chainState.TokenPool)
 	ixConfigure, err := token_pool.NewInitChainRemoteConfigInstruction(
 		cfg.RemoteChainSelector,
@@ -497,7 +492,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	ixRates, err := token_pool.NewSetChainRateLimitInstruction(
 		cfg.RemoteChainSelector,
@@ -510,12 +505,12 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	instructions := []solana.Instruction{ixConfigure, ixRates}
 	err = chain.Confirm(instructions)
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return deployment.ChangesetOutput{}, nil
 }
@@ -546,11 +541,11 @@ func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	// check if already setup
 	billingConfigPDA, _, err := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find billing token config pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)
 	}
 	var token0ConfigAccount solRouter.BillingTokenConfigWrapper
 	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
-		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
+		return fmt.Errorf("billing token config already exists for (mint: %s, router: %s)", tokenPubKey.String(), chainState.Router.String())
 	}
 	return nil
 }
@@ -591,12 +586,12 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if cerr != nil {
-		return deployment.ChangesetOutput{}, cerr
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", cerr)
 	}
 
 	instructions := []solana.Instruction{ixConfig}
 	if err := chain.Confirm(instructions); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
@@ -624,11 +619,11 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 	// check if desired state already exists
 	remoteBillingPDA, _, err := solState.FindCcipTokenpoolBillingPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.Router)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find remote billing token config pda for (remoteSelector: %d, mint: %s, router: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), chainState.Router.String(), err)
 	}
 	var remoteBillingAccount solRouter.TokenBilling
 	if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err == nil {
-		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
+		return fmt.Errorf("billing token config already exists for (remoteSelector: %d, mint: %s, router: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), chainState.Router.String())
 	}
 	return nil
 }
@@ -656,11 +651,11 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	instructions := []solana.Instruction{ix}
 	if err := chain.Confirm(instructions); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
@@ -702,11 +697,11 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
-		return fmt.Errorf("token admin registry already exists for token %s", tokenPubKey.String())
+		return fmt.Errorf("token admin registry already exists for (mint: %s, router: %s)", tokenPubKey.String(), chainState.Router.String())
 	}
 	return nil
 }
@@ -739,7 +734,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case ViaOwnerInstruction:
 		// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
@@ -751,14 +746,14 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	}
 	// if we want to have a different authority, we will need to add the corresponding singer here
 	// for now we are assuming both token owner and ccip admin will always be deployer key
 	instructions := []solana.Instruction{instruction}
 	if err := chain.Confirm(instructions); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return deployment.ChangesetOutput{}, nil
 }
@@ -781,7 +776,11 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
 	if currentRegistryAdminPrivateKey.PublicKey().Equals(newRegistryAdminPubKey) {
-		return fmt.Errorf("new registry admin public key cannot be the same as current registry admin public key for token %s", tokenPubKey.String())
+		return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
+			newRegistryAdminPubKey.String(),
+			currentRegistryAdminPrivateKey.PublicKey().String(),
+			tokenPubKey.String(),
+		)
 	}
 
 	state, _ := cs.LoadOnchainState(e)
@@ -792,15 +791,19 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-		return fmt.Errorf("token admin registry not found for token %s, cannot transfer admin role", tokenPubKey.String())
+		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot transfer admin role", tokenPubKey.String(), chainState.Router.String())
 	}
 	// check if passed admin is the current admin
 	if !tokenAdminRegistryAccount.Administrator.Equals(currentRegistryAdminPrivateKey.PublicKey()) {
-		return fmt.Errorf("current registry admin private key does not match administrator for token %s", tokenPubKey.String())
+		return fmt.Errorf("current registry admin private key (%s) does not match administrator (%s) for token %s",
+			currentRegistryAdminPrivateKey.PublicKey().String(),
+			tokenAdminRegistryAccount.Administrator.String(),
+			tokenPubKey.String(),
+		)
 	}
 	return nil
 }
@@ -829,12 +832,12 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		currentRegistryAdminPrivateKey.PublicKey(), // as we are assuming this is the default authority for everything in the beginning
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	instructions := []solana.Instruction{ix1}
 	// the existing authority will have to sign the transfer
 	if err := chain.Confirm(instructions, solCommonUtil.AddSigners(currentRegistryAdminPrivateKey)); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return deployment.ChangesetOutput{}, nil
 }
@@ -858,17 +861,21 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-		return fmt.Errorf("token admin registry not found for token %s, cannot accept admin role", tokenPubKey.String())
+		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), chainState.Router.String())
 	}
 	// check if accepting admin is the pending admin
 	newRegistryAdminPrivateKey := solana.MustPrivateKeyFromBase58(cfg.NewRegistryAdminPrivateKey)
 	newRegistryAdminPublicKey := newRegistryAdminPrivateKey.PublicKey()
 	if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newRegistryAdminPublicKey) {
-		return fmt.Errorf("new admin public key does not match pending registry admin role for token %s", tokenPubKey.String())
+		return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
+			newRegistryAdminPublicKey.String(),
+			tokenAdminRegistryAccount.PendingAdministrator.String(),
+			tokenPubKey.String(),
+		)
 	}
 	return nil
 }
@@ -894,13 +901,13 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 		newRegistryAdminPrivateKey.PublicKey(),
 	).ValidateAndBuild()
 	if err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 
 	instructions := []solana.Instruction{ix1}
 	// the new authority will have to sign the acceptance
 	if err := chain.Confirm(instructions, solCommonUtil.AddSigners(newRegistryAdminPrivateKey)); err != nil {
-		return deployment.ChangesetOutput{}, err
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return deployment.ChangesetOutput{}, nil
 }
