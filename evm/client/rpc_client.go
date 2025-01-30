@@ -102,7 +102,7 @@ type RPCClient struct {
 	ws   atomic.Pointer[rawclient]
 	http atomic.Pointer[rawclient]
 
-	*multinode.Adapter[*evmtypes.Head]
+	*multinode.RPCClientBase[*evmtypes.Head]
 }
 
 var _ multinode.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
@@ -149,7 +149,7 @@ func NewRPCClient(
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
 
-	r.Adapter = multinode.NewAdapter[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
+	r.RPCClientBase = multinode.NewRPCClientBase[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
 	return r
 }
 
@@ -162,7 +162,6 @@ func (r *RPCClient) Ping(ctx context.Context) error {
 	return err
 }
 
-// Not thread-safe, pure dial.
 func (r *RPCClient) Dial(callerCtx context.Context) error {
 	ctx, cancel, _ := r.AcquireQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
@@ -199,7 +198,6 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 	return nil
 }
 
-// Not thread-safe, pure dial.
 // DialHTTP doesn't actually make any external HTTP calls
 // It can only return error if the URL is malformed.
 func (r *RPCClient) DialHTTP() error {
@@ -230,7 +228,7 @@ func (r *RPCClient) Close() {
 			ws.rpc.Close()
 		}
 	}()
-	r.Adapter.Close()
+	r.RPCClientBase.Close()
 }
 
 func (r *RPCClient) String() string {
@@ -406,7 +404,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+		isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
 		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 			if isHealthCheckRequest {
 				ctx = multinode.CtxAddHealthCheckFlag(ctx)
@@ -466,7 +464,7 @@ func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
-	isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+	isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
 	poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 		if isHealthCheckRequest {
 			ctx = multinode.CtxAddHealthCheckFlag(ctx)
