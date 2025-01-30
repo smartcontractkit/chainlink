@@ -165,12 +165,12 @@ func btoi(b bool) uint8 {
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	if err := cfg.Validate(e); err != nil {
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := cs.LoadOnchainState(e)
-	if err != nil {
+	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	solChains := state.SolChains
