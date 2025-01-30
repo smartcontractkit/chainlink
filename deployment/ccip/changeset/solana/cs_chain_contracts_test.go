@@ -57,8 +57,7 @@ func TestAddRemoteChain(t *testing.T) {
 				UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
 					solChain: {
 						evmChain: {
-							EnabledAsSource:          true,
-							RemoteChainOnRampAddress: state.Chains[evmChain].OnRamp.Address().String(),
+							EnabledAsSource: true,
 							DestinationConfig: solRouter.DestChainConfig{
 								IsEnabled:                   true,
 								DefaultTxGasLimit:           200000,
@@ -68,6 +67,7 @@ func TestAddRemoteChain(t *testing.T) {
 								DefaultTokenDestGasOverhead: 5000,
 								// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
 								// TODO: do a similar test for other chain families
+								// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
 								ChainFamilySelector: [4]uint8{40, 18, 213, 44},
 							},
 						},
@@ -124,6 +124,7 @@ func TestAddTokenPool(t *testing.T) {
 	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
 
 	// TODO: can test this with solana.SolMint as well (WSOL)
+	// https://smartcontract-it.atlassian.net/browse/INTAUTO-440
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddTokenPool),

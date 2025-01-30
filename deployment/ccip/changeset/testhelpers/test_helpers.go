@@ -466,7 +466,6 @@ func AddLane(
 		},
 	}
 
-	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	switch toFamily {
@@ -519,8 +518,7 @@ func AddLane(
 					UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
 						to: {
 							from: {
-								EnabledAsSource:          true,
-								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
+								EnabledAsSource: true,
 								DestinationConfig: solRouter.DestChainConfig{
 									IsEnabled:                   true,
 									DefaultTxGasLimit:           200000,

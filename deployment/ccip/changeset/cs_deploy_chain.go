@@ -562,8 +562,9 @@ func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipR
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
-	configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	statePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+	// addressing errcheck in the next PR
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
 	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
 	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
@@ -572,11 +573,11 @@ func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipR
 		deployment.SolDefaultGasLimit,          // default gas limit
 		true,                                   // allow out of order execution
 		EnableExecutionAfter,                   // period to wait before allowing manual execution
-		solana.PublicKey{},                     // fee aggregator
+		solana.PublicKey{},                     // fee aggregator (TODO: changeset to set the fee aggregator)
 		linkTokenAddress,                       // link token mint
 		deployment.SolDefaultMaxFeeJuelsPerMsg, // max fee juels per msg
-		configPDA,
-		statePDA,
+		routerConfigPDA,
+		routerStatePDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		ccipRouterProgram,
@@ -609,10 +610,10 @@ func deployChainContractsSolana(
 	}
 	chainState, chainExists := state.SolChains[chain.Selector]
 	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
 	if chainState.LinkToken.IsZero() {
-		return fmt.Errorf("failed to get link token address for chain %s: %w", chain.String(), err)
+		return fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
 	// ROUTER DEPLOY AND INITIALIZE
@@ -640,11 +641,12 @@ func deployChainContractsSolana(
 
 	// check if solana router is initialised
 	var routerConfigAccount solRouter.Config
-	configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	err = chain.GetAccountDataBorshInto(e.GetContext(), configPDA, &routerConfigAccount)
+	// addressing errcheck in the next PR
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		if err := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err != nil {
-			return err
+		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err2 != nil {
+			return err2
 		}
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
@@ -653,6 +655,7 @@ func deployChainContractsSolana(
 	var tokenPoolProgram solana.PublicKey
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
+		// separate token pools are not ready yet
 		programID, err := chain.DeployProgram(e.Logger, "token_pool")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
@@ -671,8 +674,9 @@ func deployChainContractsSolana(
 
 	// initialize this last with every address we need
 	if chainState.AddressLookupTable.IsZero() {
-		configPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-		statePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+		// addressing errcheck in the next PR
+		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+		routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
 		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
 		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		table, err := solCommonUtil.SetupLookupTable(
@@ -686,8 +690,8 @@ func deployChainContractsSolana(
 				solana.SysVarInstructionsPubkey,
 				// router
 				ccipRouterProgram,
-				configPDA,
-				statePDA,
+				routerConfigPDA,
+				routerStatePDA,
 				externalExecutionConfigPDA,
 				externalTokenPoolsSignerPDA,
 				// token pools

@@ -77,6 +77,7 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 }
 
 // TODO: there is no validation done around if the token is already deployed
+// https://smartcontract-it.atlassian.net/browse/INTAUTO-439
 type MintSolanaTokenConfig struct {
 	ChainSelector   uint64
 	TokenProgram    string

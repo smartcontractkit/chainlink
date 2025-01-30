@@ -27,6 +27,7 @@ var (
 	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
 	SPL2022Tokens               = "SPL2022Tokens"
+	SPLTokens                   = "SPLTokens"
 )
 
 // SolChain represents a Solana chain.
