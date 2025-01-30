@@ -45,10 +45,16 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
 	for _, ta := range msg.TokenAmounts {
+		destGasAmount, err := extractDestGasAmountFromMap(ta.DestExecDataDecoded)
+		if err != nil {
+			return [32]byte{}, err
+		}
+
 		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_router.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
 			ExtraData:         ta.ExtraData,
+			DestGasAmount:     destGasAmount,
 			Amount:            ccip_router.CrossChainAmount{LeBytes: tokens.ToLittleEndianU256(ta.Amount.Int.Uint64())},
 		})
 	}
@@ -62,6 +68,29 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 
 	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp, msgAccounts)
 	return [32]byte(hash), err
+}
+
+// TODO remove extractDestGasAmountFromMap once https://github.com/smartcontractkit/chainlink/pull/15816 merged
+func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
+	var out uint32
+
+	// Iterate through the expected fields in the struct
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "destgasamount":
+			// Expect uint32
+			if v, ok := fieldValue.(uint32); ok {
+				out = v
+			} else {
+				return out, errors.New("invalid type for destgasamount, expected uint32")
+			}
+		default:
+			return out, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+		}
+	}
+
+	return out, nil
 }
 
 // TODO combine parseExtraArgsMapWithAccounts with parseExtraArgsMap once https://github.com/smartcontractkit/chainlink/pull/15816 merged

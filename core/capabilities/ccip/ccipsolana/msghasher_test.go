@@ -3,6 +3,7 @@ package ccipsolana
 import (
 	"bytes"
 	cryptorand "crypto/rand"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -57,6 +58,29 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 	encoder := agbinary.NewBorshEncoder(&buf)
 	err = extraArgs.MarshalWithEncoder(encoder)
 	require.NoError(t, err)
+	tokenAmount := cciptypes.NewBigInt(big.NewInt(rand.Int63()))
+
+	ccipTokenAmounts := make([]cciptypes.RampTokenAmount, 5)
+	for z := 0; z < 5; z++ {
+		ccipTokenAmounts[z] = cciptypes.RampTokenAmount{
+			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
+			DestTokenAddress:  receiver.Bytes(),
+			Amount:            tokenAmount,
+			DestExecDataDecoded: map[string]any{
+				"destGasAmount": uint32(10),
+			},
+		}
+	}
+
+	solTokenAmounts := make([]ccip_router.Any2SVMTokenTransfer, 5)
+	for z := 0; z < 5; z++ {
+		solTokenAmounts[z] = ccip_router.Any2SVMTokenTransfer{
+			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
+			DestTokenAddress:  receiver,
+			Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Int, 32))},
+			DestGasAmount:     uint32(10),
+		}
+	}
 
 	any2SolanaMsg := ccip_router.Any2SVMRampMessage{
 		Header: ccip_router.RampMessageHeader{
@@ -69,7 +93,7 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 		Sender:        sender,
 		TokenReceiver: receiver,
 		Data:          messageData,
-		TokenAmounts:  nil,
+		TokenAmounts:  solTokenAmounts,
 		ExtraArgs:     extraArgs,
 	}
 	any2AnyMsg := cciptypes.Message{
@@ -84,7 +108,7 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 		Sender:         sender,
 		Receiver:       receiver.Bytes(),
 		Data:           messageData,
-		TokenAmounts:   nil,
+		TokenAmounts:   ccipTokenAmounts,
 		FeeToken:       []byte{},
 		FeeTokenAmount: cciptypes.NewBigIntFromInt64(0),
 		ExtraArgs:      buf.Bytes(),
@@ -112,4 +136,20 @@ func abiEncodedAddress(t *testing.T) []byte {
 	encoded, err := utils.ABIEncode(`[{"type": "address"}]`, addr)
 	require.NoError(t, err)
 	return encoded
+}
+
+// TODO remove encodeBigIntToFixedLengthLE once https://github.com/smartcontractkit/chainlink/pull/15816 merged
+func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
+	// Create a fixed-length byte array
+	paddedBytes := make([]byte, length)
+
+	// Use FillBytes to fill the array with big-endian data, zero-padded
+	bi.FillBytes(paddedBytes)
+
+	// Reverse the array for little-endian encoding
+	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
+		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
+	}
+
+	return paddedBytes
 }
