@@ -461,7 +461,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return err
 	}
-	var remoteChainConfigAccount token_pool.RemoteConfig
+	var remoteChainConfigAccount token_pool.ChainConfig
 	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
 	if err == nil {
 		return fmt.Errorf("remote chain config already exists for token %s", tokenPubKey.String())

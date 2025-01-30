@@ -176,13 +176,10 @@ func TestAddTokenPool(t *testing.T) {
 
 	// test SetupTokenPoolForRemoteChain results
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].TokenPool)
-	var remoteChainConfigAccount token_pool.RemoteConfig
+	var remoteChainConfigAccount token_pool.ChainConfig
 	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-	t.Logf("remoteChainConfigAccount: %+v", remoteChainConfigAccount)
-	t.Logf("err: %+v", err)
-	// TODO: this is returning empty config
-	// require.NoError(t, err)
-	// require.Equal(t, remoteChainConfigAccount.Decimals, uint8(9))
+	require.NoError(t, err)
+	require.Equal(t, remoteChainConfigAccount.Remote.Decimals, uint8(9))
 }
 
 func TestBilling(t *testing.T) {
