@@ -6,26 +6,33 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
 
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
-	destChainSelectorPath = "Message.Header.DestChainSelector"
-	destTokenAddress      = "Message.TokenAmounts.DestTokenAddress"
+	destChainSelectorPath = "Info.AbstractReports.Messages.Header.DestChainSelector"
+	destTokenAddress      = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
 )
 
 func getCommitMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
-	computeBudgetProgramAddress := solana.ComputeBudget.String()
 	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
 	return chainwriter.MethodConfig{
-		FromAddress:        fromAddress,
-		InputModifications: nil,
-		ChainSpecificName:  "commit",
+		FromAddress: fromAddress,
+		InputModifications: []codec.ModifierConfig{
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"ReportContextByteWords": "ReportContext"},
+			},
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"RawReport": "Report"},
+			},
+		},
+		ChainSpecificName: "commit",
 		LookupTables: chainwriter.LookupTables{
 			StaticLookupTables: []solana.PublicKey{
 				commonAddressesLookupTable,
@@ -40,29 +47,10 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: "MerkleRoot.DestChainSelector"}},
+					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
 				},
 				IsSigner:   false,
-				IsWritable: false,
-			},
-			chainwriter.AccountConstant{
-				Name:       "RouterProgram",
-				Address:    routerProgramAddress,
-				IsSigner:   false,
-				IsWritable: false,
-			},
-			chainwriter.PDALookups{
-				Name: "RouterAccountState",
-				PublicKey: chainwriter.AccountConstant{
-					Address:    routerProgramAddress,
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("state")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
+				IsWritable: true,
 			},
 			chainwriter.PDALookups{
 				Name: "RouterReportAccount",
@@ -72,17 +60,26 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 					IsWritable: false,
 				},
 				Seeds: []chainwriter.Seed{
+					{Static: []byte("commit_report")},
+					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
 					{Dynamic: chainwriter.AccountLookup{
-						Location: "args.MerkleRoots",
+						Location: "Info.MerkleRoots.MerkleRoot",
 					}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
 			},
 			chainwriter.AccountConstant{
-				Name:       "ComputeBudgetProgram",
-				Address:    computeBudgetProgramAddress,
+				Name:       "Authority",
+				Address:    fromAddress,
 				IsSigner:   true,
+				IsWritable: true,
+			},
+			// Account constant
+			chainwriter.AccountConstant{
+				Name:       "SystemProgram",
+				Address:    solana.SystemProgramID.String(),
+				IsSigner:   false,
 				IsWritable: false,
 			},
 			chainwriter.AccountConstant{
@@ -91,34 +88,78 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				IsSigner:   true,
 				IsWritable: false,
 			},
+			chainwriter.PDALookups{
+				Name: "GlobalState",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("state")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "BillingTokenConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("fee_billing_token_config")},
+					{Dynamic: chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "ChainConfigGasPrice",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("dest_chain_state")},
+					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
 		},
 		DebugIDLocation: "",
 	}
 }
 
 func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
-	computeBudgetProgramAddress := solana.ComputeBudget.String()
 	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
 	return chainwriter.MethodConfig{
-		FromAddress:        fromAddress,
-		InputModifications: nil,
-		ChainSpecificName:  "execute",
+		FromAddress: fromAddress,
+		InputModifications: []codec.ModifierConfig{
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"ReportContextByteWords": "ReportContext"},
+			},
+			&codec.RenameModifierConfig{
+				Fields: map[string]string{"RawExecutionReport": "Report"},
+			},
+		},
+		ChainSpecificName: "execute",
+		ArgsTransform:     "CCIP",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{
-					Name: "RegistryTokenState",
+					Name: "PoolLookupTable",
 					Accounts: chainwriter.PDALookups{
-						Name: "RegistryTokenState",
+						Name: "TokenAdminRegistry",
 						PublicKey: chainwriter.AccountConstant{
-							Address:    routerProgramAddress,
-							IsSigner:   false,
-							IsWritable: false,
+							Address: routerProgramAddress,
 						},
 						Seeds: []chainwriter.Seed{
 							{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 						},
 						IsSigner:   false,
 						IsWritable: false,
+						InternalField: chainwriter.InternalField{
+							TypeName: "TokenAdminRegistry",
+							Location: "LookupTable",
+						},
 					},
 				},
 			},
@@ -146,10 +187,11 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 					Address: routerProgramAddress,
 				},
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("commit_report")},
+					{Static: []byte("external_execution_config")},
 					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
 					{Dynamic: chainwriter.AccountLookup{
-						Location: "Info.MerkleRoot",
+						// The seed is the merkle root of the report, as passed into the input params.
+						Location: "Info.MerkleRoots.MerkleRoot",
 					}},
 				},
 				IsSigner:   false,
@@ -196,8 +238,10 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 				IsWritable: false,
 			},
 			chainwriter.AccountLookup{
-				Name:     "UserAccounts",
-				Location: "Message.ExtraArgs.Accounts",
+				Name:       "UserAccounts",
+				Location:   "Info.AbstractReports.Message.ExtraArgsDecoded.Accounts",
+				IsWritable: chainwriter.MetaBool{BitmapLocation: "Info.AbstractReports.Message.ExtraArgsDecoded.IsWritableBitmap"},
+				IsSigner:   chainwriter.MetaBool{Value: false},
 			},
 			chainwriter.PDALookups{
 				Name: "ReceiverAssociatedTokenAccount",
@@ -205,13 +249,16 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 					Address: solana.SPLAssociatedTokenAccountProgramID.String(),
 				},
 				Seeds: []chainwriter.Seed{
-					{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
+					{Static: []byte(fromAddress)},
+					{Dynamic: chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}},
 					{Dynamic: chainwriter.AccountsFromLookupTable{
-						LookupTableName: "RegistryTokenState",
-						IncludeIndexes:  []int{5},
+						LookupTableName: "PoolLookupTable",
+						IncludeIndexes:  []int{6},
 					}},
 					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 				},
+				IsSigner:   false,
+				IsWritable: false,
 			},
 			chainwriter.PDALookups{
 				Name: "PerChainTokenConfig",
@@ -219,6 +266,21 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 					Address: routerProgramAddress,
 				},
 				Seeds: []chainwriter.Seed{
+					{Static: []byte("ccip_tokenpool_billing")},
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name: "PoolChainConfig",
+				PublicKey: chainwriter.AccountsFromLookupTable{
+					LookupTableName: "PoolLookupTable",
+					IncludeIndexes:  []int{2},
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("ccip_tokenpool_billing")},
 					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
 				},
@@ -226,55 +288,11 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 				IsWritable: false,
 			},
 			chainwriter.AccountsFromLookupTable{
-				LookupTableName: "RegistryTokenState",
+				LookupTableName: "PoolLookupTable",
 				IncludeIndexes:  []int{},
 			},
-			chainwriter.PDALookups{
-				Name: "RegistryTokenConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address:    routerProgramAddress,
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Seeds: []chainwriter.Seed{
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
-			chainwriter.PDALookups{
-				Name: "UserNoncePerChain",
-				PublicKey: chainwriter.AccountConstant{
-					Address:    routerProgramAddress,
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Seeds: []chainwriter.Seed{
-					{Dynamic: chainwriter.AccountLookup{Location: "Message.Receiver"}},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
-				},
-			},
-			chainwriter.PDALookups{
-				Name: "CPISigner",
-				PublicKey: chainwriter.AccountConstant{
-					Address:    routerProgramAddress,
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("external_token_pools_signer")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
-			chainwriter.AccountConstant{
-				Name:       "ComputeBudgetProgram",
-				Address:    computeBudgetProgramAddress,
-				IsSigner:   true,
-				IsWritable: false,
-			},
 		},
-		DebugIDLocation: "Message.MessageID",
+		DebugIDLocation: "AbstractReport.Message.MessageID",
 	}
 }
 
@@ -290,7 +308,7 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 	}
 
 	// validate CCIP Router IDL, errors not expected
-	var idl codec.IDL
+	var idl solanacodec.IDL
 	if err = json.Unmarshal([]byte(ccipRouterIDL), &idl); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
