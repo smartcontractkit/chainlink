@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Integrate MultiNode Adaptor with EVM. #added #internal
+Integrate MultiNode RPCClientBase with EVM. #added #internal
