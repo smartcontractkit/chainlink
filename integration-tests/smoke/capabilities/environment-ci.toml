@@ -15,7 +15,7 @@
   use_chainlink_cli = true
   use_existing = true
 
-  [dependencies]
+  [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
   chainlink_cli_version = "v1.0.2"
 
