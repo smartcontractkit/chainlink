@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
@@ -303,6 +304,68 @@ func TestUpdateRouterRamps(t *testing.T) {
 			source2destOnRampReal, err := state.Chains[source].Router.GetOnRamp(&bind.CallOpts{Context: ctx}, dest)
 			require.NoError(t, err)
 			require.Equal(t, common.HexToAddress("0x0"), source2destOnRampReal)
+		})
+	}
+}
+
+func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			msgInterceptor := utils.RandomAddress()
+			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateDynamicConfigOffRampChangeset),
+					Config: changeset.UpdateDynamicConfigOffRampConfig{
+						Updates: map[uint64]changeset.OffRampParams{
+							source: {
+								PermissionLessExecutionThresholdSeconds: uint32(2 * 60 * 60),
+								IsRMNVerificationDisabled:               false,
+								MessageInterceptor:                      msgInterceptor,
+							},
+						},
+						MCMS: mcmsConfig,
+					},
+				},
+			})
+			require.NoError(t, err)
+			// Assert the nonce manager configuration is as we expect.
+			actualConfig, err := state.Chains[source].OffRamp.GetDynamicConfig(nil)
+			require.NoError(t, err)
+			require.Equal(t, uint32(2*60*60), actualConfig.PermissionLessExecutionThresholdSeconds)
+			require.False(t, actualConfig.IsRMNVerificationDisabled)
+			require.Equal(t, msgInterceptor, actualConfig.MessageInterceptor)
+			require.Equal(t, state.Chains[source].FeeQuoter.Address(), actualConfig.FeeQuoter)
 		})
 	}
 }

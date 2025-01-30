@@ -91,7 +91,7 @@ func (c ChainContractParams) Validate() error {
 	if err := c.FeeQuoterParams.Validate(); err != nil {
 		return fmt.Errorf("invalid FeeQuoterParams: %w", err)
 	}
-	if err := c.OffRampParams.Validate(); err != nil {
+	if err := c.OffRampParams.Validate(false); err != nil {
 		return fmt.Errorf("invalid OffRampParams: %w", err)
 	}
 	return nil
@@ -145,10 +145,11 @@ type OffRampParams struct {
 	GasForCallExactCheck                    uint16
 	PermissionLessExecutionThresholdSeconds uint32
 	IsRMNVerificationDisabled               bool
+	MessageInterceptor                      common.Address
 }
 
-func (c OffRampParams) Validate() error {
-	if c.GasForCallExactCheck == 0 {
+func (c OffRampParams) Validate(ignoreGasForCallExactCheck bool) error {
+	if !ignoreGasForCallExactCheck && c.GasForCallExactCheck == 0 {
 		return errors.New("GasForCallExactCheck is 0")
 	}
 	if c.PermissionLessExecutionThresholdSeconds == 0 {
@@ -496,6 +497,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 						FeeQuoter:                               feeQuoterContract.Address(),
 						PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
 						IsRMNVerificationDisabled:               contractParams.OffRampParams.IsRMNVerificationDisabled,
+						MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
 					},
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)
