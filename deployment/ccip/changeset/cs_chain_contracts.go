@@ -406,6 +406,17 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 			txOps = deployment.SimTransactOpts()
 		}
 		onRamp := state.Chains[chainSel].OnRamp
+		dynamicConfig, err := onRamp.GetDynamicConfig(nil)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		// Do not update dynamic config if it is already in desired state
+		if dynamicConfig.FeeQuoter == state.Chains[chainSel].FeeQuoter.Address() &&
+			dynamicConfig.MessageInterceptor == update.MessageInterceptor &&
+			dynamicConfig.FeeAggregator == update.FeeAggregator &&
+			dynamicConfig.AllowlistAdmin == update.AllowlistAdmin {
+			continue
+		}
 		tx, err := onRamp.SetDynamicConfig(txOps, onramp.OnRampDynamicConfig{
 			FeeQuoter:              state.Chains[chainSel].FeeQuoter.Address(),
 			ReentrancyGuardEntered: false,
@@ -533,12 +544,37 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 		onRamp := onchain.Chains[srcSel].OnRamp
 		args := make([]onramp.OnRampAllowlistConfigArgs, len(updates))
 		for destSel, update := range updates {
+			allowedSendersResp, err := onRamp.GetAllowedSendersList(nil, destSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			if allowedSendersResp.IsEnabled == update.AllowListEnabled {
+				desiredState := make(map[common.Address]bool)
+				for _, address := range update.AddedAllowlistedSenders {
+					desiredState[address] = true
+				}
+				for _, address := range update.RemovedAllowlistedSenders {
+					desiredState[address] = false
+				}
+				needUpdate := false
+				for _, allowedSender := range allowedSendersResp.ConfiguredAddresses {
+					if !desiredState[allowedSender] {
+						needUpdate = true
+					}
+				}
+				if !needUpdate {
+					continue
+				}
+			}
 			args = append(args, onramp.OnRampAllowlistConfigArgs{
 				DestChainSelector:         destSel,
 				AllowlistEnabled:          update.AllowListEnabled,
 				AddedAllowlistedSenders:   update.AddedAllowlistedSenders,
 				RemovedAllowlistedSenders: update.RemovedAllowlistedSenders,
 			})
+		}
+		if len(args) == 0 {
+			continue
 		}
 		tx, err := onRamp.ApplyAllowlistUpdates(txOps, args)
 		if err != nil {
