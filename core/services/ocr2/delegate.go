@@ -946,7 +946,6 @@ func (d *Delegate) newServicesLLO(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
-	lggr = logger.Sugared(lggr.Named("LLO"))
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
 	if len(transmitterID) != 64 {
@@ -985,6 +984,7 @@ func (d *Delegate) newServicesLLO(
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg); err != nil {
 		return nil, err
 	}
+	lggr = logger.Sugared(lggr.Named("LLO").With("donID", pluginCfg.DonID, "channelDefinitionsContractAddress", pluginCfg.ChannelDefinitionsContractAddress))
 
 	// Handle key bundle IDs explicitly specified in job spec
 	kbm := make(map[llotypes.ReportFormat]llo.Key)
