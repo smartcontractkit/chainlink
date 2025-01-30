@@ -1,6 +1,7 @@
 package data_streams
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +16,10 @@ type ChainConfig struct {
 	// ChannelConfigStores is a map of chain selector to a list of all ChannelConfigStore contracts on that chain.
 	ChannelConfigStores map[uint64][]*channel_config_store.ChannelConfigStore
 }
+
+const (
+	ChannelConfigStore deployment.ContractType = "ChannelConfigStore"
+)
 
 // LoadChainConfig Loads all state for a chain into state.
 //
@@ -41,7 +46,7 @@ func LoadChainConfig(chain deployment.Chain, addresses map[string]deployment.Typ
 func (cc ChainConfig) Validate() error {
 	// We want to ensure that the ChannelConfigStores map is not nil.
 	if cc.ChannelConfigStores == nil {
-		return fmt.Errorf("ChannelConfigStores is nil")
+		return errors.New("ChannelConfigStores is nil")
 	}
 	return nil
 }

@@ -1,0 +1,103 @@
+package changeset
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	data_streams "github.com/smartcontractkit/chainlink/deployment/data-streams"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+)
+
+func DeployChannelConfigStore(env deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
+	ab := deployment.NewMemoryAddressBook()
+	err := deployChannelConfigStore(env, ab, cc)
+	if err != nil {
+		env.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
+		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+	}
+	return deployment.ChangesetOutput{
+		AddressBook: ab,
+	}, nil
+}
+
+type DeployChannelConfigStoreConfig struct {
+	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
+	ChainsToDeploy []uint64
+}
+
+func (cc DeployChannelConfigStoreConfig) Validate() error {
+	if len(cc.ChainsToDeploy) == 0 {
+		return errors.New("ChainsToDeploy is empty")
+	}
+	for _, chain := range cc.ChainsToDeploy {
+		if err := deployment.IsValidChainSelector(chain); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
+		}
+	}
+	return nil
+}
+
+// DeployChannelConfigStore deploys ChannelConfigStore to the chains specified in the config.
+//
+// Note that this function modifies the given address book variable, so it should be passed by reference.
+func deployChannelConfigStore(env deployment.Environment, ab deployment.AddressBook, cc DeployChannelConfigStoreConfig) error {
+	if err := cc.Validate(); err != nil {
+		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
+	}
+
+	fmt.Printf(" >>> env: %+v\n", env) // TMP DEBUG
+	for sel, chain := range env.Chains {
+		fmt.Printf(" >>> sel: %d, chain: %+v\n", sel, chain) // TMP DEBUG
+	}
+
+	for _, chainSel := range cc.ChainsToDeploy {
+		chain, ok := env.Chains[chainSel]
+		if !ok {
+			return fmt.Errorf("Chain not found for chain selector %d", chainSel)
+		}
+		_, err := deployContract[*channel_config_store.ChannelConfigStore](env, ab, chain, channelConfigStoreDeployFn())
+		if err != nil {
+			return err
+		}
+		chainAddresses, err := ab.AddressesForChain(chain.Selector)
+		if err != nil {
+			env.Logger.Errorw("Failed to get chain addresses", "err", err)
+			return err
+		}
+		chainState, err := data_streams.LoadChainConfig(chain, chainAddresses)
+		if err != nil {
+			env.Logger.Errorw("Failed to load chain state", "err", err)
+			return err
+		}
+		if chainState.ChannelConfigStores == nil || len(chainState.ChannelConfigStores[chain.Selector]) == 0 {
+			errNoCCS := errors.New("no ChannelConfigStore on chain")
+			env.Logger.Error(errNoCCS)
+			return errNoCCS
+		}
+	}
+
+	return nil
+}
+
+// channelConfigStoreDeployFn returns a function that deploys a ChannelConfigStore contract.
+func channelConfigStoreDeployFn() ContractDeployFn[*channel_config_store.ChannelConfigStore] {
+	return func(chain deployment.Chain) *ContractDeployment[*channel_config_store.ChannelConfigStore] {
+		ccsAddr, ccsTx, ccs, err := channel_config_store.DeployChannelConfigStore(
+			chain.DeployerKey,
+			chain.Client,
+		)
+		if err != nil {
+			return &ContractDeployment[*channel_config_store.ChannelConfigStore]{
+				Err: err,
+			}
+		}
+		return &ContractDeployment[*channel_config_store.ChannelConfigStore]{
+			Address:  ccsAddr,
+			Contract: ccs,
+			Tx:       ccsTx,
+			Tv:       deployment.NewTypeAndVersion(data_streams.ChannelConfigStore, deployment.Version1_0_0),
+			Err:      nil,
+		}
+	}
+}

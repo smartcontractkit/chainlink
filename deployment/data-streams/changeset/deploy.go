@@ -1,18 +1,62 @@
 package changeset
 
 import (
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams"
 )
 
-func DeployChannelConfigStoreChangeSet(env deployment.Environment, cc data_streams.DeployContractConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
-	err := data_streams.DeployChannelConfigStore(env, ab, cc)
-	if err != nil {
-		env.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+type (
+	// Contract covers contracts such as channel_config_store.ChannelConfigStore and fee_manager.FeeManager.
+	Contract interface {
+		// Caller:
+		Owner(opts *bind.CallOpts) (common.Address, error)
+		SupportsInterface(opts *bind.CallOpts, interfaceID [4]byte) (bool, error)
+		TypeAndVersion(opts *bind.CallOpts) (string, error)
+
+		// Transactor:
+		AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
+		TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	}
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
+
+	ContractDeployFn[C Contract] func(chain deployment.Chain) *ContractDeployment[C]
+
+	ContractDeployment[C Contract] struct {
+		Address  common.Address
+		Contract C
+		Tx       *types.Transaction
+		Tv       deployment.TypeAndVersion
+		Err      error
+	}
+)
+
+var _ deployment.ChangeSet[DeployChannelConfigStoreConfig] = DeployChannelConfigStore
+
+// deployContract deploys a contract and saves the address to the address book.
+//
+// Note that this function modifies the given address book variable, so it should be passed by reference.
+func deployContract[C Contract](
+	env deployment.Environment,
+	ab deployment.AddressBook,
+	chain deployment.Chain,
+	deployFn ContractDeployFn[C],
+) (*ContractDeployment[C], error) {
+	contractDeployment := deployFn(chain)
+	if contractDeployment.Err != nil {
+		env.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err)
+		return nil, contractDeployment.Err
+	}
+	_, err := chain.Confirm(contractDeployment.Tx)
+	if err != nil {
+		env.Logger.Errorw("Failed to confirm deployment", "err", err)
+		return nil, err
+	}
+	err = ab.Save(chain.Selector, contractDeployment.Address.String(), contractDeployment.Tv)
+	if err != nil {
+		env.Logger.Errorw("Failed to save contract address", "err", err)
+		return nil, err
+	}
+	return contractDeployment, nil
 }
