@@ -7,8 +7,9 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
@@ -45,9 +46,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
-
-		input := append(svmExtraArgsV1Tag, buf.Bytes()...)
-		output, err := DecodeExtraArgsToMap(input)
+		output, err := DecodeExtraArgsToMap(append(svmExtraArgsV1Tag, buf.Bytes()...))
 		require.NoError(t, err)
 		require.Len(t, output, 5)
 
@@ -75,8 +74,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		input := append(evmExtraArgsV2Tag, buf.Bytes()...)
-		output, err := DecodeExtraArgsToMap(input)
+		output, err := DecodeExtraArgsToMap(append(evmExtraArgsV2Tag, buf.Bytes()...))
 		require.NoError(t, err)
 		require.Len(t, output, 2)
 
