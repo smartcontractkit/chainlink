@@ -24,7 +24,6 @@ import (
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -82,9 +81,6 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 
 func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
 	mchains := GenerateChainsSol(t, numChains)
-<<<<<<< Updated upstream
-	return generateMemoryChainSol(mchains)
-=======
 
 	chains := make(map[uint64]deployment.SolChain)
 
@@ -115,7 +111,6 @@ func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolCh
 	}
 
 	return chains
->>>>>>> Stashed changes
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -170,34 +165,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
-<<<<<<< Updated upstream
-func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
-	chains := make(map[uint64]deployment.SolChain)
-	for cid, chain := range inputs {
-		chain := chain
-		chains[cid] = deployment.SolChain{
-			Selector:     cid,
-			Client:       chain.Client,
-			DeployerKey:  &chain.DeployerKey,
-			URL:          chain.URL,
-			WSURL:        chain.WSURL,
-			KeypairPath:  chain.KeypairPath,
-			ProgramsPath: ProgramsPath,
-			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
-				_, err := solCommonUtil.SendAndConfirm(
-					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
-				)
-				return err
-			},
-		}
-	}
-	return chains
-}
-
 func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, solChains map[uint64]deployment.SolChain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
-=======
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
->>>>>>> Stashed changes
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
 		return nodesByPeerID

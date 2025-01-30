@@ -94,14 +94,7 @@ func GenerateSolanaKeypair(dir string) (solana.PrivateKey, error) {
 	}
 
 	// Convert private key bytes to JSON array
-<<<<<<< Updated upstream
 	privateKeyBytes := []byte(privateKey)
-=======
-	privateKeyBytes, err := base58.Decode(privateKey.String())
-	if err != nil {
-		return solana.PrivateKey{}, fmt.Errorf("failed to decode private key: %w", err)
-	}
->>>>>>> Stashed changes
 
 	// Convert bytes to array of integers for JSON
 	intArray := make([]int, len(privateKeyBytes))
