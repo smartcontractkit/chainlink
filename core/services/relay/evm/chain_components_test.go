@@ -219,7 +219,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 func TestChainReader_HealthReport(t *testing.T) {
 	lp := lpMocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
-	ht := htMocks.NewHeadTracker[*clevmtypes.Head, common.Hash](t)
+	ht := htMocks.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: nil})

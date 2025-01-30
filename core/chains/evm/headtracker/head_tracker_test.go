@@ -28,8 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	commonht "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
-	commontypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
@@ -549,7 +548,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
-	checker := htmocks.NewHeadTrackable[*evmtypes.Head, common.Hash](t)
+	checker := htmocks.NewTrackable[*evmtypes.Head, common.Hash](t)
 	orm := headtracker.NewORM(*config.EVM().ChainID(), db)
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
@@ -670,7 +669,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
-	checker := htmocks.NewHeadTrackable[*evmtypes.Head, common.Hash](t)
+	checker := htmocks.NewTrackable[*evmtypes.Head, common.Hash](t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
@@ -848,7 +847,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 	h15 := testutils.Head(15)
 	h15.ParentHash = h14.Hash
 
-	heads := []*evmtypes.Head{
+	hs := []*evmtypes.Head{
 		h9,
 		h11,
 		h12,
@@ -919,14 +918,14 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 		require.EqualError(t, err, "invariant violation: expected head of canonical chain to be ahead of the latestFinalized")
 	})
 	t.Run("Returns error if finalizedHead is not present in the canonical chain", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h14Orphaned, nil).Once()
 
 		err := htu.headTracker.Backfill(ctx, h15)
-		require.ErrorAs(t, err, &commonht.FinalizedMissingError[common.Hash]{})
+		require.ErrorAs(t, err, &heads.FinalizedMissingError[common.Hash]{})
 	})
 	t.Run("Marks all blocks in chain that are older than finalized", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 
 		assertFinalized := func(expectedFinalized bool, msg string, heads ...*evmtypes.Head) {
 			for _, h := range heads {
@@ -943,7 +942,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 	})
 
 	t.Run("fetches a missing head", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h9, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
@@ -964,7 +963,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 		assert.Equal(t, int64(10), writtenHead.Number)
 	})
 	t.Run("fetches only heads that are missing", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
@@ -984,7 +983,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 	})
 
 	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil).
@@ -1005,7 +1004,7 @@ func testHeadTrackerBackfill(t *testing.T, newORM func(t *testing.T) headtracker
 	})
 
 	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
-		htu := newHeadTrackerUniverse(t, opts{Heads: heads, FinalityTagEnabled: true})
+		htu := newHeadTrackerUniverse(t, opts{Heads: hs, FinalityTagEnabled: true})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&head8, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, head10.Hash).
 			Return(&head10, nil)
@@ -1261,7 +1260,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 	})
 }
 
-func createHeadTracker(t testing.TB, ethClient *clienttest.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTracker(t testing.TB, ethClient *clienttest.Client, config heads.ChainConfig, htConfig heads.TrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
@@ -1278,7 +1277,7 @@ func createHeadTracker(t testing.TB, ethClient *clienttest.Client, config common
 	}
 }
 
-func createHeadTrackerWithChecker(t *testing.T, ethClient *clienttest.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
+func createHeadTrackerWithChecker(t *testing.T, ethClient *clienttest.Client, config heads.ChainConfig, htConfig heads.TrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
