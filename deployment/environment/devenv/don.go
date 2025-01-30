@@ -195,11 +195,11 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 	g := new(errgroup.Group)
 	for _, chain := range chains {
 		g.Go(func() error {
-			chainId := strconv.FormatUint(chain.ChainID, 10)
+			chainID := strconv.FormatUint(chain.ChainID, 10)
 			var account string
 			switch chain.ChainType {
 			case "EVM":
-				accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+				accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainID)
 				if err != nil {
 					return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 				}
@@ -233,11 +233,11 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("no peer id found for node %s", n.Name)
 			}
 
-			ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+			ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
 			if err != nil {
 				return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
 			}
-			if ocr2BundleId == "" {
+			if ocr2BundleID == "" {
 				return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 			}
 			// fetch node labels to know if the node is bootstrap or plugin
@@ -261,7 +261,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				}
 				if nodeChainConfigs != nil {
 					for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-						if chainConfig.Chain.Id == chainId {
+						if chainConfig.Chain.Id == chainID {
 							return nil
 						}
 					}
@@ -271,7 +271,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				// if it's not updated , throw an error
 				_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 					JobDistributorID: n.JDId,
-					ChainID:          chainId,
+					ChainID:          chainID,
 					ChainType:        chain.ChainType,
 					AccountAddr:      account,
 					AdminAddr:        n.adminAddr,
@@ -279,7 +279,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 					Ocr2IsBootstrap:  isBootstrap,
 					Ocr2Multiaddr:    n.multiAddr,
 					Ocr2P2PPeerID:    value(peerID),
-					Ocr2KeyBundleID:  ocr2BundleId,
+					Ocr2KeyBundleID:  ocr2BundleID,
 					Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 				})
 				// if the chain config failed because of a duplicate, we should return success
