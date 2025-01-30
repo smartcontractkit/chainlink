@@ -34,9 +34,13 @@ var (
 type TypeAndVersion struct {
 	Type    ContractType
 	Version semver.Version
+	Label   *string
 }
 
 func (tv TypeAndVersion) String() string {
+	if tv.Label != nil && *tv.Label != "" {
+		return fmt.Sprintf("%s %s %s", *tv.Label, tv.Type, tv.Version.String())
+	}
 	return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
 }
 
@@ -73,6 +77,7 @@ func NewTypeAndVersion(t ContractType, v semver.Version) TypeAndVersion {
 	return TypeAndVersion{
 		Type:    t,
 		Version: v,
+		Label:   nil,
 	}
 }
 
@@ -295,4 +300,15 @@ func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeA
 		sum += count
 	}
 	return sum == len(wantTypes), nil
+}
+
+// WithLabel returns a new TypeAndVersion with the given label.
+func (tv TypeAndVersion) WithLabel(label string) TypeAndVersion {
+	tv.Label = &label
+	return tv
+}
+
+// SetLabel sets the label for the TypeAndVersion.
+func (tv *TypeAndVersion) SetLabel(label string) {
+	tv.Label = &label
 }

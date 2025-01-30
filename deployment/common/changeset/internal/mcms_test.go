@@ -18,13 +18,36 @@ import (
 
 func TestDeployMCMSWithConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
+
 	chains, _ := memory.NewMemoryChainsWithChainIDs(t, []uint64{
 		chainsel.TEST_90000001.EvmChainID,
 	}, 1)
 	ab := deployment.NewMemoryAddressBook()
-	_, err := internal.DeployMCMSWithConfig(types.ProposerManyChainMultisig,
-		lggr, chains[chainsel.TEST_90000001.Selector], ab, proposalutils.SingleGroupMCMS(t))
+
+	// 1) Test WITHOUT a label
+	mcmNoLabel, err := internal.DeployMCMSWithConfig(
+		types.ProposerManyChainMultisig,
+		lggr,
+		chains[chainsel.TEST_90000001.Selector],
+		ab,
+		proposalutils.SingleGroupMCMS(t),
+	)
 	require.NoError(t, err)
+	require.Nil(t, mcmNoLabel.Tv.Label, "expected no label to be set")
+
+	// 2) Test WITH a label
+	label := "SA"
+	mcmWithLabel, err := internal.DeployMCMSWithConfig(
+		types.ProposerManyChainMultisig,
+		lggr,
+		chains[chainsel.TEST_90000001.Selector],
+		ab,
+		proposalutils.SingleGroupMCMS(t),
+		internal.WithLabel(label),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, mcmWithLabel.Tv.Label, "expected label to be set")
+	require.Equal(t, label, *mcmWithLabel.Tv.Label, "label mismatch")
 }
 
 func TestDeployMCMSWithTimelockContracts(t *testing.T) {

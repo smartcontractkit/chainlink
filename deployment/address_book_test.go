@@ -275,3 +275,109 @@ func TestAddressesContainsBundle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, exists, true)
 }
+
+func TestTypeAndVersion_WithLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		initialLabel   *string
+		newLabel       string
+		expectedOldNil bool
+	}{
+		{
+			name:           "with nil initial label",
+			initialLabel:   nil,
+			newLabel:       "SA",
+			expectedOldNil: true,
+		},
+		{
+			name:           "with existing label changed",
+			initialLabel:   strPtr("Old"),
+			newLabel:       "New",
+			expectedOldNil: false,
+		},
+		{
+			name:           "with empty new label",
+			initialLabel:   nil,
+			newLabel:       "",
+			expectedOldNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tv := TypeAndVersion{
+				Type:    "ProposerManyChainMultiSig",
+				Version: Version1_0_0,
+				Label:   tt.initialLabel,
+			}
+
+			newTv := tv.WithLabel(tt.newLabel)
+
+			// Check original (tv) unchanged
+			if tt.expectedOldNil {
+				assert.Nil(t, tv.Label, "original label should remain nil")
+			} else {
+				assert.NotNil(t, tv.Label, "original label should remain non-nil")
+			}
+
+			// Check newTv has the correct label
+			if tt.newLabel == "" {
+				assert.NotNil(t, newTv.Label, "newTv.Label should not be nil (it will be an empty string pointer)")
+				assert.Equal(t, "", *newTv.Label, "expected empty string label in newTv")
+			} else {
+				assert.NotNil(t, newTv.Label, "newTv.Label should be non-nil")
+				assert.Equal(t, tt.newLabel, *newTv.Label, "newTv label did not match expected")
+			}
+		})
+	}
+}
+
+func TestTypeAndVersion_SetLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		newLabel string
+	}{
+		{
+			name:     "non-empty label",
+			newLabel: "SA",
+		},
+		{
+			name:     "empty label",
+			newLabel: "",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tv := TypeAndVersion{
+				Type:    "CallProxy",
+				Version: Version1_0_0,
+				Label:   nil,
+			}
+
+			tv.SetLabel(tt.newLabel)
+			if tt.newLabel == "" {
+				assert.NotNil(t, tv.Label, "tv.Label should be non-nil (pointer to empty string)")
+				assert.Equal(t, "", *tv.Label, "label should be empty string")
+			} else {
+				assert.NotNil(t, tv.Label, "tv.Label should be non-nil")
+				assert.Equal(t, tt.newLabel, *tv.Label, "label should match the new label")
+			}
+		})
+	}
+}
+
+// strPtr is a small helper for creating a *string from a string literal.
+func strPtr(s string) *string {
+	return &s
+}
