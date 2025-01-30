@@ -277,7 +277,10 @@ const (
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
-	chainlinkCliCommand                = "./chainlink-cli"
+)
+
+var (
+	chainlinkCliCommand string
 )
 
 func downloadAndInstallChainlinkCLI(ghToken, version string) error {
@@ -320,14 +323,21 @@ func downloadAndInstallChainlinkCLI(ghToken, version string) error {
 	}
 
 	extractedFileName := fmt.Sprintf("cre_%s_%s_%s", version, system, arch)
-	cmd = exec.Command("mv", extractedFileName, strings.TrimPrefix(chainlinkCliCommand, "./"))
+	cmd = exec.Command("chmod", "+x", extractedFileName)
 	if cmd.Run() != nil {
-		return errors.Wrapf(err, "failed to rename %s to chainlink-cli", extractedFileName)
+		return errors.Wrapf(err, "failed to make %s executable", extractedFileName)
 	}
 
-	cmd = exec.Command("chmod", "+x", chainlinkCliCommand)
-	if cmd.Run() != nil {
-		return errors.Wrapf(err, "failed to make chainlink-cli executable")
+	// set it to absolute path, because some commands (e.g. compile) need to be executed in the context
+	// of the workflow directory
+	extractedFile, err := os.Open(extractedFileName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to open %s", extractedFileName)
+	}
+
+	chainlinkCliCommand, err = filepath.Abs(extractedFile.Name())
+	if err != nil {
+		return errors.Wrapf(err, "failed to get absolute path for %s", tmpfile.Name())
 	}
 
 	if isInstalled := isInstalled(chainlinkCliCommand); !isInstalled {
@@ -401,12 +411,10 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 
 	if in.WorkflowConfig.UseChainlinkCLI {
-		// if !isInstalled(chainlinkCliCommand) {
 		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
 
 		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
 		require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
-		// }
 
 		if !in.WorkflowConfig.UseExising {
 			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
