@@ -625,14 +625,12 @@ func deployChainContractsSolana(
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
 
-	defaultGasLimit := solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
-
 	instruction, err := ccip_router.NewInitializeInstruction(
 		chain.Selector,       // chain selector
-		defaultGasLimit,      // default gas limit
-		true,                 // allow out of order execution
 		EnableExecutionAfter, // period to wait before allowing manual execution
 		solana.PublicKey{},
+		solana.PublicKey{},
+		solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
 		GetRouterConfigPDA(ccipRouterProgram),
 		GetRouterStatePDA(ccipRouterProgram),
 		chain.DeployerKey.PublicKey(),
