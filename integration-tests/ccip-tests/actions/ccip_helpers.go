@@ -32,7 +32,6 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
