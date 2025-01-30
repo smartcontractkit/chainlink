@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -274,34 +275,53 @@ const (
 )
 
 func downloadAndInstallChainlinkCLI(ghToken, version string) error {
-	chainlinkCliAssetFile := fmt.Sprintf("cre_%s_linux_amd64.tar.gz", version)
+	system := runtime.GOOS
+	arch := runtime.GOARCH
+
+	switch system {
+	case "darwin", "linux":
+		// nothing to do, we have the binaries
+	default:
+		return fmt.Errorf("chainlnk-cli does not support OS: %s", system)
+	}
+
+	switch arch {
+	case "amd64", "arm64":
+		// nothing to do, we have the binaries
+	default:
+		return fmt.Errorf("chainlnk-cli does not support arch: %s", arch)
+	}
+
+	chainlinkCliAssetFile := fmt.Sprintf("cre_%s_%s_%s.tar.gz", version, system, arch)
 	content, err := downloadGHAssetFromRelease("smartcontractkit", "dev-platform", version, chainlinkCliAssetFile, ghToken)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to download chainlink-cli asset %s", chainlinkCliAssetFile)
 	}
 
 	tmpfile, err := os.CreateTemp("", chainlinkCliAssetFile)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to create temp file for chainlink-cli asset %s", chainlinkCliAssetFile)
 	}
 	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write(content); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to write content to temp file for chainlink-cli asset %s", chainlinkCliAssetFile)
 	}
 
-	cmd := exec.Command("tar", "-xvf", tmpfile.Name()) // #nosec G204
-	err = cmd.Run()
+	cmd := exec.Command("tar", "-xvf", tmpfile.Name(), "-C", ".") // #nosec G204
+	if cmd.Run() != nil {
+		return errors.Wrapf(err, "failed to extract chainlink-cli asset %s", chainlinkCliAssetFile)
+	}
 
-	if err != nil {
-		return err
+	extractedFileName := fmt.Sprintf("cre_%s_%s_%s", version, system, arch)
+	cmd = exec.Command("mv", extractedFileName, "chainlink-cli")
+	if cmd.Run() != nil {
+		return errors.Wrapf(err, "failed to rename %s to chainlink-cli", extractedFileName)
 	}
 
 	cmd = exec.Command("chmod", "+x", "chainlink-cli")
-	err = cmd.Run()
-
-	if err != nil {
-		return err
+	if cmd.Run() != nil {
+		return errors.Wrapf(err, "failed to make chainlink-cli executable")
 	}
 
 	if isInstalled := isInstalled("chainlink-cli"); !isInstalled {
@@ -375,12 +395,12 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 
 	if in.WorkflowConfig.UseChainlinkCLI {
-		if !isInstalled("chainlink-cli") {
-			require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
+		// if !isInstalled("chainlink-cli") {
+		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
 
-			err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
-			require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
-		}
+		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
+		require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
+		// }
 
 		if !in.WorkflowConfig.UseExising {
 			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
