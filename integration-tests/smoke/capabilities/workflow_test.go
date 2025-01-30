@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -61,15 +60,21 @@ import (
 )
 
 type WorkflowConfig struct {
-	UseChainlinkCLI bool                    `toml:"use_chainlink_cli"`
-	ChainlinkCLI    *ChainlinkCLIConfig     `toml:"chainlink_cli"`
-	UseExising      bool                    `toml:"use_existing"`
-	Existing        *ExistingWorkflowConfig `toml:"existing"`
+	UseChainlinkCLI    bool                    `toml:"use_chainlink_cli"`
+	ChainlinkCLI       *ChainlinkCLIConfig     `toml:"chainlink_cli"`
+	UseExising         bool                    `toml:"use_existing"`
+	Existing           *ExistingWorkflowConfig `toml:"existing"`
+	DependenciesConfig *DependenciesConfig     `toml:"dependencies"`
 	// id, which will be used, when registering the DON with the workflow registry,
 	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
 	DonID        uint32 `toml:"don_id" validate:"required"`
 	WorkflowName string `toml:"workflow_name" validate:"required" `
 	FeedID       string `toml:"feed_id" validate:"required"`
+}
+
+type DependenciesConfig struct {
+	CapabiltiesVersion  string `toml:"capabilities_version"`
+	ChainlinkCLIVersion string `toml:"chainlink_cli_version"`
 }
 
 type ExistingWorkflowConfig struct {
@@ -97,72 +102,64 @@ type OCR3Config struct {
 	OffchainConfig        []byte
 }
 
-func downloadGHAssetFromLatestRelease(owner, repository, releaseType, assetName, ghToken string) ([]byte, error) {
+func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToken string) ([]byte, error) {
 	var content []byte
 	if ghToken == "" {
 		return content, errors.New("no github token provided")
 	}
 
-	if (releaseType == test_env.AUTOMATIC_LATEST_TAG) || (releaseType == test_env.AUTOMATIC_STABLE_LATEST_TAG) {
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: ghToken},
-		)
-		tc := oauth2.NewClient(ctx, ts)
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: ghToken},
+	)
+	tc := oauth2.NewClient(ctx, ts)
 
-		ghClient := github.NewClient(tc)
+	ghClient := github.NewClient(tc)
 
-		latestTags, _, err := ghClient.Repositories.ListReleases(context.Background(), owner, repository, &github.ListOptions{PerPage: 20})
-		if err != nil {
-			return content, errors.Wrapf(err, "failed to list releases for %s", repository)
-		}
-
-		var latestRelease *github.RepositoryRelease
-		for _, tag := range latestTags {
-			if releaseType == test_env.AUTOMATIC_STABLE_LATEST_TAG {
-				if tag.Prerelease != nil && *tag.Prerelease {
-					continue
-				}
-				if tag.Draft != nil && *tag.Draft {
-					continue
-				}
-			}
-			if tag.TagName != nil {
-				latestRelease = tag
-				break
-			}
-		}
-
-		if latestRelease == nil {
-			return content, errors.New("failed to find latest release with automatic tag: " + releaseType)
-		}
-
-		var assetID int64
-		for _, asset := range latestRelease.Assets {
-			if strings.Contains(asset.GetName(), assetName) {
-				assetID = asset.GetID()
-				break
-			}
-		}
-
-		if assetID == 0 {
-			return content, fmt.Errorf("failed to find asset %s for %s", assetName, *latestRelease.TagName)
-		}
-
-		asset, _, err := ghClient.Repositories.DownloadReleaseAsset(context.Background(), owner, repository, assetID, tc)
-		if err != nil {
-			return content, errors.Wrapf(err, "failed to download asset %s for %s", assetName, *latestRelease.TagName)
-		}
-
-		content, err = io.ReadAll(asset)
-		if err != nil {
-			return content, err
-		}
-
-		return content, nil
+	ghReleases, _, err := ghClient.Repositories.ListReleases(context.Background(), owner, repository, &github.ListOptions{PerPage: 20})
+	if err != nil {
+		return content, errors.Wrapf(err, "failed to list releases for %s", repository)
 	}
 
-	return content, errors.New("no automatic tag provided")
+	var ghRelease *github.RepositoryRelease
+	for _, release := range ghReleases {
+		if release.TagName == nil {
+			continue
+		}
+
+		if *release.TagName == releaseTag {
+			ghRelease = release
+			break
+		}
+	}
+
+	if ghRelease == nil {
+		return content, errors.New("failed to find release with tag: " + releaseTag)
+	}
+
+	var assetID int64
+	for _, asset := range ghRelease.Assets {
+		if strings.Contains(asset.GetName(), assetName) {
+			assetID = asset.GetID()
+			break
+		}
+	}
+
+	if assetID == 0 {
+		return content, fmt.Errorf("failed to find asset %s for %s", assetName, *ghRelease.TagName)
+	}
+
+	asset, _, err := ghClient.Repositories.DownloadReleaseAsset(context.Background(), owner, repository, assetID, tc)
+	if err != nil {
+		return content, errors.Wrapf(err, "failed to download asset %s for %s", assetName, *ghRelease.TagName)
+	}
+
+	content, err = io.ReadAll(asset)
+	if err != nil {
+		return content, err
+	}
+
+	return content, nil
 }
 
 func GenerateWorkflowIDFromStrings(owner string, name string, workflow []byte, config []byte, secretsURL string) (string, error) {
@@ -279,15 +276,15 @@ type PoRWorkflowConfig struct {
 }
 
 const (
-	chainlinkCliAssetFile              = "cre_v1.0.2_linux_amd64.tar.gz"
 	cronCapabilityAssetFile            = "amd64_cron"
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
 )
 
-func downloadAndInstallChainlinkCLI(ghToken string) error {
-	content, err := downloadGHAssetFromLatestRelease("smartcontractkit", "dev-platform", test_env.AUTOMATIC_LATEST_TAG, chainlinkCliAssetFile, ghToken)
+func downloadAndInstallChainlinkCLI(ghToken, version string) error {
+	chainlinkCliAssetFile := fmt.Sprintf("cre_%s_linux_amd64.tar.gz", version)
+	content, err := downloadGHAssetFromRelease("smartcontractkit", "dev-platform", version, chainlinkCliAssetFile, ghToken)
 	if err != nil {
 		return err
 	}
@@ -323,8 +320,8 @@ func downloadAndInstallChainlinkCLI(ghToken string) error {
 	return nil
 }
 
-func downloadCronCapability(ghToken string) (string, error) {
-	content, err := downloadGHAssetFromLatestRelease("smartcontractkit", "capabilities", test_env.AUTOMATIC_LATEST_TAG, cronCapabilityAssetFile, ghToken)
+func downloadCronCapability(ghToken, version string) (string, error) {
+	content, err := downloadGHAssetFromRelease("smartcontractkit", "capabilities", version, cronCapabilityAssetFile, ghToken)
 	if err != nil {
 		return "", err
 	}
@@ -343,10 +340,12 @@ func downloadCronCapability(ghToken string) (string, error) {
 	return fileName, nil
 }
 
-func validateInputsAndEnvVars(t *testing.T, testConfig *WorkflowTestConfig) {
+func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NotEmpty(t, os.Getenv("PRIVATE_KEY"), "PRIVATE_KEY env var must be set")
-	if !testConfig.WorkflowConfig.UseChainlinkCLI {
-		require.True(t, testConfig.WorkflowConfig.UseExising, "if you are not using chainlink-cli you must use an existing workflow")
+	require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig, "dependencies config must be set")
+
+	if !in.WorkflowConfig.UseChainlinkCLI {
+		require.True(t, in.WorkflowConfig.UseExising, "if you are not using chainlink-cli you must use an existing workflow")
 	}
 
 	var ghReadToken string
@@ -369,7 +368,7 @@ func validateInputsAndEnvVars(t *testing.T, testConfig *WorkflowTestConfig) {
 		 are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
 		 is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
 		*/
-		require.True(t, testConfig.WorkflowConfig.UseExising, "only existing workflow can be used in CI as of now due to issues with generating a gist read:write token")
+		require.True(t, in.WorkflowConfig.UseExising, "only existing workflow can be used in CI as of now due to issues with generating a gist read:write token")
 
 		// we use this special function to subsitute a placeholder env variable with the actual environment variable name
 		// it is defined in .github/e2e-tests.yml as '{{ env.GITHUB_API_TOKEN }}'
@@ -379,27 +378,31 @@ func validateInputsAndEnvVars(t *testing.T, testConfig *WorkflowTestConfig) {
 	}
 
 	require.NotEmpty(t, ghReadToken, ghReadTokenEnvVarName+" env var must be set")
-	_, err := downloadCronCapability(ghReadToken)
+	require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion, "capabilities_version must be set in the dependencies config")
+
+	_, err := downloadCronCapability(ghReadToken, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion)
 	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 
-	if testConfig.WorkflowConfig.UseChainlinkCLI {
+	if in.WorkflowConfig.UseChainlinkCLI {
 		if !isInstalled("chainlink-cli") {
-			err = downloadAndInstallChainlinkCLI(ghReadToken)
+			require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
+
+			err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
 			require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
 		}
 
-		if !testConfig.WorkflowConfig.UseExising {
+		if !in.WorkflowConfig.UseExising {
 			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
 			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use chainlink-cli to compile workflows. It requires gist:read and gist:write permissions")
 			err := os.Setenv("GITHUB_API_TOKEN", gistWriteToken)
 			require.NoError(t, err, "failed to set GITHUB_API_TOKEN env var")
 		} else {
-			require.NotEmpty(t, testConfig.WorkflowConfig.ChainlinkCLI.FolderLocation, "folder_location must be set in the chainlink_cli config")
+			require.NotEmpty(t, in.WorkflowConfig.ChainlinkCLI.FolderLocation, "folder_location must be set in the chainlink_cli config")
 		}
 	}
 
 	// make sure the feed id is in the correct format
-	testConfig.WorkflowConfig.FeedID = strings.TrimPrefix(testConfig.WorkflowConfig.FeedID, "0x")
+	in.WorkflowConfig.FeedID = strings.TrimPrefix(in.WorkflowConfig.FeedID, "0x")
 }
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751

@@ -14,7 +14,11 @@
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_chainlink_cli = true
-  use_existing = true
+  use_existing = false
+
+  [dependencies]
+  capabilities_version = "v1.0.0-alpha"
+  chainlink_cli_version = "v1.0.2"
 
   [workflow_config.existing]
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
