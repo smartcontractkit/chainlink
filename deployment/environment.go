@@ -46,6 +46,10 @@ type OffchainClient interface {
 	nodev1.NodeServiceClient
 	csav1.CSAServiceClient
 }
+type MultiFamilyChains struct {
+	EVMChains map[uint64]Chain
+	SolChains map[uint64]SolChain
+}
 
 // Chain represents an EVM chain.
 type Chain struct {
