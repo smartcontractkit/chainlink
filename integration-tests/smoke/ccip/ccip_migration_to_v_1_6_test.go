@@ -2,34 +2,37 @@ package ccip
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
-	t.Skipf("Skipping test due to flakiness. " +
-		"This test getting face lifted in this ticket CCIP-4883 and will resolve the flakiness part of it.")
-
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
-	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
+	// Deploy 1.5 contracts (excluding pools to start, but including MCMS)
+	const msgInterval = 10 * time.Second
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
@@ -98,27 +101,20 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// ensure that all lanes are functional
-	for _, pair := range pairs {
-		sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-			testhelpers.WithSourceChain(pair.SourceChainSelector),
-			testhelpers.WithDestChain(pair.DestChainSelector),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[pair.DestChainSelector].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			}),
-		)
-		require.NoError(t, err)
-		require.NotNil(t, sentEvent)
-		destChain := e.Env.Chains[pair.DestChainSelector]
-		destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
-		require.NoError(t, err)
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].CommitStore[src1], sentEvent.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].EVM2EVMOffRamp[src1], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
-	}
+	stopMsgs := make(chan bool)     // channel to stop sending messages in real router
+	switchTov1_6 := make(chan bool) // channel to switchTov1_6 to switch to 1.6
+	var wg sync.WaitGroup           // wait group to wait for all the messages to be delivered
+	// send continuous messages from src1 -> dest until stopMsgs is closed
+	sendContinuousMessagesInRealRouter(t, &e, &state, pairs[0], &wg, stopMsgs, switchTov1_6, msgInterval)
+	// send a message from the other lane src2 -> dest
+	sentEvent := sendMsgInV1_5(t, e, state, src2, dest)
+	destChain := e.Env.Chains[dest]
+	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+	require.NoError(t, err)
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.Chains[dest].CommitStore[src1],
+		sentEvent.Message.SequenceNumber)
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.Chains[dest].EVM2EVMOffRamp[src1],
+		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
 	contractsByChain := make(map[uint64][]common.Address)
@@ -221,23 +217,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	startBlocks[dest] = &block
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
-	msgSentEvent, err := testhelpers.DoSendRequest(
-		t, e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(true),
-		// Send traffic across single 1.6 lane with a DIFFERENT ( very important to not mess with real sender nonce) sender
-		// from test router to ensure 1.6 is working.
-		testhelpers.WithSender(e.Users[src1][1]),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-			Data:         []byte("hello"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		}))
-	require.NoError(t, err)
-
+	// Send traffic across single 1.6 lane with a DIFFERENT ( very important to not mess with real sender nonce) sender
+	// from test router to ensure 1.6 is working.
+	msgSentEvent := sendMsgInV1_6(t, e, state, src1, dest, e.Users[src1][1], true)
 	expectedSeqNumExec[testhelpers.SourceDestPair{
 		SourceChainSelector: src1,
 		DestChainSelector:   dest,
@@ -249,29 +231,12 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	// This sleep is needed so that plugins come up and start indexing logs.
 	// Otherwise test will flake.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 	testhelpers.ReplayLogs(t, e.Env.Offchain, map[uint64]uint64{
 		src1: msgSentEvent.Raw.BlockNumber,
 	})
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
-
-	// send a message from real router, the send requested event should be received in 1.5 onRamp
-	// the request should get delivered to 1.5 offRamp
-	sentEventBeforeSwitch, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-			Data:         []byte("hello"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		}),
-	)
-	require.NoError(t, err)
-	require.NotNil(t, sentEventBeforeSwitch)
 
 	// now that the 1.6 lane is working, we can enable the real router
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
@@ -329,37 +294,275 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// send a message from real router the send requested event should be received in 1.6 onRamp
-	// the request should get delivered to 1.6 offRamp
-	destStartBlock, err := e.Env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
-	require.NoError(t, err)
-	sentEventAfterSwitch, err := testhelpers.DoSendRequest(
-		t, e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+	// As the real router are getting continuous messages, after this switch v1.6 OnRamp should start receiving the messages.
+	// and the request should get delivered to 1.6 offRamp
+	switchTov1_6 <- true // Signal to look for messages in 1.6 OnRamp
+
+	// confirm that the other lane src2->dest is still working with v1.5
+	sentEventOnOtherLane := sendMsgInV1_5(t, e, state, src2, dest)
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
+		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+
+	// stop the continuous messages in real router and wait for all the executions to confirm
+	stopMsgs <- true
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	require.Eventually(t, func() bool {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	},
+		tests.WaitTimeout(t),
+		2*time.Second,
+		"all executions did not confirm",
+	)
+}
+
+type msgEvent struct {
+	tx       common.Hash
+	blockNum uint64
+}
+
+// sendContinuousMessagesInRealRouter sends continuous messages from the source chain to the destination chain until stopped.
+func sendContinuousMessagesInRealRouter(
+	t *testing.T,
+	e *testhelpers.DeployedEnv,
+	state *changeset.CCIPOnChainState,
+	pair testhelpers.SourceDestPair,
+	wg *sync.WaitGroup,
+	stopMsgs, signal chan bool,
+	interval time.Duration,
+) {
+	ticker := time.NewTicker(interval)
+	var (
+		mu sync.Mutex
+	)
+	type msgSentCheck struct {
+		src, dest, seqNr, startBlockNumber uint64
+	}
+	statusTracker := make(map[uint64]int)
+	msgPipeline := make(chan msgEvent, 100) // channel to send the message tx and block number to check msg sent event
+	// channel to send the message sent event to check for commit & execute in
+	performMsgCheckInV1_5 := make(chan msgSentCheck, 100)
+	// channel to send the message sent event to check for commit & execute
+	performMsgCheckInV1_6 := make(chan msgSentCheck, 100)
+	// Go routine to send the messages continuously until stopMsgs is closed
+	go func() {
+		defer ticker.Stop()
+		sendMessageWithoutCapturingSentEvent(t, e, state, pair.SourceChainSelector, pair.DestChainSelector, msgPipeline)
+		for {
+			select {
+			case <-stopMsgs:
+				close(msgPipeline)
+				return
+			case <-ticker.C:
+				sendMessageWithoutCapturingSentEvent(t, e, state, pair.SourceChainSelector, pair.DestChainSelector, msgPipeline)
+			}
+		}
+	}()
+
+	// function to listen to the message sent event in v1.6 onRamp
+	listenV1_6OnRamp := func(input msgEvent) {
+		defer wg.Done()
+		// filter the message sent event in 1.6 onRamp
+		it, err := state.Chains[pair.SourceChainSelector].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
+			Start:   input.blockNum,
+			End:     &input.blockNum,
+			Context: context.Background(),
+		}, []uint64{pair.DestChainSelector}, []uint64{})
+		if err != nil {
+			t.Errorf("failed to get msg sent filter iterator")
+		}
+		if !it.Next() {
+			t.Errorf("failed to get next event")
+		}
+		t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d sender %s",
+			it.Event.Message.Header.MessageId[:],
+			pair.SourceChainSelector,
+			pair.DestChainSelector,
+			input.tx.String(),
+			it.Event.Message.Header.SequenceNumber,
+			it.Event.Message.Sender.String(),
+		)
+		destChain := e.Env.Chains[pair.DestChainSelector]
+		destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+		if err != nil {
+			t.Errorf("failed to get header by number")
+		}
+		mu.Lock()
+		statusTracker[it.Event.Message.Header.SequenceNumber] = testhelpers.EXECUTION_STATE_INPROGRESS
+		mu.Unlock()
+		performMsgCheckInV1_6 <- msgSentCheck{
+			src:              pair.SourceChainSelector,
+			dest:             pair.DestChainSelector,
+			seqNr:            it.Event.Message.Header.SequenceNumber,
+			startBlockNumber: destStartBlock.Number.Uint64(),
+		}
+	}
+	// function to listen to the message sent event in v1.5 onRamp
+	listenV1_5OnRamp := func(input msgEvent) {
+		defer wg.Done()
+		// filter the message sent event in 1.5 onRamp
+		it, err := state.Chains[pair.SourceChainSelector].EVM2EVMOnRamp[pair.DestChainSelector].FilterCCIPSendRequested(&bind.FilterOpts{
+			Start:   input.blockNum,
+			End:     &input.blockNum,
+			Context: context.Background(),
+		})
+		if err != nil {
+			t.Errorf("failed to get msg sent filter iterator")
+		}
+		if !it.Next() {
+			t.Errorf("failed to get next event")
+		}
+		t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d sender %s",
+			it.Event.Message.MessageId[:],
+			pair.SourceChainSelector,
+			pair.DestChainSelector,
+			input.tx.String(),
+			it.Event.Message.SequenceNumber,
+			it.Event.Message.Sender.String(),
+		)
+		destChain := e.Env.Chains[pair.DestChainSelector]
+		destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+		if err != nil {
+			t.Errorf("failed to get header by number")
+		}
+		mu.Lock()
+		statusTracker[it.Event.Message.SequenceNumber] = testhelpers.EXECUTION_STATE_INPROGRESS
+		mu.Unlock()
+		performMsgCheckInV1_5 <- msgSentCheck{
+			src:              pair.SourceChainSelector,
+			dest:             pair.DestChainSelector,
+			seqNr:            it.Event.Message.SequenceNumber,
+			startBlockNumber: destStartBlock.Number.Uint64(),
+		}
+	}
+
+	// Process the msg event in real router
+	go func() {
+		switchSignal := false
+		defer close(performMsgCheckInV1_5)
+		defer close(performMsgCheckInV1_6)
+		for input := range msgPipeline {
+			wg.Add(1)
+			select {
+			case <-signal:
+				switchSignal = true
+				go listenV1_6OnRamp(input)
+			default:
+				if switchSignal {
+					go listenV1_6OnRamp(input)
+				} else {
+					go listenV1_5OnRamp(input)
+				}
+			}
+		}
+	}()
+
+	// Verify message sent in v1.5
+	go func() {
+		for input := range performMsgCheckInV1_5 {
+			wg.Add(1)
+			go func(input msgSentCheck) {
+				defer wg.Done()
+				v1_5testhelpers.WaitForCommit(t, e.Env.Chains[input.src], e.Env.Chains[input.dest],
+					state.Chains[input.dest].CommitStore[input.src], input.seqNr)
+				v1_5testhelpers.WaitForExecute(t, e.Env.Chains[input.src], e.Env.Chains[input.dest],
+					state.Chains[pair.DestChainSelector].EVM2EVMOffRamp[pair.SourceChainSelector],
+					[]uint64{input.seqNr}, input.startBlockNumber)
+				mu.Lock()
+				statusTracker[input.seqNr] = testhelpers.EXECUTION_STATE_SUCCESS
+				mu.Unlock()
+			}(input)
+		}
+	}()
+
+	// verify message sent in v1.6
+	go func() {
+		for input := range performMsgCheckInV1_6 {
+			wg.Add(1)
+			go func(input msgSentCheck) {
+				defer wg.Done()
+				_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
+					t,
+					input.src,
+					e.Env.Chains[input.dest],
+					state.Chains[input.dest].OffRamp,
+					&input.startBlockNumber,
+					ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(input.seqNr),
+						ccipocr3.SeqNum(input.seqNr),
+					},
+					true,
+				)
+				if err != nil {
+					t.Errorf("failed to confirm commit")
+				}
+				_, err = testhelpers.ConfirmExecWithSeqNrs(
+					t,
+					input.src,
+					e.Env.Chains[input.dest],
+					state.Chains[input.dest].OffRamp,
+					&input.startBlockNumber,
+					[]uint64{input.seqNr},
+				)
+				if err != nil {
+					t.Errorf("failed to confirm execute")
+				}
+				mu.Lock()
+				statusTracker[input.seqNr] = testhelpers.EXECUTION_STATE_SUCCESS
+				mu.Unlock()
+			}(input)
+		}
+	}()
+}
+
+func sendMessageWithoutCapturingSentEvent(
+	t *testing.T,
+	e *testhelpers.DeployedEnv,
+	state *changeset.CCIPOnChainState,
+	src, dest uint64,
+	msgPipeline chan msgEvent,
+) {
+	cfg := &testhelpers.CCIPSendReqConfig{
+		SourceChain:  src,
+		DestChain:    dest,
+		Sender:       e.Env.Chains[src].DeployerKey,
+		IsTestRouter: false,
+		Evm2AnyMessage: router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
 			ExtraArgs:    nil,
-		}))
-	require.NoError(t, err)
-	// verify that before switch message is received in 1.5 offRamp
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src1],
-		[]uint64{sentEventBeforeSwitch.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+		},
+	}
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
 
-	// verify that after switch message is received in 1.6 offRamp
-	expectedSeqNumExec[testhelpers.SourceDestPair{
-		SourceChainSelector: src1,
-		DestChainSelector:   dest,
-	}] = []uint64{sentEventAfterSwitch.SequenceNumber}
-	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+	tx, blockNum, err := testhelpers.CCIPSendRequest(e.Env, *state, cfg)
+	if err != nil {
+		t.Errorf("failed to send message: %v", err)
+	}
+	msgPipeline <- msgEvent{
+		tx:       tx.Hash(),
+		blockNum: blockNum,
+	}
+}
 
-	// confirm that the other lane src2->dest is still working with v1.5
-	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src2),
+func sendMsgInV1_5(
+	t *testing.T,
+	e testhelpers.DeployedEnv,
+	state changeset.CCIPOnChainState,
+	src, dest uint64) *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested {
+	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
+		testhelpers.WithSourceChain(src),
 		testhelpers.WithDestChain(dest),
 		testhelpers.WithTestRouter(false),
 		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
@@ -371,7 +574,31 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}),
 	)
 	require.NoError(t, err)
-	require.NotNil(t, sentEventOnOtherLane)
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
-		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+	require.NotNil(t, sentEvent)
+	return sentEvent
+}
+
+func sendMsgInV1_6(
+	t *testing.T,
+	e testhelpers.DeployedEnv,
+	state changeset.CCIPOnChainState,
+	src, dest uint64,
+	sender *bind.TransactOpts,
+	isTestRouter bool,
+) *onramp.OnRampCCIPMessageSent {
+	sentEvent, err := testhelpers.DoSendRequest(
+		t, e.Env, state,
+		testhelpers.WithSourceChain(src),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(isTestRouter),
+		testhelpers.WithSender(sender),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}))
+	require.NoError(t, err)
+	return sentEvent
 }
