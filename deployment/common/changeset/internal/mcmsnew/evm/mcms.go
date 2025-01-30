@@ -1,13 +1,15 @@
-package mcmsnew
+package evm
 
 import (
 	"github.com/ethereum/go-ethereum/common"
 
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -28,7 +30,12 @@ func deployMCMSWithConfigEVM(
 	ab deployment.AddressBook,
 	mcmConfig mcmsTypes.Config,
 ) (*deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig], error) {
-	groupQuorums, groupParents, signerAddresses, signerGroups := mcmConfig.ExtractSetConfigInputs()
+
+	groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&mcmConfig)
+	if err != nil {
+		lggr.Errorw("Failed to extract set config inputs", "chain", chain.String(), "err", err)
+		return nil, err
+	}
 	mcm, err := deployment.DeployContract[*owner_helpers.ManyChainMultiSig](lggr, chain, ab,
 		func(chain deployment.Chain) deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig] {
 			mcmAddr, tx, mcm, err2 := owner_helpers.DeployManyChainMultiSig(
@@ -67,7 +74,7 @@ func deployMCMSWithTimelockContractsEVM(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
-	config MCMSWithTimelockConfig,
+	config mcmsnew.MCMSWithTimelockConfig,
 ) (*MCMSWithTimelockEVMDeploy, error) {
 	bypasser, err := deployMCMSWithConfigEVM(types.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
 	if err != nil {

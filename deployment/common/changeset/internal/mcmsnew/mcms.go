@@ -8,6 +8,8 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew/evm"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew/solana"
 )
 
 // MCMSWithTimelockConfig holds the configuration for an MCMS with timelock.
@@ -32,12 +34,12 @@ func DeployMCMSWithTimelockContractsBatch(
 		}
 		switch family {
 		case chain_selectors.FamilyEVM:
-			_, err := deployMCMSWithTimelockContractsEVM(lggr, chains.EVMChains[chainSel], ab, cfg)
+			_, err := evm.deployMCMSWithTimelockContractsEVM(lggr, chains.EVMChains[chainSel], ab, cfg)
 			if err != nil {
 				return err
 			}
 		case chain_selectors.FamilySolana:
-			_, err := deployMCMSWithTimelockContractsSolana(lggr, chains.SolChains[chainSel], ab, cfg)
+			_, err := solana.deployMCMSWithTimelockContractsSolana(lggr, chains.SolChains[chainSel], ab, cfg)
 			if err != nil {
 				return err
 			}

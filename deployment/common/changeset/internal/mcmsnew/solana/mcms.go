@@ -1,10 +1,12 @@
-package mcmsnew
+package solana
 
 import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew/evm"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -25,7 +27,7 @@ func deployMCMSWithConfigSolana(
 	lggr logger.Logger,
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
-	mcmConfig MCMSWithTimelockConfig,
+	mcmConfig mcmsnew.MCMSWithTimelockConfig,
 ) (any, error) {
 	panic("implement me")
 }
@@ -39,6 +41,6 @@ func deployMCMSWithTimelockContractsSolana(
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
 	config types.MCMSWithTimelockConfig,
-) (*MCMSWithTimelockEVMDeploy, error) {
+) (*evm.MCMSWithTimelockEVMDeploy, error) {
 	panic("implement me")
 }
