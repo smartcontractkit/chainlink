@@ -5,11 +5,11 @@
 name: Integration In-Memory Tests
 run-name: Integration In-Memory Tests
 on:
-  # merge_group:
-  # pull_request:
-  # push:
-  #   tags:
-  #     - "*"
+  merge_group:
+  pull_request:
+  push:
+    tags:
+      - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
