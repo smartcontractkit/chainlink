@@ -104,8 +104,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		for _, rpc := range chainCfg.WSRPCs {
 			ec, err = ethclient.Dial(rpc.External)
 			if err != nil {
-				logger.Warnf("failed to dial ws rpc %s", rpc)
-				logger.Error(err)
+				logger.Warnf("failed to dial ws rpc %s: %s", rpc, err)
 				continue
 			}
 			logger.Infof("connected to ws rpc %s", rpc)
