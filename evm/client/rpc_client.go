@@ -166,13 +166,14 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 	ctx, cancel, _ := r.AcquireQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws.Load() == nil && r.http.Load() == nil {
+	ws := r.ws.Load()
+	http := r.http.Load()
+	if ws == nil && http == nil {
 		return errors.New("cannot dial rpc client when both ws and http info are missing")
 	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
 	lggr := r.rpcLog
-	ws := r.ws.Load()
 	if ws != nil {
 		lggr = lggr.With("wsuri", ws.uri.Redacted())
 		wsrpc, err := rpc.DialWebsocket(ctx, ws.uri.String(), "")
@@ -184,7 +185,6 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 		r.ws.Store(&rawclient{uri: ws.uri, rpc: wsrpc, geth: ethclient.NewClient(wsrpc)})
 	}
 
-	http := r.http.Load()
 	if http != nil {
 		lggr = lggr.With("httpuri", http.uri.Redacted())
 		if err := r.DialHTTP(); err != nil {
@@ -391,7 +391,8 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 	}
 }
 
-// SubscribeToHeads Implement custom SubscribeToheads method to override the adaptor.
+// SubscribeToHeads implements custom SubscribeToheads method to override the RPCClientBase
+// with added ws support.
 func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub multinode.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
@@ -401,26 +402,8 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 
 	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
 	if r.newHeadsPollInterval > 0 {
-		interval := r.newHeadsPollInterval
-		timeout := interval
-		isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
-		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
-			if isHealthCheckRequest {
-				ctx = multinode.CtxAddHealthCheckFlag(ctx)
-			}
-			return r.LatestBlock(ctx)
-		}, timeout, r.rpcLog)
-		if err = poller.Start(ctx); err != nil {
-			return nil, nil, err
-		}
-
-		sub, err = r.RegisterSub(&poller, chStopInFlight)
-		if err != nil {
-			return nil, nil, err
-		}
-
 		lggr.Debugf("Polling new heads over http")
-		return channel, sub, nil
+		return r.RPCClientBase.SubscribeToHeads(ctx)
 	}
 
 	if ws == nil {
@@ -452,34 +435,6 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	}
 
 	return channel, sub, err
-}
-
-func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, multinode.Subscription, error) {
-	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
-
-	interval := r.cfg.FinalizedBlockPollInterval()
-	if interval == 0 {
-		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
-	}
-	timeout := interval
-	isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
-	poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
-		if isHealthCheckRequest {
-			ctx = multinode.CtxAddHealthCheckFlag(ctx)
-		}
-		return r.LatestFinalizedBlock(ctx)
-	}, timeout, r.rpcLog)
-	if err := poller.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-
-	sub, err := r.RegisterSub(&poller, chStopInFlight)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return channel, sub, nil
 }
 
 // GethClient wrappers
