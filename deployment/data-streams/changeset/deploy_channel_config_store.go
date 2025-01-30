@@ -46,11 +46,6 @@ func deployChannelConfigStore(env deployment.Environment, ab deployment.AddressB
 		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
 	}
 
-	fmt.Printf(" >>> env: %+v\n", env) // TMP DEBUG
-	for sel, chain := range env.Chains {
-		fmt.Printf(" >>> sel: %d, chain: %+v\n", sel, chain) // TMP DEBUG
-	}
-
 	for _, chainSel := range cc.ChainsToDeploy {
 		chain, ok := env.Chains[chainSel]
 		if !ok {
