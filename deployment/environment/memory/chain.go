@@ -40,7 +40,7 @@ type EVMChain struct {
 	Users       []*bind.TransactOpts
 }
 
-type SolanaChain struct {
+type SolanaChainConfig struct {
 	Client      *solRpc.Client
 	DeployerKey solana.PrivateKey
 	URL         string
@@ -87,17 +87,21 @@ func getTestSolanaChainSelectors() []uint64 {
 	return result
 }
 
-func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
-	// Create a temporary directory that will be cleaned up after the test
-	tmpDir := t.TempDir()
-
+func GenerateSolanaKeypair(dir string) (solana.PrivateKey, error) {
 	privateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to generate private key: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	// Convert private key bytes to JSON array
+<<<<<<< Updated upstream
 	privateKeyBytes := []byte(privateKey)
+=======
+	privateKeyBytes, err := base58.Decode(privateKey.String())
+	if err != nil {
+		return solana.PrivateKey{}, fmt.Errorf("failed to decode private key: %w", err)
+	}
+>>>>>>> Stashed changes
 
 	// Convert bytes to array of integers for JSON
 	intArray := make([]int, len(privateKeyBytes))
@@ -107,27 +111,31 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 
 	keypairJSON, err := json.Marshal(intArray)
 	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to marshal keypair: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to marshal keypair: %w", err)
 	}
 
-	// Create the keypair file in the temporary directory
-	keypairPath := filepath.Join(tmpDir, "solana-keypair.json")
+	// Create the keypair file in the directory
+	keypairPath := filepath.Join(dir, "solana-keypair.json")
 	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to write keypair to file: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to write keypair to file: %w", err)
 	}
 
-	return privateKey, keypairPath, nil
+	return privateKey, nil
 }
 
-func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
+func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChainConfig {
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
 		t.Fatalf("not enough test solana chain selectors available")
 	}
-	chains := make(map[uint64]SolanaChain)
+
+	// Create a temporary directory that will be cleaned up after the test
+	tmpDir := t.TempDir()
+
+	chains := make(map[uint64]SolanaChainConfig)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
-		admin, keypairPath, err := generateSolanaKeypair(t)
+		admin, err := GenerateSolanaKeypair(tmpDir)
 		require.NoError(t, err)
 		url, wsURL, err := solChain(t, chainID, &admin)
 		require.NoError(t, err)
@@ -135,12 +143,12 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 		balance, err := client.GetBalance(context.Background(), admin.PublicKey(), solRpc.CommitmentConfirmed)
 		require.NoError(t, err)
 		require.NotEqual(t, 0, balance.Value) // auto funded 500000000.000000000 SOL
-		chains[chainID] = SolanaChain{
+		chains[chainID] = SolanaChainConfig{
 			Client:      client,
 			DeployerKey: admin,
 			URL:         url,
 			WSURL:       wsURL,
-			KeypairPath: keypairPath,
+			KeypairPath: tmpDir,
 		}
 	}
 	return chains
