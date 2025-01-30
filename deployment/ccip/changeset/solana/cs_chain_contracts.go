@@ -330,8 +330,7 @@ type TokenPoolConfig struct {
 
 func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 	state, _ := cs.LoadOnchainState(e)
@@ -339,12 +338,10 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	if chainState.TokenPool.IsZero() {
 		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
 	}
-	_, err = GetPoolType(cfg.PoolType)
-	if err != nil {
+	if _, err := GetPoolType(cfg.PoolType); err != nil {
 		return err
 	}
-	_, err = GetTokenProgramID(cfg.TokenProgramName)
-	if err != nil {
+	if _, err := GetTokenProgramID(cfg.TokenProgramName); err != nil {
 		return err
 	}
 
@@ -354,8 +351,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 	var poolConfigAccount token_pool.Config
-	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
-	if err == nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err == nil {
 		return fmt.Errorf("token pool config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
@@ -419,8 +415,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	instructions := []solana.Instruction{createI, poolInitI, authI}
 
 	// add signer here if authority is different from deployer key
-	err = chain.Confirm(instructions)
-	if err != nil {
+	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Created new token pool config", "token_pool_ata", tokenPoolATA.String(), "pool_config", poolConfigPDA.String(), "pool_signer", poolSigner.String())
@@ -441,8 +436,7 @@ type RemoteChainTokenPoolConfig struct {
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey))
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, solana.MustPublicKeyFromBase58(cfg.TokenPubKey)); err != nil {
 		return err
 	}
 	state, _ := cs.LoadOnchainState(e)
@@ -459,8 +453,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 	var poolConfigAccount token_pool.Config
-	err = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
-	if err != nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
 		return fmt.Errorf("token pool config not found, call AddTokenPool first for chain %d", cfg.ChainSelector)
 	}
 
@@ -470,8 +463,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 	var remoteChainConfigAccount token_pool.ChainConfig
-	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-	if err == nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 		return fmt.Errorf("remote chain config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
