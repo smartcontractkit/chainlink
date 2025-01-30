@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {EfficientCall} from "../../vendor/@matter-labs/era-contracts/system-contracts/contracts/libraries/EfficientCall.sol";
 import {ISystemContext} from "../../vendor/@matter-labs/era-contracts/gas-bound-caller/contracts/ISystemContext.sol";
 
 ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
@@ -40,14 +39,13 @@ library CallWithExactGasZKSync {
   /// @param _maxReturnBytes the maximum amount of bytes that can be returned by the call.
   /// @return success whether the call succeeded
   /// @return retData the return data from the call, capped at maxReturnBytes bytes
-  /// @return pubdataGas the gas used by the external call. Does not include the overhead of this function.
-  /// @return gasUsed the gas used by the external call. Does not include the overhead of this function.
+  /// @return pubdataGasSpent the pubdata gas used.
   function _callWithExactGasSafeReturnData(
     address _to,
     uint256 _maxTotalGas,
-    bytes calldata _data,
+    bytes memory _data,
     uint16 _maxReturnBytes
-  ) external returns (bool, bytes memory, uint256 pubdataGas, uint256 gasUsed) {
+  ) internal returns (bool success, bytes memory, uint256 pubdataGasSpent) {
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       // Note we do this check prior to measuring gas.
@@ -75,17 +73,13 @@ library CallWithExactGasZKSync {
 
     uint256 pubdataPublishedBefore = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
 
-    uint256 gasBeforeCall = gasleft();
-    bool success = EfficientCall.rawCall({
-      _gas: gasBeforeCall,
-      _address: _to,
-      _value: msg.value,
-      _data: _data,
-      _isSystem: false
-    });
+    assembly {
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(_maxTotalGas, _to, 0, add(_data, 0x20), mload(_data), 0x0, 0x0)
+    }
     bytes memory returnData = new bytes(_maxReturnBytes);
     assembly {
-      gasUsed := sub(gasBeforeCall, gas())
       // limit our copy to maxReturnBytes bytes
       let toCopy := returndatasize()
       if gt(toCopy, _maxReturnBytes) {
@@ -109,14 +103,14 @@ library CallWithExactGasZKSync {
 
     // In case there is an overflow here, the `_maxTotalGas` wouldn't be able to cover it anyway, so
     // we don't mind the contract panicking here in case of it.
-    pubdataGas = pubdataGasRate * pubdataSpent;
-    if (pubdataGas != 0) {
+    pubdataGasSpent = pubdataGasRate * pubdataSpent;
+    if (pubdataGasSpent != 0) {
       // Here we double check that the additional cost is not higher than the maximum allowed.
       // Note, that the `gasleft()` can be spent on pubdata too.
-      if (pubdataAllowance + gasleft() < pubdataGas + CALL_RETURN_OVERHEAD) {
+      if (pubdataAllowance + gasleft() < pubdataGasSpent + CALL_RETURN_OVERHEAD) {
         revert NotEnoughGasForPubdata();
       }
     }
-    return (success, returnData, pubdataGas, gasUsed);
+    return (success, returnData, pubdataGasSpent);
   }
 }
