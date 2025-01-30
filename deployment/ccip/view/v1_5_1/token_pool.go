@@ -29,21 +29,21 @@ type TokenPoolContract interface {
 }
 
 func GetCurrentInboundRateLimiterState(t TokenPoolContract, remoteChainSelector uint64) (token_pool.RateLimiterTokenBucket, error) {
-	switch t.(type) {
+	switch v := t.(type) {
 	case *burn_mint_token_pool.BurnMintTokenPool:
-		state, err := t.(*burn_mint_token_pool.BurnMintTokenPool).GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *burn_from_mint_token_pool.BurnFromMintTokenPool:
-		state, err := t.(*burn_from_mint_token_pool.BurnFromMintTokenPool).GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool:
-		state, err := t.(*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool).GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *lock_release_token_pool.LockReleaseTokenPool:
-		state, err := t.(*lock_release_token_pool.LockReleaseTokenPool).GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *usdc_token_pool.USDCTokenPool:
-		state, err := t.(*usdc_token_pool.USDCTokenPool).GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentInboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	default:
 		return token_pool.RateLimiterTokenBucket{}, fmt.Errorf("unknown type %T", t)
@@ -51,21 +51,21 @@ func GetCurrentInboundRateLimiterState(t TokenPoolContract, remoteChainSelector 
 }
 
 func GetCurrentOutboundRateLimiterState(t TokenPoolContract, remoteChainSelector uint64) (token_pool.RateLimiterTokenBucket, error) {
-	switch t.(type) {
+	switch v := t.(type) {
 	case *burn_mint_token_pool.BurnMintTokenPool:
-		state, err := t.(*burn_mint_token_pool.BurnMintTokenPool).GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *burn_from_mint_token_pool.BurnFromMintTokenPool:
-		state, err := t.(*burn_from_mint_token_pool.BurnFromMintTokenPool).GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool:
-		state, err := t.(*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool).GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *lock_release_token_pool.LockReleaseTokenPool:
-		state, err := t.(*lock_release_token_pool.LockReleaseTokenPool).GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	case *usdc_token_pool.USDCTokenPool:
-		state, err := t.(*usdc_token_pool.USDCTokenPool).GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
+		state, err := v.GetCurrentOutboundRateLimiterState(nil, remoteChainSelector)
 		return token_pool.RateLimiterTokenBucket(state), err
 	default:
 		return token_pool.RateLimiterTokenBucket{}, fmt.Errorf("unknown type %T", t)
