@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -196,7 +197,7 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 		remoteChainFamily, _ := chainsel.GetSelectorFamily(remoteChainSel)
 		switch remoteChainFamily {
 		case chainsel.FamilySolana:
-			return deployment.ChangesetOutput{}, fmt.Errorf("cannot add solana chain as remote chain")
+			return deployment.ChangesetOutput{}, fmt.Errorf("support for solana chain as remote chain is not implemented yet %d", remoteChainSel)
 		case chainsel.FamilyEVM:
 			onRampAddress := s.Chains[remoteChainSel].OnRamp.Address().String()
 			if onRampAddress == "" {
@@ -529,12 +530,10 @@ type BillingTokenConfig struct {
 
 func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	_, err = GetTokenProgramID(cfg.TokenProgramName)
-	if err != nil {
+	if _, err := GetTokenProgramID(cfg.TokenProgramName); err != nil {
 		return err
 	}
 
@@ -550,8 +549,7 @@ func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 	var token0ConfigAccount solRouter.BillingTokenConfigWrapper
-	err = chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount)
-	if err == nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount); err == nil {
 		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
@@ -597,8 +595,7 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 	}
 
 	instructions := []solana.Instruction{ixConfig}
-	err := chain.Confirm(instructions)
-	if err != nil {
+	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
@@ -615,8 +612,7 @@ type BillingTokenForRemoteChainConfig struct {
 
 func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 	state, _ := cs.LoadOnchainState(e)
@@ -631,8 +627,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 		return err
 	}
 	var remoteBillingAccount solRouter.TokenBilling
-	err = chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount)
-	if err == nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount); err == nil {
 		return fmt.Errorf("billing token config already exists for token %s", tokenPubKey.String())
 	}
 	return nil
@@ -664,8 +659,7 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 		return deployment.ChangesetOutput{}, err
 	}
 	instructions := []solana.Instruction{ix}
-	err = chain.Confirm(instructions)
-	if err != nil {
+	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Token billing set for remote chain", "chainSelector ", cfg.ChainSelector, "remoteChainSelector ", cfg.RemoteChainSelector, "tokenPubKey", tokenPubKey.String())
@@ -693,12 +687,11 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	}
 
 	if cfg.RegisterType == ViaOwnerInstruction && cfg.TokenAdminRegistryAdmin != "" {
-		return fmt.Errorf("token admin registry should be empty for via owner instruction")
+		return errors.New("token admin registry should be empty for via owner instruction")
 	}
 
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 	state, _ := cs.LoadOnchainState(e)
@@ -712,8 +705,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 		return err
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
-	err = chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-	if err == nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 		return fmt.Errorf("token admin registry already exists for token %s", tokenPubKey.String())
 	}
 	return nil
@@ -765,8 +757,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	// if we want to have a different authority, we will need to add the corresponding singer here
 	// for now we are assuming both token owner and ccip admin will always be deployer key
 	instructions := []solana.Instruction{instruction}
-	err = chain.Confirm(instructions)
-	if err != nil {
+	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{}, nil
@@ -782,8 +773,7 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 
@@ -805,8 +795,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		return err
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
-	err = chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-	if err != nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for token %s, cannot transfer admin role", tokenPubKey.String())
 	}
 	// check if passed admin is the current admin
@@ -844,8 +833,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	}
 	instructions := []solana.Instruction{ix1}
 	// the existing authority will have to sign the transfer
-	err = chain.Confirm(instructions, solCommonUtil.AddSigners(currentRegistryAdminPrivateKey))
-	if err != nil {
+	if err := chain.Confirm(instructions, solCommonUtil.AddSigners(currentRegistryAdminPrivateKey)); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{}, nil
@@ -859,8 +847,7 @@ type AcceptAdminRoleTokenAdminRegistryConfig struct {
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
-	if err != nil {
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
 	state, _ := cs.LoadOnchainState(e)
@@ -874,8 +861,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 		return err
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
-	err = chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-	if err != nil {
+	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for token %s, cannot accept admin role", tokenPubKey.String())
 	}
 	// check if accepting admin is the pending admin
@@ -911,14 +897,9 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 		return deployment.ChangesetOutput{}, err
 	}
 
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
 	instructions := []solana.Instruction{ix1}
 	// the new authority will have to sign the acceptance
-	err = chain.Confirm(instructions, solCommonUtil.AddSigners(newRegistryAdminPrivateKey))
-	if err != nil {
+	if err := chain.Confirm(instructions, solCommonUtil.AddSigners(newRegistryAdminPrivateKey)); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{}, nil

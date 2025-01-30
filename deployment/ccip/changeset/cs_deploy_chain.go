@@ -589,9 +589,7 @@ func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipR
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	err = chain.Confirm([]solana.Instruction{instruction})
-
-	if err != nil {
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized router", "chain", chain.String())
