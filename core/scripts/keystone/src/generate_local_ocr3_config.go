@@ -5,8 +5,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type generateLocalOCR3Config struct{}
@@ -67,7 +66,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"CSAPublicKey": "csa_1b874ac2d54b966cec5a8358678ca6f030261aabf3372ce9dbea2d4eb9cdab3d"
 	}]`)
 
-	var pubKeys []ksdeploy.NodeKeys
+	var pubKeys []changeset.NodeKeys
 	err := json.Unmarshal(publicKeys, &pubKeys)
 	if err != nil {
 		panic(err)
@@ -94,13 +93,13 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxDurationAcceptMillis": 1000,
 		"MaxDurationTransmitMillis": 1000,
 		"MaxFaultyOracles": 1}`)
-	var cfg keystone.OracleConfig
+	var cfg changeset.OracleConfig
 	err = json.Unmarshal(config, &cfg)
 	if err != nil {
 		panic(err)
 	}
 
-	ocrConfig, err := ksdeploy.GenerateOCR3Config(cfg, pubKeys, deployment.XXXGenerateTestOCRSecrets())
+	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, deployment.XXXGenerateTestOCRSecrets())
 	if err != nil {
 		panic(err)
 	}

@@ -43,7 +43,7 @@ library Client {
   bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 
   // bytes4(keccak256("CCIP SVMExtraArgsV1"));
-  bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
+  bytes4 public constant SVM_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
 
   /// @param gasLimit: gas limit for the callback on the destination chain.
   /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to
@@ -71,6 +71,6 @@ library Client {
   function _svmArgsToBytes(
     SVMExtraArgsV1 memory extraArgs
   ) internal pure returns (bytes memory bts) {
-    return abi.encodeWithSelector(SVM_EXTRA_EXTRA_ARGS_V1_TAG, extraArgs);
+    return abi.encodeWithSelector(SVM_EXTRA_ARGS_V1_TAG, extraArgs);
   }
 }

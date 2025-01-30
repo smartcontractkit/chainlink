@@ -81,7 +81,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250129104727-56a4f7e9e8dc
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250127125541-a8fa42cc0f36
 	github.com/smartcontractkit/chainlink-cosmos v0.5.2-0.20250121210000-2a9675d7a1b4
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250115135646-ac859d85e7e3
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250121195549-294ec6a40b92
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250121205514-f73e2f86c23b
@@ -122,7 +122,7 @@ require (
 	golang.org/x/tools v0.26.0
 	gonum.org/v1/gonum v0.15.1
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.36.4
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
@@ -411,4 +411,5 @@ replace (
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	github.com/sourcegraph/sourcegraph/lib => github.com/sourcegraph/sourcegraph-public-snapshot/lib v0.0.0-20240822153003-c864f15af264
+
 )

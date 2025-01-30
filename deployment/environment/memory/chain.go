@@ -20,7 +20,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
-	"github.com/mr-tron/base58"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -98,10 +97,7 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 	}
 
 	// Convert private key bytes to JSON array
-	privateKeyBytes, err := base58.Decode(privateKey.String())
-	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to decode private key: %w", err)
-	}
+	privateKeyBytes := []byte(privateKey)
 
 	// Convert bytes to array of integers for JSON
 	intArray := make([]int, len(privateKeyBytes))
@@ -194,24 +190,41 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	port := freeport.GetOne(t)
+	maxRetries := 10
+	var url, wsURL string
+	for i := 0; i < maxRetries; i++ {
+		port := freeport.GetOne(t)
 
-	bcInput := &blockchain.Input{
-		Type:         "solana",
-		ChainID:      strconv.FormatUint(chainID, 10),
-		PublicKey:    adminKey.PublicKey().String(),
-		Port:         strconv.Itoa(port),
-		ContractsDir: ProgramsPath,
-		SolanaPrograms: map[string]string{
-			"ccip_router": solTestConfig.CcipRouterProgram.String(),
-		},
+		programIds := map[string]string{
+			"ccip_router":   solTestConfig.CcipRouterProgram.String(),
+			"token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
+			"ccip_receiver": solTestConfig.CcipReceiverProgram.String(),
+		}
+
+		bcInput := &blockchain.Input{
+			Type:         "solana",
+			ChainID:      strconv.FormatUint(chainID, 10),
+			PublicKey:    adminKey.PublicKey().String(),
+			Port:         strconv.Itoa(port),
+			ContractsDir: ProgramsPath,
+			// TODO: this should be solTestConfig.CCIPRouterProgram
+			// TODO: make this a function
+			SolanaPrograms: programIds,
+		}
+		output, err := blockchain.NewBlockchainNetwork(bcInput)
+		if err != nil {
+			t.Logf("Error creating solana network: %v", err)
+			time.Sleep(time.Second)
+			maxRetries -= 1
+			continue
+		}
+		require.NoError(t, err)
+		testcontainers.CleanupContainer(t, output.Container)
+		url = output.Nodes[0].HostHTTPUrl
+		wsURL = output.Nodes[0].HostWSUrl
+		break
 	}
-	output, err := blockchain.NewBlockchainNetwork(bcInput)
 	require.NoError(t, err)
-	testcontainers.CleanupContainer(t, output.Container)
-
-	url := output.Nodes[0].HostHTTPUrl
-	wsURL := output.Nodes[0].HostWSUrl
 
 	// Wait for api server to boot
 	client := solRpc.New(url)
@@ -231,6 +244,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	}
 	require.True(t, ready)
 	t.Logf("solana-test-validator is ready at %s", url)
+	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
 
 	return url, wsURL, nil
 }

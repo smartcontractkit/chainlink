@@ -1,7 +1,8 @@
 ChainID = '81457'
+ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
-ChainType = 'optimismBedrock'
+LinkContractAddress = '0x93202eC683288a9EA75BB829c6baCFb2BfeA9013'
 # block rate is ~2sec, so this ensures blocks are polled correctly
 LogPollInterval = '2s'
 

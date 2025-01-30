@@ -2,6 +2,7 @@ ChainID = '44787'
 ChainType = 'celo'
 FinalityTagEnabled = true
 FinalityDepth = 2750 # mean finality time of ~37 minutes + 500 block buffer
+LinkContractAddress = '0x32E08557B14FaD8908025619797221281D439071'
 LogPollInterval = '1s' # 1 sec block rate
 NoNewHeadsThreshold = '1m'
 MinIncomingConfirmations = 1
