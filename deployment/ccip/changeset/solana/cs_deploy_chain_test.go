@@ -1,4 +1,4 @@
-package changeset_test
+package solana_test
 
 import (
 	"testing"
@@ -9,11 +9,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
@@ -22,17 +23,28 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
+		SolChains:  1,
 		Nodes:      4,
 	})
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
+	solChainSelectors := e.AllChainSelectorsSolana()
+	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
+	selectors = append(selectors, evmSelectors...)
+	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		contractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -45,6 +57,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		})
 	}
 
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -54,13 +67,13 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIds,
+					"NodeOperator": p2pIDs,
 				},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    evmSelectors,
+			Config:    selectors,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
@@ -103,9 +116,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
-}
 
-func TestDeployCCIPContracts(t *testing.T) {
-	t.Parallel()
-	testhelpers.DeployCCIPContractsTest(t, 0)
+	// solana verification
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }

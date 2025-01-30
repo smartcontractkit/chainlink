@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,8 +15,17 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solBinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go/rpc"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+var (
+	SolDefaultCommitment = rpc.CommitmentConfirmed
+	SolDefaultGasLimit   = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 )
 
 // SolChain represents a Solana chain.
@@ -28,7 +38,7 @@ type SolChain struct {
 	WSURL  string
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
-	Confirm     func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
+	Confirm     func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error
 
 	// deploy uses the solana CLI which needs a keyfile
 	KeypairPath  string
@@ -56,15 +66,7 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-var allowedPrograms = map[string]bool{
-	"ccip_router": true,
-	// Add other valid program names here
-}
-
 func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
-	if !allowedPrograms[programName] {
-		return "", fmt.Errorf("program %s not in allowed list", programName)
-	}
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
 	if _, err := os.Stat(programFile); err != nil {
 		return "", fmt.Errorf("program file not found: %w", err)
@@ -126,4 +128,55 @@ func parseProgramID(output string) (string, error) {
 		endIdx = len(output)
 	}
 	return output[startIdx : startIdx+endIdx], nil
+}
+
+// GetTokenProgramID returns the program ID for the given token program name
+func GetTokenProgramID(programName string) (solana.PublicKey, error) {
+	tokenPrograms := map[string]solana.PublicKey{
+		"spl-token":      solana.TokenProgramID,
+		"spl-token-2022": solana.Token2022ProgramID,
+	}
+
+	programID, ok := tokenPrograms[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: spl-token, spl-token-2022", programName)
+	}
+	return programID, nil
+}
+
+// GetPoolType returns the token pool type constant for the given string
+func GetPoolType(poolType string) (token_pool.PoolType, error) {
+	poolTypes := map[string]token_pool.PoolType{
+		"LockAndRelease": token_pool.LockAndRelease_PoolType,
+		"BurnAndMint":    token_pool.BurnAndMint_PoolType,
+	}
+
+	poolTypeConstant, ok := poolTypes[poolType]
+	if !ok {
+		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
+	}
+	return poolTypeConstant, nil
+}
+
+func FindTokenAddress(e Environment, chainSelector uint64, tokenName string) (solana.PublicKey, error) {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if err != nil {
+		return solana.PublicKey{}, err
+	}
+
+	tv := NewTypeAndVersion(ContractType(tokenName), Version1_0_0)
+	for address, tvStr := range addresses {
+		if tvStr == tv {
+			return solana.MustPublicKeyFromBase58(address), nil
+		}
+	}
+	return solana.PublicKey{}, fmt.Errorf("token address not found in address book: %s", tokenName)
+}
+
+func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
+	if err != nil {
+		return err
+	}
+	return nil
 }
