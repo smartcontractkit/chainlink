@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
