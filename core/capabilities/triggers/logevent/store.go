@@ -7,7 +7,7 @@ import (
 
 type RegisterCapabilityFn[T any, Resp any] func() (*T, chan Resp, error)
 
-// Interface of the capabilities store
+// Interface of the capabilities store.
 type CapabilitiesStore[T any, Resp any] interface {
 	Read(capabilityID string) (value *T, ok bool)
 	ReadAll() (values []*T)
