@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -261,4 +262,93 @@ func TestBilling(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tokenAddress, remoteBillingAccount.Mint)
 	require.Equal(t, uint32(800), remoteBillingAccount.Billing.MinFeeUsdcents)
+}
+
+func TestTokenAdminRegistry(t *testing.T) {
+	t.Parallel()
+
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+
+	e, err := commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.DeploySolanaToken),
+			Config: changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain,
+				TokenProgramName: deployment.SPL2022Tokens,
+				TokenDecimals:    9,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
+	tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
+
+	// We have to do run the ViaOwnerInstruction testcase for linkToken as we already registered a PDA for tokenAddress in the previous testcase
+	linkTokenAddress := state.SolChains[solChain].LinkToken
+
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{ // register token admin registry for tokenAddress via getCcipAdminInstruction
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.RegisterTokenAdminRegistry),
+			Config: changeset_solana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChain,
+				TokenPubKey:             tokenAddress.String(),
+				TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
+				RegisterType:            changeset_solana.ViaGetCcipAdminInstruction,
+			},
+		},
+		{ // register token admin registry for linkToken via owner instruction
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.RegisterTokenAdminRegistry),
+			Config: changeset_solana.RegisterTokenAdminRegistryConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   linkTokenAddress.String(),
+				RegisterType:  changeset_solana.ViaOwnerInstruction,
+			},
+		},
+		{ // transfer admin role for tokenAddress
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.TransferAdminRoleTokenAdminRegistry),
+			Config: changeset_solana.TransferAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:                  solChain,
+				TokenPubKey:                    tokenAddress.String(),
+				CurrentRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+				NewRegistryAdminPublicKey:      e.SolChains[solChain].DeployerKey.PublicKey().String(),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
+	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	require.NoError(t, err)
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
+	// pending administrator should be the deployer key
+	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
+
+	linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
+	var linkTokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
+	require.NoError(t, err)
+	// as DeployLinkToken (DeploySolanaToken) makes the deployer key the authority of the token, it should be the administrator of the tokenAdminRegistry via owner instruction
+	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), linkTokenAdminRegistryAccount.Administrator)
+
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{ // accept admin role for tokenAddress
+			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AcceptAdminRoleTokenAdminRegistry),
+			Config: changeset_solana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:              solChain,
+				TokenPubKey:                tokenAddress.String(),
+				NewRegistryAdminPrivateKey: e.SolChains[solChain].DeployerKey.String(),
+			},
+		},
+	})
+	require.NoError(t, err)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	require.NoError(t, err)
+	// confirm that the administrator is the deployer key
+	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
 }
