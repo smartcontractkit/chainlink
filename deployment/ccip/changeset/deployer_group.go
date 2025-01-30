@@ -239,7 +239,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		if len(proposals) > 0 {
 			previousProposal := proposals[len(proposals)-1]
 			for chain, metadata := range previousProposal.ChainMetadata {
-				nextStartingOp := metadata.StartingOpCount + uint64(getBatchCountForChain(uint64(chain), prop))
+				nextStartingOp := metadata.StartingOpCount + getBatchCountForChain(chain, prop)
 				prop.ChainMetadata[chain] = mcms.ChainMetadata{
 					StartingOpCount: nextStartingOp,
 					MCMAddress:      prop.ChainMetadata[chain].MCMAddress,
@@ -259,14 +259,14 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	}, nil
 }
 
-func getBatchCountForChain(chain uint64, m *timelock.MCMSWithTimelockProposal) int {
+func getBatchCountForChain(chain mcms.ChainIdentifier, m *timelock.MCMSWithTimelockProposal) uint64 {
 	batches := make([]timelock.BatchChainOperation, 0)
 	for _, t := range m.Transactions {
-		if uint64(t.ChainIdentifier) == chain {
+		if t.ChainIdentifier == chain {
 			batches = append(batches, t)
 		}
 	}
-	return len(batches)
+	return uint64(len(batches))
 }
 
 func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {

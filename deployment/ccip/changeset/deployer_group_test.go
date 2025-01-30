@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -334,9 +335,9 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	require.Equal(t, "mint tokens 1", cs.Proposals[0].Description)
 	require.Equal(t, "mint tokens 2", cs.Proposals[1].Description)
 	require.Equal(t, "mint tokens 3", cs.Proposals[2].Description)
-	require.Equal(t, cs.Proposals[0].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount, uint64(2))
-	require.Equal(t, cs.Proposals[1].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount, uint64(3))
-	require.Equal(t, cs.Proposals[2].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount, uint64(2))
+	require.Equal(t, uint64(2), cs.Proposals[0].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(3), cs.Proposals[1].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.Proposals[2].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
 }
 
 func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
@@ -423,5 +424,5 @@ func TestEmptyBatch(t *testing.T) {
 
 	result, err := dummyEmptyBatchChangeset(e.Env, cfg)
 	require.NoError(t, err)
-	require.Len(t, result.Proposals, 0)
+	require.Empty(t, result.Proposals)
 }
