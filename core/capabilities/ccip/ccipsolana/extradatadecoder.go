@@ -5,25 +5,60 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
 
-const svmDestExecDataKey = "destGasAmount"
+const (
+	svmDestExecDataKey = "destGasAmount"
+)
+
+var (
+	// tag definition https://github.com/smartcontractkit/chainlink-ccip/blob/1b2ee24da54bddef8f3943dc84102686f2890f87/chains/solana/contracts/programs/ccip-router/src/extra_args.rs#L8C21-L11C45
+	// this should be moved to msghasher.go once merged
+
+	// bytes4(keccak256("CCIP SVMExtraArgsV1"));
+	// bytes4 public constant SVM_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
+	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
+
+	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
+	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
+	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+)
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any, which will be saved in ocr report.message.ExtraArgsDecoded
 func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
-	outputMap := make(map[string]any)
-	var args ccip_router.AnyExtraArgs
-	decoder := agbinary.NewBorshDecoder(extraArgs)
-	err := args.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+	if len(extraArgs) < 4 {
+		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
 
-	val := reflect.ValueOf(args)
-	typ := reflect.TypeOf(args)
+	var val reflect.Value
+	var typ reflect.Type
+	outputMap := make(map[string]any)
+	switch string(extraArgs[:4]) {
+	case string(evmExtraArgsV2Tag):
+		var args ccip_router.EVMExtraArgsV2
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeOf(args)
+	case string(svmExtraArgsV1Tag):
+		var args ccip_router.SVMExtraArgsV1
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeOf(args)
+	default:
+		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
+	}
 
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)

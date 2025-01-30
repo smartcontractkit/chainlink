@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	agbinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -25,7 +27,45 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {
-		extraArgs := ccip_router.AnyExtraArgs{
+		destGasAmount := uint32(10000)
+		bitmap := uint64(0)
+		extraArgs := ccip_router.SVMExtraArgsV1{
+			ComputeUnits:             destGasAmount,
+			AccountIsWritableBitmap:  bitmap,
+			AllowOutOfOrderExecution: false,
+			TokenReceiver:            config.CcipLogicReceiver,
+			Accounts: [][32]byte{
+				[32]byte(config.CcipLogicReceiver.Bytes()),
+				[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
+				[32]byte(solana.SystemProgramID.Bytes()),
+			},
+		}
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err := extraArgs.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		input := append(svmExtraArgsV1Tag, buf.Bytes()...)
+		output, err := DecodeExtraArgsToMap(input)
+		require.NoError(t, err)
+		require.Len(t, output, 5)
+
+		gasLimit, exist := output["ComputeUnits"]
+		require.True(t, exist)
+		require.Equal(t, destGasAmount, gasLimit)
+
+		writableBitmap, exist := output["AccountIsWritableBitmap"]
+		require.True(t, exist)
+		require.Equal(t, bitmap, writableBitmap)
+
+		ooe, exist := output["AllowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, false, ooe)
+	})
+
+	t.Run("decode extra args into map evm", func(t *testing.T) {
+		extraArgs := ccip_router.EVMExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}
@@ -34,7 +74,9 @@ func Test_decodeExtraArgs(t *testing.T) {
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
-		output, err := DecodeExtraArgsToMap(buf.Bytes())
+
+		input := append(evmExtraArgsV2Tag, buf.Bytes()...)
+		output, err := DecodeExtraArgsToMap(input)
 		require.NoError(t, err)
 		require.Len(t, output, 2)
 
