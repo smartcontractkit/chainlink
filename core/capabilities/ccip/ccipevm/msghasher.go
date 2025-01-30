@@ -30,6 +30,9 @@ var (
 
 	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	// bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba
+	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
