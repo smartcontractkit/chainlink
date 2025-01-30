@@ -93,15 +93,6 @@ type WorkflowTestConfig struct {
 	JD             *jd.Input         `toml:"jd" validate:"required"`
 }
 
-type OCR3Config struct {
-	Signers               [][]byte
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
-}
-
 func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToken string) ([]byte, error) {
 	var content []byte
 	if ghToken == "" {
@@ -695,14 +686,23 @@ func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Cli
 }
 
 //revive:disable // ignore confusing-results
-func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, settingsFile *os.File) (string, string) {
-	feedID := "0x018BFE88407000400000000000000000"
-
+func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID string, settingsFile *os.File) (string, string) {
 	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err, "failed to create workflow config file")
 
+	cleanFeedId := strings.TrimPrefix(feedID, "0x")
+	feedLength := len(cleanFeedId)
+
+	require.GreaterOrEqual(t, feedLength, 32, "feed ID must be at least 32 characters long")
+
+	if feedLength > 32 {
+		cleanFeedId = cleanFeedId[:32]
+	}
+
+	feedIDToUse := "0x" + cleanFeedId
+
 	workflowConfig := PoRWorkflowConfig{
-		FeedID:          feedID,
+		FeedID:          feedIDToUse,
 		URL:             "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
 		ConsumerAddress: feedsConsumerAddress.Hex(),
 	}
@@ -816,7 +816,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 
 	// compile and upload the workflow, if we are not using an existing one
 	if !in.WorkflowConfig.UseExising {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithChainlinkCli(t, in, feedsConsumerAddress, settingsFile)
+		workflowGistURL, workflowConfigURL = compileWorkflowWithChainlinkCli(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, settingsFile)
 	} else {
 		workflowGistURL = in.WorkflowConfig.Existing.BinaryURL
 		workflowConfigURL = in.WorkflowConfig.Existing.ConfigURL
