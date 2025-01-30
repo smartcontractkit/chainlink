@@ -566,8 +566,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deploymentContext := NewDeploymentContext("set RMNHome dynamic config")
-	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("set RMNHome dynamic config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
@@ -638,8 +637,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deploymentContext := NewDeploymentContext("Revoke candidate config")
-	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("revoke candidate config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {

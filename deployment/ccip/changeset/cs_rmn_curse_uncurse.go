@@ -219,8 +219,8 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deploymentContext := NewDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
-	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -290,8 +290,8 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deploymentContext := NewDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
-	deployerGroup := NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction

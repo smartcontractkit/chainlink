@@ -34,6 +34,20 @@ type dummyDeployerGroupChangesetConfig struct {
 	MCMS     *changeset.MCMSConfig
 }
 
+type dummyEmptyBatchChangesetConfig struct {
+	MCMS *changeset.MCMSConfig
+}
+
+func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("empty batch")
+	return group.Enact()
+}
+
 func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDeployerGroupChangesetConfig) (deployment.ChangesetOutput, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
@@ -42,8 +56,7 @@ func dummyDeployerGroupGrantMintChangeset(e deployment.Environment, cfg dummyDep
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	deploymentContext := changeset.NewDeploymentContext("grant mint role")
-	group := changeset.NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -65,8 +78,7 @@ func dummyDeployerGroupMintChangeset(e deployment.Environment, cfg dummyDeployer
 
 	token := state.Chains[cfg.selector].LinkToken
 
-	deploymentContext := changeset.NewDeploymentContext("mint tokens")
-	group := changeset.NewDeployerGroup(e, state, deploymentContext, cfg.MCMS)
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("mint tokens")
 	deployer, err := group.GetDeployer(cfg.selector)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -88,7 +100,7 @@ func dummyDeployerGroupGrantMintMultiChainChangeset(e deployment.Environment, cf
 		return deployment.ChangesetOutput{}, err
 	}
 
-	group := changeset.NewDeployerGroup(e, state, changeset.NewDeploymentContext("grant mint role"), cfg.MCMS)
+	group := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("grant mint role")
 	for _, mint := range cfg.mints {
 		selector := e.AllChainSelectors()[mint.selectorIndex]
 		token := state.Chains[selector].LinkToken
@@ -121,9 +133,9 @@ func dummyDeployerGroupMintMultiDeploymentContextChangeset(e deployment.Environm
 		token := state.Chains[selector].LinkToken
 
 		if group == nil {
-			group = changeset.NewDeployerGroup(e, state, changeset.NewDeploymentContext(fmt.Sprintf("mint tokens %d", i+1)), cfg.MCMS)
+			group = changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		} else {
-			group = group.WithNewDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
+			group = group.WithDeploymentContext(fmt.Sprintf("mint tokens %d", i+1))
 		}
 		deployer, err = group.GetDeployer(selector)
 		if err != nil {
@@ -398,4 +410,18 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	}
 
 	require.Equal(t, sumOfMints, amount)
+}
+
+func TestEmptyBatch(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
+
+	cfg := dummyEmptyBatchChangesetConfig{
+		MCMS: &changeset.MCMSConfig{
+			MinDelay: 0,
+		},
+	}
+
+	result, err := dummyEmptyBatchChangeset(e.Env, cfg)
+	require.NoError(t, err)
+	require.Len(t, result.Proposals, 0)
 }

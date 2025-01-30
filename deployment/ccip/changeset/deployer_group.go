@@ -52,6 +52,25 @@ func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	}
 }
 
+type DeployerGroupWithContext interface {
+	WithDeploymentContext(description string) *DeployerGroup
+}
+
+type deployerGroupBuilder struct {
+	e         deployment.Environment
+	state     CCIPOnChainState
+	mcmConfig *MCMSConfig
+}
+
+func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
+	return &DeployerGroup{
+		e:                 d.e,
+		mcmConfig:         d.mcmConfig,
+		state:             d.state,
+		deploymentContext: NewDeploymentContext(description),
+	}
+}
+
 // DeployerGroup is an abstraction that lets developers write their changeset
 // without needing to know if it's executed using a DeployerKey or an MCMS proposal.
 //
@@ -64,16 +83,15 @@ func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, deploymentContext *DeploymentContext, mcmConfig *MCMSConfig) *DeployerGroup {
-	return &DeployerGroup{
-		e:                 e,
-		mcmConfig:         mcmConfig,
-		state:             state,
-		deploymentContext: deploymentContext,
+func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) DeployerGroupWithContext {
+	return &deployerGroupBuilder{
+		e:         e,
+		mcmConfig: mcmConfig,
+		state:     state,
 	}
 }
 
-func (d *DeployerGroup) WithNewDeploymentContext(description string) *DeployerGroup {
+func (d *DeployerGroup) WithDeploymentContext(description string) *DeployerGroup {
 	return &DeployerGroup{
 		e:                 d.e,
 		mcmConfig:         d.mcmConfig,
@@ -135,14 +153,13 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 
 		currentNonce := big.NewInt(0).Add(startingNonce, txCount)
 
-		// Update the nonce to consider the transactions that have been sent
-		sim.Nonce = big.NewInt(0).Add(currentNone, big.NewInt(1))
-
 		tx, err := oldSigner(a, t)
 		if err != nil {
 			return nil, err
 		}
 		dc.transactions[chain] = append(dc.transactions[chain], tx)
+		// Update the nonce to consider the transactions that have been sent
+		sim.Nonce = big.NewInt(0).Add(currentNonce, big.NewInt(1))
 		return tx, nil
 	}
 	return sim, nil
@@ -198,6 +215,11 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 				ChainIdentifier: mcms.ChainIdentifier(selector),
 				Batch:           mcmOps,
 			})
+		}
+
+		if len(batches) == 0 {
+			d.e.Logger.Warnf("No batch was produced from deployment context skipping proposal: %s", dc.description)
+			continue
 		}
 
 		timelocksPerChain := BuildTimelockAddressPerChain(d.e, d.state)
