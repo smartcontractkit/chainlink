@@ -17,11 +17,12 @@ import (
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
-	destChainSelectorPath = "Info.AbstractReports.Messages.Header.DestChainSelector"
-	destTokenAddress      = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
+	destChainSelectorPath   = "Info.AbstractReports.Messages.Header.DestChainSelector"
+	destTokenAddress        = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
+	merkleRootChainSelector = "Info.MerkleRoots.ChainSel"
 )
 
-func getCommitMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
+func getCommitMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey) chainwriter.MethodConfig {
 	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
@@ -40,7 +41,17 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			routerAccountConfig,
+			chainwriter.PDALookups{
+				Name: "RouterAccountConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -48,7 +59,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
 				},
 				IsSigner:   false,
 				IsWritable: true,
@@ -62,7 +73,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
-					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
 					{Dynamic: chainwriter.AccountLookup{
 						Location: "Info.MerkleRoots.MerkleRoot",
 					}},
@@ -119,7 +130,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("dest_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: "Info.MerkleRoots.ChainSel"}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
@@ -129,7 +140,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 	}
 }
 
-func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, routerAccountConfig chainwriter.PDALookups) chainwriter.MethodConfig {
+func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey) chainwriter.MethodConfig {
 	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
@@ -169,7 +180,17 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			routerAccountConfig,
+			chainwriter.PDALookups{
+				Name: "RouterAccountConfig",
+				PublicKey: chainwriter.AccountConstant{
+					Address: routerProgramAddress,
+				},
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -314,25 +335,13 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
-	routeAccountConfig := chainwriter.PDALookups{
-		Name: "RouterAccountConfig",
-		PublicKey: chainwriter.AccountConstant{
-			Address: routerProgramAddress,
-		},
-		Seeds: []chainwriter.Seed{
-			{Static: []byte("config")},
-		},
-		IsSigner:   false,
-		IsWritable: false,
-	}
-
 	// solConfig references the ccip_example_config.go from github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter, which is currently subject to change
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			"ccip-router": {
 				Methods: map[string]chainwriter.MethodConfig{
-					"execute": getExecuteMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable, routeAccountConfig),
-					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable, routeAccountConfig),
+					"execute": getExecuteMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable),
+					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable),
 				},
 				IDL: ccipRouterIDL},
 		},
