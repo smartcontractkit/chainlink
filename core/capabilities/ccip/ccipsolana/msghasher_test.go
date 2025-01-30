@@ -50,7 +50,7 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 	computeUnit := uint32(1000)
 	bitmap := uint64(10)
 
-	extraArgs := ccip_router.SVMExtraArgs{
+	extraArgs := ccip_router.Any2SVMRampExtraArgs{
 		ComputeUnits:     computeUnit,
 		IsWritableBitmap: bitmap,
 	}

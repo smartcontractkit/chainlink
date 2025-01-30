@@ -94,9 +94,9 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 }
 
 // TODO combine parseExtraArgsMapWithAccounts with parseExtraArgsMap once https://github.com/smartcontractkit/chainlink/pull/15816 merged
-func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_router.SVMExtraArgs, []solana.PublicKey, error) {
+func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_router.Any2SVMRampExtraArgs, []solana.PublicKey, error) {
 	// Parse input map into SolanaExtraArgs
-	var out ccip_router.SVMExtraArgs
+	var out ccip_router.Any2SVMRampExtraArgs
 	var accounts []solana.PublicKey
 
 	// Iterate through the expected fields in the struct
