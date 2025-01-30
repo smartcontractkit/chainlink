@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -186,18 +187,52 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
-	var pools []v1_5.TokenPoolContract
-	pools = append(pools, NestedPoolMapValues(c.BurnMintTokenPools)...)
-	pools = append(pools, NestedPoolMapValues(c.BurnWithFromMintTokenPools)...)
-	pools = append(pools, NestedPoolMapValues(c.BurnFromMintTokenPools)...)
-	pools = append(pools, NestedPoolMapValues(c.LockReleaseTokenPools)...)
-	for _, pool := range pools {
-		tokenPoolView, err := v1_5.GenerateTokenPoolView(pool)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate token pool view for %s", pool.Address().String())
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
 		}
-		chainView.TokenPool[pool.Address().Hex()] = tokenPoolView
 	}
+	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.LockReleaseTokenPool = helpers.AddValueToNestedMap(chainView.LockReleaseTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	//TODO uncomment once CCIP-4507 is merged
+	//for tokenSymbol, versionToPool := range c.USDCTokenPools {
+	//	for _, tokenPool := range versionToPool {
+	//		tokenPoolView, err := v1_5_1.GenerateUSDCTokenPoolView(tokenPool)
+	//		if err != nil {
+	//			return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+	//		}
+	//		chainView.USDCTokenPool = helpers.AddValueToNestedMap(chainView.USDCTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+	//	}
+	//}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
@@ -812,14 +847,4 @@ func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
 		return fmt.Errorf("unknown chain family %s", family)
 	}
 	return nil
-}
-
-func NestedPoolMapValues[T v1_5.TokenPoolContract](m map[TokenSymbol]map[semver.Version]T) []v1_5.TokenPoolContract {
-	var flattened []v1_5.TokenPoolContract
-	for _, versionMap := range m {
-		for _, pool := range versionMap {
-			flattened = append(flattened, pool)
-		}
-	}
-	return flattened
 }
