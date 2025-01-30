@@ -496,12 +496,12 @@ func TestUpdateNodes(t *testing.T) {
 				t.Errorf("UpdateNodes() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			for i, p := range got.NodeParams {
-				expected := tt.want.NodeParams[i]
-				require.Equal(t, expected.NodeOperatorId, p.NodeOperatorId)
-				require.Equal(t, expected.P2pId, p.P2pId)
-				require.Equal(t, expected.Signer, p.Signer)
-				require.Equal(t, expected.EncryptionPublicKey, p.EncryptionPublicKey)
+
+			for _, p := range got.NodeParams {
+				// check the node params
+				expected := findNodeParams(t, tt.want.NodeParams, p.P2pId)
+				assertNodeParams(t, expected, p)
+
 				// check the capabilities
 				expectedCaps := expectedUpdatedCaps[p.P2pId]
 				var wantHashedIDs [][32]byte
@@ -702,4 +702,22 @@ func testNop(t *testing.T, name string) kcr.CapabilitiesRegistryNodeOperator {
 		Admin: common.HexToAddress("0xFFFFFFFF45297A703e4508186d4C1aa1BAf80000"),
 		Name:  name,
 	}
+}
+
+func findNodeParams(t *testing.T, nodes []kcr.CapabilitiesRegistryNodeParams, p2p p2pkey.PeerID) kcr.CapabilitiesRegistryNodeParams {
+	for _, n := range nodes {
+		if n.P2pId == p2p {
+			return n
+		}
+	}
+	require.Failf(t, "could not find node %s", p2p.String())
+	return kcr.CapabilitiesRegistryNodeParams{}
+}
+
+func assertNodeParams(t *testing.T, expected, got kcr.CapabilitiesRegistryNodeParams) {
+	t.Helper()
+	assert.Equal(t, expected.NodeOperatorId, got.NodeOperatorId, "nop ID failed : expected %d, got %d", expected.NodeOperatorId, got.NodeOperatorId)
+	assert.Equal(t, expected.P2pId, got.P2pId, "p2p ID failed : expected %v, got %v", expected.P2pId, got.P2pId)
+	assert.Equal(t, expected.Signer, got.Signer, "signer failed : expected %v, got %v", expected.Signer, got.Signer)
+	assert.Equal(t, expected.EncryptionPublicKey, got.EncryptionPublicKey, "encryption key failed : expected %v, got %v", expected.EncryptionPublicKey, got.EncryptionPublicKey)
 }
