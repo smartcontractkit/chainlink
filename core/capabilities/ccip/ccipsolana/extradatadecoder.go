@@ -1,0 +1,84 @@
+package ccipsolana
+
+import (
+	"encoding/binary"
+	"fmt"
+	"reflect"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	agbinary "github.com/gagliardetto/binary"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+)
+
+const (
+	svmDestExecDataKey = "destGasAmount"
+)
+
+var (
+	// tag definition https://github.com/smartcontractkit/chainlink-ccip/blob/1b2ee24da54bddef8f3943dc84102686f2890f87/chains/solana/contracts/programs/ccip-router/src/extra_args.rs#L8C21-L11C45
+	// this should be moved to msghasher.go once merged
+
+	// bytes4(keccak256("CCIP SVMExtraArgsV1"));
+	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
+
+	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
+	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+)
+
+// DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any, which will be saved in ocr report.message.ExtraArgsDecoded
+func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
+	if len(extraArgs) < 4 {
+		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
+	}
+
+	var val reflect.Value
+	var typ reflect.Type
+	outputMap := make(map[string]any)
+	switch string(extraArgs[:4]) {
+	case string(evmExtraArgsV2Tag):
+		var args ccip_router.EVMExtraArgsV2
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeOf(args)
+	case string(svmExtraArgsV1Tag):
+		var args ccip_router.SVMExtraArgsV1
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		err := args.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return outputMap, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		val = reflect.ValueOf(args)
+		typ = reflect.TypeOf(args)
+	default:
+		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
+	}
+
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		fieldValue := val.Field(i).Interface()
+		outputMap[field.Name] = fieldValue
+	}
+
+	return outputMap, nil
+}
+
+func DecodeDestExecDataToMap(destExecData []byte) (map[string]any, error) {
+	return map[string]interface{}{
+		svmDestExecDataKey: bytesToUint32LE(destExecData),
+	}, nil
+}
+
+func bytesToUint32LE(b []byte) uint32 {
+	if len(b) < 4 {
+		var padded [4]byte
+		copy(padded[:len(b)], b) // Pad from the right for little-endian
+		return binary.LittleEndian.Uint32(padded[:])
+	}
+
+	return binary.LittleEndian.Uint32(b)
+}
