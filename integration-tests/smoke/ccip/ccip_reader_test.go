@@ -317,7 +317,6 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	require.Eventually(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -362,7 +361,6 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	require.Never(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -380,7 +378,6 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	require.Eventually(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -443,7 +440,6 @@ func TestCCIPReader_ExecutedMessages(t *testing.T) {
 		executedMsgs, err = s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
-			chainD,
 			cciptypes.NewSeqNumRange(14, 15),
 		)
 		require.NoError(t, err)
@@ -617,7 +613,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
 		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
-		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain), cs(destChain))
+		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain))
 		require.NoError(t, err2)
 		require.Equal(t, cciptypes.SeqNum(i+1), seqNum)
 	}
@@ -682,7 +678,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		}
 		addrQuery = append(addrQuery, utils.RandomAddress().String())
 
-		results, err := s.reader.Nonces(ctx, sourceChain, chainD, addrQuery)
+		results, err := s.reader.Nonces(ctx, sourceChain, addrQuery)
 		require.NoError(t, err)
 		assert.Len(t, results, len(addrQuery))
 		for addr, nonce := range addrs {
@@ -923,7 +919,7 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		reports, err := s.reader.CommitReportsGTETimestamp(ctx, chainD, queryTimestamp, logsInsertedFirst)
+		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, logsInsertedFirst)
 		require.NoError(b, err)
 		require.Len(b, reports, logsInsertedFirst)
 	}
@@ -1059,7 +1055,6 @@ func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum,
 		executedRanges, err := s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
-			chainD,
 			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
 		)
 		require.NoError(b, err)
