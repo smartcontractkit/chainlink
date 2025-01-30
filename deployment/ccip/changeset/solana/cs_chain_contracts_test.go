@@ -179,7 +179,7 @@ func TestAddTokenPool(t *testing.T) {
 	var remoteChainConfigAccount token_pool.ChainConfig
 	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
 	require.NoError(t, err)
-	require.Equal(t, remoteChainConfigAccount.Remote.Decimals, uint8(9))
+	require.Equal(t, uint8(9), remoteChainConfigAccount.Remote.Decimals)
 }
 
 func TestBilling(t *testing.T) {
@@ -213,7 +213,7 @@ func TestBilling(t *testing.T) {
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddBillingToken),
-			Config: changeset_solana.BillingTokenPoolConfig{
+			Config: changeset_solana.BillingTokenConfig{
 				ChainSelector:    solChain,
 				TokenPubKey:      tokenAddress.String(),
 				TokenProgramName: deployment.SPL2022Tokens,

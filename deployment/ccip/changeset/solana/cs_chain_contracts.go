@@ -15,6 +15,7 @@ import (
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -23,6 +24,13 @@ import (
 
 var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
 var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPool
+var _ deployment.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemoteChain
+var _ deployment.ChangeSet[cs.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingToken
+var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
+var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
+var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
+var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 
 // GetTokenProgramID returns the program ID for the given token program name
 func GetTokenProgramID(programName string) (solana.PublicKey, error) {
@@ -520,14 +528,14 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 }
 
 // ADD BILLING TOKEN
-type BillingTokenPoolConfig struct {
+type BillingTokenConfig struct {
 	ChainSelector    uint64
 	TokenPubKey      string
 	TokenProgramName string
 	Config           solRouter.BillingTokenConfig
 }
 
-func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
+func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	err := commonValidation(e, cfg.ChainSelector, tokenPubKey)
 	if err != nil {
@@ -557,7 +565,7 @@ func (cfg BillingTokenPoolConfig) Validate(e deployment.Environment) error {
 	return nil
 }
 
-func AddBillingToken(e deployment.Environment, cfg BillingTokenPoolConfig) (deployment.ChangesetOutput, error) {
+func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
