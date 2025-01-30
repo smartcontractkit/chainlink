@@ -41,7 +41,7 @@ optimizer_runs = 80_000
 via_ir = true
 
 [profile.functions]
-solc_version = '0.8.24'
+solc_version = '0.8.19'
 evm_version = 'paris'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
