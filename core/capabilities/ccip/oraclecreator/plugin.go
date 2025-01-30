@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -258,7 +259,7 @@ var plugins = map[string]plugin{
 		CommitPluginCodec:   nil,
 		ExecutePluginCodec:  nil,
 		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return nil },
+		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipsolana.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    nil,
 		GasEstimateProvider: nil,
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
