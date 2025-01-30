@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.23.3
 
-toolchain go1.23.4
-
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.3.0
