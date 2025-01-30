@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -219,6 +220,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 type UpdateOnRampDestsConfig struct {
 	// UpdatesByChain is a mapping of source -> dest -> update.
 	UpdatesByChain map[uint64]map[uint64]OnRampDestinationUpdate
+
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *MCMSConfig
@@ -253,15 +255,14 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 			return err
 		}
-
+		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
+		if err != nil {
+			return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
+		}
 		for destination := range updates {
 			// Destination cannot be an unknown destination.
 			if _, ok := supportedChains[destination]; !ok {
 				return fmt.Errorf("destination chain %d is not a supported %s", destination, chainState.OnRamp.Address())
-			}
-			sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
-			if err != nil {
-				return fmt.Errorf("failed to get onramp static config %s: %w", chainState.OnRamp.Address(), err)
 			}
 			if destination == sc.ChainSelector {
 				return errors.New("cannot update onramp destination to the same chain")
@@ -427,7 +428,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 			if price == nil {
 				return fmt.Errorf("gas price for chain %d is nil", chainSel)
 			}
-			if _, ok := state.Chains[dest]; !ok {
+			if _, ok := state.SupportedChains()[dest]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", dest, chainSel)
 			}
 		}
@@ -827,9 +828,8 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			destChain := state.Chains[destination]
-			if destChain.OffRamp == nil {
-				return fmt.Errorf("missing offramp for dest %d", destination)
+			if err := state.ValidateOffRamp(destination); err != nil {
+				return err
 			}
 		}
 	}
@@ -960,13 +960,39 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("invalid CCIPHomeConfigType should be either %s or %s", globals.ConfigTypeActive, globals.ConfigTypeCandidate)
 	}
 	for _, remote := range c.RemoteChainSels {
-		chainState, ok := state.Chains[remote]
-		if !ok {
-			return fmt.Errorf("remote chain %d not found in onchain state", remote)
-		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[remote].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+		if err := c.validateRemoteChain(&e, &state, remote); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, chainSelector uint64) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilySolana:
+		chainState, ok := state.SolChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+
+		// TODO: introduce interface when MCMS is ready
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+			return err
+		}
+	case chain_selectors.FamilyEVM:
+		chainState, ok := state.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
+		}
+		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.Chains[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported chain family %s", family)
 	}
 	return nil
 }
@@ -993,6 +1019,9 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
 			state.Chains[cfg.HomeChainSel].CCIPHome,
 			remote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 		args, err := internal.BuildSetOCR3ConfigArgs(
 			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {

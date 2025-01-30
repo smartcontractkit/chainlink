@@ -138,17 +138,17 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, c.WFDonConfig.N, 0, crConfig)
+	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, c.WriterDonConfig.N, 0, crConfig)
+	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, c.AssetDonConfig.N, 0, crConfig)
+	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
 	ocr3CapCfg := kstest.GetDefaultCapConfig(t, internal.OCR3Cap)
@@ -201,7 +201,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	maps.Copy(allNodes, wfNodes)
 	maps.Copy(allNodes, cwNodes)
 	maps.Copy(allNodes, assetNodes)
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, allNodes)
+	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, nil, allNodes)
 	// set the env addresses to the deployed addresses that were created prior to configuring the nodes
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)

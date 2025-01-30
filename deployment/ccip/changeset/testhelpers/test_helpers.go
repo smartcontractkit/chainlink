@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -29,6 +31,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -43,6 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+
 	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
@@ -53,6 +58,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+
+	"github.com/gagliardetto/solana-go"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_receiver"
 )
 
 const (
@@ -409,7 +418,16 @@ func AddLane(
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
+
+	// from family
+	fromFamily, _ := chainsel.GetSelectorFamily(from)
+	toFamily, _ := chainsel.GetSelectorFamily(to)
+
+	if fromFamily != chainsel.FamilyEVM {
+		t.Fatalf("from family is not evm, %s", fromFamily)
+	}
+
+	changesets := []commoncs.ChangesetApplication{
 		{
 			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 			Config: changeset.UpdateOnRampDestsConfig{
@@ -445,41 +463,80 @@ func AddLane(
 				},
 			},
 		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-					to: {
-						from: {
-							IsEnabled:  true,
-							TestRouter: isTestRouter,
-						},
-					},
-				},
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
-				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
-					// onRamp update on source chain
-					from: {
-						OnRampUpdates: map[uint64]bool{
-							to: true,
-						},
-					},
-					// offramp update on dest chain
-					to: {
-						OffRampUpdates: map[uint64]bool{
-							from: true,
-						},
-					},
-				},
-			},
-		},
-	})
+	}
+
+	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	switch toFamily {
+	case chainsel.FamilyEVM:
+		evmChangesets := []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
+				Config: changeset.UpdateOffRampSourcesConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+						to: {
+							from: {
+								IsEnabled:  true,
+								TestRouter: isTestRouter,
+							},
+						},
+					},
+				},
+			},
+			{
+				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
+				Config: changeset.UpdateRouterRampsConfig{
+					TestRouter: isTestRouter,
+					UpdatesByChain: map[uint64]changeset.RouterUpdates{
+						// onRamp update on source chain
+						from: {
+							OnRampUpdates: map[uint64]bool{
+								to: true,
+							},
+						},
+						// offramp update on dest chain
+						to: {
+							OffRampUpdates: map[uint64]bool{
+								from: true,
+							},
+						},
+					},
+				},
+			},
+		}
+		changesets = append(changesets, evmChangesets...)
+	case chainsel.FamilySolana:
+		value := [28]uint8{}
+		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
+		require.True(t, ok)
+		bigNum.FillBytes(value[:])
+		solanaChangesets := []commoncs.ChangesetApplication{
+			{
+				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
+				Config: changeset_solana.AddRemoteChainToSolanaConfig{
+					UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
+						to: {
+							from: {
+								EnabledAsSource:          true,
+								EnabledAsDestination:     true,
+								RemoteChainOnRampAddress: state.Chains[from].OnRamp.Address().String(),
+								DefaultTxGasLimit:        1,
+								MaxPerMsgGasLimit:        100,
+								MaxDataBytes:             32,
+								MaxNumberOfTokensPerMsg:  1,
+							},
+						},
+					},
+				},
+			},
+		}
+		changesets = append(changesets, solanaChangesets...)
+	}
+
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
+	require.NoError(t, err)
+
 }
 
 // RemoveLane removes a lane between the source and destination chains in the deployed environment.
@@ -1296,10 +1353,44 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 	}
 }
 
+// TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
-	tv := deployment.NewTypeAndVersion("SolCcipRouter", deployment.Version1_0_0)
+	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
 	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipReceiverProgram.String(), tv)
+	require.NoError(t, err)
+}
+
+func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
+	solState, err := changeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for _, sel := range solChainSelectors {
+		require.False(t, solState.SolChains[sel].LinkToken.IsZero())
+		require.False(t, solState.SolChains[sel].Router.IsZero())
+		require.False(t, solState.SolChains[sel].AddressLookupTable.IsZero())
+		var routerConfigAccount solRouter.Config
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), changeset.GetRouterConfigPDA(solState.SolChains[sel].Router), &routerConfigAccount)
+		require.NoError(t, err)
+	}
+}
+
+func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
+	state, err := changeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	for solSelector, solState := range state.SolChains {
+		ccip_receiver.SetProgramID(solState.Receiver)
+		instruction, ixErr := ccip_receiver.NewInitializeInstruction(
+			changeset.GetReceiverTargetAccountPDA(solState.Receiver),
+			changeset.GetReceiverExternalExecutionConfigPDA(solState.Receiver),
+			e.SolChains[solSelector].DeployerKey.PublicKey(),
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		require.NoError(t, ixErr)
+		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
+		require.NoError(t, err)
+	}
 }
 
 func GenTestTransferOwnershipConfig(
@@ -1337,5 +1428,60 @@ func GenTestTransferOwnershipConfig(
 
 	return commoncs.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contracts,
+	}
+}
+
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
+	// Deploy all the CCIP contracts.
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	snap, err := state.View(e.Env.AllChainSelectors())
+	require.NoError(t, err)
+	if solChains > 0 {
+		DeploySolanaCcipReceiver(t, e.Env)
+	}
+
+	// Assert expect every deployed address to be in the address book.
+	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
+	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+}
+
+func DeployLinkTokenTest(t *testing.T, solChains int) {
+	lggr := logger.Test(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains:    1,
+		SolChains: solChains,
+	})
+	chain1 := e.AllChainSelectors()[0]
+	config := []uint64{chain1}
+	var solChain1 uint64
+	if solChains > 0 {
+		solChain1 = e.AllChainSelectorsSolana()[0]
+		config = append(config, solChain1)
+	}
+
+	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(commoncs.DeployLinkToken),
+			Config:    config,
+		},
+	})
+	require.NoError(t, err)
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	require.NoError(t, err)
+	state, err := commoncs.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	require.NoError(t, err)
+	// View itself already unit tested
+	_, err = state.GenerateLinkView()
+	require.NoError(t, err)
+
+	// solana test
+	if solChains > 0 {
+		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		require.NoError(t, err)
+		require.NotEmpty(t, addrs)
 	}
 }
