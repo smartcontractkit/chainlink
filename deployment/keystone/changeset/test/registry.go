@@ -48,7 +48,8 @@ type SetupTestRegistryResponse struct {
 	CapabilityCache      *CapabilityCache
 }
 
-// and add the given capabilities and node operators
+// SetupTestRegistry deploys a capabilities registry to the given chain
+// and adds the given capabilities and node operators
 // It can be used in tests that mutate the registry without any other setup such as actual nodes, dons, jobs, etc.
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
