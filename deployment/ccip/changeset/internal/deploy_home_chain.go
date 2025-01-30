@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -184,10 +185,70 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
+// https://github.com/smartcontractkit/chainlink-ccip/blob/bdbfcc588847d70817333487a9883e94c39a332e/chains/solana/gobindings/ccip_router/SetOcrConfig.go#L23
+type MultiOCR3BaseOCRConfigArgsSolana struct {
+	ConfigDigest                   [32]byte
+	OCRPluginType                  uint8
+	F                              uint8
+	IsSignatureVerificationEnabled bool
+	Signers                        [][20]byte
+	Transmitters                   []solana.PublicKey
+}
+
+// BuildSetOCR3ConfigArgsSolana builds OCR3 config for Solana chains
+func BuildSetOCR3ConfigArgsSolana(
+	donID uint32,
+	ccipHome *ccip_home.CCIPHome,
+	destSelector uint64,
+) ([]MultiOCR3BaseOCRConfigArgsSolana, error) {
+	ocr3Configs := make([]MultiOCR3BaseOCRConfigArgsSolana, 0)
+	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
+			Context: context.Background(),
+		}, donID, uint8(pluginType))
+		if err2 != nil {
+			return nil, err2
+		}
+
+		// we expect only an active config and no candidate config.
+		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
+			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d", donID)
+		}
+
+		activeConfig := ocrConfig.ActiveConfig
+		var signerAddresses [][20]byte
+		var transmitterAddresses []solana.PublicKey
+		for _, node := range activeConfig.Config.Nodes {
+			var signer [20]uint8
+			if len(node.SignerKey) != 20 {
+				return nil, fmt.Errorf("node signer key not 20 bytes long, got: %d", len(node.SignerKey))
+			}
+			copy(signer[:], node.SignerKey)
+			signerAddresses = append(signerAddresses, signer)
+			// https://smartcontract-it.atlassian.net/browse/NONEVM-1254
+			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
+			if err != nil {
+				return nil, err
+			}
+			transmitterAddresses = append(transmitterAddresses, key)
+		}
+
+		ocr3Configs = append(ocr3Configs, MultiOCR3BaseOCRConfigArgsSolana{
+			ConfigDigest:                   activeConfig.ConfigDigest,
+			OCRPluginType:                  uint8(pluginType),
+			F:                              activeConfig.Config.FRoleDON,
+			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,
+			Signers:                        signerAddresses,
+			Transmitters:                   transmitterAddresses,
+		})
+	}
+	return ocr3Configs, nil
+}
+
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
-	offRamp offramp.OffRampInterface,
-	dest deployment.Chain,
+	offRampAddress []byte,
+	destSelector uint64,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
 	ocrParams commontypes.OCRParameters,
@@ -200,9 +261,9 @@ func BuildOCR3ConfigForCCIPHome(
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
-		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		cfg, exists := node.OCRConfigForChainSelector(destSelector)
 		if !exists {
-			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
 		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
@@ -326,10 +387,10 @@ func BuildOCR3ConfigForCCIPHome(
 
 		ocr3Configs[pluginType] = ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
-			ChainSelector:         dest.Selector,
+			ChainSelector:         destSelector,
 			FRoleDON:              configF,
 			OffchainConfigVersion: offchainConfigVersion,
-			OfframpAddress:        offRamp.Address().Bytes(),
+			OfframpAddress:        offRampAddress,
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
 			RmnHomeAddress:        rmnHomeAddress.Bytes(),

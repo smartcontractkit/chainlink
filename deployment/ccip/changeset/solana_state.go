@@ -8,18 +8,23 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
-	LinkToken     deployment.ContractType = "LinkToken"
-	SolCcipRouter deployment.ContractType = "SolCcipRouter"
+	AddressLookupTable deployment.ContractType = "AddressLookupTable"
+	TokenPool          deployment.ContractType = "TokenPool"
+	Receiver           deployment.ContractType = "Receiver"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type SolCCIPChainState struct {
-	LinkToken     solana.PublicKey
-	SolCcipRouter solana.PublicKey
+	LinkToken          solana.PublicKey
+	Router             solana.PublicKey
+	Timelock           solana.PublicKey
+	AddressLookupTable solana.PublicKey // for chain writer
+	Receiver           solana.PublicKey // for tests only
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -49,12 +54,18 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 	var state SolCCIPChainState
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(LinkToken, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.LinkToken = pub
-		case deployment.NewTypeAndVersion(SolCcipRouter, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(Router, deployment.Version1_0_0).String():
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.SolCcipRouter = pub
+			state.Router = pub
+		case deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0).String():
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.AddressLookupTable = pub
+		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.Receiver = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
@@ -143,5 +154,20 @@ func GetEvmDestChainStatePDA(ccipRouterProgramID solana.PublicKey, evmChainSelec
 		},
 		ccipRouterProgramID,
 	)
+	return pda
+}
+
+func GetReceiverTargetAccountPDA(ccipReceiverProgram solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, ccipReceiverProgram)
+	return pda
+}
+
+func GetReceiverExternalExecutionConfigPDA(ccipReceiverProgram solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, ccipReceiverProgram)
+	return pda
+}
+
+func GetTokenAdminRegistryPDA(ccipRouterProgramID, tokenMint solana.PublicKey) solana.PublicKey {
+	pda, _, _ := solana.FindProgramAddress([][]byte{[]byte("token_admin_registry"), tokenMint.Bytes()}, ccipRouterProgramID)
 	return pda
 }
