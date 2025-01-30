@@ -25,14 +25,15 @@ contract ZKSyncFunctionsRouter is FunctionsRouter {
       // If there's no code at `client`, skip the callback
       return CallbackResult({success: false, gasUsed: 0, returnData: new bytes(0)});
     }
+    uint256 g1 = gasleft();
 
-    (bool success, bytes memory returnData, uint256 pubdataGasSpent, uint256 gasUsed) = CallWithExactGasZKSync
+    (bool success, bytes memory returnData, uint256 pubdataGasSpent) = CallWithExactGasZKSync
       ._callWithExactGasSafeReturnData(
         client,
         callbackGasLimit,
         abi.encodeWithSelector(this.getConfig().handleOracleFulfillmentSelector, requestId, response, err),
         MAX_CALLBACK_RETURN_BYTES
       );
-    return CallbackResult({success: success, gasUsed: pubdataGasSpent + gasUsed, returnData: returnData});
+    return CallbackResult({success: success, gasUsed: g1 - gasleft() + pubdataGasSpent, returnData: returnData});
   }
 }

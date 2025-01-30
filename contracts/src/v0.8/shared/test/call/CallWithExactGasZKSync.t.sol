@@ -1,216 +1,174 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.19;
 
 import {CallWithExactGasZKSync} from "../../call/CallWithExactGasZKSync.sol";
 import {CallWithExactGasZKSyncHelper} from "./CallWithExactGasZKSyncHelper.sol";
 import {BaseTest} from "../BaseTest.t.sol";
-import {GenericReceiver} from "../testhelpers/GenericReceiver.sol";
-import {GasConsumer} from "../testhelpers/GasConsumer.sol";
+
+import {MockSystemContext} from "../mocks/MockSystemContext.sol";
+import {TestTarget} from "../testhelpers/TestTarget.sol";
 
 contract CallWithExactGasZKSyncSetup is BaseTest {
-  GenericReceiver internal s_receiver;
-  CallWithExactGasZKSyncHelper internal s_caller;
-  GasConsumer internal s_gasConsumer;
+  CallWithExactGasZKSyncHelper internal s_helper;
+  MockSystemContext internal s_mockSystemContext;
+  TestTarget internal s_target;
 
-  uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
-  uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
-  uint256 internal constant EXTCODESIZE_GAS_COST = 2600;
-  uint256 internal constant PUBDATA_GAS_PER_BYTE = 16; // for example
+  // Import the errors from the library (for vm.expectRevert checks)
+  error NoContract();
+  error NotEnoughGasForPubdata();
+  error NotEnoughGasForCall();
 
   function setUp() public virtual override {
-    BaseTest.setUp();
+    s_mockSystemContext = new MockSystemContext();
+    // Write mock's code to 0x800b so library calls see it
+    vm.etch(address(0x800b), address(s_mockSystemContext).code);
 
-    s_receiver = new GenericReceiver(false);
-    s_caller = new CallWithExactGasZKSyncHelper();
-    s_gasConsumer = new GasConsumer();
+    s_helper = new CallWithExactGasZKSyncHelper();
+    s_target = new TestTarget();
+  }
+
+  function _limitedGasCallWithExactGas(
+    uint256 allowedGas,
+    address _to,
+    uint256 _maxTotalGas,
+    bytes memory _data,
+    uint16 _maxReturnBytes
+  ) internal returns (bool success, bytes memory retData) {
+    // Encode the call to the helper function:
+    bytes memory payload = abi.encodeWithSelector(
+      CallWithExactGasZKSyncHelper.callWithExactGasSafeReturnData.selector,
+      _data, // bytes
+      _to, // address
+      _maxTotalGas, // uint256
+      _maxReturnBytes // uint16
+    );
+
+    // Constrain the subcall to `allowedGas`
+    (success, retData) = address(s_helper).call{gas: allowedGas}(payload);
+
+    return (success, retData);
+  }
+
+  function _decodeResult(
+    bytes memory retData
+  ) internal pure returns (bool callSuccess, bytes memory callRetData, uint256 pubdataGasSpent) {
+    // The helper returns (bool, bytes, uint256)
+    return abi.decode(retData, (bool, bytes, uint256));
   }
 }
 
 contract CallWithExactGasZKSync__callWithExactGasSafeReturnData is CallWithExactGasZKSyncSetup {
-  function testFuzz_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
-    vm.pauseGasMetering();
-    bytes memory data = abi.encodeWithSelector(funcSelector, payload);
-    vm.assume(
-      funcSelector != GenericReceiver.setRevert.selector &&
-        funcSelector != GenericReceiver.setErr.selector &&
-        funcSelector != 0x5100fc21 // s_toRevert(), which is public and therefore has a function selector
-    );
-    uint16 maxRetBytes = 0;
+  function test__callWithExactGasSafeReturnData_RevertWhen_NoContract() public {
+    // Expect custom error NoContract()
+    vm.expectRevert(NoContract.selector);
 
-    vm.expectCall(address(s_receiver), data);
-    vm.resumeGasMetering();
-
-    (bool success, bytes memory retData, uint256 pubdataGas, uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
-      data,
-      address(s_receiver),
-      DEFAULT_GAS_LIMIT,
-      maxRetBytes
-    );
-
-    assertTrue(success);
-    assertEq(retData.length, 0);
-    assertGt(gasUsed, 500);
-  }
-
-  function test_CallWithExactGasSafeReturnDataExactGas() public {
-    // The gas cost for `extcodesize`
-    uint256 extcodesizeGas = EXTCODESIZE_GAS_COST;
-    // The calculated overhead for retData initialization
-    uint256 overheadForRetDataInit = 114;
-    // The calculated overhead for otherwise unaccounted for gas usage
-    uint256 overheadForCallWithExactGas = 486;
-
-    bytes memory payload = abi.encodeWithSelector(
-      s_caller.callWithExactGasSafeReturnData.selector,
-      "",
-      address(s_receiver),
-      DEFAULT_GAS_LIMIT,
-      0
-    );
-
-    // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
-
-    allowedGas += extcodesizeGas + overheadForRetDataInit + overheadForCallWithExactGas;
-
-    // Due to EIP-150 we expect to lose 1/64, so we compensate for this
-    allowedGas = (allowedGas * 64) / 63;
-
-    vm.expectCall(address(s_receiver), "");
-    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
-
-    assertTrue(success, "success is true");
-    (bool innerSuccess, uint256 gasUsed, bytes memory innerRetData) = abi.decode(retData, (bool, uint256, bytes));
-
-    assertTrue(innerSuccess, "inner success is true");
-    assertEq(innerRetData.length, 0);
-    assertGt(gasUsed, 500);
-  }
-
-  function testFuzz_CallWithExactGasSafeReturnData_ConsumeAllGas_Success(uint8 gasLimitMultiplier) external {
-    vm.assume(gasLimitMultiplier > 0); // Assume not zero to avoid zero gas being passed to s_gasConsumer
-    uint16 maxRetBytes = 0;
-
-    vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.consumeAllGas.selector));
-
-    // Default gas limit of 20k times the amount generated by the fuzzer
-    uint256 gasLimit = DEFAULT_GAS_LIMIT * gasLimitMultiplier;
-
-    (bool success, bytes memory retData, uint256 pubdataGas, uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
-      abi.encodePacked(s_gasConsumer.consumeAllGas.selector),
-      address(s_gasConsumer),
-      gasLimit,
-      maxRetBytes
-    );
-
-    // Was determined as the least amount of gas needed for pre-call stack management.
-    // when an OOG error is thrown, used gas returned by the library is 122 <= x <= 137 based on the
-    // gas limit passed in. This was determined through trial and error and fuzzing.
-    uint256 CALL_WITH_EXACT_GAS_SAFE_RETURN_DATA_GAS_OVERHEAD = 122;
-
-    assertTrue(success, "Error: External Call Failed");
-
-    // Assert equal within a margin of error of 1/64 of the gas limit to account for excess gas used by execution library
-    assertApproxEqAbs(
-      gasUsed - CALL_WITH_EXACT_GAS_SAFE_RETURN_DATA_GAS_OVERHEAD,
-      gasLimit,
-      gasLimit / 64,
-      "Error: All gas not consumed by receiver"
+    // We'll allow ~2e6 gas for the subcall, which is plenty so we
+    // don't trigger NotEnoughGasForCall by accident.
+    _limitedGasCallWithExactGas(
+      2_000_000,
+      address(1234), // no code
+      1_000_000, // _maxTotalGas
+      abi.encodeWithSelector(TestTarget.returnData.selector),
+      100
     );
   }
 
-  function test_callWithExactGasSafeReturnData_ThrowOOGError_Revert() external {
-    uint16 maxRetBytes = 0;
+  function test__callWithExactGasSafeReturnData_RevertWhen_NotEnoughGasForCall() public {
+    // If subcall has 500k gas, but we pass _maxTotalGas=100k, that's < 500k => revert.
+    vm.expectRevert(NotEnoughGasForCall.selector);
 
-    vm.expectCall(address(s_gasConsumer), abi.encodeWithSelector(s_gasConsumer.throwOutOfGasError.selector));
-
-    (bool success, , , ) = s_caller.callWithExactGasSafeReturnData(
-      abi.encodePacked(s_gasConsumer.throwOutOfGasError.selector),
-      address(s_gasConsumer),
-      DEFAULT_GAS_LIMIT,
-      maxRetBytes
-    );
-
-    assertFalse(success, "Error: External Call Succeeded where it should not");
-  }
-
-  function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
-    uint16 maxReturnBytes = 500;
-    // Bound with upper limit, otherwise the test runs out of gas.
-    testRetBytes = uint16(bound(testRetBytes, 0, maxReturnBytes * 10));
-
-    bytes memory data = abi.encode("0x52656E73");
-
-    bytes memory errorData = new bytes(testRetBytes);
-    for (uint256 i = 0; i < errorData.length; ++i) {
-      errorData[i] = 0x01;
-    }
-    s_receiver.setErr(errorData);
-    s_receiver.setRevert(true);
-
-    vm.expectCall(address(s_receiver), data);
-
-    (bool success, bytes memory retData, uint256 pubdataGas, uint256 gasUsed) = s_caller.callWithExactGasSafeReturnData(
-      data,
-      address(s_receiver),
-      DEFAULT_GAS_LIMIT * 10,
-      maxReturnBytes
-    );
-
-    assertFalse(success);
-
-    bytes memory expectedReturnData = errorData;
-
-    // If expected return data is longer than MAX_RET_BYTES, truncate it to MAX_RET_BYTES
-    if (expectedReturnData.length > maxReturnBytes) {
-      expectedReturnData = new bytes(maxReturnBytes);
-      for (uint256 i = 0; i < maxReturnBytes; ++i) {
-        expectedReturnData[i] = errorData[i];
-      }
-    }
-    assertEq(expectedReturnData, retData);
-    assertGt(gasUsed, 500);
-  }
-
-  function test_NoContractReverts() public {
-    address addressWithoutContract = address(1337);
-
-    vm.expectRevert(CallWithExactGasZKSync.NoContract.selector);
-
-    s_caller.callWithExactGasSafeReturnData(
-      "", // empty payload as it will revert well before needing it
-      addressWithoutContract,
-      DEFAULT_GAS_LIMIT,
-      0
+    _limitedGasCallWithExactGas(
+      500_000, // subcall has ~500k gas
+      address(s_target),
+      100_000, // _maxTotalGas is only 100k => triggers NotEnoughGasForCall
+      abi.encodeWithSelector(TestTarget.returnData.selector),
+      100
     );
   }
 
-  function test_NotEnoughGasForCallReverts() public {
-    bytes memory payload = abi.encodeWithSelector(
-      s_caller.callWithExactGasSafeReturnData.selector,
-      "", // empty payload as it will revert well before needing it
-      address(s_receiver),
-      DEFAULT_GAS_LIMIT,
-      0
+  function test__callWithExactGasSafeReturnData_RevertWhen_NotEnoughGasForPubdata() public {
+    // We'll simulate pubdata usage:
+    // s_mockSystemContext already starts with 0, let's set it to something
+    s_mockSystemContext.setCurrentPubdataSpent(1000);
+
+    // Then we mock the "after" usage to 5000 in the same call
+    vm.mockCall(
+      address(s_mockSystemContext),
+      abi.encodeWithSelector(s_mockSystemContext.getCurrentPubdataSpent.selector),
+      abi.encode(5000)
     );
 
-    // Supply enough gas for the final call, the DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
-    // the extcodesize and account for EIP-150. This doesn't account for any other gas
-    // usage, and will therefore fail because the checks and memory stored/loads
-    // also cost gas.
-    uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64));
-    // extcodesize gas cost
-    allowedGas += EXTCODESIZE_GAS_COST;
-    // EIP-150
-    allowedGas = (allowedGas * 64) / 63;
+    // This difference = 4000 pubdata * 10 gas/byte = 40,000 extra gas needed
+    // We'll give the subcall 200,000 gas in total, and set _maxTotalGas=200k
+    // But the overhead in the library might push it to revert for pubdata anyway.
+    // We expect NotEnoughGasForPubdata now, not the NotEnoughGasForCall.
 
-    // Expect this call to fail due to not having enough gas for the final call
-    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
+    vm.expectRevert(NotEnoughGasForPubdata.selector);
 
-    vm.expectRevert(CallWithExactGasZKSync.NotEnoughGasForCall.selector);
+    _limitedGasCallWithExactGas(
+      200_000, // subcall gas
+      address(s_target),
+      200_000, // library sees ~200k
+      abi.encodeWithSelector(TestTarget.returnData.selector),
+      100
+    );
+  }
 
-    assertFalse(success);
-    assertEq(retData.length, 0);
-    // assertEq(abi.encodeWithSelector(CallWithExactGasZKSync.NotEnoughGasForCall.selector), retData);
+  function test__callWithExactGasSafeReturnData_Success() public {
+    // We'll provide the subcall with 1 million gas,
+    // and pass _maxTotalGas=1e6 => no "NotEnoughGasForCall" revert
+    (bool successCall, bytes memory retData) = _limitedGasCallWithExactGas(
+      1_000_000_000_000,
+      address(s_target),
+      100_000_000_000_000,
+      abi.encodeWithSelector(TestTarget.returnData.selector),
+      10000
+    );
+    assertTrue(successCall, "Subcall itself must not revert");
+    (bool success, bytes memory returnedData, uint256 pubdata) = _decodeResult(retData);
+
+    assertTrue(success, "Target call must succeed");
+    assertEq(pubdata, 0, "No extra pubdata usage expected");
+    assertNotEq(returnedData.length, 0, "Should have returned some data");
+    assertEq(abi.decode(returnedData, (string)), "Hello from TestTarget");
+  }
+
+  function test__callWithExactGasSafeReturnData_TruncatesData() public {
+    (bool successCall, bytes memory retData) = _limitedGasCallWithExactGas(
+      10_000_000,
+      address(s_target),
+      1_000_000_000,
+      abi.encodeWithSelector(TestTarget.returnLargeData.selector),
+      50 // only allow 50 bytes of return data
+    );
+
+    assertTrue(successCall, "Subcall must not revert");
+    (bool success, bytes memory returnedData, ) = _decodeResult(retData);
+    assertTrue(success, "Target call must succeed");
+    assertEq(returnedData.length, 50, "Should have truncated the large data to 50 bytes");
+  }
+
+  function test__callWithExactGasSafeReturnData_RevertWhen_TargetRevertsWithReason() public {
+    // We'll expect the revert reason "CustomRevertReason"
+    vm.expectRevert(bytes("CustomRevertReason"));
+
+    _limitedGasCallWithExactGas(
+      1_000_000,
+      address(s_target),
+      1_000_000,
+      abi.encodeWithSelector(TestTarget.revertWithReason.selector),
+      100
+    );
+  }
+
+  function test__callWithExactGasSafeReturnData_RevertWhen_TargetRevertsNoReason() public {
+    vm.expectRevert(); // just expect some revert, no reason
+    _limitedGasCallWithExactGas(
+      1_000_000,
+      address(s_target),
+      1_000_000,
+      abi.encodeWithSelector(TestTarget.revertNoReason.selector),
+      100
+    );
   }
 }

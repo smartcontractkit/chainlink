@@ -9,11 +9,11 @@ import {CallWithExactGasZKSync} from "../../call/CallWithExactGasZKSync.sol";
  */
 contract CallWithExactGasZKSyncHelper {
   function callWithExactGasSafeReturnData(
-    bytes calldata _data,
+    bytes memory _data,
     address _to,
     uint256 _maxTotalGas,
     uint16 _maxReturnBytes
-  ) external returns (bool success, bytes memory retData, uint256 pubdataGas, uint256 gasUsed) {
+  ) external returns (bool success, bytes memory retData, uint256 pubdataGasSpent) {
     return CallWithExactGasZKSync._callWithExactGasSafeReturnData(_to, _maxTotalGas, _data, _maxReturnBytes);
   }
 }
