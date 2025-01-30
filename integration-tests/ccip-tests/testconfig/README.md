@@ -430,6 +430,15 @@ Example usage:
 
 ```toml
 [CCIP.Env.Logging]
+test_log_collect = false # if set to true will save logs even if test did not fail
+
+[CCIP.Env.Logging.LogStream]
+# supported targets: file, loki, in-memory. if empty no logs will be persistet
+log_targets = ["file"]
+# context timeout for starting log producer and also time-frame for requesting logs
+log_producer_timeout = "10s"
+# number of retries before log producer gives up and stops listening to logs
+log_producer_retry_limit = 10
 
 [CCIP.Env.Logging.Loki]
 tenant_id = "..."

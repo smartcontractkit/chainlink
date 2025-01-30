@@ -1281,7 +1281,7 @@ func (o *CCIPTestSetUpOutputs) addChains() {
 	for _, lane := range o.ReadLanes() {
 		// Add both forward and reverse lanes
 		o.addChainToSentinel(lane.ForwardLane.SourceChain)
-		o.addChainToSentinel(lane.ReverseLane.SourceChain)
+		o.addChainToSentinel(lane.ForwardLane.DestChain)
 	}
 }
 
