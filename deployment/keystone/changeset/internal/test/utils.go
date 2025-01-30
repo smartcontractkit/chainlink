@@ -30,9 +30,14 @@ type Don struct {
 }
 
 type SetupTestRegistryRequest struct {
+	// P2pToCapabilities maps a node's p2pID to the capabilities it has
 	P2pToCapabilities map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability
-	NopToNodes        map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-	Dons              []Don
+
+	// NopToNodes maps a node operator to the nodes they operate
+	NopToNodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
+
+	// Dons groups the p2pIDs of the nodes that comprise it and the capabilities they have
+	Dons []Don
 	// TODO maybe add support for MCMS at this level
 }
 
@@ -80,11 +85,15 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	}
 }
 
+// ToNodeParams transforms a map of node operators to nops and a map of node p2pID to capabilities
+// into a slice of node params required to register the nodes.  The number of capabilities
+// must match the number of nodes.
 func ToNodeParams(t *testing.T,
 	nop2Nodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc,
 	p2pToCapabilities map[p2pkey.PeerID][][32]byte,
 ) []capabilities_registry.CapabilitiesRegistryNodeParams {
 	t.Helper()
+
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	var i uint32
 	for _, p2pSignerEncs := range nop2Nodes {
@@ -102,6 +111,7 @@ func ToNodeParams(t *testing.T,
 		}
 		i++
 	}
+
 	return nodeParams
 }
 
@@ -221,7 +231,13 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 	return resp
 }
 
-func AddNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, nodes []capabilities_registry.CapabilitiesRegistryNodeParams) {
+func AddNodes(
+	t *testing.T,
+	lggr logger.Logger,
+	chain deployment.Chain,
+	registry *capabilities_registry.CapabilitiesRegistry,
+	nodes []capabilities_registry.CapabilitiesRegistryNodeParams,
+) {
 	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
 	if err != nil {
 		err2 := deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -231,7 +247,14 @@ func AddNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry
 	require.NoError(t, err)
 }
 
-func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, capCache *CapabilityCache, dons []Don) {
+func addDons(
+	t *testing.T,
+	_ logger.Logger,
+	chain deployment.Chain,
+	registry *capabilities_registry.CapabilitiesRegistry,
+	capCache *CapabilityCache,
+	dons []Don,
+) {
 	for _, don := range dons {
 		acceptsWorkflows := false
 		// lookup the capabilities

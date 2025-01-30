@@ -733,27 +733,10 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	}
 
 	lggr.Debugw("checking for existing nodes", "count", len(nodeIDToParams))
-	nodes2Add := make([]capabilities_registry.CapabilitiesRegistryNodeParams, 0)
-	for nodeID, nodeParams := range nodeIDToParams {
-		var ni capabilities_registry.INodeInfoProviderNodeInfo
-		if ni, err = registry.GetNode(&bind.CallOpts{}, nodeParams.P2pId); err != nil {
-			if err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err); strings.Contains(err.Error(), "NodeDoesNotExist") {
-				nodes2Add = append(nodes2Add, nodeParams)
-				continue
-			}
-			return nil, fmt.Errorf("failed to call GetNode for node %s: %w", nodeID, err)
-		}
 
-		// if no error, but node info is empty, then the node does not exist and should be added.
-		if hex.EncodeToString(ni.P2pId[:]) != hex.EncodeToString(nodeParams.P2pId[:]) && hex.EncodeToString(ni.P2pId[:]) == "0000000000000000000000000000000000000000000000000000000000000000" {
-			lggr.Debugw("node came back empty, adding it",
-				"p2p bytes", nodeParams.P2pId,
-				"p2pid", hex.EncodeToString(nodeParams.P2pId[:]),
-				"nodeID", nodeID, "don", nodeIDToDon[nodeID], "ni", ni.P2pId,
-				"ni p2pid", hex.EncodeToString(ni.P2pId[:]))
-			nodes2Add = append(nodes2Add, nodeParams)
-			continue
-		}
+	nodes2Add, err := getNodesToRegister(registry, nodeIDToParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nodes to register: %w", err)
 	}
 
 	lggr.Debugf("found %d missing nodes", len(nodes2Add))
@@ -816,6 +799,34 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
 	}, nil
+}
+
+// getNodesToRegister returns the nodes that are not already registered in the registry
+func getNodesToRegister(
+	registry *capabilities_registry.CapabilitiesRegistry,
+	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams,
+) ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
+	nodes2Add := make([]capabilities_registry.CapabilitiesRegistryNodeParams, 0)
+	for nodeID, nodeParams := range nodeIDToParams {
+		var (
+			ni  capabilities_registry.INodeInfoProviderNodeInfo
+			err error
+		)
+		if ni, err = registry.GetNode(&bind.CallOpts{}, nodeParams.P2pId); err != nil {
+			if err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err); strings.Contains(err.Error(), "NodeDoesNotExist") {
+				nodes2Add = append(nodes2Add, nodeParams)
+				continue
+			}
+			return nil, fmt.Errorf("failed to call GetNode for node %s: %w", nodeID, err)
+		}
+
+		// if no error, but node info is empty, then the node does not exist and should be added.
+		if hex.EncodeToString(ni.P2pId[:]) != hex.EncodeToString(nodeParams.P2pId[:]) && hex.EncodeToString(ni.P2pId[:]) == "0000000000000000000000000000000000000000000000000000000000000000" {
+			nodes2Add = append(nodes2Add, nodeParams)
+			continue
+		}
+	}
+	return nodes2Add, nil
 }
 
 // addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
