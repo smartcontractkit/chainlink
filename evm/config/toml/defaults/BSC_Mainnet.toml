@@ -11,9 +11,7 @@ FinalizedBlockOffset = 2
 NoNewFinalizedHeadsThreshold = '45s'
 
 [GasEstimator]
-PriceDefault = '5 gwei'
-# Set to the BSC node's default Eth.Miner.GasPrice config
-PriceMin = '3 gwei'
+PriceDefault = '1 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
 
