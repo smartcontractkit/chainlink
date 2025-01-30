@@ -88,15 +88,6 @@ type WorkflowTestConfig struct {
 	JD             *jd.Input         `toml:"jd" validate:"required"`
 }
 
-type OCR3Config struct {
-	Signers               [][]byte
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
-}
-
 func downloadGHAssetFromLatestRelease(owner, repository, releaseType, assetName, ghToken string) ([]byte, error) {
 	var content []byte
 	if ghToken == "" {
