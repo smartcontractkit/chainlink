@@ -229,42 +229,40 @@ func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[st
 	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
 	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
-	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses,
-		map[deployment.TypeAndVersion]struct{}{
-			timelock: {}, proposer: {}, canceller: {}, bypasser: {}, callProxy: {},
-		})
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
+	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
 
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case timelock:
+		switch {
+		case tvStr.Type == timelock.Type && tvStr.Version.String() == timelock.Version.String():
 			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.Timelock = tl
-		case callProxy:
+		case tvStr.Type == callProxy.Type && tvStr.Version.String() == callProxy.Version.String():
 			cp, err := owner_helpers.NewCallProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.CallProxy = cp
-		case proposer:
+		case tvStr.Type == proposer.Type && tvStr.Version.String() == proposer.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.ProposerMcm = mcms
-		case bypasser:
+		case tvStr.Type == bypasser.Type && tvStr.Version.String() == bypasser.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.BypasserMcm = mcms
-		case canceller:
+		case tvStr.Type == canceller.Type && tvStr.Version.String() == canceller.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err

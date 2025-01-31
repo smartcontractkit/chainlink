@@ -33,13 +33,14 @@ import (
 )
 
 var (
-	_ deployment.ChangeSet[UpdateOnRampDestsConfig]     = UpdateOnRampsDestsChangeset
-	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]  = UpdateOffRampSourcesChangeset
-	_ deployment.ChangeSet[UpdateRouterRampsConfig]     = UpdateRouterRampsChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]  = UpdateFeeQuoterDestsChangeset
-	_ deployment.ChangeSet[SetOCR3OffRampConfig]        = SetOCR3OffRampChangeset
-	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig] = UpdateFeeQuoterPricesChangeset
-	_ deployment.ChangeSet[UpdateNonceManagerConfig]    = UpdateNonceManagersChangeset
+	_ deployment.ChangeSet[UpdateOnRampDestsConfig]          = UpdateOnRampsDestsChangeset
+	_ deployment.ChangeSet[UpdateOffRampSourcesConfig]       = UpdateOffRampSourcesChangeset
+	_ deployment.ChangeSet[UpdateRouterRampsConfig]          = UpdateRouterRampsChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterDestsConfig]       = UpdateFeeQuoterDestsChangeset
+	_ deployment.ChangeSet[SetOCR3OffRampConfig]             = SetOCR3OffRampChangeset
+	_ deployment.ChangeSet[UpdateDynamicConfigOffRampConfig] = UpdateDynamicConfigOffRampChangeset
+	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig]      = UpdateFeeQuoterPricesChangeset
+	_ deployment.ChangeSet[UpdateNonceManagerConfig]         = UpdateNonceManagersChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -1077,6 +1078,121 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Info("Proposing OCR3 config update for", cfg.RemoteChainSels)
+	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
+		*p,
+	}}, nil
+}
+
+type UpdateDynamicConfigOffRampConfig struct {
+	Updates map[uint64]OffRampParams
+	MCMS    *MCMSConfig
+}
+
+func (cfg UpdateDynamicConfigOffRampConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	for chainSel, params := range cfg.Updates {
+		if deployment.IsValidChainSelector(chainSel) != nil {
+			return fmt.Errorf("invalid chain selector %d", chainSel)
+		}
+		if _, ok := state.Chains[chainSel]; !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		if state.Chains[chainSel].OffRamp == nil {
+			return fmt.Errorf("missing offramp for chain %d", chainSel)
+		}
+		if state.Chains[chainSel].FeeQuoter == nil {
+			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
+		}
+		if state.Chains[chainSel].Timelock == nil {
+			return fmt.Errorf("missing timelock for chain %d", chainSel)
+		}
+		if params.GasForCallExactCheck > 0 {
+			e.Logger.Infow(
+				"GasForCallExactCheck is set, please note it's a static config and will be ignored for this changeset",
+				"chain", chainSel, "gas", params.GasForCallExactCheck)
+		}
+		if err := commoncs.ValidateOwnership(
+			e.GetContext(),
+			cfg.MCMS != nil,
+			e.Chains[chainSel].DeployerKey.From,
+			state.Chains[chainSel].Timelock.Address(),
+			state.Chains[chainSel].OffRamp,
+		); err != nil {
+			return err
+		}
+		if err := params.Validate(true); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSel, err)
+		}
+	}
+	return nil
+}
+
+func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDynamicConfigOffRampConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []timelock.BatchChainOperation
+	timelocks := make(map[uint64]common.Address)
+	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+	for chainSel, params := range cfg.Updates {
+		chain := e.Chains[chainSel]
+		txOpts := e.Chains[chainSel].DeployerKey
+		if cfg.MCMS != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		offRamp := state.Chains[chainSel].OffRamp
+		dCfg := offramp.OffRampDynamicConfig{
+			FeeQuoter:                               state.Chains[chainSel].FeeQuoter.Address(),
+			PermissionLessExecutionThresholdSeconds: params.PermissionLessExecutionThresholdSeconds,
+			IsRMNVerificationDisabled:               params.IsRMNVerificationDisabled,
+			MessageInterceptor:                      params.MessageInterceptor,
+		}
+		tx, err := offRamp.SetDynamicConfig(txOpts, dCfg)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if cfg.MCMS == nil {
+			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
+			}
+			e.Logger.Infow("Updated offramp dynamic config", "chain", chain.String(), "config", dCfg)
+		} else {
+			batches = append(batches, timelock.BatchChainOperation{
+				ChainIdentifier: mcms.ChainIdentifier(chainSel),
+				Batch: []mcms.Operation{
+					{
+						To:    offRamp.Address(),
+						Data:  tx.Data(),
+						Value: big.NewInt(0),
+					},
+				},
+			})
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+		}
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatches(
+		timelocks,
+		proposers,
+		batches,
+		"Update offramp dynamic config",
+		cfg.MCMS.MinDelay,
+	)
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Proposing offramp dynamic config update", "config", cfg.Updates)
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
 		*p,
 	}}, nil
