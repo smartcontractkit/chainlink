@@ -1632,7 +1632,6 @@ func logTestInfo(l zerolog.Logger, feedId, workflowName, feedConsumerAddr, forwa
 Do not use this test as a template for your tests. It's hacky, since we were working under time pressure. We will soon refactor it follow best practices
 and a golden example. Apart from its structure what is currently missing is:
 - using Job Distribution to create jobs for the nodes
-- using only `chainlink-cli` to register the workflow (it's there, but doesn't work in CI due to insufficient Github token permissions)
 - using a mock service to provide the feed data
 */
 func TestKeystoneWithOCR3Workflow(t *testing.T) {
