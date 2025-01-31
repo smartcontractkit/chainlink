@@ -17,8 +17,8 @@ var (
 	Receiver           deployment.ContractType = "Receiver"
 )
 
-// SolChainState holds a Go binding for all the currently deployed CCIP programs
-// on a chain. If a binding is nil, it means here is no such contract on the chain.
+// SolCCIPChainState holds public keys for all the currently deployed CCIP programs
+// on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
 	LinkToken          solana.PublicKey
 	Router             solana.PublicKey

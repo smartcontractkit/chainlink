@@ -1,4 +1,4 @@
-package evm
+package mcmsnew
 
 import (
 	"github.com/ethereum/go-ethereum/common"
@@ -9,7 +9,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/mcmsnew"
+	mcmsNewTypes "github.com/smartcontractkit/chainlink/deployment/common/changeset/mcmsnew/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -65,16 +65,16 @@ func deployMCMSWithConfigEVM(
 	return mcm, nil
 }
 
-// deployMCMSWithTimelockContractsEVM deploys an MCMS for
+// DeployMCMSWithTimelockContractsEVM deploys an MCMS for
 // each of the timelock roles Bypasser, ProposerMcm, Canceller on an EVM chain.
 // MCMS contracts for the given configuration
 // as well as the timelock. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
-func deployMCMSWithTimelockContractsEVM(
+func DeployMCMSWithTimelockContractsEVM(
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
-	config mcmsnew.MCMSWithTimelockConfig,
+	config mcmsNewTypes.MCMSWithTimelockConfig,
 ) (*MCMSWithTimelockEVMDeploy, error) {
 	bypasser, err := deployMCMSWithConfigEVM(types.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
 	if err != nil {
