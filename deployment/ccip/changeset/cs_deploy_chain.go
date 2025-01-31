@@ -247,9 +247,6 @@ func deployChainContractsForChains(
 				return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
 			}
 			chain := e.Chains[chainSel]
-			if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
-				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
-			}
 			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
 
 		case chainsel.FamilySolana:
