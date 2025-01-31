@@ -885,7 +885,7 @@ func (s *GatewaySpec) UserServerConfigPort() int64 {
 func (s *GatewaySpec) AuthGatewayID() string {
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
 		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			// nolint: revive / that's how it's named in the config
+			//nolint:revive // that's how it's named in the config
 			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
 				if authGatewayIDStr, ok := authGatewayID.(string); ok {
 					return authGatewayIDStr

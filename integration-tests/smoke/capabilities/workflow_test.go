@@ -1258,7 +1258,7 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 	errFound := false
 	for err := range errCh {
 		errFound = true
-		// nolint: testifylint / we want to assert here to catch all errors
+		//nolint:testifylint // we want to assert here to catch all errors
 		assert.NoError(t, err, "job creation/acception failed")
 	}
 

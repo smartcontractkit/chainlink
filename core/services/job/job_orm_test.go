@@ -2524,8 +2524,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 		},
 	}
 	id, err := orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by auth gateway id")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by auth gateway id")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// different node server path
 	gatewayJobSpec = job.GatewaySpec{
@@ -2538,8 +2538,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by node server config with different path")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by node server config with different path")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// different node server port
 	gatewayJobSpec = job.GatewaySpec{
@@ -2552,8 +2552,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by node server config with different port")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by node server config with different port")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// different node server path and port
 	gatewayJobSpec = job.GatewaySpec{
@@ -2566,8 +2566,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by node server config with different path and port")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by node server config with different path and port")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// find only by user server config path
 	gatewayJobSpec = job.GatewaySpec{
@@ -2580,8 +2580,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by user server config with different path")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by user server config with different path")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// find only by user server config port
 	gatewayJobSpec = job.GatewaySpec{
@@ -2594,8 +2594,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by user server config with different port")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by user server config with different port")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// find only by user server config path and port
 	gatewayJobSpec = job.GatewaySpec{
@@ -2608,8 +2608,8 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job by user server config with different path and port")
-	assert.Equal(t, int32(0), id, "found non-zero job id")
+	require.Error(t, err, "found gateway job by user server config with different path and port")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 
 	// everything is different
 	gatewayJobSpec = job.GatewaySpec{
@@ -2629,7 +2629,7 @@ func Test_FindGatewayJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err = orm.FindGatewayJobID(ctx, gatewayJobSpec)
-	assert.Error(t, err, "found gateway job with completely different config")
+	require.Error(t, err, "found gateway job with completely different config")
 	require.Equal(t, int32(0), id, "found non-zero job id")
 }
 
@@ -2662,7 +2662,7 @@ func Test_FindStandardCapabilityJobID(t *testing.T) {
 	}
 
 	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
-	assert.NoError(t, err, "failed to find standard capabilities by command")
+	require.NoError(t, err, "failed to find standard capabilities by command")
 	require.Equal(t, jobSpec.ID, id, "mismatch job id")
 }
 
@@ -2695,6 +2695,6 @@ func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
 	}
 
 	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
-	assert.Error(t, err, "found standard capabilities with different command")
+	require.Error(t, err, "found standard capabilities with different command")
 	require.Equal(t, int32(0), id, "found non-zero job id")
 }
