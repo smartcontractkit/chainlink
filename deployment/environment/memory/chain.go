@@ -40,7 +40,7 @@ type EVMChain struct {
 	Users       []*bind.TransactOpts
 }
 
-type SolanaChainConfig struct {
+type SolanaChain struct {
 	Client      *solRpc.Client
 	DeployerKey solana.PrivateKey
 	URL         string
@@ -116,7 +116,7 @@ func GenerateSolanaKeypair(dir string) (solana.PrivateKey, error) {
 	return privateKey, nil
 }
 
-func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChainConfig {
+func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
 		t.Fatalf("not enough test solana chain selectors available")
@@ -125,7 +125,7 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChainConfig
 	// Create a temporary directory that will be cleaned up after the test
 	tmpDir := t.TempDir()
 
-	chains := make(map[uint64]SolanaChainConfig)
+	chains := make(map[uint64]SolanaChain)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
 		admin, err := GenerateSolanaKeypair(tmpDir)
@@ -136,7 +136,7 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChainConfig
 		balance, err := client.GetBalance(context.Background(), admin.PublicKey(), solRpc.CommitmentConfirmed)
 		require.NoError(t, err)
 		require.NotEqual(t, 0, balance.Value) // auto funded 500000000.000000000 SOL
-		chains[chainID] = SolanaChainConfig{
+		chains[chainID] = SolanaChain{
 			Client:      client,
 			DeployerKey: admin,
 			URL:         url,
