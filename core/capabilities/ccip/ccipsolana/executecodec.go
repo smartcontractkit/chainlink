@@ -64,8 +64,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		var extraArgs ccip_router.SVMExtraArgs
-		extraArgs, err := parseExtraArgsMap(msg.ExtraArgsDecoded)
+		var extraArgs ccip_router.Any2SVMRampExtraArgs
+		extraArgs, _, err := parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
@@ -189,38 +189,6 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	}
 
 	return report, nil
-}
-
-func parseExtraArgsMap(input map[string]any) (ccip_router.SVMExtraArgs, error) {
-	// Parse input map into SolanaExtraArgs
-	var out ccip_router.SVMExtraArgs
-
-	// Iterate through the expected fields in the struct
-	// the field name should match with the one in SVMExtraArgsV1
-	// https://github.com/smartcontractkit/chainlink/blob/33c0bda696b0ed97f587a46eacd5c65bed9fb2c1/contracts/src/v0.8/ccip/libraries/Client.sol#L57
-	for fieldName, fieldValue := range input {
-		lowercase := strings.ToLower(fieldName)
-		switch lowercase {
-		case "computeunits":
-			// Expect uint32
-			if v, ok := fieldValue.(uint32); ok {
-				out.ComputeUnits = v
-			} else {
-				return out, errors.New("invalid type for ComputeUnits, expected uint32")
-			}
-		case "accountiswritablebitmap":
-			// Expect uint64
-			if v, ok := fieldValue.(uint64); ok {
-				out.IsWritableBitmap = v
-			} else {
-				return out, errors.New("invalid type for IsWritableBitmap, expected uint64")
-			}
-			// we only need the keys to construct SVMExtraArgs, other keys can be skipped without return errors
-			// because there's no guarantee SVMExtraArgs will match with SVMExtraArgsV1
-		}
-	}
-
-	return out, nil
 }
 
 func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
