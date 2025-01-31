@@ -54,7 +54,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				}
 			}
 
-			extraArgs := ccip_router.SVMExtraArgs{
+			extraArgs := ccip_router.Any2SVMRampExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
 			}

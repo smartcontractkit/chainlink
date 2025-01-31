@@ -137,19 +137,3 @@ func abiEncodedAddress(t *testing.T) []byte {
 	require.NoError(t, err)
 	return encoded
 }
-
-// TODO remove encodeBigIntToFixedLengthLE once https://github.com/smartcontractkit/chainlink/pull/15816 merged
-func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
-	// Create a fixed-length byte array
-	paddedBytes := make([]byte, length)
-
-	// Use FillBytes to fill the array with big-endian data, zero-padded
-	bi.FillBytes(paddedBytes)
-
-	// Reverse the array for little-endian encoding
-	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
-		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
-	}
-
-	return paddedBytes
-}
