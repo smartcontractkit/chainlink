@@ -33,16 +33,16 @@ var (
 )
 
 type TypeAndVersion struct {
-	Type     ContractType
-	Version  semver.Version
-	Metadata MetadataSet
+	Type    ContractType
+	Version semver.Version
+	Labels  LabelSet
 }
 
 func (tv TypeAndVersion) String() string {
-	if len(tv.Metadata) == 0 {
+	if len(tv.Labels) == 0 {
 		return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
 	}
-	mdSlice := tv.Metadata.AsSlice()
+	mdSlice := tv.Labels.AsSlice()
 	sort.Strings(mdSlice) // stable order
 	return fmt.Sprintf("%s %s %s",
 		tv.Type,
@@ -52,7 +52,16 @@ func (tv TypeAndVersion) String() string {
 }
 
 func (tv TypeAndVersion) Equal(other TypeAndVersion) bool {
-	return tv.String() == other.String()
+	// Compare Type
+	if tv.Type != other.Type {
+		return false
+	}
+	// Compare Versions
+	if !tv.Version.Equal(&other.Version) {
+		return false
+	}
+	// Compare Labels
+	return tv.Labels.Equal(other.Labels)
 }
 
 func MustTypeAndVersionFromString(s string) TypeAndVersion {
@@ -74,22 +83,22 @@ func TypeAndVersionFromString(s string) (TypeAndVersion, error) {
 	if err != nil {
 		return TypeAndVersion{}, err
 	}
-	metadata := make(MetadataSet)
+	labels := make(LabelSet)
 	if len(parts) > 2 {
-		metadata = NewMetadataSet(parts[2:]...)
+		labels = NewLabelSet(parts[2:]...)
 	}
 	return TypeAndVersion{
-		Type:     ContractType(parts[0]),
-		Version:  *v,
-		Metadata: metadata,
+		Type:    ContractType(parts[0]),
+		Version: *v,
+		Labels:  labels,
 	}, nil
 }
 
 func NewTypeAndVersion(t ContractType, v semver.Version) TypeAndVersion {
 	return TypeAndVersion{
-		Type:     t,
-		Version:  v,
-		Metadata: make(MetadataSet), // empty set,
+		Type:    t,
+		Version: v,
+		Labels:  make(LabelSet), // empty set,
 	}
 }
 
@@ -291,38 +300,53 @@ func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool,
 	return false, nil
 }
 
-// typeVersionKey creates a comparable key from Type and Version
 type typeVersionKey struct {
 	Type    ContractType
 	Version string
+	Labels  string // store labels in a canonical form (comma-joined sorted list)
+}
+
+func tvKey(tv TypeAndVersion) typeVersionKey {
+	sortedLabels := make([]string, 0, len(tv.Labels))
+	for lbl := range tv.Labels {
+		sortedLabels = append(sortedLabels, lbl)
+	}
+	sort.Strings(sortedLabels)
+	return typeVersionKey{
+		Type:    tv.Type,
+		Version: tv.Version.String(),
+		Labels:  strings.Join(sortedLabels, ","),
+	}
 }
 
 // AddressesContainBundle checks if the addresses
 // contains a single instance of all the addresses in the bundle.
 // It returns an error if there are more than one instance of a contract.
 func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAndVersion) (bool, error) {
+	// Count how many times each wanted TypeAndVersion is found
 	counts := make(map[typeVersionKey]int)
-	for _, wantType := range wantTypes {
-		key := typeVersionKey{Type: wantType.Type, Version: wantType.Version.String()}
-		for _, haveType := range addrs {
-			sameType := (wantType.Type == haveType.Type)
-			sameVersion := wantType.Version.String() == haveType.Version.String()
-
-			if sameType && sameVersion {
-				counts[key]++
-				if counts[key] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s %s", key.Type, key.Version)
+	for _, wantTV := range wantTypes {
+		wantKey := tvKey(wantTV)
+		for _, haveTV := range addrs {
+			if wantTV.Equal(haveTV) {
+				// They match exactly (Type, Version, Labels)
+				counts[wantKey]++
+				if counts[wantKey] > 1 {
+					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%v)",
+						wantTV.Type, wantTV.Version.String(), wantTV.Labels)
 				}
 			}
 		}
 	}
+
+	// Ensure we found *all* wantTypes exactly once
 	return len(counts) == len(wantTypes), nil
 }
 
-// AddMetadata adds a string to the metadata set in the TypeAndVersion.
-func (tv *TypeAndVersion) AddMetadata(md string) {
-	if tv.Metadata == nil {
-		tv.Metadata = make(MetadataSet)
+// AddLabel adds a string to the LabelSet in the TypeAndVersion.
+func (tv *TypeAndVersion) AddLabel(label string) {
+	if tv.Labels == nil {
+		tv.Labels = make(LabelSet)
 	}
-	tv.Metadata.Add(md)
+	tv.Labels.Add(label)
 }

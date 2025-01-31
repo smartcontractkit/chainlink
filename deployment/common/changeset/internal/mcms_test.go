@@ -33,7 +33,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		proposalutils.SingleGroupMCMS(t),
 	)
 	require.NoError(t, err)
-	require.Empty(t, mcmNoLabel.Tv.Metadata, "expected no label to be set")
+	require.Empty(t, mcmNoLabel.Tv.Labels, "expected no label to be set")
 
 	// 2) Test WITH a label
 	label := "SA"
@@ -46,8 +46,8 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		internal.WithLabel(label),
 	)
 	require.NoError(t, err)
-	require.NotNil(t, mcmWithLabel.Tv.Metadata, "expected metadata to be set")
-	require.Contains(t, mcmWithLabel.Tv.Metadata, label, "label mismatch")
+	require.NotNil(t, mcmWithLabel.Tv.Labels, "expected labels to be set")
+	require.Contains(t, mcmWithLabel.Tv.Labels, label, "label mismatch")
 }
 
 func TestDeployMCMSWithTimelockContracts(t *testing.T) {

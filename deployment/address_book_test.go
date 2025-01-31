@@ -244,37 +244,112 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAddressesContainsBundle(t *testing.T) {
+func TestAddressesContainBundle(t *testing.T) {
+	t.Parallel()
+
+	// Define some TypeAndVersion values
 	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
 	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
 	onRamp120 := NewTypeAndVersion("OnRamp", Version1_2_0)
+
+	// Create one with labels
+	onRamp100WithLabels := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp100WithLabels.Labels.Add("sa")
+	onRamp100WithLabels.Labels.Add("staging")
+
 	addr1 := common.HexToAddress("0x1").String()
 	addr2 := common.HexToAddress("0x2").String()
 	addr3 := common.HexToAddress("0x3").String()
 
-	// More than one instance should error
-	_, err := AddressesContainBundle(map[string]TypeAndVersion{
-		addr1: onRamp100,
-		addr2: onRamp100,
-	}, []TypeAndVersion{onRamp100})
-	require.Error(t, err)
+	tests := []struct {
+		name       string
+		addrs      map[string]TypeAndVersion // input address map
+		wantTypes  []TypeAndVersion          // the “bundle” we want
+		wantErr    bool
+		wantErrMsg string
+		wantResult bool // expected boolean return when no error
+	}{
+		{
+			name: "More than one instance => error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100,
+				addr2: onRamp100, // duplicate
+			},
+			wantTypes: []TypeAndVersion{onRamp100},
+			wantErr:   true,
+			// an example substring check:
+			wantErrMsg: "found more than one instance of contract",
+		},
+		{
+			name: "No instance => result false, no error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp110,
+				addr2: onRamp110,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100},
+			wantErr:    false,
+			wantResult: false,
+		},
+		{
+			name: "2 elements => success",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100,
+				addr2: onRamp110,
+				addr3: onRamp120,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100, onRamp110},
+			wantErr:    false,
+			wantResult: true,
+		},
+		{
+			name: "Mismatched labels => false",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100, // no labels
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    false,
+			wantResult: false, // label mismatch => not found
+		},
+		{
+			name: "Exact label match => success",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100WithLabels,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    false,
+			wantResult: true,
+		},
+		{
+			name: "Duplicate labeled => error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100WithLabels,
+				addr2: onRamp100WithLabels, // same type/version/labels => duplicate
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    true,
+			wantErrMsg: "more than one instance of contract",
+		},
+	}
 
-	// No such instances should be false
-	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
-		addr2: onRamp110,
-		addr1: onRamp110,
-	}, []TypeAndVersion{onRamp100})
-	require.NoError(t, err)
-	assert.Equal(t, exists, false)
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// 2 elements
-	exists, err = AddressesContainBundle(map[string]TypeAndVersion{
-		addr1: onRamp100,
-		addr2: onRamp110,
-		addr3: onRamp120,
-	}, []TypeAndVersion{onRamp100, onRamp110})
-	require.NoError(t, err)
-	assert.Equal(t, exists, true)
+			gotResult, gotErr := AddressesContainBundle(tt.addrs, tt.wantTypes)
+
+			if tt.wantErr {
+				require.Error(t, gotErr, "expected an error but got none")
+				if tt.wantErrMsg != "" {
+					require.Contains(t, gotErr.Error(), tt.wantErrMsg)
+				}
+				return
+			}
+			require.NoError(t, gotErr, "did not expect an error but got one")
+			assert.Equal(t, tt.wantResult, gotResult,
+				"expected result %v but got %v", tt.wantResult, gotResult)
+		})
+	}
 }
 
 func TestTypeAndVersionFromString(t *testing.T) {
@@ -289,15 +364,15 @@ func TestTypeAndVersionFromString(t *testing.T) {
 		wantMeta    []string
 	}{
 		{
-			name:        "valid - no metadata",
+			name:        "valid - no labels",
 			input:       "CallProxy 1.0.0",
 			wantErr:     false,
 			wantType:    "CallProxy",
 			wantVersion: Version1_0_0,
-			wantMeta:    nil, // no metadata
+			wantMeta:    nil, // no labels
 		},
 		{
-			name:        "valid - multiple metadata, normal spacing",
+			name:        "valid - multiple labels, normal spacing",
 			input:       "CallProxy 1.0.0 SA staging",
 			wantErr:     false,
 			wantType:    "CallProxy",
@@ -305,7 +380,7 @@ func TestTypeAndVersionFromString(t *testing.T) {
 			wantMeta:    []string{"SA", "staging"},
 		},
 		{
-			name:        "valid - multiple metadata, extra spacing",
+			name:        "valid - multiple labels, extra spacing",
 			input:       "   CallProxy     1.0.0    SA    staging   ",
 			wantErr:     false,
 			wantType:    "CallProxy",
@@ -342,46 +417,46 @@ func TestTypeAndVersionFromString(t *testing.T) {
 			// Check Version
 			require.Equal(t, tt.wantVersion.String(), gotTV.Version.String(), "incorrect version")
 
-			// Check metadata
-			gotMeta := gotTV.Metadata.AsSlice()
-			require.Equal(t, len(tt.wantMeta), len(gotMeta), "metadata length mismatch")
+			// Check labels
+			gotMeta := gotTV.Labels.AsSlice()
+			require.Equal(t, len(tt.wantMeta), len(gotMeta), "labels length mismatch")
 			for _, wantMd := range tt.wantMeta {
-				require.Contains(t, gotMeta, wantMd, "missing metadata item")
+				require.Contains(t, gotMeta, wantMd, "missing labels item")
 			}
 		})
 	}
 }
 
-func TestTypeAndVersion_AddMetadata(t *testing.T) {
+func TestTypeAndVersion_AddLabels(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name            string
-		initialMetadata []string
-		toAdd           []string
-		wantContains    []string
-		wantLen         int
+		name          string
+		initialLabels []string
+		toAdd         []string
+		wantContains  []string
+		wantLen       int
 	}{
 		{
-			name:            "add single metadata to empty set",
-			initialMetadata: nil,
-			toAdd:           []string{"foo"},
-			wantContains:    []string{"foo"},
-			wantLen:         1,
+			name:          "add single labels to empty set",
+			initialLabels: nil,
+			toAdd:         []string{"foo"},
+			wantContains:  []string{"foo"},
+			wantLen:       1,
 		},
 		{
-			name:            "add multiple metadata to existing set",
-			initialMetadata: []string{"alpha"},
-			toAdd:           []string{"beta", "gamma"},
-			wantContains:    []string{"alpha", "beta", "gamma"},
-			wantLen:         3,
+			name:          "add multiple labels to existing set",
+			initialLabels: []string{"alpha"},
+			toAdd:         []string{"beta", "gamma"},
+			wantContains:  []string{"alpha", "beta", "gamma"},
+			wantLen:       3,
 		},
 		{
-			name:            "add duplicate metadata",
-			initialMetadata: []string{"dup"},
-			toAdd:           []string{"dup", "dup", "new"},
-			wantContains:    []string{"dup", "new"},
-			wantLen:         2,
+			name:          "add duplicate labels",
+			initialLabels: []string{"dup"},
+			toAdd:         []string{"dup", "dup", "new"},
+			wantContains:  []string{"dup", "new"},
+			wantLen:       2,
 		},
 	}
 
@@ -390,25 +465,25 @@ func TestTypeAndVersion_AddMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Construct a TypeAndVersion with any initial metadata
+			// Construct a TypeAndVersion with any initial labels
 			tv := TypeAndVersion{
-				Type:     "CallProxy",
-				Version:  Version1_0_0,
-				Metadata: NewMetadataSet(tt.initialMetadata...),
+				Type:    "CallProxy",
+				Version: Version1_0_0,
+				Labels:  NewLabelSet(tt.initialLabels...),
 			}
 
-			// Call AddMetadata for each item in toAdd
-			for _, md := range tt.toAdd {
-				tv.AddMetadata(md)
+			// Call AddLabel for each item in toAdd
+			for _, label := range tt.toAdd {
+				tv.AddLabel(label)
 			}
 
-			// Check final metadata length
-			require.Len(t, tv.Metadata, tt.wantLen, "metadata size mismatch")
+			// Check final labels length
+			require.Len(t, tv.Labels, tt.wantLen, "labels size mismatch")
 
-			// Check that expected metadata is present
+			// Check that expected labels is present
 			for _, md := range tt.wantContains {
-				require.True(t, tv.Metadata.Contains(md),
-					"expected metadata %q was not found in tv.Metadata", md)
+				require.True(t, tv.Labels.Contains(md),
+					"expected labels %q was not found in tv.Labels", md)
 			}
 		})
 	}
