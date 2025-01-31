@@ -271,6 +271,19 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
+	updates := make(map[uint64]changeset.OffRampParams)
+	for _, chainIdx := range tc.pf.rmnHomeSourceChains {
+		updates[chainIdx.ChainSelector] = changeset.OffRampParams{
+			IsRMNVerificationDisabled:               false,
+			PermissionLessExecutionThresholdSeconds: 86400,
+		}
+	}
+
+	_, err = changeset.UpdateDynamicConfigOffRampChangeset(envWithRMN.Env, changeset.UpdateDynamicConfigOffRampConfig{
+		Updates: updates,
+	})
+	require.NoError(t, err)
+
 	_, err = changeset.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNStaticConfig:   staticConfig,
