@@ -8,7 +8,7 @@ uint256 constant PERFORM_GAS_CUSHION = 50_000;
 // We limit return data to a selector plus 4 words. This is to avoid
 // malicious contracts from returning large amounts of data and causing
 // repeated out-of-gas scenarios.
-uint16 constant MAX_CALLBACK_RETURN_BYTES = 132;
+//uint16 constant MAX_CALLBACK_RETURN_BYTES = 132;
 
 /**
  * @title ZKSyncAutomationForwarder is a relayer that sits between the registry and the customer's target contract
@@ -69,7 +69,7 @@ contract ZKSyncAutomationForwarder {
       target,
       gasAmount,
     data,
-      MAX_CALLBACK_RETURN_BYTES
+      0
     );
     return (success, g1 - gasleft() + pubdataGasSpent);
   }

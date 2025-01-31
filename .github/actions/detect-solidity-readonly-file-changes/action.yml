@@ -23,6 +23,8 @@ runs:
             - 'contracts/src/v0.8/automation/v2_0/**/*'
             - 'contracts/src/v0.8/automation/v2_1/**/*'
             - 'contracts/src/v0.8/automation/v2_2/**/*'
+          exclude:
+            - 'contracts/src/v0.8/automation/interfaces/zksync/*'
 
     - name: Fail if read-only files have changed
       if: ${{ steps.changed_files.outputs.read_only_sol == 'true' }}

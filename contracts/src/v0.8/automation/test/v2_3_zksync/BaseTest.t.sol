@@ -18,8 +18,8 @@ import {AutomationRegistrar2_3} from "../../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
-import {MockGasBoundCaller} from "../../mocks/MockGasBoundCaller.sol";
-import {MockZKSyncSystemContext} from "../../mocks/MockZKSyncSystemContext.sol";
+//import {MockGasBoundCaller} from "../../mocks/MockGasBoundCaller.sol";
+import {MockSystemContext} from "../../../shared/test/mocks/MockSystemContext.sol";
 
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -55,8 +55,8 @@ contract BaseTest is Test {
   MockUpkeep internal TARGET1;
   MockUpkeep internal TARGET2;
   Transcoder internal TRANSCODER;
-  MockGasBoundCaller internal GAS_BOUND_CALLER;
-  MockZKSyncSystemContext internal SYSTEM_CONTEXT;
+//  MockGasBoundCaller internal GAS_BOUND_CALLER;
+  MockSystemContext internal SYSTEM_CONTEXT;
 
   // roles
   address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -95,14 +95,13 @@ contract BaseTest is Test {
     TARGET2 = new MockUpkeep();
 
     TRANSCODER = new Transcoder();
-    GAS_BOUND_CALLER = new MockGasBoundCaller();
-    SYSTEM_CONTEXT = new MockZKSyncSystemContext();
+//    GAS_BOUND_CALLER = new MockGasBoundCaller();
+    SYSTEM_CONTEXT = new MockSystemContext();
 
-    bytes memory callerCode = address(GAS_BOUND_CALLER).code;
-    vm.etch(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5, callerCode);
+//    bytes memory callerCode = address(GAS_BOUND_CALLER).code;
+//    vm.etch(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5, callerCode);
 
-    bytes memory contextCode = address(SYSTEM_CONTEXT).code;
-    vm.etch(0x000000000000000000000000000000000000800B, contextCode);
+    vm.etch(address(0x800b), address(SYSTEM_CONTEXT).code);
 
     SIGNERS[0] = vm.addr(SIGNING_KEY0); //0xc110458BE52CaA6bB68E66969C3218A4D9Db0211
     SIGNERS[1] = vm.addr(SIGNING_KEY1); //0xc110a19c08f1da7F5FfB281dc93630923F8E3719

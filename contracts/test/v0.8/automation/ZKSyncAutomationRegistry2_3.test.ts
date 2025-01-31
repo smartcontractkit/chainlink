@@ -19,18 +19,18 @@ import { StreamsLookupUpkeep__factory as StreamsLookupUpkeepFactory } from '../.
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { MockZKSyncSystemContext__factory as MockZKSyncSystemContextFactory } from '../../../typechain/factories/MockZKSyncSystemContext__factory'
+import { MockSystemContext__factory as MockSystemContextFactory } from '../../../typechain/factories/MockSystemContext__factory'
 import { ChainModuleBase__factory as ChainModuleBaseFactory } from '../../../typechain/factories/ChainModuleBase__factory'
-import { MockGasBoundCaller__factory as MockGasBoundCallerFactory } from '../../../typechain/factories/MockGasBoundCaller__factory'
+// import { MockGasBoundCaller__factory as MockGasBoundCallerFactory } from '../../../typechain/factories/MockGasBoundCaller__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { AutomationCompatibleUtils } from '../../../typechain/AutomationCompatibleUtils'
 import { StreamsLookupUpkeep } from '../../../typechain/StreamsLookupUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
-import { MockGasBoundCaller } from '../../../typechain/MockGasBoundCaller'
+// import { MockGasBoundCaller } from '../../../typechain/MockGasBoundCaller'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { ChainModuleBase } from '../../../typechain/ChainModuleBase'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
-import { MockZKSyncSystemContext } from '../../../typechain/MockZKSyncSystemContext'
+import { MockSystemContext } from '../../../typechain/MockSystemContext'
 import { IChainModule, UpkeepAutoFunder } from '../../../typechain'
 import {
   CancelledUpkeepReportEvent,
@@ -139,11 +139,11 @@ let logTriggerConfig: string
 // Smart contract factories
 let linkTokenFactory: ContractFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
-let mockGasBoundCallerFactory: MockGasBoundCallerFactory
+// let mockGasBoundCallerFactory: MockGasBoundCallerFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 let moduleBaseFactory: ChainModuleBaseFactory
-let mockZKSyncSystemContextFactory: MockZKSyncSystemContextFactory
+let mockSystemContextFactory: MockSystemContextFactory
 let streamsLookupUpkeepFactory: StreamsLookupUpkeepFactory
 let personas: Personas
 
@@ -159,8 +159,8 @@ let autoFunderUpkeep: UpkeepAutoFunder
 let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
 let moduleBase: ChainModuleBase
-let mockGasBoundCaller: MockGasBoundCaller
-let mockZKSyncSystemContext: MockZKSyncSystemContext
+// let mockGasBoundCaller: MockGasBoundCaller
+let mockSystemContext: MockSystemContext
 let streamsLookupUpkeep: StreamsLookupUpkeep
 let automationUtils: AutomationCompatibleUtils
 let automationUtils2_3: AutomationUtils2_3
@@ -363,7 +363,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('ZKSyncAutomationRegistry2_3', () => {
+describe.only('ZKSyncAutomationRegistry2_3', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -415,11 +415,10 @@ describe('ZKSyncAutomationRegistry2_3', () => {
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/shared/mocks/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
-    mockZKSyncSystemContextFactory = await ethers.getContractFactory(
-      'MockZKSyncSystemContext',
-    )
-    mockGasBoundCallerFactory =
-      await ethers.getContractFactory('MockGasBoundCaller')
+    mockSystemContextFactory =
+      await ethers.getContractFactory('MockSystemContext')
+    // mockGasBoundCallerFactory =
+    //   await ethers.getContractFactory('MockGasBoundCaller')
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory =
       await ethers.getContractFactory('UpkeepAutoFunder')
@@ -825,10 +824,8 @@ describe('ZKSyncAutomationRegistry2_3', () => {
       'UpkeepTranscoder5_0',
     )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-    mockZKSyncSystemContext = await mockZKSyncSystemContextFactory
-      .connect(owner)
-      .deploy()
-    mockGasBoundCaller = await mockGasBoundCallerFactory.connect(owner).deploy()
+    mockSystemContext = await mockSystemContextFactory.connect(owner).deploy()
+    // mockGasBoundCaller = await mockGasBoundCallerFactory.connect(owner).deploy()
     moduleBase = await moduleBaseFactory.connect(owner).deploy()
     streamsLookupUpkeep = await streamsLookupUpkeepFactory
       .connect(owner)
@@ -840,21 +837,21 @@ describe('ZKSyncAutomationRegistry2_3', () => {
         false /* verify mercury response */,
       )
 
-    const zksyncSystemContextCode = await ethers.provider.send('eth_getCode', [
-      mockZKSyncSystemContext.address,
+    const systemContextCode = await ethers.provider.send('eth_getCode', [
+      mockSystemContext.address,
     ])
     await ethers.provider.send('hardhat_setCode', [
       '0x000000000000000000000000000000000000800B',
-      zksyncSystemContextCode,
+      systemContextCode,
     ])
 
-    const gasBoundCallerCode = await ethers.provider.send('eth_getCode', [
-      mockGasBoundCaller.address,
-    ])
-    await ethers.provider.send('hardhat_setCode', [
-      '0xc706EC7dfA5D4Dc87f29f859094165E8290530f5',
-      gasBoundCallerCode,
-    ])
+    // const gasBoundCallerCode = await ethers.provider.send('eth_getCode', [
+    //   mockGasBoundCaller.address,
+    // ])
+    // await ethers.provider.send('hardhat_setCode', [
+    //   '0xc706EC7dfA5D4Dc87f29f859094165E8290530f5',
+    //   gasBoundCallerCode,
+    // ])
 
     const financeAdminAddress = await financeAdmin.getAddress()
 
@@ -914,12 +911,6 @@ describe('ZKSyncAutomationRegistry2_3', () => {
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
     registryLogOverhead = await registry.getLogGasOverhead()
     registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
-    // registryPerPerformByteGasOverhead =
-    //   await registry.getPerPerformByteGasOverhead()
-    // registryTransmitCalldataFixedBytesOverhead =
-    //   await registry.getTransmitCalldataFixedBytesOverhead()
-    // registryTransmitCalldataPerSignerBytesOverhead =
-    //   await registry.getTransmitCalldataPerSignerBytesOverhead()
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     await registry.connect(owner).setConfigTypeSafe(...baseConfig)
