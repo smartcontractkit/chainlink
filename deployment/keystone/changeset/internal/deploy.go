@@ -35,8 +35,7 @@ type ConfigureContractsRequest struct {
 	Dons       []DonCapabilities // externally sourced based on the environment
 	OCR3Config *OracleConfig     // TODO: probably should be a map of don to config; but currently we only have one wf don therefore one config
 
-	// TODO rm this option; unused
-	DoContractDeploy bool // if false, the contracts are assumed to be deployed and the address book is used
+	ForwarderContracts map[uint64]*kf.KeystoneForwarder
 }
 
 func (r ConfigureContractsRequest) Validate() error {
@@ -55,6 +54,32 @@ func (r ConfigureContractsRequest) Validate() error {
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", r.RegistryChainSel)
 	}
+
+	contractSetResp, err := GetContractSets(r.Env.Logger, &GetContractSetsRequest{
+		Chains:      r.Env.Chains,
+		AddressBook: r.Env.ExistingAddresses,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get contract sets: %w", err)
+	}
+	registryChainContracts, ok := contractSetResp.ContractSets[r.RegistryChainSel]
+	if !ok {
+		return fmt.Errorf("no contract set for registry chain %d", r.RegistryChainSel)
+	}
+	if registryChainContracts.CapabilitiesRegistry == nil {
+		return fmt.Errorf("no registry contract found for chain %d", r.RegistryChainSel)
+	}
+	if registryChainContracts.OCR3 == nil {
+		return fmt.Errorf("no ocr3 contract found for chain %d", r.RegistryChainSel)
+	}
+
+	// the forwarder is on all chains
+	for chainSel, contracts := range contractSetResp.ContractSets {
+		if contracts.Forwarder == nil {
+			return fmt.Errorf("no forwarder contract found for chain %d", chainSel)
+		}
+	}
+
 	return nil
 }
 
@@ -65,12 +90,12 @@ type ConfigureContractsResponse struct {
 
 // ConfigureContracts configures contracts them with the given DONS and their capabilities. It optionally deploys the contracts
 // but best practice is to deploy them separately and pass the address book in the request
-func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
+func ConfigureContracts(ctx context.Context, req ConfigureContractsRequest) (*ConfigureContractsResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	cfgRegistryResp, err := ConfigureRegistry(ctx, lggr, req, req.Env.ExistingAddresses)
+	cfgRegistryResp, err := ConfigureRegistry(ctx, req.Env.Logger, req, req.Env.ExistingAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure registry: %w", err)
 	}
@@ -86,7 +111,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("failed to assimilate registry to Dons: %w", err)
 	}
 	// ignore response because we are not using mcms here and therefore no proposals are returned
-	_, err = ConfigureForwardContracts(req.Env, ConfigureForwarderContractsRequest{
+	_, err = ConfigureForwarderContracts(req.Env, ConfigureForwarderContractsRequest{
 		Dons: dons,
 	})
 	if err != nil {

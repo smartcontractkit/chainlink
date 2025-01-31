@@ -62,33 +62,27 @@ func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, 
 type ConfigureForwarderContractsRequest struct {
 	Dons []RegisteredDon
 
-	UseMCMS bool
+	ForwarderContracts map[uint64]*forwarder.KeystoneForwarder
+	UseMCMS            bool
 }
+
 type ConfigureForwarderContractsResponse struct {
 	OpsPerChain map[uint64]timelock.BatchChainOperation
 }
 
 // Depreciated: use [changeset.ConfigureForwarders] instead
-// ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
+// ConfigureForwarderContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
-func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
-	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
+func ConfigureForwarderContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
 
 	opPerChain := make(map[uint64]timelock.BatchChainOperation)
 	// configure forwarders on all chains
-	for _, chain := range env.Chains {
-		// get the forwarder contract for the chain
-		contracts, ok := contractSetsResp.ContractSets[chain.Selector]
+	for sel, contract := range req.ForwarderContracts {
+		chain, ok := env.Chains[sel]
 		if !ok {
-			return nil, fmt.Errorf("failed to get contract set for chain %d", chain.Selector)
+			return nil, fmt.Errorf("failed to get chain for selector %d", sel)
 		}
-		ops, err := configureForwarder(env.Logger, chain, contracts.Forwarder, req.Dons, req.UseMCMS)
+		ops, err := configureForwarder(env.Logger, chain, contract, req.Dons, req.UseMCMS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure forwarder for chain selector %d: %w", chain.Selector, err)
 		}
@@ -96,6 +90,7 @@ func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForward
 			opPerChain[k] = op
 		}
 	}
+
 	return &ConfigureForwarderContractsResponse{
 		OpsPerChain: opPerChain,
 	}, nil

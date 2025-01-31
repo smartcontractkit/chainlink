@@ -79,7 +79,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
 	}
-	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
+	r, err := internal.ConfigureForwarderContracts(&env, internal.ConfigureForwarderContractsRequest{
 		Dons:    []internal.RegisteredDon{*wfDon},
 		UseMCMS: req.UseMCMS(),
 	})
