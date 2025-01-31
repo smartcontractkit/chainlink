@@ -63,8 +63,8 @@ func (l *DeployedLocalDevEnvironment) GetCLClusterTestEnv() *test_env.CLClusterT
 	return l.testEnv
 }
 
-func (l *DeployedLocalDevEnvironment) GetDevEnvConfig() devenv.EnvironmentConfig {
-	return *l.devEnvCfg
+func (l *DeployedLocalDevEnvironment) GetDevEnvConfig() *devenv.EnvironmentConfig {
+	return l.devEnvCfg
 }
 
 func (l *DeployedLocalDevEnvironment) DeployedEnvironment() testhelpers.DeployedEnv {
