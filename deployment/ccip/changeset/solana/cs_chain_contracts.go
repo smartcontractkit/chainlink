@@ -96,9 +96,8 @@ func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainS
 		return fmt.Errorf("router not found in existing state, deploy the router first chain %d", chain.Selector)
 	}
 	// addressing errcheck in the next PR
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	var routerConfigAccount solRouter.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
 	if err != nil {
 		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
 	}
@@ -147,10 +146,9 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[chainSel].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
 			return fmt.Errorf("failed to validate ownership: %w", err)
 		}
-		routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 		var routerConfigAccount solRouter.Config
 		// already validated that router config exists
-		_ = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
+		_ = chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
 
 		for remote := range updates {
 			if _, ok := supportedChains[remote]; !ok {
@@ -216,7 +214,6 @@ func doAddRemoteChainToSolana(
 			IsEnabled: update.EnabledAsSource,
 		}
 		// addressing errcheck in the next PR
-		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterID)
 		destChainStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		sourceChainStatePDA, _ := solState.FindSourceChainStatePDA(remoteChainSel, ccipRouterID)
 
@@ -226,7 +223,7 @@ func doAddRemoteChainToSolana(
 			update.DestinationConfig,
 			sourceChainStatePDA,
 			destChainStatePDA,
-			routerConfigPDA,
+			s.SolChains[chainSel].RouterConfigPDA,
 			chain.DeployerKey.PublicKey(),
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -584,7 +581,6 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 
 	// verified
 	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenPubKey, chainState.Router)
 
 	// addressing errcheck in the next PR
@@ -593,7 +589,7 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 
 	ixConfig, cerr := solRouter.NewAddBillingTokenConfigInstruction(
 		cfg.Config,
-		routerConfigPDA,
+		chainState.RouterConfigPDA,
 		billingConfigPDA,
 		tokenprogramID,
 		tokenPubKey,
@@ -657,13 +653,12 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	// verified
 	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.Router)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
 	ix, err := solRouter.NewSetTokenBillingInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
 		cfg.Config,
-		routerConfigPDA,
+		chainState.RouterConfigPDA,
 		remoteBillingPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -734,7 +729,6 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 
 	// verified
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 
 	var instruction *solRouter.Instruction
@@ -746,7 +740,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		instruction, err = solRouter.NewRegisterTokenAdminRegistryViaGetCcipAdminInstruction(
 			tokenPubKey,
 			tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
-			routerConfigPDA,
+			chainState.RouterConfigPDA,
 			tokenAdminRegistryPDA,         // this gets created
 			chain.DeployerKey.PublicKey(), // (ccip admin)
 			solana.SystemProgramID,
@@ -757,7 +751,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	case ViaOwnerInstruction:
 		// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
 		instruction, err = solRouter.NewRegisterTokenAdminRegistryViaOwnerInstruction(
-			routerConfigPDA,
+			chainState.RouterConfigPDA,
 			tokenAdminRegistryPDA, // this gets created
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
@@ -837,7 +831,6 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 
 	// verified
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
 	currentRegistryAdminPrivateKey := solana.MustPrivateKeyFromBase58(cfg.CurrentRegistryAdminPrivateKey)
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
@@ -845,7 +838,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 	ix1, err := solRouter.NewTransferAdminRoleTokenAdminRegistryInstruction(
 		tokenPubKey,
 		newRegistryAdminPubKey,
-		routerConfigPDA,
+		chainState.RouterConfigPDA,
 		tokenAdminRegistryPDA,
 		currentRegistryAdminPrivateKey.PublicKey(), // as we are assuming this is the default authority for everything in the beginning
 	).ValidateAndBuild()
@@ -910,11 +903,10 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 
 	// verified
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
 	ix1, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 		tokenPubKey,
-		routerConfigPDA,
+		chainState.RouterConfigPDA,
 		tokenAdminRegistryPDA,
 		newRegistryAdminPrivateKey.PublicKey(),
 	).ValidateAndBuild()
