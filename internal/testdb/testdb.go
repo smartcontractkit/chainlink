@@ -1,13 +1,10 @@
 package testdb
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
 	"net/url"
-	"strings"
+	"testing"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 )
 
 const (
@@ -20,62 +17,12 @@ const (
 // CreateOrReplace creates a database named with a common prefix and the given suffix, and returns the URL.
 // If the database already exists, it will be dropped and re-created.
 // If withTemplate is true, the pristine DB will be used as a template.
-func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, error) {
-	if parsed.Path == "" {
-		return "", errors.New("path missing from database URL")
-	}
-
+func CreateOrReplace(t testing.TB, parsed url.URL, suffix string, withTemplate bool) url.URL {
 	// Match the naming schema that our dangling DB cleanup methods expect
 	dbname := TestDBNamePrefix + suffix
-	if l := len(dbname); l > 63 {
-		return "", fmt.Errorf("dbname %v too long (%d), max is 63 bytes. Try a shorter suffix", dbname, l)
-	}
-	// Cannot drop test database if we are connected to it, so we must connect
-	// to a different one. 'postgres' should be present on all postgres installations
-	parsed.Path = "/postgres"
-	db, err := sql.Open(pgcommon.DriverPostgres, parsed.String())
-	if err != nil {
-		return "", fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
-			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
-	if err != nil {
-		return "", fmt.Errorf("unable to drop postgres migrations test database: %v", err)
-	}
+	var template string
 	if withTemplate {
-		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH TEMPLATE %s", dbname, PristineDBName))
-	} else {
-		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+		template = PristineDBName
 	}
-	if err != nil {
-		return "", fmt.Errorf("unable to create postgres test database with name '%s': %v", dbname, err)
-	}
-	parsed.Path = fmt.Sprintf("/%s", dbname)
-	return parsed.String(), nil
-}
-
-// Drop drops the database at the given URL.
-func Drop(dbURL url.URL) error {
-	if dbURL.Path == "" {
-		return errors.New("path missing from database URL")
-	}
-	dbname := strings.TrimPrefix(dbURL.Path, "/")
-
-	// Cannot drop test database if we are connected to it, so we must connect
-	// to a different one. 'postgres' should be present on all postgres installations
-	dbURL.Path = "/postgres"
-	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
-	if err != nil {
-		return fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
-			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
-	if err != nil {
-		return fmt.Errorf("unable to drop postgres migrations test database: %v", err)
-	}
-	return nil
+	return sqltest.CreateOrReplace(t, parsed, dbname, template)
 }

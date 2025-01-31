@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -25,10 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/configtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
@@ -36,8 +34,7 @@ import (
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmcfg := configtest.NewChainScopedConfig(t, nil)
 	owner := testutils.MustNewSimTransactor(t)
 	ctx := testutils.Context(t)
 
@@ -106,8 +103,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	ctx := testutils.Context(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmcfg := configtest.NewChainScopedConfig(t, nil)
 	owner := testutils.MustNewSimTransactor(t)
 	b := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
@@ -156,8 +152,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	lggr := logger.Test(t)
 	db := testutils.NewSqlxDB(t)
 	ctx := testutils.Context(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	evmcfg := configtest.NewChainScopedConfig(t, nil)
 	owner := testutils.MustNewSimTransactor(t)
 	ec := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
@@ -229,7 +224,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	require.ErrorIs(t, err, forwarders.ErrForwarderForEOANotFound)
 	require.True(t, utils.IsZero(addr))
 
-	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
+	onchainConfig, err := median.StandardOnchainConfigCodec{}.Encode(ctx, median.OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(10)})
 	require.NoError(t, err)
 
 	_, err = ocr2.SetConfig(owner,

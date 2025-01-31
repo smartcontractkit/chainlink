@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -60,7 +62,8 @@ type configPoller struct {
 	donIDTopic  [32]byte
 	filterExprs []query.Expression
 
-	fromBlock uint64
+	fromBlock int64
+	mu        sync.RWMutex
 
 	instanceType InstanceType
 }
@@ -100,7 +103,7 @@ func newConfigPoller(lggr logger.Logger, lp LogPoller, cc ConfigCache, addr comm
 		donIDTopic:   DonIDToBytes32(donID),
 		filterExprs:  exprs,
 		instanceType: instanceType,
-		fromBlock:    fromBlock,
+		fromBlock:    int64(fromBlock),
 	}
 	cp.Service, cp.eng = services.Config{
 		Name: "LLOConfigPoller",
@@ -115,11 +118,32 @@ func (cp *configPoller) Notify() <-chan struct{} {
 
 // LatestConfigDetails returns the latest config details from the logs
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	latestConfig, log, err := cp.latestConfig(ctx, int64(cp.fromBlock), math.MaxInt64) // #nosec G115
+	latestConfig, log, err := cp.latestConfig(ctx, cp.readFromBlock(), math.MaxInt64)
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("failed to get latest config: %w", err)
 	}
-	return uint64(log.BlockNumber), latestConfig.ConfigDigest, nil
+	// Slight optimization, since we only care about the latest log, we can
+	// avoid re-scanning from the original fromBlock every time by setting
+	// fromBlock to the latest seen log here.
+	//
+	// This should always be safe even if LatestConfigDetails is called
+	// concurrently.
+	cp.setFromBlock(log.BlockNumber)
+	return uint64(log.BlockNumber), latestConfig.ConfigDigest, nil // #nosec G115 // log.BlockNumber will never be negative
+}
+
+func (cp *configPoller) readFromBlock() int64 {
+	cp.mu.RLock()
+	defer cp.mu.RUnlock()
+	return cp.fromBlock
+}
+
+func (cp *configPoller) setFromBlock(fromBlock int64) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	if fromBlock > cp.fromBlock {
+		cp.fromBlock = fromBlock
+	}
 }
 
 func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int64) (latestConfig FullConfigFromLog, latestLog logpoller.Log, err error) {
@@ -150,7 +174,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 			}
 
 			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
-				cp.eng.SugaredLogger.Errorf("failed to store production config: %v", err)
+				cp.eng.Errorf("failed to store production config: %v", err)
 			}
 
 			isProduction := (cp.instanceType != InstanceTypeBlue) == event.IsGreenProduction
@@ -168,7 +192,7 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 			}
 
 			if err = cp.cc.StoreConfig(ctx, event.ConfigDigest, event.Signers, event.F); err != nil {
-				cp.eng.SugaredLogger.Errorf("failed to store staging config: %v", err)
+				cp.eng.Errorf("failed to store staging config: %v", err)
 			}
 
 			isProduction := (cp.instanceType != InstanceTypeBlue) == event.IsGreenProduction
@@ -190,10 +214,11 @@ func (cp *configPoller) latestConfig(ctx context.Context, fromBlock, toBlock int
 
 // LatestConfig returns the latest config from the logs starting from a certain block
 func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	cfg, _, err := cp.latestConfig(ctx, int64(changedInBlock), math.MaxInt64) // #nosec G115
+	cfg, latestLog, err := cp.latestConfig(ctx, int64(changedInBlock), math.MaxInt64) // #nosec G115
 	if err != nil {
 		return ocrtypes.ContractConfig{}, fmt.Errorf("failed to get latest config: %w", err)
 	}
+	cp.eng.Infow("LatestConfig fetched", "config", cfg.ContractConfig, "txHash", latestLog.TxHash, "blockNumber", latestLog.BlockNumber, "blockHash", latestLog.BlockHash, "logIndex", latestLog.LogIndex, "instanceType", cp.instanceType, "donID", cp.donID, "changedInBlock", changedInBlock)
 	return cfg.ContractConfig, nil
 }
 
@@ -206,7 +231,7 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		}
 		return 0, err
 	}
-	return uint64(latest.BlockNumber), nil
+	return uint64(latest.BlockNumber), nil // #nosec G115 // latest.BlockNumber will never be negative
 }
 
 func (cp *configPoller) InstanceType() InstanceType {
@@ -220,14 +245,13 @@ type FullConfigFromLog struct {
 }
 
 func FullConfigFromProductionConfigSet(unpacked configurator.ConfiguratorProductionConfigSet) (FullConfigFromLog, error) {
-	var transmitAccounts []ocrtypes.Account
-	for _, addr := range unpacked.OffchainTransmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr)))
+	transmitAccounts := make([]ocrtypes.Account, len(unpacked.OffchainTransmitters))
+	for i, addr := range unpacked.OffchainTransmitters {
+		transmitAccounts[i] = ocrtypes.Account(hex.EncodeToString(addr[:]))
 	}
-	var signers []ocrtypes.OnchainPublicKey
-	for _, addr := range unpacked.Signers {
-		addr := addr
-		signers = append(signers, addr)
+	signers := make([]ocrtypes.OnchainPublicKey, len(unpacked.Signers))
+	for i, addr := range unpacked.Signers {
+		signers[i] = addr
 	}
 
 	donIDBig := common.Hash(unpacked.ConfigId).Big()
@@ -252,14 +276,13 @@ func FullConfigFromProductionConfigSet(unpacked configurator.ConfiguratorProduct
 }
 
 func FullConfigFromStagingConfigSet(unpacked configurator.ConfiguratorStagingConfigSet) (FullConfigFromLog, error) {
-	var transmitAccounts []ocrtypes.Account
-	for _, addr := range unpacked.OffchainTransmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr)))
+	transmitAccounts := make([]ocrtypes.Account, len(unpacked.OffchainTransmitters))
+	for i, addr := range unpacked.OffchainTransmitters {
+		transmitAccounts[i] = ocrtypes.Account(hex.EncodeToString(addr[:]))
 	}
-	var signers []ocrtypes.OnchainPublicKey
-	for _, addr := range unpacked.Signers {
-		addr := addr
-		signers = append(signers, addr)
+	signers := make([]ocrtypes.OnchainPublicKey, len(unpacked.Signers))
+	for i, addr := range unpacked.Signers {
+		signers[i] = addr
 	}
 
 	donIDBig := common.Hash(unpacked.ConfigId).Big()

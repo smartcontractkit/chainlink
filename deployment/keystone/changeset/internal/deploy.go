@@ -323,12 +323,11 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		}
 
 		_, err = configureOCR3contract(configureOCR3Request{
-			cfg:         cfg,
-			chain:       registryChain,
-			contract:    contract,
-			nodes:       don.Nodes,
-			contractSet: &contracts,
-			ocrSecrets:  env.OCRSecrets,
+			cfg:        cfg,
+			chain:      registryChain,
+			contract:   contract,
+			nodes:      don.Nodes,
+			ocrSecrets: env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -386,14 +385,13 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, err
 	}
 	r, err := configureOCR3contract(configureOCR3Request{
-		cfg:         cfg.OCR3Config,
-		chain:       registryChain,
-		contract:    contract,
-		nodes:       nodes,
-		dryRun:      cfg.DryRun,
-		contractSet: &contracts,
-		useMCMS:     cfg.UseMCMS,
-		ocrSecrets:  env.OCRSecrets,
+		cfg:        cfg.OCR3Config,
+		chain:      registryChain,
+		contract:   contract,
+		nodes:      nodes,
+		dryRun:     cfg.DryRun,
+		useMCMS:    cfg.UseMCMS,
+		ocrSecrets: env.OCRSecrets,
 	})
 	if err != nil {
 		return nil, err
@@ -514,8 +512,8 @@ type RegisterNOPSRequest struct {
 }
 
 type RegisterNOPSResponse struct {
-	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
-	Ops  *timelock.BatchChainOperation
+	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded // if UseMCMS is false, a list of added node operators is returned
+	Ops  *timelock.BatchChainOperation                                  // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -668,16 +666,21 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	}
 
 	nodeIDToParams := make(map[string]capabilities_registry.CapabilitiesRegistryNodeParams)
+	nodeIDToDon := make(map[string]string)
 	for don, nodes := range req.DonToNodes {
 		caps, ok := req.DonToCapabilities[don]
 		if !ok {
 			return nil, fmt.Errorf("capabilities not found for don %s", don)
 		}
-		var hashedCapabilityIds [][32]byte
+		var (
+			hashedCapabilityIDs [][32]byte
+			capIDs              []string
+		)
 		for _, cap := range caps {
-			hashedCapabilityIds = append(hashedCapabilityIds, cap.ID)
+			hashedCapabilityIDs = append(hashedCapabilityIDs, cap.ID)
+			capIDs = append(capIDs, hex.EncodeToString(cap.ID[:]))
 		}
-		lggr.Debugw("hashed capability ids", "don", don, "ids", hashedCapabilityIds)
+		lggr.Debugw("hashed capability ids", "don", don, "ids", capIDs)
 
 		for _, n := range nodes {
 			if n.IsBootstrap { // bootstraps are part of the DON but don't host capabilities
@@ -703,37 +706,50 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 					Signer:              signer,
 					P2pId:               n.PeerID,
 					EncryptionPublicKey: csakey,
-					HashedCapabilityIds: hashedCapabilityIds,
+					HashedCapabilityIds: hashedCapabilityIDs,
 				}
 			} else {
 				// when we have a node operator, we need to dedup capabilities against the existing ones
-				var newCapIds [][32]byte
-				for _, proposedCapId := range hashedCapabilityIds {
+				var newCapIDs [][32]byte
+				for _, proposedCapID := range hashedCapabilityIDs {
 					shouldAdd := true
-					for _, existingCapId := range params.HashedCapabilityIds {
-						if existingCapId == proposedCapId {
+					for _, existingCapID := range params.HashedCapabilityIds {
+						if existingCapID == proposedCapID {
 							shouldAdd = false
 							break
 						}
 					}
 					if shouldAdd {
-						newCapIds = append(newCapIds, proposedCapId)
+						newCapIDs = append(newCapIDs, proposedCapID)
 					}
 				}
-				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIds...)
+				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIDs...)
 			}
 			nodeIDToParams[n.NodeID] = params
+			nodeIDToDon[n.NodeID] = don
 		}
 	}
 
-	var uniqueNodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
-	for _, v := range nodeIDToParams {
-		uniqueNodeParams = append(uniqueNodeParams, v)
+	lggr.Debugw("checking for existing nodes", "count", len(nodeIDToParams))
+
+	nodes2Add, err := getNodesToRegister(registry, nodeIDToParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nodes to register: %w", err)
 	}
-	lggr.Debugw("unique node params to add", "count", len(uniqueNodeParams), "params", uniqueNodeParams)
+
+	lggr.Debugf("found %d missing nodes", len(nodes2Add))
+
+	if len(nodes2Add) == 0 {
+		lggr.Debug("no new nodes to register")
+		return &RegisterNodesResponse{
+			nodeIDToParams: nodeIDToParams,
+		}, nil
+	}
+
+	lggr.Debugw("unique node params to add after deduplication", "count", len(nodes2Add), "params", nodes2Add)
 
 	if req.UseMCMS {
-		ops, err := addNodesMCMSProposal(registry, uniqueNodeParams, registryChain)
+		ops, err := addNodesMCMSProposal(registry, nodes2Add, registryChain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate proposal to add nodes: %w", err)
 		}
@@ -744,7 +760,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		}, nil
 	}
 
-	tx, err := registry.AddNodes(registryChain.DeployerKey, uniqueNodeParams)
+	tx, err := registry.AddNodes(registryChain.DeployerKey, nodes2Add)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
@@ -753,7 +769,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
 		}
 		lggr.Warn("nodes already exist, falling back to 1-by-1")
-		for _, singleNodeParams := range uniqueNodeParams {
+		for _, singleNodeParams := range nodes2Add {
 			tx, err = registry.AddNodes(registryChain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
 			if err != nil {
 				err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -781,6 +797,34 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 	return &RegisterNodesResponse{
 		nodeIDToParams: nodeIDToParams,
 	}, nil
+}
+
+// getNodesToRegister returns the nodes that are not already registered in the registry
+func getNodesToRegister(
+	registry *capabilities_registry.CapabilitiesRegistry,
+	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams,
+) ([]capabilities_registry.CapabilitiesRegistryNodeParams, error) {
+	nodes2Add := make([]capabilities_registry.CapabilitiesRegistryNodeParams, 0)
+	for nodeID, nodeParams := range nodeIDToParams {
+		var (
+			ni  capabilities_registry.INodeInfoProviderNodeInfo
+			err error
+		)
+		if ni, err = registry.GetNode(&bind.CallOpts{}, nodeParams.P2pId); err != nil {
+			if err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err); strings.Contains(err.Error(), "NodeDoesNotExist") {
+				nodes2Add = append(nodes2Add, nodeParams)
+				continue
+			}
+			return nil, fmt.Errorf("failed to call GetNode for node %s: %w", nodeID, err)
+		}
+
+		// if no error, but node info is empty, then the node does not exist and should be added.
+		if hex.EncodeToString(ni.P2pId[:]) != hex.EncodeToString(nodeParams.P2pId[:]) && hex.EncodeToString(ni.P2pId[:]) == "0000000000000000000000000000000000000000000000000000000000000000" {
+			nodes2Add = append(nodes2Add, nodeParams)
+			continue
+		}
+	}
+	return nodes2Add, nil
 }
 
 // addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
@@ -857,7 +901,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
-	mcmsOps := make([]mcms.Operation, 0, len(req.DonsToRegister))
+	mcmsOps := make([]mcms.Operation, 0)
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -908,6 +952,8 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			txOpts = deployment.SimTransactOpts()
 		}
 
+		lggr.Debugw("calling add don", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F,
+			"p2pids", p2pIds, "node count", len(p2pIds))
 		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -934,12 +980,15 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 
 	if req.UseMCMS {
-		return &RegisterDonsResponse{
-			Ops: &timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
-				Batch:           mcmsOps,
-			},
-		}, nil
+		if len(mcmsOps) > 0 {
+			return &RegisterDonsResponse{
+				Ops: &timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
+					Batch:           mcmsOps,
+				},
+			}, nil
+		}
+		return &RegisterDonsResponse{}, nil
 	}
 
 	lggr.Debugf("Registered all DONs (new=%d), waiting for registry to update", addedDons)
@@ -996,12 +1045,11 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet ContractSet, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
-	if contractSet.Forwarder == nil {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
+	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
-		fwdr  = contractSet.Forwarder
 		opMap = make(map[uint64]timelock.BatchChainOperation)
 	)
 	for _, dn := range dons {

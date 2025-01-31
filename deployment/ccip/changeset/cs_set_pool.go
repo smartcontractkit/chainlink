@@ -34,7 +34,8 @@ func SetPoolChangeset(env deployment.Environment, c TokenAdminRegistryChangesetC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS)
+
+	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("set pool for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]
@@ -55,5 +56,5 @@ func SetPoolChangeset(env deployment.Environment, c TokenAdminRegistryChangesetC
 		}
 	}
 
-	return deployerGroup.Enact("set pool for tokens on token admin registries")
+	return deployerGroup.Enact()
 }

@@ -1104,6 +1104,19 @@ func (rDapp *ReceiverDapp) ToggleRevert(revert bool) error {
 	return rDapp.client.ProcessTransaction(tx)
 }
 
+// WatchMessageReceived watches for `MessageReceived` events from the ReceiverDapp contract.
+func (rDapp *ReceiverDapp) WatchMessageReceived(opts *bind.WatchOpts, messageReceivedEvent chan *maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived) (event.Subscription, error) {
+	if rDapp.instance != nil {
+		return rDapp.instance.WatchMessageReceived(opts, messageReceivedEvent)
+	}
+
+	newInstance, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(rDapp.EthAddress, wrappers.MustNewWrappedContractBackend(rDapp.client, nil))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new ReceiverDapp contract instance: %w", err)
+	}
+	return newInstance.WatchMessageReceived(opts, messageReceivedEvent)
+}
+
 type InternalTimestampedPackedUint224 struct {
 	Value     *big.Int
 	Timestamp uint32

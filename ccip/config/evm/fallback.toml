@@ -67,7 +67,7 @@ CacheTimeout = '10s'
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
-SamplingInterval = '1s'
+SamplingInterval = '5s'
 FinalityTagBypass = true
 MaxAllowedFinalityDepth = 10000
 PersistenceEnabled = true
