@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-// trigger
 func TestUpdateNodes(t *testing.T) {
 	t.Parallel()
 
