@@ -258,6 +258,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		var buf bytes.Buffer
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err = executeReport.Message.ExtraArgs.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
 		require.Equal(t, originMsg.ExtraArgs, cciptypes.Bytes(buf.Bytes()))
 
 		originTokenAmount := originMsg.TokenAmounts[0]
