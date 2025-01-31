@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"testing"
 	"time"
@@ -86,6 +87,7 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 
 // ToNodeParams transforms a map of node operators to nops and a map of node p2pID to capabilities
 // must match the number of nodes.
+// The order of returned nodeParams is deterministic and sorted by node operator name.
 func ToNodeParams(t *testing.T,
 	nop2Nodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc,
 	p2pToCapabilities map[p2pkey.PeerID][][32]byte,
@@ -94,7 +96,18 @@ func ToNodeParams(t *testing.T,
 
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	var i uint32
-	for _, p2pSignerEncs := range nop2Nodes {
+	// deterministic order
+	// get the keys of the map and sort them
+	var keys []capabilities_registry.CapabilitiesRegistryNodeOperator
+	for k := range maps.Keys(nop2Nodes) {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].Name < keys[j].Name
+	})
+	for _, k := range keys {
+		p2pSignerEncs, ok := nop2Nodes[k]
+		require.True(t, ok, "missing node operator %s", k.Name)
 		for _, p2pSignerEnc := range p2pSignerEncs {
 			_, exists := p2pToCapabilities[p2pSignerEnc.P2PKey]
 			require.True(t, exists, "missing capabilities for p2pID %s", p2pSignerEnc.P2PKey)
@@ -104,7 +117,7 @@ func ToNodeParams(t *testing.T,
 				P2pId:               p2pSignerEnc.P2PKey,
 				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
 				HashedCapabilityIds: p2pToCapabilities[p2pSignerEnc.P2PKey],
-				NodeOperatorId:      i + 1,
+				NodeOperatorId:      i + 1, // one-indexed
 			})
 		}
 		i++
