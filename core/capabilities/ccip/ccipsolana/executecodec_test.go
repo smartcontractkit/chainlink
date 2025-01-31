@@ -235,4 +235,35 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		require.Equal(t, tokenAmount, msg.TokenAmounts[0].Amount.Int)
 		require.Equal(t, destGasAmount, bytesToUint32LE(msg.TokenAmounts[0].DestExecData))
 	})
+
+	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
+		ocrReport := randomExecuteReport(t, 124615329519749607)
+		cd := NewExecutePluginCodecV1()
+		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
+		require.NoError(t, err)
+
+		decoder := agbinary.NewBorshDecoder(encodedReport)
+		executeReport := ccip_router.ExecutionReportSingleChain{}
+		err = executeReport.UnmarshalWithDecoder(decoder)
+		require.NoError(t, err)
+
+		originReport := ocrReport.ChainReports[0]
+		require.Equal(t, originReport.SourceChainSelector, cciptypes.ChainSelector(executeReport.SourceChainSelector))
+
+		originMsg := originReport.Messages[0]
+		require.Equal(t, originMsg.Header.MessageID, cciptypes.Bytes32(executeReport.Message.Header.MessageId))
+		require.Equal(t, originMsg.Header.DestChainSelector, cciptypes.ChainSelector(executeReport.Message.Header.DestChainSelector))
+		require.Equal(t, originMsg.Header.SourceChainSelector, cciptypes.ChainSelector(executeReport.Message.Header.SourceChainSelector))
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err = executeReport.Message.ExtraArgs.MarshalWithEncoder(encoder)
+		require.Equal(t, originMsg.ExtraArgs, cciptypes.Bytes(buf.Bytes()))
+
+		originTokenAmount := originMsg.TokenAmounts[0]
+		require.Equal(t, originTokenAmount.Amount, decodeLEToBigInt(executeReport.Message.TokenAmounts[0].Amount.LeBytes[:]))
+		require.Equal(t, originTokenAmount.DestTokenAddress, cciptypes.UnknownAddress(executeReport.Message.TokenAmounts[0].DestTokenAddress.Bytes()))
+		require.Equal(t, bytesToUint32LE(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
+		require.Equal(t, originMsg.Sender, cciptypes.UnknownAddress(executeReport.Message.Sender))
+	})
 }

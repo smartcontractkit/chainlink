@@ -225,4 +225,27 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.Equal(t, decodeLEToBigInt(gasPrice), gu.GasPrice)
 		require.Equal(t, chainSel, gu.ChainSel)
 	})
+
+	t.Run("decode Borsh encoded commit report", func(t *testing.T) {
+		rep := randomCommitReport()
+		commitCodec := NewCommitPluginCodecV1()
+		decode, err := commitCodec.Encode(testutils.Context(t), rep)
+		require.NoError(t, err)
+
+		decoder := agbinary.NewBorshDecoder(decode)
+		decodedReport := ccip_router.CommitInput{}
+		err = decodedReport.UnmarshalWithDecoder(decoder)
+		require.NoError(t, err)
+
+		reportMerkleRoot := rep.MerkleRoots[0]
+		require.Equal(t, reportMerkleRoot.MerkleRoot, cciptypes.Bytes32(decodedReport.MerkleRoot.MerkleRoot))
+
+		tu := rep.PriceUpdates.TokenPriceUpdates[0]
+		require.Equal(t, tu.TokenID, cciptypes.UnknownEncodedAddress(decodedReport.PriceUpdates.TokenPriceUpdates[0].SourceToken.String()))
+		require.Equal(t, tu.Price, decodeLEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
+
+		gu := rep.PriceUpdates.GasPriceUpdates[0]
+		require.Equal(t, gu.ChainSel, cciptypes.ChainSelector(decodedReport.PriceUpdates.GasPriceUpdates[0].DestChainSelector))
+		require.Equal(t, gu.GasPrice, decodeLEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
+	})
 }
