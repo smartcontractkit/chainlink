@@ -1330,6 +1330,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		transmissionSchedule[i] = i + 1
 	}
 
+	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := keystone_changeset.OracleConfig{
 		DeltaProgressMillis:               5000,
 		DeltaResendMillis:                 5000,
@@ -1345,6 +1346,11 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		MaxDurationAcceptMillis:           1000,
 		MaxDurationTransmitMillis:         1000,
 		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxRequestBatchSize:               1000,
+		UniqueReports:                     true,
 	}
 
 	cfg := keystone_changeset.InitialContractsCfg{
