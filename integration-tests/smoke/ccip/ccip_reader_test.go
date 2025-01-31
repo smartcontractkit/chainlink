@@ -20,8 +20,10 @@ import (
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
@@ -45,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
 	evmchaintypes "github.com/smartcontractkit/chainlink/v2/evm/types"
@@ -115,10 +116,10 @@ func setupExecutedMessageRangesTest(ctx context.Context, t testing.TB, useHeavyD
 	})
 }
 
-func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool, sourceChain cciptypes.ChainSelector) *testSetupData {
+func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool, sourceChainSel cciptypes.ChainSelector) *testSetupData {
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:        sourceChain,
+		ReaderChain:        sourceChainSel,
 		DestChain:          chainD,
 		OnChainSeqNums:     nil,
 		Cfg:                evmconfig.SourceReaderConfig,
