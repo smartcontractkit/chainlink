@@ -356,36 +356,40 @@ func TestTypeAndVersionFromString(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		input       string
-		wantErr     bool
-		wantType    ContractType
-		wantVersion semver.Version
-		wantMeta    []string
+		name               string
+		input              string
+		wantErr            bool
+		wantType           ContractType
+		wantVersion        semver.Version
+		wantLabels         LabelSet
+		wantTypeAndVersion string
 	}{
 		{
-			name:        "valid - no labels",
-			input:       "CallProxy 1.0.0",
-			wantErr:     false,
-			wantType:    "CallProxy",
-			wantVersion: Version1_0_0,
-			wantMeta:    nil, // no labels
+			name:               "valid - no labels",
+			input:              "CallProxy 1.0.0",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet(),
+			wantTypeAndVersion: "CallProxy 1.0.0",
 		},
 		{
-			name:        "valid - multiple labels, normal spacing",
-			input:       "CallProxy 1.0.0 SA staging",
-			wantErr:     false,
-			wantType:    "CallProxy",
-			wantVersion: Version1_0_0,
-			wantMeta:    []string{"SA", "staging"},
+			name:               "valid - multiple labels, normal spacing",
+			input:              "CallProxy 1.0.0 SA staging",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet("SA", "staging"),
+			wantTypeAndVersion: "CallProxy 1.0.0 SA staging",
 		},
 		{
-			name:        "valid - multiple labels, extra spacing",
-			input:       "   CallProxy     1.0.0    SA    staging   ",
-			wantErr:     false,
-			wantType:    "CallProxy",
-			wantVersion: Version1_0_0,
-			wantMeta:    []string{"SA", "staging"},
+			name:               "valid - multiple labels, extra spacing",
+			input:              "   CallProxy     1.0.0    SA    staging   ",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet("SA", "staging"),
+			wantTypeAndVersion: "CallProxy 1.0.0 SA staging",
 		},
 		{
 			name:    "invalid - not enough parts",
@@ -418,11 +422,10 @@ func TestTypeAndVersionFromString(t *testing.T) {
 			require.Equal(t, tt.wantVersion.String(), gotTV.Version.String(), "incorrect version")
 
 			// Check labels
-			gotMeta := gotTV.Labels.AsSlice()
-			require.Equal(t, len(tt.wantMeta), len(gotMeta), "labels length mismatch")
-			for _, wantMd := range tt.wantMeta {
-				require.Contains(t, gotMeta, wantMd, "missing labels item")
-			}
+			require.Equal(t, tt.wantLabels, gotTV.Labels, "labels mismatch")
+
+			// Check type and version
+			require.Equal(t, tt.wantTypeAndVersion, gotTV.String(), "type and version mismatch")
 		})
 	}
 }

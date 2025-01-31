@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
@@ -33,21 +32,22 @@ var (
 )
 
 type TypeAndVersion struct {
-	Type    ContractType
-	Version semver.Version
-	Labels  LabelSet
+	Type    ContractType   `json:"type"`
+	Version semver.Version `json:"version"`
+	Labels  LabelSet       `json:"labels,omitempty"`
 }
 
 func (tv TypeAndVersion) String() string {
 	if len(tv.Labels) == 0 {
 		return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
 	}
-	mdSlice := tv.Labels.AsSlice()
-	sort.Strings(mdSlice) // stable order
+
+	// Use the LabelSet's String method for sorted labels
+	sortedLabels := tv.Labels.String()
 	return fmt.Sprintf("%s %s %s",
 		tv.Type,
 		tv.Version.String(),
-		strings.Join(mdSlice, " "),
+		sortedLabels,
 	)
 }
 
@@ -307,15 +307,11 @@ type typeVersionKey struct {
 }
 
 func tvKey(tv TypeAndVersion) typeVersionKey {
-	sortedLabels := make([]string, 0, len(tv.Labels))
-	for lbl := range tv.Labels {
-		sortedLabels = append(sortedLabels, lbl)
-	}
-	sort.Strings(sortedLabels)
+	sortedLabels := tv.Labels.String()
 	return typeVersionKey{
 		Type:    tv.Type,
 		Version: tv.Version.String(),
-		Labels:  strings.Join(sortedLabels, ","),
+		Labels:  sortedLabels,
 	}
 }
 
@@ -332,8 +328,8 @@ func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAnd
 				// They match exactly (Type, Version, Labels)
 				counts[wantKey]++
 				if counts[wantKey] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%v)",
-						wantTV.Type, wantTV.Version.String(), wantTV.Labels)
+					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%s)",
+						wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
 				}
 			}
 		}

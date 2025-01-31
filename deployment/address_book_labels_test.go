@@ -55,20 +55,57 @@ func TestLabelSet_Contains(t *testing.T) {
 	assert.False(t, ms.Contains("baz"))
 }
 
-func TestLabelSet_AsSlice(t *testing.T) {
-	ms := NewLabelSet("foo", "bar")
-	slice := ms.AsSlice()
-
-	// We can't rely on order in a map-based set, so we only check membership and length
-	assert.Len(t, slice, 2, "expected 2 distinct labels in slice")
-
-	// Convert slice to a map for quick membership checks
-	found := make(map[string]bool)
-	for _, item := range slice {
-		found[item] = true
+// TestLabelSet_String tests the String() method of the LabelSet type.
+func TestLabelSet_String(t *testing.T) {
+	tests := []struct {
+		name     string
+		labels   LabelSet
+		expected string
+	}{
+		{
+			name:     "Empty LabelSet",
+			labels:   NewLabelSet(),
+			expected: "",
+		},
+		{
+			name:     "Single label",
+			labels:   NewLabelSet("alpha"),
+			expected: "alpha",
+		},
+		{
+			name:     "Multiple labels in random order",
+			labels:   NewLabelSet("beta", "gamma", "alpha"),
+			expected: "alpha beta gamma",
+		},
+		{
+			name:     "Labels with special characters",
+			labels:   NewLabelSet("beta", "gamma!", "@alpha"),
+			expected: "@alpha beta gamma!",
+		},
+		{
+			name:     "Labels with spaces",
+			labels:   NewLabelSet("beta", "gamma delta", "alpha"),
+			expected: "alpha beta gamma delta",
+		},
+		{
+			name:     "Labels added in different orders",
+			labels:   NewLabelSet("delta", "beta", "alpha"),
+			expected: "alpha beta delta",
+		},
+		{
+			name:     "Labels with duplicate additions",
+			labels:   NewLabelSet("alpha", "beta", "alpha", "gamma", "beta"),
+			expected: "alpha beta gamma",
+		},
 	}
-	assert.True(t, found["foo"], "expected 'foo' in slice")
-	assert.True(t, found["bar"], "expected 'bar' in slice")
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.labels.String()
+			assert.Equal(t, tt.expected, result, "LabelSet.String() should return the expected sorted string")
+		})
+	}
 }
 
 func TestLabelSet_Equal(t *testing.T) {

@@ -1,5 +1,10 @@
 package deployment
 
+import (
+	"sort"
+	"strings"
+)
+
 // LabelSet represents a set of labels on an address book entry.
 type LabelSet map[string]struct{}
 
@@ -28,13 +33,24 @@ func (ls LabelSet) Contains(labels string) bool {
 	return ok
 }
 
-// AsSlice returns the labels in a slice. Useful for printing or serialization.
-func (ls LabelSet) AsSlice() []string {
-	out := make([]string, 0, len(ls))
-	for labels := range ls {
-		out = append(out, labels)
+// String returns the labels as a sorted, space-separated string.
+// It implements the fmt.Stringer interface.
+func (ls LabelSet) String() string {
+	if len(ls) == 0 {
+		return ""
 	}
-	return out
+
+	// Collect labels into a slice
+	labels := make([]string, 0, len(ls))
+	for label := range ls {
+		labels = append(labels, label)
+	}
+
+	// Sort the labels to ensure consistent ordering
+	sort.Strings(labels)
+
+	// Concatenate the sorted labels into a single string
+	return strings.Join(labels, " ")
 }
 
 // Equal checks if two LabelSets are equal.
