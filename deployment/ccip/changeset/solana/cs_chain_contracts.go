@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -132,7 +133,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-
+	
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.SolChains[chainSel]
@@ -175,17 +176,22 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 		return deployment.ChangesetOutput{}, err
 	}
 
+	ab := deployment.NewMemoryAddressBook()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		_, err := doAddRemoteChainToSolana(e, s, chainSel, updates)
+		err := doAddRemoteChainToSolana(e, s, chainSel, updates, ab)
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{AddressBook: ab}, err
 		}
 	}
-
-	return deployment.ChangesetOutput{}, nil
+	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
-func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, chainSel uint64, updates map[uint64]RemoteChainConfigSolana) (deployment.ChangesetOutput, error) {
+func doAddRemoteChainToSolana(
+	e deployment.Environment,
+	s cs.CCIPOnChainState,
+	chainSel uint64,
+	updates map[uint64]RemoteChainConfigSolana,
+	ab deployment.AddressBook) error {
 	chain := e.SolChains[chainSel]
 	ccipRouterID := s.SolChains[chainSel].Router
 
@@ -195,11 +201,11 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 		remoteChainFamily, _ := chainsel.GetSelectorFamily(remoteChainSel)
 		switch remoteChainFamily {
 		case chainsel.FamilySolana:
-			return deployment.ChangesetOutput{}, fmt.Errorf("support for solana chain as remote chain is not implemented yet %d", remoteChainSel)
+			return fmt.Errorf("support for solana chain as remote chain is not implemented yet %d", remoteChainSel)
 		case chainsel.FamilyEVM:
 			onRampAddress := s.Chains[remoteChainSel].OnRamp.Address().String()
 			if onRampAddress == "" {
-				return deployment.ChangesetOutput{}, fmt.Errorf("onramp address not found for chain %d", remoteChainSel)
+				return fmt.Errorf("onramp address not found for chain %d", remoteChainSel)
 			}
 			addressBytes := []byte(onRampAddress)
 			copy(onRampBytes[:], addressBytes)
@@ -226,18 +232,22 @@ func doAddRemoteChainToSolana(e deployment.Environment, s cs.CCIPOnChainState, c
 		).ValidateAndBuild()
 
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			return fmt.Errorf("failed to generate instructions: %w", err)
 		}
 
 		err = chain.Confirm([]solana.Instruction{instruction})
-
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			return fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 		e.Logger.Infow("Confirmed instruction", "instruction", instruction)
+
+		err = ab.Save(chainSel, cs.SerializeSolanaStateForAB(cs.RemoteChain, strconv.FormatUint(remoteChainSel, 10)), deployment.NewTypeAndVersion(cs.RemoteChain, deployment.Version1_0_0))
+		if err != nil {
+			return fmt.Errorf("failed to save source chain state to address book: %w", err)
+		}
 	}
 
-	return deployment.ChangesetOutput{}, nil
+	return nil
 }
 
 // SET OCR3 CONFIG
@@ -282,10 +292,8 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 		// TODO: check if ocr3 has already been set
 		// set, err := isOCR3ConfigSetSolana(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
 		var instructions []solana.Instruction
-		ccipRouterID := solChains[remote].Router
-		// addressing errcheck in the next PR
-		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterID)
-		routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterID)
+		routerConfigPDA := solChains[remote].RouterConfigPDA
+		routerStatePDA := solChains[remote].RouterStatePDA
 		for _, arg := range args {
 			instruction, err := solRouter.NewSetOcrConfigInstruction(
 				arg.OCRPluginType,
