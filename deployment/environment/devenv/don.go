@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -192,114 +191,107 @@ type JDChainConfigInput struct {
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
-	g := new(errgroup.Group)
 	for _, chain := range chains {
-		g.Go(func() error {
-			chainID := strconv.FormatUint(chain.ChainID, 10)
-			var account string
-			switch chain.ChainType {
-			case "EVM":
-				accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainID)
-				if err != nil {
-					return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
-				}
-				if accountAddr == nil {
-					return fmt.Errorf("no account address found for node %s", n.Name)
-				}
-				if n.AccountAddr == nil {
-					n.AccountAddr = make(map[uint64]string)
-				}
-				n.AccountAddr[chain.ChainID] = *accountAddr
-				account = *accountAddr
-			case "APTOS", "SOLANA":
-				accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
-				if err != nil {
-					return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
-				}
-				if len(accounts) == 0 {
-					return fmt.Errorf("no account address found for node %s", n.Name)
-				}
-
-				account = accounts[0]
-			default:
-				return fmt.Errorf("unsupported chainType %v", chain.ChainType)
-			}
-
-			peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
+		chainId := strconv.FormatUint(chain.ChainID, 10)
+		var account string
+		switch chain.ChainType {
+		case "EVM":
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 			if err != nil {
-				return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
-			if peerID == nil {
-				return fmt.Errorf("no peer id found for node %s", n.Name)
+			if accountAddr == nil {
+				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
-
-			ocr2BundleID, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+			if n.AccountAddr == nil {
+				n.AccountAddr = make(map[uint64]string)
+			}
+			n.AccountAddr[chain.ChainID] = *accountAddr
+			account = *accountAddr
+		case "APTOS", "SOLANA":
+			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
-				return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
-			if ocr2BundleID == "" {
-				return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
-			}
-			// fetch node labels to know if the node is bootstrap or plugin
-			isBootstrap := false
-			for _, label := range n.labels {
-				if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
-					isBootstrap = true
-					break
-				}
+			if len(accounts) == 0 {
+				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
 
-			// retry twice with 5 seconds interval to create JobDistributorChainConfig
-			err = retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
-				// check the node chain config to see if this chain already exists
-				nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-					Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-						NodeIds: []string{n.NodeId},
-					}})
-				if err != nil {
-					return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s, retrying..: %w", n.Name, err))
-				}
-				if nodeChainConfigs != nil {
-					for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-						if chainConfig.Chain.Id == chainID {
-							return nil
-						}
-					}
-				}
+			account = accounts[0]
+		default:
+			return fmt.Errorf("unsupported chainType %v", chain.ChainType)
+		}
 
-				// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
-				// if it's not updated , throw an error
-				_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-					JobDistributorID: n.JDId,
-					ChainID:          chainID,
-					ChainType:        chain.ChainType,
-					AccountAddr:      account,
-					AdminAddr:        n.adminAddr,
-					Ocr2Enabled:      true,
-					Ocr2IsBootstrap:  isBootstrap,
-					Ocr2Multiaddr:    n.multiAddr,
-					Ocr2P2PPeerID:    value(peerID),
-					Ocr2KeyBundleID:  ocr2BundleID,
-					Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
-				})
-				// if the chain config failed because of a duplicate, we should return success
-				if err != nil {
-					if strings.Contains(err.Error(), "duplicate key value violates") {
+		peerID, err := n.gqlClient.FetchP2PPeerID(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch peer id for node %s: %w", n.Name, err)
+		}
+		if peerID == nil {
+			return fmt.Errorf("no peer id found for node %s", n.Name)
+		}
+
+		ocr2BundleId, err := n.gqlClient.FetchOCR2KeyBundleID(ctx, chain.ChainType)
+		if err != nil {
+			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, err)
+		}
+		if ocr2BundleId == "" {
+			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
+		}
+		// fetch node labels to know if the node is bootstrap or plugin
+		isBootstrap := false
+		for _, label := range n.labels {
+			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
+				isBootstrap = true
+				break
+			}
+		}
+
+		// retry twice with 5 seconds interval to create JobDistributorChainConfig
+		err = retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
+			// check the node chain config to see if this chain already exists
+			nodeChainConfigs, err := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
+				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+					NodeIds: []string{n.NodeId},
+				}})
+			if err != nil {
+				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s, retrying..: %w", n.Name, err))
+			}
+			if nodeChainConfigs != nil {
+				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
+					if chainConfig.Chain.Id == chainId {
 						return nil
 					}
-					return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 				}
+			}
 
-				return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
+			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
+			// if it's not updated , throw an error
+			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+				JobDistributorID: n.JDId,
+				ChainID:          chainId,
+				ChainType:        chain.ChainType,
+				AccountAddr:      account,
+				AdminAddr:        n.adminAddr,
+				Ocr2Enabled:      true,
+				Ocr2IsBootstrap:  isBootstrap,
+				Ocr2Multiaddr:    n.multiAddr,
+				Ocr2P2PPeerID:    value(peerID),
+				Ocr2KeyBundleID:  ocr2BundleId,
+				Ocr2Plugins:      `{"commit":true,"execute":true,"median":false,"mercury":false}`,
 			})
-
+			// todo: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
 			if err != nil {
 				return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
 			}
-			return nil
+
+			return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
 		})
+
+		if err != nil {
+			return fmt.Errorf("failed to create CCIPOCR2SupportedChains for node %s: %w", n.Name, err)
+		}
 	}
-	return g.Wait()
+	return nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec

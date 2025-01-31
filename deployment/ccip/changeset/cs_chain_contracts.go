@@ -276,6 +276,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 // in the chains specified. Multichain support is important - consider when we add a new chain
 // and need to update the onramp destinations for all chains to support the new chain.
 func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDestsConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating UpdateOnRampsDestsChangeset")
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -438,6 +439,8 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error 
 }
 
 func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuoterPricesConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating UpdateFeeQuoterPricesChangeset")
+
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -563,6 +566,8 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
 }
 
 func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoterDestsConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating UpdateFeeQuoterDestsChangeset")
+
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -687,6 +692,8 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment) error {
 
 // UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
 func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating UpdateOffRampSourcesChangeset")
+
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -844,6 +851,8 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment) error {
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating UpdateRouterRampsChangeset")
+
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1004,6 +1013,8 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating SetOCR3OffRampChangeset")
+
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

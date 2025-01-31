@@ -101,6 +101,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	e.ExistingAddresses = ab
 
 	// Setup because we only need to deploy the contracts and distribute job specs
+	fmt.Println("setting up chains...")
 	*e, err = setupChains(e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
@@ -111,12 +112,14 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	fmt.Println("setting up lanes...")
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
+	fmt.Println("setting up ocr...")
 	*e, err = setupOCR(e, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
@@ -125,6 +128,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
+	fmt.Println("distributing funds...")
 	distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -134,7 +138,105 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
 		NodeIDs:     e.NodeIDs,
-	}, err
+	}, nil
+}
+
+func setupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	// Setup because we only need to deploy the contracts and distribute job specs
+	fmt.Println("setting up chains...")
+	*e, err = setupChains(e, homeChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
+	}
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+func setupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	fmt.Println("setting up lanes...")
+	// Add all lanes
+	*e, err = setupLanes(e, state)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+	}
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+func setupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	fmt.Println("setting up ocr...")
+	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+func setupCCIPFunding(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+	}
+	e.ExistingAddresses = ab
+
+	// distribute funds to transmitters
+	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
+	// populated in the environment variable
+	fmt.Println("distributing funds...")
+	distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+
+	addresses, err := e.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
 }
 
 func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
@@ -198,74 +300,6 @@ func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Env
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
 			Config:    struct{}{},
-		},
-	})
-}
-
-func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
-	chainSelectors := e.AllChainSelectors()
-	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
-	for selector := range e.Chains {
-		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
-			changeset.WithDefaultExecuteOffChainConfig(nil),
-		)
-	}
-	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			// Add the DONs and candidate commit OCR instances for the chain.
-			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
-			Config: changeset.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
-				PluginInfo: changeset.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
-					PluginType:                      types.PluginTypeCCIPCommit,
-				},
-			},
-		},
-		{
-			// Add the exec OCR instances for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-			Config: changeset.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
-					HomeChainSelector: homeChainSel,
-					FeedChainSelector: feedChainSel,
-				},
-				PluginInfo: []changeset.SetCandidatePluginInfo{
-					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
-						PluginType:                      types.PluginTypeCCIPExec,
-					},
-				},
-			},
-		},
-		{
-			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-			Config: changeset.PromoteCandidateChangesetConfig{
-				HomeChainSelector: homeChainSel,
-				PluginInfo: []changeset.PromoteCandidatePluginInfo{
-					{
-						RemoteChainSelectors: chainSelectors,
-						PluginType:           types.PluginTypeCCIPCommit,
-					},
-					{
-						RemoteChainSelectors: chainSelectors,
-						PluginType:           types.PluginTypeCCIPExec,
-					},
-				},
-			},
-		},
-		{
-			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
-			Config: changeset.SetOCR3OffRampConfig{
-				HomeChainSel:       homeChainSel,
-				RemoteChainSels:    chainSelectors,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
-			},
 		},
 	})
 }
@@ -338,6 +372,74 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
 			Config: changeset.UpdateRouterRampsConfig{
 				UpdatesByChain: updateRouterChanges,
+			},
+		},
+	})
+}
+
+func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
+	chainSelectors := e.AllChainSelectors()
+	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
+	for selector := range e.Chains {
+		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
+			changeset.WithDefaultExecuteOffChainConfig(nil),
+		)
+	}
+	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			// Add the DONs and candidate commit OCR instances for the chain.
+			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			Config: changeset.AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: changeset.SetCandidatePluginInfo{
+					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		},
+		{
+			// Add the exec OCR instances for the new chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
+			Config: changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: []changeset.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						PluginType:                      types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		},
+		{
+			// Promote everything
+			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
+			Config: changeset.PromoteCandidateChangesetConfig{
+				HomeChainSelector: homeChainSel,
+				PluginInfo: []changeset.PromoteCandidatePluginInfo{
+					{
+						RemoteChainSelectors: chainSelectors,
+						PluginType:           types.PluginTypeCCIPCommit,
+					},
+					{
+						RemoteChainSelectors: chainSelectors,
+						PluginType:           types.PluginTypeCCIPExec,
+					},
+				},
+			},
+		},
+		{
+			// Enable the OCR config on the remote chains.
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
+			Config: changeset.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    chainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		},
 	})

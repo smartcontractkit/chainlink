@@ -363,6 +363,8 @@ func PromoteCandidateChangeset(
 	e deployment.Environment,
 	cfg PromoteCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating PromoteCandidateChangeset")
+
 	donIDs, err := cfg.Validate(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
@@ -592,6 +594,7 @@ func AddDonAndSetCandidateChangeset(
 	e deployment.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating AddDonAndSetCandidateChangeset")
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -780,6 +783,8 @@ func SetCandidateChangeset(
 	e deployment.Environment,
 	cfg SetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
+	e.Logger.Infow("initiating SetCandidateChangeset")
+
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
