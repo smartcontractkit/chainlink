@@ -193,6 +193,7 @@ type ApplicationOpts struct {
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
 	RetirementReportCache      llo.RetirementReportCache
+	LLOTransmissionReaper      services.ServiceCtx
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
@@ -487,6 +488,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if opts.RetirementReportCache != nil {
 		srvcs = append(srvcs, opts.RetirementReportCache)
+	}
+	if opts.LLOTransmissionReaper != nil {
+		srvcs = append(srvcs, opts.LLOTransmissionReaper)
 	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction

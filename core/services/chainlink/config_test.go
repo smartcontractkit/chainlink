@@ -862,6 +862,8 @@ func TestConfig_Marshal(t *testing.T) {
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  ptr(uint32(456)),
+			ReaperFrequency:      commoncfg.MustNewDuration(567 * time.Second),
+			ReaperMaxAge:         commoncfg.MustNewDuration(678 * time.Hour),
 		},
 		VerboseLogging: ptr(true),
 	}
@@ -1381,6 +1383,8 @@ Protocol = 'grpc'
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
 TransmitConcurrency = 456
+ReaperFrequency = '9m27s'
+ReaperMaxAge = '678h0m0s'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},
