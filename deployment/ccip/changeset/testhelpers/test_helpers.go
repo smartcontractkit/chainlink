@@ -988,10 +988,10 @@ func deployTransferTokenOneEnd(
 		return nil, nil, err
 	}
 	for address, v := range chainAddresses {
-		if deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0) == v {
+		if deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0).Equal(v) {
 			rmnAddress = address
 		}
-		if deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0) == v {
+		if deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0).Equal(v) {
 			routerAddress = address
 		}
 		if rmnAddress != "" && routerAddress != "" {

@@ -255,6 +255,10 @@ func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*Reg
 	}
 	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
 
+	if capReg == nil {
+		return nil, errors.New("capabilities registry not found in contract sets")
+	}
+
 	di, err := capReg.GetDONs(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dons: %w", err)

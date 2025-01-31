@@ -30,9 +30,14 @@ type Don struct {
 }
 
 type SetupTestRegistryRequest struct {
+	// P2pToCapabilities maps a node's p2pID to the capabilities it has
 	P2pToCapabilities map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability
-	NopToNodes        map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
-	Dons              []Don
+
+	// NopToNodes maps a node operator to the nodes they operate
+	NopToNodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc
+
+	// Dons groups the p2pIDs of the nodes that comprise it and the capabilities they have
+	Dons []Don
 	// TODO maybe add support for MCMS at this level
 }
 
@@ -41,58 +46,30 @@ type SetupTestRegistryResponse struct {
 	Chain            deployment.Chain
 	RegistrySelector uint64
 	ContractSet      *internal.ContractSet
+	CapabilityCache  *CapabilityCache
 }
 
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
+
 	// deploy the registry
 	registry := deployCapReg(t, chain)
+
 	// convert req to nodeoperators
-	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0)
-	for nop := range req.NopToNodes {
-		nops = append(nops, nop)
-	}
-	sort.Slice(nops, func(i, j int) bool {
-		return nops[i].Name < nops[j].Name
-	})
+	nops := ToNodeOps(t, req.NopToNodes)
 	addNopsResp := addNops(t, lggr, chain, registry, nops)
 	require.Len(t, addNopsResp.Nops, len(nops))
 
 	// add capabilities to registry
-	capCache := NewCapabiltyCache(t)
-	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
-	for _, caps := range req.P2pToCapabilities {
-		capabilities = append(capabilities, caps...)
-	}
-	registeredCapabilities := capCache.AddCapabilities(lggr, chain, registry, capabilities)
-	expectedDeduped := make(map[capabilities_registry.CapabilitiesRegistryCapability]struct{})
-	for _, cap := range capabilities {
-		expectedDeduped[cap] = struct{}{}
-	}
-	require.Len(t, registeredCapabilities, len(expectedDeduped))
+	registeredCapabilities, capCache := MustAddCapabilities(t, lggr, req.P2pToCapabilities, chain, registry)
 
 	// make the nodes and register node
-	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
-	initialp2pToCapabilities := make(map[p2pkey.PeerID][][32]byte)
-	for p2pID := range req.P2pToCapabilities {
-		initialp2pToCapabilities[p2pID] = mustCapabilityIds(t, registry, registeredCapabilities)
-	}
-	// create node with initial capabilities assigned to nop
-	for i, nop := range nops {
-		if _, exists := req.NopToNodes[nop]; !exists {
-			require.Fail(t, "missing nopToNodes for %s", nop.Name)
-		}
-		for _, p2pSignerEnc := range req.NopToNodes[nop] {
-			nodeParams = append(nodeParams, capabilities_registry.CapabilitiesRegistryNodeParams{
-				Signer:              p2pSignerEnc.Signer,
-				P2pId:               p2pSignerEnc.P2PKey,
-				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
-				HashedCapabilityIds: initialp2pToCapabilities[p2pSignerEnc.P2PKey],
-				NodeOperatorId:      uint32(i + 1), // nopid in contract is 1-indexed
-			})
-		}
-	}
-	addNodes(t, lggr, chain, registry, nodeParams)
+	nodeParams := ToNodeParams(t,
+		req.NopToNodes,
+		ToP2PToCapabilities(t, req.P2pToCapabilities, registry, registeredCapabilities),
+	)
+
+	AddNodes(t, lggr, chain, registry, nodeParams)
 
 	// add the Dons
 	addDons(t, lggr, chain, registry, capCache, req.Dons)
@@ -104,7 +81,122 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		ContractSet: &internal.ContractSet{
 			CapabilitiesRegistry: registry,
 		},
+		CapabilityCache: capCache,
 	}
+}
+
+// ToNodeParams transforms a map of node operators to nops and a map of node p2pID to capabilities
+// into a slice of node params required to register the nodes.  The number of capabilities
+// must match the number of nodes.
+func ToNodeParams(t *testing.T,
+	nop2Nodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc,
+	p2pToCapabilities map[p2pkey.PeerID][][32]byte,
+) []capabilities_registry.CapabilitiesRegistryNodeParams {
+	t.Helper()
+
+	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
+	var i uint32
+	for _, p2pSignerEncs := range nop2Nodes {
+		for _, p2pSignerEnc := range p2pSignerEncs {
+			_, exists := p2pToCapabilities[p2pSignerEnc.P2PKey]
+			require.True(t, exists, "missing capabilities for p2pID %s", p2pSignerEnc.P2PKey)
+
+			nodeParams = append(nodeParams, capabilities_registry.CapabilitiesRegistryNodeParams{
+				Signer:              p2pSignerEnc.Signer,
+				P2pId:               p2pSignerEnc.P2PKey,
+				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
+				HashedCapabilityIds: p2pToCapabilities[p2pSignerEnc.P2PKey],
+				NodeOperatorId:      i + 1,
+			})
+		}
+		i++
+	}
+
+	return nodeParams
+}
+
+func ToNodeOps(
+	t *testing.T,
+	nop2Nodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc,
+) []capabilities_registry.CapabilitiesRegistryNodeOperator {
+	t.Helper()
+
+	nops := make([]capabilities_registry.CapabilitiesRegistryNodeOperator, 0)
+	for nop := range nop2Nodes {
+		nops = append(nops, nop)
+	}
+
+	sort.Slice(nops, func(i, j int) bool {
+		return nops[i].Name < nops[j].Name
+	})
+	return nops
+}
+
+// MustAddCapabilities adds the capabilities to the registry and returns the registered capabilities
+// if the capability is already registered, this call will fail.
+func MustAddCapabilities(
+	t *testing.T,
+	lggr logger.Logger,
+	in map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability,
+	chain deployment.Chain,
+	registry *capabilities_registry.CapabilitiesRegistry,
+) ([]internal.RegisteredCapability, *CapabilityCache) {
+	t.Helper()
+	cache := NewCapabiltyCache(t)
+	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
+	for _, caps := range in {
+		capabilities = append(capabilities, caps...)
+	}
+
+	registeredCapabilities := cache.AddCapabilities(lggr, chain, registry, capabilities)
+	expectedDeduped := make(map[capabilities_registry.CapabilitiesRegistryCapability]struct{})
+	for _, cap := range capabilities {
+		expectedDeduped[cap] = struct{}{}
+	}
+	require.Len(t, registeredCapabilities, len(expectedDeduped))
+	return registeredCapabilities, cache
+}
+
+// GetRegisteredCapabilities returns the registered capabilities for the given capabilities.  Each
+// capability must exist on the cache already.
+func GetRegisteredCapabilities(
+	t *testing.T,
+	lggr logger.Logger,
+	in map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability,
+	cache *CapabilityCache,
+) []internal.RegisteredCapability {
+	t.Helper()
+
+	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
+	for _, caps := range in {
+		capabilities = append(capabilities, caps...)
+	}
+
+	registeredCapabilities := make([]internal.RegisteredCapability, 0)
+	for _, cap := range capabilities {
+		id, exists := cache.Get(cap)
+		require.True(t, exists, "capability not found in cache %v", cap)
+		registeredCapabilities = append(registeredCapabilities, internal.RegisteredCapability{
+			CapabilitiesRegistryCapability: cap,
+			ID:                             id,
+		})
+	}
+
+	return registeredCapabilities
+}
+
+func ToP2PToCapabilities(
+	t *testing.T,
+	in map[p2pkey.PeerID][]capabilities_registry.CapabilitiesRegistryCapability,
+	registry *capabilities_registry.CapabilitiesRegistry,
+	caps []internal.RegisteredCapability,
+) map[p2pkey.PeerID][][32]byte {
+	t.Helper()
+	out := make(map[p2pkey.PeerID][][32]byte)
+	for p2pID := range in {
+		out[p2pID] = mustCapabilityIds(t, registry, caps)
+	}
+	return out
 }
 
 func deployCapReg(t *testing.T, chain deployment.Chain) *capabilities_registry.CapabilitiesRegistry {
@@ -139,7 +231,13 @@ func addNops(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry 
 	return resp
 }
 
-func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, nodes []capabilities_registry.CapabilitiesRegistryNodeParams) {
+func AddNodes(
+	t *testing.T,
+	lggr logger.Logger,
+	chain deployment.Chain,
+	registry *capabilities_registry.CapabilitiesRegistry,
+	nodes []capabilities_registry.CapabilitiesRegistryNodeParams,
+) {
 	tx, err := registry.AddNodes(chain.DeployerKey, nodes)
 	if err != nil {
 		err2 := deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -149,7 +247,14 @@ func addNodes(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry
 	require.NoError(t, err)
 }
 
-func addDons(t *testing.T, lggr logger.Logger, chain deployment.Chain, registry *capabilities_registry.CapabilitiesRegistry, capCache *CapabilityCache, dons []Don) {
+func addDons(
+	t *testing.T,
+	_ logger.Logger,
+	chain deployment.Chain,
+	registry *capabilities_registry.CapabilitiesRegistry,
+	capCache *CapabilityCache,
+	dons []Don,
+) {
 	for _, don := range dons {
 		acceptsWorkflows := false
 		// lookup the capabilities

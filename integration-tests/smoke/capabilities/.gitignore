@@ -2,3 +2,5 @@
 *-cache.toml
 # compiled cron capability
 amd64_cron
+# workflow registration artifact
+abcdefgasd.yaml
