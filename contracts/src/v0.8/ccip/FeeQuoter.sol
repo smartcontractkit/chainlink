@@ -48,6 +48,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
   error InvalidChainFamilySelector(bytes4 chainFamilySelector);
   error InvalidTokenReceiver();
+  error TooManySVMExtraArgsAccounts(uint256 numAccounts, uint256 maxAccounts);
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -1003,6 +1004,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
       if (numberOfTokens > 0 && svmExtraArgsV1.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
+      }
+      if (svmExtraArgsV1.accounts.length > Client.SVM_EXTRA_ARGS_MAX_ACCOUNTS) {
+        revert TooManySVMExtraArgsAccounts(svmExtraArgsV1.accounts.length, Client.SVM_EXTRA_ARGS_MAX_ACCOUNTS);
       }
       gasLimit = svmExtraArgsV1.computeUnits;
     } else {
