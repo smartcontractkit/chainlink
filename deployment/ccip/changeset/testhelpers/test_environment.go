@@ -421,7 +421,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, chain := range allChains {
+	for _, chain := range evmChains {
 		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
 			if tc.IsUSDC {
