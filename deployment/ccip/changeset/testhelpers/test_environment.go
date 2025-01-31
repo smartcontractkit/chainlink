@@ -409,8 +409,13 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	var err error
 	tc := tEnv.TestConfigs()
 	e := NewEnvironment(t, tEnv)
-	allChains := e.Env.AllChainSelectors()
-
+	evmChains := e.Env.AllChainSelectors()
+	solChains := e.Env.AllChainSelectorsSolana()
+	//nolint:gocritic // we need to segregate EVM and Solana chains
+	allChains := append(evmChains, solChains...)
+	if len(solChains) > 0 {
+		SavePreloadedSolAddresses(t, e.Env, solChains[0])
+	}
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
