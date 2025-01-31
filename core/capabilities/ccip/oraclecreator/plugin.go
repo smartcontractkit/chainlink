@@ -492,6 +492,7 @@ func getChainReaderConfig(
 	chainSelector cciptypes.ChainSelector,
 	chainFamily string,
 ) ([]byte, error) {
+	// consider refactoring this to the map[string]plugin in the future
 	switch chainFamily {
 	case relay.NetworkEVM:
 		var chainReaderConfig evmrelaytypes.ChainReaderConfig
@@ -561,7 +562,7 @@ func createChainWriter(
 	var err error
 	var chainWriterConfig []byte
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
-
+	// consider refactoring this to the map[string]plugin in the future
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
