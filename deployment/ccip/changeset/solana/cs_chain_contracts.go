@@ -133,7 +133,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	
+
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.SolChains[chainSel]
