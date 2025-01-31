@@ -67,6 +67,17 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 			},
 			ErrStr: "missing router",
 		},
+		{
+			Msg: "Test router contract is missing from chain",
+			Input: changeset.DeployTokenPoolContractsConfig{
+				TokenSymbol: "TEST",
+				NewPools: map[uint64]changeset.DeployTokenPoolInput{
+					e.AllChainSelectors()[0]: changeset.DeployTokenPoolInput{},
+				},
+				UseTestRouter: true,
+			},
+			ErrStr: "missing test router",
+		},
 	}
 
 	for _, test := range tests {
@@ -250,6 +261,7 @@ func TestDeployTokenPool(t *testing.T) {
 				state.Chains[selectorA],
 				addressBook,
 				test.Input,
+				false,
 			)
 			require.NoError(t, err)
 

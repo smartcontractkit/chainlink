@@ -96,6 +96,8 @@ type DeployTokenPoolContractsConfig struct {
 	TokenSymbol TokenSymbol
 	// NewPools defines the per-chain configuration of each new pool
 	NewPools map[uint64]DeployTokenPoolInput
+	// UseTestRouter indicates whether or not the test router should be used.
+	UseTestRouter bool
 }
 
 func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) error {
@@ -121,8 +123,14 @@ func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) err
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in state", chainSelector)
 		}
-		if router := chainState.Router; router == nil {
-			return fmt.Errorf("missing router on %s", chain.String())
+		if c.UseTestRouter {
+			if chainState.TestRouter == nil {
+				return fmt.Errorf("missing test router on %s", chain.String())
+			}
+		} else {
+			if chainState.Router == nil {
+				return fmt.Errorf("missing router on %s", chain.String())
+			}
 		}
 		if rmnProxy := chainState.RMNProxy; rmnProxy == nil {
 			return fmt.Errorf("missing rmnProxy on %s", chain.String())
@@ -151,7 +159,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		chain := env.Chains[chainSelector]
 		chainState := state.Chains[chainSelector]
 
-		_, err := DeployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig)
+		_, err := DeployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.UseTestRouter)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
 		}
@@ -169,8 +177,12 @@ func DeployTokenPool(
 	chainState CCIPChainState,
 	addressBook deployment.AddressBook,
 	poolConfig DeployTokenPoolInput,
+	useTestRouter bool,
 ) (*deployment.ContractDeploy[*token_pool.TokenPool], error) {
 	router := chainState.Router
+	if useTestRouter {
+		router = chainState.TestRouter
+	}
 	rmnProxy := chainState.RMNProxy
 
 	return deployment.DeployContract(logger, chain, addressBook,
