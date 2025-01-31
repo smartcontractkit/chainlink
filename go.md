@@ -47,13 +47,13 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-solana --> chainlink-ccip
+	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-starknet/relayer --> chainlink-common
 	click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-ccip
-	chainlink/v2 --> chainlink-ccip/chains/solana
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
@@ -155,6 +155,8 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-solana --> chainlink-ccip
+	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink-starknet/relayer --> chainlink-common
@@ -186,8 +188,6 @@ flowchart LR
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-ccip
-	chainlink/v2 --> chainlink-ccip/chains/solana
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
