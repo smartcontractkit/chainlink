@@ -104,7 +104,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case RemoteSource:
 			pub := solana.MustPublicKeyFromBase58(address)
 			// Labels should only have one entry
-			for selStr, _ := range tvStr.Labels {
+			for selStr := range tvStr.Labels {
 				selector, err := strconv.ParseUint(selStr, 10, 64)
 				if err != nil {
 					return state, err
@@ -114,7 +114,7 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case RemoteDest:
 			pub := solana.MustPublicKeyFromBase58(address)
 			// Labels should only have one entry
-			for selStr, _ := range tvStr.Labels {
+			for selStr := range tvStr.Labels {
 				selector, err := strconv.ParseUint(selStr, 10, 64)
 				if err != nil {
 					return state, err
