@@ -1258,10 +1258,11 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 	errFound := false
 	for err := range errCh {
 		errFound = true
-		assert.NoError(t, err)
+		// nolint: testifylint / we want to assert here to catch all errors
+		assert.NoError(t, err, "job creation/acception failed")
 	}
 
-	require.False(t, errFound, "failed to create jobs")
+	require.False(t, errFound, "failed to create at least one job")
 }
 
 func noOpTransformFn(value string) string {
@@ -1725,7 +1726,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 	// Create OCR3 and capability jobs for each node JD
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
-	// JD client needs to be reinitalised after restarting nodes
+	// JD client needs to be reinitialised after restarting nodes
 	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
 	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet)
 

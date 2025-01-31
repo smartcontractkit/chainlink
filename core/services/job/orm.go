@@ -78,7 +78,7 @@ type ORM interface {
 	WithDataSource(source sqlutil.DataSource) ORM
 
 	FindJobIDByWorkflow(ctx context.Context, spec WorkflowSpec) (int32, error)
-	//TODO rename function to indicate it is CCIP-specific, not generic
+	// TODO rename function to indicate it is CCIP-specific, not generic?
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 	FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (int32, error)
 	FindGatewayJobID(ctx context.Context, spec GatewaySpec) (int32, error)
@@ -1201,9 +1201,9 @@ INNER JOIN gateway_specs gs on jobs.gateway_spec_id = gs.id
 WHERE gs.gateway_config @> jsonb_build_object('NodeServerConfig', jsonb_build_object('Path', $1::text, 'Port', $2::int))
    OR gs.gateway_config @> jsonb_build_object('UserServerConfig', jsonb_build_object('Path', $3::text, 'Port', $4::int))
    OR gs.gateway_config @> jsonb_build_object('ConnectionManagerConfig', jsonb_build_object('AuthGatewayId', $5::text));`
-	err = o.ds.GetContext(ctx, &jobID, stmt, spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayId())
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayID())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		err = fmt.Errorf("error searching for job for gateway (NodeServerConfig.Path, NodeServerConfig.Port, UserServerConfig.Path, UserServerConfig.Port, ConnectionManagerConfig.AuthGatewayId) ('%s', %d, '%s', %d, '%s'): %w", spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayId(), err)
+		err = fmt.Errorf("error searching for job for gateway (NodeServerConfig.Path, NodeServerConfig.Port, UserServerConfig.Path, UserServerConfig.Port, ConnectionManagerConfig.AuthGatewayId) ('%s', %d, '%s', %d, '%s'): %w", spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayID(), err)
 	}
 	return
 }

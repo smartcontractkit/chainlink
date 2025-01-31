@@ -842,7 +842,7 @@ func (s *GatewaySpec) NodeServerConfigPort() int64 {
 	if nsc, ok := s.GatewayConfig["NodeServerConfig"]; ok {
 		if nscMap, ok := nsc.(map[string]interface{}); ok {
 			if port, ok := nscMap["Port"]; ok {
-				//TODO should we support other types? int, int32, uint, uint32, uint64?
+				// TODO should we support other types? int, int32, uint, uint32, uint64?
 				// and convert them to int64?
 				if portInt, ok := port.(int64); ok {
 					return portInt
@@ -881,13 +881,14 @@ func (s *GatewaySpec) UserServerConfigPort() int64 {
 	return 0
 }
 
-// AuthGatewayId returns AuthGatewayId or empty string, if not found or it's not a string
-func (s *GatewaySpec) AuthGatewayId() string {
+// AuthGatewayID returns AuthGatewayId or empty string, if not found or it's not a string
+func (s *GatewaySpec) AuthGatewayID() string {
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
 		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			if authGatewayId, ok := nscMap["AuthGatewayId"]; ok {
-				if authGatewayIdStr, ok := authGatewayId.(string); ok {
-					return authGatewayIdStr
+			// nolint: revive / that's how it's named in the config
+			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
+				if authGatewayIDStr, ok := authGatewayID.(string); ok {
+					return authGatewayIDStr
 				}
 			}
 		}
