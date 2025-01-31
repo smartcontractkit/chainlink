@@ -13,8 +13,8 @@ import (
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -125,7 +125,7 @@ func getLatestNonce(tc TestCase) uint64 {
 	case chain_selectors.FamilySolana:
 		ctx := context.Background()
 		client := tc.Env.SolChains[tc.DestChain].Client
-		noncePDA, err := solccip.NoncePDA(tc.SourceChain, solana.PublicKeyFromBytes(tc.Sender))
+		noncePDA, err := solstate.FindNoncePDA(tc.SourceChain, solana.PublicKeyFromBytes(tc.Sender), tc.OnchainState.SolChains[tc.DestChain].Router)
 		require.NoError(tc.T, err)
 		var nonceCounterAccount ccip_router.Nonce
 		err = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)

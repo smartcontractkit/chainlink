@@ -196,7 +196,7 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	allSolChainSelectors := maps.Keys(e.Env.SolChains)
 	sourceChain := allChainSelectors[0]
-	destChain := allSolChainSelectors[1]
+	destChain := allSolChainSelectors[0]
 	t.Log("All chain selectors:", allChainSelectors,
 		", sol chain selectors:", allSolChainSelectors,
 		", home chain selector:", e.HomeChainSel,
@@ -223,7 +223,8 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 	)
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		// TODO: abstract out into a helper
+		latestHead, err := e.Env.SolChains[destChain].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 		require.NoError(t, err)
 		receiver := state.SolChains[destChain].Receiver.Bytes()
 		out = runMessagingTestCase(
@@ -237,9 +238,10 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 			nil, // default extraArgs
 			testhelpers.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
+				// TODO: fix up, use the same code event filter does
 				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 					Context: ctx,
-					Start:   latestHead.Number.Uint64(),
+					Start:   latestHead,
 				})
 				require.NoError(t, err)
 				require.True(t, iter.Next())
