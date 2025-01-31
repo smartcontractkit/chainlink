@@ -239,27 +239,17 @@ type RegisteredDon struct {
 }
 
 type RegisteredDonConfig struct {
-	Name             string
-	NodeIDs          []string // ids in the offchain client
-	RegistryChainSel uint64
+	Name               string
+	NodeIDs            []string // ids in the offchain client
+	CapabilityRegistry *capabilities_registry.CapabilitiesRegistry
 }
 
 func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
-	// load the don info from the capabilities registry
-	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
-
-	if capReg == nil {
-		return nil, errors.New("capabilities registry not found in contract sets")
+	if cfg.CapabilityRegistry == nil {
+		return nil, errors.New("capabilities registry is nil")
 	}
 
-	di, err := capReg.GetDONs(nil)
+	di, err := cfg.CapabilityRegistry.GetDONs(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dons: %w", err)
 	}

@@ -47,7 +47,7 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (de
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
-var _ deployment.ChangeSet[ConfigureForwardContractsRequest] = ConfigureForwardContracts
+var _ deployment.ChangeSet[ConfigureForwardContractsRequest] = ConfigureForwarderContracts
 
 type ConfigureForwardContractsRequest struct {
 	WFDonName string
@@ -70,15 +70,24 @@ func (r ConfigureForwardContractsRequest) UseMCMS() bool {
 	return r.MCMSConfig != nil
 }
 
-func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardContractsRequest) (deployment.ChangesetOutput, error) {
+func ConfigureForwarderContracts(env deployment.Environment, req ConfigureForwardContractsRequest) (deployment.ChangesetOutput, error) {
+	contractSetResponse, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+		Chains:      env.Chains,
+		AddressBook: env.ExistingAddresses,
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
+	}
+
 	wfDon, err := internal.NewRegisteredDon(env, internal.RegisteredDonConfig{
-		NodeIDs:          req.WFNodeIDs,
-		Name:             req.WFDonName,
-		RegistryChainSel: req.RegistryChainSel,
+		NodeIDs:            req.WFNodeIDs,
+		Name:               req.WFDonName,
+		CapabilityRegistry: contractSetResponse.ContractSets[req.RegistryChainSel].CapabilitiesRegistry,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create registered don: %w", err)
 	}
+
 	r, err := internal.ConfigureForwarderContracts(&env, internal.ConfigureForwarderContractsRequest{
 		Dons:    []internal.RegisteredDon{*wfDon},
 		UseMCMS: req.UseMCMS(),
@@ -87,21 +96,13 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
-		Chains:      env.Chains,
-		AddressBook: env.ExistingAddresses,
-	})
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get contract sets: %w", err)
-	}
-
 	var out deployment.ChangesetOutput
 	if req.UseMCMS() {
 		if len(r.OpsPerChain) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		for chainSelector, op := range r.OpsPerChain {
-			contracts := cresp.ContractSets[chainSelector]
+			contracts := contractSetResponse.ContractSets[chainSelector]
 			timelocksPerChain := map[uint64]common.Address{
 				chainSelector: contracts.Timelock.Address(),
 			}

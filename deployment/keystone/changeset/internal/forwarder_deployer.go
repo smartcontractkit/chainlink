@@ -74,7 +74,6 @@ type ConfigureForwarderContractsResponse struct {
 // ConfigureForwarderContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwarderContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
-
 	opPerChain := make(map[uint64]timelock.BatchChainOperation)
 	// configure forwarders on all chains
 	for sel, contract := range req.ForwarderContracts {

@@ -112,7 +112,8 @@ func ConfigureContracts(ctx context.Context, req ConfigureContractsRequest) (*Co
 	}
 	// ignore response because we are not using mcms here and therefore no proposals are returned
 	_, err = ConfigureForwarderContracts(req.Env, ConfigureForwarderContractsRequest{
-		Dons: dons,
+		Dons:               dons,
+		ForwarderContracts: req.ForwarderContracts,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure forwarder contracts: %w", err)

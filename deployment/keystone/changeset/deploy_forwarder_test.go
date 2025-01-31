@@ -73,7 +73,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
 				}
-				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
+				csOut, err := changeset.ConfigureForwarderContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
 				require.Empty(t, csOut.Proposals)
@@ -112,7 +112,7 @@ func TestConfigureForwarders(t *testing.T) {
 					RegistryChainSel: te.RegistrySelector,
 					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				}
-				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
+				csOut, err := changeset.ConfigureForwarderContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Len(t, csOut.Proposals, nChains)
 				require.Nil(t, csOut.AddressBook)
@@ -128,7 +128,7 @@ func TestConfigureForwarders(t *testing.T) {
 				}
 				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
 					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
+						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwarderContracts),
 						Config:    cfg,
 					},
 				})
