@@ -189,8 +189,8 @@ github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129 h1:gfAMKE626QEuKG3si0
 github.com/buger/goterm v0.0.0-20200322175922-2f3e71b85129/go.mod h1:u9UyCz2eTrSGy6fbupqJ54eY5c4IC8gREQ1053dK12U=
 github.com/buger/jsonparser v1.1.1 h1:2PnMjfWD7wBILjqQbt530v576A/cAbQvEW9gGIpYMUs=
 github.com/buger/jsonparser v1.1.1/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
-github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 h1:NJvU4S8KEk1GnF6+FvlnzMD/8wXTj/mYJSG6Q4yu3Pw=
-github.com/bytecodealliance/wasmtime-go/v23 v23.0.0/go.mod h1:5YIL+Ouiww2zpO7u+iZ1U1G5NvmwQYaXdmCZQGjQM0U=
+github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 h1:aBU8cexP2rPZ0Qz488kvn2NXvWZHL2aG1/+n7Iv+xGc=
+github.com/bytecodealliance/wasmtime-go/v28 v28.0.0/go.mod h1:4OCU0xAW9ycwtX4nMF4zxwgJBJ5/0eMfJiHB0wAmkV4=
 github.com/bytedance/sonic v1.12.3 h1:W2MGa7RCU1QTeYRTPE3+88mVC0yXmsRQRChiyVocVjU=
 github.com/bytedance/sonic v1.12.3/go.mod h1:B8Gt/XvtZ3Fqj+iSKMypzymZxw/FVwgIGKzMzT9r/rk=
 github.com/bytedance/sonic/loader v0.1.1/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=

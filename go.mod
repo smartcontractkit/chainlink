@@ -130,7 +130,7 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
-require github.com/bytecodealliance/wasmtime-go/v23 v23.0.0 // indirect
+require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 
 require (
 	cel.dev/expr v0.17.0 // indirect
