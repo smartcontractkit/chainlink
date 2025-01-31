@@ -41,17 +41,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			chainwriter.PDALookups{
-				Name: "RouterAccountConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("config")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			getRouterAccountConfig(routerProgramAddress),
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -81,19 +71,8 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				IsSigner:   false,
 				IsWritable: false,
 			},
-			chainwriter.AccountConstant{
-				Name:       "Authority",
-				Address:    fromAddress,
-				IsSigner:   true,
-				IsWritable: true,
-			},
-			// Account constant
-			chainwriter.AccountConstant{
-				Name:       "SystemProgram",
-				Address:    solana.SystemProgramID.String(),
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			getAuthorityAccountConstant(fromAddress),
+			getSystemProgramConstant(),
 			chainwriter.AccountConstant{
 				Name:       "SysvarInstructions",
 				Address:    sysvarInstructionsAddress,
@@ -180,17 +159,7 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			chainwriter.PDALookups{
-				Name: "RouterAccountConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
-				Seeds: []chainwriter.Seed{
-					{Static: []byte("config")},
-				},
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			getRouterAccountConfig(routerProgramAddress),
 			chainwriter.PDALookups{
 				Name: "SourceChainState",
 				PublicKey: chainwriter.AccountConstant{
@@ -230,18 +199,8 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 				IsSigner:   false,
 				IsWritable: false,
 			},
-			chainwriter.AccountConstant{
-				Name:       "Authority",
-				Address:    fromAddress,
-				IsSigner:   true,
-				IsWritable: true,
-			},
-			chainwriter.AccountConstant{
-				Name:       "SystemProgram",
-				Address:    solana.SystemProgramID.String(),
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			getAuthorityAccountConstant(fromAddress),
+			getSystemProgramConstant(),
 			chainwriter.AccountConstant{
 				Name:       "SysvarInstructions",
 				Address:    sysvarInstructionsAddress,
@@ -348,4 +307,36 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 	}
 
 	return solConfig, nil
+}
+
+func getRouterAccountConfig(routerProgramAddress string) chainwriter.PDALookups {
+	return chainwriter.PDALookups{
+		Name: "RouterAccountConfig",
+		PublicKey: chainwriter.AccountConstant{
+			Address: routerProgramAddress,
+		},
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("config")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+	}
+}
+
+func getAuthorityAccountConstant(fromAddress string) chainwriter.AccountConstant {
+	return chainwriter.AccountConstant{
+		Name:       "Authority",
+		Address:    fromAddress,
+		IsSigner:   true,
+		IsWritable: true,
+	}
+}
+
+func getSystemProgramConstant() chainwriter.AccountConstant {
+	return chainwriter.AccountConstant{
+		Name:       "SystemProgram",
+		Address:    solana.SystemProgramID.String(),
+		IsSigner:   false,
+		IsWritable: false,
+	}
 }
