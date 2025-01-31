@@ -241,7 +241,17 @@ func doAddRemoteChainToSolana(
 		}
 		e.Logger.Infow("Confirmed instruction", "instruction", instruction)
 
-		err = ab.Save(chainSel, cs.SerializeSolanaStateForAB(cs.RemoteChain, strconv.FormatUint(remoteChainSel, 10)), deployment.NewTypeAndVersion(cs.RemoteChain, deployment.Version1_0_0))
+		tv := deployment.NewTypeAndVersion(cs.RemoteDest, deployment.Version1_0_0)
+		remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
+		tv.AddLabel(remoteChainSelStr)
+		err = ab.Save(chainSel, destChainStatePDA.String(), tv)
+		if err != nil {
+			return fmt.Errorf("failed to save dest chain state to address book: %w", err)
+		}
+
+		tv = deployment.NewTypeAndVersion(cs.RemoteSource, deployment.Version1_0_0)
+		tv.AddLabel(remoteChainSelStr)
+		err = ab.Save(chainSel, sourceChainStatePDA.String(), tv)
 		if err != nil {
 			return fmt.Errorf("failed to save source chain state to address book: %w", err)
 		}

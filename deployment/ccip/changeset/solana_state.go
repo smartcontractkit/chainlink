@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/gagliardetto/solana-go"
 
@@ -21,7 +20,8 @@ var (
 	SPL2022Tokens      deployment.ContractType = "SPL2022Tokens"
 	WSOL               deployment.ContractType = "WSOL"
 	// for PDAs from AddRemoteChainToSolana
-	RemoteChain deployment.ContractType = "RemoteChain"
+	RemoteSource deployment.ContractType = "RemoteSource"
+	RemoteDest   deployment.ContractType = "RemoteDest"
 )
 
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
@@ -71,13 +71,12 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		DestChainStatePDAs:   make(map[uint64]solana.PublicKey),
 	}
 	var spl2022Tokens []solana.PublicKey
-	var selectors []uint64
 	for address, tvStr := range addresses {
-		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
+		switch tvStr.Type {
+		case commontypes.LinkToken:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.LinkToken = pub
-		case deployment.NewTypeAndVersion(Router, deployment.Version1_0_0).String():
+		case Router:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Router = pub
 			routerStatePDA, _, err := solState.FindStatePDA(state.Router)
@@ -90,52 +89,43 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0).String():
+		case AddressLookupTable:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.AddressLookupTable = pub
-		case deployment.NewTypeAndVersion(Receiver, deployment.Version1_0_0).String():
+		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
-		case deployment.NewTypeAndVersion(SPL2022Tokens, deployment.Version1_0_0).String():
+		case SPL2022Tokens:
 			pub := solana.MustPublicKeyFromBase58(address)
 			spl2022Tokens = append(spl2022Tokens, pub)
-		case deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0).String():
+		case TokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.TokenPool = pub
-		case deployment.NewTypeAndVersion(RemoteChain, deployment.Version1_0_0).String():
-			selStr, err := DeserializeSolanaStateFromAB(address)
-			if err != nil {
-				return state, err
+		case RemoteSource:
+			pub := solana.MustPublicKeyFromBase58(address)
+			// Labels should only have one entry
+			for selStr, _ := range tvStr.Labels {
+				selector, err := strconv.ParseUint(selStr, 10, 64)
+				if err != nil {
+					return state, err
+				}
+				state.SourceChainStatePDAs[selector] = pub
 			}
-			selector, err := strconv.ParseUint(selStr, 10, 64)
-			if err != nil {
-				return state, err
+		case RemoteDest:
+			pub := solana.MustPublicKeyFromBase58(address)
+			// Labels should only have one entry
+			for selStr, _ := range tvStr.Labels {
+				selector, err := strconv.ParseUint(selStr, 10, 64)
+				if err != nil {
+					return state, err
+				}
+				state.DestChainStatePDAs[selector] = pub
 			}
-			selectors = append(selectors, selector)
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
-	// store PDAs
-	for _, selector := range selectors {
-		// safe to ignore error here, as we know the contract is deployed
-		// Need to initialize PDAs after all contracts are loaded, so router is set
-		state.SourceChainStatePDAs[selector], _ = solState.FindSourceChainStatePDA(selector, state.Router)
-		state.DestChainStatePDAs[selector], _ = solState.FindDestChainStatePDA(selector, state.Router)
-	}
 	state.WSOL = solana.SolMint
 	state.SPL2022Tokens = spl2022Tokens
 	return state, nil
-}
-
-func SerializeSolanaStateForAB(contractType deployment.ContractType, suffix string) string {
-	return string(contractType) + "_" + suffix
-}
-
-func DeserializeSolanaStateFromAB(address string) (string, error) {
-	parts := strings.Split(address, "_")
-	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid address type: %s", address)
-	}
-	return parts[1], nil
 }
