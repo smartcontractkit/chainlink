@@ -1,11 +1,15 @@
 package ccipsolana
 
 import (
+	"bytes"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"testing"
 
+	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -152,4 +156,72 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 		require.NoError(b, err)
 		require.Equal(b, rep, decodedReport)
 	}
+}
+
+func Test_DecodingCommitReport(t *testing.T) {
+	t.Run("decode on-chain commit report", func(t *testing.T) {
+		chainSel := cciptypes.ChainSelector(rand.Uint64())
+		minSeqNr := rand.Uint64()
+		maxSeqNr := minSeqNr + 10
+		onRampAddr, err := solanago.NewRandomPrivateKey()
+		require.NoError(t, err)
+
+		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
+		tokenPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
+		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
+		merkleRoot := utils.RandomBytes32()
+
+		tpu := []ccip_router.TokenPriceUpdate{
+			{
+				SourceToken: tokenSource,
+				UsdPerToken: [28]uint8(tokenPrice),
+			},
+		}
+
+		gpu := []ccip_router.GasPriceUpdate{
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
+		}
+
+		onChainReport := ccip_router.CommitInput{
+			MerkleRoot: ccip_router.MerkleRoot{
+				SourceChainSelector: uint64(chainSel),
+				OnRampAddress:       onRampAddr.PublicKey().Bytes(),
+				MinSeqNr:            minSeqNr,
+				MaxSeqNr:            maxSeqNr,
+				MerkleRoot:          merkleRoot,
+			},
+			PriceUpdates: ccip_router.PriceUpdates{
+				TokenPriceUpdates: tpu,
+				GasPriceUpdates:   gpu,
+			},
+		}
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err = onChainReport.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		commitCodec := NewCommitPluginCodecV1()
+		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
+		require.NoError(t, err)
+		mr := decode.MerkleRoots[0]
+
+		// check decoded ocr report merkle root matches with on-chain report
+		require.Equal(t, strconv.FormatUint(minSeqNr, 10), mr.SeqNumsRange.Start().String())
+		require.Equal(t, strconv.FormatUint(maxSeqNr, 10), mr.SeqNumsRange.End().String())
+		require.Equal(t, cciptypes.UnknownAddress(onRampAddr.PublicKey().Bytes()), mr.OnRampAddress)
+		require.Equal(t, cciptypes.Bytes32(merkleRoot), mr.MerkleRoot)
+
+		// check decoded ocr report token price update matches with on-chain report
+		pu := decode.PriceUpdates.TokenPriceUpdates[0]
+		require.Equal(t, decodeLEToBigInt(tokenPrice), pu.Price)
+		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
+
+		// check decoded ocr report gas price update matches with on-chain report
+		gu := decode.PriceUpdates.GasPriceUpdates[0]
+		require.Equal(t, decodeLEToBigInt(gasPrice), gu.GasPrice)
+		require.Equal(t, chainSel, gu.ChainSel)
+	})
 }

@@ -179,3 +179,60 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		})
 	}
 }
+
+func Test_DecodingExecuteReport(t *testing.T) {
+	t.Run("decode on-chain execute report", func(t *testing.T) {
+		chainSel := cciptypes.ChainSelector(rand.Uint64())
+		onRampAddr, err := solanago.NewRandomPrivateKey()
+		require.NoError(t, err)
+
+		destGasAmount := uint32(10)
+		tokenAmount := big.NewInt(rand.Int63())
+		tokenReceiver := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
+		extraArgs := ccip_router.Any2SVMRampExtraArgs{
+			ComputeUnits:     1000,
+			IsWritableBitmap: 2,
+		}
+
+		onChainReport := ccip_router.ExecutionReportSingleChain{
+			SourceChainSelector: uint64(chainSel),
+			Message: ccip_router.Any2SVMRampMessage{
+				Header: ccip_router.RampMessageHeader{
+					SourceChainSelector: uint64(chainSel),
+				},
+				TokenReceiver: tokenReceiver,
+				ExtraArgs:     extraArgs,
+				TokenAmounts: []ccip_router.Any2SVMTokenTransfer{
+					{
+						Amount:        ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount, 32))},
+						DestGasAmount: destGasAmount,
+					},
+				},
+				OnRampAddress: onRampAddr.PublicKey().Bytes(),
+			},
+		}
+
+		var extraArgsBuf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&extraArgsBuf)
+		err = extraArgs.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		var buf bytes.Buffer
+		encoder = agbinary.NewBorshEncoder(&buf)
+		err = onChainReport.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		executeCodec := NewExecutePluginCodecV1()
+		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
+		require.NoError(t, err)
+
+		report := decode.ChainReports[0]
+		require.Equal(t, chainSel, report.SourceChainSelector)
+
+		msg := report.Messages[0]
+		require.Equal(t, cciptypes.UnknownAddress(tokenReceiver.Bytes()), msg.Receiver)
+		require.Equal(t, cciptypes.Bytes(extraArgsBuf.Bytes()), msg.ExtraArgs)
+		require.Equal(t, tokenAmount, msg.TokenAmounts[0].Amount.Int)
+		require.Equal(t, destGasAmount, bytesToUint32LE(msg.TokenAmounts[0].DestExecData))
+	})
+}
