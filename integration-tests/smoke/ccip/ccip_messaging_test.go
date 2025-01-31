@@ -61,29 +61,30 @@ func Test_CCIPMessaging(t *testing.T) {
 	)
 
 	t.Run("data message to eoa", func(t *testing.T) {
-		out = mt.Run(mt.TestCase{
-			TestSetup: setup,
-			Replayed:  replayed,
-			Nonce:     nonce,
-		},
-			common.HexToAddress("0xdead"),
-			[]byte("hello eoa"),
-			nil,                                 // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nonce,
+				Receiver:               common.HexToAddress("0xdead"),
+				MsgData:                []byte("hello eoa"),
+				ExtraArgs:              nil,                                 // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+			},
 		)
 	})
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
 		out = mt.Run(
 			mt.TestCase{
-				TestSetup: setup,
-				Replayed:  out.Replayed,
-				Nonce:     out.Nonce,
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].FeeQuoter.Address(),
+				MsgData:                []byte("hello FeeQuoter"),
+				ExtraArgs:              nil,                                 // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 			},
-			state.Chains[destChain].FeeQuoter.Address(),
-			[]byte("hello FeeQuoter"),
-			nil,                                 // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
@@ -92,22 +93,24 @@ func Test_CCIPMessaging(t *testing.T) {
 		require.NoError(t, err)
 		out = mt.Run(
 			mt.TestCase{
-				TestSetup: setup,
-				Replayed:  out.Replayed,
-				Nonce:     out.Nonce,
-			},
-			state.Chains[destChain].Receiver.Address(),
-			[]byte("hello CCIPReceiver"),
-			nil, // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS,
-			func(t *testing.T) {
-				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-					Context: ctx,
-					Start:   latestHead.Number.Uint64(),
-				})
-				require.NoError(t, err)
-				require.True(t, iter.Next())
-				// MessageReceived doesn't emit the data unfortunately, so can't check that.
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address(),
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              nil, // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+							Context: ctx,
+							Start:   latestHead.Number.Uint64(),
+						})
+						require.NoError(t, err)
+						require.True(t, iter.Next())
+						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+					},
+				},
 			},
 		)
 	})
@@ -117,14 +120,14 @@ func Test_CCIPMessaging(t *testing.T) {
 		require.NoError(t, err)
 		out = mt.Run(
 			mt.TestCase{
-				TestSetup: setup,
-				Replayed:  out.Replayed,
-				Nonce:     out.Nonce,
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address(),
+				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 			},
-			state.Chains[destChain].Receiver.Address(),
-			[]byte("hello CCIPReceiver with low exec gas"),
-			testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-			testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
 		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)

@@ -78,8 +78,13 @@ type TestSetup struct {
 
 type TestCase struct {
 	TestSetup
-	Replayed bool
-	Nonce    uint64
+	Replayed               bool
+	Nonce                  uint64
+	Receiver               common.Address
+	MsgData                []byte
+	ExtraArgs              []byte
+	ExpectedExecutionState int
+	ExtraAssertions        []func(t *testing.T)
 }
 
 type TestCaseOutput struct {
@@ -118,14 +123,7 @@ func getLatestNonce(tc TestCase) uint64 {
 }
 
 // Run runs a messaging test case.
-func Run(
-	tc TestCase,
-	receiver common.Address,
-	msgData []byte,
-	extraArgs []byte,
-	expectedExecutionState int,
-	extraAssertions ...func(t *testing.T),
-) (out TestCaseOutput) {
+func Run(tc TestCase) (out TestCaseOutput) {
 	// check latest nonce
 	latestNonce := getLatestNonce(tc)
 	require.Equal(tc.T, tc.Nonce, latestNonce)
@@ -139,11 +137,11 @@ func Run(
 		tc.DestChain,
 		tc.TestRouter,
 		router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
-			Data:         msgData,
+			Receiver:     common.LeftPadBytes(tc.Receiver.Bytes(), 32),
+			Data:         tc.MsgData,
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    extraArgs,
+			ExtraArgs:    tc.ExtraArgs,
 		})
 	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
 		{
@@ -172,14 +170,14 @@ func Run(
 
 		require.Equalf(
 			tc.T,
-			expectedExecutionState,
+			tc.ExpectedExecutionState,
 			execStates[testhelpers.SourceDestPair{
 				SourceChainSelector: tc.SourceChain,
 				DestChainSelector:   tc.DestChain,
 			}][msgSentEvent.SequenceNumber],
 			"wrong execution state for seq nr %d, expected %d, got %d",
 			msgSentEvent.SequenceNumber,
-			expectedExecutionState,
+			tc.ExpectedExecutionState,
 			execStates[testhelpers.SourceDestPair{
 				SourceChainSelector: tc.SourceChain,
 				DestChainSelector:   tc.DestChain,
@@ -192,7 +190,7 @@ func Run(
 		out.Nonce = latestNonce
 		tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
 
-		for _, assertion := range extraAssertions {
+		for _, assertion := range tc.ExtraAssertions {
 			assertion(tc.T)
 		}
 	} else {
