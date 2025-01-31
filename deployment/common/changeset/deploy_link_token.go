@@ -6,11 +6,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -24,7 +24,6 @@ const (
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
-
 	err := deployment.ValidateSelectorsInEnvironment(e, chains)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -88,12 +87,17 @@ func deployLinkTokenContractSolana(
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
 ) error {
-	adminPublicKey := chain.DeployerKey.PublicKey()
+	tokenAdminPubKey := chain.DeployerKey.PublicKey()
 	mint, _ := solana.NewRandomPrivateKey()
-	// this is the token address
-	mintPublicKey := mint.PublicKey()
+	mintPublicKey := mint.PublicKey() // this is the token address
 	instructions, err := solTokenUtil.CreateToken(
-		context.Background(), solana.Token2022ProgramID, mintPublicKey, adminPublicKey, TokenDecimalsSolana, chain.Client, solRpc.CommitmentConfirmed,
+		context.Background(),
+		solana.Token2022ProgramID,
+		mintPublicKey,
+		tokenAdminPubKey,
+		TokenDecimalsSolana,
+		chain.Client,
+		deployment.SolDefaultCommitment,
 	)
 	if err != nil {
 		lggr.Errorw("Failed to generate instructions for link token deployment", "chain", chain.String(), "err", err)
@@ -105,12 +109,11 @@ func deployLinkTokenContractSolana(
 		return err
 	}
 	tv := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-	lggr.Infow("Deployed contract", "Contract", tv.String(), "addr", mintPublicKey.String(), "chain", chain.String())
-	err = ab.Save(chain.Selector, mintPublicKey.String(), tv)
+	lggr.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
+	err = ab.Save(chain.Selector, mint.PublicKey().String(), tv)
 	if err != nil {
 		lggr.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
 		return err
 	}
-
 	return nil
 }
