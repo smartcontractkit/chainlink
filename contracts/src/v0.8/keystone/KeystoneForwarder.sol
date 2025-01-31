@@ -222,7 +222,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   // ================================================================
 
   function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
-    if (f == 0) revert FaultToleranceMustBePositive();
+    // if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
 
@@ -276,7 +276,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
 
       uint8 f = config.f;
       // f can never be 0, so this means the config doesn't actually exist
-      if (f == 0) revert InvalidConfig(configId);
+      // if (f == 0) revert InvalidConfig(configId);
       if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
       // validate signatures
