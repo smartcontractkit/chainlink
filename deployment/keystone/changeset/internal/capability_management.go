@@ -13,6 +13,8 @@ import (
 )
 
 // AddCapabilities adds the capabilities to the registry
+//
+// It is idempotent. It deduplicates the input capabilities.
 func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*timelock.BatchChainOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
@@ -66,10 +68,10 @@ func CapabilityID(c kcr.CapabilitiesRegistryCapability) string {
 	return fmt.Sprintf("%s@%s", c.LabelledName, c.Version)
 }
 
-// dedupCapabilities deduplicates the capabilities
-// dedup capabilities with respect to the registry
-// contract reverts on adding the same capability twice and that would cause the whole transaction to revert
-// which is very bad for us for mcms
+// dedupCapabilities deduplicates the capabilities with respect to the registry
+//
+// the contract reverts on adding the same capability twice and that would cause the whole transaction to revert
+// this is particularly important when using MCMS, because it would cause the whole batch to revert
 func dedupCapabilities(registry *kcr.CapabilitiesRegistry, capabilities []kcr.CapabilitiesRegistryCapability) ([]kcr.CapabilitiesRegistryCapability, error) {
 	var out []kcr.CapabilitiesRegistryCapability
 	existing, err := registry.GetCapabilities(nil)

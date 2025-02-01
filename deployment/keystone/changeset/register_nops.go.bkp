@@ -1,0 +1,41 @@
+package changeset
+
+import (
+	"fmt"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+)
+
+var _ deployment.ChangeSet[*RegisterNOPSRequest] = RegisterNOPS
+
+type RegisterNOPSRequest = struct {
+	RegistryChainSelector uint64
+	Nops                  []capabilities_registry.CapabilitiesRegistryNodeOperator
+
+	MCMSConfig *MCMSConfig // optional, if set, will use MCMS to create the proposal
+}
+
+// RegisterNOPS is a changeset to register NOPs with the capabilities registry
+func RegisterNOPS(e deployment.Environment, req *RegisterNOPSRequest) (deployment.ChangesetOutput, error) {
+	resp, err := internal.RegisterNOPS(e.GetContext(), e.Logger, internal.RegisterNOPSRequest{
+		Env:                   &e,
+		RegistryChainSelector: req.RegistryChainSelector,
+		Nops:                  req.Nops,
+		UseMCMS:               req.MCMSConfig != nil,
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to register nops: %w", err)
+	}
+	if req.MCMSConfig == nil {
+		e.Logger.Info("Register NOPs nops", "nops", resp.Nops)
+		// nothing to return in the changeset, as we're not using MCMS
+		return deployment.ChangesetOutput{}, nil
+	}
+	// return the a proposal
+	return deployment.ChangesetOutput{
+		//Proposals: []timelock.MCMSWithTimelockProposal{resp.Proposal},
+	}, nil
+
+}

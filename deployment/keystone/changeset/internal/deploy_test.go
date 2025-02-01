@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -58,21 +59,32 @@ func Test_RegisterNOPS(t *testing.T) {
 
 func Test_AddCapabilities(t *testing.T) {
 	var (
-		useMCMS      bool
-		lggr         = logger.Test(t)
-		setupResp    = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry     = setupResp.CapabilitiesRegistry
-		chain        = setupResp.Chain
-		capabilities = make([]kcr.CapabilitiesRegistryCapability, 0)
+		useMCMS   bool
+		lggr      = logger.Test(t)
+		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
+		registry  = setupResp.CapabilitiesRegistry
+		chain     = setupResp.Chain
 	)
 
+	assertExists := func(t *testing.T, registry *kcr.CapabilitiesRegistry, capabilities ...kcr.CapabilitiesRegistryCapability) {
+		for _, capability := range capabilities {
+			wantID, err := registry.GetHashedCapabilityId(nil, capability.LabelledName, capability.Version)
+			require.NoError(t, err)
+			got, err := registry.GetCapability(nil, wantID)
+			require.NoError(t, err)
+			require.NotEmpty(t, got)
+			assert.Equal(t, capability.CapabilityType, got.CapabilityType)
+			assert.Equal(t, capability.LabelledName, got.LabelledName)
+			assert.Equal(t, capability.Version, got.Version)
+		}
+	}
 	t.Run("successfully create mcms proposal", func(t *testing.T) {
 		useMCMS = true
-		capabilities = append(capabilities, kcr.CapabilitiesRegistryCapability{
+		capabilities := []kcr.CapabilitiesRegistryCapability{kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "cap1",
 			Version:        "1.0.0",
 			CapabilityType: 0,
-		})
+		}}
 		ops, err := internal.AddCapabilities(lggr, registry, chain, capabilities, useMCMS)
 		require.NoError(t, err)
 		require.NotNil(t, ops)
@@ -83,6 +95,39 @@ func Test_AddCapabilities(t *testing.T) {
 		ops, err := internal.AddCapabilities(lggr, registry, chain, nil, useMCMS)
 		require.NoError(t, err)
 		require.Nil(t, ops)
+	})
+
+	t.Run("idempotent", func(t *testing.T) {
+		capabilities := []kcr.CapabilitiesRegistryCapability{kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "idempotent-cap",
+			Version:        "1.0.0",
+			CapabilityType: 0,
+		},
+		}
+		_, err := internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities...)
+		_, err = internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities...)
+	})
+
+	t.Run("dedup", func(t *testing.T) {
+		capabilities := []kcr.CapabilitiesRegistryCapability{
+			{
+				LabelledName:   "would-be-duplicate",
+				Version:        "1.0.0",
+				CapabilityType: 0,
+			},
+			{
+				LabelledName:   "would-be-duplicate",
+				Version:        "1.0.0",
+				CapabilityType: 0,
+			},
+		}
+		_, err := internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities[0])
 	})
 }
 

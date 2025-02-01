@@ -34,15 +34,6 @@ type GetContractSetsResponse = internal.GetContractSetsResponse
 // GetContractSets gets contract sets
 var GetContractSets = internal.GetContractSets
 
-// RegisterCapabilitiesRequest is a request to register capabilities
-type RegisterCapabilitiesRequest = internal.RegisterCapabilitiesRequest
-
-// RegisterCapabilitiesResponse is a response to register capabilities
-type RegisterCapabilitiesResponse = internal.RegisterCapabilitiesResponse
-
-// RegisterCapabilities registers capabilities
-var RegisterCapabilities = internal.RegisterCapabilities
-
 // RegisterNOPSRequest is a request to register NOPS
 type RegisterNOPSRequest = internal.RegisterNOPSRequest
 
