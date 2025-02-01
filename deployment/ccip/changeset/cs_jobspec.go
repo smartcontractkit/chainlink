@@ -7,7 +7,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -29,8 +29,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 	// find existing jobs
 	existingSpecs := make(map[string][]string)
 	for _, node := range nodes {
-		jobs, err := env.Offchain.ListJobs(env.GetContext(), &job.ListJobsRequest{
-			Filter: &job.ListJobsRequest_Filter{
+		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
+			Filter: &jobv1.ListJobsRequest_Filter{
 				NodeIds: []string{node.NodeID},
 			},
 		})
@@ -39,7 +39,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		}
 		for _, j := range jobs.Jobs {
 			for _, propID := range j.ProposalIds {
-				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &job.GetProposalRequest{
+				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &jobv1.GetProposalRequest{
 					Id: propID,
 				})
 				if err != nil {
@@ -49,6 +49,8 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			}
 		}
 	}
+	// We first generate the job specs for the CCIP capability. so that if
+	// there are any errors in the job specs, we can fail early.
 	// Generate a set of brand new job specs for CCIP for a specific environment
 	// (including NOPs) and new addresses.
 	// We want to assign one CCIP capability job to each node. And node with
@@ -114,11 +116,35 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
 		}
 	}
+	var Jobs []deployment.ProposedJob
+	for nodeID, jobs := range nodesToJobSpecs {
+		for _, job := range jobs {
+			Jobs = append(Jobs, deployment.ProposedJob{
+				Node: nodeID,
+				Spec: job,
+			})
+			// Note these auto-accept
+			res, err := env.Offchain.ProposeJob(env.GetContext(),
+				&jobv1.ProposeJobRequest{
+					NodeId: nodeID,
+					Spec:   job,
+				})
+			if err != nil {
+				// If we fail to propose a job, we should return an error and the jobs we've already proposed.
+				// This is so that we can retry the proposal with manual intervention.
+				return deployment.ChangesetOutput{
+					Proposals:   []timelock.MCMSWithTimelockProposal{},
+					AddressBook: nil,
+					Jobs:        Jobs,
+				}, fmt.Errorf("failed to propose job: %w", err)
+			}
+			Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
+		}
+	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: nil,
-		JobSpecs:    nodesToJobSpecs,
-		Jobs:        nil,
+		Jobs:        Jobs,
 	}, nil
 }
 
