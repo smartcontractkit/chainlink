@@ -7,9 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
@@ -53,6 +54,7 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
 		JobSpecs:    nil,
+		Jobs:        nil,
 	}, nil
 }
 

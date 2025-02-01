@@ -3,16 +3,16 @@ package changeset
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 type TokenSymbol string
@@ -105,15 +105,15 @@ func (tc *TokenConfig) UpsertTokenInfo(
 // GetTokenInfo Adds mapping between dest chain tokens and their respective aggregators on feed chain.
 func (tc *TokenConfig) GetTokenInfo(
 	lggr logger.Logger,
-	linkToken *link_token.LinkToken,
-	wethToken *weth9.WETH9,
+	linkTokenAddr,
+	wethTokenAddr common.Address,
 ) map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo {
 	tokenToAggregate := make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
 	if _, ok := tc.TokenSymbolToInfo[LinkSymbol]; !ok {
 		lggr.Debugw("Link aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping LinkToken to Link aggregator")
-		acc := ccipocr3.UnknownEncodedAddress(linkToken.Address().String())
+		acc := ccipocr3.UnknownEncodedAddress(linkTokenAddr.String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[LinkSymbol]
 	}
 
@@ -121,7 +121,7 @@ func (tc *TokenConfig) GetTokenInfo(
 		lggr.Debugw("Weth aggregator not found, deploy without mapping link token")
 	} else {
 		lggr.Debugw("Mapping WethToken to Weth aggregator")
-		acc := ccipocr3.UnknownEncodedAddress(wethToken.Address().String())
+		acc := ccipocr3.UnknownEncodedAddress(wethTokenAddr.String())
 		tokenToAggregate[acc] = tc.TokenSymbolToInfo[WethSymbol]
 	}
 
