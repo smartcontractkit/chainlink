@@ -33,8 +33,6 @@ type ProposedJob struct {
 // The address book here should contain only new addresses created in
 // this changeset.
 type ChangesetOutput struct {
-	// Deprecated: Prefer Jobs instead.
-	JobSpecs    map[string][]string `deprecated:"true"`
 	Jobs        []ProposedJob
 	Proposals   []timelock.MCMSWithTimelockProposal
 	AddressBook AddressBook
