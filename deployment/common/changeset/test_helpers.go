@@ -10,31 +10,46 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-type ChangesetApplication struct {
-	Changeset deployment.ChangeSet[any]
-	Config    any
+type ConfiguredChangeSet interface {
+	Apply(e deployment.Environment) (deployment.ChangesetOutput, error)
 }
 
-func WrapChangeSet[C any](fn deployment.ChangeSet[C]) func(e deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-	return func(e deployment.Environment, config any) (deployment.ChangesetOutput, error) {
-		var zeroC C
-		if config != nil {
-			c, ok := config.(C)
-			if !ok {
-				return deployment.ChangesetOutput{}, fmt.Errorf("invalid config type, expected %T", c)
-			}
-			return fn(e, config.(C))
-		}
-
-		return fn(e, zeroC)
+func Configure[C any](
+	changeset deployment.ChangeSetV2[C],
+	config C,
+) ConfiguredChangeSet {
+	return configuredChangeSetImpl[C]{
+		changeset: changeset,
+		config:    config,
 	}
 }
 
+type configuredChangeSetImpl[C any] struct {
+	changeset deployment.ChangeSetV2[C]
+	config    C
+}
+
+func (ca configuredChangeSetImpl[C]) Apply(e deployment.Environment) (deployment.ChangesetOutput, error) {
+	err := ca.changeset.VerifyPreconditions(e, ca.config)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return ca.changeset.Apply(e, ca.config)
+}
+
+// Apply applies the changeset applications to the environment and returns the updated environment. This is the
+// variadic function equivalent of ApplyChangesets, but allowing you to simply pass in one or more changesets as
+// parameters at the end of the function. e.g. `changeset.Apply(t, e, nil, configuredCS1, configuredCS2)` etc.
+func Apply(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, first ConfiguredChangeSet, rest ...ConfiguredChangeSet) (deployment.Environment, error) {
+	return ApplyChangesets(t, e, timelockContractsPerChain, append([]ConfiguredChangeSet{first}, rest...))
+}
+
 // ApplyChangesets applies the changeset applications to the environment and returns the updated environment.
-func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ChangesetApplication) (deployment.Environment, error) {
+func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPerChain map[uint64]*proposalutils.TimelockExecutionContracts, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
 	currentEnv := e
 	for i, csa := range changesetApplications {
-		out, err := csa.Changeset(currentEnv, csa.Config)
+
+		out, err := csa.Apply(currentEnv)
 		if err != nil {
 			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
 		}

@@ -440,10 +440,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 
 				if test.RegistrationPass != nil {
 					// Configure & set the active pools on the registry
-					e, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							Config: changeset.ConfigureTokenPoolContractsConfig{
+					e, err = commonchangeset.Apply(t, e, timelockContracts,
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+							changeset.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
 								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
@@ -463,10 +463,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ProposeAdminRoleChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -483,10 +483,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAdminRoleChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.AcceptAdminRoleChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -503,10 +503,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.SetPoolChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -523,8 +523,8 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-					})
+						),
+					)
 					require.NoError(t, err)
 
 					for _, selector := range e.AllChainSelectors() {
@@ -563,10 +563,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					if test.UpdatePass.UpdatePoolOnB {
 						bType = changeset.BurnMintTokenPool
 					}
-					e, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							Config: changeset.ConfigureTokenPoolContractsConfig{
+					e, err = commonchangeset.Apply(t, e, timelockContracts,
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+							changeset.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
 								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
@@ -586,8 +586,8 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-					})
+						),
+					)
 					require.NoError(t, err)
 
 					for _, selector := range e.AllChainSelectors() {

@@ -435,29 +435,29 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			Opts:          opts,
 		})
 	}
-	deployLinkApp := commonchangeset.ChangesetApplication{
-		Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-		Config:    allChains,
-	}
+	deployLinkApp := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		allChains,
+	)
 	if tc.IsStaticLink {
-		deployLinkApp = commonchangeset.ChangesetApplication{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployStaticLinkToken),
-			Config:    allChains,
-		}
+		deployLinkApp = commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
+			allChains,
+		)
 	}
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
 		deployLinkApp,
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-	})
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			mcmsCfg,
+		),
+	)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	return e
@@ -496,14 +496,14 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 
 	e = AddCCIPContractsToEnvironment(t, allChains, tEnv, false)
 	// now we update RMNProxy to point to RMNRemote
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
+			changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: evmChains,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	return e
 }
@@ -516,7 +516,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	var apps []commonchangeset.ChangesetApplication
+	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]changeset.ChainContractParams)
 	solContractParams := make(map[uint64]changeset.ChainContractParams)
 	evmChains := []uint64{}
@@ -547,10 +547,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	apps = append(apps, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  NewTestRMNStaticConfig(),
@@ -559,21 +559,21 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: evmContractParams,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: solContractParams,
 			},
-		},
+		),
 	}...)
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
 	require.NoError(t, err)
@@ -689,20 +689,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			MinDelay: 0,
 		}
 	}
-	apps = []commonchangeset.ChangesetApplication{
-		{
+	apps = []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
 			// Add the chain configs for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-			Config: changeset.UpdateChainConfigConfig{
+			deployment.CreateLegacyChangeSet(changeset.UpdateChainConfigChangeset),
+			changeset.UpdateChainConfigConfig{
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   chainConfigs,
 				MCMS:              mcmsConfig,
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain.
-			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
-			Config: changeset.AddDonAndSetCandidateChangesetConfig{
+			deployment.CreateLegacyChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			changeset.AddDonAndSetCandidateChangesetConfig{
 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					// TODO: we dont know what this means for solana
@@ -714,11 +714,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Add the exec OCR instances for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-			Config: changeset.SetCandidateChangesetConfig{
+			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+			changeset.SetCandidateChangesetConfig{
 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 					HomeChainSelector: e.HomeChainSel,
 					// TODO: we dont know what this means for solana
@@ -732,11 +732,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					},
 				},
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-			Config: changeset.PromoteCandidateChangesetConfig{
+			deployment.CreateLegacyChangeSet(changeset.PromoteCandidateChangeset),
+			changeset.PromoteCandidateChangesetConfig{
 				HomeChainSelector: e.HomeChainSel,
 				PluginInfo: []changeset.PromoteCandidatePluginInfo{
 					{
@@ -750,28 +750,29 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 				MCMS: mcmsConfig,
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
-			Config: changeset.SetOCR3OffRampConfig{
+			deployment.CreateLegacyChangeSet(changeset.SetOCR3OffRampChangeset),
+			changeset.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    evmChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.SetOCR3ConfigSolana),
-			Config: changeset.SetOCR3OffRampConfig{
+			deployment.CreateLegacyChangeSet(changeset_solana.SetOCR3ConfigSolana),
+			changeset.SetOCR3OffRampConfig{
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    solChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
-		},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.CCIPCapabilityJobspecChangeset),
+			nil, // Changeset ignores any config
+		),
 	}
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, apps)
 	require.NoError(t, err)
