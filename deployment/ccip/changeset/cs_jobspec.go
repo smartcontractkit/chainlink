@@ -116,6 +116,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
 		}
 	}
+	// Now we propose the job specs to the offchain system.
 	var Jobs []deployment.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		for _, job := range jobs {
@@ -123,7 +124,6 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 				Node: nodeID,
 				Spec: job,
 			})
-			// Note these auto-accept
 			res, err := env.Offchain.ProposeJob(env.GetContext(),
 				&jobv1.ProposeJobRequest{
 					NodeId: nodeID,
@@ -132,6 +132,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			if err != nil {
 				// If we fail to propose a job, we should return an error and the jobs we've already proposed.
 				// This is so that we can retry the proposal with manual intervention.
+				// JOBID will be empty if the proposal failed.
 				return deployment.ChangesetOutput{
 					Proposals:   []timelock.MCMSWithTimelockProposal{},
 					AddressBook: nil,
