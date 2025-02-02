@@ -347,45 +347,6 @@ func (d *Delegate) getSolanaKeys() ([]string, error) {
 	return result, err
 }
 
-func (d *Delegate) getAptosKeys() ([]string, error) {
-	result := make([]string, 0)
-	keys, err := d.keystore.Aptos().GetAll()
-	if err != nil {
-		return result, fmt.Errorf("error getting all Aptos keys: %w", err)
-	}
-
-	for _, key := range keys {
-		result = append(result, key.PublicKeyStr())
-	}
-	return result, err
-}
-
-func (d *Delegate) getCosmosKeys() ([]string, error) {
-	result := make([]string, 0)
-	keys, err := d.keystore.Cosmos().GetAll()
-	if err != nil {
-		return result, fmt.Errorf("error getting all Cosmos keys: %w", err)
-	}
-
-	for _, key := range keys {
-		result = append(result, key.PublicKeyStr())
-	}
-	return result, err
-}
-
-func (d *Delegate) getStarkNetKeys() ([]string, error) {
-	result := make([]string, 0)
-	keys, err := d.keystore.StarkNet().GetAll()
-	if err != nil {
-		return result, fmt.Errorf("error getting all StarkNet keys: %w", err)
-	}
-
-	for _, key := range keys {
-		result = append(result, key.StarkKeyStr())
-	}
-	return result, nil
-}
-
 func (d *Delegate) getHomeChainContractReader(
 	ctx context.Context,
 	homeChainRelayer loop.Relayer,
