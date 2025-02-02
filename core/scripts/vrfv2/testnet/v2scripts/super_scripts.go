@@ -296,7 +296,7 @@ func VRFV2DeployUniverse(
 	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
 
-		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
+		// NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
 		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, vrfKeyRegistrationConfig.RegisterAgainstAddress)
 
@@ -354,19 +354,19 @@ func VRFV2DeployUniverse(
 
 	formattedVrfPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
-		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
-		compressedPkHex,            //publicKey
-		coordinatorConfig.MinConfs, //minIncomingConfirmations
-		e.ChainID,                  //evmChainID
-		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
-		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
-		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
+		contractAddresses.CoordinatorAddress,                   // coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              // batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       // batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, // batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        // revertsPipelineEnabled
+		compressedPkHex,            // publicKey
+		coordinatorConfig.MinConfs, // minIncomingConfirmations
+		e.ChainID,                  // evmChainID
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFPrimaryNodeName].SendingKeys), "\",\""), // fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     // pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, // requestTimeout
 		contractAddresses.CoordinatorAddress,
-		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		coordinatorJobSpecConfig.EstimateGasMultiplier, // estimateGasMultiplier
 		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
@@ -387,19 +387,19 @@ func VRFV2DeployUniverse(
 
 	formattedVrfBackupJobSpec := fmt.Sprintf(
 		jobs.VRFV2JobFormatted,
-		contractAddresses.CoordinatorAddress,                   //coordinatorAddress
-		contractAddresses.BatchCoordinatorAddress,              //batchCoordinatorAddress
-		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       //batchFulfillmentEnabled
-		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, //batchFulfillmentGasMultiplier
-		coordinatorJobSpecConfig.RevertsPipelineEnabled,        //revertsPipelineEnabled
-		compressedPkHex, //publicKey
-		100,             //minIncomingConfirmations
-		e.ChainID,       //evmChainID
-		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
-		coordinatorJobSpecConfig.PollPeriod,     //pollPeriod
-		coordinatorJobSpecConfig.RequestTimeout, //requestTimeout
+		contractAddresses.CoordinatorAddress,                   // coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress,              // batchCoordinatorAddress
+		coordinatorJobSpecConfig.BatchFulfillmentEnabled,       // batchFulfillmentEnabled
+		coordinatorJobSpecConfig.BatchFulfillmentGasMultiplier, // batchFulfillmentGasMultiplier
+		coordinatorJobSpecConfig.RevertsPipelineEnabled,        // revertsPipelineEnabled
+		compressedPkHex, // publicKey
+		100,             // minIncomingConfirmations
+		e.ChainID,       // evmChainID
+		strings.Join(util.MapToAddressArr(nodesMap[model.VRFBackupNodeName].SendingKeys), "\",\""), // fromAddresses
+		coordinatorJobSpecConfig.PollPeriod,     // pollPeriod
+		coordinatorJobSpecConfig.RequestTimeout, // requestTimeout
 		contractAddresses.CoordinatorAddress,
-		coordinatorJobSpecConfig.EstimateGasMultiplier, //estimateGasMultiplier
+		coordinatorJobSpecConfig.EstimateGasMultiplier, // estimateGasMultiplier
 		simulationBlock,
 		func() string {
 			if keys := nodesMap[model.VRFPrimaryNodeName].SendingKeys; len(keys) > 0 {
@@ -420,33 +420,33 @@ func VRFV2DeployUniverse(
 
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		bhsJobSpecConfig.WaitBlocks,          //waitBlocks
-		bhsJobSpecConfig.LookBackBlocks,      //lookbackBlocks
-		contractAddresses.BhsContractAddress, //bhs address
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		bhsJobSpecConfig.WaitBlocks,          // waitBlocks
+		bhsJobSpecConfig.LookBackBlocks,      // lookbackBlocks
+		contractAddresses.BhsContractAddress, // bhs address
 		bhsJobSpecConfig.PollPeriod,
 		bhsJobSpecConfig.RunTimeout,
-		e.ChainID, //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), //sending addresses
+		e.ChainID, // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHSNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		100,                                  //waitBlocks
-		200,                                  //lookbackBlocks
-		contractAddresses.BhsContractAddress, //bhs adreess
-		e.ChainID,                            //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		100,                                  // waitBlocks
+		200,                                  // lookbackBlocks
+		contractAddresses.BhsContractAddress, // bhs adreess
+		e.ChainID,                            // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHSBackupNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	formattedBHFJobSpec := fmt.Sprintf(
 		jobs.BHFJobFormatted,
-		contractAddresses.CoordinatorAddress, //coordinatorAddress
-		contractAddresses.BhsContractAddress, //bhs adreess
-		contractAddresses.BatchBHSAddress,    //batchBHS
-		e.ChainID,                            //chain id
-		strings.Join(util.MapToAddressArr(nodesMap[model.BHFNodeName].SendingKeys), "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, // coordinatorAddress
+		contractAddresses.BhsContractAddress, // bhs adreess
+		contractAddresses.BatchBHSAddress,    // batchBHS
+		e.ChainID,                            // chain id
+		strings.Join(util.MapToAddressArr(nodesMap[model.BHFNodeName].SendingKeys), "\",\""), // sending addresses
 	)
 
 	fmt.Println(
