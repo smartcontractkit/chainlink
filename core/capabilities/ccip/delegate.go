@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -264,6 +265,21 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 	return ocrKeys, nil
 }
 
+func getKeys[K keystore.Key](ks web.Keystore[K]) ([]string, error) {
+	result := make([]string, 0)
+
+	keys, err := ks.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("error getting all keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.ID())
+	}
+
+	return result, nil
+}
+
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
@@ -280,11 +296,11 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 		case relay.NetworkSolana:
 			keys, err = d.getSolanaKeys()
 		case relay.NetworkAptos:
-			keys, err = d.getAptosKeys()
+			keys, err = getKeys(d.keystore.Aptos())
 		case relay.NetworkCosmos:
-			keys, err = d.getCosmosKeys()
+			keys, err = getKeys(d.keystore.Cosmos())
 		case relay.NetworkStarkNet:
-			keys, err = d.getStarkNetKeys()
+			keys, err = getKeys(d.keystore.StarkNet())
 		default:
 			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
