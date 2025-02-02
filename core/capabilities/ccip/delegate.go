@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -50,6 +49,15 @@ import (
 type RelayGetter interface {
 	Get(types.RelayID) (loop.Relayer, error)
 	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+}
+
+type Keystore[K keystore.Key] interface {
+	Get(id string) (K, error)
+	GetAll() ([]K, error)
+	Create(context.Context) (K, error)
+	Delete(ctx context.Context, id string) (K, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (K, error)
+	Export(id string, password string) ([]byte, error)
 }
 
 type Delegate struct {
@@ -265,7 +273,7 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 	return ocrKeys, nil
 }
 
-func getKeys[K keystore.Key](ks web.Keystore[K]) ([]string, error) {
+func getKeys[K keystore.Key](ks Keystore[K]) ([]string, error) {
 	result := make([]string, 0)
 
 	keys, err := ks.GetAll()
