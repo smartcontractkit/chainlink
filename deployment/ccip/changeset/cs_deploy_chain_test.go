@@ -109,3 +109,14 @@ func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	testhelpers.DeployCCIPContractsTest(t, 0)
 }
+
+func TestDeployStaticLinkToken(t *testing.T) {
+	t.Parallel()
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
+	// load onchain state
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	for _, chain := range e.Env.AllChainSelectors() {
+		require.NotNil(t, state.Chains[chain].StaticLinkToken)
+	}
+}

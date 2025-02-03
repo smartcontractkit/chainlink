@@ -101,7 +101,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
 		Client:         ethClient,
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -286,7 +286,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		testopts := evmtest.TestChainOpts{
 			DB:             db,
 			Client:         ethClient,
-			GeneralConfig:  config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),

@@ -564,7 +564,7 @@ func mustUpkeepWorkID(upkeepID *big.Int, trigger ocr2keepers.Trigger) [32]byte {
 	}
 
 	var result [32]byte
-	copy(result[:], workIDBytes[:])
+	copy(result[:], workIDBytes)
 	return result
 }
 

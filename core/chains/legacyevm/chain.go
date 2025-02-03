@@ -125,12 +125,6 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-// TODO BCF-2509 what is this and does it need the entire app config?
-type AppConfig interface {
-	EVMRPCEnabled() bool
-	toml.HasEVMConfigs
-}
-
 type FeatureConfig interface {
 	LogPoller() bool
 }
@@ -142,7 +136,7 @@ type ChainRelayOpts struct {
 }
 
 type ChainOpts struct {
-	AppConfig      AppConfig
+	ChainConfigs   toml.EVMConfigs
 	DatabaseConfig txmgr.DatabaseConfig
 	FeatureConfig  FeatureConfig
 	ListenerConfig txmgr.ListenerConfig
@@ -164,8 +158,8 @@ type ChainOpts struct {
 
 func (o ChainOpts) Validate() error {
 	var err error
-	if o.AppConfig == nil {
-		err = errors.Join(err, errors.New("nil AppConfig"))
+	if o.ChainConfigs == nil {
+		err = errors.Join(err, errors.New("nil ChainConfigs"))
 	}
 	if o.DatabaseConfig == nil {
 		err = errors.Join(err, errors.New("nil DatabaseConfig"))
@@ -195,11 +189,10 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpt
 		return nil, err
 	}
 	chainID := chain.ChainID
-	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := config.NewTOMLChainScopedConfig(chain, l)
+	cfg := config.NewTOMLChainScopedConfig(chain)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts, clientsByChainID)
 }
@@ -209,7 +202,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	l := opts.Logger
 	var cl client.Client
 	var err error
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		cl = client.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		cl, err = client.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
@@ -223,7 +216,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		var orm headtracker.ORM
@@ -267,7 +260,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	// note: gas estimator is started as a part of the txm
 	var txm txmgr.TxManager
 	//nolint:gocritic // ignoring suggestion to convert to switch statement
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if !cfg.EVM().Transactions().Enabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", chainID)}
@@ -287,13 +280,13 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	}
 
 	var balanceMonitor monitor.BalanceMonitor
-	if opts.AppConfig.EVMRPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
+	if opts.ChainConfigs.RPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
 		balanceMonitor = monitor.NewBalanceMonitor(cl, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
 	var logBroadcaster log.Broadcaster
-	if !opts.AppConfig.EVMRPCEnabled() {
+	if !opts.ChainConfigs.RPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if !cfg.EVM().LogBroadcasterEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("LogBroadcaster disabled for chain %d", chainID)}

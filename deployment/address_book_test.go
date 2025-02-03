@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
@@ -243,35 +244,250 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAddressesContainsBundle(t *testing.T) {
+func TestAddressesContainBundle(t *testing.T) {
+	t.Parallel()
+
+	// Define some TypeAndVersion values
 	onRamp100 := NewTypeAndVersion("OnRamp", Version1_0_0)
 	onRamp110 := NewTypeAndVersion("OnRamp", Version1_1_0)
 	onRamp120 := NewTypeAndVersion("OnRamp", Version1_2_0)
+
+	// Create one with labels
+	onRamp100WithLabels := NewTypeAndVersion("OnRamp", Version1_0_0)
+	onRamp100WithLabels.Labels.Add("sa")
+	onRamp100WithLabels.Labels.Add("staging")
+
 	addr1 := common.HexToAddress("0x1").String()
 	addr2 := common.HexToAddress("0x2").String()
 	addr3 := common.HexToAddress("0x3").String()
 
-	// More than one instance should error
-	_, err := AddressesContainBundle(map[string]TypeAndVersion{
-		addr1: onRamp100,
-		addr2: onRamp100,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}})
-	require.Error(t, err)
+	tests := []struct {
+		name       string
+		addrs      map[string]TypeAndVersion // input address map
+		wantTypes  []TypeAndVersion          // the “bundle” we want
+		wantErr    bool
+		wantErrMsg string
+		wantResult bool // expected boolean return when no error
+	}{
+		{
+			name: "More than one instance => error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100,
+				addr2: onRamp100, // duplicate
+			},
+			wantTypes: []TypeAndVersion{onRamp100},
+			wantErr:   true,
+			// an example substring check:
+			wantErrMsg: "found more than one instance of contract",
+		},
+		{
+			name: "No instance => result false, no error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp110,
+				addr2: onRamp110,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100},
+			wantErr:    false,
+			wantResult: false,
+		},
+		{
+			name: "2 elements => success",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100,
+				addr2: onRamp110,
+				addr3: onRamp120,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100, onRamp110},
+			wantErr:    false,
+			wantResult: true,
+		},
+		{
+			name: "Mismatched labels => false",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100, // no labels
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    false,
+			wantResult: false, // label mismatch => not found
+		},
+		{
+			name: "Exact label match => success",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100WithLabels,
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    false,
+			wantResult: true,
+		},
+		{
+			name: "Duplicate labeled => error",
+			addrs: map[string]TypeAndVersion{
+				addr1: onRamp100WithLabels,
+				addr2: onRamp100WithLabels, // same type/version/labels => duplicate
+			},
+			wantTypes:  []TypeAndVersion{onRamp100WithLabels},
+			wantErr:    true,
+			wantErrMsg: "more than one instance of contract",
+		},
+	}
 
-	// No such instances should be false
-	exists, err := AddressesContainBundle(map[string]TypeAndVersion{
-		addr2: onRamp110,
-		addr1: onRamp110,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}})
-	require.NoError(t, err)
-	assert.Equal(t, exists, false)
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	// 2 elements
-	exists, err = AddressesContainBundle(map[string]TypeAndVersion{
-		addr1: onRamp100,
-		addr2: onRamp110,
-		addr3: onRamp120,
-	}, map[TypeAndVersion]struct{}{onRamp100: {}, onRamp110: {}})
-	require.NoError(t, err)
-	assert.Equal(t, exists, true)
+			gotResult, gotErr := AddressesContainBundle(tt.addrs, tt.wantTypes)
+
+			if tt.wantErr {
+				require.Error(t, gotErr, "expected an error but got none")
+				if tt.wantErrMsg != "" {
+					require.Contains(t, gotErr.Error(), tt.wantErrMsg)
+				}
+				return
+			}
+			require.NoError(t, gotErr, "did not expect an error but got one")
+			assert.Equal(t, tt.wantResult, gotResult,
+				"expected result %v but got %v", tt.wantResult, gotResult)
+		})
+	}
+}
+
+func TestTypeAndVersionFromString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name               string
+		input              string
+		wantErr            bool
+		wantType           ContractType
+		wantVersion        semver.Version
+		wantLabels         LabelSet
+		wantTypeAndVersion string
+	}{
+		{
+			name:               "valid - no labels",
+			input:              "CallProxy 1.0.0",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet(),
+			wantTypeAndVersion: "CallProxy 1.0.0",
+		},
+		{
+			name:               "valid - multiple labels, normal spacing",
+			input:              "CallProxy 1.0.0 SA staging",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet("SA", "staging"),
+			wantTypeAndVersion: "CallProxy 1.0.0 SA staging",
+		},
+		{
+			name:               "valid - multiple labels, extra spacing",
+			input:              "   CallProxy     1.0.0    SA    staging   ",
+			wantErr:            false,
+			wantType:           "CallProxy",
+			wantVersion:        Version1_0_0,
+			wantLabels:         NewLabelSet("SA", "staging"),
+			wantTypeAndVersion: "CallProxy 1.0.0 SA staging",
+		},
+		{
+			name:    "invalid - not enough parts",
+			input:   "CallProxy",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - version not parseable",
+			input:   "CallProxy notASemver",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotTV, gotErr := TypeAndVersionFromString(tt.input)
+			if tt.wantErr {
+				require.Error(t, gotErr, "expected error but got none")
+				return
+			}
+			require.NoError(t, gotErr, "did not expect an error but got one")
+
+			// Check ContractType
+			require.Equal(t, tt.wantType, gotTV.Type, "incorrect contract type")
+
+			// Check Version
+			require.Equal(t, tt.wantVersion.String(), gotTV.Version.String(), "incorrect version")
+
+			// Check labels
+			require.Equal(t, tt.wantLabels, gotTV.Labels, "labels mismatch")
+
+			// Check type and version
+			require.Equal(t, tt.wantTypeAndVersion, gotTV.String(), "type and version mismatch")
+		})
+	}
+}
+
+func TestTypeAndVersion_AddLabels(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		initialLabels []string
+		toAdd         []string
+		wantContains  []string
+		wantLen       int
+	}{
+		{
+			name:          "add single labels to empty set",
+			initialLabels: nil,
+			toAdd:         []string{"foo"},
+			wantContains:  []string{"foo"},
+			wantLen:       1,
+		},
+		{
+			name:          "add multiple labels to existing set",
+			initialLabels: []string{"alpha"},
+			toAdd:         []string{"beta", "gamma"},
+			wantContains:  []string{"alpha", "beta", "gamma"},
+			wantLen:       3,
+		},
+		{
+			name:          "add duplicate labels",
+			initialLabels: []string{"dup"},
+			toAdd:         []string{"dup", "dup", "new"},
+			wantContains:  []string{"dup", "new"},
+			wantLen:       2,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt // capture range variable
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Construct a TypeAndVersion with any initial labels
+			tv := TypeAndVersion{
+				Type:    "CallProxy",
+				Version: Version1_0_0,
+				Labels:  NewLabelSet(tt.initialLabels...),
+			}
+
+			// Call AddLabel for each item in toAdd
+			for _, label := range tt.toAdd {
+				tv.AddLabel(label)
+			}
+
+			// Check final labels length
+			require.Len(t, tv.Labels, tt.wantLen, "labels size mismatch")
+
+			// Check that expected labels is present
+			for _, md := range tt.wantContains {
+				require.True(t, tv.Labels.Contains(md),
+					"expected labels %q was not found in tv.Labels", md)
+			}
+		})
+	}
 }

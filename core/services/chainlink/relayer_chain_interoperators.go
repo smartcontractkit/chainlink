@@ -128,7 +128,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
 		}
-		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
+		op.legacyChains.EVMChains = legacyevm.NewLegacyChains(legacyMap, config.ChainConfigs)
 		return nil
 	}
 }
