@@ -571,8 +571,6 @@ func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipR
 
 	instruction, err := solRouter.NewInitializeInstruction(
 		chain.Selector,                         // chain selector
-		deployment.SolDefaultGasLimit,          // default gas limit
-		true,                                   // allow out of order execution
 		EnableExecutionAfter,                   // period to wait before allowing manual execution
 		solana.PublicKey{},                     // fee aggregator (TODO: changeset to set the fee aggregator)
 		linkTokenAddress,                       // link token mint
@@ -650,7 +648,7 @@ func deployChainContractsSolana(
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
 	}
-  
+
 	var tokenPoolProgram solana.PublicKey
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
