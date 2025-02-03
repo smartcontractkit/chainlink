@@ -13,6 +13,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -170,7 +171,7 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 			continue
 		}
 		// TODO : is there a way to accept the job with proposal id?
-		if err := node.AcceptJob(ctx, res.Proposal.Spec); err != nil {
+		if err := node.AcceptJob(ctx, res.Proposal.JobId); err != nil {
 			return nil, fmt.Errorf("failed to accept job. err: %w", err)
 		}
 	}
