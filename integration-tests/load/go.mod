@@ -428,7 +428,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250130181017-e1b223a907cf // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250203204555-c245a7640475 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.7 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2 // indirect
