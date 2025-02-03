@@ -17,6 +17,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -59,6 +60,7 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: newAddresses,
+		Jobs:        nil,
 		JobSpecs:    nil,
 	}, nil
 }
@@ -92,7 +94,7 @@ func (c ChainContractParams) Validate() error {
 	if err := c.FeeQuoterParams.Validate(); err != nil {
 		return fmt.Errorf("invalid FeeQuoterParams: %w", err)
 	}
-	if err := c.OffRampParams.Validate(); err != nil {
+	if err := c.OffRampParams.Validate(false); err != nil {
 		return fmt.Errorf("invalid OffRampParams: %w", err)
 	}
 	return nil
@@ -146,10 +148,11 @@ type OffRampParams struct {
 	GasForCallExactCheck                    uint16
 	PermissionLessExecutionThresholdSeconds uint32
 	IsRMNVerificationDisabled               bool
+	MessageInterceptor                      common.Address
 }
 
-func (c OffRampParams) Validate() error {
-	if c.GasForCallExactCheck == 0 {
+func (c OffRampParams) Validate(ignoreGasForCallExactCheck bool) error {
+	if !ignoreGasForCallExactCheck && c.GasForCallExactCheck == 0 {
 		return errors.New("GasForCallExactCheck is 0")
 	}
 	if c.PermissionLessExecutionThresholdSeconds == 0 {
@@ -246,9 +249,6 @@ func deployChainContractsForChains(
 				return fmt.Errorf("fee tokens not valid for chain %d, staticLinkExists: %t, linkExists: %t, weth9Exists: %t", chainSel, staticLinkExists, linkExists, weth9Exists)
 			}
 			chain := e.Chains[chainSel]
-			if existingState.Chains[chainSel].LinkToken == nil || existingState.Chains[chainSel].Weth9 == nil {
-				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
-			}
 			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
 
 		case chainsel.FamilySolana:
@@ -497,6 +497,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 						FeeQuoter:                               feeQuoterContract.Address(),
 						PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
 						IsRMNVerificationDisabled:               contractParams.OffRampParams.IsRMNVerificationDisabled,
+						MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
 					},
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)
@@ -557,37 +558,42 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 	return programData, nil
 }
 
-func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) error {
+func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey, linkTokenAddress solana.PublicKey) error {
 	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
+	// addressing errcheck in the next PR
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
 	instruction, err := solRouter.NewInitializeInstruction(
-		chain.Selector,                // chain selector
-		deployment.SolDefaultGasLimit, // default gas limit
-		true,                          // allow out of order execution
-		EnableExecutionAfter,          // period to wait before allowing manual execution
-		solana.PublicKey{},            // fee aggregator
-		GetRouterConfigPDA(ccipRouterProgram),
-		GetRouterStatePDA(ccipRouterProgram),
+		chain.Selector,                         // chain selector
+		deployment.SolDefaultGasLimit,          // default gas limit
+		true,                                   // allow out of order execution
+		EnableExecutionAfter,                   // period to wait before allowing manual execution
+		solana.PublicKey{},                     // fee aggregator (TODO: changeset to set the fee aggregator)
+		linkTokenAddress,                       // link token mint
+		deployment.SolDefaultMaxFeeJuelsPerMsg, // max fee juels per msg
+		routerConfigPDA,
+		routerStatePDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		ccipRouterProgram,
 		programData.Address,
-		GetExternalExecutionConfigPDA(ccipRouterProgram),
-		GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+		externalExecutionConfigPDA,
+		externalTokenPoolsSignerPDA,
 	).ValidateAndBuild()
 
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-
-	err = chain.Confirm([]solana.Instruction{instruction})
-	if err != nil {
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
-
+	e.Logger.Infow("Initialized router", "chain", chain.String())
 	return nil
 }
 
@@ -603,10 +609,11 @@ func deployChainContractsSolana(
 	}
 	chainState, chainExists := state.SolChains[chain.Selector]
 	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the prerequisites first", chain.String())
+		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	linkTokenContract := chainState.LinkToken
-	e.Logger.Infow("link token", "addr", linkTokenContract.String())
+	if chainState.LinkToken.IsZero() {
+		return fmt.Errorf("failed to get link token address for chain %s", chain.String())
+	}
 
 	// ROUTER DEPLOY AND INITIALIZE
 	var ccipRouterProgram solana.PublicKey
@@ -633,17 +640,44 @@ func deployChainContractsSolana(
 
 	// check if solana router is initialised
 	var routerConfigAccount solRouter.Config
-	err = chain.GetAccountDataBorshInto(e.GetContext(), GetRouterConfigPDA(ccipRouterProgram), &routerConfigAccount)
+	// addressing errcheck in the next PR
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		if err2 := initializeRouter(e, chain, ccipRouterProgram); err2 != nil {
+		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err2 != nil {
 			return err2
 		}
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
 	}
 
+	var tokenPoolProgram solana.PublicKey
+	if chainState.TokenPool.IsZero() {
+		// TODO: there should be two token pools deployed one of each type (lock/burn)
+		// separate token pools are not ready yet
+		programID, err := chain.DeployProgram(e.Logger, "token_pool")
+		if err != nil {
+			return fmt.Errorf("failed to deploy program: %w", err)
+		}
+		tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	} else {
+		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
+		tokenPoolProgram = chainState.TokenPool
+	}
+
 	// initialize this last with every address we need
 	if chainState.AddressLookupTable.IsZero() {
+		// addressing errcheck in the next PR
+		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+		routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
+		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		table, err := solCommonUtil.SetupLookupTable(
 			e.GetContext(),
 			chain.Client,
@@ -655,10 +689,12 @@ func deployChainContractsSolana(
 				solana.SysVarInstructionsPubkey,
 				// router
 				ccipRouterProgram,
-				GetRouterConfigPDA(ccipRouterProgram),
-				GetRouterStatePDA(ccipRouterProgram),
-				GetExternalExecutionConfigPDA(ccipRouterProgram),
-				GetExternalTokenPoolsSignerPDA(ccipRouterProgram),
+				routerConfigPDA,
+				routerStatePDA,
+				externalExecutionConfigPDA,
+				externalTokenPoolsSignerPDA,
+				// token pools
+				tokenPoolProgram,
 				// token
 				solana.Token2022ProgramID,
 				solana.TokenProgramID,

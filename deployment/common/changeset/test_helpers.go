@@ -52,6 +52,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			addresses = currentEnv.ExistingAddresses
 		}
 		if out.JobSpecs != nil {
+			// TODO: Delete this when out.JobSpecs are no longer in use.
 			ctx := testcontext.Get(t)
 			for nodeID, jobs := range out.JobSpecs {
 				for _, job := range jobs {
@@ -66,6 +67,9 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 					}
 				}
 			}
+		}
+		if out.Jobs != nil {
+			// do nothing, as these jobs auto-accept.
 		}
 		if out.Proposals != nil {
 			for _, prop := range out.Proposals {

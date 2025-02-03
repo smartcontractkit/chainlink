@@ -32,16 +32,36 @@ var (
 )
 
 type TypeAndVersion struct {
-	Type    ContractType
-	Version semver.Version
+	Type    ContractType   `json:"type"`
+	Version semver.Version `json:"version"`
+	Labels  LabelSet       `json:"labels,omitempty"`
 }
 
 func (tv TypeAndVersion) String() string {
-	return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
+	if len(tv.Labels) == 0 {
+		return fmt.Sprintf("%s %s", tv.Type, tv.Version.String())
+	}
+
+	// Use the LabelSet's String method for sorted labels
+	sortedLabels := tv.Labels.String()
+	return fmt.Sprintf("%s %s %s",
+		tv.Type,
+		tv.Version.String(),
+		sortedLabels,
+	)
 }
 
 func (tv TypeAndVersion) Equal(other TypeAndVersion) bool {
-	return tv.String() == other.String()
+	// Compare Type
+	if tv.Type != other.Type {
+		return false
+	}
+	// Compare Versions
+	if !tv.Version.Equal(&other.Version) {
+		return false
+	}
+	// Compare Labels
+	return tv.Labels.Equal(other.Labels)
 }
 
 func MustTypeAndVersionFromString(s string) TypeAndVersion {
@@ -55,17 +75,22 @@ func MustTypeAndVersionFromString(s string) TypeAndVersion {
 // Note this will become useful for validation. When we want
 // to assert an onchain call to typeAndVersion yields whats expected.
 func TypeAndVersionFromString(s string) (TypeAndVersion, error) {
-	parts := strings.Split(s, " ")
-	if len(parts) != 2 {
+	parts := strings.Fields(s) // Ignores consecutive spaces
+	if len(parts) < 2 {
 		return TypeAndVersion{}, fmt.Errorf("invalid type and version string: %s", s)
 	}
 	v, err := semver.NewVersion(parts[1])
 	if err != nil {
 		return TypeAndVersion{}, err
 	}
+	labels := make(LabelSet)
+	if len(parts) > 2 {
+		labels = NewLabelSet(parts[2:]...)
+	}
 	return TypeAndVersion{
 		Type:    ContractType(parts[0]),
 		Version: *v,
+		Labels:  labels,
 	}, nil
 }
 
@@ -73,6 +98,7 @@ func NewTypeAndVersion(t ContractType, v semver.Version) TypeAndVersion {
 	return TypeAndVersion{
 		Type:    t,
 		Version: v,
+		Labels:  make(LabelSet), // empty set,
 	}
 }
 
@@ -274,25 +300,49 @@ func AddressBookContains(ab AddressBook, chain uint64, addrToFind string) (bool,
 	return false, nil
 }
 
+type typeVersionKey struct {
+	Type    ContractType
+	Version string
+	Labels  string // store labels in a canonical form (comma-joined sorted list)
+}
+
+func tvKey(tv TypeAndVersion) typeVersionKey {
+	sortedLabels := tv.Labels.String()
+	return typeVersionKey{
+		Type:    tv.Type,
+		Version: tv.Version.String(),
+		Labels:  sortedLabels,
+	}
+}
+
 // AddressesContainBundle checks if the addresses
 // contains a single instance of all the addresses in the bundle.
 // It returns an error if there are more than one instance of a contract.
-func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes map[TypeAndVersion]struct{}) (bool, error) {
-	counts := make(map[TypeAndVersion]int)
-	for wantType := range wantTypes {
-		for _, haveType := range addrs {
-			if wantType == haveType {
-				counts[wantType]++
-				if counts[wantType] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s", wantType)
+func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAndVersion) (bool, error) {
+	// Count how many times each wanted TypeAndVersion is found
+	counts := make(map[typeVersionKey]int)
+	for _, wantTV := range wantTypes {
+		wantKey := tvKey(wantTV)
+		for _, haveTV := range addrs {
+			if wantTV.Equal(haveTV) {
+				// They match exactly (Type, Version, Labels)
+				counts[wantKey]++
+				if counts[wantKey] > 1 {
+					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%s)",
+						wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
 				}
 			}
 		}
 	}
-	// Either 0 or 1, so we can just check the sum.
-	sum := 0
-	for _, count := range counts {
-		sum += count
+
+	// Ensure we found *all* wantTypes exactly once
+	return len(counts) == len(wantTypes), nil
+}
+
+// AddLabel adds a string to the LabelSet in the TypeAndVersion.
+func (tv *TypeAndVersion) AddLabel(label string) {
+	if tv.Labels == nil {
+		tv.Labels = make(LabelSet)
 	}
-	return sum == len(wantTypes), nil
+	tv.Labels.Add(label)
 }

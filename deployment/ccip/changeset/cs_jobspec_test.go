@@ -21,6 +21,7 @@ func TestJobSpecChangeset(t *testing.T) {
 		Chains: 1,
 		Nodes:  4,
 	})
+	// TODO: Replace this with a changeset which proposes the jobs, and returns job ids.
 	output, err := changeset.CCIPCapabilityJobspecChangeset(e, nil)
 	require.NoError(t, err)
 	require.NotNil(t, output.JobSpecs)

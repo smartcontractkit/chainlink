@@ -27,6 +27,7 @@ type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
+// TODO move this out of internal
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability

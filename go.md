@@ -31,7 +31,7 @@ flowchart LR
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-cosmos --> chainlink-common
+	chainlink-cosmos --> chainlink-framework/chains
 	click chainlink-cosmos href "https://github.com/smartcontractkit/chainlink-cosmos"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
@@ -54,7 +54,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-framework/chains
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
@@ -130,7 +129,7 @@ flowchart LR
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-cosmos --> chainlink-common
+	chainlink-cosmos --> chainlink-framework/chains
 	click chainlink-cosmos href "https://github.com/smartcontractkit/chainlink-cosmos"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
@@ -182,7 +181,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-framework/chains
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
