@@ -296,7 +296,8 @@ var sei = ClientErrors{
 }
 
 var monad = ClientErrors{
-	Fatal: regexp.MustCompile("Gas limit too low"),
+	Fatal:          regexp.MustCompile("Gas limit too low"),
+	TooManyResults: regexp.MustCompile("Internal server error. Forwarder error: 1000."),
 }
 
 const TerminallyStuckMsg = "transaction terminally stuck"
