@@ -8,13 +8,14 @@
   image = "jd-test-1:latest"
 
 [workflow_config]
-	don_id = 1
+	workflow_don_id = 1
+  capabilities_don_id = 2
 	workflow_name = "abcdefgasd"
   # without 0x prefix!
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = true
+  should_compile_new_workflow = false
   workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 
   [workflow_config.dependencies]
@@ -25,18 +26,24 @@
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
     config_url = "https://gist.githubusercontent.com/Tofel/19c80e6297914a79449f916e5e65dfdd/raw/1344c259ef7e970dbabaa1e9e885845b8eba5da9/config.json3674692696"
 
-[nodeset]
+[nodeset_a]
   nodes = 5
   override_mode = "each"
+  http_port_range_start = 10100
+  name = "workflow"
 
-[nodeset.db]
-  image = "postgres:15.6"
+  [nodeset_a.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
 
-  [[nodeset.node_specs]]
+  [[nodeset_a.node_specs]]
 
-    [nodeset.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+    [nodeset_a.node_specs.node]
+      # name = "a_bootstrap"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -50,12 +57,14 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodeset_a.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodeset_a.node_specs.node]
+      # name = "a_node1"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -69,12 +78,14 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodeset_a.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodeset_a.node_specs.node]
+      # name = "a_node2"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -88,12 +99,14 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodeset_a.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodeset_a.node_specs.node]
+      # name = "a_node3"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -107,9 +120,125 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodeset_a.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodeset_a.node_specs.node]
+      # name = "a_node4"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      image = "chainlink-test"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[nodeset_b]
+  nodes = 5
+  override_mode = "each"
+  http_port_range_start = 10200
+  name = "capabilities"
+
+  [nodeset_b.db]
+    image = "postgres:12.0"
+    port = 13100
+    volume_name = "capabilities_volume"
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      # name = "b_bootstrap"
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      # name = "b_node1"
+      capabilities = ["./amd64_cron"]
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      # name = "b_node2"
+      capabilities = ["./amd64_cron"]
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      # name = "b_node3"
+      capabilities = ["./amd64_cron"]
+      # docker_ctx = "../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-test"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      # name = "b_node4"
       capabilities = ["./amd64_cron"]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"

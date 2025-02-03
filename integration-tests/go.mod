@@ -9,6 +9,8 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
+replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../chainlink-testing-framework/framework
+
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (

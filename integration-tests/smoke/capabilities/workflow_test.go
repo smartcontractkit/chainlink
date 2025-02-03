@@ -69,9 +69,10 @@ type WorkflowConfig struct {
 	DependenciesConfig     *DependenciesConfig `toml:"dependencies"`
 	// id, which will be used, when registering the DON with the workflow registry,
 	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
-	DonID        uint32 `toml:"don_id" validate:"required"`
-	WorkflowName string `toml:"workflow_name" validate:"required" `
-	FeedID       string `toml:"feed_id" validate:"required"`
+	WorkflowDonID     uint32 `toml:"workflow_don_id" validate:"required"`
+	CapabilitiesDonID uint32 `toml:"capabilities_don_id" validate:"required"`
+	WorkflowName      string `toml:"workflow_name" validate:"required" `
+	FeedID            string `toml:"feed_id" validate:"required"`
 }
 
 // Defines relases/versions of test dependencies that will be downloaded from Github
@@ -90,7 +91,8 @@ type CompiledConfig struct {
 
 type WorkflowTestConfig struct {
 	BlockchainA    *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	NodeSet        *ns.Input         `toml:"nodeset" validate:"required"`
+	NodeSetA       *ns.Input         `toml:"nodeset_a" validate:"required"`
+	NodeSetB       *ns.Input         `toml:"nodeset_b" validate:"required"`
 	WorkflowConfig *WorkflowConfig   `toml:"workflow_config" validate:"required"`
 	JD             *jd.Input         `toml:"jd" validate:"required"`
 }
@@ -431,7 +433,8 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
 // TODO: remove this once the PR is merged and import his function
-func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
+// added prefix to differentiate between the different DONs
+func getNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
 	var nodeInfo []devenv.NodeInfo
 	for i := 1; i <= len(nodeOut.CLNodes); i++ {
 		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
@@ -441,7 +444,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 		if i <= bootstrapNodeCount {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
 				IsBootstrap: true,
-				Name:        fmt.Sprintf("bootstrap-%d", i),
+				Name:        fmt.Sprintf("%s_bootstrap-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: nodeclient.ChainlinkConfig{
 					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
@@ -453,7 +456,7 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 		} else {
 			nodeInfo = append(nodeInfo, devenv.NodeInfo{
 				IsBootstrap: false,
-				Name:        fmt.Sprintf("node-%d", i),
+				Name:        fmt.Sprintf("%s_node-%d", prefix, i),
 				P2PPort:     p2pURL.Port(),
 				CLConfig: nodeclient.ChainlinkConfig{
 					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
@@ -467,48 +470,61 @@ func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo,
 	return nodeInfo, nil
 }
 
-func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, nodeOutput *ns.Output, bs *blockchain.Output, sc *seth.Client) (*deployment.Environment, *devenv.DON, uint64) {
+func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, nodeOutputs []*ns.Output, bs *blockchain.Output, sc *seth.Client) ([]*deployment.Environment, []*devenv.DON, uint64) {
 	lgr := logger.TestLogger(t)
+	require.GreaterOrEqual(t, len(bs.Nodes), 1, "expected at least one node in the blockchain output")
 
 	chainSelector, err := chainselectors.SelectorFromChainId(sc.Cfg.Network.ChainID)
 	require.NoError(t, err, "failed to get chain selector for chain id %d", sc.Cfg.Network.ChainID)
 
-	nodeInfo, err := getNodeInfo(nodeOutput, 1)
-	require.NoError(t, err, "failed to get node info")
+	var envs []*deployment.Environment
+	var dons []*devenv.DON
 
-	jdConfig := devenv.JDConfig{
-		GRPC:     jdOutput.HostGRPCUrl,
-		WSRPC:    jdOutput.DockerWSRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: nodeInfo,
-	}
+	for i, nodeOutput := range nodeOutputs {
+		// TODO quick hack to get different names
+		prefix := "workflow"
+		if i == 1 {
+			prefix = "capabilities"
+		}
+		// assume that each nodeset has only one bootstrap node
+		nodeInfo, err := getNodeInfo(nodeOutput, prefix, 1)
+		require.NoError(t, err, "failed to get node info")
 
-	require.GreaterOrEqual(t, len(bs.Nodes), 1, "expected at least one node in the blockchain output")
+		jdConfig := devenv.JDConfig{
+			GRPC:     jdOutput.HostGRPCUrl,
+			WSRPC:    jdOutput.DockerWSRPCUrl,
+			Creds:    insecure.NewCredentials(),
+			NodeInfo: nodeInfo,
+		}
 
-	devenvConfig := devenv.EnvironmentConfig{
-		JDConfig: jdConfig,
-		Chains: []devenv.ChainConfig{
-			{
-				ChainID:   sc.Cfg.Network.ChainID,
-				ChainName: sc.Cfg.Network.Name,
-				ChainType: strings.ToUpper(bs.Family),
-				WSRPCs: []devenv.CribRPCs{{
-					External: bs.Nodes[0].HostWSUrl,
-					Internal: bs.Nodes[0].DockerInternalWSUrl,
-				}},
-				HTTPRPCs: []devenv.CribRPCs{{
-					External: bs.Nodes[0].HostHTTPUrl,
-					Internal: bs.Nodes[0].DockerInternalHTTPUrl,
-				}},
-				DeployerKey: sc.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		devenvConfig := devenv.EnvironmentConfig{
+			JDConfig: jdConfig,
+			Chains: []devenv.ChainConfig{
+				{
+					ChainID:   sc.Cfg.Network.ChainID,
+					ChainName: sc.Cfg.Network.Name,
+					ChainType: strings.ToUpper(bs.Family),
+					WSRPCs: []devenv.CribRPCs{{
+						External: bs.Nodes[0].HostWSUrl,
+						Internal: bs.Nodes[0].DockerInternalWSUrl,
+					}},
+					HTTPRPCs: []devenv.CribRPCs{{
+						External: bs.Nodes[0].HostHTTPUrl,
+						Internal: bs.Nodes[0].DockerInternalHTTPUrl,
+					}},
+					DeployerKey: sc.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+				},
 			},
-		},
+		}
+
+		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
+		require.NoError(t, err, "failed to create environment")
+
+		envs = append(envs, env)
+		dons = append(dons, don)
 	}
 
-	env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
-	require.NoError(t, err, "failed to create environment")
-
-	return env, don, chainSelector
+	return envs, dons, chainSelector
 }
 
 func deployKeystoneContracts(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) keystone_changeset.ContractSet {
@@ -865,43 +881,45 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 	require.NoError(t, err, "failed to register workflow using CRE CLI")
 }
 
-func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns.Output {
+func startNodes(t *testing.T, nsInput *ns.Input, bc *blockchain.Output) *ns.Output {
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
 	if os.Getenv("IS_CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
 		image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
-		for _, nodeSpec := range in.NodeSet.NodeSpecs {
+		for _, nodeSpec := range nsInput.NodeSpecs {
 			nodeSpec.Node.Image = image
 		}
 	}
 
-	nodeset, err := ns.NewSharedDBNodeSet(in.NodeSet, bc)
+	nodeset, err := ns.NewSharedDBNodeSet(nsInput, bc)
 	require.NoError(t, err, "failed to deploy node set")
 
 	return nodeset
 }
 
-func fundNodes(t *testing.T, don *devenv.DON, sc *seth.Client) {
-	for _, node := range don.Nodes {
-		_, err := actions.SendFunds(zerolog.Logger{}, sc, actions.FundsToSendPayload{
-			ToAddress:  common.HexToAddress(node.AccountAddr[sc.Cfg.Network.ChainID]),
-			Amount:     big.NewInt(5000000000000000000),
-			PrivateKey: sc.MustGetRootPrivateKey(),
-		})
-		require.NoError(t, err)
+func fundNodes(t *testing.T, dons []*devenv.DON, sc *seth.Client) {
+	for _, don := range dons {
+		for _, node := range don.Nodes {
+			_, err := actions.SendFunds(zerolog.Logger{}, sc, actions.FundsToSendPayload{
+				ToAddress:  common.HexToAddress(node.AccountAddr[sc.Cfg.Network.ChainID]),
+				Amount:     big.NewInt(5000000000000000000),
+				PrivateKey: sc.MustGetRootPrivateKey(),
+			})
+			require.NoError(t, err)
+		}
 	}
 }
 
-func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *blockchain.Output, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
+func configureWorkflowNodes(t *testing.T, don *devenv.DON, nodeInput *ns.Input, bc *blockchain.Output, donID uint32, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
 	workflowNodeSet := don.Nodes[1:]
 
 	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
 	require.NoError(t, err, "failed to get bootstrap node peer ID")
 
 	// configure the bootstrap node
-	in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides = fmt.Sprintf(`
+	nodeInput.NodeSpecs[0].Node.TestConfigOverrides = fmt.Sprintf(`
 				[Feature]
 				LogPoller = true
 
@@ -943,7 +961,7 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 	// configure worker nodes with p2p, peering capabilitity (for DON-2-DON communication),
 	// capability (external) registry, workflow registry and gateway connector (required for reading from workflow registry and for external communication)
 	for i := range workflowNodeSet {
-		in.NodeSet.NodeSpecs[i+1].Node.TestConfigOverrides = fmt.Sprintf(`
+		nodeInput.NodeSpecs[i+1].Node.TestConfigOverrides = fmt.Sprintf(`
 				[Feature]
 				LogPoller = true
 
@@ -955,14 +973,14 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 				[P2P.V2]
 				Enabled = true
 				ListenAddresses = ['0.0.0.0:5001']
-				# assuming that node0 is the bootstrap node
-				DefaultBootstrappers = ['%s@node0:5001']
+				# assuming that workflow-node0 is the bootstrap node
+				DefaultBootstrappers = ['%s@workflow-node0:5001']
 
 				[Capabilities.Peering.V2]
 				Enabled = true
 				ListenAddresses = ['0.0.0.0:6690']
-				# assuming that node0 is the bootstrap node
-				DefaultBootstrappers = ['%s@node0:6690']
+				# assuming that workflow-node0 is the bootstrap node for peering (DON-2-DON communication)
+				DefaultBootstrappers = ['%s@workflow-node0:6690']
 
 				# This is needed for the target capability to be initialized
 				[[EVM]]
@@ -1008,15 +1026,143 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 			bc.ChainID,
 			workflowRegistryAddr.Hex(),
 			bc.ChainID,
-			strconv.FormatUint(uint64(in.WorkflowConfig.DonID), 10),
+			strconv.FormatUint(uint64(donID), 10),
 			bc.ChainID,
 			workflowNodeSet[i].AccountAddr[chainIDUint64],
-			"ws://node0:5003/node", // bootstrap node exposes gateway port on 5003
+			"ws://workflow-node0:5003/node", // bootstrap node exposes gateway port on 5003
 		)
 	}
 
 	// we need to restart all nodes for configuration changes to take effect
-	nodeset, err := ns.UpgradeNodeSet(t, in.NodeSet, bc, 5*time.Second)
+	nodeset, err := ns.UpgradeNodeSet(t, nodeInput, bc, 5*time.Second)
+	require.NoError(t, err, "failed to upgrade node set")
+
+	// we need to recreate chainlink clients after the nodes are restarted
+	nodeClients, err := clclient.New(nodeset.CLNodes)
+	require.NoError(t, err, "failed to create chainlink clients")
+
+	return nodeset, nodeClients
+}
+
+func configureCapabilitiesNodes(t *testing.T, don *devenv.DON, workflowNsBootstrapNode devenv.Node, nodeInput *ns.Input, bc *blockchain.Output, donID uint32, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
+	workflowNodeSet := don.Nodes[1:]
+
+	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
+	require.NoError(t, err, "failed to get bootstrap node peer ID of the capabilities namespace")
+
+	workflowNsBootstrapNodeP2pId, err := nodeToP2PID(workflowNsBootstrapNode, keyExtractingTransformFn)
+	require.NoError(t, err, "failed to get bootstrap node peer ID of the workflow namespace")
+
+	// configure the bootstrap node
+	nodeInput.NodeSpecs[0].Node.TestConfigOverrides = fmt.Sprintf(`
+				[Feature]
+				LogPoller = true
+
+				[OCR2]
+				Enabled = true
+				DatabaseTimeout = '1s'
+				ContractPollInterval = '1s'
+
+				[P2P.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:5001']
+				DefaultBootstrappers = ['%s@localhost:5001']
+
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				# assuming that workflow-node0 is the bootstrap node for peering (DON-2-DON communication)
+				DefaultBootstrappers = ['%s@workflow-node0:6690']
+
+				# This is needed for the target capability to be initialized
+				[[EVM]]
+				ChainID = '%s'
+
+				[[EVM.Nodes]]
+				Name = 'anvil'
+				WSURL = '%s'
+				HTTPURL = '%s'
+			`,
+		bootstrapNodePeerId,
+		workflowNsBootstrapNodeP2pId, // changed from bootstrap node to workflow namespace bootstrap node
+		bc.ChainID,
+		bc.Nodes[0].DockerInternalWSUrl,
+		bc.Nodes[0].DockerInternalHTTPUrl,
+	)
+
+	chainIDInt, err := strconv.Atoi(bc.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
+
+	//removed workflow registry from the capabilities nodes
+	for i := range workflowNodeSet {
+		nodeInput.NodeSpecs[i+1].Node.TestConfigOverrides = fmt.Sprintf(`
+				[Feature]
+				LogPoller = true
+
+				[OCR2]
+				Enabled = true
+				DatabaseTimeout = '1s'
+				ContractPollInterval = '1s'
+
+				[P2P.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:5001']
+				# assuming that capabilities-node0 is the bootstrap node
+				DefaultBootstrappers = ['%s@capabilities-node0:5001']
+
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				# assuming that workflow-node0 is the bootstrap node for peering (DON-2-DON communication)
+				DefaultBootstrappers = ['%s@workflow-node0:6690']
+
+				# This is needed for the target capability to be initialized
+				[[EVM]]
+				ChainID = '%s'
+
+				[[EVM.Nodes]]
+				Name = 'anvil'
+				WSURL = '%s'
+				HTTPURL = '%s'
+
+				[EVM.Workflow]
+				FromAddress = '%s'
+				ForwarderAddress = '%s'
+				GasLimitDefault = 400_000
+
+				[Capabilities.ExternalRegistry]
+				Address = '%s'
+				NetworkID = 'evm'
+				ChainID = '%s'
+
+				[Capabilities.GatewayConnector]
+				DonID = "%s"
+				ChainIDForNodeKey = "%s"
+				NodeAddress = '%s'
+
+				[[Capabilities.GatewayConnector.Gateways]]
+				Id = "por_gateway"
+				URL = "%s"
+			`,
+			bootstrapNodePeerId,
+			workflowNsBootstrapNodeP2pId, // changed from bootstrap node to workflow namespace bootstrap node
+			bc.ChainID,
+			bc.Nodes[0].DockerInternalWSUrl,
+			bc.Nodes[0].DockerInternalHTTPUrl,
+			workflowNodeSet[i].AccountAddr[chainIDUint64],
+			forwarderAddress.Hex(),
+			capRegAddr,
+			bc.ChainID,
+			strconv.FormatUint(uint64(donID), 10), // changed from workflow to capabilities DON ID
+			bc.ChainID,
+			workflowNodeSet[i].AccountAddr[chainIDUint64],
+			"ws://capabilities-node0:5003/node", // bootstrap node exposes gateway port on 5003
+		)
+	}
+
+	// we need to restart all nodes for configuration changes to take effect
+	nodeset, err := ns.UpgradeNodeSet(t, nodeInput, bc, 5*time.Second)
 	require.NoError(t, err, "failed to upgrade node set")
 
 	// we need to recreate chainlink clients after the nodes are restarted
@@ -1033,7 +1179,7 @@ func mustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
-func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, donID uint32) {
+func createWorkflowNodesJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, donID uint32) {
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
 	require.NoError(t, err, "failed to get OCR3 contract address")
@@ -1174,26 +1320,6 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 			assert.NoError(t, errCron, "failed to create cron job")
 			assert.Empty(t, response.Errors, "failed to create cron job")
 
-			computeJobSpec := `
-					type = "standardcapabilities"
-					schemaVersion = 1
-					name = "compute-capabilities"
-					forwardingAllowed = false
-					command = "__builtin_custom-compute-action"
-					config = """
-					NumWorkers = 3
-						[rateLimiter]
-						globalRPS = 20.0
-						globalBurst = 30
-						perSenderRPS = 1.0
-						perSenderBurst = 5
-					"""
-				`
-
-			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
-			assert.NoError(t, errCompute, "failed to create compute job")
-			assert.Empty(t, response.Errors, "failed to create compute job")
-
 			consensusJobSpec := fmt.Sprintf(`
 					type = "offchainreporting2"
 					schemaVersion = 1
@@ -1225,7 +1351,7 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 				ocr3CapabilityAddress,
 				don.Nodes[i].Ocr2KeyBundleID,
 				bootstrapNodePeerId,
-				"node0:5001",
+				"workflow-node0:5001",
 				don.Nodes[i].AccountAddr[chainIDUint64],
 				bc.ChainID,
 				don.Nodes[i].Ocr2KeyBundleID,
@@ -1234,6 +1360,141 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 			response, _, errCons := nodeClient.CreateJobRaw(consensusJobSpec)
 			assert.NoError(t, errCons, "failed to create consensus job")
 			assert.Empty(t, response.Errors, "failed to create consensus job")
+		}()
+	}
+	wg.Wait()
+}
+
+func createCapabilitiesNodesJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *devenv.DON, bc *blockchain.Output, donID uint32) {
+	chainIDInt, err := strconv.Atoi(bc.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
+
+	// Create gateway and bootstrap (ocr3) jobs for the bootstrap node
+	bootstrapNode := nodeClients[0]
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		gatewayJobSpec := fmt.Sprintf(`
+				type = "gateway"
+				schemaVersion = 1
+				name = "Gateway"
+				forwardingAllowed = false
+
+				[gatewayConfig.ConnectionManagerConfig]
+				AuthChallengeLen = 10
+				AuthGatewayId = "por_gateway"
+				AuthTimestampToleranceSec = 5
+				HeartbeatIntervalSec = 20
+
+				[[gatewayConfig.Dons]]
+				DonId = "%s"
+				F = 1
+				HandlerName = "web-api-capabilities"
+
+					[gatewayConfig.Dons.HandlerConfig]
+					MaxAllowedMessageAgeSec = 1_000
+
+						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+						GlobalBurst = 10
+						GlobalRPS = 50
+						PerSenderBurst = 10
+						PerSenderRPS = 10
+
+					[[gatewayConfig.Dons.Members]]
+					Address = "%s"
+					Name = "Capabilities Node 1"
+					[[gatewayConfig.Dons.Members]]
+					Address = "%s"
+					Name = "Capabilities Node 2"
+					[[gatewayConfig.Dons.Members]]
+					Address = "%s"
+					Name = "Capabilities Node 3"
+					[[gatewayConfig.Dons.Members]]
+					Address = "%s"
+					Name = "Capabilities Node 4"
+
+				[gatewayConfig.NodeServerConfig]
+				HandshakeTimeoutMillis = 1_000
+				MaxRequestBytes = 100_000
+				Path = "/node"
+				Port = 5_003 #this is the port the other nodes will use to connect to the gateway
+				ReadTimeoutMillis = 1_000
+				RequestTimeoutMillis = 10_000
+				WriteTimeoutMillis = 1_000
+
+				[gatewayConfig.UserServerConfig]
+				ContentTypeHeader = "application/jsonrpc"
+				MaxRequestBytes = 100_000
+				Path = "/"
+				Port = 5_002
+				ReadTimeoutMillis = 1_000
+				RequestTimeoutMillis = 10_000
+				WriteTimeoutMillis = 1_000
+
+				[gatewayConfig.HTTPClientConfig]
+				MaxResponseBytes = 100_000_000
+			`,
+			strconv.FormatUint(uint64(donID), 10),
+			// ETH keys of the workflow nodes
+			don.Nodes[1].AccountAddr[chainIDUint64],
+			don.Nodes[2].AccountAddr[chainIDUint64],
+			don.Nodes[3].AccountAddr[chainIDUint64],
+			don.Nodes[4].AccountAddr[chainIDUint64],
+		)
+
+		r, _, gatewayErr := bootstrapNode.CreateJobRaw(gatewayJobSpec)
+		assert.NoError(t, gatewayErr, "failed to create gateway job for the bootstrap node")
+		assert.Empty(t, r.Errors, "failed to create gateway job for the bootstrap node")
+	}()
+
+	// for each capability that's required by the workflow, create a job for workflow each node
+	for i, nodeClient := range nodeClients {
+		// First node is a bootstrap node, so we skip it
+		if i == 0 {
+			continue
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// // since we are using a capability that is not bundled-in, we need to copy it to the Docker container
+			// // and point the job to the copied binary
+			// cronJobSpec := fmt.Sprintf(`
+			// 		type = "standardcapabilities"
+			// 		schemaVersion = 1
+			// 		name = "cron-capabilities"
+			// 		forwardingAllowed = false
+			// 		command = "/home/capabilities/%s"
+			// 		config = ""
+			// 	`,
+			// 	cronCapabilityAssetFile,
+			// )
+
+			// response, _, errCron := nodeClient.CreateJobRaw(cronJobSpec)
+			// assert.NoError(t, errCron, "failed to create cron job")
+			// assert.Empty(t, response.Errors, "failed to create cron job")
+
+			computeJobSpec := `
+					type = "standardcapabilities"
+					schemaVersion = 1
+					name = "compute-capabilities"
+					forwardingAllowed = false
+					command = "__builtin_custom-compute-action"
+					config = """
+					NumWorkers = 3
+						[rateLimiter]
+						globalRPS = 20.0
+						globalBurst = 30
+						perSenderRPS = 1.0
+						perSenderBurst = 5
+					"""
+				`
+
+			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
+			assert.NoError(t, errCompute, "failed to create compute job")
+			assert.Empty(t, response.Errors, "failed to create compute job")
 		}()
 	}
 	wg.Wait()
@@ -1264,8 +1525,8 @@ func nodeToP2PID(node devenv.Node, transformFn func(string) string) (string, err
 	return "", fmt.Errorf("p2p label not found for node %s", node.Name)
 }
 
-func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, chainSelector uint64) {
-	kcrAllCaps := []keystone_changeset.DONCapabilityWithConfig{
+func configureDONs(t *testing.T, ctfEnv *deployment.Environment, dons []*devenv.DON, chainSelector uint64) {
+	workflowDONCaps := []keystone_changeset.DONCapabilityWithConfig{
 		{
 			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "offchain_reporting",
@@ -1277,18 +1538,49 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		},
 		{
 			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "cron-trigger",
+				Version:        "1.0.0",
+				CapabilityType: uint8(0), // trigger
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
+	}
+
+	workflowDON := dons[0]
+	capabilitiesDON := dons[1]
+
+	workflowDONPeerIds := make([]string, len(workflowDON.Nodes)-1)
+	for i, node := range workflowDON.Nodes {
+		if i == 0 {
+			continue
+		}
+
+		p2pId, err := nodeToP2PID(node, noOpTransformFn)
+		require.NoError(t, err, "failed to get p2p id for node %s", node.Name)
+
+		workflowDONPeerIds[i-1] = p2pId
+	}
+
+	workflowNop := keystone_changeset.NOP{
+		Name:  "Workflow NOP",
+		Nodes: workflowDONPeerIds,
+	}
+
+	workflowDonName := "workflow-don"
+	workflowDonCap := keystone_changeset.DonCapabilities{
+		Name:         workflowDonName,
+		F:            1,
+		Nops:         []keystone_changeset.NOP{workflowNop},
+		Capabilities: workflowDONCaps,
+	}
+
+	capabilitiesCaps := []keystone_changeset.DONCapabilityWithConfig{
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
 				LabelledName:   "write_geth-testnet",
 				Version:        "1.0.0",
 				CapabilityType: 3, // TARGET
 				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		},
-		{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "cron-trigger",
-				Version:        "1.0.0",
-				CapabilityType: uint8(0), // trigger
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		},
@@ -1302,8 +1594,8 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		},
 	}
 
-	peerIds := make([]string, len(don.Nodes)-1)
-	for i, node := range don.Nodes {
+	capabilitiesDONPeerIds := make([]string, len(capabilitiesDON.Nodes)-1)
+	for i, node := range capabilitiesDON.Nodes {
 		if i == 0 {
 			continue
 		}
@@ -1311,23 +1603,23 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		p2pId, err := nodeToP2PID(node, noOpTransformFn)
 		require.NoError(t, err, "failed to get p2p id for node %s", node.Name)
 
-		peerIds[i-1] = p2pId
+		capabilitiesDONPeerIds[i-1] = p2pId
 	}
 
-	nop := keystone_changeset.NOP{
-		Name:  "NOP 1",
-		Nodes: peerIds,
+	capabilitiesNop := keystone_changeset.NOP{
+		Name:  "Capabilities NOP",
+		Nodes: capabilitiesDONPeerIds,
 	}
 
-	donName := "keystone-don"
-	donCap := keystone_changeset.DonCapabilities{
-		Name:         donName,
+	capabilitiesDonName := "capabilities-don"
+	capabilitiesDonCap := keystone_changeset.DonCapabilities{
+		Name:         capabilitiesDonName,
 		F:            1,
-		Nops:         []keystone_changeset.NOP{nop},
-		Capabilities: kcrAllCaps,
+		Nops:         []keystone_changeset.NOP{capabilitiesNop},
+		Capabilities: capabilitiesCaps,
 	}
 
-	transmissionSchedule := make([]int, len(don.Nodes)-1)
+	transmissionSchedule := make([]int, len(workflowDON.Nodes)-1)
 	for i := range transmissionSchedule {
 		transmissionSchedule[i] = i + 1
 	}
@@ -1357,7 +1649,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 
 	cfg := keystone_changeset.InitialContractsCfg{
 		RegistryChainSel: chainSelector,
-		Dons:             []keystone_changeset.DonCapabilities{donCap},
+		Dons:             []keystone_changeset.DonCapabilities{workflowDonCap, capabilitiesDonCap},
 		OCR3Config:       &oracleConfig,
 	}
 
@@ -1641,20 +1933,20 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 	// we need to use double-pointers, so that what's captured in the cleanup function is a pointer, not the actual object,
 	// which is only set later in the test, after the cleanup function is defined
-	var nodes **ns.Output
-	var wsRPCURL *string
+	// var nodes **ns.Output
+	// var wsRPCURL *string
 
 	// clean up is LIFO, so we need to make sure we execute the debug report transmission after logs are written down
 	// by function added to clean up by framework.Load() method
-	t.Cleanup(func() {
-		if t.Failed() {
-			if nodes == nil {
-				testLogger.Warn().Msg("nodeset output is nil, skipping debug report transmission")
-				return
-			}
-			printTestDebug(t, testLogger, *nodes, *wsRPCURL)
-		}
-	})
+	// t.Cleanup(func() {
+	// 	if t.Failed() {
+	// 		if nodes == nil {
+	// 			testLogger.Warn().Msg("nodeset output is nil, skipping debug report transmission")
+	// 			return
+	// 		}
+	// 		printTestDebug(t, testLogger, *nodes, *wsRPCURL)
+	// 	}
+	// })
 
 	// Load test configuration
 	in, err := framework.Load[WorkflowTestConfig](t)
@@ -1676,30 +1968,40 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Start job distributor
 	jdOutput := startJobDistributor(t, in)
 
-	// Deploy the DON
-	nodeOutput := startNodes(t, in, bc)
+	// Deploy the DONs
+	workflowNsOutput := startNodes(t, in.NodeSetA, bc)
+	capabilitiesNsOutput := startNodes(t, in.NodeSetB, bc)
+
+	var allNodeOutputs []*ns.Output
 
 	// Prepare the chainlink/deployment environment
-	ctfEnv, don, chainSelector := buildChainlinkDeploymentEnv(t, jdOutput, nodeOutput, bc, sc)
+	ctfEnvs, dons, chainSelector := buildChainlinkDeploymentEnv(t, jdOutput, append(allNodeOutputs, workflowNsOutput, capabilitiesNsOutput), bc, sc)
 
 	// Fund the nodes
-	fundNodes(t, don, sc)
+	fundNodes(t, dons, sc)
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability)
-	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnv, chainSelector)
+	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnvs[0], chainSelector)
 
-	// Deploy and pre-configure workflow registry contract
-	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, in.WorkflowConfig.DonID)
+	// Deploy and pre-configure workflow registry contract (using only workflow DON id)
+	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnvs[0], chainSelector, sc, in.WorkflowConfig.WorkflowDonID)
 
 	// Deploy and configure Keystone Feeds Consumer contract
-	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
+	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnvs[0], chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
+	// (using only workflow DON id)
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.WorkflowDonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
 
 	// Create OCR3 and capability jobs for each node without JD
-	ns, nodeClients := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
-	createNodeJobs(t, nodeClients, don, bc, keystoneContractSet, in.WorkflowConfig.DonID)
+	workflowNs, workflowDONClients := configureWorkflowNodes(t, dons[0], in.NodeSetA, bc, in.WorkflowConfig.WorkflowDonID, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+	capabilitiesNs, capabilitiesDONClients := configureCapabilitiesNodes(t, dons[1], dons[0].Nodes[0], in.NodeSetB, bc, in.WorkflowConfig.CapabilitiesDonID, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+
+	_ = workflowNs
+	_ = capabilitiesNs
+
+	createWorkflowNodesJobs(t, workflowDONClients, dons[0], bc, keystoneContractSet, in.WorkflowConfig.WorkflowDonID)
+	createCapabilitiesNodesJobs(t, capabilitiesDONClients, dons[1], bc, in.WorkflowConfig.CapabilitiesDonID)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1709,8 +2011,8 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	})
 
 	// set variables that are needed for the cleanup function, which debugs report transmissions
-	nodes = &ns
-	wsRPCURL = &bc.Nodes[0].HostWSUrl
+	// nodes = &ns
+	// wsRPCURL = &bc.Nodes[0].HostWSUrl
 
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
@@ -1721,7 +2023,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	testLogger.Info().Msg("Proceeding to set OCR3 configuration.")
 
 	// Configure the workflow DON and contracts
-	configureWorkflowDON(t, ctfEnv, don, chainSelector)
+	configureDONs(t, ctfEnvs[0], dons, chainSelector)
 
 	// It can take a while before the first report is produced, particularly on CI.
 	timeout := 10 * time.Minute
