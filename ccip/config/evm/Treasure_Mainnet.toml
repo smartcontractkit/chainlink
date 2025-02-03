@@ -2,7 +2,7 @@ ChainID = '61166'
 
 [GasEstimator]
 # high LimitDefault for worst case pubdata bytes with BatchGasLimit reduced to 4M in OCR2Config  
-LimitDefault = 2_500_000_000
+LimitDefault = 600_000_000
 FeeCapDefault = '2000 gwei'
 PriceDefault = '25 mwei'
 PriceMax = '2000 gwei'

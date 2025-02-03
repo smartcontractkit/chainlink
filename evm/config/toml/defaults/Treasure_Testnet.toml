@@ -2,11 +2,13 @@ ChainID = '978658'
 ChainType = 'zksync'
 LogPollInterval = '10s'
 NoNewHeadsThreshold = '10m' #blocks production can sometimes be delayed by ~10min
+FinalityTagEnabled = false
+FinalityDepth = 40
 
 [GasEstimator]
 # no EIP1559 to ensure our estimator doesnot estimate gas with MaxPriorityFee which will break minFunding requirement
 EIP1559DynamicFees = false 
-PriceMin = '25 mwei'
+PriceMin = '100 mwei'
 
 [GasEstimator.DAOracle]
 OracleType = 'zksync'
