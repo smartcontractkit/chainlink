@@ -246,7 +246,7 @@ ephemeral_addresses_number = 0
 MessageTypeWeights = [100,0,0]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "30s"
-LoadDuration = "30m"
+LoadDuration = "1h"
 # number of destination chains
 NumDestinationChains = 30
 # Directory where we receive environment configuration from crib

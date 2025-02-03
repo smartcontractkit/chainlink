@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -374,7 +375,6 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		Name:      n.Name,
 	})
 	// node already registered, fetch it's id
-	// TODO: check for rpc code = "AlreadyExists" instead
 	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {
 		nodesResponse, err := jd.ListNodes(ctx, &nodev1.ListNodesRequest{
 			Filter: &nodev1.ListNodesRequest_Filter{

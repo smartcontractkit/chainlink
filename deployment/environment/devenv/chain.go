@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -98,7 +99,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
 		g.Go(func() error {
-
 			selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)
@@ -153,5 +153,6 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			return nil
 		})
 	}
-	return chains, nil
+	err := g.Wait()
+	return chains, err
 }
