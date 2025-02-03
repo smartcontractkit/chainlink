@@ -95,42 +95,42 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
 	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
+
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses,
-		map[deployment.TypeAndVersion]struct{}{
-			timelock: {}, proposer: {}, canceller: {}, bypasser: {}, callProxy: {},
-		})
+	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
 
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case timelock:
+		switch {
+		case tvStr.Type == timelock.Type && tvStr.Version.String() == timelock.Version.String():
 			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.Timelock = tl
-		case callProxy:
+		case tvStr.Type == callProxy.Type && tvStr.Version.String() == callProxy.Version.String():
 			cp, err := owner_helpers.NewCallProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.CallProxy = cp
-		case proposer:
+		case tvStr.Type == proposer.Type && tvStr.Version.String() == proposer.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.ProposerMcm = mcms
-		case bypasser:
+		case tvStr.Type == bypasser.Type && tvStr.Version.String() == bypasser.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.BypasserMcm = mcms
-		case canceller:
+		case tvStr.Type == canceller.Type && tvStr.Version.String() == canceller.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
@@ -176,14 +176,18 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-	// Perhaps revisit if we have a use case for multiple.
-	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{linkToken: {}})
+
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{linkToken}
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
+
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case linkToken:
+		if tvStr.Type == linkToken.Type && tvStr.Version.String() == linkToken.Version.String() {
 			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
@@ -208,14 +212,18 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
-	// Perhaps revisit if we have a use case for multiple.
-	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{staticLinkToken: {}})
+
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}
+
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case staticLinkToken:
+		if tvStr.Type == staticLinkToken.Type && tvStr.Version.String() == staticLinkToken.Version.String() {
 			lt, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err

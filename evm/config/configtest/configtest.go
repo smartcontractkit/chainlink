@@ -3,13 +3,12 @@ package configtest
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
-func NewChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) config.ChainScopedConfig {
+func NewChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) *config.ChainScoped {
 	chainID := big.NewI(0)
 	evmCfg := &toml.EVMConfig{
 		ChainID: chainID,
@@ -24,5 +23,5 @@ func NewChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) conf
 		overrideFn(evmCfg)
 	}
 
-	return config.NewTOMLChainScopedConfig(evmCfg, logger.Test(t))
+	return config.NewTOMLChainScopedConfig(evmCfg)
 }

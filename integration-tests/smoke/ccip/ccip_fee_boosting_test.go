@@ -80,7 +80,7 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		)
 	t.Log("Adjusted gas price on dest chain:", adjustedGasPriceDest)
 
-	feeQuoterCfg := changeset.DefaultFeeQuoterDestChainConfig()
+	feeQuoterCfg := changeset.DefaultFeeQuoterDestChainConfig(true)
 	// the default adds 10% to the gas price, we want to increase it
 	// to make sure the fee boosting will be finished in proper time for testing
 	feeQuoterCfg.GasMultiplierWeiPerEth = 120e16

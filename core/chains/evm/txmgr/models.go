@@ -24,7 +24,7 @@ type (
 	Reaper                 = txmgr.Reaper[*big.Int]
 	TxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TransactionStore       = txmgrtypes.TransactionStore[common.Address, *big.Int, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
+	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int]
 	TxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	NonceTracker           = txmgrtypes.SequenceTracker[common.Address, evmtypes.Nonce]
 	TransmitCheckerFactory = txmgr.TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]

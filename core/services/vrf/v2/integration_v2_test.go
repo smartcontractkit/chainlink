@@ -2107,7 +2107,7 @@ func TestStartingCountsV1(t *testing.T) {
 		KeyStore:       ks.Eth(),
 		Client:         ec,
 		DB:             db,
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),

@@ -470,6 +470,9 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			}}
 	}
 
+	// mark the trigger as successfully registered
+	t.registered = true
+
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
@@ -1037,10 +1040,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 		Config:    t.config.Load(),
 	}
 
-	// if t.trigger == nil, then we haven't initialized the workflow
+	// if t.trigger == nil or !t.registered, then we haven't initialized the workflow
 	// yet, and can safely consider the trigger deregistered with
 	// no further action.
-	if t.trigger != nil {
+	if t.trigger != nil && t.registered {
 		return t.trigger.UnregisterTrigger(ctx, deregRequest)
 	}
 

@@ -34,32 +34,33 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -183,6 +184,42 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.LockReleaseTokenPool = helpers.AddValueToNestedMap(chainView.LockReleaseTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
 	}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
@@ -414,6 +451,25 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		m[name] = chainView
 	}
 	return m, nil
+}
+
+func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var offRampAddress []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	return offRampAddress, nil
 }
 
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
@@ -749,4 +805,58 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 		}
 	}
 	return state, nil
+}
+
+func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
+		chainState, exists := s.Chains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.OffRamp == nil {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("OffRamp contract does not exist on chain %d", chainSelector)
+		}
+	case chain_selectors.FamilySolana:
+		chainState, exists := s.SolChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.Router.IsZero() {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("CCIP router contract does not exist on chain %d", chainSelector)
+		}
+	default:
+		return fmt.Errorf("unknown chain family %s", family)
+	}
+	return nil
+}
+
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+	err := deployment.IsValidChainSelector(chainSel)
+	if err != nil {
+		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
+	}
+	chain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
+	}
+	chainState, ok := state.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("%s does not exist in state", chain)
+	}
+	if checkMcms {
+		if chainState.Timelock == nil {
+			return fmt.Errorf("missing timelock on %s", chain)
+		}
+		if chainState.ProposerMcm == nil {
+			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+	}
+	return nil
 }

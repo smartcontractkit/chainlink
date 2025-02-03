@@ -1,8 +1,6 @@
 package changeset_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,16 +22,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
 		Chains:     2,
-		SolChains:  1,
 		Nodes:      4,
 	})
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
-	solChainSelectors := e.AllChainSelectorsSolana()
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
-	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
-	selectors = append(selectors, evmSelectors...)
-	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -46,18 +38,13 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
-	for _, chain := range solChainSelectors {
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
-	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
 		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
+
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -73,7 +60,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    selectors,
+			Config:    evmSelectors,
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
@@ -116,28 +103,20 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		require.NotNil(t, state.Chains[sel].OffRamp)
 		require.NotNil(t, state.Chains[sel].OnRamp)
 	}
-
-	solState, err := changeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	for _, sel := range solChainSelectors {
-		require.NotNil(t, solState.SolChains[sel].LinkToken)
-		require.NotNil(t, solState.SolChains[sel].SolCcipRouter)
-	}
-
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	e, _ := testhelpers.NewMemoryEnvironment(t)
-	// Deploy all the CCIP contracts.
+	testhelpers.DeployCCIPContractsTest(t, 0)
+}
+
+func TestDeployStaticLinkToken(t *testing.T) {
+	t.Parallel()
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithStaticLink())
+	// load onchain state
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
-	require.NoError(t, err)
-
-	// Assert expect every deployed address to be in the address book.
-	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
-	b, err := json.MarshalIndent(snap, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
+	for _, chain := range e.Env.AllChainSelectors() {
+		require.NotNil(t, state.Chains[chain].StaticLinkToken)
+	}
 }

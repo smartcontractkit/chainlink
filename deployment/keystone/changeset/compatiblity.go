@@ -79,6 +79,9 @@ var RegisterDons = internal.RegisterDons
 // DONToRegister is the minimal information needed to register a DON with the capabilities registry
 type DONToRegister = internal.DONToRegister
 
+// NOP is a node operator profile, required to register a node with the capabilities registry
+type NOP = internal.NOP
+
 // ConfigureContractsRequest is a request to configure ALL the contracts
 type ConfigureContractsRequest = internal.ConfigureContractsRequest
 

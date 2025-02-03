@@ -6,9 +6,13 @@ import (
 	"math"
 	"math/big"
 	mrand "math/rand"
+	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
@@ -88,4 +92,14 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 func NewAddressPtr() *common.Address {
 	a := common.BytesToAddress(randomBytes(20))
 	return &a
+}
+
+// MustNewSimTransactor returns a transactor for interacting with the
+// geth simulated backend.
+func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
+	require.NoError(t, err)
+	return transactor
 }

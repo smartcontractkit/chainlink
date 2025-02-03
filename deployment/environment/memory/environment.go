@@ -24,7 +24,7 @@ import (
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -82,7 +82,7 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 
 func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
 	mchains := GenerateChainsSol(t, numChains)
-	return generateMemoryChainSol(t, mchains)
+	return generateMemoryChainSol(mchains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -137,7 +137,7 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 	return chains
 }
 
-func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
 	chains := make(map[uint64]deployment.SolChain)
 	for cid, chain := range inputs {
 		chain := chain
@@ -149,21 +149,18 @@ func generateMemoryChainSol(t *testing.T, inputs map[uint64]SolanaChain) map[uin
 			WSURL:        chain.WSURL,
 			KeypairPath:  chain.KeypairPath,
 			ProgramsPath: ProgramsPath,
-			Confirm: func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error {
-				_, err := solCommomUtil.SendAndConfirm(
+			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
+				_, err := solCommonUtil.SendAndConfirm(
 					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
 				)
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		}
 	}
 	return chains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
+func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, solChains map[uint64]deployment.SolChain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
 		return nodesByPeerID
@@ -173,13 +170,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, nil, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, nil, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
@@ -190,6 +187,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 	ctx func() context.Context,
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
+	solChains map[uint64]deployment.SolChain,
 	nodes map[string]Node,
 ) deployment.Environment {
 	var nodeIDs []string
@@ -201,7 +199,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 		lggr,
 		deployment.NewMemoryAddressBook(),
 		chains,
-		nil,
+		solChains,
 		nodeIDs, // Note these have the p2p_ prefix.
 		NewMemoryJobClient(nodes),
 		ctx,
@@ -213,7 +211,7 @@ func NewMemoryEnvironmentFromChainsNodes(
 func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
 	chains, _ := NewMemoryChains(t, config.Chains, config.NumOfUsersPerChain)
 	solChains := NewMemoryChainsSol(t, config.SolChains)
-	nodes := NewNodes(t, logLevel, chains, config.Nodes, config.Bootstraps, config.RegistryConfig)
+	nodes := NewNodes(t, logLevel, chains, solChains, config.Nodes, config.Bootstraps, config.RegistryConfig)
 	var nodeIDs []string
 	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)

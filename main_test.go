@@ -60,7 +60,7 @@ func TestScripts(t *testing.T) {
 
 			testscript.Run(t, testscript.Params{
 				Dir:             path,
-				Setup:           commonEnv,
+				Setup:           commonEnv(t),
 				ContinueOnError: true,
 				// UpdateScripts:   true, // uncomment to update golden files
 			})
@@ -74,47 +74,46 @@ func TestScripts(t *testing.T) {
 // isIntegrationBuild is toggled true by a func init() with a //go:build integration gate
 var isIntegrationBuild = false
 
-func commonEnv(te *testscript.Env) error {
-	if _, err := os.Stat(integrationBuildName); err == nil && !isIntegrationBuild {
-		te.T().Skip("integration test")
+func commonEnv(t testing.TB) func(*testscript.Env) error {
+	return func(te *testscript.Env) error {
+		if _, err := os.Stat(integrationBuildName); err == nil && !isIntegrationBuild {
+			te.T().Skip("integration test")
+			return nil
+		}
+
+		te.Setenv("HOME", "$WORK/home")
+		te.Setenv("VERSION", static.Version)
+		te.Setenv("COMMIT_SHA", static.Sha)
+
+		b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read file %s: %w", testPortName, err)
+		} else if err == nil {
+			envVarName := strings.TrimSpace(string(b))
+			te.T().Log("test port requested:", envVarName)
+
+			port, ret, err2 := takeFreePort()
+			if err2 != nil {
+				return err2
+			}
+			te.Defer(ret)
+
+			te.Setenv(envVarName, strconv.Itoa(port))
+		}
+
+		b, err = os.ReadFile(filepath.Join(te.WorkDir, testDBName))
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to read file %s: %w", testDBName, err)
+		} else if err == nil {
+			envVarName := strings.TrimSpace(string(b))
+			te.T().Log("test database requested:", envVarName)
+
+			u2 := newDB(t)
+
+			te.Setenv(envVarName, u2)
+		}
 		return nil
 	}
-
-	te.Setenv("HOME", "$WORK/home")
-	te.Setenv("VERSION", static.Version)
-	te.Setenv("COMMIT_SHA", static.Sha)
-
-	b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read file %s: %w", testPortName, err)
-	} else if err == nil {
-		envVarName := strings.TrimSpace(string(b))
-		te.T().Log("test port requested:", envVarName)
-
-		port, ret, err2 := takeFreePort()
-		if err2 != nil {
-			return err2
-		}
-		te.Defer(ret)
-
-		te.Setenv(envVarName, strconv.Itoa(port))
-	}
-
-	b, err = os.ReadFile(filepath.Join(te.WorkDir, testDBName))
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to read file %s: %w", testDBName, err)
-	} else if err == nil {
-		envVarName := strings.TrimSpace(string(b))
-		te.T().Log("test database requested:", envVarName)
-
-		u2, err2 := initDB()
-		if err2 != nil {
-			return err2
-		}
-
-		te.Setenv(envVarName, u2)
-	}
-	return nil
 }
 
 func takeFreePort() (int, func(), error) {
@@ -125,16 +124,13 @@ func takeFreePort() (int, func(), error) {
 	return ports[0], func() { freeport.Return(ports) }, nil
 }
 
-func initDB() (string, error) {
+func newDB(t testing.TB) string {
 	u, err := url.Parse(string(env.DatabaseURL.Get()))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse url: %w", err)
+		t.Fatalf("failed to parse url: %v", err)
 	}
 
 	name := strings.ReplaceAll(uuid.NewString(), "-", "_") + "_test"
-	u2, err := testdb.CreateOrReplace(*u, name, true)
-	if err != nil {
-		return "", fmt.Errorf("failed to create DB: %w", err)
-	}
-	return u2, nil
+	u2 := testdb.CreateOrReplace(t, *u, name, true)
+	return u2.String()
 }

@@ -24,19 +24,23 @@ func makeHTTPRequest(
 	requestData MapParam,
 	client *http.Client,
 	httpLimit int64,
-) ([]byte, int, http.Header, time.Duration, error) {
+) (responseBytes []byte, statusCode int, respHeaders http.Header, start, finish time.Time, err error) {
 	var bodyReader io.Reader
 	if requestData != nil {
-		bodyBytes, err := json.Marshal(requestData)
+		var bodyBytes []byte
+		bodyBytes, err = json.Marshal(requestData)
 		if err != nil {
-			return nil, 0, nil, 0, errors.Wrap(err, "failed to encode request body as JSON")
+			err = errors.Wrap(err, "failed to encode request body as JSON")
+			return
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	request, err := http.NewRequestWithContext(ctx, string(method), url.String(), bodyReader)
+	var request *http.Request
+	request, err = http.NewRequestWithContext(ctx, string(method), url.String(), bodyReader)
 	if err != nil {
-		return nil, 0, nil, 0, errors.Wrap(err, "failed to create http.Request")
+		err = errors.Wrap(err, "failed to create http.Request")
+		return
 	}
 	request.Header.Set("Content-Type", "application/json")
 	if len(reqHeaders)%2 != 0 {
@@ -53,21 +57,22 @@ func makeHTTPRequest(
 		Logger:  logger.Sugared(lggr).Named("HTTPRequest"),
 	}
 
-	start := time.Now()
-	responseBytes, statusCode, respHeaders, err := httpRequest.SendRequest()
+	start = time.Now()
+	responseBytes, statusCode, respHeaders, err = httpRequest.SendRequest()
+	finish = time.Now()
 	if ctx.Err() != nil {
-		return nil, 0, nil, 0, errors.New("http request timed out or interrupted")
+		err = errors.New("http request timed out or interrupted")
+		return
 	}
 	if err != nil {
-		return nil, 0, nil, 0, errors.Wrapf(err, "error making http request")
+		err = errors.Wrapf(err, "error making http request")
+		return
 	}
-	elapsed := time.Since(start) // TODO: return elapsed from utils/http
 
 	if statusCode >= 400 {
-		maybeErr := bestEffortExtractError(responseBytes)
-		return responseBytes, statusCode, respHeaders, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
+		err = errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, bestEffortExtractError(responseBytes))
 	}
-	return responseBytes, statusCode, respHeaders, elapsed, nil
+	return
 }
 
 type PossibleErrorResponses struct {

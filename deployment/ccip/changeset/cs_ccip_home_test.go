@@ -77,8 +77,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
 	_, err = internal.BuildOCR3ConfigForCCIPHome(
 		e.Env.OCRSecrets,
-		state.Chains[chain1].OffRamp,
-		e.Env.Chains[chain1],
+		state.Chains[chain1].OffRamp.Address().Bytes(),
+		chain1,
 		nodes.NonBootstraps(),
 		state.Chains[e.HomeChainSel].RMNHome.Address(),
 		params.OCRParameters,
@@ -264,7 +264,11 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -377,7 +381,11 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
