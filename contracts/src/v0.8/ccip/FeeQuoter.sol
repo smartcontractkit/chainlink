@@ -1059,6 +1059,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
   /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _processChainFamilySelector(
     uint64 destChainSelector,
     bytes calldata extraArgs
