@@ -23,12 +23,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/configtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/types"
@@ -373,10 +372,10 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	_, cfg := newTestChainScopedConfig(t)
+	cfg := configtest.NewChainScopedConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 	chainID := ethClient.ConfiguredChainID()
@@ -552,7 +551,7 @@ func TestORM_GetInProgressTxAttempts(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	// insert etx with attempt
@@ -572,7 +571,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	testutils.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
@@ -605,7 +604,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	testutils.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
-	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, pipeline.RunStatusCompleted, 0)
+	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, "completed", 0)
 	tr2 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run2.ID)
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	testutils.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
@@ -659,7 +658,7 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 func Test_FindTxWithIdempotencyKey(t *testing.T) {
 	t.Parallel()
 	db := testutils.NewSqlxDB(t)
-	_, cfg := newTestChainScopedConfig(t)
+	cfg := configtest.NewChainScopedConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
@@ -787,7 +786,7 @@ func TestORM_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("no unconfirmed eth txes", func(t *testing.T) {
@@ -810,7 +809,7 @@ func TestORM_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
@@ -977,7 +976,7 @@ func TestORM_FindTxsRequiringGasBump(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	currentBlockNum := int64(10)
@@ -1154,7 +1153,7 @@ func TestORM_FindNextUnstartedTransactionFromAddress(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
@@ -1276,15 +1275,13 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		require.Len(t, etx.TxAttempts, 1)
 
 		zero := commonconfig.MustNewDuration(time.Duration(0))
-		evmCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].Chain.Transactions.ReaperInterval = zero
-			c.EVM[0].Chain.Transactions.ReaperThreshold = zero
-			c.EVM[0].Chain.Transactions.ResendAfterThreshold = zero
+		ccfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+			c.Transactions.ReaperInterval = zero
+			c.Transactions.ReaperThreshold = zero
+			c.Transactions.ResendAfterThreshold = zero
 		})
-
-		ccfg := evmtest.NewChainScopedConfig(t, evmCfg)
 		evmTxmCfg := txmgr.NewEvmTxmConfig(ccfg.EVM())
-		ec := evmtest.NewEthClientMockWithDefaultChain(t)
+		ec := clienttest.NewClientWithDefaultChainID(t)
 		txMgr := txmgr.NewEvmTxm(ec.ConfiguredChainID(), evmTxmCfg, ccfg.EVM().Transactions(), nil, logger.Test(t), nil, nil,
 			nil, txStore, nil, nil, nil, nil, nil, nil)
 		err := txMgr.XXXTestAbandon(fromAddress) // mark transaction as abandoned
@@ -1346,7 +1343,7 @@ func TestORM_GetAbandonedTransactionsByBatch(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	_, enabled := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	enabledAddrs := []common.Address{enabled}
@@ -1447,7 +1444,7 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("no in progress eth transaction", func(t *testing.T) {
@@ -1632,7 +1629,7 @@ func TestORM_CreateTransaction(t *testing.T) {
 	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.New()
@@ -1725,7 +1722,7 @@ func TestORM_PruneUnstartedTxQueue(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	txStore := txmgr.NewTxStore(db, logger.Test(t))
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	evmtest.NewEthClientMockWithDefaultChain(t)
+
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	t.Run("does not prune if queue has not exceeded capacity-1", func(t *testing.T) {

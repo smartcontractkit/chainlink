@@ -372,6 +372,63 @@ func (_c *ORM_DismissError_Call) RunAndReturn(run func(context.Context, int64) e
 	return _c
 }
 
+// FindGatewayJobID provides a mock function with given fields: ctx, spec
+func (_m *ORM) FindGatewayJobID(ctx context.Context, spec job.GatewaySpec) (int32, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindGatewayJobID")
+	}
+
+	var r0 int32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, job.GatewaySpec) (int32, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, job.GatewaySpec) int32); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, job.GatewaySpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_FindGatewayJobID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindGatewayJobID'
+type ORM_FindGatewayJobID_Call struct {
+	*mock.Call
+}
+
+// FindGatewayJobID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec job.GatewaySpec
+func (_e *ORM_Expecter) FindGatewayJobID(ctx interface{}, spec interface{}) *ORM_FindGatewayJobID_Call {
+	return &ORM_FindGatewayJobID_Call{Call: _e.mock.On("FindGatewayJobID", ctx, spec)}
+}
+
+func (_c *ORM_FindGatewayJobID_Call) Run(run func(ctx context.Context, spec job.GatewaySpec)) *ORM_FindGatewayJobID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(job.GatewaySpec))
+	})
+	return _c
+}
+
+func (_c *ORM_FindGatewayJobID_Call) Return(_a0 int32, _a1 error) *ORM_FindGatewayJobID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_FindGatewayJobID_Call) RunAndReturn(run func(context.Context, job.GatewaySpec) (int32, error)) *ORM_FindGatewayJobID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FindJob provides a mock function with given fields: ctx, id
 func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	ret := _m.Called(ctx, id)
@@ -1304,6 +1361,63 @@ func (_c *ORM_FindSpecErrorsByJobIDs_Call) Return(_a0 []job.SpecError, _a1 error
 }
 
 func (_c *ORM_FindSpecErrorsByJobIDs_Call) RunAndReturn(run func(context.Context, []int32) ([]job.SpecError, error)) *ORM_FindSpecErrorsByJobIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindStandardCapabilityJobID provides a mock function with given fields: ctx, spec
+func (_m *ORM) FindStandardCapabilityJobID(ctx context.Context, spec job.StandardCapabilitiesSpec) (int32, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindStandardCapabilityJobID")
+	}
+
+	var r0 int32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, job.StandardCapabilitiesSpec) (int32, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, job.StandardCapabilitiesSpec) int32); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, job.StandardCapabilitiesSpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_FindStandardCapabilityJobID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindStandardCapabilityJobID'
+type ORM_FindStandardCapabilityJobID_Call struct {
+	*mock.Call
+}
+
+// FindStandardCapabilityJobID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spec job.StandardCapabilitiesSpec
+func (_e *ORM_Expecter) FindStandardCapabilityJobID(ctx interface{}, spec interface{}) *ORM_FindStandardCapabilityJobID_Call {
+	return &ORM_FindStandardCapabilityJobID_Call{Call: _e.mock.On("FindStandardCapabilityJobID", ctx, spec)}
+}
+
+func (_c *ORM_FindStandardCapabilityJobID_Call) Run(run func(ctx context.Context, spec job.StandardCapabilitiesSpec)) *ORM_FindStandardCapabilityJobID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(job.StandardCapabilitiesSpec))
+	})
+	return _c
+}
+
+func (_c *ORM_FindStandardCapabilityJobID_Call) Return(_a0 int32, _a1 error) *ORM_FindStandardCapabilityJobID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_FindStandardCapabilityJobID_Call) RunAndReturn(run func(context.Context, job.StandardCapabilitiesSpec) (int32, error)) *ORM_FindStandardCapabilityJobID_Call {
 	_c.Call.Return(run)
 	return _c
 }

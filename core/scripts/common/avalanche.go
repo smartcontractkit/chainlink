@@ -79,7 +79,7 @@ func (b *AvaBloom) UnmarshalText(input []byte) error {
 // bloomValues returns the bytes (index-value pairs) to set for the given data
 func bloomValues(data []byte, hashbuf []byte) (uint, byte, uint, byte, uint, byte) {
 	sha := crypto.NewKeccakState()
-	sha.Write(data)   //nolint:errcheck
+	sha.Write(data)
 	sha.Read(hashbuf) //nolint:errcheck
 	// The actual bits to flip
 	v1 := byte(1 << (hashbuf[1] & 0x7))

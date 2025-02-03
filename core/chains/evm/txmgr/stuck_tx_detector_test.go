@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/configtest"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
@@ -108,7 +109,7 @@ func TestStuckTxDetector_FindPotentialStuckTxs(t *testing.T) {
 	t.Parallel()
 
 	db := testutils.NewSqlxDB(t)
-	_, config := newTestChainScopedConfig(t)
+	config := configtest.NewChainScopedConfig(t, nil)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	ctx := tests.Context(t)

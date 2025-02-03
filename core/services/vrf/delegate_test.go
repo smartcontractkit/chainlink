@@ -92,7 +92,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		KeyStore:       ks.Eth(),
 		Client:         ec,
 		DB:             db,
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),

@@ -257,7 +257,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			ListenerConfig: cfg.Database().Listener(),
 			FeatureConfig:  cfg.Feature(),
