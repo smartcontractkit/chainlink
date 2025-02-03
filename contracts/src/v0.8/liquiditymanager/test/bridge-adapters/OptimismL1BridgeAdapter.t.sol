@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "forge-std/Test.sol";
 
 import {IWrappedNative} from "../../../ccip/interfaces/IWrappedNative.sol";
-import {WETH9} from "../../../ccip/test/WETH9.sol";
 import {OptimismL1BridgeAdapter} from "../../bridge-adapters/OptimismL1BridgeAdapter.sol";
 import {Types} from "../../interfaces/optimism/Types.sol";
 import {IOptimismPortal} from "../../interfaces/optimism/IOptimismPortal.sol";
@@ -12,6 +11,7 @@ import {IOptimismPortal} from "../../interfaces/optimism/IOptimismPortal.sol";
 import {IL1StandardBridge} from "@eth-optimism/contracts/L1/messaging/IL1StandardBridge.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {WETH9} from "../../../vendor/canonical-weth/WETH9.sol";
 
 contract OptimismL1BridgeAdapterSetup is Test {
   // addresses below are fake

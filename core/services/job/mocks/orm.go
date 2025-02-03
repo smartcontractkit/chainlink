@@ -4,7 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	big "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	big "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	context "context"
 
@@ -16,7 +16,7 @@ import (
 
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	types "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	types "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	uuid "github.com/google/uuid"
 )

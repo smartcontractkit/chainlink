@@ -17,7 +17,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")
@@ -1433,6 +1433,28 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
+type EngineExecutionRateLimit struct {
+	GlobalRPS      *float64
+	GlobalBurst    *int
+	PerSenderRPS   *float64
+	PerSenderBurst *int
+}
+
+func (eerl *EngineExecutionRateLimit) setFrom(f *EngineExecutionRateLimit) {
+	if f.GlobalRPS != nil {
+		eerl.GlobalRPS = f.GlobalRPS
+	}
+	if f.GlobalBurst != nil {
+		eerl.GlobalBurst = f.GlobalBurst
+	}
+	if f.PerSenderRPS != nil {
+		eerl.PerSenderRPS = f.PerSenderRPS
+	}
+	if f.PerSenderBurst != nil {
+		eerl.PerSenderBurst = f.PerSenderBurst
+	}
+}
+
 type ExternalRegistry struct {
 	Address   *string
 	NetworkID *string
@@ -1574,14 +1596,16 @@ type ConnectorGateway struct {
 }
 
 type Capabilities struct {
-	Peering          P2P              `toml:",omitempty"`
-	Dispatcher       Dispatcher       `toml:",omitempty"`
-	ExternalRegistry ExternalRegistry `toml:",omitempty"`
-	WorkflowRegistry WorkflowRegistry `toml:",omitempty"`
-	GatewayConnector GatewayConnector `toml:",omitempty"`
+	RateLimit        EngineExecutionRateLimit `toml:",omitempty"`
+	Peering          P2P                      `toml:",omitempty"`
+	Dispatcher       Dispatcher               `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry         `toml:",omitempty"`
+	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
+	GatewayConnector GatewayConnector         `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
+	c.RateLimit.setFrom(&f.RateLimit)
 	c.Peering.setFrom(&f.Peering)
 	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 	c.WorkflowRegistry.setFrom(&f.WorkflowRegistry)

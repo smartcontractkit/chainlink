@@ -444,6 +444,16 @@ DeltaReconcile = '1m' # Default
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
+[Capabilities.RateLimit]
+# GlobalRPS is the global rate limit for the dispatcher.
+GlobalRPS = 200 # Default
+# GlobalBurst is the global burst limit for the dispatcher.
+GlobalBurst = 200 # Default
+# PerSenderRPS is the per-sender rate limit for the dispatcher.
+PerSenderRPS = 100 # Default
+# PerSenderBurst is the per-sender burst limit for the dispatcher.
+PerSenderBurst = 100 # Default
+
 [Capabilities.WorkflowRegistry]
 # Address is the address for the workflow registry contract.
 Address = '0x0' # Example

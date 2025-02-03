@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {WETH9} from "../../ccip/test/WETH9.sol";
-
 import {ERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {WETH9} from "../../vendor/canonical-weth/WETH9.sol";
 
 contract LiquidityManagerBaseTest is Test {
-  // ERC20 events
-  event Transfer(address indexed from, address indexed to, uint256 value);
-  event Approval(address indexed owner, address indexed spender, uint256 value);
-
   IERC20 internal s_l1Token;
   IERC20 internal s_l2Token;
   IERC20 internal s_otherToken;

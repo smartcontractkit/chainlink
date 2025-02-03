@@ -123,4 +123,10 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
 
     s_siloedLockReleaseTokenPool.withdrawLiquidity(1);
   }
+
+  function test_withdrawLiquidity_RevertWhen_LiquidityAmountCannotBeZero() public {
+    vm.expectRevert(SiloedLockReleaseTokenPool.LiquidityAmountCannotBeZero.selector);
+
+    s_siloedLockReleaseTokenPool.withdrawLiquidity(0);
+  }
 }

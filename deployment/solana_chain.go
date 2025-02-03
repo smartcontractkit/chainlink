@@ -2,8 +2,11 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,7 +15,19 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solBinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go/rpc"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+var (
+	SolDefaultCommitment        = rpc.CommitmentConfirmed
+	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
+	SPL2022Tokens               = "SPL2022Tokens"
+	SPLTokens                   = "SPLTokens"
 )
 
 // SolChain represents a Solana chain.
@@ -25,10 +40,11 @@ type SolChain struct {
 	WSURL  string
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
+	Confirm     func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error
+
 	// deploy uses the solana CLI which needs a keyfile
 	KeypairPath  string
 	ProgramsPath string
-	Confirm      func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
 }
 
 func (c SolChain) String() string {
@@ -52,13 +68,34 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-func (c SolChain) DeployProgram(programName string) (string, error) {
-	programFile := fmt.Sprintf("%s/%s.so", c.ProgramsPath, programName)
-	programKeyPair := fmt.Sprintf("%s/%s-keypair.json", c.ProgramsPath, programName)
+func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
+	programFile := filepath.Join(c.ProgramsPath, programName+".so")
+	if _, err := os.Stat(programFile); err != nil {
+		return "", fmt.Errorf("program file not found: %w", err)
+	}
+	programKeyPair := filepath.Join(c.ProgramsPath, programName+"-keypair.json")
 
-	// Construct the CLI command: solana program deploy
-	// TODO: @terry doing this on the fly
-	cmd := exec.Command("solana", "program", "deploy", programFile, "--keypair", c.KeypairPath, "--program-id", programKeyPair)
+	// Base command with required args
+	baseArgs := []string{
+		"program", "deploy",
+		programFile,                // .so file
+		"--keypair", c.KeypairPath, // program keypair
+		"--url", c.URL, // rpc url
+	}
+
+	var cmd *exec.Cmd
+	if _, err := os.Stat(programKeyPair); err == nil {
+		// Keypair exists, include program-id
+		logger.Infow("Deploying program with existing keypair",
+			"programFile", programFile,
+			"programKeyPair", programKeyPair)
+		cmd = exec.Command("solana", append(baseArgs, "--program-id", programKeyPair)...) // #nosec G204
+	} else {
+		// Keypairs wont be created for devenvs
+		logger.Infow("Deploying new program",
+			"programFile", programFile)
+		cmd = exec.Command("solana", baseArgs...) // #nosec G204
+	}
 
 	// Capture the command output
 	var stdout, stderr bytes.Buffer
@@ -73,8 +110,17 @@ func (c SolChain) DeployProgram(programName string) (string, error) {
 	// Parse and return the program ID
 	output := stdout.String()
 
-	time.Sleep(5 * time.Second) // obviously need to do this better
+	// TODO: obviously need to do this better
+	time.Sleep(5 * time.Second)
 	return parseProgramID(output)
+}
+
+func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // parseProgramID parses the program ID from the deploy output.

@@ -11,10 +11,9 @@ import (
 	commoncodec "github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-
-	abiutil "github.com/smartcontractkit/chainlink/v2/core/chains/evm/abi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/abi"
 )
 
 const (
@@ -39,7 +38,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
+	selector, err := abi.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +84,8 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 
 func makePreCodecModifierCodecs(subabi map[string]string) (map[string]commontypes.RemoteCodec, error) {
 	codecs := map[string]commontypes.RemoteCodec{}
-	for _, abi := range subabi {
-		selector, err := abiutil.ParseSelector("inner(" + abi + ")")
+	for _, abiStr := range subabi {
+		selector, err := abi.ParseSelector("inner(" + abiStr + ")")
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +103,7 @@ func makePreCodecModifierCodecs(subabi map[string]string) (map[string]commontype
 		if err != nil {
 			return nil, err
 		}
-		codecs[abi] = codec
+		codecs[abiStr] = codec
 	}
 	return codecs, nil
 }

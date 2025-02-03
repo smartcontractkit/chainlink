@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type (
@@ -92,6 +93,9 @@ func (pr *prometheusReporter) reportPendingEthTxes(ctx context.Context, evmChain
 
 	unconfirmed, err := txm.CountTransactionsByState(ctx, txmgrcommon.TxUnconfirmed)
 	if err != nil {
+		if strings.Contains(err.Error(), "disabled") {
+			return nil
+		}
 		return fmt.Errorf("failed to query for unconfirmed eth_tx count: %w", err)
 	}
 	pr.backend.SetUnconfirmedTransactions(evmChainID, int64(unconfirmed))
@@ -106,6 +110,9 @@ func (pr *prometheusReporter) reportMaxUnconfirmedAge(ctx context.Context, evmCh
 
 	broadcastAt, err := txm.FindEarliestUnconfirmedBroadcastTime(ctx)
 	if err != nil {
+		if strings.Contains(err.Error(), "disabled") {
+			return nil
+		}
 		return fmt.Errorf("failed to query for min broadcast time: %w", err)
 	}
 
@@ -125,6 +132,9 @@ func (pr *prometheusReporter) reportMaxUnconfirmedBlocks(ctx context.Context, he
 
 	earliestUnconfirmedTxBlock, err := txm.FindEarliestUnconfirmedTxAttemptBlock(ctx)
 	if err != nil {
+		if strings.Contains(err.Error(), "disabled") {
+			return nil
+		}
 		return fmt.Errorf("failed to query for earliest unconfirmed tx block: %w", err)
 	}
 

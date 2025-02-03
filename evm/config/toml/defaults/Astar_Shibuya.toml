@@ -1,0 +1,9 @@
+ChainID = '81'
+FinalityTagEnabled = true
+FinalityDepth = 100
+LinkContractAddress = '0xe74037112db8807B3B4B3895F5790e5bc1866a29'
+LogPollInterval = '6s'
+
+[GasEstimator]
+EIP1559DynamicFees = false
+PriceMax = '100000 gwei'

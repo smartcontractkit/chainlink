@@ -23,13 +23,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
@@ -37,6 +39,13 @@ import (
 
 	crypto2 "github.com/ethereum/go-ethereum/crypto"
 )
+
+var rlConfig = ratelimiter.Config{
+	GlobalRPS:      1000.0,
+	GlobalBurst:    1000,
+	PerSenderRPS:   30.0,
+	PerSenderBurst: 30,
+}
 
 type testEvtHandler struct {
 	events []syncer.Event
@@ -343,9 +352,11 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, contents, giveContents)
 
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}),
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -420,13 +431,15 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	require.NoError(t, err)
 
 	from := [20]byte(backendTH.ContractsOwner.From)
-	id, err := workflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
+	id, err := pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
 	er := syncer.NewEngineRegistry()
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, syncer.WithEngineRegistry(er))
+		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -481,7 +494,7 @@ func (m *mockService) Name() string { return "svc" }
 
 type mockEngineFactory struct{}
 
-func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name string, config []byte, binary []byte) (services.Service, error) {
+func (m *mockEngineFactory) new(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
 	return &mockService{}, nil
 }
 
@@ -517,12 +530,14 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 
 	from := [20]byte(backendTH.ContractsOwner.From)
-	id, err := workflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
+	id, err := pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
 	mf := &mockEngineFactory{}
 	er := syncer.NewEngineRegistry()
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
 		lggr,
 		orm,
@@ -532,6 +547,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		emitter,
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
+		rl,
 		syncer.WithEngineRegistry(er),
 		syncer.WithEngineFactoryFn(mf.new),
 	)

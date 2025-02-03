@@ -40,7 +40,6 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -69,6 +68,7 @@ import (
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -209,7 +209,7 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 	if err != nil {
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
-	sugared := logger.Sugared(lggr).Named("Relayer")
+	sugared := logger.Sugared(lggr).Named("Relayer").With("evmChainID", chain.ID())
 	mercuryORM := mercury.NewORM(opts.DS)
 	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
 		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
@@ -836,7 +836,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		// performance hit no matter how minor.
 		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &llo.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
-		configProvider, err = newOCR3CapabilityConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+		configProvider, err = newOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
 		return nil, fmt.Errorf("unrecognized provider type: %q", args.ProviderType)
 	}

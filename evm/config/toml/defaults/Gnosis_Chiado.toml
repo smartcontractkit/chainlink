@@ -1,0 +1,12 @@
+ChainID = '10200'
+ChainType = 'gnosis'
+# Gnosis Finality is approx 8 minutes @ 12 blocks per minute, so 96 blocks
+FinalityDepth = 100
+LinkContractAddress = '0xDCA67FD8324990792C0bfaE95903B8A64097754F'
+LogPollInterval = '5s'
+FinalizedBlockOffset = 2
+NoNewFinalizedHeadsThreshold = '2m'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMax = '500 gwei'

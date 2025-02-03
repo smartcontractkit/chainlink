@@ -25,7 +25,7 @@ func TestSaveExisting(t *testing.T) {
 	ExistingContracts := ExistingContractsConfig{
 		ExistingContracts: []Contract{
 			{
-				Address: common.BigToAddress(big.NewInt(1)),
+				Address: common.BigToAddress(big.NewInt(1)).String(),
 				TypeAndVersion: deployment.TypeAndVersion{
 					Type:    "dummy1",
 					Version: deployment.Version1_5_0,
@@ -33,7 +33,7 @@ func TestSaveExisting(t *testing.T) {
 				ChainSelector: chainsel.TEST_90000001.Selector,
 			},
 			{
-				Address: common.BigToAddress(big.NewInt(2)),
+				Address: common.BigToAddress(big.NewInt(2)).String(),
 				TypeAndVersion: deployment.TypeAndVersion{
 					Type:    "dummy2",
 					Version: deployment.Version1_1_0,

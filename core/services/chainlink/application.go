@@ -34,13 +34,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -74,12 +73,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -195,6 +197,8 @@ type ApplicationOpts struct {
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
+	FetcherFunc                syncer.FetcherFunc
+	FetcherFactoryFn           compute.FetcherFactory
 }
 
 type Heartbeat struct {
@@ -277,6 +281,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
+		GlobalRPS:      cfg.Capabilities().RateLimit().GlobalRPS(),
+		GlobalBurst:    cfg.Capabilities().RateLimit().GlobalBurst(),
+		PerSenderRPS:   cfg.Capabilities().RateLimit().PerSenderRPS(),
+		PerSenderBurst: cfg.Capabilities().RateLimit().PerSenderBurst(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
+	}
+
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
@@ -346,8 +360,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
 			if cfg.Capabilities().WorkflowRegistry().Address() != "" {
-				if gatewayConnectorWrapper == nil {
-					return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+				lggr := globalLogger.Named("WorkflowRegistrySyncer")
+				var fetcherFunc syncer.FetcherFunc
+				if opts.FetcherFunc == nil {
+					if gatewayConnectorWrapper == nil {
+						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
+					}
+					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
+					fetcherFunc = fetcher.Fetch
+					srvcs = append(srvcs, fetcher)
+				} else {
+					fetcherFunc = opts.FetcherFunc
 				}
 
 				err = keyStore.Workflow().EnsureKey(context.Background())
@@ -363,12 +386,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
-
-				eventHandler := syncer.NewEventHandler(lggr, syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
-					fetcher.Fetch, workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()), opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(), clockwork.NewRealClock(), keys[0],
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					syncer.NewWorkflowRegistryDS(opts.DS, globalLogger),
+					fetcherFunc,
+					workflowstore.NewDBStore(opts.DS, lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					clockwork.NewRealClock(),
+					keys[0],
+					workflowRateLimiter,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
@@ -392,7 +419,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					workflowDonNotifier,
 				)
 
-				srvcs = append(srvcs, fetcher, wfSyncer)
+				srvcs = append(srvcs, wfSyncer)
 			}
 		}
 	} else {
@@ -591,10 +618,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
+		workflowRateLimiter,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if !cfg.EVMRPCEnabled() {
+	if !cfg.EVMConfigs().RPCEnabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
@@ -635,6 +663,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		keyStore,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
+		opts.FetcherFactoryFn,
 	)
 
 	if cfg.OCR().Enabled() {

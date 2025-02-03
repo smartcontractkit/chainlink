@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -327,12 +326,6 @@ func WaitForCommit(
 	for {
 		select {
 		case <-ticker.C:
-			if backend, ok := src.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
 			minSeqNr, err := commitStore.GetExpectedNextSequenceNumber(nil)
 			require.NoError(t, err)
 			t.Logf("Waiting for commit for sequence number %d, current min sequence number %d", seqNr, minSeqNr)
@@ -362,12 +355,6 @@ func WaitForExecute(
 	for {
 		select {
 		case <-ticker.C:
-			if backend, ok := src.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
-			if backend, ok := dest.Client.(*memory.Backend); ok {
-				backend.Commit()
-			}
 			t.Logf("Waiting for execute for sequence numbers %v", seqNrs)
 			it, err := offRamp.FilterExecutionStateChanged(
 				&bind.FilterOpts{

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,10 +31,21 @@ type UpdateNodesRequest struct {
 	MCMSConfig *MCMSConfig
 }
 
-func (r *UpdateNodesRequest) Validate() error {
+func (r *UpdateNodesRequest) Validate(e deployment.Environment) error {
 	if r.P2pToUpdates == nil {
 		return errors.New("P2pToUpdates must be non-nil")
 	}
+
+	_, exists := chainsel.ChainBySelector(r.RegistryChainSel)
+	if !exists {
+		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", r.RegistryChainSel)
+	}
+
+	_, exists = e.Chains[r.RegistryChainSel]
+	if !exists {
+		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", r.RegistryChainSel)
+	}
+
 	return nil
 }
 
@@ -64,10 +76,10 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	}
 
 	resp, err := internal.UpdateNodes(env.Logger, &internal.UpdateNodesRequest{
-		Chain:        registryChain,
-		ContractSet:  &contracts,
-		P2pToUpdates: req.P2pToUpdates,
-		UseMCMS:      req.UseMCMS(),
+		Chain:                registryChain,
+		CapabilitiesRegistry: contracts.CapabilitiesRegistry,
+		P2pToUpdates:         req.P2pToUpdates,
+		UseMCMS:              req.UseMCMS(),
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update don: %w", err)

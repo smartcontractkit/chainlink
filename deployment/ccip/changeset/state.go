@@ -1,15 +1,21 @@
 package changeset
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
@@ -28,31 +34,33 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -79,19 +87,23 @@ var (
 	PriceFeed            deployment.ContractType = "PriceFeed"
 
 	// Test contracts. Note test router maps to a regular router contract.
-	TestRouter          deployment.ContractType = "TestRouter"
-	Multicall3          deployment.ContractType = "Multicall3"
-	CCIPReceiver        deployment.ContractType = "CCIPReceiver"
-	USDCMockTransmitter deployment.ContractType = "USDCMockTransmitter"
+	TestRouter             deployment.ContractType = "TestRouter"
+	Multicall3             deployment.ContractType = "Multicall3"
+	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
+	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
+	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken      deployment.ContractType = "BurnMintToken"
-	ERC20Token         deployment.ContractType = "ERC20Token"
-	ERC677Token        deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool  deployment.ContractType = "BurnMintTokenPool"
-	USDCToken          deployment.ContractType = "USDCToken"
-	USDCTokenMessenger deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool      deployment.ContractType = "USDCTokenPool"
+	BurnMintToken             deployment.ContractType = "BurnMintToken"
+	ERC20Token                deployment.ContractType = "ERC20Token"
+	ERC677Token               deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                 deployment.ContractType = "USDCToken"
+	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -100,8 +112,8 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
-	OnRamp             *onramp.OnRamp
-	OffRamp            *offramp.OffRamp
+	OnRamp             onramp.OnRampInterface
+	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
@@ -111,11 +123,15 @@ type CCIPChainState struct {
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
 	// Map between token Descriptor (e.g. LinkSymbol, WethSymbol)
-	// and the respective token contract
-	ERC20Tokens        map[TokenSymbol]*erc20.ERC20
-	ERC677Tokens       map[TokenSymbol]*erc677.ERC677
-	BurnMintTokens677  map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
-	BurnMintTokenPools map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool
+	// and the respective token / token pool contract(s) (only one of which would be active on the registry).
+	// This is more of an illustration of how we'll have tokens, and it might need some work later to work properly.
+	ERC20Tokens                map[TokenSymbol]*erc20.ERC20
+	ERC677Tokens               map[TokenSymbol]*erc677.ERC677
+	BurnMintTokens677          map[TokenSymbol]*burn_mint_erc677.BurnMintERC677
+	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
+	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
+	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
 	USDFeeds map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface
@@ -126,7 +142,8 @@ type CCIPChainState struct {
 	RMNHome            *rmn_home.RMNHome
 
 	// Test contracts
-	Receiver               *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
+	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
 	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
@@ -167,6 +184,42 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
+	}
+	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
+	}
+	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
+		for _, tokenPool := range versionToPool {
+			tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+			}
+			chainView.LockReleaseTokenPool = helpers.AddValueToNestedMap(chainView.LockReleaseTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+		}
 	}
 	if c.NonceManager != nil {
 		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
@@ -370,6 +423,9 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range s.Chains {
 		chains[chain] = struct{}{}
 	}
+	for chain := range s.SolChains {
+		chains[chain] = struct{}{}
+	}
 	return chains
 }
 
@@ -397,9 +453,33 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
+func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var offRampAddress []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	return offRampAddress, nil
+}
+
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+	solState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return CCIPOnChainState{}, err
+	}
 	state := CCIPOnChainState{
-		Chains: make(map[uint64]CCIPChainState),
+		Chains:    make(map[uint64]CCIPChainState),
+		SolChains: solState.SolChains,
 	}
 	for chainSelector, chain := range e.Chains {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -411,7 +491,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 				return state, err
 			}
 		}
-		chainState, err := LoadChainState(chain, addresses)
+		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
 		if err != nil {
 			return state, err
 		}
@@ -421,7 +501,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 }
 
 // LoadChainState Loads all state for a chain into state
-func LoadChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
+func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
 	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -566,6 +646,12 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 				return state, err
 			}
 			state.Receiver = mr
+		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LogMessageDataReceiver = mr
 		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
 			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -590,26 +676,33 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 			}
 			state.USDFeeds[key] = feed
 		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
-			pool, err := burn_mint_token_pool.NewBurnMintTokenPool(common.HexToAddress(address), chain.Client)
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			if state.BurnMintTokenPools == nil {
-				state.BurnMintTokenPools = make(map[TokenSymbol]*burn_mint_token_pool.BurnMintTokenPool)
-			}
-			tokAddress, err := pool.GetToken(nil)
+			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			tok, err := erc20.NewERC20(tokAddress, chain.Client)
+			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			symbol, err := tok.Symbol(nil)
+			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := newTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
 			if err != nil {
-				return state, err
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPools[TokenSymbol(symbol)] = pool
+			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
 		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -712,4 +805,58 @@ func LoadChainState(chain deployment.Chain, addresses map[string]deployment.Type
 		}
 	}
 	return state, nil
+}
+
+func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
+		chainState, exists := s.Chains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.OffRamp == nil {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("OffRamp contract does not exist on chain %d", chainSelector)
+		}
+	case chain_selectors.FamilySolana:
+		chainState, exists := s.SolChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		if chainState.Router.IsZero() {
+			// should not be possible, but a defensive check.
+			return fmt.Errorf("CCIP router contract does not exist on chain %d", chainSelector)
+		}
+	default:
+		return fmt.Errorf("unknown chain family %s", family)
+	}
+	return nil
+}
+
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+	err := deployment.IsValidChainSelector(chainSel)
+	if err != nil {
+		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
+	}
+	chain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
+	}
+	chainState, ok := state.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("%s does not exist in state", chain)
+	}
+	if checkMcms {
+		if chainState.Timelock == nil {
+			return fmt.Errorf("missing timelock on %s", chain)
+		}
+		if chainState.ProposerMcm == nil {
+			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+	}
+	return nil
 }

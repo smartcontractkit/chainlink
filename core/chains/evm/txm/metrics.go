@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/pb"
+	svrv1 "github.com/smartcontractkit/chainlink-protos/svr/v1"
 )
 
 var (
@@ -96,7 +96,7 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 }
 
 func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress common.Address, toAddress common.Address, nonce string) error {
-	message := &pb.TxMessage{
+	message := &svrv1.TxMessage{
 		Hash:        tx.String(),
 		FromAddress: fromAddress.String(),
 		ToAddress:   toAddress.String(),
@@ -112,7 +112,7 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddr
 		ctx,
 		messageBytes,
 		"beholder_domain", "svr",
-		"beholder_entity", "pb.TxMessage",
+		"beholder_entity", "svr.v1.TxMessage",
 		"beholder_data_schema", "/beholder-tx-message/versions/1",
 	)
 }

@@ -61,15 +61,19 @@ type MutateNodeCapabilitiesRequest struct {
 	MCMSConfig *MCMSConfig
 }
 
-func (req *MutateNodeCapabilitiesRequest) Validate() error {
+func (req *MutateNodeCapabilitiesRequest) Validate(e deployment.Environment) error {
 	if len(req.P2pToCapabilities) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
 	_, exists := chainsel.ChainBySelector(req.RegistryChainSel)
 	if !exists {
-		return fmt.Errorf("registry chain selector %d does not exist", req.RegistryChainSel)
+		return fmt.Errorf("invalid registry chain selector %d: selector does not exist", req.RegistryChainSel)
 	}
 
+	_, exists = e.Chains[req.RegistryChainSel]
+	if !exists {
+		return fmt.Errorf("invalid registry chain selector %d: chain does not exist in environment", req.RegistryChainSel)
+	}
 	return nil
 }
 
@@ -77,37 +81,35 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, error) {
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSet, error) {
+	if err := req.Validate(e); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain, ok := e.Chains[req.RegistryChainSel]
-	if !ok {
-		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
-	}
+	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
 	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 	contractSet, exists := resp.ContractSets[req.RegistryChainSel]
 	if !exists {
-		return nil, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
+		return nil, nil, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
 	}
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
-		Chain:             registryChain,
-		ContractSet:       &contractSet,
-		P2pToCapabilities: req.P2pToCapabilities,
-		UseMCMS:           req.UseMCMS(),
-	}, nil
+		Chain:                registryChain,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		P2pToCapabilities:    req.P2pToCapabilities,
+		UseMCMS:              req.UseMCMS(),
+	}, &contractSet, nil
 }
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
 func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	c, err := req.updateNodeCapabilitiesImplRequest(env)
+
+	c, contractSet, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)
 	}
@@ -123,10 +125,10 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
-			c.Chain.Selector: c.ContractSet.Timelock.Address(),
+			c.Chain.Selector: contractSet.Timelock.Address(),
 		}
 		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			c.Chain.Selector: c.ContractSet.ProposerMcm,
+			c.Chain.Selector: contractSet.ProposerMcm,
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatches(

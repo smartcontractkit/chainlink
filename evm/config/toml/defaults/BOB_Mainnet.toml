@@ -1,0 +1,28 @@
+ChainID = '60808'
+# OP stack https://docs.gobob.xyz/learn/introduction/stack-overview#rollup-layer
+ChainType = 'optimismBedrock'
+# FinalityDepth in mainnet showed more than 3k
+FinalityDepth = 3150
+LinkContractAddress = '0x5aB885CDa7216b163fb6F813DEC1E1532516c833'
+# block_time was:  2s, adding 1 second buffer 
+LogPollInterval = '3s'
+
+# finality_depth * block_time / 60 secs = ~105  min (finality time)
+NoNewFinalizedHeadsThreshold = '110m'
+
+FinalityTagEnabled = true
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 2s, per recommendation skip 1-2 blocks
+CacheTimeout = '4s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
