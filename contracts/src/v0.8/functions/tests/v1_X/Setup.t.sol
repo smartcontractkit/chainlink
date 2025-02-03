@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsClientHarness} from "./testhelpers/FunctionsClientHarness.sol";
+import {ZKSyncFunctionsRouterHarness, ZKSyncFunctionsRouter} from "./testhelpers/ZKSyncFunctionsRouterHarness.sol";
+import {FunctionsRouter as FunctionsRouterStable} from "../../v1_0_0/FunctionsRouter.sol";
 import {FunctionsRouterHarness, FunctionsRouter} from "./testhelpers/FunctionsRouterHarness.sol";
 import {FunctionsCoordinatorHarness} from "./testhelpers/FunctionsCoordinatorHarness.sol";
 import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
@@ -105,6 +107,42 @@ contract FunctionsRouterSetup is BaseTest {
   }
 }
 
+/// @notice Set up to deploy the following contracts: FunctionsRouter, FunctionsCoordinator, LINK/ETH Feed, ToS Allow List, and LINK token
+contract ZKSyncFunctionsRouterSetup is BaseTest {
+  ZKSyncFunctionsRouterHarness internal s_functionsRouter;
+  MockLinkToken internal s_linkToken;
+
+  uint16 internal s_maxConsumersPerSubscription = 3;
+  uint72 internal s_adminFee = 0; // Keep as 0. Setting this to anything else will cause fulfillments to fail with INVALID_COMMITMENT
+  bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
+  uint16 s_subscriptionDepositMinimumRequests = 1;
+  uint72 s_subscriptionDepositJuels = 11 * JUELS_PER_LINK;
+
+  function setUp() public virtual override {
+    BaseTest.setUp();
+    s_linkToken = new MockLinkToken();
+    s_functionsRouter = new ZKSyncFunctionsRouterHarness(address(s_linkToken), this.getRouterConfig());
+  }
+
+  function getRouterConfig() public view returns (FunctionsRouterStable.Config memory) {
+    uint32[] memory maxCallbackGasLimits = new uint32[](3);
+    maxCallbackGasLimits[0] = 300_000;
+    maxCallbackGasLimits[1] = 500_000;
+    maxCallbackGasLimits[2] = 1_000_000;
+
+    return
+      FunctionsRouterStable.Config({
+        maxConsumersPerSubscription: s_maxConsumersPerSubscription,
+        adminFee: s_adminFee,
+        handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
+        maxCallbackGasLimits: maxCallbackGasLimits,
+        gasForCallExactCheck: 5000,
+        subscriptionDepositMinimumRequests: s_subscriptionDepositMinimumRequests,
+        subscriptionDepositJuels: s_subscriptionDepositJuels
+      });
+  }
+}
+
 /// @notice Set up to set the OCR configuration of the Coordinator contract
 contract FunctionsDONSetup is FunctionsRouterSetup {
   uint256 internal NOP_SIGNER_PRIVATE_KEY_1 = 0x400;
@@ -176,7 +214,7 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
     ];
   }
 
-  function _assertTransmittersAllHaveBalance(uint256[4] memory balances, uint256 expectedBalance) internal {
+  function _assertTransmittersAllHaveBalance(uint256[4] memory balances, uint256 expectedBalance) internal pure {
     assertEq(balances[0], expectedBalance);
     assertEq(balances[1], expectedBalance);
     assertEq(balances[2], expectedBalance);

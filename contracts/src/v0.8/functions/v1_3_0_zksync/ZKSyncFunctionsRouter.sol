@@ -10,7 +10,7 @@ import {CallWithExactGasZKSync} from "../../shared/call/CallWithExactGasZKSync.s
 /// CallWithExactGasZKSync to control callback gas usage.
 ///
 contract ZKSyncFunctionsRouter is FunctionsRouter {
-  constructor(address linkToken, Config memory config) FunctionsRouter(linkToken, config) {}
+  constructor(address linkToken, FunctionsRouter.Config memory config) FunctionsRouter(linkToken, config) {}
 
   /// @dev Override the internal callback function to use CallWithExactGasZKSync
   /// for controlling and measuring gas usage on zkSync.
