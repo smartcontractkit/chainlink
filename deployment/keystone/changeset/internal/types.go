@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"

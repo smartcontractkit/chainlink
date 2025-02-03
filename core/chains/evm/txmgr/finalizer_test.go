@@ -27,10 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/configtest"
 	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
@@ -458,8 +457,8 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	config := evmtest.NewChainScopedConfig(t, cfg)
+
+	config := configtest.NewChainScopedConfig(t, nil)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := config.EVM().RPCDefaultBatchSize()
