@@ -42,6 +42,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -178,6 +180,120 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 		}
 	}
 	return firstReportTs
+}
+
+func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	sb, auth := setupSimulatedBackendAndAuth(t)
+
+	rmnRemoteAddr, _, _, err := rmn_remote.DeployRMNRemote(auth, sb.Client(), uint64(chainD), utils.RandomAddress())
+	require.NoError(t, err)
+	sb.Commit()
+
+	proxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxy(auth, sb.Client(), rmnRemoteAddr)
+	require.NoError(t, err)
+	sb.Commit()
+
+	t.Logf("Proxy address: %s, rmn remote address: %s", proxyAddr.Hex(), rmnRemoteAddr.Hex())
+
+	proxy, err := rmn_proxy_contract.NewRMNProxy(proxyAddr, sb.Client())
+	require.NoError(t, err)
+
+	currARM, err := proxy.GetARM(&bind.CallOpts{
+		Context: ctx,
+	})
+	require.NoError(t, err)
+	require.Equal(t, currARM, rmnRemoteAddr)
+
+	rmnRemote, err := rmn_remote.NewRMNRemote(rmnRemoteAddr, sb.Client())
+	require.NoError(t, err)
+
+	_, err = rmnRemote.SetConfig(auth, rmn_remote.RMNRemoteConfig{
+		RmnHomeContractConfigDigest: utils.RandomBytes32(),
+		Signers: []rmn_remote.RMNRemoteSigner{
+			{
+				OnchainPublicKey: utils.RandomAddress(),
+				NodeIndex:        0,
+			},
+			{
+				OnchainPublicKey: utils.RandomAddress(),
+				NodeIndex:        1,
+			},
+			{
+				OnchainPublicKey: utils.RandomAddress(),
+				NodeIndex:        2,
+			},
+		},
+		FSign: 1, // 2*FSign + 1 == 3
+	})
+	require.NoError(t, err)
+	sb.Commit()
+
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	lggr.SetLogLevel(zapcore.ErrorLevel)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Millisecond,
+		FinalityDepth:            1,
+		BackfillBatchSize:        10,
+		RpcBatchSize:             10,
+		KeepFinalizedBlocksDepth: 100000,
+	}
+	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
+	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	orm := logpoller.NewORM(big.NewInt(1337), db, lggr)
+	lp := logpoller.NewLogPoller(
+		orm,
+		cl,
+		lggr,
+		headTracker,
+		lpOpts,
+	)
+	require.NoError(t, lp.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, lp.Close()) })
+
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
+	require.NoError(t, err)
+	err = cr.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cr.Close()) })
+
+	extendedCr := contractreader.NewExtendedContractReader(cr)
+	err = extendedCr.Bind(ctx, []types.BoundContract{
+		{
+			Address: proxyAddr.String(),
+			Name:    consts.ContractNameRMNRemote,
+		},
+	})
+	require.NoError(t, err)
+
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		lggr,
+		map[cciptypes.ChainSelector]contractreader.Extended{
+			chainD: extendedCr,
+		},
+		nil,
+		chainD,
+		rmnRemoteAddr.Bytes(),
+		ccipcommon.NewExtraDataCodec(),
+	)
+
+	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
+		Context: ctx,
+	})
+	require.NoError(t, err)
+
+	rmnRemoteConfig, err := reader.GetRMNRemoteConfig(ctx)
+	require.NoError(t, err)
+	require.Equal(t, exp.Config.RmnHomeContractConfigDigest[:], rmnRemoteConfig.ConfigDigest[:])
+	require.Equal(t, len(exp.Config.Signers), len(rmnRemoteConfig.Signers))
+	for i, signer := range exp.Config.Signers {
+		require.Equal(t, signer.OnchainPublicKey.Bytes(), []byte(rmnRemoteConfig.Signers[i].OnchainPublicKey))
+		require.Equal(t, signer.NodeIndex, rmnRemoteConfig.Signers[i].NodeIndex)
+	}
+	require.Equal(t, exp.Config.FSign, rmnRemoteConfig.FSign)
 }
 
 func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
@@ -317,7 +433,6 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	require.Eventually(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -362,7 +477,6 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	require.Never(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -380,7 +494,6 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	require.Eventually(t, func() bool {
 		reports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
-			chainD,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
@@ -443,7 +556,6 @@ func TestCCIPReader_ExecutedMessages(t *testing.T) {
 		executedMsgs, err = s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
-			chainD,
 			cciptypes.NewSeqNumRange(14, 15),
 		)
 		require.NoError(t, err)
@@ -617,7 +729,7 @@ func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 		msgSentEvent := testhelpers.TestSendRequest(t, env.Env, state, srcChain, destChain, false, msg)
 		require.Equal(t, uint64(i), msgSentEvent.SequenceNumber)
 		require.Equal(t, uint64(i), msgSentEvent.Message.Header.Nonce) // check outbound nonce incremented
-		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain), cs(destChain))
+		seqNum, err2 := reader.GetExpectedNextSequenceNumber(ctx, cs(srcChain))
 		require.NoError(t, err2)
 		require.Equal(t, cciptypes.SeqNum(i+1), seqNum)
 	}
@@ -682,7 +794,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		}
 		addrQuery = append(addrQuery, utils.RandomAddress().String())
 
-		results, err := s.reader.Nonces(ctx, sourceChain, chainD, addrQuery)
+		results, err := s.reader.Nonces(ctx, sourceChain, addrQuery)
 		require.NoError(t, err)
 		assert.Len(t, results, len(addrQuery))
 		for addr, nonce := range addrs {
@@ -923,7 +1035,7 @@ func benchmarkCommitReports(b *testing.B, logsInsertedFirst int, logsInsertedMat
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		reports, err := s.reader.CommitReportsGTETimestamp(ctx, chainD, queryTimestamp, logsInsertedFirst)
+		reports, err := s.reader.CommitReportsGTETimestamp(ctx, queryTimestamp, logsInsertedFirst)
 		require.NoError(b, err)
 		require.Len(b, reports, logsInsertedFirst)
 	}
@@ -1059,7 +1171,6 @@ func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum,
 		executedRanges, err := s.reader.ExecutedMessages(
 			ctx,
 			chainS1,
-			chainD,
 			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
 		)
 		require.NoError(b, err)

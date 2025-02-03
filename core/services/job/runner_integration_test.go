@@ -86,7 +86,7 @@ func TestRunner(t *testing.T) {
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
 		Client:         ethClient,
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
@@ -570,7 +570,7 @@ answer1      [type=median index=0];
 			legacyChains2 := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 				DB:             db,
 				Client:         ethClient,
-				GeneralConfig:  config,
+				ChainConfigs:   config.EVMConfigs(),
 				DatabaseConfig: config.Database(),
 				FeatureConfig:  config.Feature(),
 				ListenerConfig: config.Database().Listener(),

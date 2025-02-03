@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,8 +15,19 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solBinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go/rpc"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
+var (
+	SolDefaultCommitment        = rpc.CommitmentConfirmed
+	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
+	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
+	SPL2022Tokens               = "SPL2022Tokens"
+	SPLTokens                   = "SPLTokens"
 )
 
 // SolChain represents a Solana chain.
@@ -28,7 +40,7 @@ type SolChain struct {
 	WSURL  string
 	// TODO: raw private key for now, need to replace with a more secure way
 	DeployerKey *solana.PrivateKey
-	Confirm     func(instructions []solana.Instruction, opts ...solCommomUtil.TxModifier) error
+	Confirm     func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error
 
 	// deploy uses the solana CLI which needs a keyfile
 	KeypairPath  string
@@ -56,15 +68,7 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-var allowedPrograms = map[string]bool{
-	"ccip_router": true,
-	// Add other valid program names here
-}
-
 func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
-	if !allowedPrograms[programName] {
-		return "", fmt.Errorf("program %s not in allowed list", programName)
-	}
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
 	if _, err := os.Stat(programFile); err != nil {
 		return "", fmt.Errorf("program file not found: %w", err)
@@ -109,6 +113,14 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 	// TODO: obviously need to do this better
 	time.Sleep(5 * time.Second)
 	return parseProgramID(output)
+}
+
+func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
+	err := solCommonUtil.GetAccountDataBorshInto(ctx, c.Client, pubkey, SolDefaultCommitment, accountState)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // parseProgramID parses the program ID from the deploy output.

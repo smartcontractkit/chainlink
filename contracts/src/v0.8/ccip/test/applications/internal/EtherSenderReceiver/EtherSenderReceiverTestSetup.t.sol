@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 
 import {ICCIPRouter} from "../../../../applications/internal/EtherSenderReceiver.sol";
-import {WETH9} from "../../../WETH9.sol";
 import {EtherSenderReceiverHelper} from "../../../helpers/EtherSenderReceiverHelper.sol";
 
+import {WETH9} from "../../../../../vendor/canonical-weth/WETH9.sol";
 import {ERC20} from "../../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/ERC20.sol";
 
 contract EtherSenderReceiverTestSetup is Test {

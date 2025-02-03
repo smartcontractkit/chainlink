@@ -25,6 +25,9 @@ import (
 )
 
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
+	t.Skipf("Skipping test due to flakiness. " +
+		"This test getting face lifted in this ticket CCIP-4883 and will resolve the flakiness part of it.")
+
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(

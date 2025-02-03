@@ -38,7 +38,8 @@ func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS)
+
+	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]
@@ -66,5 +67,5 @@ func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryC
 		}
 	}
 
-	return deployerGroup.Enact("propose admin role for tokens on token admin registries")
+	return deployerGroup.Enact()
 }

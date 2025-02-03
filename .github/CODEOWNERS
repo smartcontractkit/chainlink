@@ -1,6 +1,10 @@
 # CODEOWNERS Best Practices
 # 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
+# 2. Per Github docs:
+# "create a new file called CODEOWNERS in the .github/, root, or docs/ directory of the repository...
+# ...GitHub will search for them in that order and use the first one it finds."
+# Please put the CODEOWNERS file in .github
 
 # Root
 * @smartcontractkit/foundations @smartcontractkit/core

@@ -1,12 +1,16 @@
 package web_test
 
 import (
+	"errors"
 	"math/big"
 	"net/http"
 	"net/url"
 	"testing"
 
-	"github.com/pkg/errors"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -15,17 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
-	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -217,7 +215,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
 	sub := commonmocks.NewSubscription(t)

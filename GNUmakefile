@@ -111,7 +111,7 @@ abigen: ## Build & install abigen.
 .PHONY: generate
 generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
-	export PATH=$(HOME)/.local/bin:$(PATH); gomods -w go generate -x ./...
+	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
@@ -168,7 +168,7 @@ codecgen: $(codecgen) ## Install codecgen
 
 .PHONY: protoc
 protoc: ## Install protoc
-	core/scripts/install-protoc.sh 25.1 /
+	core/scripts/install-protoc.sh 29.3 /
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
 

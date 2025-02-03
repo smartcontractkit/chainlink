@@ -18,8 +18,8 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
@@ -330,7 +330,7 @@ func runFeeTokenTestCase(tc feeTokenTestCase) {
 	if tc.feeToken != common.HexToAddress("0x0") {
 		if tc.feeToken == state.Chains[tc.src].Weth9.Address() {
 			// Deposit some ETH into the WETH contract
-			weth9, err := weth9_wrapper.NewWETH9(state.Chains[tc.src].Weth9.Address(), srcChain.Client)
+			weth9, err := weth9.NewWETH9(state.Chains[tc.src].Weth9.Address(), srcChain.Client)
 			require.NoError(tc.t, err)
 
 			balance, err := srcChain.Client.BalanceAt(ctx, srcChain.DeployerKey.From, nil)

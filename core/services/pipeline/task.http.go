@@ -104,7 +104,8 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	} else {
 		client = t.httpClient
 	}
-	responseBytes, statusCode, respHeaders, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, respHeaders, start, finish, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
+	elapsed := finish.Sub(start).Milliseconds()
 	if err != nil {
 		if errors.Is(errors.Cause(err), clhttp.ErrDisallowedIP) {
 			err = errors.Wrap(err, `connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess="true" in the pipeline task spec, e.g. fetch [type="http" method=GET url="$(decode_cbor.url)" allowUnrestrictedNetworkAccess="true"]`)
