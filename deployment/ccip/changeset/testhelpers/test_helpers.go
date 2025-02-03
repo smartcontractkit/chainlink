@@ -1383,14 +1383,15 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		// Validate addresses
 		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
 		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
+		require.False(t, chainState.RouterConfigPDA.IsZero(), "RouterConfigPDA is zero for chain %d", sel)
+		require.False(t, chainState.RouterStatePDA.IsZero(), "RouterStatePDA is zero for chain %d", sel)
 		require.False(t, chainState.AddressLookupTable.IsZero(), "Address lookup table is zero for chain %d", sel)
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		configPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 
 		// Check if account exists first
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), configPDA, &routerConfigAccount)
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RouterConfigPDA, &routerConfigAccount)
 		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
 	}
 }

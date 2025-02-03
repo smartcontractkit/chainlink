@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	internaltest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -31,10 +31,10 @@ func TestUpdateDon(t *testing.T) {
 		}
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
-	capACfg := internaltest.GetDefaultCapConfig(t, capA)
+	capACfg := test.GetDefaultCapConfig(t, capA)
 	capACfgB, err := proto.Marshal(capACfg)
 	require.NoError(t, err)
-	capBCfg := internaltest.GetDefaultCapConfig(t, capB)
+	capBCfg := test.GetDefaultCapConfig(t, capB)
 	capBCfgB, err := proto.Marshal(capBCfg)
 	require.NoError(t, err)
 

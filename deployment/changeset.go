@@ -20,12 +20,22 @@ var (
 // If the configuration is unexpected type or format, the changeset should return ErrInvalidConfig.
 type ChangeSet[C any] func(e Environment, config C) (ChangesetOutput, error)
 
+// ProposedJob represents a job spec which has been proposed to a node, with the JobID returned by the
+// Job Distributor.
+type ProposedJob struct {
+	JobID string
+	Node  string
+	Spec  string
+}
+
 // ChangesetOutput is the output of a Changeset function.
 // Think of it like a state transition output.
 // The address book here should contain only new addresses created in
 // this changeset.
 type ChangesetOutput struct {
-	JobSpecs    map[string][]string
+	// Deprecated: Prefer Jobs instead.
+	JobSpecs    map[string][]string `deprecated:"true"`
+	Jobs        []ProposedJob
 	Proposals   []timelock.MCMSWithTimelockProposal
 	AddressBook AddressBook
 }

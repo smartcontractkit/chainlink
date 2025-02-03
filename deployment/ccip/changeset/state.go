@@ -836,3 +836,27 @@ func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
 	}
 	return nil
 }
+
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+	err := deployment.IsValidChainSelector(chainSel)
+	if err != nil {
+		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
+	}
+	chain, ok := env.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("chain with selector %d does not exist in environment", chainSel)
+	}
+	chainState, ok := state.Chains[chainSel]
+	if !ok {
+		return fmt.Errorf("%s does not exist in state", chain)
+	}
+	if checkMcms {
+		if chainState.Timelock == nil {
+			return fmt.Errorf("missing timelock on %s", chain)
+		}
+		if chainState.ProposerMcm == nil {
+			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+	}
+	return nil
+}
