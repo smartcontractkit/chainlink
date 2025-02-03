@@ -173,7 +173,8 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS)
+
+	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
 		chain := env.Chains[chainSelector]
@@ -188,7 +189,7 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 		}
 	}
 
-	return deployerGroup.Enact(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
+	return deployerGroup.Enact()
 }
 
 // configureTokenPool creates all transactions required to configure the desired token pool on a chain,

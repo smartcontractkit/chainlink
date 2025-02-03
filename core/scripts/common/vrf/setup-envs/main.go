@@ -323,14 +323,14 @@ func main() {
 			node := node
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
 
-			//GET ALL JOBS
+			// GET ALL JOBS
 			jobIDs := getAllJobIDs(client, app, output)
 
-			//DELETE ALL EXISTING JOBS
+			// DELETE ALL EXISTING JOBS
 			for _, jobID := range jobIDs {
 				deleteJob(jobID, client, app, output)
 			}
-			//CREATE JOBS
+			// CREATE JOBS
 
 			switch key {
 			case model.VRFPrimaryNodeName:

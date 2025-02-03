@@ -3,8 +3,6 @@ package testutils
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
@@ -26,5 +24,5 @@ func NewTestChainScopedConfig(t testing.TB, overrideFn func(c *toml.EVMConfig)) 
 		overrideFn(evmCfg)
 	}
 
-	return config.NewTOMLChainScopedConfig(evmCfg, logger.Test(t))
+	return config.NewTOMLChainScopedConfig(evmCfg)
 }

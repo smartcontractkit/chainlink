@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -151,9 +151,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
-	ocr3CapCfg := kstest.GetDefaultCapConfig(t, internal.OCR3Cap)
-	writerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.WriteChainCap)
-	streamTriggerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.StreamTriggerCap)
+	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
+	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
+	streamTriggerChainCapCfg := GetDefaultCapConfig(t, internal.StreamTriggerCap)
 
 	// TODO: partition nodes into multiple nops
 

@@ -116,6 +116,9 @@ type triggerCapability struct {
 	sdk.StepDefinition
 	trigger capabilities.TriggerCapability
 
+	// flag to track registration of the trigger and avoid removal of non registered triggers
+	registered bool
+
 	config atomic.Pointer[values.Map]
 }
 

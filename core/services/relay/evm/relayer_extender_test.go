@@ -38,7 +38,7 @@ func TestChainRelayExtenders(t *testing.T) {
 	opts := evmtest.NewChainOpts(t, evmtest.TestChainOpts{
 		DB:             db,
 		KeyStore:       kst.Eth(),
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
