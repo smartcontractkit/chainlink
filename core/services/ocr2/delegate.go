@@ -476,7 +476,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(lggr, spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
 	if err != nil {
 		return nil, err
 	}
