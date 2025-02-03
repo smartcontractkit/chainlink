@@ -823,69 +823,11 @@ func (s *GatewaySpec) SetID(value string) error {
 	return nil
 }
 
-// NodeServerConfigPath returns NodeServerConfig.Path or empty string, if not found or it's not a string
-func (s *GatewaySpec) NodeServerConfigPath() string {
-	if nsc, ok := s.GatewayConfig["NodeServerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			if path, ok := nscMap["Path"]; ok {
-				if pathStr, ok := path.(string); ok {
-					return pathStr
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// NodeServerConfigPort returns NodeServerConfig.Port or 0, if not found or it's not an int64
-func (s *GatewaySpec) NodeServerConfigPort() int64 {
-	if nsc, ok := s.GatewayConfig["NodeServerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			if port, ok := nscMap["Port"]; ok {
-				// TODO should we support other types? int, int32, uint, uint32, uint64?
-				// and convert them to int64?
-				if portInt, ok := port.(int64); ok {
-					return portInt
-				}
-			}
-		}
-	}
-	return 0
-}
-
-// UserServerConfigPath returns UserServerConfig.Path or empty string, if not found or it's not a string
-func (s *GatewaySpec) UserServerConfigPath() string {
-	if nsc, ok := s.GatewayConfig["UserServerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			if path, ok := nscMap["Path"]; ok {
-				if pathStr, ok := path.(string); ok {
-					return pathStr
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// UserServerConfigPort returns UserServerConfig.Port or 0, if not found or it's not an int64
-func (s *GatewaySpec) UserServerConfigPort() int64 {
-	if nsc, ok := s.GatewayConfig["UserServerConfig"]; ok {
-		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			if port, ok := nscMap["Port"]; ok {
-				if portInt, ok := port.(int64); ok {
-					return portInt
-				}
-			}
-		}
-	}
-	return 0
-}
-
 // AuthGatewayID returns AuthGatewayId or empty string, if not found or it's not a string
 func (s *GatewaySpec) AuthGatewayID() string {
+	// not using config.GatewayConfig directly to avoid import cycle
 	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
 		if nscMap, ok := nsc.(map[string]interface{}); ok {
-			//nolint:revive // that's how it's named in the config
 			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
 				if authGatewayIDStr, ok := authGatewayID.(string); ok {
 					return authGatewayIDStr
@@ -893,6 +835,7 @@ func (s *GatewaySpec) AuthGatewayID() string {
 			}
 		}
 	}
+
 	return ""
 }
 

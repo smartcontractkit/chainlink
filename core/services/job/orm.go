@@ -1198,12 +1198,10 @@ func (o *orm) FindGatewayJobID(ctx context.Context, spec GatewaySpec) (jobID int
 	stmt := `
 SELECT jobs.id FROM jobs
 INNER JOIN gateway_specs gs on jobs.gateway_spec_id = gs.id
-WHERE gs.gateway_config @> jsonb_build_object('NodeServerConfig', jsonb_build_object('Path', $1::text, 'Port', $2::int))
-   OR gs.gateway_config @> jsonb_build_object('UserServerConfig', jsonb_build_object('Path', $3::text, 'Port', $4::int))
-   OR gs.gateway_config @> jsonb_build_object('ConnectionManagerConfig', jsonb_build_object('AuthGatewayId', $5::text));`
-	err = o.ds.GetContext(ctx, &jobID, stmt, spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayID())
+WHERE gs.gateway_config @> jsonb_build_object('ConnectionManagerConfig', jsonb_build_object('AuthGatewayId', $1::text));`
+	err = o.ds.GetContext(ctx, &jobID, stmt, spec.AuthGatewayID())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		err = fmt.Errorf("error searching for job for gateway (NodeServerConfig.Path, NodeServerConfig.Port, UserServerConfig.Path, UserServerConfig.Port, ConnectionManagerConfig.AuthGatewayId) ('%s', %d, '%s', %d, '%s'): %w", spec.NodeServerConfigPath(), spec.NodeServerConfigPort(), spec.UserServerConfigPath(), spec.UserServerConfigPort(), spec.AuthGatewayID(), err)
+		err = fmt.Errorf("error searching for job for gateway (ConnectionManagerConfig.AuthGatewayId) ('%s'): %w", spec.AuthGatewayID(), err)
 	}
 	return
 }
