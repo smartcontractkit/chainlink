@@ -250,4 +250,4 @@ LoadDuration = "1h"
 # number of destination chains
 NumDestinationChains = 30
 # Directory where we receive environment configuration from crib
-CribEnvDirectory = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
+CribEnvDirectory = "../crib/deployments/ccip-v2/.tmp"

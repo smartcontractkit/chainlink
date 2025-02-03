@@ -1,21 +1,20 @@
 package ccip
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-
 	"github.com/stretchr/testify/require"
-
-	"context"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	crib "github.com/smartcontractkit/chainlink/deployment/environment/crib"
+	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -107,7 +106,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 		wg.Add(2)
 		go subscribeCommitEvents(
-			context.Background(),
+			tests.Context(t),
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,
@@ -119,7 +118,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			errChan,
 			&wg)
 		go subscribeExecutionEvents(
-			context.Background(),
+			tests.Context(t),
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,

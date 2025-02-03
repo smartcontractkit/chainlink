@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capreg "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
@@ -55,7 +55,7 @@ func MustABIEncode(abiString string, args ...interface{}) []byte {
 // getNodeOperatorIDMap returns a map of node operator names to their IDs
 // If maxNops is greater than the number of node operators, it will return all node operators
 // Unused now but could be useful in the future.
-func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
+func getNodeOperatorIDMap(capReg *capreg.CapabilitiesRegistry, maxNops uint32) (map[string]uint32, error) {
 	nopIdByName := make(map[string]uint32)
 	operators, err := capReg.GetNodeOperators(nil)
 	if err != nil {
@@ -74,12 +74,12 @@ func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, ma
 	return nopIdByName, nil
 }
 
-func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
+func LatestCCIPDON(registry *capreg.CapabilitiesRegistry) (*capreg.CapabilitiesRegistryDONInfo, error) {
 	dons, err := registry.GetDONs(nil)
 	if err != nil {
 		return nil, err
 	}
-	var ccipDON capabilities_registry.CapabilitiesRegistryDONInfo
+	var ccipDON capreg.CapabilitiesRegistryDONInfo
 	for _, don := range dons {
 		if len(don.CapabilityConfigurations) == 1 &&
 			don.CapabilityConfigurations[0].CapabilityId == CCIPCapabilityID &&
@@ -92,7 +92,7 @@ func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capab
 
 // DonIDForChain returns the DON ID for the chain with the given selector
 // It looks up with the CCIPHome contract to find the OCR3 configs for the DONs, and returns the DON ID for the chain matching with the given selector from the OCR3 configs
-func DonIDForChain(registry *capabilities_registry.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, error) {
+func DonIDForChain(registry *capreg.CapabilitiesRegistry, ccipHome *ccip_home.CCIPHome, chainSelector uint64) (uint32, error) {
 	dons, err := registry.GetDONs(nil)
 	if err != nil {
 		return 0, fmt.Errorf("get Dons from capability registry: %w", err)
@@ -400,7 +400,7 @@ func BuildOCR3ConfigForCCIPHome(
 	return ocr3Configs, nil
 }
 
-func DONIdExists(cr *capabilities_registry.CapabilitiesRegistry, donIDs []uint32) error {
+func DONIdExists(cr *capreg.CapabilitiesRegistry, donIDs []uint32) error {
 	// DON ids must exist
 	dons, err := cr.GetDONs(nil)
 	if err != nil {

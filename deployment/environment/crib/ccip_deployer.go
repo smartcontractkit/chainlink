@@ -6,23 +6,21 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -141,9 +139,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}, nil
 }
 
-// SetupCCIPChains is a group of changesets used from CRIB to set up new chains
-// The function is for CRIB to maintain env infra if possible
-func SetupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// DeployCCIPChains is a group of changesets used from CRIB to set up new chains
+// It sets up CCIP contracts on all chains. We expect that MCMS has already been deployed and set up
+func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -166,9 +164,9 @@ func SetupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.E
 	}, nil
 }
 
-// SetupCCIPLanes is a group of changesets used from CRIB to set up new lanes
-// The function is for CRIB to maintain env infra if possible
-func SetupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
+// It creates a fully connected mesh where all chains are connected to all chains
+func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -197,9 +195,9 @@ func SetupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.En
 	}, nil
 }
 
-// SetupCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
-// The function is for CRIB to maintain env infra if possible
-func SetupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// ConfigureCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
+// This sets up OCR on all chains in the envConfig by configuring the CCIP home chain
+func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -222,9 +220,9 @@ func SetupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.Envi
 	}, nil
 }
 
-// SetupCCIPTransmitterFunding is used from CRIB to provide funds to the node transmitters
-// The function is for CRIB to maintain env infra if possible
-func SetupCCIPTransmitterFunding(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// FundCCIPTransmitters is used from CRIB to provide funds to the node transmitters
+// This function sends funds from the deployer key to the chainlink node transmitters
+func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)

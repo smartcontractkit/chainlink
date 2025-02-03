@@ -40,7 +40,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	if jd.don != nil {
 		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
 		if err != nil {
-			fmt.Println(err)
 			return nil, nil, err
 		}
 		nodeIDs = jd.don.NodeIds()
