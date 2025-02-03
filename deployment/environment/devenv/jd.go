@@ -171,7 +171,7 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 			continue
 		}
 		// TODO : is there a way to accept the job with proposal id?
-		if err := node.AcceptJob(ctx, res.Proposal.JobId); err != nil {
+		if err := node.AcceptJob(ctx, res.Proposal.Spec); err != nil {
 			return nil, fmt.Errorf("failed to accept job. err: %w", err)
 		}
 	}
