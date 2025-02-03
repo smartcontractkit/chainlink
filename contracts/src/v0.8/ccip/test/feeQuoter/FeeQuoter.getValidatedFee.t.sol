@@ -334,4 +334,27 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     );
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
+
+  function test_getValidatedFee_RevertWhen_InvalidSVMExtraArgsWritableBitmap() public {
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = _generateFeeQuoterDestChainConfigArgs();
+    destChainConfigArgs[0].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigArgs);
+
+    uint256 accounts = 4;
+    uint64 wrongBitmap = uint64(1 << (accounts + 1));
+
+    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 1);
+    message.extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({
+        computeUnits: GAS_LIMIT,
+        accountIsWritableBitmap: wrongBitmap,
+        allowOutOfOrderExecution: true,
+        tokenReceiver: bytes32(uint256(1)),
+        accounts: new bytes32[](accounts)
+      })
+    );
+    vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidSVMExtraArgsWritableBitmap.selector, wrongBitmap, accounts));
+    s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
+  }
 }
