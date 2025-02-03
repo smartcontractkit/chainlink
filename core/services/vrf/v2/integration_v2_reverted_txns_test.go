@@ -482,7 +482,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 		WITH txes AS (
 			SELECT *
 			FROM evm.txes
-			WHERE (state = 'confirmed' OR state = 'unconfirmed')
+			WHERE (state = 'confirmed' OR state = 'finalized')
 				AND id = $1
 		), attempts AS (
 			SELECT *

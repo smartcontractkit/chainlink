@@ -108,7 +108,6 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 // UpdateNodeCapabilities updates the capabilities of nodes in the registry
 func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-
 	c, contractSet, err := req.updateNodeCapabilitiesImplRequest(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to convert request: %w", err)

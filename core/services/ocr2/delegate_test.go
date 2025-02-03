@@ -47,7 +47,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
-		GeneralConfig:  config,
+		ChainConfigs:   config.EVMConfigs(),
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
