@@ -11,15 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
@@ -32,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -290,46 +290,48 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 		rmnCrypto := plugin.RMNCrypto(i.lggr.Named(chainFamily).Named("RMNCrypto"))
 
-		factory = commitocr3.NewPluginFactory(
-			i.lggr.
-				Named("CCIPCommitPlugin").
-				Named(destRelayID.String()).
-				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
-				Named(hexutil.Encode(config.Config.OfframpAddress)),
-			donID,
-			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			plugin.CommitPluginCodec,
-			messageHasher,
-			plugin.ExtraArgsCodec,
-			i.homeChainReader,
-			i.homeChainSelector,
-			contractReaders,
-			chainWriters,
-			rmnPeerClient,
-			rmnCrypto,
-		)
+		factory = commitocr3.NewCommitPluginFactory(
+			commitocr3.CommitPluginFactoryParams{
+				Lggr: i.lggr.
+					Named("CCIPCommitPlugin").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
+					Named(hexutil.Encode(config.Config.OfframpAddress)),
+				DonID:             donID,
+				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
+				CommitCodec:       plugin.CommitPluginCodec,
+				MsgHasher:         messageHasher,
+				ExtraDataCodec:    plugin.ExtraArgsCodec,
+				HomeChainReader:   i.homeChainReader,
+				HomeChainSelector: i.homeChainSelector,
+				ContractReaders:   contractReaders,
+				ContractWriters:   chainWriters,
+				RmnPeerClient:     rmnPeerClient,
+				RmnCrypto:         rmnCrypto,
+			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			hexutil.Encode(config.Config.OfframpAddress), // TODO: this works for evm only, how about non-evm?
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
-		factory = execocr3.NewPluginFactory(
-			i.lggr.
-				Named("CCIPExecPlugin").
-				Named(destRelayID.String()).
-				Named(hexutil.Encode(config.Config.OfframpAddress)),
-			donID,
-			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			plugin.ExecutePluginCodec,
-			messageHasher,
-			plugin.ExtraArgsCodec,
-			i.homeChainReader,
-			plugin.TokenDataEncoder,
-			plugin.GasEstimateProvider,
-			contractReaders,
-			chainWriters,
-		)
+		factory = execocr3.NewExecutePluginFactory(
+			execocr3.PluginFactoryParams{
+				Lggr: i.lggr.
+					Named("CCIPExecPlugin").
+					Named(destRelayID.String()).
+					Named(hexutil.Encode(config.Config.OfframpAddress)),
+				DonID:            donID,
+				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
+				ExecCodec:        plugin.ExecutePluginCodec,
+				MsgHasher:        messageHasher,
+				ExtraDataCodec:   plugin.ExtraArgsCodec,
+				HomeChainReader:  i.homeChainReader,
+				TokenDataEncoder: plugin.TokenDataEncoder,
+				EstimateProvider: plugin.GasEstimateProvider,
+				ContractReaders:  contractReaders,
+				ContractWriters:  chainWriters,
+			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),

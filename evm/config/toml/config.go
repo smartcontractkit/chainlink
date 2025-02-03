@@ -163,6 +163,17 @@ func (cs EVMConfigs) NodeStatus(name string) (commontypes.NodeStatus, error) {
 	return commontypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, ErrNotFound)
 }
 
+func (cs EVMConfigs) RPCEnabled() bool {
+	for _, c := range cs {
+		if c.IsEnabled() {
+			if len(c.Nodes) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func legacyNode(n *Node, chainID *big.Big) (v2 types.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID

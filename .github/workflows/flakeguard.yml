@@ -74,7 +74,7 @@ env:
   RUN_CUSTOM_TEST_PACKAGES: ${{ fromJSON(inputs.extraArgs)['run_custom_test_packages'] || '' }} # Comma-separated custom test packages to run.
   SHUFFLE_SEED: ${{ fromJSON(inputs.extraArgs)['shuffle_seed'] || '999' }} # The seed to use when -shuffle flag is enabled. Requires RUN_WITH_SHUFFLE to be true.
   ALL_TESTS_RUNNER: ${{ fromJSON(inputs.extraArgs)['all_tests_runner'] || 'ubuntu22.04-32cores-128GB' }} # The runner to use for running all tests.
-  DEFAULT_RUNNER: ${{ fromJSON(inputs.extraArgs)['default_tests_runner'] || 'ubuntu-latest' }} # The runner to use for running custom tests (e.g. in PRs).
+  DEFAULT_RUNNER: ${{ fromJSON(inputs.extraArgs)['default_tests_runner'] || 'ubuntu-latest-8cores-32GB' }} # The runner to use for running custom tests (e.g. in PRs).
   UPLOAD_ALL_TEST_RESULTS: ${{ fromJSON(inputs.extraArgs)['upload_all_test_results'] || 'false' }} # Whether to upload all test results as artifacts.
   OMIT_TEST_OUTPUTS_ON_SUCCESS: ${{ fromJSON(inputs.extraArgs)['omit_test_outputs_on_success'] || 'true' }}
 

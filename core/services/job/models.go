@@ -823,6 +823,22 @@ func (s *GatewaySpec) SetID(value string) error {
 	return nil
 }
 
+// AuthGatewayID returns AuthGatewayId or empty string, if not found or it's not a string
+func (s *GatewaySpec) AuthGatewayID() string {
+	// not using config.GatewayConfig directly to avoid import cycle
+	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
+		if nscMap, ok := nsc.(map[string]interface{}); ok {
+			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
+				if authGatewayIDStr, ok := authGatewayID.(string); ok {
+					return authGatewayIDStr
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
 // EALSpec defines the job spec for the gas station.
 type EALSpec struct {
 	ID int32

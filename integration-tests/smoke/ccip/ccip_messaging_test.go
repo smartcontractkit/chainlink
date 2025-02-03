@@ -5,47 +5,22 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
-
-type testCaseSetup struct {
-	t                      *testing.T
-	sender                 []byte
-	deployedEnv            testhelpers.DeployedEnv
-	onchainState           changeset.CCIPOnChainState
-	sourceChain, destChain uint64
-}
-
-type messagingTestCase struct {
-	testCaseSetup
-	replayed bool
-	nonce    uint64
-}
-
-type messagingTestCaseOutput struct {
-	replayed     bool
-	nonce        uint64
-	msgSentEvent *onramp.OnRampCCIPMessageSent
-}
 
 func Test_CCIPMessaging(t *testing.T) {
 	// Setup 2 chains and a single lane.
@@ -72,65 +47,70 @@ func Test_CCIPMessaging(t *testing.T) {
 		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-		out      messagingTestCaseOutput
-		setup    = testCaseSetup{
-			t:            t,
-			sender:       sender,
-			deployedEnv:  e,
-			onchainState: state,
-			sourceChain:  sourceChain,
-			destChain:    destChain,
-		}
+		out      mt.TestCaseOutput
+		setup    = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+			true,  // validateResp
+		)
 	)
 
 	t.Run("data message to eoa", func(t *testing.T) {
-		out = runMessagingTestCase(messagingTestCase{
-			testCaseSetup: setup,
-			replayed:      replayed,
-			nonce:         nonce,
-		},
-			common.HexToAddress("0xdead"),
-			[]byte("hello eoa"),
-			nil,                                 // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nonce,
+				Receiver:               common.HexToAddress("0xdead"),
+				MsgData:                []byte("hello eoa"),
+				ExtraArgs:              nil,                                 // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+			},
 		)
 	})
 
 	t.Run("message to contract not implementing CCIPReceiver", func(t *testing.T) {
-		out = runMessagingTestCase(
-			messagingTestCase{
-				testCaseSetup: setup,
-				replayed:      out.replayed,
-				nonce:         out.nonce,
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].FeeQuoter.Address(),
+				MsgData:                []byte("hello FeeQuoter"),
+				ExtraArgs:              nil,                                 // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 			},
-			state.Chains[destChain].FeeQuoter.Address(),
-			[]byte("hello FeeQuoter"),
-			nil,                                 // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
 		)
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
-		out = runMessagingTestCase(
-			messagingTestCase{
-				testCaseSetup: setup,
-				replayed:      out.replayed,
-				nonce:         out.nonce,
-			},
-			state.Chains[destChain].Receiver.Address(),
-			[]byte("hello CCIPReceiver"),
-			nil, // default extraArgs
-			testhelpers.EXECUTION_STATE_SUCCESS,
-			func(t *testing.T) {
-				iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-					Context: ctx,
-					Start:   latestHead.Number.Uint64(),
-				})
-				require.NoError(t, err)
-				require.True(t, iter.Next())
-				// MessageReceived doesn't emit the data unfortunately, so can't check that.
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address(),
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              nil, // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+							Context: ctx,
+							Start:   latestHead.Number.Uint64(),
+						})
+						require.NoError(t, err)
+						require.True(t, iter.Next())
+						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+					},
+				},
 			},
 		)
 	})
@@ -138,22 +118,22 @@ func Test_CCIPMessaging(t *testing.T) {
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
 		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
-		out = runMessagingTestCase(
-			messagingTestCase{
-				testCaseSetup: setup,
-				replayed:      out.replayed,
-				nonce:         out.nonce,
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               out.Replayed,
+				Nonce:                  out.Nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address(),
+				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
+				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 			},
-			state.Chains[destChain].Receiver.Address(),
-			[]byte("hello CCIPReceiver with low exec gas"),
-			testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
-			testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
 		)
 
 		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
 
 		t.Logf("successfully manually executed message %x",
-			out.msgSentEvent.Message.Header.MessageId)
+			out.MsgSentEvent.Message.Header.MessageId)
 	})
 }
 
@@ -163,7 +143,7 @@ func manuallyExecute(
 	startBlock uint64,
 	state changeset.CCIPOnChainState,
 	destChain uint64,
-	out messagingTestCaseOutput,
+	out mt.TestCaseOutput,
 	sourceChain uint64,
 	e testhelpers.DeployedEnv,
 	sender []byte,
@@ -172,7 +152,7 @@ func manuallyExecute(
 		ctx,
 		t,
 		state.Chains[destChain].OffRamp,
-		out.msgSentEvent.SequenceNumber,
+		out.MsgSentEvent.SequenceNumber,
 		startBlock,
 	)
 	messageHash := getMessageHash(
@@ -180,8 +160,8 @@ func manuallyExecute(
 		t,
 		state.Chains[destChain].OffRamp,
 		sourceChain,
-		out.msgSentEvent.SequenceNumber,
-		out.msgSentEvent.Message.Header.MessageId,
+		out.MsgSentEvent.SequenceNumber,
+		out.MsgSentEvent.Message.Header.MessageId,
 		startBlock,
 	)
 	tree, err := merklemulti.NewTree(hashutil.NewKeccak(), [][32]byte{messageHash})
@@ -198,11 +178,11 @@ func manuallyExecute(
 				Messages: []offramp.InternalAny2EVMRampMessage{
 					{
 						Header: offramp.InternalRampMessageHeader{
-							MessageId:           out.msgSentEvent.Message.Header.MessageId,
+							MessageId:           out.MsgSentEvent.Message.Header.MessageId,
 							SourceChainSelector: sourceChain,
 							DestChainSelector:   destChain,
-							SequenceNumber:      out.msgSentEvent.SequenceNumber,
-							Nonce:               out.msgSentEvent.Message.Header.Nonce,
+							SequenceNumber:      out.MsgSentEvent.SequenceNumber,
+							Nonce:               out.MsgSentEvent.Message.Header.Nonce,
 						},
 						Sender:       sender,
 						Data:         []byte("hello CCIPReceiver with low exec gas"),
@@ -230,7 +210,7 @@ func manuallyExecute(
 	_, err = deployment.ConfirmIfNoError(e.Env.Chains[destChain], tx, err)
 	require.NoError(t, err, "failed to send/confirm manuallyExecute tx")
 
-	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.msgSentEvent.SequenceNumber)
+	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.MsgSentEvent.SequenceNumber)
 	require.NoError(t, err)
 	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_SUCCESS), newExecutionState)
 }
@@ -286,106 +266,6 @@ func getMessageHash(
 	require.Equal(t, msgID, iter.Event.MessageId)
 
 	return iter.Event.MessageHash
-}
-
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
-	time.Sleep(30 * time.Second)
-	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[sourceChain] = 1
-	replayBlocks[destChain] = 1
-	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
-}
-
-func getLatestNonce(tc messagingTestCase) uint64 {
-	family, err := chain_selectors.GetSelectorFamily(tc.destChain)
-	require.NoError(tc.t, err)
-
-	var latestNonce uint64
-	switch family {
-	case chain_selectors.FamilyEVM:
-		latestNonce, err = tc.onchainState.Chains[tc.destChain].NonceManager.GetInboundNonce(&bind.CallOpts{
-			Context: tests.Context(tc.t),
-		}, tc.sourceChain, tc.sender)
-		require.NoError(tc.t, err)
-	case chain_selectors.FamilySolana:
-		// var nonceCounterAccount ccip_router.Nonce
-		// err = common.GetAccountDataBorshInto(ctx, solanaGoClient, nonceEvmPDA, config.DefaultCommitment, &nonceCounterAccount)
-		// require.NoError(t, err, "failed to get account info")
-		// require.Equal(t, uint64(1), nonceCounterAccount.Counter)
-	}
-	return latestNonce
-}
-
-func runMessagingTestCase(
-	tc messagingTestCase,
-	receiver common.Address,
-	msgData []byte,
-	extraArgs []byte,
-	expectedExecutionState int,
-	extraAssertions ...func(t *testing.T),
-) (out messagingTestCaseOutput) {
-	// check latest nonce
-	latestNonce := getLatestNonce(tc)
-	require.Equal(tc.t, tc.nonce, latestNonce)
-
-	startBlocks := make(map[uint64]*uint64)
-	msgSentEvent := testhelpers.TestSendRequest(tc.t, tc.deployedEnv.Env, tc.onchainState, tc.sourceChain, tc.destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
-		Data:         msgData,
-		TokenAmounts: nil,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    extraArgs,
-	})
-	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{
-		{
-			SourceChainSelector: tc.sourceChain,
-			DestChainSelector:   tc.destChain,
-		}: msgSentEvent.SequenceNumber,
-	}
-	expectedSeqNumExec := map[testhelpers.SourceDestPair][]uint64{
-		{
-			SourceChainSelector: tc.sourceChain,
-			DestChainSelector:   tc.destChain,
-		}: {msgSentEvent.SequenceNumber},
-	}
-	out.msgSentEvent = msgSentEvent
-
-	// hack
-	if !tc.replayed {
-		sleepAndReplay(tc.t, tc.deployedEnv, tc.sourceChain, tc.destChain)
-		out.replayed = true
-	}
-
-	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNum, startBlocks)
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.t, tc.deployedEnv.Env, tc.onchainState, expectedSeqNumExec, startBlocks)
-
-	require.Equalf(
-		tc.t,
-		expectedExecutionState,
-		execStates[testhelpers.SourceDestPair{
-			SourceChainSelector: tc.sourceChain,
-			DestChainSelector:   tc.destChain,
-		}][msgSentEvent.SequenceNumber],
-		"wrong execution state for seq nr %d, expected %d, got %d",
-		msgSentEvent.SequenceNumber,
-		expectedExecutionState,
-		execStates[testhelpers.SourceDestPair{
-			SourceChainSelector: tc.sourceChain,
-			DestChainSelector:   tc.destChain,
-		}][msgSentEvent.SequenceNumber],
-	)
-
-	// check the sender latestNonce on the dest, should be incremented
-	latestNonce = getLatestNonce(tc)
-	require.Equal(tc.t, tc.nonce+1, latestNonce)
-	out.nonce = latestNonce
-	tc.t.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.sender, latestNonce)
-
-	for _, assertion := range extraAssertions {
-		assertion(tc.t)
-	}
-
-	return
 }
 
 // boolsToBitFlags transforms a list of boolean flags to a *big.Int encoded number.
