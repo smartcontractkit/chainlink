@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -227,6 +228,8 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 		latestHead, err := e.Env.SolChains[destChain].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 		require.NoError(t, err)
 		receiver := state.SolChains[destChain].Receiver.Bytes()
+		extraArgs, err := bin.MarshalBorsh(ccip_router.SVMExtraArgs{}) // SVM doesn't allow an empty extraArgs
+		require.NoError(t, err)
 		out = runMessagingTestCase(
 			messagingTestCase{
 				testCaseSetup: setup,
@@ -235,7 +238,7 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 			},
 			receiver,
 			[]byte("hello CCIPReceiver"),
-			nil, // default extraArgs
+			extraArgs,
 			testhelpers.EXECUTION_STATE_SUCCESS,
 			func(t *testing.T) {
 				// TODO: fix up, use the same code event filter does
