@@ -356,7 +356,7 @@ func (s CCIPOnChainState) GetAllProposerMCMSForChains(chains []uint64) (map[uint
 	for _, chain := range chains {
 		chainState, ok := s.Chains[chain]
 		if !ok {
-			return nil, fmt.Errorf("chain %d not found", chain)
+			return nil, fmt.Errorf("chain %d not found9", chain)
 		}
 		if chainState.ProposerMcm == nil {
 			return nil, fmt.Errorf("proposer mcm not found for chain %d", chain)
@@ -371,7 +371,7 @@ func (s CCIPOnChainState) GetAllTimeLocksForChains(chains []uint64) (map[uint64]
 	for _, chain := range chains {
 		chainState, ok := s.Chains[chain]
 		if !ok {
-			return nil, fmt.Errorf("chain %d not found", chain)
+			return nil, fmt.Errorf("chain %d not found10", chain)
 		}
 		if chainState.Timelock == nil {
 			return nil, fmt.Errorf("timelock not found for chain %d", chain)
