@@ -168,11 +168,19 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", err)
 	}
+	labels := []*ptypes.Label{}
+	if nodeInfo.IsBootstrap {
+		labels = append(labels, &ptypes.Label{
+			Key:   NodeLabelKeyType,
+			Value: ptr(NodeLabelValueBootstrap),
+		})
+	}
 	return &Node{
 		gqlClient:  gqlClient,
 		restClient: chainlinkClient,
 		Name:       nodeInfo.Name,
 		adminAddr:  nodeInfo.AdminAddr,
+		labels:     labels,
 	}, nil
 }
 
