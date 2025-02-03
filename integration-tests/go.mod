@@ -11,10 +11,7 @@ replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250120230622-566643da09fd
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250113180450-c33ab50ac8c0
-)
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250113180450-c33ab50ac8c0
 
 require (
 	dario.cat/mergo v1.0.1
@@ -81,7 +78,7 @@ require (
 	cosmossdk.io/core v0.5.1 // indirect
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
-	cosmossdk.io/math v1.4.0 // indirect
+	cosmossdk.io/math v1.3.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
@@ -259,7 +256,7 @@ require (
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
 	github.com/gogo/status v1.1.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
