@@ -278,7 +278,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 						Config: changeset.UpdateFeeQuoterDestsConfig{
 							UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 								src: {
-									dst: changeset.DefaultFeeQuoterDestChainConfig(),
+									dst: changeset.DefaultFeeQuoterDestChainConfig(true),
 								},
 							},
 						},

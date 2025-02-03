@@ -14,7 +14,7 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
@@ -41,7 +41,7 @@ func (r *reaperConfig) ReaperThreshold() time.Duration {
 func TestReaper_ReapTxes(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
@@ -93,7 +93,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET created_at=$1, state='finalized'`, oneDayAgo)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET created_at=$1, state='finalized'`, oneDayAgo)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -133,7 +133,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET created_at=$1`, oneDayAgo)
+		testutils.MustExec(t, db, `UPDATE evm.txes SET created_at=$1`, oneDayAgo)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)

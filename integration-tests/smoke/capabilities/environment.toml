@@ -3,16 +3,27 @@
   type = "anvil"
   docker_cmd_params = ["-b", "5"]
 
+[jd]
+  # change to your version
+  image = "jd-test-1:latest"
+
 [workflow_config]
-  use_chainlink_cli = true
-  use_existing = true
+	don_id = 1
+	workflow_name = "abcdefgasd"
+  # without 0x prefix!
+	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
-  [workflow_config.existing]
+  use_cre_cli = true
+  should_compile_new_workflow = false
+  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
+
+  [workflow_config.dependencies]
+  capabilities_version = "v1.0.0-alpha"
+  cre_cli_version = "v0.0.2"
+
+  [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/5b9ccb1cc1a5aa68aa08a5b2066d60a7/raw/7dcdda86b9d50d17029614f370fd2acab1e7fb27/config.json3175390991"
-
-  [workflow_config.chainlink_cli]
-    folder_location = "path-to-folder-with-main.go-of-your-workflow"
+    config_url = "https://gist.githubusercontent.com/Tofel/19c80e6297914a79449f916e5e65dfdd/raw/1344c259ef7e970dbabaa1e9e885845b8eba5da9/config.json3674692696"
 
 [nodeset]
   nodes = 5

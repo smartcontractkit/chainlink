@@ -169,7 +169,7 @@ func NewNode(
 	mailMon := mailbox.NewMonitor("node", lggr.Named("mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			ListenerConfig: cfg.Database().Listener(),
 			FeatureConfig:  cfg.Feature(),

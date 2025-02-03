@@ -68,7 +68,6 @@ func logsRow(p Props) []dashboard.Option {
 			),
 		),
 	}
-
 }
 
 func New(p Props) []dashboard.Option {

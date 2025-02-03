@@ -3,6 +3,7 @@ ChainID = '1301'
 ChainType = 'optimismBedrock'
 # finality_depth was: ~1900
 FinalityDepth = 2000
+LinkContractAddress = '0xda40816f278Cd049c137F6612822D181065EBfB4'
 # block_time was:  ~1s, adding 1 second buffer 
 LogPollInterval = '2s'
 

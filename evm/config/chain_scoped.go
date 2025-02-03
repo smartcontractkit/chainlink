@@ -5,22 +5,16 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
-func NewTOMLChainScopedConfig(tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
-	return &ChainScoped{
-		evmConfig: &EVMConfig{C: tomlConfig},
-		lggr:      lggr}
+func NewTOMLChainScopedConfig(tomlConfig *toml.EVMConfig) *ChainScoped {
+	return &ChainScoped{evmConfig: &EVMConfig{C: tomlConfig}}
 }
 
-// ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
+// ChainScoped implements config.ChainScopedConfig with EVMConfig.
 type ChainScoped struct {
-	lggr logger.Logger
-
 	evmConfig *EVMConfig
 }
 

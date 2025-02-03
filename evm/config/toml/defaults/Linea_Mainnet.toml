@@ -1,6 +1,7 @@
 ChainID = '59144'
 # Block time 12s, finality < 60m
 FinalityDepth = 300
+LinkContractAddress = '0xa18152629128738a5c081eb226335FEd4B9C95e9'
 # Blocks are only emitted when a transaction happens / no empty blocks
 NoNewHeadsThreshold = '0'
 

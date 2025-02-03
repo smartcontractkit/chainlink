@@ -23,9 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
@@ -704,7 +702,7 @@ func TestLogPollerFilters(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 
-	dbx := pgtest.NewSqlxDB(t)
+	dbx := testutils.NewSqlxDB(t)
 	orm := logpoller.NewORM(chainID, dbx, lggr)
 
 	event1 := EmitterABI.Events["Log1"].ID
@@ -1323,7 +1321,7 @@ func Test_ExecPagedQuery(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, lggr)
 
 	m := mockQueryExecutor{}
@@ -2045,9 +2043,9 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
-	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
+	// Using testutils.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, logger.Test(t))
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
@@ -2134,7 +2132,7 @@ func TestInsertLogsInTx(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, logger.Test(t))
 
 	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
@@ -2281,7 +2279,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 
 func Benchmark_LogsDataWordBetween(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	ctx := testutils.Context(b)
 
@@ -2334,7 +2332,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 
 func Benchmark_DeleteExpiredLogs(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	ctx := testutils.Context(b)
 

@@ -1,7 +1,8 @@
 ChainID = '5003'
+ChainType = 'optimismBedrock'
 FinalityTagEnabled = true
 FinalityDepth = 1200
-ChainType = 'optimismBedrock'
+LinkContractAddress = '0x22bdEdEa0beBdD7CfFC95bA53826E55afFE9DE04'
 LogPollInterval = '2s'
 MinIncomingConfirmations = 1
 NoNewFinalizedHeadsThreshold = '60m0s'

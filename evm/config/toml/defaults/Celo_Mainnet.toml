@@ -1,6 +1,7 @@
 ChainID = '42220'
 ChainType = 'celo'
 FinalityDepth = 10
+LinkContractAddress = '0xd07294e6E917e07dfDcee882dd1e2565085C2ae0'
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'

@@ -264,12 +264,12 @@ func TestEvmWrite(t *testing.T) {
 		testChain := evmmocks.NewChain(t)
 		testCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].Workflow.FromAddress = nil
-
 			forwarderA := testutils.NewAddress()
 			forwarderAddr, err2 := evmtypes.NewEIP55Address(forwarderA.Hex())
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})
+		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 

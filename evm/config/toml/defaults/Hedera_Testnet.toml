@@ -3,6 +3,7 @@ ChainType = 'hedera'
 # Considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
 # We set the depth to 6/2 = 3 blocks, setting to 10 for safety
 FinalityDepth = 10
+LinkContractAddress = '0x90a386d59b9A6a4795a011e8f032Fc21ED6FEFb6'
 # Hedera has high TPS, so polling less often 
 LogPollInterval = '10s'
 MinIncomingConfirmations = 1

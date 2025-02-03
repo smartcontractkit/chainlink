@@ -14,20 +14,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
@@ -40,6 +39,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -256,12 +259,12 @@ var plugins = map[string]plugin{
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
 	},
 	chainsel.FamilySolana: {
-		CommitPluginCodec:   nil,
-		ExecutePluginCodec:  nil,
+		CommitPluginCodec:   ccipsolana.NewCommitPluginCodecV1(),
+		ExecutePluginCodec:  ccipsolana.NewExecutePluginCodecV1(),
 		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return nil },
-		TokenDataEncoder:    nil,
-		GasEstimateProvider: nil,
+		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipsolana.NewMessageHasherV1(lggr) },
+		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
+		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
 	},
 }
@@ -311,47 +314,47 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		)
 
 		rmnCrypto := plugin.RMNCrypto(i.lggr.Named(chainFamily).Named("RMNCrypto"))
-
-		factory = commitocr3.NewPluginFactory(
-			i.lggr.
-				Named("CCIPCommitPlugin").
-				Named(destRelayID.String()).
-				Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
-			donID,
-			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			plugin.CommitPluginCodec,
-			messageHasher,
-			plugin.ExtraArgsCodec,
-			i.homeChainReader,
-			i.homeChainSelector,
-			contractReaders,
-			chainWriters,
-			rmnPeerClient,
-			rmnCrypto,
-		)
+		factory = commitocr3.NewCommitPluginFactory(
+			commitocr3.CommitPluginFactoryParams{
+				Lggr: i.lggr.
+					Named("CCIPCommitPlugin").
+					Named(destRelayID.String()).
+					Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
+					Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
+				DonID:             donID,
+				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
+				CommitCodec:       plugin.CommitPluginCodec,
+				MsgHasher:         messageHasher,
+				ExtraDataCodec:    plugin.ExtraArgsCodec,
+				HomeChainReader:   i.homeChainReader,
+				HomeChainSelector: i.homeChainSelector,
+				ContractReaders:   contractReaders,
+				ContractWriters:   chainWriters,
+				RmnPeerClient:     rmnPeerClient,
+				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false),
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
-		factory = execocr3.NewPluginFactory(
-			i.lggr.
-				Named("CCIPExecPlugin").
-				Named(destRelayID.String()).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
-			donID,
-			ccipreaderpkg.OCR3ConfigWithMeta(config),
-			plugin.ExecutePluginCodec,
-			messageHasher,
-			plugin.ExtraArgsCodec,
-			i.homeChainReader,
-			plugin.TokenDataEncoder,
-			plugin.GasEstimateProvider,
-			contractReaders,
-			chainWriters,
-		)
+		factory = execocr3.NewExecutePluginFactory(
+			execocr3.PluginFactoryParams{
+				Lggr: i.lggr.
+					Named("CCIPExecPlugin").
+					Named(destRelayID.String()).
+					Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
+				DonID:            donID,
+				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
+				ExecCodec:        plugin.ExecutePluginCodec,
+				MsgHasher:        messageHasher,
+				ExtraDataCodec:   plugin.ExtraArgsCodec,
+				HomeChainReader:  i.homeChainReader,
+				TokenDataEncoder: plugin.TokenDataEncoder,
+				EstimateProvider: plugin.GasEstimateProvider,
+				ContractReaders:  contractReaders,
+				ContractWriters:  chainWriters,
+			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),

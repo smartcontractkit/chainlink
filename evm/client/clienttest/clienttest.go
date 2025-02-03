@@ -18,7 +18,6 @@ func NewClientWithDefaultChainID(t *testing.T) *Client {
 	return c
 }
 
-// TODO move to clienttest?
 type MockEth struct {
 	EthClient       *Client
 	CheckFilterLogs func(int64, int64)

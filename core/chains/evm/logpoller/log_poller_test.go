@@ -22,9 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -33,12 +32,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
@@ -90,7 +87,7 @@ func populateDatabase(t testing.TB, o logpoller.ORM, chainID *big.Int) (common.H
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
 	ctx := testutils.Context(b)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	event, address, _ := populateDatabase(b, o, chainId)
 
@@ -108,7 +105,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	ctx := testutils.Context(t)
 	chainID := big.NewInt(137)
 
@@ -687,7 +684,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	numChainInserts := 3
 	finalityDepth := 5
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(10e9)
@@ -1463,7 +1460,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID1 := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID1, db, lggr)
 
 	owner := testutils.MustNewSimTransactor(t)
@@ -1533,10 +1530,10 @@ func TestTooManyLogResults(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
-	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	ec := clienttest.NewClientWithDefaultChainID(t)
 	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	o := logpoller.NewORM(chainID, db, lggr)
 
@@ -1961,10 +1958,10 @@ func Test_PruneOldBlocks(t *testing.T) {
 
 func TestFindLCA(t *testing.T) {
 	ctx := testutils.Context(t)
-	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	ec := clienttest.NewClientWithDefaultChainID(t)
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 
 	orm := logpoller.NewORM(chainID, db, lggr)
 
