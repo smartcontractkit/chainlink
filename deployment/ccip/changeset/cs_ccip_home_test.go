@@ -264,7 +264,11 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -377,7 +381,11 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,

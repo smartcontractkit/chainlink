@@ -28,8 +28,8 @@ type CapabilityConfig struct {
 }
 
 type UpdateDonRequest struct {
-	Chain       deployment.Chain
-	ContractSet *ContractSet // contract set for the given chain
+	Chain                deployment.Chain
+	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
@@ -39,10 +39,10 @@ type UpdateDonRequest struct {
 
 func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
 	out := &AppendNodeCapabilitiesRequest{
-		Chain:             r.Chain,
-		ContractSet:       r.ContractSet,
-		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
-		UseMCMS:           r.UseMCMS,
+		Chain:                r.Chain,
+		CapabilitiesRegistry: r.CapabilitiesRegistry,
+		P2pToCapabilities:    make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
+		UseMCMS:              r.UseMCMS,
 	}
 	for _, p2pid := range r.P2PIDs {
 		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
@@ -56,7 +56,7 @@ func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 }
 
 func (r *UpdateDonRequest) Validate() error {
-	if r.ContractSet.CapabilitiesRegistry == nil {
+	if r.CapabilitiesRegistry == nil {
 		return errors.New("registry is required")
 	}
 	if len(r.P2PIDs) == 0 {
@@ -75,7 +75,7 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 		return nil, fmt.Errorf("failed to validate request: %w", err)
 	}
 
-	registry := req.ContractSet.CapabilitiesRegistry
+	registry := req.CapabilitiesRegistry
 	getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Dons: %w", err)
