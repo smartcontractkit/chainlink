@@ -314,7 +314,7 @@ func TestETHCallTask(t *testing.T) {
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 					DB:             db,
-					GeneralConfig:  cfg,
+					ChainConfigs:   cfg.EVMConfigs(),
 					DatabaseConfig: cfg.Database(),
 					FeatureConfig:  cfg.Feature(),
 					ListenerConfig: cfg.Database().Listener(),

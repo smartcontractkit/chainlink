@@ -65,7 +65,7 @@ func TestFeeHistoryEstimatorLifecycle(t *testing.T) {
 			CacheTimeout:     10 * time.Second,
 		}
 
-		u := gas.NewFeeHistoryEstimator(logger.Test(t), nil, cfg, chainID, nil)
+		u := gas.NewFeeHistoryEstimator(logger.Test(t), client, cfg, chainID, nil)
 		err := u.Start(tests.Context(t))
 		assert.NoError(t, err)
 		err = u.Close()

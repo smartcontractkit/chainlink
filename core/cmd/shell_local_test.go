@@ -9,12 +9,18 @@ import (
 	"testing"
 	"time"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -30,18 +36,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
-
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
@@ -54,7 +55,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			ListenerConfig: cfg.Database().Listener(),
 			FeatureConfig:  cfg.Feature(),
@@ -291,7 +292,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
 	app.On("GetConfig").Return(config)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
 	mockRelayerChainInteroperators := &chainlinkmocks.FakeRelayerChainInteroperators{EVMChains: legacy}
@@ -373,7 +374,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			app.On("GetConfig").Return(config)
-			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+			ethClient := clienttest.NewClientWithDefaultChainID(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
@@ -451,7 +452,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			app.On("GetDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
-			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+			ethClient := clienttest.NewClientWithDefaultChainID(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
