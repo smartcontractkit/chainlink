@@ -52,12 +52,7 @@ type RelayGetter interface {
 }
 
 type Keystore[K keystore.Key] interface {
-	Get(id string) (K, error)
 	GetAll() ([]K, error)
-	Create(context.Context) (K, error)
-	Delete(ctx context.Context, id string) (K, error)
-	Import(ctx context.Context, keyJSON []byte, password string) (K, error)
-	Export(id string, password string) ([]byte, error)
 }
 
 type Delegate struct {
@@ -302,7 +297,7 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 		case relay.NetworkEVM:
 			keys, err = d.getEVMKeys(ctx, chainID)
 		case relay.NetworkSolana:
-			keys, err = d.getSolanaKeys()
+			keys, err = getKeys(d.keystore.Solana())
 		case relay.NetworkAptos:
 			keys, err = getKeys(d.keystore.Aptos())
 		case relay.NetworkCosmos:
@@ -332,19 +327,6 @@ func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, 
 		result = append(result, key.Hex())
 	}
 	return result, nil
-}
-
-func (d *Delegate) getSolanaKeys() ([]string, error) {
-	result := make([]string, 0)
-	keys, err := d.keystore.Solana().GetAll()
-	if err != nil {
-		return result, fmt.Errorf("error getting all Solana keys: %w", err)
-	}
-
-	for _, key := range keys {
-		result = append(result, key.PublicKeyStr())
-	}
-	return result, err
 }
 
 func (d *Delegate) getHomeChainContractReader(
