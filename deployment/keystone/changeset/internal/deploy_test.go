@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -21,7 +21,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		useMCMS   bool
 		lggr      = logger.Test(t)
 		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry  = setupResp.Registry
+		registry  = setupResp.CapabilitiesRegistry
 		chain     = setupResp.Chain
 		nops      = make([]kcr.CapabilitiesRegistryNodeOperator, 0)
 	)
@@ -61,7 +61,7 @@ func Test_AddCapabilities(t *testing.T) {
 		useMCMS      bool
 		lggr         = logger.Test(t)
 		setupResp    = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry     = setupResp.Registry
+		registry     = setupResp.CapabilitiesRegistry
 		chain        = setupResp.Chain
 		capabilities = make([]kcr.CapabilitiesRegistryCapability, 0)
 	)
@@ -114,7 +114,7 @@ func Test_RegisterNodes(t *testing.T) {
 			P2pToCapabilities: initialp2pToCapabilities,
 			NopToNodes:        nopToNodes,
 		})
-		registry = setupResp.Registry
+		registry = setupResp.CapabilitiesRegistry
 		chain    = setupResp.Chain
 
 		registeredCapabilities = kstest.GetRegisteredCapabilities(t, lggr, initialp2pToCapabilities, setupResp.CapabilityCache)
@@ -282,7 +282,7 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS   bool
 		lggr      = logger.Test(t)
 		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry  = setupResp.Registry
+		registry  = setupResp.CapabilitiesRegistry
 		chain     = setupResp.Chain
 	)
 	t.Run("success create add DONs mcms proposal", func(t *testing.T) {
@@ -377,7 +377,7 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			})
-			regContract = setupResp.Registry
+			regContract = setupResp.CapabilitiesRegistry
 		)
 
 		env := &deployment.Environment{

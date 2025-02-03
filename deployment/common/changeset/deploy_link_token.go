@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
@@ -51,6 +53,40 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}
+		}
+	}
+	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+}
+
+// DeployStaticLinkToken deploys a static link token contract to the chain identified by the ChainSelector.
+func DeployStaticLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
+	err := deployment.ValidateSelectorsInEnvironment(e, chains)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	newAddresses := deployment.NewMemoryAddressBook()
+	for _, chainSel := range chains {
+		chain, ok := e.Chains[chainSel]
+		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment: %d", chainSel)
+		}
+		_, err := deployment.DeployContract[*link_token_interface.LinkToken](e.Logger, chain, newAddresses,
+			func(chain deployment.Chain) deployment.ContractDeploy[*link_token_interface.LinkToken] {
+				linkTokenAddr, tx, linkToken, err2 := link_token_interface.DeployLinkToken(
+					chain.DeployerKey,
+					chain.Client,
+				)
+				return deployment.ContractDeploy[*link_token_interface.LinkToken]{
+					Address:  linkTokenAddr,
+					Contract: linkToken,
+					Tx:       tx,
+					Tv:       deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0),
+					Err:      err2,
+				}
+			})
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy static link token", "chain", chain.String(), "err", err)
+			return deployment.ChangesetOutput{}, err
 		}
 	}
 	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil

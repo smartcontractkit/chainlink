@@ -13,15 +13,17 @@
   # without 0x prefix!
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
-  use_chainlink_cli = true
-  use_existing = true
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 
-  [workflow_config.existing]
+  [workflow_config.dependencies]
+  capabilities_version = "v1.0.0-alpha"
+  cre_cli_version = "v1.0.2"
+
+  [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
     config_url = "https://gist.githubusercontent.com/Tofel/19c80e6297914a79449f916e5e65dfdd/raw/1344c259ef7e970dbabaa1e9e885845b8eba5da9/config.json3674692696"
-
-  [workflow_config.chainlink_cli]
-    folder_location = "path-to-folder-with-main.go-of-your-workflow"
 
 [nodeset]
   nodes = 5

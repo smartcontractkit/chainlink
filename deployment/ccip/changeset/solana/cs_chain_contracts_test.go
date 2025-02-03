@@ -36,7 +36,7 @@ func TestAddRemoteChain(t *testing.T) {
 	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
+	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 			Config: changeset.UpdateOnRampDestsConfig{
@@ -80,16 +80,15 @@ func TestAddRemoteChain(t *testing.T) {
 
 	state, err = changeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
-
 	var sourceChainStateAccount solRouter.SourceChain
-	evmSourceChainStatePDA, _ := solState.FindSourceChainStatePDA(evmChain, state.SolChains[solChain].Router)
+	evmSourceChainStatePDA := state.SolChains[solChain].SourceChainStatePDAs[evmChain]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmSourceChainStatePDA, &sourceChainStateAccount)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
 	require.True(t, sourceChainStateAccount.Config.IsEnabled)
 
 	var destChainStateAccount solRouter.DestChain
-	evmDestChainStatePDA, _ := solState.FindDestChainStatePDA(evmChain, state.SolChains[solChain].Router)
+	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 }

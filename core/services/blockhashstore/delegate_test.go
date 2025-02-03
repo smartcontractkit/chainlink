@@ -49,7 +49,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	t.Helper()
 
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 	})
@@ -63,7 +63,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	legacyChains := evmtest.NewLegacyChains(
 		t,
 		evmtest.TestChainOpts{
-			GeneralConfig:  cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			FeatureConfig:  cfg.Feature(),
 			ListenerConfig: cfg.Database().Listener(),

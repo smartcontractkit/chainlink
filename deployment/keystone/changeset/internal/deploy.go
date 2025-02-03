@@ -323,12 +323,11 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		}
 
 		_, err = configureOCR3contract(configureOCR3Request{
-			cfg:         cfg,
-			chain:       registryChain,
-			contract:    contract,
-			nodes:       don.Nodes,
-			contractSet: &contracts,
-			ocrSecrets:  env.OCRSecrets,
+			cfg:        cfg,
+			chain:      registryChain,
+			contract:   contract,
+			nodes:      don.Nodes,
+			ocrSecrets: env.OCRSecrets,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to configure OCR3 contract for don %s: %w", don.Name, err)
@@ -386,14 +385,13 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, err
 	}
 	r, err := configureOCR3contract(configureOCR3Request{
-		cfg:         cfg.OCR3Config,
-		chain:       registryChain,
-		contract:    contract,
-		nodes:       nodes,
-		dryRun:      cfg.DryRun,
-		contractSet: &contracts,
-		useMCMS:     cfg.UseMCMS,
-		ocrSecrets:  env.OCRSecrets,
+		cfg:        cfg.OCR3Config,
+		chain:      registryChain,
+		contract:   contract,
+		nodes:      nodes,
+		dryRun:     cfg.DryRun,
+		useMCMS:    cfg.UseMCMS,
+		ocrSecrets: env.OCRSecrets,
 	})
 	if err != nil {
 		return nil, err
@@ -514,8 +512,8 @@ type RegisterNOPSRequest struct {
 }
 
 type RegisterNOPSResponse struct {
-	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
-	Ops  *timelock.BatchChainOperation
+	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded // if UseMCMS is false, a list of added node operators is returned
+	Ops  *timelock.BatchChainOperation                                  // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -1047,12 +1045,11 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, contractSet ContractSet, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
-	if contractSet.Forwarder == nil {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
+	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
-		fwdr  = contractSet.Forwarder
 		opMap = make(map[uint64]timelock.BatchChainOperation)
 	)
 	for _, dn := range dons {

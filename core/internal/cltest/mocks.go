@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
@@ -398,7 +399,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg toml.HasEVMConfigs) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -410,7 +411,7 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	return NewLegacyChainsWithChain(ch, cfg)
 }
 
-func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg toml.HasEVMConfigs, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -422,7 +423,7 @@ func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.
 	return NewLegacyChainsWithChain(ch, cfg)
 }
 
-func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg toml.HasEVMConfigs) legacyevm.LegacyChainContainer {
 	m := map[string]legacyevm.Chain{ch.ID().String(): ch}
 	return legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
 }
