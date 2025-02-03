@@ -11,7 +11,10 @@ replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250113180450-c33ab50ac8c0
+require (
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250120230622-566643da09fd
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250113180450-c33ab50ac8c0
+)
 
 require (
 	dario.cat/mergo v1.0.1
