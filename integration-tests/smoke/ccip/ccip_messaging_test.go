@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,9 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -223,13 +227,21 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 		}
 	)
 
+	// message := ccip_router.SVM2AnyMessage{
+	// 	Receiver:     validReceiverAddress[:],
+	// 	FeeToken:     wsol.mint,
+	// 	TokenAmounts: []ccip_router.SVMTokenAmount{{Token: token0.Mint.PublicKey(), Amount: 1}},
+	// 	ExtraArgs:    emptyEVMExtraArgsV2,
+	// }
+
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		// TODO: abstract out into a helper
 		latestHead, err := e.Env.SolChains[destChain].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 		require.NoError(t, err)
 		receiver := state.SolChains[destChain].Receiver.Bytes()
-		extraArgs, err := bin.MarshalBorsh(ccip_router.SVMExtraArgs{}) // SVM doesn't allow an empty extraArgs
+		extraArgs, err := ccip.SerializeExtraArgs(ccip_router.SVMExtraArgs{}) // SVM doesn't allow an empty extraArgs
 		require.NoError(t, err)
+		panic(extraArgs)
 		out = runMessagingTestCase(
 			messagingTestCase{
 				testCaseSetup: setup,
