@@ -61,11 +61,12 @@ import (
 )
 
 type WorkflowConfig struct {
-	UseChainlinkCLI    bool                    `toml:"use_chainlink_cli"`
-	ChainlinkCLI       *ChainlinkCLIConfig     `toml:"chainlink_cli"`
-	UseExising         bool                    `toml:"use_existing"`
-	Existing           *ExistingWorkflowConfig `toml:"existing"`
-	DependenciesConfig *DependenciesConfig     `toml:"dependencies"`
+	UseCRECLI                bool `toml:"use_cre_cli"`
+	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow"`
+	// Tells the test where the workflow to compile is located
+	WorkflowFolderLocation *string             `toml:"workflow_folder_location"`
+	CompiledWorkflowConfig *CompiledConfig     `toml:"compiled_config"`
+	DependenciesConfig     *DependenciesConfig `toml:"dependencies"`
 	// id, which will be used, when registering the DON with the workflow registry,
 	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
 	DonID        uint32 `toml:"don_id" validate:"required"`
@@ -75,21 +76,16 @@ type WorkflowConfig struct {
 
 // Defines relases/versions of test dependencies that will be downloaded from Github
 type DependenciesConfig struct {
-	CapabiltiesVersion  string `toml:"capabilities_version"`
-	ChainlinkCLIVersion string `toml:"chainlink_cli_version"`
+	CapabiltiesVersion string `toml:"capabilities_version"`
+	CRECLIVersion      string `toml:"cre_cli_version"`
 }
 
-// Defines the location of the existing workflow binary and config files
-// They will be used if WorkflowConfig.UseExising is true
+// Defines the location of already compiled workflow binary and config files
+// They will be used if WorkflowConfig.ShouldCompileNewWorkflow is `false`
 // Otherwise test will compile and upload a new workflow
-type ExistingWorkflowConfig struct {
+type CompiledConfig struct {
 	BinaryURL string `toml:"binary_url"`
 	ConfigURL string `toml:"config_url"`
-}
-
-// Tells the test where the workflow to compile is located
-type ChainlinkCLIConfig struct {
-	FolderLocation *string `toml:"folder_location"`
 }
 
 type WorkflowTestConfig struct {
@@ -105,7 +101,10 @@ func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToke
 		return content, errors.New("no github token provided")
 	}
 
-	ctx := context.Background()
+	// assuming 180s is enough to fetch releases, find the asset we need and download it
+	// some assets might be 30+ MB, so we need to give it some time (for really slow connections)
+	ctx, cancelFn := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancelFn()
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: ghToken},
 	)
@@ -113,7 +112,7 @@ func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToke
 
 	ghClient := github.NewClient(tc)
 
-	ghReleases, _, err := ghClient.Repositories.ListReleases(context.Background(), owner, repository, &github.ListOptions{PerPage: 20})
+	ghReleases, _, err := ghClient.Repositories.ListReleases(ctx, owner, repository, &github.ListOptions{PerPage: 20})
 	if err != nil {
 		return content, errors.Wrapf(err, "failed to list releases for %s", repository)
 	}
@@ -146,7 +145,7 @@ func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToke
 		return content, fmt.Errorf("failed to find asset %s for %s", assetName, *ghRelease.TagName)
 	}
 
-	asset, _, err := ghClient.Repositories.DownloadReleaseAsset(context.Background(), owner, repository, assetID, tc)
+	asset, _, err := ghClient.Repositories.DownloadReleaseAsset(ctx, owner, repository, assetID, tc)
 	if err != nil {
 		return content, errors.Wrapf(err, "failed to download asset %s for %s", assetName, *ghRelease.TagName)
 	}
@@ -224,7 +223,7 @@ func downloadAndDecode(url string) ([]byte, error) {
 	return decoded, nil
 }
 
-type ChainlinkCliSettings struct {
+type CRECLISettings struct {
 	DevPlatform  DevPlatform  `yaml:"dev-platform"`
 	UserWorkflow UserWorkflow `yaml:"user-workflow"`
 	Logging      Logging      `yaml:"logging"`
@@ -273,6 +272,7 @@ type PoRWorkflowConfig struct {
 }
 
 const (
+	CRECLISettingsFileName             = ".cre-cli-settings.yaml"
 	cronCapabilityAssetFile            = "amd64_cron"
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
@@ -280,7 +280,7 @@ const (
 )
 
 var (
-	chainlinkCliCommand string
+	CRECLICommand string
 )
 
 func downloadAndInstallChainlinkCLI(ghToken, version string) error {
@@ -301,25 +301,25 @@ func downloadAndInstallChainlinkCLI(ghToken, version string) error {
 		return fmt.Errorf("chainlnk-cli does not support arch: %s", arch)
 	}
 
-	chainlinkCliAssetFile := fmt.Sprintf("cre_%s_%s_%s.tar.gz", version, system, arch)
-	content, err := downloadGHAssetFromRelease("smartcontractkit", "dev-platform", version, chainlinkCliAssetFile, ghToken)
+	CRECLIAssetFile := fmt.Sprintf("cre_%s_%s_%s.tar.gz", version, system, arch)
+	content, err := downloadGHAssetFromRelease("smartcontractkit", "dev-platform", version, CRECLIAssetFile, ghToken)
 	if err != nil {
-		return errors.Wrapf(err, "failed to download chainlink-cli asset %s", chainlinkCliAssetFile)
+		return errors.Wrapf(err, "failed to download CRE CLI asset %s", CRECLIAssetFile)
 	}
 
-	tmpfile, err := os.CreateTemp("", chainlinkCliAssetFile)
+	tmpfile, err := os.CreateTemp("", CRECLIAssetFile)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create temp file for chainlink-cli asset %s", chainlinkCliAssetFile)
+		return errors.Wrapf(err, "failed to create temp file for CRE CLI asset %s", CRECLIAssetFile)
 	}
 	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write(content); err != nil {
-		return errors.Wrapf(err, "failed to write content to temp file for chainlink-cli asset %s", chainlinkCliAssetFile)
+		return errors.Wrapf(err, "failed to write content to temp file for CRE CLI asset %s", CRECLIAssetFile)
 	}
 
 	cmd := exec.Command("tar", "-xvf", tmpfile.Name(), "-C", ".") // #nosec G204
 	if cmd.Run() != nil {
-		return errors.Wrapf(err, "failed to extract chainlink-cli asset %s", chainlinkCliAssetFile)
+		return errors.Wrapf(err, "failed to extract CRE CLI asset %s", CRECLIAssetFile)
 	}
 
 	extractedFileName := fmt.Sprintf("cre_%s_%s_%s", version, system, arch)
@@ -335,13 +335,13 @@ func downloadAndInstallChainlinkCLI(ghToken, version string) error {
 		return errors.Wrapf(err, "failed to open %s", extractedFileName)
 	}
 
-	chainlinkCliCommand, err = filepath.Abs(extractedFile.Name())
+	CRECLICommand, err = filepath.Abs(extractedFile.Name())
 	if err != nil {
 		return errors.Wrapf(err, "failed to get absolute path for %s", tmpfile.Name())
 	}
 
-	if isInstalled := isInstalled(chainlinkCliCommand); !isInstalled {
-		return errors.New("failed to install chainlink-cli or it is not available in the PATH")
+	if isInstalled := isInstalled(CRECLICommand); !isInstalled {
+		return errors.New("failed to install CRE CLI or it is not available in the PATH")
 	}
 
 	return nil
@@ -371,8 +371,8 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NotEmpty(t, os.Getenv("PRIVATE_KEY"), "PRIVATE_KEY env var must be set")
 	require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig, "dependencies config must be set")
 
-	if !in.WorkflowConfig.UseChainlinkCLI {
-		require.True(t, in.WorkflowConfig.UseExising, "if you are not using chainlink-cli you must use an existing workflow")
+	if !in.WorkflowConfig.UseCRECLI {
+		require.False(t, in.WorkflowConfig.ShouldCompileNewWorkflow, "if you are not using CRE CLI you cannot compile a new workflow")
 	}
 
 	var ghReadToken string
@@ -389,13 +389,13 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 		/*
 		 This test can be run in two modes:
 		 1. `existing` mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
-		 2. `new` mode: it compiles a new workflow binary and uploads it to Gist
+		 2. `compile` mode: it compiles a new workflow binary and uploads it to Gist
 
 		 For the `new` mode to work, the `GITHUB_API_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
 		 are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
 		 is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
 		*/
-		require.True(t, in.WorkflowConfig.UseExising, "only existing workflow can be used in CI as of now due to issues with generating a gist read:write token")
+		require.False(t, in.WorkflowConfig.ShouldCompileNewWorkflow, "you cannot compile a new workflow in the CI as of now due to issues with generating a gist write token")
 
 		// we use this special function to subsitute a placeholder env variable with the actual environment variable name
 		// it is defined in .github/e2e-tests.yml as '{{ env.GITHUB_API_TOKEN }}'
@@ -410,18 +410,18 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	_, err := downloadCronCapability(ghReadToken, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion)
 	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 
-	if in.WorkflowConfig.UseChainlinkCLI {
-		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion, "chainlink_cli_version must be set in the dependencies config")
+	if in.WorkflowConfig.UseCRECLI {
+		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.CRECLIVersion, "chainlink_cli_version must be set in the dependencies config")
 
-		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.ChainlinkCLIVersion)
-		require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
+		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.CRECLIVersion)
+		require.NoError(t, err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
 
-		if !in.WorkflowConfig.UseExising {
+		if in.WorkflowConfig.ShouldCompileNewWorkflow {
 			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
-			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use chainlink-cli to compile workflows. It requires gist:read and gist:write permissions")
+			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use CRE CLI to compile workflows. It requires gist:read and gist:write permissions")
 			err := os.Setenv("GITHUB_API_TOKEN", gistWriteToken)
 			require.NoError(t, err, "failed to set GITHUB_API_TOKEN env var")
-			require.NotEmpty(t, in.WorkflowConfig.ChainlinkCLI.FolderLocation, "folder_location must be set in the chainlink_cli config")
+			require.NotEmpty(t, in.WorkflowConfig.WorkflowFolderLocation, "workflow_folder_location must be set, when compiling new workflow")
 		}
 	}
 
@@ -696,13 +696,13 @@ func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deplo
 }
 
 func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName string) {
-	require.NotEmpty(t, in.WorkflowConfig.Existing.BinaryURL)
-	workFlowData, err := downloadAndDecode(in.WorkflowConfig.Existing.BinaryURL)
+	require.NotEmpty(t, in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL)
+	workFlowData, err := downloadAndDecode(in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL)
 	require.NoError(t, err, "failed to download and decode workflow binary")
 
 	var configData []byte
-	if in.WorkflowConfig.Existing.ConfigURL != "" {
-		configData, err = download(in.WorkflowConfig.Existing.ConfigURL)
+	if in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL != "" {
+		configData, err = download(in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL)
 		require.NoError(t, err, "failed to download workflow config")
 	}
 
@@ -714,12 +714,12 @@ func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Cli
 	require.NoError(t, err, "failed to create workflow registry instance")
 
 	// use non-encoded workflow name
-	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), in.WorkflowConfig.Existing.BinaryURL, in.WorkflowConfig.Existing.ConfigURL, ""))
+	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL, in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL, ""))
 	require.NoError(t, decodeErr, "failed to register workflow")
 }
 
 //revive:disable // ignore confusing-results
-func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID string, settingsFile *os.File) (string, string) {
+func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID string, settingsFile *os.File) (string, string) {
 	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err, "failed to create workflow config file")
 
@@ -748,10 +748,12 @@ func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feeds
 
 	var outputBuffer bytes.Buffer
 
-	compileCmd := exec.Command(chainlinkCliCommand, "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
+	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
+	compileCmd := exec.Command(CRECLICommand, "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
-	compileCmd.Dir = *in.WorkflowConfig.ChainlinkCLI.FolderLocation
+	compileCmd.Dir = *in.WorkflowConfig.WorkflowFolderLocation
 	err = compileCmd.Start()
 	require.NoError(t, err, "failed to start compile command")
 
@@ -776,12 +778,12 @@ func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feeds
 	return workflowGistURL, workflowConfigURL
 }
 
-func preapreChainlinkCliSettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) *os.File {
-	// create chainlink-cli settings file
-	settingsFile, err := os.CreateTemp("", ".chainlink-cli-settings.yaml")
-	require.NoError(t, err, "failed to create chainlink-cli settings file")
+func preapreCRECLISettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) *os.File {
+	// create CRE CLI settings file
+	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
+	require.NoError(t, err, "failed to create CRE CLI settings file")
 
-	settings := ChainlinkCliSettings{
+	settings := CRECLISettings{
 		DevPlatform: DevPlatform{
 			CapabilitiesRegistryAddress: capRegAddr.Hex(),
 			DonID:                       donID,
@@ -817,10 +819,10 @@ func preapreChainlinkCliSettingsFile(t *testing.T, sc *seth.Client, capRegAddr, 
 	}
 
 	settingsMarshalled, err := yaml.Marshal(settings)
-	require.NoError(t, err, "failed to marshal chainlink-cli settings")
+	require.NoError(t, err, "failed to marshal CRE CLI settings")
 
 	_, err = settingsFile.Write(settingsMarshalled)
-	require.NoError(t, err, "failed to write chainlink-cli settings file")
+	require.NoError(t, err, "failed to write %s settings file", CRECLISettingsFileName)
 
 	return settingsFile
 }
@@ -828,39 +830,39 @@ func preapreChainlinkCliSettingsFile(t *testing.T, sc *seth.Client, capRegAddr, 
 func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL string) {
 	// Register workflow directly using the provided binary and config URLs
 	// This is a legacy solution, probably we can remove it soon
-	if in.WorkflowConfig.UseExising && !in.WorkflowConfig.UseChainlinkCLI {
+	if !in.WorkflowConfig.ShouldCompileNewWorkflow && !in.WorkflowConfig.UseCRECLI {
 		registerWorkflowDirectly(t, in, sc, workflowRegistryAddr, donID, workflowName)
 
 		return
 	}
 
-	// These two env vars are required by the chainlink-cli
+	// These two env vars are required by the CRE CLI
 	err := os.Setenv("WORKFLOW_OWNER_ADDRESS", sc.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "failed to set WORKFLOW_OWNER_ADDRESS env var")
 
 	err = os.Setenv("ETH_PRIVATE_KEY", pkey)
 	require.NoError(t, err, "failed to set ETH_PRIVATE_KEY env var")
 
-	// create chainlink-cli settings file
-	settingsFile := preapreChainlinkCliSettingsFile(t, sc, capRegAddr, workflowRegistryAddr, donID, chainSelector, rpcHTTPURL)
+	// create CRE CLI settings file
+	settingsFile := preapreCRECLISettingsFile(t, sc, capRegAddr, workflowRegistryAddr, donID, chainSelector, rpcHTTPURL)
 
 	var workflowGistURL string
 	var workflowConfigURL string
 
 	// compile and upload the workflow, if we are not using an existing one
-	if !in.WorkflowConfig.UseExising {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithChainlinkCli(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, settingsFile)
+	if in.WorkflowConfig.ShouldCompileNewWorkflow {
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, settingsFile)
 	} else {
-		workflowGistURL = in.WorkflowConfig.Existing.BinaryURL
-		workflowConfigURL = in.WorkflowConfig.Existing.ConfigURL
+		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
+		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
 	}
 
 	// register the workflow
-	registerCmd := exec.Command(chainlinkCliCommand, "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
+	registerCmd := exec.Command(CRECLICommand, "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
 	registerCmd.Stdout = os.Stdout
 	registerCmd.Stderr = os.Stderr
 	err = registerCmd.Run()
-	require.NoError(t, err, "failed to register workflow using chainlink-cli")
+	require.NoError(t, err, "failed to register workflow using CRE CLI")
 }
 
 func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns.Output {
@@ -1692,7 +1694,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Deploy and configure Keystone Feeds Consumer contract
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
-	// Register the workflow (either via chainlink-cli or by calling the workflow registry directly)
+	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
 	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
 
 	// Create OCR3 and capability jobs for each node without JD
