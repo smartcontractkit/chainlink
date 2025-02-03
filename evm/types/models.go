@@ -51,6 +51,10 @@ type Head struct {
 	IsFinalized      atomic.Bool
 }
 
+func (h *Head) GetTotalDifficulty() *big.Int {
+	return h.BlockDifficulty()
+}
+
 var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 

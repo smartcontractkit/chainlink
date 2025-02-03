@@ -462,7 +462,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	if r.newHeadsPollInterval > 0 {
 		interval := r.newHeadsPollInterval
 		timeout := interval
-		isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+		isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
 		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 			if isHealthCheckRequest {
 				ctx = multinode.CtxAddHealthCheckFlag(ctx)
@@ -522,7 +522,7 @@ func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmt
 		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
 	}
 	timeout := interval
-	isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
+	isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
 	poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
 		if isHealthCheckRequest {
 			ctx = multinode.CtxAddHealthCheckFlag(ctx)
@@ -1417,7 +1417,7 @@ func (r *RPCClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 
 	r.chainInfoLock.Lock()
 	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHeathCheckRequest(ctx) {
+	if !multinode.CtxIsHealthCheckRequest(ctx) {
 		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
 		r.highestUserObservations.TotalDifficulty = multinode.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
 	}
@@ -1436,7 +1436,7 @@ func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	}
 	r.chainInfoLock.Lock()
 	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHeathCheckRequest(ctx) {
+	if !multinode.CtxIsHealthCheckRequest(ctx) {
 		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
 	select {
