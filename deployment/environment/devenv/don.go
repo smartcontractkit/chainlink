@@ -169,12 +169,17 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 			Value: &value,
 		})
 	}
+	if nodeInfo.IsBootstrap {
+		labels = append(labels, &ptypes.Label{
+			Key:   NodeLabelKeyType,
+			Value: ptr(NodeLabelValueBootstrap),
+		})
+	}
 	return &Node{
 		gqlClient:  gqlClient,
 		restClient: chainlinkClient,
 		Name:       nodeInfo.Name,
 		adminAddr:  nodeInfo.AdminAddr,
-		multiAddr:  nodeInfo.MultiAddr,
 		labels:     labels,
 	}, nil
 }
