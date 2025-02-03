@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper to setup Solana contracts for testing
 # Note: this may stop working if the structure of the chainlink-ccip repository changes
@@ -49,25 +49,13 @@ echo "Checking out commit $COMMIT_SHA..."
 cd "$TEMP_REPO_DIR"
 git checkout "$COMMIT_SHA"
 
-if ! command -v anchor &> /dev/null; then
-  echo "Error: 'anchor' command not found. Please install Anchor: https://project-serum.github.io/anchor/getting-started/installation.html"
-  echo "For more information related to local build setup please refer to the README: https://github.com/smartcontractkit/chainlink-ccip/tree/main/chains/solana/contracts#chainlink-solana-contracts-programs"
-  exit 1
-fi
-
-if ! command -v rustc &> /dev/null; then
-  echo "Error: 'rustc' command not found. Please install Rust: https://www.rust-lang.org/tools/install"
-  echo "For more information related to local build setup please refer to the README: https://github.com/smartcontractkit/chainlink-ccip/tree/main/chains/solana/contracts#chainlink-solana-contracts-programs"
-  exit 1
-fi
-
 echo "Building Solana contracts..."
-cd chains/solana/contracts
-anchor build
+cd chains/solana
+make docker-build-contracts
 
 mkdir -p "$TARGET_DIR"
 
 echo "Copying compiled artifacts to $TARGET_DIR..."
-cp -r target/deploy/* "$TARGET_DIR/"
+cp -r contracts/target/deploy/* "$TARGET_DIR/"
 
 echo "Script completed successfully."
