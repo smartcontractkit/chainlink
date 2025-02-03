@@ -444,7 +444,7 @@ func setupNodeCCIP(
 	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			ListenerConfig: config.Database().Listener(),
 			FeatureConfig:  config.Feature(),

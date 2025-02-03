@@ -287,8 +287,7 @@ type configureOCR3Request struct {
 	dryRun     bool
 	ocrSecrets deployment.OCRSecrets
 
-	useMCMS     bool
-	contractSet *ContractSet
+	useMCMS bool
 }
 
 func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {

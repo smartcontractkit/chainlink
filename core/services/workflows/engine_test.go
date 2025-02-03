@@ -270,13 +270,15 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 
 type mockTriggerCapability struct {
 	capabilities.CapabilityInfo
-	triggerEvent *capabilities.TriggerResponse
-	ch           chan capabilities.TriggerResponse
+	triggerEvent               *capabilities.TriggerResponse
+	ch                         chan capabilities.TriggerResponse
+	registerTriggerCallCounter map[string]int
 }
 
 var _ capabilities.TriggerCapability = (*mockTriggerCapability)(nil)
 
 func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	m.registerTriggerCallCounter[req.TriggerID]++
 	if m.triggerEvent != nil {
 		m.ch <- *m.triggerEvent
 	}
@@ -284,6 +286,9 @@ func (m *mockTriggerCapability) RegisterTrigger(ctx context.Context, req capabil
 }
 
 func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+	if m.registerTriggerCallCounter[req.TriggerID] == 0 {
+		return errors.New("failed to unregister a non-registered trigger")
+	}
 	return nil
 }
 
@@ -384,7 +389,8 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.TriggerResponse, 10),
+		ch:                         make(chan capabilities.TriggerResponse, 10),
+		registerTriggerCallCounter: make(map[string]int),
 	}
 	resp, err := values.NewMap(map[string]any{
 		"123": decimal.NewFromFloat(1.00),
@@ -410,7 +416,8 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
-		ch: make(chan capabilities.TriggerResponse, 10),
+		ch:                         make(chan capabilities.TriggerResponse, 10),
+		registerTriggerCallCounter: make(map[string]int),
 	}
 	return mt
 }
@@ -1542,7 +1549,8 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"basic test trigger",
 		),
-		ch: make(chan capabilities.TriggerResponse, 10),
+		ch:                         make(chan capabilities.TriggerResponse, 10),
+		registerTriggerCallCounter: make(map[string]int),
 	}
 
 	resp, err := values.NewMap(map[string]any{
@@ -1745,10 +1753,11 @@ targets:
 
 type mockFetcher struct {
 	retval map[string]string
+	retErr error
 }
 
 func (m *mockFetcher) SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-	return m.retval, nil
+	return m.retval, m.retErr
 }
 
 func TestEngine_FetchesSecrets(t *testing.T) {
@@ -1783,34 +1792,86 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 	)
 	require.NoError(t, reg.Add(ctx, action))
 
+	t.Run("successfully fetches secrets", func(t *testing.T) {
+		eng, testHooks := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			secretsWorkflow,
+			func(c *Config) {
+				c.SecretsFetcher = &mockFetcher{
+					retval: map[string]string{
+						"fidelity": "aFidelitySecret",
+					},
+				}
+			},
+		)
+
+		servicetest.Run(t, eng)
+
+		eid := getExecutionID(t, eng, testHooks)
+
+		state, err := eng.executionStates.Get(ctx, eid)
+		require.NoError(t, err)
+
+		assert.Equal(t, store.StatusCompleted, state.Status)
+
+		expected := map[string]any{
+			"fidelityToken": "aFidelitySecret",
+		}
+		expm, err := values.Wrap(expected)
+		require.NoError(t, err)
+		assert.Equal(t, gotConfig, expm)
+	})
+}
+
+func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+
+	target := mockTarget("write_ethereum-testnet-sepolia@1.0.0")
+	require.NoError(t, reg.Add(ctx, target))
+
+	action := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			"custom-compute@1.0.0",
+			capabilities.CapabilityTypeAction,
+			"a custom compute action with custom config",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, action))
+
 	eng, testHooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		secretsWorkflow,
 		func(c *Config) {
 			c.SecretsFetcher = &mockFetcher{
-				retval: map[string]string{
-					"fidelity": "aFidelitySecret",
-				},
+				retval: map[string]string{},
+				retErr: errors.New("failed to fetch secrets XXX"),
 			}
 		},
 	)
 
-	servicetest.Run(t, eng)
-
-	eid := getExecutionID(t, eng, testHooks)
-
-	state, err := eng.executionStates.Get(ctx, eid)
+	err := eng.Start(ctx)
 	require.NoError(t, err)
 
-	assert.Equal(t, store.StatusCompleted, state.Status)
-
-	expected := map[string]any{
-		"fidelityToken": "aFidelitySecret",
-	}
-	expm, err := values.Wrap(expected)
+	// simulate WorkflowUpdatedEvent that calls tryEngineCleanup
+	<-testHooks.initFailed
+	err = eng.Close()
 	require.NoError(t, err)
-	assert.Equal(t, gotConfig, expm)
 }
 
 func TestMerge(t *testing.T) {

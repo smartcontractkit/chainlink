@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -254,6 +255,10 @@ func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*Reg
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+
+	if capReg == nil {
+		return nil, errors.New("capabilities registry not found in contract sets")
+	}
 
 	di, err := capReg.GetDONs(nil)
 	if err != nil {
