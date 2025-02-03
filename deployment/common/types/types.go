@@ -26,6 +26,9 @@ const (
 	// Corresponds to the ABI
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/generated/link_token_interface/link_token_interface.go#L34
 	StaticLinkToken deployment.ContractType = "StaticLinkToken"
+
+	// Data Streams contracts
+	ChannelConfigStore deployment.ContractType = "ChannelConfigStore"
 )
 
 type MCMSWithTimelockConfig struct {

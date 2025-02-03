@@ -38,24 +38,24 @@ var _ deployment.ChangeSet[DeployChannelConfigStoreConfig] = DeployChannelConfig
 //
 // Note that this function modifies the given address book variable, so it should be passed by reference.
 func deployContract[C Contract](
-	env deployment.Environment,
+	e deployment.Environment,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 	deployFn ContractDeployFn[C],
 ) (*ContractDeployment[C], error) {
 	contractDeployment := deployFn(chain)
 	if contractDeployment.Err != nil {
-		env.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err)
+		e.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err)
 		return nil, contractDeployment.Err
 	}
 	_, err := chain.Confirm(contractDeployment.Tx)
 	if err != nil {
-		env.Logger.Errorw("Failed to confirm deployment", "err", err)
+		e.Logger.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err
 	}
 	err = ab.Save(chain.Selector, contractDeployment.Address.String(), contractDeployment.Tv)
 	if err != nil {
-		env.Logger.Errorw("Failed to save contract address", "err", err)
+		e.Logger.Errorw("Failed to save contract address", "err", err)
 		return nil, err
 	}
 	return contractDeployment, nil

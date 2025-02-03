@@ -7,19 +7,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 )
 
 // ChainConfig holds a Go binding for all the currently deployed LLO contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type ChainConfig struct {
-	// ChannelConfigStores is a map of chain selector to a list of all ChannelConfigStore contracts on that chain.
+	// ChannelConfigStores is a map of chain selector to a list of all ChannelConfigStoreContract contracts on that chain.
 	ChannelConfigStores map[uint64][]*channel_config_store.ChannelConfigStore
 }
-
-const (
-	ChannelConfigStore deployment.ContractType = "ChannelConfigStore"
-)
 
 // LoadChainConfig Loads all state for a chain into state.
 //
@@ -30,7 +27,7 @@ func LoadChainConfig(chain deployment.Chain, addresses map[string]deployment.Typ
 	}
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(ChannelConfigStore, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
 			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return cc, err

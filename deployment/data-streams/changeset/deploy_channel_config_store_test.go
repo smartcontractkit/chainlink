@@ -5,15 +5,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-streams"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployChannelConfigStore(t *testing.T) {
-	env := newMemoryEnv(t)
+	e := newMemoryEnv(t)
 	cc := DeployChannelConfigStoreConfig{
 		ChainsToDeploy: []uint64{TestChain.Selector},
 	}
-	out, err := DeployChannelConfigStore(env, cc)
+	out, err := DeployChannelConfigStore(e, cc)
 	require.NoError(t, err)
 
 	ab, err := out.AddressBook.Addresses()
@@ -23,7 +23,7 @@ func TestDeployChannelConfigStore(t *testing.T) {
 	for sel, addrMap := range ab {
 		require.Equal(t, TestChain.Selector, sel)
 		for _, tv := range addrMap {
-			require.Equal(t, data_streams.ChannelConfigStore, tv.Type)
+			require.Equal(t, types.ChannelConfigStore, tv.Type)
 		}
 	}
 }
