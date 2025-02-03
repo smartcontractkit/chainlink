@@ -195,6 +195,9 @@ func (o *GeneralConfigOpts) parse() (err error) {
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
+	if g.c.EVM == nil {
+		return evmcfg.EVMConfigs{} // return empty to pass nil check
+	}
 	return g.c.EVM
 }
 
@@ -311,17 +314,6 @@ func (g *generalConfig) EVMEnabled() bool {
 	for _, c := range g.c.EVM {
 		if c.IsEnabled() {
 			return true
-		}
-	}
-	return false
-}
-
-func (g *generalConfig) EVMRPCEnabled() bool {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			if len(c.Nodes) > 0 {
-				return true
-			}
 		}
 	}
 	return false

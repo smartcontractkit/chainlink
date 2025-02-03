@@ -41,8 +41,15 @@ The test requires several environment variables. Below is a launch configuration
 }
 ```
 
-- **`GITHUB_READ_TOKEN`**: Required for downloading the `cron` capability binary and `chainlink-cli` (if enabled). Requires `content:read` permission for `smartcontractkit/capabilities` and `smartcontractkit/dev-platform` repositories. Use a fine-grained personal access token (PAT) tied to the **organization’s GitHub account**.
+- **`GITHUB_READ_TOKEN`**: Required for downloading the `cron` capability binary and CRE CLI (if enabled). Requires `content:read` permission for `smartcontractkit/capabilities` and `smartcontractkit/dev-platform` repositories. Use a fine-grained personal access token (PAT) tied to the **organization’s GitHub account**.
 - **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
+
+Test also expects you to have the Job Distributor image available locally. By default, `environment.toml` expects image tagged as `jd-test-1:latest`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
+```bash
+docker build -t jd-test-1 -f e2e/Dockerfile.e2e
+```
+
+Alternatively, if you have access to the Docker image repository where it's stored you can modify `environment.toml` with the name of the image stored there.
 
 ---
 
@@ -123,16 +130,14 @@ For the test to compile and upload the binary, modify your TOML configuration:
 
 ```toml
 [workflow_config]
-  use_chainlink_cli = true
-  use_existing = false
-
-  [workflow_config.chainlink_cli]
-    folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 ```
 
 ### Workflow Configuration
 
-If your workflow requires configuration, modify the test to create and pass the configuration data to `chainlink-cli`:
+If your workflow requires configuration, modify the test to create and pass the configuration data to CRE CLI:
 
 ```go
 configFile, err := os.CreateTemp("", "config.json")
@@ -156,10 +161,10 @@ If you compiled and uploaded the binary yourself, set the following in your conf
 
 ```toml
 [workflow_config]
-  use_chainlink_cli = true
-  use_existing = true
+  use_cre_cli = true
+  should_compile_new_workflow = false
 
-  [workflow_config.existing]
+  [workflow_config.compiled_config]
     binary_url = "<binary-url>"
     config_url = "<config-url>"
 ```
@@ -176,11 +181,9 @@ If the deployer private key or deployment sequence changes, run the test in **up
 
 ```toml
 [workflow_config]
-  use_chainlink_cli = true
-  use_existing = false
-
-  [workflow_config.chainlink_cli]
-    folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 ```
 
 ---
