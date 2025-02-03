@@ -29,6 +29,7 @@ contract MockSystemContext is ISystemContext {
 
   function origin() external view override returns (address) {
     // Return the tx.origin or a mock address
+    // solhint-disable-next-line avoid-tx-origin
     return tx.origin;
   }
 

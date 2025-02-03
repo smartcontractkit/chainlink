@@ -28,6 +28,7 @@ contract TestTarget {
 
   // Reverts with no reason
   function revertNoReason() external pure {
+    // solhint-disable-next-line reason-string, gas-custom-errors
     revert();
   }
 }
