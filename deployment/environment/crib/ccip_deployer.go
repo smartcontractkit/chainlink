@@ -141,8 +141,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}, nil
 }
 
-// setupCCIPChains is a group of changesets used from CRIB to set up new chains
-func setupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// SetupCCIPChains is a group of changesets used from CRIB to set up new chains
+// The function is for CRIB to maintain env infra if possible
+func SetupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -165,8 +166,9 @@ func setupCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.E
 	}, nil
 }
 
-// setupCCIPLanes is a group of changesets used from CRIB to set up new lanes
-func setupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// SetupCCIPLanes is a group of changesets used from CRIB to set up new lanes
+// The function is for CRIB to maintain env infra if possible
+func SetupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -195,8 +197,9 @@ func setupCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.En
 	}, nil
 }
 
-// setupCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
-func setupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// SetupCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
+// The function is for CRIB to maintain env infra if possible
+func SetupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -219,8 +222,9 @@ func setupCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.Envi
 	}, nil
 }
 
-// setupCCIPOCR is used from CRIB to provide funds to the node transmitters
-func setupCCIPFunding(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+// SetupCCIPTransmitterFunding is used from CRIB to provide funds to the node transmitters
+// The function is for CRIB to maintain env infra if possible
+func SetupCCIPTransmitterFunding(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
