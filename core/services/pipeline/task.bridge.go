@@ -28,9 +28,9 @@ import (
 var (
 	promBridgeLatency = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "bridge_latency_seconds",
-		Help: "Bridge latency in seconds scoped by name",
+		Help: "Bridge latency in seconds scoped by name and response status code",
 	},
-		[]string{"name"},
+		[]string{"name", "status_code_group"},
 	)
 	promBridgeErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "bridge_errors_total",
@@ -187,7 +187,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
 	elapsed := finish.Sub(start)
-	promBridgeLatency.WithLabelValues(t.Name).Set(elapsed.Seconds())
+	promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
 
 	defer func() {
 		telemetryCh := GetTelemetryCh(ctx)
