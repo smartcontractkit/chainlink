@@ -90,6 +90,15 @@ func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
 	return r.ContractSets
 }
 
+func (te TestEnv) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
+	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
+		Chains:      te.Env.Chains,
+		AddressBook: te.Env.ExistingAddresses,
+	})
+	require.NoError(te.t, err)
+	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
+}
+
 // SetupTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
