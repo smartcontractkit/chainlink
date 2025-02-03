@@ -1044,7 +1044,7 @@ func configureWorkflowNodes(t *testing.T, don *devenv.DON, nodeInput *ns.Input, 
 	return nodeset, nodeClients
 }
 
-func configureCapabilitiesNodes(t *testing.T, don *devenv.DON, workflowNsBootstrapNode devenv.Node, nodeInput *ns.Input, bc *blockchain.Output, donID uint32, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
+func configureCapabilitiesNodes(t *testing.T, don *devenv.DON, workflowNsBootstrapNode devenv.Node, nodeInput *ns.Input, bc *blockchain.Output, donID uint32, capRegAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
 	workflowNodeSet := don.Nodes[1:]
 
 	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
@@ -1320,6 +1320,27 @@ func createWorkflowNodesJobs(t *testing.T, nodeClients []*clclient.ChainlinkClie
 			assert.NoError(t, errCron, "failed to create cron job")
 			assert.Empty(t, response.Errors, "failed to create cron job")
 
+			// compute needs to live on the workflow DON due to it's WASM-capability
+			computeJobSpec := `
+			type = "standardcapabilities"
+			schemaVersion = 1
+			name = "compute-capabilities"
+			forwardingAllowed = false
+			command = "__builtin_custom-compute-action"
+			config = """
+			NumWorkers = 3
+				[rateLimiter]
+				globalRPS = 20.0
+				globalBurst = 30
+				perSenderRPS = 1.0
+				perSenderBurst = 5
+			"""
+		`
+
+			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
+			assert.NoError(t, errCompute, "failed to create compute job")
+			assert.Empty(t, response.Errors, "failed to create compute job")
+
 			consensusJobSpec := fmt.Sprintf(`
 					type = "offchainreporting2"
 					schemaVersion = 1
@@ -1450,53 +1471,53 @@ func createCapabilitiesNodesJobs(t *testing.T, nodeClients []*clclient.Chainlink
 	}()
 
 	// for each capability that's required by the workflow, create a job for workflow each node
-	for i, nodeClient := range nodeClients {
-		// First node is a bootstrap node, so we skip it
-		if i == 0 {
-			continue
-		}
+	// for i, nodeClient := range nodeClients {
+	// 	// First node is a bootstrap node, so we skip it
+	// 	if i == 0 {
+	// 		continue
+	// 	}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// // since we are using a capability that is not bundled-in, we need to copy it to the Docker container
-			// // and point the job to the copied binary
-			// cronJobSpec := fmt.Sprintf(`
-			// 		type = "standardcapabilities"
-			// 		schemaVersion = 1
-			// 		name = "cron-capabilities"
-			// 		forwardingAllowed = false
-			// 		command = "/home/capabilities/%s"
-			// 		config = ""
-			// 	`,
-			// 	cronCapabilityAssetFile,
-			// )
+	// 	wg.Add(1)
+	// 	go func() {
+	// 		defer wg.Done()
+	// // since we are using a capability that is not bundled-in, we need to copy it to the Docker container
+	// // and point the job to the copied binary
+	// cronJobSpec := fmt.Sprintf(`
+	// 		type = "standardcapabilities"
+	// 		schemaVersion = 1
+	// 		name = "cron-capabilities"
+	// 		forwardingAllowed = false
+	// 		command = "/home/capabilities/%s"
+	// 		config = ""
+	// 	`,
+	// 	cronCapabilityAssetFile,
+	// )
 
-			// response, _, errCron := nodeClient.CreateJobRaw(cronJobSpec)
-			// assert.NoError(t, errCron, "failed to create cron job")
-			// assert.Empty(t, response.Errors, "failed to create cron job")
+	// response, _, errCron := nodeClient.CreateJobRaw(cronJobSpec)
+	// assert.NoError(t, errCron, "failed to create cron job")
+	// assert.Empty(t, response.Errors, "failed to create cron job")
 
-			computeJobSpec := `
-					type = "standardcapabilities"
-					schemaVersion = 1
-					name = "compute-capabilities"
-					forwardingAllowed = false
-					command = "__builtin_custom-compute-action"
-					config = """
-					NumWorkers = 3
-						[rateLimiter]
-						globalRPS = 20.0
-						globalBurst = 30
-						perSenderRPS = 1.0
-						perSenderBurst = 5
-					"""
-				`
+	// computeJobSpec := `
+	// 		type = "standardcapabilities"
+	// 		schemaVersion = 1
+	// 		name = "compute-capabilities"
+	// 		forwardingAllowed = false
+	// 		command = "__builtin_custom-compute-action"
+	// 		config = """
+	// 		NumWorkers = 3
+	// 			[rateLimiter]
+	// 			globalRPS = 20.0
+	// 			globalBurst = 30
+	// 			perSenderRPS = 1.0
+	// 			perSenderBurst = 5
+	// 		"""
+	// 	`
 
-			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
-			assert.NoError(t, errCompute, "failed to create compute job")
-			assert.Empty(t, response.Errors, "failed to create compute job")
-		}()
-	}
+	// response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
+	// assert.NoError(t, errCompute, "failed to create compute job")
+	// assert.Empty(t, response.Errors, "failed to create compute job")
+	// 	}()
+	// }
 	wg.Wait()
 }
 
@@ -1544,6 +1565,14 @@ func configureDONs(t *testing.T, ctfEnv *deployment.Environment, dons []*devenv.
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		},
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "custom-compute",
+				Version:        "1.0.0",
+				CapabilityType: uint8(1), // action
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
 	}
 
 	workflowDON := dons[0]
@@ -1581,14 +1610,6 @@ func configureDONs(t *testing.T, ctfEnv *deployment.Environment, dons []*devenv.
 				Version:        "1.0.0",
 				CapabilityType: 3, // TARGET
 				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		},
-		{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "custom-compute",
-				Version:        "1.0.0",
-				CapabilityType: uint8(1), // action
 			},
 			Config: &capabilitiespb.CapabilityConfig{},
 		},
@@ -1995,7 +2016,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 	// Create OCR3 and capability jobs for each node without JD
 	workflowNs, workflowDONClients := configureWorkflowNodes(t, dons[0], in.NodeSetA, bc, in.WorkflowConfig.WorkflowDonID, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
-	capabilitiesNs, capabilitiesDONClients := configureCapabilitiesNodes(t, dons[1], dons[0].Nodes[0], in.NodeSetB, bc, in.WorkflowConfig.CapabilitiesDonID, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+	capabilitiesNs, capabilitiesDONClients := configureCapabilitiesNodes(t, dons[1], dons[0].Nodes[0], in.NodeSetB, bc, in.WorkflowConfig.CapabilitiesDonID, keystoneContractSet.CapabilitiesRegistry.Address(), keystoneContractSet.Forwarder.Address())
 
 	_ = workflowNs
 	_ = capabilitiesNs
