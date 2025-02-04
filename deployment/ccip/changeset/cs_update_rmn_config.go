@@ -73,7 +73,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	for _, sel := range cfg.ChainSelectors {
 		chain, exists := e.Chains[sel]
 		if !exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found1", sel)
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
 		}
 		txOpts := chain.DeployerKey
 		if cfg.MCMSConfig != nil {
@@ -212,7 +212,7 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 
 	homeChain, ok := state.Chains[c.HomeChainSelector]
 	if !ok {
-		return fmt.Errorf("chain %d not found2", c.HomeChainSelector)
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
 	}
 
 	rmnHome := homeChain.RMNHome
@@ -291,7 +291,7 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	homeChain, ok := state.Chains[c.HomeChainSelector]
 
 	if !ok {
-		return fmt.Errorf("chain %d not found3", c.HomeChainSelector)
+		return fmt.Errorf("chain %d not found", c.HomeChainSelector)
 	}
 
 	rmnHome := homeChain.RMNHome
@@ -329,7 +329,7 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found4", config.HomeChainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
@@ -402,7 +402,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found5", config.HomeChainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
@@ -569,7 +569,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found6", cfg.HomeChainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
@@ -639,7 +639,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found7", cfg.HomeChainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", cfg.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[cfg.HomeChainSelector].RMNHome
@@ -676,7 +676,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	homeChain, ok := e.Chains[config.HomeChainSelector]
 
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found8", config.HomeChainSelector)
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", config.HomeChainSelector)
 	}
 
 	rmnHome := state.Chains[config.HomeChainSelector].RMNHome
