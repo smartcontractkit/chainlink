@@ -10,12 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
@@ -190,6 +190,19 @@ func Test_CCIPMessaging(t *testing.T) {
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
+// NOTE: this is EVM specific (EVM->SVM)
+const SVMExtraArgsV1Tag = "0x1f3b3aba"
+
+func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
+	tagBytes := hexutil.MustDecode(SVMExtraArgsV1Tag)
+	abi, err := message_hasher.MessageHasherMetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	v, err := abi.Methods["encodeSVMExtraArgsV1"].Inputs.Pack(data)
+	return append(tagBytes, v...), err
+}
+
 func Test_CCIPMessaging_Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
@@ -239,9 +252,8 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 		latestHead, err := e.Env.SolChains[destChain].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 		require.NoError(t, err)
 		receiver := state.SolChains[destChain].Receiver.Bytes()
-		extraArgs, err := ccip.SerializeExtraArgs(ccip_router.SVMExtraArgs{}) // SVM doesn't allow an empty extraArgs
+		extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{}) // SVM doesn't allow an empty extraArgs
 		require.NoError(t, err)
-		panic(extraArgs)
 		out = runMessagingTestCase(
 			messagingTestCase{
 				testCaseSetup: setup,
