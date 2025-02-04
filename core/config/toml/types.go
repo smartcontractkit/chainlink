@@ -937,6 +937,7 @@ type OCR2 struct {
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
 	CaptureAutomationCustomTelemetry   *bool
+	AllowNoBootstrappers               *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
@@ -972,6 +973,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureAutomationCustomTelemetry; v != nil {
 		o.CaptureAutomationCustomTelemetry = v
+	}
+	if v := f.AllowNoBootstrappers; v != nil {
+		o.AllowNoBootstrappers = v
 	}
 	if v := f.DefaultTransactionQueueDepth; v != nil {
 		o.DefaultTransactionQueueDepth = v

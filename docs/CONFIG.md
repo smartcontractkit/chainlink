@@ -902,6 +902,7 @@ DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
 CaptureAutomationCustomTelemetry = true # Default
+AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
@@ -1001,6 +1002,12 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 CaptureAutomationCustomTelemetry = true # Default
 ```
 CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
+
+### AllowNoBootstrappers
+```toml
+AllowNoBootstrappers = false # Default
+```
+AllowNoBootstrappers enables single-node consensus without bootstrapper nodes (i.e. f=0, n=1)
 
 ### DefaultTransactionQueueDepth
 ```toml

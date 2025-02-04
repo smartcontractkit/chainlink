@@ -1,9 +1,9 @@
 package ocrcommon
 
 import (
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 )
 
@@ -24,15 +24,17 @@ func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.Bootstrap
 }
 
 // GetValidatedBootstrapPeers will error unless at least one valid bootstrap peer is found
-func GetValidatedBootstrapPeers(lggr logger.Logger, specPeers []string, configPeers []commontypes.BootstrapperLocator) ([]commontypes.BootstrapperLocator, error) {
+func GetValidatedBootstrapPeers(specPeers []string, configPeers []commontypes.BootstrapperLocator, allowNoBootstrappers bool) ([]commontypes.BootstrapperLocator, error) {
 	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {
 		return nil, err
 	}
 	if len(bootstrapPeers) == 0 {
 		if len(configPeers) == 0 {
-			lggr.Warn("no bootstrappers found")
-			// Bootstrappers may be empty if the node is not configured to use OCR (i.e. f = 0 and n = 1).
+			if !allowNoBootstrappers {
+				return nil, errors.New("no bootstrappers found")
+			}
+			// Bootstrappers may be empty if the node is not configured to conduct consensus (i.e. f = 0 and n = 1).
 			// This is useful for testing and development.
 			return nil, nil
 		}
