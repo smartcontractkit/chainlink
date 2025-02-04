@@ -130,10 +130,7 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
-require (
-	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250128162345-af4c8fd4481a // indirect
-)
+require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 
 require (
 	cel.dev/expr v0.17.0 // indirect
@@ -213,7 +210,6 @@ require (
 	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.6 // indirect
-	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.1 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
