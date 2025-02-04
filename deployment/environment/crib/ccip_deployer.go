@@ -236,7 +236,10 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
 	fmt.Println("distributing funds...")
-	distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {

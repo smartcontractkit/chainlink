@@ -310,7 +310,7 @@ func subscribeExecutionEvents(
 }
 
 // this function will create len(targetChains) new addresses, and send funds to them on every targetChain
-func fundAdditionalKeys(lggr logger.Logger, wg *sync.WaitGroup, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
+func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)

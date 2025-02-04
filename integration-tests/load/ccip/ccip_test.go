@@ -63,7 +63,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	defer loki.StopNow()
 
 	// initialize additional accounts on other chains
-	transmitKeys, err := fundAdditionalKeys(lggr, &wg, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
+	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
 	require.NoError(t, err)
 	// todo: defer returning funds
 

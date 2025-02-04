@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"golang.org/x/sync/errgroup"
 
 	"math/big"
 
@@ -16,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
-
-var wg = &sync.WaitGroup{}
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	transmittersStr := make([]common.Address, 0)
@@ -57,8 +56,6 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 	return g.Wait()
 }
 
-func SendFundsToAccounts(lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) {
-	latesthdr, err := chain.Client.HeaderByNumber(context.Background(), nil)
 func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
 	latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
 	if err != nil {

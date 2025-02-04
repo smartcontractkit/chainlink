@@ -55,7 +55,6 @@ func NewDestinationGun(
 ) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
-		// query for the actual sequence number
 		seqNums[testhelpers.SourceDestPair{
 			SourceChainSelector: cs,
 			DestChainSelector:   chainSelector,
