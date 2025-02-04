@@ -27,9 +27,8 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
-	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
+	block, err := testhelpers.LatestBlock(testcontext.Get(t), e.Env, chain2)
 	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
 	startBlocks[chain2] = &block
 	msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, chain1, chain2, true, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[chain2].Receiver.Address().Bytes(), 32),

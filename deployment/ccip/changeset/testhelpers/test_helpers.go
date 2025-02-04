@@ -155,7 +155,29 @@ func DeployTestContracts(t *testing.T,
 	}
 }
 
+func LatestBlock(ctx context.Context, env deployment.Environment, chainSelector uint64) (uint64, error) {
+	family, err := chainsel.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return 0, err
+	}
+
+	switch family {
+	case chainsel.FamilyEVM:
+		latesthdr, err := env.Chains[chainSelector].Client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed to get latest header for chain %d", chainSelector)
+		}
+		block := latesthdr.Number.Uint64()
+		return block, nil
+	case chainsel.FamilySolana:
+		return env.SolChains[chainSelector].Client.GetSlot(ctx, solTestConfig.DefaultCommitment)
+	default:
+		return 0, errors.New("unsupported chain family")
+	}
+}
+
 func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
+	// TODO: use LatestBlock and include solchains
 	latestBlocks := make(map[uint64]uint64)
 	for _, chain := range chains {
 		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
@@ -768,9 +790,8 @@ func deploySingleFeed(
 }
 
 func ConfirmRequestOnSourceAndDest(t *testing.T, env deployment.Environment, state changeset.CCIPOnChainState, sourceCS, destCS, expectedSeqNr uint64) error {
-	latesthdr, err := env.Chains[destCS].Client.HeaderByNumber(testcontext.Get(t), nil)
+	startBlock, err := LatestBlock(testcontext.Get(t), env, destCS)
 	require.NoError(t, err)
-	startBlock := latesthdr.Number.Uint64()
 	fmt.Printf("startblock %d", startBlock)
 	msgSentEvent := TestSendRequest(t, env, state, sourceCS, destCS, false, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[destCS].Receiver.Address().Bytes(), 32),
@@ -1387,9 +1408,8 @@ func Transfer(
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
 
-	latesthdr, err := env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+	block, err := LatestBlock(ctx, env, destChain)
 	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
 	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
