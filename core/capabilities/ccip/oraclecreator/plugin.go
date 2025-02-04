@@ -569,7 +569,7 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be provided from tooling config, and populated here for the params
+		// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be provided from tooling config, and populated here for the params.
 		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig("", solana.PublicKey{}, transmitter[0]); err == nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
