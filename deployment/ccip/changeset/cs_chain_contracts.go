@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"math/big"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -298,11 +299,12 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
+	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			txOpts.Context = e.GetContext()
+			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
 			}
@@ -978,11 +980,12 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
+	ctx := e.GetContext()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			txOpts.Context = e.GetContext()
+			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
 			}
@@ -1113,29 +1116,30 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 
+	ctx := e.GetContext()
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			txOpts.Context = e.GetContext()
+			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
 			}
 			offRamp := state.Chains[chainSel].OffRamp
 			var args []offramp.OffRampSourceChainConfigArgs
 			for source, update := range updates {
-				router := common.HexToAddress("0x0")
+				var r common.Address
 				if update.TestRouter {
-					router = state.Chains[chainSel].TestRouter.Address()
+					r = state.Chains[chainSel].TestRouter.Address()
 				} else {
-					router = state.Chains[chainSel].Router.Address()
+					r = state.Chains[chainSel].Router.Address()
 				}
 				onRamp := state.Chains[source].OnRamp
 				args = append(args, offramp.OffRampSourceChainConfigArgs{
 					SourceChainSelector: source,
-					Router:              router,
+					Router:              r,
 					IsEnabled:           update.IsEnabled,
 					OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
 				})
