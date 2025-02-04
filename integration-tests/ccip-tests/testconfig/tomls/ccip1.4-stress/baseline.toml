@@ -26,7 +26,7 @@ TokenPool = '1.4.0'
 CommitStore = '1.2.0'
 
 [CCIP.Env]
-TTL = '10h'
+TTL = '12h'
 
 [CCIP.Env.Network]
 selected_networks = ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
@@ -163,7 +163,7 @@ DynamicPriceUpdateInterval = '15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
-TestDuration = '8h'
+TestDuration = '10h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true
