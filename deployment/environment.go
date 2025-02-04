@@ -455,6 +455,46 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	return nodes, nil
 }
 
+// NodeInfoByCSA returns a map of csaKey to Node for the given csaKeys
+// It is an error if any of the csaKeys are not found in the offchain client
+func NodeInfoByCSA(e Environment, csaKeys []string) (map[string]Node, error) {
+	if e.Offchain == nil {
+		return nil, fmt.Errorf("offchain client is nil, ensure it is configured")
+	}
+
+	resp, err := e.Offchain.ListNodes(e.GetContext(), &nodev1.ListNodesRequest{
+		Filter: &nodev1.ListNodesRequest_Filter{}, // TODO: support optional filter
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	}
+	csaKeyMap := make(map[string]struct{})
+	for _, csaKey := range csaKeys {
+		csaKeyMap[csaKey] = struct{}{}
+	}
+
+	var nodeIds []string
+	for _, node := range resp.GetNodes() {
+		if _, ok := csaKeyMap[node.PublicKey]; ok {
+			nodeIds = append(nodeIds, node.GetId())
+			delete(csaKeyMap, node.PublicKey)
+		}
+	}
+	if len(csaKeyMap) > 0 {
+		return nil, fmt.Errorf("nodes with csaKeys not found: %v", csaKeyMap)
+	}
+
+	allNodes, err := NodeInfo(nodeIds, e.Offchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nodes info: %w", err)
+	}
+	nodesByCSAKey := map[string]Node{}
+	for _, n := range allNodes {
+		nodesByCSAKey[n.CSAKey] = n
+	}
+	return nodesByCSAKey, nil
+}
+
 type CapabilityRegistryConfig struct {
 	EVMChainID  uint64         // chain id of the chain the CR is deployed on
 	Contract    common.Address // address of the CR contract
