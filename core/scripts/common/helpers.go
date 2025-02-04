@@ -506,7 +506,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks boo
 
 			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
 			// blockhash.
-			//bh := crypto.Keccak256Hash(rlpHeader)
+			// bh := crypto.Keccak256Hash(rlpHeader)
 			//fmt.Println("Calculated BH:", bh.String(),
 			//	"fetched BH:", h.Hash(),
 			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())

@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	evmClient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmClient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 // WrappedContractBackend is a wrapper around the go-ethereum ContractBackend interface. It's a thin wrapper

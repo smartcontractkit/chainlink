@@ -885,7 +885,7 @@ func (d *Delegate) newServicesMercury(
 	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
 	// Disable OCR debug+info logging for legacy mercury jobs unless tracelogging is enabled, because its simply too verbose (150 jobs => ~50k logs per second)
-	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging(), d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
@@ -946,7 +946,6 @@ func (d *Delegate) newServicesLLO(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
-	lggr = logger.Sugared(lggr.Named("LLO"))
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
 	if len(transmitterID) != 64 {
@@ -985,6 +984,7 @@ func (d *Delegate) newServicesLLO(
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg); err != nil {
 		return nil, err
 	}
+	lggr = logger.Sugared(lggr.Named("LLO").With("donID", pluginCfg.DonID, "channelDefinitionsContractAddress", pluginCfg.ChannelDefinitionsContractAddress))
 
 	// Handle key bundle IDs explicitly specified in job spec
 	kbm := make(map[llotypes.ReportFormat]llo.Key)

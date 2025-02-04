@@ -7,10 +7,9 @@ import (
 
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 // ErrNoChains indicates that no EVM chains have been started
@@ -44,7 +43,7 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 
 	unique := make(map[string]struct{})
 
-	evmConfigs := opts.AppConfig.EVMConfigs()
+	evmConfigs := opts.ChainConfigs
 	var enabled []*toml.EVMConfig
 	for i, cfg := range evmConfigs {
 		_, alreadyExists := unique[cfg.ChainID.String()]
@@ -82,5 +81,5 @@ func NewLegacyChains(ctx context.Context, opts legacyevm.ChainRelayOpts) (result
 func NewLegacyChainsAndConfig(ctx context.Context, opts legacyevm.ChainRelayOpts) (*LegacyChainsAndConfig, error) {
 	result, err := NewLegacyChains(ctx, opts)
 	// always return because it's accumulating errors
-	return &LegacyChainsAndConfig{result, opts.AppConfig.EVMConfigs()}, err
+	return &LegacyChainsAndConfig{result, opts.ChainConfigs}, err
 }

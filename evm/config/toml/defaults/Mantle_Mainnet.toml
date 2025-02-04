@@ -1,0 +1,38 @@
+ChainID = '5000'
+ChainType = 'optimismBedrock'
+FinalityTagEnabled = true
+FinalityDepth = 1200
+LinkContractAddress = '0xfe36cF0B43aAe49fBc5cFC5c0AF22a623114E043'
+LogPollInterval = '2s'
+MinIncomingConfirmations = 1
+NoNewFinalizedHeadsThreshold = '40m0s'
+
+[HeadTracker]
+HistoryDepth = 1250
+
+[GasEstimator]
+PriceMax = '120 gwei'
+# Limit values are high as Mantle's GasPrice is in native token (MNT) instead of ETH. Their proprietary TokenRatio parameter is used to adjust fees
+LimitDefault = 80_000_000_000
+LimitMax = 100_000_000_000
+BumpMin = '100 wei'
+BumpThreshold = 60
+EIP1559DynamicFees = true
+FeeCapDefault = '120 gwei'
+# Mantle recommends setting Priority Fee to 0 in their docs linked here: https://docs-v2.mantle.xyz/devs/concepts/tx-fee/eip-1559#application-of-eip-1559-in-mantle-v2-tectonic
+TipCapDefault = '0 wei'
+TipCapMin = '0 wei'
+
+[GasEstimator.BlockHistory]
+# Default is 24, which leads to bumpy gas prices. In CCIP
+# we want to smooth out the gas prices, so we increase the sample size.
+BlockHistorySize = 200
+# The formula for FeeCap is (current block base fee * (1.125 ^ EIP1559FeeCapBufferBlocks) + tipcap)
+# where tipcap is managed by the block history estimators. In the context of CCIP,
+# the gas price is relayed to other changes for quotes so we want accurate/avg not pessimistic values.
+# So we set this to zero so FeeCap = baseFee + tipcap.
+EIP1559FeeCapBufferBlocks = 0
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'

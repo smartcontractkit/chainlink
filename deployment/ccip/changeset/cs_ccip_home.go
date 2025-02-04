@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -30,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 var (
@@ -191,8 +192,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 	return func(params *CCIPOCRParams) {
 		if params.CommitOffChainConfig == nil {
 			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(internal.RemoteGasPriceBatchWriteFrequency),
-				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(internal.TokenPriceBatchWriteFrequency),
+				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
+				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
 				TokenInfo:                          tokenInfo,
 				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
 				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
@@ -218,12 +219,12 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 	return func(params *CCIPOCRParams) {
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-				BatchGasLimit:             internal.BatchGasLimit,
-				RelativeBoostPerWaitHour:  internal.RelativeBoostPerWaitHour,
-				InflightCacheExpiry:       *config.MustNewDuration(internal.InflightCacheExpiry),
-				RootSnoozeTime:            *config.MustNewDuration(internal.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(internal.FirstBlockAge),
-				BatchingStrategyID:        internal.BatchingStrategyID,
+				BatchGasLimit:             globals.BatchGasLimit,
+				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
+				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
+				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
+				MessageVisibilityInterval: *config.MustNewDuration(globals.FirstBlockAge),
+				BatchingStrategyID:        globals.BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
 		} else if tokenDataObservers != nil {
@@ -238,18 +239,18 @@ func DeriveCCIPOCRParams(
 ) CCIPOCRParams {
 	params := CCIPOCRParams{
 		OCRParameters: commontypes.OCRParameters{
-			DeltaProgress:                           internal.DeltaProgress,
-			DeltaResend:                             internal.DeltaResend,
-			DeltaInitial:                            internal.DeltaInitial,
-			DeltaRound:                              internal.DeltaRound,
-			DeltaGrace:                              internal.DeltaGrace,
-			DeltaCertifiedCommitRequest:             internal.DeltaCertifiedCommitRequest,
-			DeltaStage:                              internal.DeltaStage,
-			Rmax:                                    internal.Rmax,
-			MaxDurationQuery:                        internal.MaxDurationQuery,
-			MaxDurationObservation:                  internal.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   internal.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: internal.MaxDurationShouldTransmitAcceptedReport,
+			DeltaProgress:                           globals.DeltaProgress,
+			DeltaResend:                             globals.DeltaResend,
+			DeltaInitial:                            globals.DeltaInitial,
+			DeltaRound:                              globals.DeltaRound,
+			DeltaGrace:                              globals.DeltaGrace,
+			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
+			DeltaStage:                              globals.DeltaStage,
+			Rmax:                                    globals.Rmax,
+			MaxDurationQuery:                        globals.MaxDurationQuery,
+			MaxDurationObservation:                  globals.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
 		},
 	}
 	for _, opt := range opts {
@@ -261,8 +262,9 @@ func DeriveCCIPOCRParams(
 type PromoteCandidatePluginInfo struct {
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
-	RemoteChainSelectors []uint64
-	PluginType           types.PluginType
+	RemoteChainSelectors    []uint64
+	PluginType              types.PluginType
+	AllowEmptyConfigPromote bool // safe guard to prevent promoting empty config to active
 }
 
 type PromoteCandidateChangesetConfig struct {
@@ -301,13 +303,8 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			chainState, exists := state.Chains[chainSelector]
-			if !exists {
-				return nil, fmt.Errorf("chain %d does not exist", chainSelector)
-			}
-			if chainState.OffRamp == nil {
-				// should not be possible, but a defensive check.
-				return nil, errors.New("OffRamp contract does not exist")
+			if err := state.ValidateOffRamp(chainSelector); err != nil {
+				return nil, err
 			}
 
 			donID, err := internal.DonIDForChain(
@@ -328,7 +325,13 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err != nil {
 				return nil, fmt.Errorf("fetching %s configs from cciphome: %w", plugin.PluginType.String(), err)
 			}
+			// If promoteCandidate is called with AllowEmptyConfigPromote set to false and
+			// the CandidateConfig config digest is zero, do not promote the candidate config to active.
+			if !plugin.AllowEmptyConfigPromote && pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("%s candidate config digest is empty", plugin.PluginType.String())
+			}
 
+			// If the active and candidate config digests are both zero, we should not promote the candidate config to active.
 			if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
 				pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("%s active and candidate config digests are both zero", plugin.PluginType.String())
@@ -392,6 +395,7 @@ func PromoteCandidateChangeset(
 				nodes.NonBootstraps(),
 				donID,
 				plugin.PluginType,
+				plugin.AllowEmptyConfigPromote,
 				cfg.MCMS != nil,
 			)
 			if err != nil {
@@ -447,16 +451,14 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
 	}
 	for chainSelector, params := range p.OCRConfigPerRemoteChainSelector {
-		_, ok := state.Chains[chainSelector]
-		if !ok {
+		if _, exists := state.SupportedChains()[chainSelector]; !exists {
 			return fmt.Errorf("chain %d does not exist in state", chainSelector)
 		}
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if state.Chains[chainSelector].OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist on don chain selector %d", chainSelector)
+		if err := state.ValidateOffRamp(chainSelector); err != nil {
+			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
 			return errors.New("commit off-chain config must be set")
@@ -610,12 +612,15 @@ func AddDonAndSetCandidateChangeset(
 		txOpts = deployment.SimTransactOpts()
 	}
 	var donOps []mcms.Operation
-
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
+		offRampAddress, err := state.GetOffRampAddress(chainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 			e.OCRSecrets,
-			state.Chains[chainSelector].OffRamp,
-			e.Chains[chainSelector],
+			offRampAddress,
+			chainSelector,
 			nodes.NonBootstraps(),
 			state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
 			params.OCRParameters,
@@ -799,10 +804,14 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
+			offRampAddress, err := state.GetOffRampAddress(chainSelector)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
 				e.OCRSecrets,
-				state.Chains[chainSelector].OffRamp,
-				e.Chains[chainSelector],
+				offRampAddress,
+				chainSelector,
 				nodes.NonBootstraps(),
 				state.Chains[cfg.HomeChainSelector].RMNHome.Address(),
 				params.OCRParameters,
@@ -991,6 +1000,7 @@ func promoteCandidateForChainOps(
 	nodes deployment.Nodes,
 	donID uint32,
 	pluginType cctypes.PluginType,
+	allowEmpty bool,
 	mcmsEnabled bool,
 ) (mcms.Operation, error) {
 	if donID == 0 {
@@ -999,6 +1009,9 @@ func promoteCandidateForChainOps(
 	digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
 	if err != nil {
 		return mcms.Operation{}, err
+	}
+	if digest == [32]byte{} && !allowEmpty {
+		return mcms.Operation{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
 	}
 	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
 	updatePluginOp, err := promoteCandidateOp(

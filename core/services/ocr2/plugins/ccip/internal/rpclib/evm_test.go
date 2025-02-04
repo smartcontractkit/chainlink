@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
-
 	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,10 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
@@ -85,7 +84,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			batchSizes := make([]int, 0)
 
-			ec := mocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
 			ctx := testutils.Context(t)
 			calls := make([]rpclib.EvmCall, tc.numCalls)
@@ -121,7 +120,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			ec := mocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
 
 			// generate the abi and the rpc calls

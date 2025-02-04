@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	//TODO switch to TOML too?
+	// TODO switch to TOML too?
 	lokiDS := os.Getenv("DATA_SOURCE_NAME")
 	d, err := db.NewDashboard(nil,
 		[]dashboard.Option{

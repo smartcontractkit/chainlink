@@ -92,6 +92,7 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 // Observe looks up all streams in the registry and populates a map of stream ID => value
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
 	now := time.Now()
+	lggr := logger.With(d.lggr, "observationTimestamp", opts.ObservationTimestamp(), "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
 
 	if opts.VerboseLogging() {
 		streamIDs := make([]streams.StreamID, 0, len(streamValues))
@@ -99,7 +100,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			streamIDs = append(streamIDs, streamID)
 		}
 		sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
-		d.lggr.Debugw("Observing streams", "streamIDs", streamIDs, "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
+		lggr = logger.With(lggr, "streamIDs", streamIDs)
+		lggr.Debugw("Observing streams")
 	}
 
 	var wg sync.WaitGroup
@@ -110,8 +112,23 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	var errs []ErrObservationFailed
 
 	// oc only lives for the duration of this Observe call
-	oc := NewObservationContext(d.registry, d.t)
+	oc := NewObservationContext(lggr, d.registry, d.t)
 
+	// Telemetry
+	{
+		// Size needs to accommodate the max number of telemetry events that could be generated
+		// Standard case might be about 3 bridge requests per spec and one stream<=>spec
+		// Overallocate for safety (to avoid dropping packets)
+		telemCh := d.t.MakeTelemChannel(opts, 10*len(streamValues))
+		if telemCh != nil {
+			ctx = pipeline.WithTelemetryCh(ctx, telemCh)
+			// After all Observations have returned, nothing else will be sent to the
+			// telemetry channel, so it can safely be closed
+			defer close(telemCh)
+		}
+	}
+
+	// Observe all streams concurrently
 	for _, streamID := range maps.Keys(streamValues) {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
@@ -138,11 +155,13 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		}(streamID)
 	}
 
+	// Wait for all Observations to complete
 	wg.Wait()
-	elapsed := time.Since(now)
 
 	// Only log on errors or if VerboseLogging is turned on
 	if len(errs) > 0 || opts.VerboseLogging() {
+		elapsed := time.Since(now)
+
 		slices.Sort(successfulStreamIDs)
 		sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
 
@@ -153,7 +172,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			failedStreamIDs[i] = e.streamID
 		}
 
-		lggr := logger.With(d.lggr, "elapsed", elapsed, "nSuccessfulStreams", len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "successfulStreamIDs", successfulStreamIDs, "failedStreamIDs", failedStreamIDs, "errs", errStrs, "configDigest", opts.ConfigDigest(), "seqNr", opts.OutCtx().SeqNr)
+		lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams", len(successfulStreamIDs), "nFailedStreams", len(failedStreamIDs), "successfulStreamIDs", successfulStreamIDs, "failedStreamIDs", failedStreamIDs, "errs", errStrs)
 
 		if opts.VerboseLogging() {
 			lggr = logger.With(lggr, "streamValues", streamValues)

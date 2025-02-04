@@ -18,9 +18,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
@@ -90,7 +90,7 @@ type client struct {
 
 	dialWithContext DialWithContextFunc
 
-	logger    logger.Logger
+	logger    logger.SugaredLogger
 	conn      Conn
 	rawClient pb.MercuryClient
 	mu        sync.RWMutex
@@ -111,7 +111,7 @@ type client struct {
 }
 
 type ClientOpts struct {
-	Logger        logger.Logger
+	Logger        logger.SugaredLogger
 	ClientPrivKey csakey.KeyV2
 	ServerPubKey  []byte
 	ServerURL     string

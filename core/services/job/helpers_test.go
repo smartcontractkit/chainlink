@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 const (
@@ -210,7 +211,15 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
 	keyStore := cltest.NewKeyStore(t, db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		ChainConfigs:   cfg.EVMConfigs(),
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		DB:             db,
+		Client:         clienttest.NewClientWithDefaultChainID(t),
+		KeyStore:       keyStore.Eth(),
+	})
 	_, err := ocr.ValidatedOracleSpecToml(cfg, legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)

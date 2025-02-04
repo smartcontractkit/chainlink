@@ -166,7 +166,7 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 		return res, nil
 	}
 	for _, node := range jd.don.Nodes {
-		if node.NodeId != in.NodeId {
+		if node.NodeID != in.NodeId {
 			continue
 		}
 		// TODO : is there a way to accept the job with proposal id?

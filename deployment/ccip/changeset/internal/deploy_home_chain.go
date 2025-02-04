@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -17,42 +17,18 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const (
 	CapabilityLabelledName = "ccip"
 	CapabilityVersion      = "v1.0.0"
-
-	FirstBlockAge                           = 8 * time.Hour
-	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
-	TokenPriceBatchWriteFrequency           = 30 * time.Minute
-	BatchGasLimit                           = 6_500_000
-	RelativeBoostPerWaitHour                = 0.5
-	InflightCacheExpiry                     = 10 * time.Minute
-	RootSnoozeTime                          = 30 * time.Minute
-	BatchingStrategyID                      = 0
-	DeltaProgress                           = 30 * time.Second
-	DeltaResend                             = 10 * time.Second
-	DeltaInitial                            = 20 * time.Second
-	DeltaRound                              = 2 * time.Second
-	DeltaGrace                              = 2 * time.Second
-	DeltaCertifiedCommitRequest             = 10 * time.Second
-	DeltaStage                              = 10 * time.Second
-	Rmax                                    = 3
-	MaxDurationQuery                        = 500 * time.Millisecond
-	MaxDurationObservation                  = 5 * time.Second
-	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
-	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
-
-	GasPriceDeviationPPB    = 1000
-	DAGasPriceDeviationPPB  = 0
-	OptimisticConfirmations = 1
 )
 
 var (
@@ -161,6 +137,7 @@ func BuildSetOCR3ConfigArgs(
 	donID uint32,
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
+	configType globals.ConfigType,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
@@ -174,24 +151,32 @@ func BuildSetOCR3ConfigArgs(
 		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
 			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
 
-		// we expect only an active config and no candidate config.
-		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
-			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
-				donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+		configForOCR3 := ocrConfig.ActiveConfig
+		// we expect only an active config
+		if configType == globals.ConfigTypeActive {
+			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+			}
+		} else if configType == globals.ConfigTypeCandidate {
+			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
+				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+			}
+			configForOCR3 = ocrConfig.CandidateConfig
 		}
 
-		activeConfig := ocrConfig.ActiveConfig
 		var signerAddresses []common.Address
 		var transmitterAddresses []common.Address
-		for _, node := range activeConfig.Config.Nodes {
+		for _, node := range configForOCR3.Config.Nodes {
 			signerAddresses = append(signerAddresses, common.BytesToAddress(node.SignerKey))
 			transmitterAddresses = append(transmitterAddresses, common.BytesToAddress(node.TransmitterKey))
 		}
 
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
-			ConfigDigest:                   activeConfig.ConfigDigest,
+			ConfigDigest:                   configForOCR3.ConfigDigest,
 			OcrPluginType:                  uint8(pluginType),
-			F:                              activeConfig.Config.FRoleDON,
+			F:                              configForOCR3.Config.FRoleDON,
 			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,
 			Signers:                        signerAddresses,
 			Transmitters:                   transmitterAddresses,
@@ -200,13 +185,73 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
+// https://github.com/smartcontractkit/chainlink-ccip/blob/bdbfcc588847d70817333487a9883e94c39a332e/chains/solana/gobindings/ccip_router/SetOcrConfig.go#L23
+type MultiOCR3BaseOCRConfigArgsSolana struct {
+	ConfigDigest                   [32]byte
+	OCRPluginType                  uint8
+	F                              uint8
+	IsSignatureVerificationEnabled bool
+	Signers                        [][20]byte
+	Transmitters                   []solana.PublicKey
+}
+
+// BuildSetOCR3ConfigArgsSolana builds OCR3 config for Solana chains
+func BuildSetOCR3ConfigArgsSolana(
+	donID uint32,
+	ccipHome *ccip_home.CCIPHome,
+	destSelector uint64,
+) ([]MultiOCR3BaseOCRConfigArgsSolana, error) {
+	ocr3Configs := make([]MultiOCR3BaseOCRConfigArgsSolana, 0)
+	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
+		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
+			Context: context.Background(),
+		}, donID, uint8(pluginType))
+		if err2 != nil {
+			return nil, err2
+		}
+
+		// we expect only an active config and no candidate config.
+		if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} || ocrConfig.CandidateConfig.ConfigDigest != [32]byte{} {
+			return nil, fmt.Errorf("invalid OCR3 config state, expected active config and no candidate config, donID: %d", donID)
+		}
+
+		activeConfig := ocrConfig.ActiveConfig
+		var signerAddresses [][20]byte
+		var transmitterAddresses []solana.PublicKey
+		for _, node := range activeConfig.Config.Nodes {
+			var signer [20]uint8
+			if len(node.SignerKey) != 20 {
+				return nil, fmt.Errorf("node signer key not 20 bytes long, got: %d", len(node.SignerKey))
+			}
+			copy(signer[:], node.SignerKey)
+			signerAddresses = append(signerAddresses, signer)
+			// https://smartcontract-it.atlassian.net/browse/NONEVM-1254
+			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
+			if err != nil {
+				return nil, err
+			}
+			transmitterAddresses = append(transmitterAddresses, key)
+		}
+
+		ocr3Configs = append(ocr3Configs, MultiOCR3BaseOCRConfigArgsSolana{
+			ConfigDigest:                   activeConfig.ConfigDigest,
+			OCRPluginType:                  uint8(pluginType),
+			F:                              activeConfig.Config.FRoleDON,
+			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,
+			Signers:                        signerAddresses,
+			Transmitters:                   transmitterAddresses,
+		})
+	}
+	return ocr3Configs, nil
+}
+
 func BuildOCR3ConfigForCCIPHome(
 	ocrSecrets deployment.OCRSecrets,
-	offRamp *offramp.OffRamp,
-	dest deployment.Chain,
+	offRampAddress []byte,
+	destSelector uint64,
 	nodes deployment.Nodes,
 	rmnHomeAddress common.Address,
-	ocrParams types2.OCRParameters,
+	ocrParams commontypes.OCRParameters,
 	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
@@ -216,9 +261,9 @@ func BuildOCR3ConfigForCCIPHome(
 	var oracles []confighelper.OracleIdentityExtra
 	for _, node := range nodes {
 		schedule = append(schedule, 1)
-		cfg, exists := node.OCRConfigForChainSelector(dest.Selector)
+		cfg, exists := node.OCRConfigForChainSelector(destSelector)
 		if !exists {
-			return nil, fmt.Errorf("no OCR config for chain %d", dest.Selector)
+			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
 		}
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
@@ -342,10 +387,10 @@ func BuildOCR3ConfigForCCIPHome(
 
 		ocr3Configs[pluginType] = ccip_home.CCIPHomeOCR3Config{
 			PluginType:            uint8(pluginType),
-			ChainSelector:         dest.Selector,
+			ChainSelector:         destSelector,
 			FRoleDON:              configF,
 			OffchainConfigVersion: offchainConfigVersion,
-			OfframpAddress:        offRamp.Address().Bytes(),
+			OfframpAddress:        offRampAddress,
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
 			RmnHomeAddress:        rmnHomeAddress.Bytes(),

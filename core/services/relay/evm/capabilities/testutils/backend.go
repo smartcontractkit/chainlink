@@ -12,19 +12,19 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -45,7 +45,7 @@ type EVMBackendTH struct {
 
 // Test harness to create a simulated backend for testing a LOOPCapability
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	contractsOwner, err := bind.NewKeyedTransactorWithChainID(ownerKey.ToEcdsaPrivKey(), testutils.SimulatedChainID)

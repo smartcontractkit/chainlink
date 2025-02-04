@@ -76,7 +76,7 @@ func Test_ActiveCandidate(t *testing.T) {
 			Config: changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
-						dest: changeset.DefaultFeeQuoterDestChainConfig(),
+						dest: changeset.DefaultFeeQuoterDestChainConfig(true),
 					},
 				},
 			},
@@ -207,7 +207,10 @@ func Test_ActiveCandidate(t *testing.T) {
 						// NOTE: this is technically not a new chain, but needed for validation.
 						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 							dest: changeset.DeriveCCIPOCRParams(
-								changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+								changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel,
+									tokenConfig.GetTokenInfo(logger.TestLogger(t),
+										state.Chains[dest].LinkToken.Address(),
+										state.Chains[dest].Weth9.Address())),
 							),
 						},
 						PluginType: types.PluginTypeCCIPCommit,

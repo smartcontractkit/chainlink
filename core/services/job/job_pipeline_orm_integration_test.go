@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -151,12 +152,19 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		cfg := configtest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db)
-		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
-		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
+		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+			ChainConfigs:   config.EVMConfigs(),
+			DatabaseConfig: config.Database(),
+			FeatureConfig:  config.Feature(),
+			ListenerConfig: config.Database().Listener(),
+			Client:         clienttest.NewClientWithDefaultChainID(t),
+			DB:             db,
+			KeyStore:       ethKeyStore,
+		})
+		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
 		jobORM := NewTestORM(t, db, orm, btORM, keyStore)
 

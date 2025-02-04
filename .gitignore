@@ -79,6 +79,7 @@ benchmark_report.csv
 benchmark_summary.json
 secrets.toml
 tmp_laneconfig/
+solana_contracts
 
 # goreleaser builds
 cosign.*

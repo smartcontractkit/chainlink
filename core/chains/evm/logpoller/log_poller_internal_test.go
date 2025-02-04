@@ -22,22 +22,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var (
@@ -67,7 +63,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 
 	orm := NewORM(chainID, db, lggr)
@@ -211,7 +207,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	addr := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
 	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 	latestBlock := int64(4)
 	const finalityDepth = 2
@@ -229,7 +225,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 		Data:        EvmWord(uint64(300)).Bytes(),
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 
@@ -260,7 +256,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	assert.Equal(t, int64(2), lp.backupPollerNextBlock)
 }
 
-func mockBatchCallContext(t *testing.T, ec *evmclimocks.Client) {
+func mockBatchCallContext(t *testing.T, ec *clienttest.Client) {
 	mockBatchCallContextWithHead(t, ec, newHeadVal)
 }
 
@@ -277,7 +273,7 @@ func newHead(num int64) *evmtypes.Head {
 	return &r
 }
 
-func mockBatchCallContextWithHead(t *testing.T, ec *evmclimocks.Client, newHead func(num int64) evmtypes.Head) {
+func mockBatchCallContextWithHead(t *testing.T, ec *clienttest.Client, newHead func(num int64) evmtypes.Head) {
 	ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		for _, e := range elems {
@@ -305,7 +301,7 @@ func TestLogPoller_Replay(t *testing.T) {
 
 	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 
 	var head atomic.Pointer[evmtypes.Head]
@@ -322,7 +318,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		Data:        EvmWord(uint64(300)).Bytes(),
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	ec.EXPECT().HeadByHash(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
 		return &evmtypes.Head{Number: hash.Big().Int64(), Hash: hash}, nil
 	}).Maybe()
@@ -609,7 +605,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 func Test_FetchBlocks(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr)
 	ctx := testutils.Context(t)
 
@@ -621,7 +617,7 @@ func Test_FetchBlocks(t *testing.T) {
 		FinalityDepth:            3,
 	}
 
-	ec := evmclimocks.NewClient(t)
+	ec := clienttest.NewClient(t)
 	mockBatchCallContext(t, ec) // This will return 5 for "finalized" and 8 for "latest"
 
 	cases := []struct {
@@ -681,7 +677,7 @@ func Test_FetchBlocks(t *testing.T) {
 func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	lpOpts := Opts{
 		PollPeriod:               time.Second,
 		FinalityDepth:            3,
@@ -699,7 +695,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).RunAndReturn(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
 			return latest, finalized, nil
 		}).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -718,7 +714,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -738,7 +734,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil
 		})
@@ -756,7 +752,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
-		ec := evmclimocks.NewClient(t)
+		ec := clienttest.NewClient(t)
 		ec.EXPECT().ConfiguredChainID().Return(chainID)
 		ec.EXPECT().HeadByNumber(mock.Anything, mock.Anything).RunAndReturn(func(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 			return newHead(number.Int64()), nil

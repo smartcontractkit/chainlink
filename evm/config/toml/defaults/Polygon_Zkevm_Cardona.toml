@@ -1,0 +1,31 @@
+ChainID = '2442'
+ChainType = 'zkevm'
+FinalityDepth = 500
+LinkContractAddress = '0x5576815a38A3706f37bf815b261cCc7cCA77e975'
+LogPollInterval = '30s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '12m'
+RPCDefaultBatchSize = 100
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[GasEstimator]
+Mode = 'FeeHistory'
+# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
+PriceMin = '0'
+BumpPercent = 40
+
+[GasEstimator.FeeHistory]
+# Refresh the suggested price every 4 seconds, to stay slightly below their polling rate of 5s
+CacheTimeout = '4s'
+
+[HeadTracker]
+HistoryDepth = 2000
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3

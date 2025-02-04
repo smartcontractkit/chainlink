@@ -26,9 +26,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -43,6 +41,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var _ pb.MercuryServer = &mercuryServer{}

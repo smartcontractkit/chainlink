@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 func newEvmTxm(
@@ -54,7 +54,7 @@ func newEvmTxm(
 				opts.KeyStore,
 				estimator,
 			)
-			if cfg.Transactions().TransactionManagerV2().DualBroadcast() != nil && *cfg.Transactions().TransactionManagerV2().DualBroadcast() {
+			if cfg.Transactions().TransactionManagerV2().DualBroadcast() == nil || !*cfg.Transactions().TransactionManagerV2().DualBroadcast() {
 				return txmv2, err
 			}
 		}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -51,8 +52,13 @@ func TestInvalidOCR3Params(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
-				ChainSelectors:    []uint64{chain1},
 				HomeChainSelector: e.HomeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					chain1: {
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
 			},
 		},
 	})
@@ -71,8 +77,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
 	_, err = internal.BuildOCR3ConfigForCCIPHome(
 		e.Env.OCRSecrets,
-		state.Chains[chain1].OffRamp,
-		e.Env.Chains[chain1],
+		state.Chains[chain1].OffRamp.Address().Bytes(),
+		chain1,
 		nodes.NonBootstraps(),
 		state.Chains[e.HomeChainSel].RMNHome.Address(),
 		params.OCRParameters,
@@ -156,8 +162,9 @@ func Test_PromoteCandidate(t *testing.T) {
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []changeset.PromoteCandidatePluginInfo{
 							{
-								RemoteChainSelectors: []uint64{dest},
-								PluginType:           types.PluginTypeCCIPCommit,
+								RemoteChainSelectors:    []uint64{dest},
+								PluginType:              types.PluginTypeCCIPCommit,
+								AllowEmptyConfigPromote: true,
 							},
 						},
 						MCMS: mcmsConfig,
@@ -257,7 +264,11 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -370,7 +381,11 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-										changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t), state.Chains[dest].LinkToken, state.Chains[dest].Weth9)),
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -557,9 +572,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						RemoteChainAdds: map[uint64]changeset.ChainConfig{
 							otherChain: {
 								EncodableChainConfig: chainconfig.ChainConfig{
-									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(internal.GasPriceDeviationPPB)},
-									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(internal.DAGasPriceDeviationPPB)},
-									OptimisticConfirmations: internal.OptimisticConfirmations,
+									GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+									DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+									OptimisticConfirmations: globals.OptimisticConfirmations,
 								},
 								FChain:  otherChainConfig.FChain,
 								Readers: otherChainConfig.Readers,

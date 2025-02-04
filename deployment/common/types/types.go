@@ -36,6 +36,7 @@ type MCMSWithTimelockConfig struct {
 	Bypasser         config.Config
 	Proposer         config.Config
 	TimelockMinDelay *big.Int
+	Label            *string
 }
 
 type OCRParameters struct {
