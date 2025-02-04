@@ -85,7 +85,10 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
 
-					proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel)
+					err := proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel)
+					if err != nil {
+						return e, fmt.Errorf("failed to execute proposal: %w", err)
+					}
 				}
 			}
 		}

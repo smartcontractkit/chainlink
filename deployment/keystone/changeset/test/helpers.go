@@ -99,6 +99,29 @@ func (te TestEnv) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
 	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
 }
 
+func (te TestEnv) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo {
+	te.t.Helper()
+	caps, err := te.CapabilitiesRegistry().GetCapabilities(nil)
+	require.NoError(te.t, err)
+	return caps
+}
+
+func (te TestEnv) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
+	te.t.Helper()
+	nops, err := te.CapabilitiesRegistry().GetNodeOperators(nil)
+	require.NoError(te.t, err)
+	out := make([]kcr.CapabilitiesRegistryNodeOperatorAdded, len(nops))
+	id := uint32(0)
+	for i, n := range nops {
+		out[i] = kcr.CapabilitiesRegistryNodeOperatorAdded{
+			NodeOperatorId: id + 1, // 1-indexed
+			Admin:          n.Admin,
+			Name:           n.Name,
+		}
+	}
+	return out
+}
+
 // SetupTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
