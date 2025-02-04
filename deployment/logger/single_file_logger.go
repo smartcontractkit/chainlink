@@ -2,15 +2,13 @@ package logger
 
 import (
 	"fmt"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"testing"
-	"time"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	// The Chainlink logger interface we're implementing:
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,14 +27,14 @@ var _ corelogger.Logger = (*SingleFileLogger)(nil)
 // The file name includes the test name + timestamp so that parallel tests don’t collide.
 func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 	// Our logs will go here so GH can upload them:
-	dir := "./integration-tests/smoke/ccip/logs"
+	dir := "./deployment/environment/memory/logs"
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Fatalf("Failed to create logs dir %q: %v", dir, err)
 	}
 
 	// For uniqueness, include test name + timestamp
-	filename := fmt.Sprintf("%s_%d.log", tb.Name(), time.Now().UnixNano())
+	filename := fmt.Sprintf("%snodes.log", tb.Name())
 	fullPath := filepath.Join(dir, filename)
 	f, err := os.Create(fullPath)
 	if err != nil {
