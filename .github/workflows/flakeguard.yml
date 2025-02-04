@@ -420,7 +420,7 @@ jobs:
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            --splunk-event "${{ github.event }}"
+            --splunk-event "${{ github.event_name }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
