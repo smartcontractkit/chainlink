@@ -102,12 +102,17 @@ type TestCaseOutput struct {
 	MsgSentEvent *onramp.OnRampCCIPMessageSent
 }
 
-func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
+func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...uint64) {
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
-	replayBlocks[sourceChain] = 1
-	replayBlocks[destChain] = 1
-
+	for _, selector := range chainSelectors {
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		require.NoError(t, err)
+		// log replay is only available on EVM
+		if family == chain_selectors.FamilyEVM {
+			replayBlocks[selector] = 1
+		}
+	}
 	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }
 
