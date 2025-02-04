@@ -102,6 +102,10 @@ func (h *Head) BlockDifficulty() *big.Int {
 	return h.Difficulty
 }
 
+func (h *Head) GetTotalDifficulty() *big.Int {
+	return h.TotalDifficulty
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	var earliestInChain *Head

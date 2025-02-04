@@ -9,7 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"strconv"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -25,7 +25,6 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	"github.com/smartcontractkit/chainlink/v2/evm/assets"
@@ -100,26 +99,10 @@ type RPCClient struct {
 	chainType                  chaintype.ChainType
 	clientErrors               config.ClientErrors
 
-	ws   *rawclient
-	http *rawclient
+	ws   atomic.Pointer[rawclient]
+	http atomic.Pointer[rawclient]
 
-	stateMu     sync.RWMutex // protects state* fields
-	subsSliceMu sync.RWMutex // protects subscription slice
-
-	// Need to track subscriptions because closing the RPC does not (always?)
-	// close the underlying subscription
-	subs map[ethereum.Subscription]struct{}
-
-	// chStopInFlight can be closed to immediately cancel all in-flight requests on
-	// this RPCClient. Closing and replacing should be serialized through
-	// stateMu since it can happen on state transitions as well as RPCClient Close.
-	chStopInFlight chan struct{}
-
-	chainInfoLock sync.RWMutex
-	// intercepted values seen by callers of the RPCClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
-	highestUserObservations multinode.ChainInfo
-	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
-	latestChainInfo multinode.ChainInfo
+	*multinode.RPCClientBase[*evmtypes.Head]
 }
 
 var _ multinode.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
@@ -152,12 +135,11 @@ func NewRPCClient(
 	r.finalizedBlockPollInterval = cfg.FinalizedBlockPollInterval()
 	r.newHeadsPollInterval = cfg.NewHeadsPollInterval()
 	if wsuri != nil {
-		r.ws = &rawclient{uri: *wsuri}
+		r.ws.Store(&rawclient{uri: *wsuri})
 	}
 	if httpuri != nil {
-		r.http = &rawclient{uri: *httpuri}
+		r.http.Store(&rawclient{uri: *httpuri})
 	}
-	r.chStopInFlight = make(chan struct{})
 	lggr = logger.Named(lggr, "Client")
 	lggr = logger.With(lggr,
 		"clientTier", tier.String(),
@@ -166,8 +148,8 @@ func NewRPCClient(
 		"evmChainID", chainID,
 	)
 	r.rpcLog = logger.Sugared(lggr).Named("RPC")
-	r.subs = map[ethereum.Subscription]struct{}{}
 
+	r.RPCClientBase = multinode.NewRPCClientBase[*evmtypes.Head](cfg, QueryTimeout, lggr, r.latestBlock, r.latestFinalizedBlock)
 	return r
 }
 
@@ -180,48 +162,31 @@ func (r *RPCClient) Ping(ctx context.Context) error {
 	return err
 }
 
-func (r *RPCClient) UnsubscribeAllExcept(subs ...multinode.Subscription) {
-	r.subsSliceMu.Lock()
-	defer r.subsSliceMu.Unlock()
-
-	keepSubs := map[multinode.Subscription]struct{}{}
-	for _, sub := range subs {
-		keepSubs[sub] = struct{}{}
-	}
-
-	for sub := range r.subs {
-		if _, keep := keepSubs[sub]; !keep {
-			sub.Unsubscribe()
-			delete(r.subs, sub)
-		}
-	}
-}
-
-// Not thread-safe, pure dial.
 func (r *RPCClient) Dial(callerCtx context.Context) error {
-	ctx, cancel := r.makeQueryCtx(callerCtx, r.rpcTimeout)
+	ctx, cancel, _ := r.AcquireQueryCtx(callerCtx, r.rpcTimeout)
 	defer cancel()
 
-	if r.ws == nil && r.http == nil {
+	ws := r.ws.Load()
+	http := r.http.Load()
+	if ws == nil && http == nil {
 		return errors.New("cannot dial rpc client when both ws and http info are missing")
 	}
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
 	lggr := r.rpcLog
-	if r.ws != nil {
-		lggr = lggr.With("wsuri", r.ws.uri.Redacted())
-		wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
+	if ws != nil {
+		lggr = lggr.With("wsuri", ws.uri.Redacted())
+		wsrpc, err := rpc.DialWebsocket(ctx, ws.uri.String(), "")
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
+			return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", ws.uri.Redacted()))
 		}
 
-		r.ws.rpc = wsrpc
-		r.ws.geth = ethclient.NewClient(wsrpc)
+		r.ws.Store(&rawclient{uri: ws.uri, rpc: wsrpc, geth: ethclient.NewClient(wsrpc)})
 	}
 
-	if r.http != nil {
-		lggr = lggr.With("httpuri", r.http.uri.Redacted())
+	if http != nil {
+		lggr = lggr.With("httpuri", http.uri.Redacted())
 		if err := r.DialHTTP(); err != nil {
 			return err
 		}
@@ -232,23 +197,23 @@ func (r *RPCClient) Dial(callerCtx context.Context) error {
 	return nil
 }
 
-// Not thread-safe, pure dial.
 // DialHTTP doesn't actually make any external HTTP calls
 // It can only return error if the URL is malformed.
 func (r *RPCClient) DialHTTP() error {
+	http := r.http.Load()
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.rpcLog.With("httpuri", r.http.uri.Redacted())
+	lggr := r.rpcLog.With("httpuri", http.uri.Redacted())
 	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
 	var httprpc *rpc.Client
-	httprpc, err := rpc.DialHTTP(r.http.uri.String())
+	httprpc, err := rpc.DialHTTP(http.uri.String())
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing HTTP: %v", r.http.uri.Redacted()))
+		return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing HTTP: %v", http.uri.Redacted()))
 	}
 
-	r.http.rpc = httprpc
-	r.http.geth = ethclient.NewClient(httprpc)
+	http.rpc = httprpc
+	http.geth = ethclient.NewClient(httprpc)
 
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
 
@@ -257,32 +222,23 @@ func (r *RPCClient) DialHTTP() error {
 
 func (r *RPCClient) Close() {
 	defer func() {
-		if r.ws != nil && r.ws.rpc != nil {
-			r.ws.rpc.Close()
+		ws := r.ws.Load()
+		if ws != nil && ws.rpc != nil {
+			ws.rpc.Close()
 		}
 	}()
-	r.cancelInflightRequests()
-	r.UnsubscribeAllExcept()
-	r.chainInfoLock.Lock()
-	r.latestChainInfo = multinode.ChainInfo{}
-	r.chainInfoLock.Unlock()
-}
-
-// cancelInflightRequests closes and replaces the chStopInFlight
-func (r *RPCClient) cancelInflightRequests() {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-	close(r.chStopInFlight)
-	r.chStopInFlight = make(chan struct{})
+	r.RPCClientBase.Close()
 }
 
 func (r *RPCClient) String() string {
 	s := fmt.Sprintf("(%s)%s", r.tier.String(), r.name)
-	if r.ws != nil {
-		s = s + fmt.Sprintf(":%s", r.ws.uri.Redacted())
+	ws := r.ws.Load()
+	if ws != nil {
+		s = s + fmt.Sprintf(":%s", ws.uri.Redacted())
 	}
-	if r.http != nil {
-		s = s + fmt.Sprintf(":%s", r.http.uri.Redacted())
+	http := r.http.Load()
+	if http != nil {
+		s = s + fmt.Sprintf(":%s", http.uri.Redacted())
 	}
 	return s
 }
@@ -320,27 +276,11 @@ func (r *RPCClient) logResult(
 }
 
 func (r *RPCClient) getRPCDomain() string {
-	if r.http != nil {
-		return r.http.uri.Host
+	http := r.http.Load()
+	if http != nil {
+		return http.uri.Host
 	}
-	return r.ws.uri.Host
-}
-
-// registerSub adds the sub to the RPCClient list
-func (r *RPCClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
-	r.subsSliceMu.Lock()
-	defer r.subsSliceMu.Unlock()
-	// ensure that the `sub` belongs to current life cycle of the `RPCClient` and it should not be killed due to
-	// previous `DisconnectAll` call.
-	select {
-	case <-stopInFLightCh:
-		sub.Unsubscribe()
-		return fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
-	default:
-	}
-	// TODO: BCI-3358 - delete sub when caller unsubscribes.
-	r.subs[sub] = struct{}{}
-	return nil
+	return r.ws.Load().uri.Host
 }
 
 // RPC wrappers
@@ -451,6 +391,8 @@ func isRequestingFinalizedBlock(el rpc.BatchElem) bool {
 	}
 }
 
+// SubscribeToHeads implements custom SubscribeToheads method to override the RPCClientBase
+// with added ws support.
 func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub multinode.Subscription, err error) {
 	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
@@ -460,26 +402,8 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 
 	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
 	if r.newHeadsPollInterval > 0 {
-		interval := r.newHeadsPollInterval
-		timeout := interval
-		isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
-		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
-			if isHealthCheckRequest {
-				ctx = multinode.CtxAddHealthCheckFlag(ctx)
-			}
-			return r.latestBlock(ctx)
-		}, timeout, r.rpcLog)
-		if err = poller.Start(ctx); err != nil {
-			return nil, nil, err
-		}
-
-		err = r.registerSub(&poller, chStopInFlight)
-		if err != nil {
-			return nil, nil, err
-		}
-
 		lggr.Debugf("Polling new heads over http")
-		return channel, &poller, nil
+		return r.RPCClientBase.SubscribeToHeads(ctx)
 	}
 
 	if ws == nil {
@@ -496,7 +420,7 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 	channel := make(chan *evmtypes.Head)
 	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) (*evmtypes.Head, error) {
 		head.EVMChainID = ubig.New(r.chainID)
-		r.onNewHead(ctx, chStopInFlight, head)
+		r.OnNewHead(ctx, chStopInFlight, head)
 		return head, nil
 	}, r.wrapRPCClientError)
 
@@ -505,40 +429,12 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 		return nil, nil, err
 	}
 
-	err = r.registerSub(forwarder, chStopInFlight)
+	sub, err = r.RegisterSub(forwarder, chStopInFlight)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return channel, forwarder, err
-}
-
-func (r *RPCClient) SubscribeToFinalizedHeads(ctx context.Context) (<-chan *evmtypes.Head, multinode.Subscription, error) {
-	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
-	defer cancel()
-
-	interval := r.cfg.FinalizedBlockPollInterval()
-	if interval == 0 {
-		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
-	}
-	timeout := interval
-	isHealthCheckRequest := multinode.CtxIsHeathCheckRequest(ctx)
-	poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
-		if isHealthCheckRequest {
-			ctx = multinode.CtxAddHealthCheckFlag(ctx)
-		}
-		return r.LatestFinalizedBlock(ctx)
-	}, timeout, r.rpcLog)
-	if err := poller.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-
-	err := r.registerSub(&poller, chStopInFlight)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return channel, &poller, nil
+	return channel, sub, err
 }
 
 // GethClient wrappers
@@ -646,9 +542,13 @@ func (r *RPCClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (r *RPCClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+func (r *RPCClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
+	return r.BlockByNumber(ctx, nil)
+}
+
+func (r *RPCClient) latestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error) {
 	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
-	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
+	ctx, cancel, _, _, _ := r.acquireQueryCtx(ctx, r.rpcTimeout)
 	defer cancel()
 	if r.chainType == chaintype.ChainAstar {
 		// astar's finality tags provide weaker guarantee. Use their custom request to request latest finalized block
@@ -665,15 +565,8 @@ func (r *RPCClient) LatestFinalizedBlock(ctx context.Context) (head *evmtypes.He
 		err = r.wrapRPCClientError(ethereum.NotFound)
 		return
 	}
-
 	head.EVMChainID = ubig.New(r.chainID)
-
-	r.onNewFinalizedHead(ctx, chStopInFlight, head)
 	return
-}
-
-func (r *RPCClient) latestBlock(ctx context.Context) (head *evmtypes.Head, err error) {
-	return r.BlockByNumber(ctx, nil)
 }
 
 func (r *RPCClient) astarLatestFinalizedBlock(ctx context.Context, result interface{}) (err error) {
@@ -720,7 +613,7 @@ func (r *RPCClient) BlockByNumber(ctx context.Context, number *big.Int) (head *e
 	head.EVMChainID = ubig.New(r.chainID)
 
 	if hexNumber == rpc.LatestBlockNumber.String() {
-		r.onNewHead(ctx, chStopInFlight, head)
+		r.OnNewHead(ctx, chStopInFlight, head)
 	}
 
 	return
@@ -1241,12 +1134,12 @@ func (r *RPCClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQu
 		return
 	}
 
-	err = r.registerSub(sub, chStopInFlight)
+	managedSub, err := r.RegisterSub(sub, chStopInFlight)
 	if err != nil {
 		return
 	}
 
-	return sub, nil
+	return managedSub, nil
 }
 
 func (r *RPCClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
@@ -1314,12 +1207,12 @@ func wrapCallError(err error, tp string) error {
 }
 
 func (r *RPCClient) wrapWS(err error) error {
-	err = wrapCallError(err, fmt.Sprintf("%s websocket (%s)", r.tier.String(), r.ws.uri.Redacted()))
+	err = wrapCallError(err, fmt.Sprintf("%s websocket (%s)", r.tier.String(), r.ws.Load().uri.Redacted()))
 	return r.wrapRPCClientError(err)
 }
 
 func (r *RPCClient) wrapHTTP(err error) error {
-	err = wrapCallError(err, fmt.Sprintf("%s http (%s)", r.tier.String(), r.http.uri.Redacted()))
+	err = wrapCallError(err, fmt.Sprintf("%s http (%s)", r.tier.String(), r.http.Load().uri.Redacted()))
 	err = r.wrapRPCClientError(err)
 	if err != nil {
 		r.rpcLog.Debugw("Call failed", "err", err)
@@ -1330,47 +1223,24 @@ func (r *RPCClient) wrapHTTP(err error) error {
 }
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
-func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc, ws *rawclient, http *rawclient) {
+func (r *RPCClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
+	ws *rawclient, http *rawclient) {
 	ctx, cancel, _, ws, http = r.acquireQueryCtx(parentCtx, timeout)
 	return
 }
 
 func (r *RPCClient) acquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	chStopInFlight chan struct{}, ws *rawclient, http *rawclient) {
-	// Need to wrap in mutex because state transition can cancel and replace the
-	// context
-	r.stateMu.RLock()
-	chStopInFlight = r.chStopInFlight
-	if r.ws != nil {
-		cp := *r.ws
+	ctx, cancel, chStopInFlight = r.AcquireQueryCtx(parentCtx, timeout)
+	if loadedWs := r.ws.Load(); loadedWs != nil {
+		cp := *loadedWs
 		ws = &cp
 	}
-	if r.http != nil {
-		cp := *r.http
+	if loadedHttp := r.http.Load(); loadedHttp != nil {
+		cp := *loadedHttp
 		http = &cp
 	}
-	r.stateMu.RUnlock()
-	ctx, cancel = makeQueryCtx(parentCtx, chStopInFlight, timeout)
 	return
-}
-
-// makeQueryCtx returns a context that cancels if:
-// 1. Passed in ctx cancels
-// 2. Passed in channel is closed
-// 3. Default timeout is reached (queryTimeout)
-func makeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Duration) (context.Context, context.CancelFunc) {
-	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = ch.Ctx(ctx)
-	ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
-	cancel := func() {
-		chCancel()
-		timeoutCancel()
-	}
-	return ctx, cancel
-}
-
-func (r *RPCClient) makeQueryCtx(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	return makeQueryCtx(ctx, r.getChStopInflight(), timeout)
 }
 
 func (r *RPCClient) IsSyncing(ctx context.Context) (bool, error) {
@@ -1398,59 +1268,8 @@ func (r *RPCClient) IsSyncing(ctx context.Context) (bool, error) {
 	return syncProgress != nil, nil
 }
 
-// getChStopInflight provides a convenience helper that mutex wraps a
-// read to the chStopInFlight
-func (r *RPCClient) getChStopInflight() chan struct{} {
-	r.stateMu.RLock()
-	defer r.stateMu.RUnlock()
-	return r.chStopInFlight
-}
-
 func (r *RPCClient) Name() string {
 	return r.name
-}
-
-func (r *RPCClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
-	if head == nil {
-		return
-	}
-
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHeathCheckRequest(ctx) {
-		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
-		r.highestUserObservations.TotalDifficulty = multinode.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
-	}
-	select {
-	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
-		return
-	default:
-		r.latestChainInfo.BlockNumber = head.Number
-		r.latestChainInfo.TotalDifficulty = head.TotalDifficulty
-	}
-}
-
-func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
-	if head == nil {
-		return
-	}
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHeathCheckRequest(ctx) {
-		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
-	}
-	select {
-	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
-		return
-	default:
-		r.latestChainInfo.FinalizedBlockNumber = head.Number
-	}
-}
-
-func (r *RPCClient) GetInterceptedChainInfo() (latest, highestUserObservations multinode.ChainInfo) {
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	return r.latestChainInfo, r.highestUserObservations
 }
 
 func ToBlockNumArg(number *big.Int) string {
