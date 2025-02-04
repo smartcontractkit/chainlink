@@ -9,8 +9,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../chainlink-testing-framework/framework
-
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
@@ -53,7 +51,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250203132120-f0d42463e405
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250130202959-6f1f48342e36
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.7
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.9-0.20250203190744-8094529f5917
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.21
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0

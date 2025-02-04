@@ -130,3 +130,110 @@
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+
+# this DON is not used, even though chain write capability is being registered, there's no much point in using it
+# until we figure out why
+[nodeset_b]
+  nodes = 5
+  override_mode = "each"
+  http_port_range_start = 10200
+  name = "capabilities"
+
+  [nodeset_b.db]
+    image = "postgres:12.0"
+    port = 13100
+    volume_name = "capabilities_volume"
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset_b.node_specs]]
+
+    [nodeset_b.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
