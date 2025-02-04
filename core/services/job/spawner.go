@@ -134,11 +134,17 @@ func (js *spawner) startAllServices(ctx context.Context) {
 		return
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(specs))
 	for _, spec := range specs {
-		if err = js.StartService(ctx, spec); err != nil {
-			js.lggr.Errorf("Couldn't start service %q: %v", spec.Name.ValueOrZero(), err)
-		}
+		go func(spec Job) {
+			defer wg.Done()
+			if err = js.StartService(ctx, spec); err != nil {
+				js.lggr.Errorf("Couldn't start service %q: %v", spec.Name.ValueOrZero(), err)
+			}
+		}(spec)
 	}
+	wg.Wait()
 	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
 	// to make sure the initial backfill covers those subscribers.
 	for _, lbd := range js.lbDependentAwaiters {
@@ -148,9 +154,15 @@ func (js *spawner) startAllServices(ctx context.Context) {
 
 func (js *spawner) stopAllServices() {
 	jobIDs := js.activeJobIDs()
+	wg := sync.WaitGroup{}
+	wg.Add(len(jobIDs))
 	for _, jobID := range jobIDs {
-		js.stopService(jobID)
+		go func(jobID int32) {
+			defer wg.Done()
+			js.stopService(jobID)
+		}(jobID)
 	}
+	wg.Wait()
 }
 
 // stopService removes the job from memory and stop the services.
