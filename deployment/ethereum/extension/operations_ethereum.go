@@ -15,18 +15,18 @@ type DeployContractBindingFn[I, Contract any] func(
 ) (common.Address, *types.Transaction, *Contract, error)
 type DeployContractBindingNoParamsFn[Contract any] func(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *Contract, error)
 
-type ContractCtorFn func(address common.Address, backend bind.ContractBackend) (*bind.BoundContract, error)
-
 // TODO: Add address...
 type EthereumTxOutput struct {
-	Tx      *types.Transaction
+	Hash    common.Hash
 	Address common.Address
+
+	RawReceipt any
 }
 
 type EthereumDeps struct {
 	Auth    *bind.TransactOpts
-	Client  bind.ContractBackend
-	Confirm func(tx *types.Transaction) (uint64, error)
+	Client  deployment.OnchainClient
+	Confirm func(client deployment.OnchainClient, hash common.Hash) (*types.Receipt, error)
 }
 
 // EthInput is a common interface for all Ethereum operation inputs
@@ -51,12 +51,13 @@ func NewEthDeployOperationFromBinding[I, C any](
 				return EthereumTxOutput{}, err
 			}
 
-			_, err = ctx.Deps.Confirm(tx)
+			hash := tx.Hash()
+			rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
 			if err != nil {
 				return EthereumTxOutput{}, err
 			}
 
-			return EthereumTxOutput{Tx: tx, Address: address}, nil
+			return EthereumTxOutput{Hash: hash, Address: address, RawReceipt: rec}, nil
 		})
 }
 
@@ -67,12 +68,13 @@ func NewEthDeployOperationFromBindingNoParams[C any](binding DeployContractBindi
 			return EthereumTxOutput{}, err
 		}
 
-		_, err = ctx.Deps.Confirm(tx)
+		hash := tx.Hash()
+		rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
-		return EthereumTxOutput{Tx: tx, Address: address}, nil
+		return EthereumTxOutput{Hash: hash, Address: address, RawReceipt: rec}, nil
 	})
 }
 
@@ -93,11 +95,12 @@ func NewEthOperationFromBinding[I EthMethodInput](metadata *bind.MetaData, versi
 			return EthereumTxOutput{}, err
 		}
 
-		_, err = ctx.Deps.Confirm(tx)
+		hash := tx.Hash()
+		rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
-		return EthereumTxOutput{Tx: tx}, nil
+		return EthereumTxOutput{Hash: hash, Address: input.Address(), RawReceipt: rec}, nil
 	})
 }

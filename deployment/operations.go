@@ -17,7 +17,7 @@ type ExecuteFunc[I, O, Deps any] func(context Context[Deps], input I) (output O,
 
 // An Operation is defined by a unique ID and version. It has a description explaining what it does.
 type OperationDefinition struct {
-	Id          string
+	ID          string
 	Version     string
 	Description string
 }
@@ -31,7 +31,6 @@ type Input interface {
 // They execute one operation, which can perform max 1 side effect (e.g. send a transaction, post a job spec...)
 type Operation[I, O, Deps any] struct {
 	def      OperationDefinition
-	input    I // might not be needed
 	execFunc ExecuteFunc[I, O, Deps]
 }
 
@@ -40,7 +39,7 @@ func NewOperation[I, O, Deps any](version string, description string, execFunc E
 	return &Operation[I, O, Deps]{
 		def: OperationDefinition{
 			// Id and version are useful to identify the operation
-			Id:          "__placeholder__",
+			ID:          "__placeholder__",
 			Version:     version,
 			Description: description,
 		},
@@ -49,7 +48,7 @@ func NewOperation[I, O, Deps any](version string, description string, execFunc E
 }
 
 func (o *Operation[I, O, Deps]) Execute(ctx Context[Deps], input I) (output O, err error) {
-	ctx.Log.Infow("Executing operation", "id", o.def.Id, "version", o.def.Version, "description", o.def.Description)
+	ctx.Log.Infow("Executing operation", "id", o.def.ID, "version", o.def.Version, "description", o.def.Description)
 	return o.execFunc(ctx, input)
 }
 
@@ -59,7 +58,7 @@ func (o *Operation[I, O, Deps]) Inspect(ctx Context[Deps], input I) (err error) 
 }
 
 func (o *Operation[I, O, Deps]) ID() string {
-	return o.def.Id
+	return o.def.ID
 }
 
 // TODO: Version should be a standard semver
@@ -135,7 +134,7 @@ func ExecuteOp[I, O, Deps any](
 	// We store a generic report as is only for storing, we don't mind losing types there
 	genericReport := Report[any, any, any]{
 		OpDef: OperationDefinition{
-			Id:          operation.ID(),
+			ID:          operation.ID(),
 			Version:     operation.Version(),
 			Description: operation.Description(),
 		},

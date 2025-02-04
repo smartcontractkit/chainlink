@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -24,9 +24,10 @@ func TestLinkChangeset(t *testing.T) {
 		MintAmount: big.NewInt(1000000000000000000),
 		Amount:     big.NewInt(1000000000000),
 		To:         common.HexToAddress("0x1"),
-		chainId:    chain1,
+		chainID:    chain1,
 	}
 	ret, err := LinkExampleChangeset(e, changesetInput)
+	require.NoError(t, err)
 
 	jsonReports, err := json.MarshalIndent(ret.Reports, "", "  ")
 	if err != nil {
@@ -36,5 +37,4 @@ func TestLinkChangeset(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, ret)
-
 }

@@ -60,6 +60,8 @@ type Chain struct {
 	// Users are a set of keys that can be used to interact with the chain.
 	// These are distinct from the deployer key.
 	Users []*bind.TransactOpts
+
+	ConfirmByHash func(client OnchainClient, hash common.Hash) (*types.Receipt, error)
 }
 
 func (c Chain) String() string {

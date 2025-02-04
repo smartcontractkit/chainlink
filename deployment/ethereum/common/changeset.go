@@ -12,7 +12,7 @@ type ChangesetLinkInput struct {
 	MintAmount *big.Int
 	Amount     *big.Int
 	To         common.Address
-	chainId    uint64
+	chainID    uint64
 }
 
 // This changeset deploys and transfers an specific amount of LINK to an address
@@ -22,14 +22,14 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 	reporter := deployment.NewMemoryReporter([]deployment.Report[any, any, any]{})
 
 	// Prepare operation context
-	auth := e.Chains[config.chainId].DeployerKey
-	client := e.Chains[config.chainId].Client
+	auth := e.Chains[config.chainID].DeployerKey
+	client := e.Chains[config.chainID].Client
 	ethCtx := deployment.Context[deployment_ethereum.EthereumDeps]{
 		Log: e.Logger,
 		Deps: deployment_ethereum.EthereumDeps{
 			Auth:    auth,
 			Client:  client,
-			Confirm: e.Chains[config.chainId].Confirm,
+			Confirm: e.Chains[config.chainID].ConfirmByHash,
 		},
 	}
 

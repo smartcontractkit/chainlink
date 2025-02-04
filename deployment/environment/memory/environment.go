@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gagliardetto/solana-go"
 	"github.com/hashicorp/consul/sdk/freeport"
@@ -131,10 +132,47 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 					return receipt.BlockNumber.Uint64(), nil
 				}
 			},
+			ConfirmByHash: func(_ deployment.OnchainClient, hash common.Hash) (*types.Receipt, error) {
+				for {
+					backend.Commit()
+					receipt, err := func() (*types.Receipt, error) {
+						ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+						defer cancel()
+						return waitMined(ctx, backend, hash)
+					}()
+
+					if err != nil {
+						return nil, fmt.Errorf("failed to get confirmed receipt for chain: %w", err)
+					}
+					if receipt == nil {
+						return nil, fmt.Errorf("receipt was nil for tx: %s", hash.Hex())
+					}
+					return receipt, nil
+				}
+			},
 			Users: chain.Users,
 		}
 	}
 	return chains
+}
+
+func waitMined(ctx context.Context, b bind.DeployBackend, hash common.Hash) (*types.Receipt, error) {
+	queryTicker := time.NewTicker(time.Second)
+	defer queryTicker.Stop()
+
+	for {
+		receipt, err := b.TransactionReceipt(ctx, hash)
+		if err == nil {
+			return receipt, nil
+		}
+
+		// Wait for the next round.
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-queryTicker.C:
+		}
+	}
 }
 
 func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {

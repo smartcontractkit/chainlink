@@ -10,7 +10,7 @@ import (
 	deployment_ethereum "github.com/smartcontractkit/chainlink/deployment/ethereum/extension"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/test-go/testify/require"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -22,7 +22,6 @@ func TestLinkOps(t *testing.T) {
 	})
 	chain1 := e.AllChainSelectors()[0]
 
-	chain := e.Chains[chain1]
 	client := e.Chains[chain1].Client
 	auth := e.Chains[chain1].DeployerKey
 
@@ -31,7 +30,7 @@ func TestLinkOps(t *testing.T) {
 		Deps: deployment_ethereum.EthereumDeps{
 			Auth:    auth,
 			Client:  client,
-			Confirm: chain.Confirm,
+			Confirm: e.Chains[chain1].ConfirmByHash,
 		},
 	}
 
@@ -39,7 +38,7 @@ func TestLinkOps(t *testing.T) {
 	deployRes, err := DeployLinkOp.Execute(ctx, deployment.EmptyInput{})
 	require.NoError(t, err)
 	require.NotNil(t, deployRes.Address)
-	require.NotNil(t, deployRes.Tx)
+	require.NotNil(t, deployRes.Hash)
 
 	// GRANT MINT ROLE
 	grantMint, err := GrantMintLinkOp.Execute(ctx, GrantLinkInput{
@@ -47,7 +46,7 @@ func TestLinkOps(t *testing.T) {
 		To:              auth.From,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, grantMint.Tx)
+	require.NotNil(t, grantMint.Hash)
 
 	// MINT SOME TO SELF
 	mint, err := MintLinkOp.Execute(ctx, MintLinkInput{
@@ -56,7 +55,7 @@ func TestLinkOps(t *testing.T) {
 		Amount:          big.NewInt(1000000000000000000),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, mint.Tx)
+	require.NotNil(t, mint.Hash)
 
 	// TRANSFER SOME TO DEST
 	dest := common.HexToAddress("0x1")
@@ -68,7 +67,7 @@ func TestLinkOps(t *testing.T) {
 
 	transferRes, err := TransferLinkOp.Execute(ctx, transferInput)
 	require.NoError(t, err)
-	require.NotNil(t, transferRes.Tx)
+	require.NotNil(t, transferRes.Hash)
 
 	link, err := link_token.NewLinkToken(deployRes.Address, client)
 
