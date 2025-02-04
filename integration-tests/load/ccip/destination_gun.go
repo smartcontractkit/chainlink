@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
