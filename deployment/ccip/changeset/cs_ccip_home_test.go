@@ -1,6 +1,7 @@
 package changeset_test
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"regexp"
 	"testing"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/stretchr/testify/require"
@@ -264,16 +264,11 @@ func Test_SetCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-                    changeset.WithDefaultCommitOffChainConfig(
+										changeset.WithDefaultCommitOffChainConfig(
 											tenv.FeedChainSel,
-											tokenConfig.GetTokenInfo(logger.NewNamedTestLogger(t),
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
 												state.Chains[dest].LinkToken.Address(),
 												state.Chains[dest].Weth9.Address())),
-// 										changeset.WithDefaultCommitOffChainConfig(
-// 											tenv.FeedChainSel,
-// 											tokenConfig.GetTokenInfo(logger.TestLogger(t),
-// 												state.Chains[dest].LinkToken.Address(),
-// 												state.Chains[dest].Weth9.Address())),
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
@@ -386,18 +381,11 @@ func Test_RevokeCandidate(t *testing.T) {
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 									dest: changeset.DeriveCCIPOCRParams(
-                    
 										changeset.WithDefaultCommitOffChainConfig(
 											tenv.FeedChainSel,
-											tokenConfig.GetTokenInfo(logger.NewNamedTestLogger(t),
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
 												state.Chains[dest].LinkToken.Address(),
 												state.Chains[dest].Weth9.Address())),
-// 										changeset.WithDefaultCommitOffChainConfig(
-// 											tenv.FeedChainSel,
-// 											tokenConfig.GetTokenInfo(logger.TestLogger(t),
-// 												state.Chains[dest].LinkToken.Address(),
-// 												state.Chains[dest].Weth9.Address())),
-
 									),
 								},
 								PluginType: types.PluginTypeCCIPCommit,

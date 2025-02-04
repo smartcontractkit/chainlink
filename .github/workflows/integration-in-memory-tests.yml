@@ -119,6 +119,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [run-ccip-integration-tests-for-pr,run-ccip-integration-tests-for-merge-queue]
     steps:
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chainlink-logs
+          path: logs/
+          retention-days: 5
+
       - name: Fail the job if ccip tests in PR not successful
         if: always() && needs.run-ccip-integration-tests-for-pr.result == 'failure'
         run: exit 1

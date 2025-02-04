@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -327,8 +327,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	tc := m.TestConfig
 	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, tc.Nodes, tc.Bootstraps, crConfig)
 	ctx := testcontext.Get(t)
-	// lggr := logger.Test(t)
-	lggr := logger.NewNamedTestLogger(t)
+	lggr := logger.Test(t)
 	for _, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
@@ -475,8 +474,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 }
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
-	// lggr := logger.Test(t)
-	lggr := logger.NewNamedTestLogger(t)
+	lggr := logger.Test(t)
 	tc := tEnv.TestConfigs()
 	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()

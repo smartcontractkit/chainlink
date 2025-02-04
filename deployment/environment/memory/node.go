@@ -147,7 +147,7 @@ func NewNode(
 	})
 
 	// Set logging.
-	lggr := logger.NewNamedTestLogger(t)
+	lggr := logger.NewSingleFileLogger(t)
 	// lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(logLevel)
 

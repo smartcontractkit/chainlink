@@ -1,6 +1,7 @@
 package changeset_test
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"testing"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/logger"
 
 	"github.com/stretchr/testify/require"
 
@@ -208,13 +208,9 @@ func Test_ActiveCandidate(t *testing.T) {
 						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
 							dest: changeset.DeriveCCIPOCRParams(
 								changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel,
-									tokenConfig.GetTokenInfo(logger.NewNamedTestLogger(t),
+									tokenConfig.GetTokenInfo(logger.TestLogger(t),
 										state.Chains[dest].LinkToken.Address(),
 										state.Chains[dest].Weth9.Address())),
-//                 changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel,
-// 									tokenConfig.GetTokenInfo(logger.TestLogger(t),
-// 										state.Chains[dest].LinkToken.Address(),
-// 										state.Chains[dest].Weth9.Address())),
 							),
 						},
 						PluginType: types.PluginTypeCCIPCommit,
