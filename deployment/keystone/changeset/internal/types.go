@@ -201,13 +201,24 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 	return out, nil
 }
 
-// mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
-	out := make(map[string][]DONCapabilityWithConfig)
+func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
+	out := make(map[string][]RegisteredCapability)
 	for _, don := range dons {
-		out[don.Name] = don.Capabilities
+		var caps []RegisteredCapability
+		for _, c := range don.Capabilities {
+			id, err := registry.GetHashedCapabilityId(nil, c.Capability.LabelledName, c.Capability.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
+			}
+			caps = append(caps, RegisteredCapability{
+				ID:                             id,
+				CapabilitiesRegistryCapability: c.Capability,
+				Config:                         c.Config,
+			})
+		}
+		out[don.Name] = caps
 	}
-	return out
+	return out, nil
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
