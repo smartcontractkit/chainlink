@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -294,55 +295,71 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
+	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		onRamp := s.Chains[chainSel].OnRamp
-		var args []onramp.OnRampDestChainConfigArgs
-		for destination, update := range updates {
-			router := common.HexToAddress("0x0")
-			// If not enabled, set router to 0x0.
-			if update.IsEnabled {
-				if update.TestRouter {
-					router = s.Chains[chainSel].TestRouter.Address()
-				} else {
-					router = s.Chains[chainSel].Router.Address()
+		chainSel, updates := chainSel, updates
+		g.Go(func() error {
+			txOpts := e.Chains[chainSel].DeployerKey
+			txOpts.Context = e.GetContext()
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			onRamp := s.Chains[chainSel].OnRamp
+			var args []onramp.OnRampDestChainConfigArgs
+			for destination, update := range updates {
+				router := common.HexToAddress("0x0")
+				// If not enabled, set router to 0x0.
+				if update.IsEnabled {
+					if update.TestRouter {
+						router = s.Chains[chainSel].TestRouter.Address()
+					} else {
+						router = s.Chains[chainSel].Router.Address()
+					}
 				}
+				args = append(args, onramp.OnRampDestChainConfigArgs{
+					DestChainSelector: destination,
+					Router:            router,
+					AllowlistEnabled:  update.AllowListEnabled,
+				})
 			}
-			args = append(args, onramp.OnRampDestChainConfigArgs{
-				DestChainSelector: destination,
-				Router:            router,
-				AllowlistEnabled:  update.AllowListEnabled,
-			})
-		}
-		tx, err := onRamp.ApplyDestChainConfigUpdates(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
+			tx, err := onRamp.ApplyDestChainConfigUpdates(txOpts, args)
+			if err != nil {
+				return err
 			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+					return deployment.DecodedErrFromABIIfDataErr(err, onramp.OnRampABI)
+				}
+			} else {
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(chainSel),
+					Batch: []mcms.Operation{
+						{
+							To:    onRamp.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
-		}
+				}
+				timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+				proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			}
+			return nil
+		})
+	}
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
+	}
+
+	for op := range tlOps {
+		batches = append(batches, op)
 	}
 	p, err := proposalutils.BuildProposalFromBatches(
 		timelocks,
@@ -812,53 +829,70 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
+	defer close(tlOps)
 	for chainSel, initialPrice := range cfg.PricesByChain {
-		txOpts := e.Chains[chainSel].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		fq := s.Chains[chainSel].FeeQuoter
-		var tokenPricesArgs []fee_quoter.InternalTokenPriceUpdate
-		for token, price := range initialPrice.TokenPrices {
-			tokenPricesArgs = append(tokenPricesArgs, fee_quoter.InternalTokenPriceUpdate{
-				SourceToken: token,
-				UsdPerToken: price,
-			})
-		}
-		var gasPricesArgs []fee_quoter.InternalGasPriceUpdate
-		for dest, price := range initialPrice.GasPrices {
-			gasPricesArgs = append(gasPricesArgs, fee_quoter.InternalGasPriceUpdate{
-				DestChainSelector: dest,
-				UsdPerUnitGas:     price,
-			})
-		}
-		tx, err := fq.UpdatePrices(txOpts, fee_quoter.InternalPriceUpdates{
-			TokenPriceUpdates: tokenPricesArgs,
-			GasPriceUpdates:   gasPricesArgs,
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error updating prices for chain %s: %w", e.Chains[chainSel].String(), err)
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				decodedErr := deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
-				return deployment.ChangesetOutput{}, fmt.Errorf("error confirming transaction for chain %s: %w", e.Chains[chainSel].String(), decodedErr)
+		chainSel, initialPrice := chainSel, initialPrice
+		g.Go(func() error {
+			txOpts := e.Chains[chainSel].DeployerKey
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
 			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    fq.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
+			fq := s.Chains[chainSel].FeeQuoter
+			var tokenPricesArgs []fee_quoter.InternalTokenPriceUpdate
+			for token, price := range initialPrice.TokenPrices {
+				tokenPricesArgs = append(tokenPricesArgs, fee_quoter.InternalTokenPriceUpdate{
+					SourceToken: token,
+					UsdPerToken: price,
+				})
+			}
+			var gasPricesArgs []fee_quoter.InternalGasPriceUpdate
+			for dest, price := range initialPrice.GasPrices {
+				gasPricesArgs = append(gasPricesArgs, fee_quoter.InternalGasPriceUpdate{
+					DestChainSelector: dest,
+					UsdPerUnitGas:     price,
+				})
+			}
+			tx, err := fq.UpdatePrices(txOpts, fee_quoter.InternalPriceUpdates{
+				TokenPriceUpdates: tokenPricesArgs,
+				GasPriceUpdates:   gasPricesArgs,
 			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
-		}
+			if err != nil {
+				return fmt.Errorf("error updating prices for chain %s: %w", e.Chains[chainSel].String(), err)
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+					decodedErr := deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
+					return fmt.Errorf("error confirming transaction for chain %s: %w", e.Chains[chainSel].String(), decodedErr)
+				}
+			} else {
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(chainSel),
+					Batch: []mcms.Operation{
+						{
+							To:    fq.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
+					},
+				}
+				timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+				proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			}
+			return nil
+		})
 	}
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	for op := range tlOps {
+		batches = append(batches, op)
+	}
+
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
@@ -940,45 +974,62 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
+	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		fq := s.Chains[chainSel].FeeQuoter
-		var args []fee_quoter.FeeQuoterDestChainConfigArgs
-		for destination, dc := range updates {
-			args = append(args, fee_quoter.FeeQuoterDestChainConfigArgs{
-				DestChainSelector: destination,
-				DestChainConfig:   dc,
-			})
-		}
-		tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
+		chainSel, updates := chainSel, updates
+		g.Go(func() error {
+			txOpts := e.Chains[chainSel].DeployerKey
+			txOpts.Context = e.GetContext()
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
 			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    fq.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+			fq := s.Chains[chainSel].FeeQuoter
+			var args []fee_quoter.FeeQuoterDestChainConfigArgs
+			for destination, dc := range updates {
+				args = append(args, fee_quoter.FeeQuoterDestChainConfigArgs{
+					DestChainSelector: destination,
+					DestChainConfig:   dc,
+				})
+			}
+			tx, err := fq.ApplyDestChainConfigUpdates(txOpts, args)
+			if err != nil {
+				return err
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+					return deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
+				}
+			} else {
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(chainSel),
+					Batch: []mcms.Operation{
+						{
+							To:    fq.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
-		}
+				}
+				timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
+				proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			}
+			return nil
+		})
+	}
+
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
+	}
+
+	for op := range tlOps {
+		batches = append(batches, op)
 	}
 
 	p, err := proposalutils.BuildProposalFromBatches(
@@ -1061,56 +1112,71 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
+	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
-		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		offRamp := state.Chains[chainSel].OffRamp
-		var args []offramp.OffRampSourceChainConfigArgs
-		for source, update := range updates {
-			router := common.HexToAddress("0x0")
-			if update.TestRouter {
-				router = state.Chains[chainSel].TestRouter.Address()
+		chainSel, updates := chainSel, updates
+		g.Go(func() error {
+			txOpts := e.Chains[chainSel].DeployerKey
+			txOpts.Context = e.GetContext()
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			offRamp := state.Chains[chainSel].OffRamp
+			var args []offramp.OffRampSourceChainConfigArgs
+			for source, update := range updates {
+				router := common.HexToAddress("0x0")
+				if update.TestRouter {
+					router = state.Chains[chainSel].TestRouter.Address()
+				} else {
+					router = state.Chains[chainSel].Router.Address()
+				}
+				onRamp := state.Chains[source].OnRamp
+				args = append(args, offramp.OffRampSourceChainConfigArgs{
+					SourceChainSelector: source,
+					Router:              router,
+					IsEnabled:           update.IsEnabled,
+					OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				})
+			}
+			tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
+			if err != nil {
+				return err
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+					return deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
+				}
 			} else {
-				router = state.Chains[chainSel].Router.Address()
-			}
-			onRamp := state.Chains[source].OnRamp
-			args = append(args, offramp.OffRampSourceChainConfigArgs{
-				SourceChainSelector: source,
-				Router:              router,
-				IsEnabled:           update.IsEnabled,
-				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
-			})
-		}
-		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
-			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(chainSel),
+					Batch: []mcms.Operation{
+						{
+							To:    offRamp.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
-		}
+				}
+				timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+				proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+			}
+			return nil
+		})
+	}
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
+	for op := range tlOps {
+		batches = append(batches, op)
+	}
 	p, err := proposalutils.BuildProposalFromBatches(
 		timelocks,
 		proposers,
@@ -1218,77 +1284,92 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
+	defer close(tlOps)
 	for chainSel, update := range cfg.UpdatesByChain {
-		txOpts := e.Chains[chainSel].DeployerKey
-		txOpts.Context = e.GetContext()
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		routerC := state.Chains[chainSel].Router
-		if cfg.TestRouter {
-			routerC = state.Chains[chainSel].TestRouter
-		}
-		// Note if we add distinct offramps per source to the state,
-		// we'll need to add support here for looking them up.
-		// For now its simple, all sources use the same offramp.
-		offRamp := state.Chains[chainSel].OffRamp
-		var removes, adds []router.RouterOffRamp
-		for source, enabled := range update.OffRampUpdates {
-			if enabled {
-				adds = append(adds, router.RouterOffRamp{
-					SourceChainSelector: source,
-					OffRamp:             offRamp.Address(),
-				})
+		chainSel, update := chainSel, update
+		g.Go(func() error {
+			txOpts := e.Chains[chainSel].DeployerKey
+			txOpts.Context = e.GetContext()
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			routerC := state.Chains[chainSel].Router
+			if cfg.TestRouter {
+				routerC = state.Chains[chainSel].TestRouter
+			}
+			// Note if we add distinct offramps per source to the state,
+			// we'll need to add support here for looking them up.
+			// For now its simple, all sources use the same offramp.
+			offRamp := state.Chains[chainSel].OffRamp
+			var removes, adds []router.RouterOffRamp
+			for source, enabled := range update.OffRampUpdates {
+				if enabled {
+					adds = append(adds, router.RouterOffRamp{
+						SourceChainSelector: source,
+						OffRamp:             offRamp.Address(),
+					})
+				} else {
+					removes = append(removes, router.RouterOffRamp{
+						SourceChainSelector: source,
+						OffRamp:             offRamp.Address(),
+					})
+				}
+			}
+			// Ditto here, only one onramp expected until 1.7.
+			onRamp := state.Chains[chainSel].OnRamp
+			var onRampUpdates []router.RouterOnRamp
+			for dest, enabled := range update.OnRampUpdates {
+				if enabled {
+					onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
+						DestChainSelector: dest,
+						OnRamp:            onRamp.Address(),
+					})
+				} else {
+					onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
+						DestChainSelector: dest,
+						OnRamp:            common.HexToAddress("0x0"),
+					})
+				}
+			}
+			tx, err := routerC.ApplyRampUpdates(txOpts, onRampUpdates, removes, adds)
+			if err != nil {
+				return err
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+					return deployment.DecodedErrFromABIIfDataErr(err, router.RouterABI)
+				}
 			} else {
-				removes = append(removes, router.RouterOffRamp{
-					SourceChainSelector: source,
-					OffRamp:             offRamp.Address(),
-				})
-			}
-		}
-		// Ditto here, only one onramp expected until 1.7.
-		onRamp := state.Chains[chainSel].OnRamp
-		var onRampUpdates []router.RouterOnRamp
-		for dest, enabled := range update.OnRampUpdates {
-			if enabled {
-				onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
-					DestChainSelector: dest,
-					OnRamp:            onRamp.Address(),
-				})
-			} else {
-				onRampUpdates = append(onRampUpdates, router.RouterOnRamp{
-					DestChainSelector: dest,
-					OnRamp:            common.HexToAddress("0x0"),
-				})
-			}
-		}
-		tx, err := routerC.ApplyRampUpdates(txOpts, onRampUpdates, removes, adds)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, router.RouterABI)
-			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    routerC.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(chainSel),
+					Batch: []mcms.Operation{
+						{
+							To:    routerC.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
-		}
+				}
+				timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
+				proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+			}
+			return nil
+		})
+	}
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
+	for op := range tlOps {
+		batches = append(batches, op)
+	}
 	p, err := proposalutils.BuildProposalFromBatches(
 		timelocks,
 		proposers,
@@ -1378,58 +1459,76 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	var batches []timelock.BatchChainOperation
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	tlOperations := make(chan timelock.BatchChainOperation)
+	defer close(tlOperations)
+	g := new(errgroup.Group)
 	for _, remote := range cfg.RemoteChainSels {
-		donID, err := internal.DonIDForChain(
-			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
-			state.Chains[cfg.HomeChainSel].CCIPHome,
-			remote)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		args, err := internal.BuildSetOCR3ConfigArgs(
-			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		set, err := isOCR3ConfigSetOnOffRamp(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if set {
-			e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
-			continue
-		}
-		txOpts := e.Chains[remote].DeployerKey
-		if cfg.MCMS != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		offRamp := state.Chains[remote].OffRamp
-		tx, err := offRamp.SetOCR3Configs(txOpts, args)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
+		remote := remote
+		g.Go(func() error {
+			donID, err := internal.DonIDForChain(
+				state.Chains[cfg.HomeChainSel].CapabilityRegistry,
+				state.Chains[cfg.HomeChainSel].CCIPHome,
+				remote)
+			if err != nil {
+				return err
 			}
-		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(remote),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
+			args, err := internal.BuildSetOCR3ConfigArgs(
+				donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
+			if err != nil {
+				return err
+			}
+			set, err := isOCR3ConfigSetOnOffRamp(e.Logger, e.Chains[remote], state.Chains[remote].OffRamp, args)
+			if err != nil {
+				return err
+			}
+			if set {
+				e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
+				return nil
+			}
+			txOpts := e.Chains[remote].DeployerKey
+			if cfg.MCMS != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			offRamp := state.Chains[remote].OffRamp
+			tx, err := offRamp.SetOCR3Configs(txOpts, args)
+			if err != nil {
+				return err
+			}
+			if cfg.MCMS == nil {
+				if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
+					return deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
+				}
+			} else {
+				tlOperations <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(remote),
+					Batch: []mcms.Operation{
+						{
+							To:    offRamp.Address(),
+							Data:  tx.Data(),
+							Value: big.NewInt(0),
+						},
 					},
-				},
-			})
-			timelocks[remote] = state.Chains[remote].Timelock.Address()
-			proposers[remote] = state.Chains[remote].ProposerMcm
-		}
+				}
+				timelocks[remote] = state.Chains[remote].Timelock.Address()
+				proposers[remote] = state.Chains[remote].ProposerMcm
+			}
+			return nil
+		})
+	}
+
+	err = g.Wait()
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
+
+	for op := range tlOperations {
+		batches = append(batches, op)
+	}
+
 	p, err := proposalutils.BuildProposalFromBatches(
 		timelocks,
 		proposers,

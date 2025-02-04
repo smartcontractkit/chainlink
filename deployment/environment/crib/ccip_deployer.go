@@ -6,21 +6,23 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -98,6 +100,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 	e.ExistingAddresses = ab
 
+	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
 	fmt.Println("setting up chains...")
 	*e, err = setupChains(e, homeChainSel)
@@ -116,7 +119,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
+	// ------ Part 1 -----
 
+	// ----- this part takes the longest. Part 2 -----
 	fmt.Println("setting up ocr...")
 	*e, err = setupOCR(e, homeChainSel, feedChainSel)
 	if err != nil {
