@@ -75,10 +75,6 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 	var Jobs []deployment.ProposedJob
 	for nodeID, jobs := range nodesToJobSpecs {
 		for _, job := range jobs {
-			Jobs = append(Jobs, deployment.ProposedJob{
-				Node: nodeID,
-				Spec: job,
-			})
 			res, err := env.Offchain.ProposeJob(env.GetContext(),
 				&jobv1.ProposeJobRequest{
 					NodeId: nodeID,
@@ -89,10 +85,17 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 				// This is so that we can retry the proposal with manual intervention.
 				// JOBID will be empty if the proposal failed.
 				return deployment.ChangesetOutput{
-					Jobs: Jobs,
+					Jobs: append(Jobs, deployment.ProposedJob{
+						Node: nodeID,
+						Spec: job,
+					}),
 				}, fmt.Errorf("failed to propose job: %w", err)
 			}
-			Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
+			Jobs = append(Jobs, deployment.ProposedJob{
+				JobID: res.Proposal.JobId,
+				Node:  nodeID,
+				Spec:  job,
+			})
 		}
 	}
 	return deployment.ChangesetOutput{
