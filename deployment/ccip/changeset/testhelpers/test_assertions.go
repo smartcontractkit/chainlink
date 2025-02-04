@@ -213,12 +213,16 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					true,
 				))
 			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
 				return commonutils.JustError(ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
 					e.SolChains[dstChain],
 					state.SolChains[dstChain].Router,
-					*startBlock,
+					startSlot,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -319,12 +323,16 @@ func ConfirmMultipleCommits(
 				)
 				return err
 			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlocks[destChain] != nil {
+					startSlot = *startBlocks[destChain]
+				}
 				_, err := ConfirmCommitWithExpectedSeqNumRangeSol(
 					t,
 					srcChain,
 					env.SolChains[destChain],
 					state.SolChains[destChain].Router,
-					*startBlocks[destChain],
+					startSlot,
 					seqRange,
 					enforceSingleCommit,
 				)
@@ -600,12 +608,16 @@ func ConfirmExecWithSeqNrsForAll(
 					return err
 				}
 			case chainsel.FamilySolana:
+				var startSlot uint64
+				if startBlock != nil {
+					startSlot = *startBlock
+				}
 				innerExecutionStates, err = ConfirmExecWithSeqNrsSol(
 					t,
 					srcChain,
 					e.SolChains[dstChain],
 					state.SolChains[dstChain].Router,
-					*startBlock,
+					startSlot,
 					seqRange,
 				)
 				if err != nil {
