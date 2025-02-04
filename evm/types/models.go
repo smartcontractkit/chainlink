@@ -52,6 +52,7 @@ type Head struct {
 }
 
 func (h *Head) GetTotalDifficulty() *big.Int {
+	// TODO needs to be resolved before merge to develop
 	return h.BlockDifficulty()
 }
 
