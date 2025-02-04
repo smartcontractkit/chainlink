@@ -40,7 +40,7 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 // Stop the chains, cleanup the environment
 func TestCCIPLoad_RPS(t *testing.T) {
 	// comment out when executing the test
-	//t.Skip("Skipping test as this test should not be auto triggered")
+	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
 
 	// get user defined configurations

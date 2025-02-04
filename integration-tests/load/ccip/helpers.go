@@ -108,7 +108,7 @@ func subscribeCommitEvents(
 						"minSeqNr", mr.MinSeqNr,
 						"maxSeqNr", mr.MaxSeqNr)
 
-					// push metrics to state manager for eventual distributino to loki
+					// push metrics to state manager for eventual distribution to loki
 					for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
 						blockNum := report.Raw.BlockNumber
 						header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
