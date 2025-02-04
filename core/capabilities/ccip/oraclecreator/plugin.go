@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -494,6 +495,7 @@ func getChainReaderConfig(
 	chainSelector cciptypes.ChainSelector,
 	chainFamily string,
 ) ([]byte, error) {
+	// TODO: create a chain writer constructor interface and define family specific implementations in oraclecreator.plugin
 	switch chainFamily {
 	case relay.NetworkEVM:
 		var chainReaderConfig evmrelaytypes.ChainReaderConfig
@@ -560,25 +562,37 @@ func createChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 ) (types.ContractWriter, error) {
-	var fromAddress common.Address
+	var err error
+	var chainWriterConfig []byte
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
-	if ok {
-		// TODO: remove EVM-specific stuff
-		fromAddress = common.HexToAddress(transmitter[0])
-	}
-
-	chainWriterRawConfig, err := evmconfig.ChainWriterConfigRaw(
-		fromAddress,
-		defaultCommitGasLimit,
-		execBatchGasLimit,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer config: %w", err)
-	}
-
-	chainWriterConfig, err := json.Marshal(chainWriterRawConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chain writer config: %w", err)
+	// TODO: create a chain writer constructor interface and define family specific implementations in oraclecreator.plugin
+	switch chainFamily {
+	case relay.NetworkSolana:
+		var solConfig chainwriter.ChainWriterConfig
+		// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be provided from tooling config, and populated here for the params.
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig("", solana.PublicKey{}, transmitter[0]); err == nil {
+			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
+		}
+		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
+			return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
+		}
+	case relay.NetworkEVM:
+		var evmConfig evmrelaytypes.ChainWriterConfig
+		fromAddress := common.Address{}
+		if ok {
+			fromAddress = common.HexToAddress(transmitter[0])
+		}
+		if evmConfig, err = evmconfig.ChainWriterConfigRaw(
+			fromAddress,
+			defaultCommitGasLimit,
+			execBatchGasLimit); err != nil {
+			return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
+		}
+		if chainWriterConfig, err = json.Marshal(evmConfig); err != nil {
+			return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("unknown chain family %s", chainFamily)
 	}
 
 	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
