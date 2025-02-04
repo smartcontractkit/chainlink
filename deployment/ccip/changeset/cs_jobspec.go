@@ -32,27 +32,6 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	for _, node := range nodes {
-		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
-			Filter: &jobv1.ListJobsRequest_Filter{
-				NodeIds: []string{node.NodeID},
-			},
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
-		}
-		for _, j := range jobs.Jobs {
-			for _, propID := range j.ProposalIds {
-				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &jobv1.GetProposalRequest{
-					Id: propID,
-				})
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
-				}
-				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
-			}
-		}
-	}
 	// We first generate the job specs for the CCIP capability. so that if
 	// there are any errors in the job specs, we can fail early.
 	// Generate a set of new job specs for CCIP for a specific environment
