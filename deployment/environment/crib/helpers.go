@@ -2,7 +2,6 @@ package crib
 
 import (
 	"context"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
