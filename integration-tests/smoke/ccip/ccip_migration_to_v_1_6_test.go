@@ -29,6 +29,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
+// TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
+// The test steps are as follows:
+// 1. Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
+// 2. Deploy 1.5 contracts (excluding pools to start, but including MCMS)
+// 3. Wire up all lanes
+// 4. PermaBless the commit stores
+// 5. Send continuous messages from src1 -> dest in real router until stopMsgs is closed
+// 6. Send a message from the other lane src2 -> dest
+// 6. Transfer ownership of the contracts to MCMS
+// 7. Add 1.6 contracts to the environment and send 1.6 jobs
+// 8. Set RMNProxy to point to RMNRemote
+// 9. Update nonce managers
+// 10. Enable a single 1.6 lane with test router
+// 11. Send traffic across single 1.6 src1 > dest lane with a DIFFERENT sender from test router to ensure 1.6 is working
+// 12. Enable the real router and verify sender nonce in 1.6 OnRamp event is plus one to sender nonce in 1.5 OnRamp
+// 13. Confirm that the other lane src2->dest is still working with v1.5
+// 14. Stop the continuous messages in real router and wait for all the executions to confirm
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS)
@@ -330,6 +347,16 @@ type msgEvent struct {
 }
 
 // sendContinuousMessagesInRealRouter sends continuous messages from the source chain to the destination chain until stopped.
+// The process is as follows:
+//  1. Send a message once and then send messages based on the interval in real router until signal to stop the message is received.
+//  2. Listen to the message sent event in 1.5 onRamp until the switch signal is received
+//     and send the message sequence number and block number to check for commit & execute through performMsgCheckInV1_5 channel.
+//  3. Separate Go routines listens to the channel performMsgCheckInV1_5 and performMsgCheckInV1_6 to perform
+//     commit and execute in 1.5 and 1.6 version offRamps respectively.
+//  4. Start listening to the message sent event in 1.6 onRamp after the switch signal is received and send the message
+//     sequence number and block number to check for commit & execute through performMsgCheckInV1_6 channel.
+//  5. In the test, wait for all the go routines to complete to confirm all the messages are delivered.
+//  6. Assert sender nonce in 1.6 OnRamp event is plus one to sender nonce in 1.5 OnRamp .
 func sendContinuousMessagesInRealRouter(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
@@ -340,25 +367,25 @@ func sendContinuousMessagesInRealRouter(
 	interval time.Duration,
 ) {
 	ticker := time.NewTicker(interval)
-	var (
-		mu sync.Mutex
-	)
 	type msgSentCheck struct {
 		src, dest, seqNr, startBlockNumber uint64
 	}
-	statusTracker := make(map[uint64]int)
 	msgPipeline := make(chan msgEvent, 100) // channel to send the message tx and block number to check msg sent event
 	// channel to send the message sent event to check for commit & execute in
 	performMsgCheckInV1_5 := make(chan msgSentCheck, 100)
 	// channel to send the message sent event to check for commit & execute
 	performMsgCheckInV1_6 := make(chan msgSentCheck, 100)
+	performNonceCheck := false
+
 	// Go routine to send the messages continuously until stopMsgs is closed
 	go func() {
 		defer ticker.Stop()
+		// send once and further send messages based on the interval
+		// the below function sends the message and adds the message sent event to the msgPipeline
 		sendMessageWithoutCapturingSentEvent(t, e, state, pair.SourceChainSelector, pair.DestChainSelector, msgPipeline)
 		for {
 			select {
-			case <-stopMsgs:
+			case <-stopMsgs: // stop sending messages and close the msgPipeline
 				close(msgPipeline)
 				return
 			case <-ticker.C:
@@ -395,9 +422,21 @@ func sendContinuousMessagesInRealRouter(
 		if err != nil {
 			t.Errorf("failed to get header by number")
 		}
-		mu.Lock()
-		statusTracker[it.Event.Message.Header.SequenceNumber] = testhelpers.EXECUTION_STATE_INPROGRESS
-		mu.Unlock()
+		if performNonceCheck {
+			lastnonce, err := state.Chains[pair.SourceChainSelector].EVM2EVMOnRamp[pair.DestChainSelector].GetSenderNonce(
+				nil,
+				e.Env.Chains[pair.SourceChainSelector].DeployerKey.From,
+			)
+			if err != nil {
+				t.Errorf("failed to get sender nonce in 1.5 OnRamp")
+			}
+			// assert sender nonce in 1.6 OnRamp event is plus one to sender nonce in 1.5 OnRamp
+			if lastnonce+1 != it.Event.Message.Header.Nonce {
+				t.Errorf("sender nonce in 1.6 OnRamp event is not plus one to sender nonce in 1.5 OnRamp")
+			}
+			performNonceCheck = false
+		}
+		// channel to send the message sequence number and block number to check for commit & execute
 		performMsgCheckInV1_6 <- msgSentCheck{
 			src:              pair.SourceChainSelector,
 			dest:             pair.DestChainSelector,
@@ -420,6 +459,7 @@ func sendContinuousMessagesInRealRouter(
 		if !it.Next() {
 			t.Errorf("failed to get next event")
 		}
+
 		t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d sender %s",
 			it.Event.Message.MessageId[:],
 			pair.SourceChainSelector,
@@ -433,9 +473,7 @@ func sendContinuousMessagesInRealRouter(
 		if err != nil {
 			t.Errorf("failed to get header by number")
 		}
-		mu.Lock()
-		statusTracker[it.Event.Message.SequenceNumber] = testhelpers.EXECUTION_STATE_INPROGRESS
-		mu.Unlock()
+		// channel to send the message sequence number and block number to check for commit & execute
 		performMsgCheckInV1_5 <- msgSentCheck{
 			src:              pair.SourceChainSelector,
 			dest:             pair.DestChainSelector,
@@ -446,19 +484,24 @@ func sendContinuousMessagesInRealRouter(
 
 	// Process the msg event in real router
 	go func() {
+		// switchSignal is used to switch to 1.6 onRamp after the signal is received until then it listens to 1.5 onRamp
 		switchSignal := false
 		defer close(performMsgCheckInV1_5)
 		defer close(performMsgCheckInV1_6)
+		defer close(signal)
 		for input := range msgPipeline {
 			wg.Add(1)
 			select {
 			case <-signal:
+				// switch to 1.6 onRamp
 				switchSignal = true
+				performNonceCheck = true
 				go listenV1_6OnRamp(input)
 			default:
 				if switchSignal {
 					go listenV1_6OnRamp(input)
 				} else {
+					// listen to 1.5 onRamp until switchSignal is set to true
 					go listenV1_5OnRamp(input)
 				}
 			}
@@ -467,6 +510,8 @@ func sendContinuousMessagesInRealRouter(
 
 	// Verify message sent in v1.5
 	go func() {
+		// range over performMsgCheckInV1_5 channel to verify the commit and execute in 1.5 offRamp
+		// this channel will be populated when there is msg sent event in 1.5 onRamp
 		for input := range performMsgCheckInV1_5 {
 			wg.Add(1)
 			go func(input msgSentCheck) {
@@ -476,19 +521,19 @@ func sendContinuousMessagesInRealRouter(
 				v1_5testhelpers.WaitForExecute(t, e.Env.Chains[input.src], e.Env.Chains[input.dest],
 					state.Chains[pair.DestChainSelector].EVM2EVMOffRamp[pair.SourceChainSelector],
 					[]uint64{input.seqNr}, input.startBlockNumber)
-				mu.Lock()
-				statusTracker[input.seqNr] = testhelpers.EXECUTION_STATE_SUCCESS
-				mu.Unlock()
 			}(input)
 		}
 	}()
 
 	// verify message sent in v1.6
 	go func() {
+		// range over performMsgCheckInV1_6 channel to verify the commit and execute in 1.6 offRamp
+		// this channel will be populated when there is msg sent event in 1.6 onRamp
 		for input := range performMsgCheckInV1_6 {
 			wg.Add(1)
 			go func(input msgSentCheck) {
 				defer wg.Done()
+				// confirm commit in 1.6 offRamp
 				_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 					t,
 					input.src,
@@ -504,6 +549,7 @@ func sendContinuousMessagesInRealRouter(
 				if err != nil {
 					t.Errorf("failed to confirm commit")
 				}
+				// confirm execute in 1.6 offRamp
 				_, err = testhelpers.ConfirmExecWithSeqNrs(
 					t,
 					input.src,
@@ -515,14 +561,12 @@ func sendContinuousMessagesInRealRouter(
 				if err != nil {
 					t.Errorf("failed to confirm execute")
 				}
-				mu.Lock()
-				statusTracker[input.seqNr] = testhelpers.EXECUTION_STATE_SUCCESS
-				mu.Unlock()
 			}(input)
 		}
 	}()
 }
 
+// sendMessageWithoutCapturingSentEvent sends a message from the source chain to the destination chain without capturing the message sent event.
 func sendMessageWithoutCapturingSentEvent(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
@@ -550,12 +594,16 @@ func sendMessageWithoutCapturingSentEvent(
 	if err != nil {
 		t.Errorf("failed to send message: %v", err)
 	}
+	// send the message tx and block number to msgPipeline channel which looks for the message sent event in the onRamp.
+	// initially it will look for the message sent event in 1.5 onRamp and
+	// after switchSignal is set to true, it will look for the message sent event in 1.6 onRamp
 	msgPipeline <- msgEvent{
 		tx:       tx.Hash(),
 		blockNum: blockNum,
 	}
 }
 
+// sendMsgInV1_5 sends a message and filter the message sent event in 1.5 onRamp.
 func sendMsgInV1_5(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
@@ -578,6 +626,7 @@ func sendMsgInV1_5(
 	return sentEvent
 }
 
+// sendMsgInV1_6 sends a message and filter the message sent event in 1.6 onRamp.
 func sendMsgInV1_6(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
