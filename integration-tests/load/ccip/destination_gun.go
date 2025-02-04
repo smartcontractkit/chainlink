@@ -40,9 +40,19 @@ type DestinationGun struct {
 	testConfig    *ccip.LoadConfig
 	loki          *wasp.LokiClient
 	messageKeys   map[uint64]*bind.TransactOpts
+	metricPipe    chan messageData
 }
 
-func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient, messageKeys map[uint64]*bind.TransactOpts) (*DestinationGun, error) {
+func NewDestinationGun(
+	l logger.Logger,
+	chainSelector uint64,
+	env deployment.Environment,
+	receiver common.Address,
+	overrides *ccip.LoadConfig,
+	loki *wasp.LokiClient,
+	messageKeys map[uint64]*bind.TransactOpts,
+	metricPipe chan messageData,
+) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
 		// query for the actual sequence number
@@ -64,6 +74,7 @@ func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Env
 		testConfig:    overrides,
 		loki:          loki,
 		messageKeys:   messageKeys,
+		metricPipe:    metricPipe,
 	}
 
 	err := dg.Validate()
@@ -106,11 +117,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	acc := m.messageKeys[src]
-
-	lokiLabels, err := setLokiLabels(src, m.chainSelector)
-	if err != nil {
-		m.l.Errorw("Failed setting loki labels", "error", err)
-	}
 
 	csPair := testhelpers.SourceDestPair{
 		SourceChainSelector: src,
@@ -183,11 +189,21 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		"destChain", m.chainSelector,
 		"sequence number", it.Event.SequenceNumber)
 
-	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
-		EventType:      transmitted,
-		Timestamp:      time.Now().Unix(),
-		SequenceNumber: it.Event.SequenceNumber,
-	})
+	// push metric to metric manager for eventual distribution to loki
+	blockNum = it.Event.Raw.BlockNumber
+	header, err := m.env.Chains[src].Client.HeaderByNumber(m.env.GetContext(), new(big.Int).SetUint64(blockNum))
+	if err != nil {
+		return &wasp.Response{Error: "Could not get timestamp of block number", Group: waspGroup, Failed: true}
+	}
+	m.metricPipe <- messageData{
+		eventType: transmitted,
+		srcDstSeqNum: srcDstSeqNum{
+			src:    src,
+			dst:    m.chainSelector,
+			seqNum: it.Event.SequenceNumber,
+		},
+		timestamp: header.Time,
+	}
 
 	// always store the lowest seen number as the start seq num
 	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() {
@@ -235,7 +251,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
+					Amount: big.NewInt(1),
 				},
 			},
 			Data:      common.Hex2Bytes("0xabcdefabcdef"),
@@ -248,7 +264,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
+					Amount: big.NewInt(1),
 				},
 			},
 			FeeToken:  common.HexToAddress("0x0"),

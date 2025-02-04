@@ -19,26 +19,26 @@ import (
 
 var wg = &sync.WaitGroup{}
 
-func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) {
+func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	transmittersStr := make([]common.Address, 0)
 	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
 	minThreshold := new(big.Int).Mul(deployment.UBigInt(5), deployment.UBigInt(1e16))    // 0.05 ETH
 
+	g := new(errgroup.Group)
 	for sel, chain := range env.Chains {
-		wg.Add(1)
-		go func(sel uint64, chain deployment.Chain) {
-			defer wg.Done()
+		sel, chain := sel, chain
+		g.Go(func() error {
 			for _, n := range nodeInfo {
 				chainID, err := chainsel.ChainIdFromSelector(sel)
 				if err != nil {
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
-					continue
+					return err
 				}
 				addr := common.HexToAddress(n.AccountAddr[chainID])
-				balance, err := chain.Client.BalanceAt(context.Background(), addr, nil)
+				balance, err := chain.Client.BalanceAt(env.GetContext(), addr, nil)
 				if err != nil {
 					lggr.Errorw("error fetching balance for %s: %v\n", n.Name, err)
-					continue
+					return err
 				}
 				if balance.Cmp(minThreshold) < 0 {
 					lggr.Infow(
@@ -50,25 +50,27 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					transmittersStr = append(transmittersStr, addr)
 				}
 			}
-			SendFundsToAccounts(lggr, chain, transmittersStr, fundingAmount, sel)
-		}(sel, chain)
+			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
+		})
 	}
 
-	wg.Wait()
+	return g.Wait()
 }
 
 func SendFundsToAccounts(lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) {
 	latesthdr, err := chain.Client.HeaderByNumber(context.Background(), nil)
+func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployment.Chain, accounts []common.Address, fundingAmount *big.Int, sel uint64) error {
+	latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		lggr.Errorw("could not get header, skipping chain", "chain", sel, "err", err)
-		return
+		return err
 	}
 	block := latesthdr.Number
 
 	nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, block)
 	if err != nil {
 		lggr.Warnw("could not get latest nonce for deployer key", "err", err)
-		return
+		return err
 	}
 	for _, address := range accounts {
 		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(1000000), nil)
@@ -76,21 +78,22 @@ func SendFundsToAccounts(lggr logger.Logger, chain deployment.Chain, accounts []
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
 		if err != nil {
 			lggr.Errorw("could not sign transaction for sending funds to ", "chain", sel, "account", address, "err", err)
-			continue
+			return err
 		}
 
 		lggr.Infow("sending transaction for ", "account", address.String(), "chain", sel)
 		err = chain.Client.SendTransaction(context.Background(), signedTx)
 		if err != nil {
 			lggr.Errorw("could not send transaction to address on ", "chain", sel, "address", address, "err", err)
-			continue
+			return err
 		}
 
 		_, err = bind.WaitMined(context.Background(), chain.Client, signedTx)
 		if err != nil {
 			lggr.Errorw("could not mine transaction to address on ", "chain", sel)
-			continue
+			return err
 		}
 		nonce++
 	}
+	return nil
 }

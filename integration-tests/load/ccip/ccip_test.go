@@ -77,6 +77,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 
+	mm := NewMetricsManager(env.Logger, loki)
+	go mm.Start()
+	defer mm.Stop()
+
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
@@ -94,7 +98,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			messageKeys[sel] = transmitKeys[sel][ind]
 		}
 
-		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki, messageKeys)
+		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki, messageKeys, mm.InputChan)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
 			t.Fatal(err)
@@ -111,24 +115,24 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			state.Chains[cs].OffRamp,
 			otherChains,
 			&block,
-			loki,
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrCommitChannels[cs],
 			errChan,
-			&wg)
+			&wg,
+			mm.InputChan)
 		go subscribeExecutionEvents(
 			tests.Context(t),
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,
 			&block,
-			loki,
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrExecChannels[cs],
 			errChan,
-			&wg)
+			&wg,
+			mm.InputChan)
 	}
 
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
