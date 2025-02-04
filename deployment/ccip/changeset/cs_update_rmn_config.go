@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 	"reflect"
 
@@ -71,25 +72,38 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer MCMS for chains %v: %w", cfg.ChainSelectors, err)
 	}
 	var timelockBatch []timelock.BatchChainOperation
+	g := new(errgroup.Group)
+	tlOps := make(chan timelock.BatchChainOperation)
 	for _, sel := range cfg.ChainSelectors {
-		chain, exists := e.Chains[sel]
-		if !exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
-		}
-		txOpts := chain.DeployerKey
-		if cfg.MCMSConfig != nil {
-			txOpts = deployment.SimTransactOpts()
-		}
-		mcmsOps, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
-		}
-		if cfg.MCMSConfig != nil {
-			timelockBatch = append(timelockBatch, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(sel),
-				Batch:           []mcms.Operation{mcmsOps},
-			})
-		}
+		sel := sel
+		g.Go(func() error {
+			chain, exists := e.Chains[sel]
+			if !exists {
+				return fmt.Errorf("chain %d not found", sel)
+			}
+			txOpts := chain.DeployerKey
+			if cfg.MCMSConfig != nil {
+				txOpts = deployment.SimTransactOpts()
+			}
+			mcmsOps, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
+			if err != nil {
+				return fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+			}
+			if cfg.MCMSConfig != nil {
+				tlOps <- timelock.BatchChainOperation{
+					ChainIdentifier: mcms.ChainIdentifier(sel),
+					Batch:           []mcms.Operation{mcmsOps},
+				}
+			}
+			return nil
+		})
+	}
+	close(tlOps)
+	if err := g.Wait(); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	for op := range tlOps {
+		timelockBatch = append(timelockBatch, op)
 	}
 	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
 	if len(timelockBatch) == 0 {

@@ -121,7 +121,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	}
 	// ------ Part 1 -----
 
-	// ----- this part takes the longest. Part 2 -----
+	// ----- Part 2 -----
 	fmt.Println("setting up ocr...")
 	*e, err = setupOCR(e, homeChainSel, feedChainSel)
 	if err != nil {
@@ -139,7 +139,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)
 	}
 	return DeployCCIPOutput{
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),

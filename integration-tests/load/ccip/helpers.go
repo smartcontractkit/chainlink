@@ -82,7 +82,7 @@ func subscribeCommitEvents(
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	// todo: add event.Resubscriber if we move to unreliable rpcs
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
-		Context: context.Background(),
+		Context: ctx,
 		Start:   startBlock,
 	}, sink)
 	if err != nil {
@@ -213,7 +213,7 @@ func subscribeExecutionEvents(
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
 	// todo: add event.Resubscriber if we move to unreliable rpcs
 	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
-		Context: context.Background(),
+		Context: ctx,
 		Start:   startBlock,
 	}, sink, nil, nil, nil)
 	if err != nil {

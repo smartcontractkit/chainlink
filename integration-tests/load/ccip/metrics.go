@@ -4,7 +4,10 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	"github.com/stretchr/testify/require"
+
 	"strconv"
+	"testing"
 	"time"
 )
 
@@ -35,7 +38,11 @@ type messageData struct {
 	timestamp uint64
 }
 
-func NewMetricsManager(l logger.Logger, loki *wasp.LokiClient) *MetricManager {
+func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
+	// initialize loki using endpoint from user defined env vars
+	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
+	require.NoError(t, err)
+
 	return &MetricManager{
 		lggr:      l,
 		loki:      loki,
@@ -85,7 +92,7 @@ func (mm *MetricManager) Start() {
 					SequenceNumber: srcDstSeqNum.seqNum,
 				})
 			}
-
+			mm.loki.Stop()
 			return
 		case data := <-mm.InputChan:
 			if _, ok := mm.state[data.srcDstSeqNum]; !ok {
@@ -102,7 +109,7 @@ func (mm *MetricManager) Start() {
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
-				mm.lggr.Infow("publishing data to for ", "dst", data.dst, "src", data.src, "seqNum", data.seqNum)
+				mm.lggr.Infow("publishing data for ", "dst", data.dst, "src", data.src, "seqNum", data.seqNum)
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
 					ExecDuration:   mm.state[data.srcDstSeqNum][2] - mm.state[data.srcDstSeqNum][1],
 					CommitDuration: mm.state[data.srcDstSeqNum][1] - mm.state[data.srcDstSeqNum][0],

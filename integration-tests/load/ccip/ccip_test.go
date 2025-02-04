@@ -57,11 +57,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
 
-	// initialize loki using endpoint from user defined env vars
-	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
-	require.NoError(t, err)
-	defer loki.StopNow()
-
 	// initialize additional accounts on other chains
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
 	require.NoError(t, err)
@@ -77,7 +72,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 
-	mm := NewMetricsManager(env.Logger, loki)
+	mm := NewMetricsManager(t, env.Logger)
 	go mm.Start()
 	defer mm.Stop()
 
@@ -98,7 +93,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			messageKeys[sel] = transmitKeys[sel][ind]
 		}
 
-		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, loki, messageKeys, mm.InputChan)
+		gunMap[cs], err = NewDestinationGun(env.Logger, cs, *env, state.Chains[cs].Receiver.Address(), userOverrides, messageKeys, ind, mm.InputChan)
 		if err != nil {
 			lggr.Errorw("Failed to initialize DestinationGun for", "chainSelector", cs, "error", err)
 			t.Fatal(err)

@@ -298,7 +298,6 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
-	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
@@ -350,10 +349,12 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 			return nil
 		})
 	}
-	err = g.Wait()
-	if err != nil {
+
+	close(tlOps)
+	if err := g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
@@ -832,7 +833,6 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
-	defer close(tlOps)
 	for chainSel, initialPrice := range cfg.PricesByChain {
 		chainSel, initialPrice := chainSel, initialPrice
 		g.Go(func() error {
@@ -884,8 +884,9 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 			return nil
 		})
 	}
-	err = g.Wait()
-	if err != nil {
+
+	close(tlOps)
+	if err = g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
@@ -977,7 +978,6 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
-	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
@@ -1019,9 +1019,9 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 			return nil
 		})
 	}
+	close(tlOps)
 
-	err = g.Wait()
-	if err != nil {
+	if err = g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
@@ -1115,7 +1115,6 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
-	defer close(tlOps)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
 		g.Go(func() error {
@@ -1166,8 +1165,9 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			return nil
 		})
 	}
-	err = g.Wait()
-	if err != nil {
+	close(tlOps)
+
+	if err = g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
@@ -1287,7 +1287,6 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 
 	g := new(errgroup.Group)
 	tlOps := make(chan timelock.BatchChainOperation)
-	defer close(tlOps)
 	for chainSel, update := range cfg.UpdatesByChain {
 		chainSel, update := chainSel, update
 		g.Go(func() error {
@@ -1359,6 +1358,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 			return nil
 		})
 	}
+	close(tlOps)
 	err = g.Wait()
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1460,8 +1460,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	timelocks := make(map[uint64]common.Address)
 	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
 
-	tlOperations := make(chan timelock.BatchChainOperation)
-	defer close(tlOperations)
+	tlOps := make(chan timelock.BatchChainOperation)
 	g := new(errgroup.Group)
 	for _, remote := range cfg.RemoteChainSels {
 		remote := remote
@@ -1500,7 +1499,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 					return deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
 				}
 			} else {
-				tlOperations <- timelock.BatchChainOperation{
+				tlOps <- timelock.BatchChainOperation{
 					ChainIdentifier: mcms.ChainIdentifier(remote),
 					Batch: []mcms.Operation{
 						{
@@ -1516,7 +1515,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			return nil
 		})
 	}
-
+	close(tlOps)
 	err = g.Wait()
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1525,7 +1524,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	for op := range tlOperations {
+	for op := range tlOps {
 		batches = append(batches, op)
 	}
 

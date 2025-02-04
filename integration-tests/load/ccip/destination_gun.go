@@ -37,8 +37,8 @@ type DestinationGun struct {
 	chainSelector uint64
 	receiver      common.Address
 	testConfig    *ccip.LoadConfig
-	loki          *wasp.LokiClient
 	messageKeys   map[uint64]*bind.TransactOpts
+	chainOffset   int
 	metricPipe    chan messageData
 }
 
@@ -48,8 +48,8 @@ func NewDestinationGun(
 	env deployment.Environment,
 	receiver common.Address,
 	overrides *ccip.LoadConfig,
-	loki *wasp.LokiClient,
 	messageKeys map[uint64]*bind.TransactOpts,
+	chainOffset int,
 	metricPipe chan messageData,
 ) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
@@ -70,8 +70,8 @@ func NewDestinationGun(
 		chainSelector: chainSelector,
 		receiver:      receiver,
 		testConfig:    overrides,
-		loki:          loki,
 		messageKeys:   messageKeys,
+		chainOffset:   chainOffset,
 		metricPipe:    metricPipe,
 	}
 
@@ -224,7 +224,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := int(m.roundNum.Load()) % len(otherCS)
+	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
 	return otherCS[index], nil
 }
 
