@@ -40,7 +40,7 @@ import (
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
@@ -516,7 +516,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
@@ -562,7 +562,7 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
@@ -1038,7 +1038,7 @@ func Test_PipelineRunner_ExecuteRun(t *testing.T) {
 		cfg := configtest.NewTestGeneralConfig(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-			GeneralConfig:  cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			FeatureConfig:  cfg.Feature(),
 			ListenerConfig: cfg.Database().Listener(),

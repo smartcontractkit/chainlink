@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -891,6 +893,20 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
+			case job.StandardCapabilities:
+				existingJobID, txerr = tx.jobORM.FindStandardCapabilityJobID(ctx, *j.StandardCapabilitiesSpec)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing standard capabilities job: %w", txerr)
+				}
+			case job.Gateway:
+				existingJobID, txerr = tx.jobORM.FindGatewayJobID(ctx, *j.GatewaySpec)
+				// Return an error if the repository errors. If there is a not found
+				// error we want to continue with approving the job.
+				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
+					return fmt.Errorf("failed while checking for existing gateway job: %w", txerr)
+				}
 			case job.Stream:
 				existingJobID, txerr = tx.jobORM.FindJobIDByStreamID(ctx, *j.StreamID)
 				// Return an error if the repository errors. If there is a not found
@@ -1304,6 +1320,10 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = ccip.ValidatedCCIPSpec(spec)
 	case job.Stream:
 		js, err = streams.ValidatedStreamSpec(spec)
+	case job.Gateway:
+		js, err = gateway.ValidatedGatewaySpec(spec)
+	case job.StandardCapabilities:
+		js, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

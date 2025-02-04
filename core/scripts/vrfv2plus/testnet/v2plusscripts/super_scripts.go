@@ -755,7 +755,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
 
-		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
+		// NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
 		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 

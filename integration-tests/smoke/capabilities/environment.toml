@@ -20,7 +20,7 @@
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
-  cre_cli_version = "v1.0.2"
+  cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
@@ -41,9 +41,9 @@
 
     [nodeset_a.node_specs.node]
       # name = "a_bootstrap"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-test"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -61,10 +61,10 @@
 
     [nodeset_a.node_specs.node]
       # name = "a_node1"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       capabilities = ["./amd64_cron"]
-      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -82,10 +82,10 @@
 
     [nodeset_a.node_specs.node]
       # name = "a_node2"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       capabilities = ["./amd64_cron"]
-      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -103,10 +103,10 @@
 
     [nodeset_a.node_specs.node]
       # name = "a_node3"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       capabilities = ["./amd64_cron"]
-      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -124,10 +124,10 @@
 
     [nodeset_a.node_specs.node]
       # name = "a_node4"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       capabilities = ["./amd64_cron"]
-      image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -156,9 +156,9 @@
 
     [nodeset_b.node_specs.node]
       # name = "b_bootstrap"
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-test"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -177,9 +177,9 @@
     [nodeset_b.node_specs.node]
       # name = "b_node1"
       capabilities = ["./amd64_cron"]
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-test"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -198,9 +198,9 @@
     [nodeset_b.node_specs.node]
       # name = "b_node2"
       capabilities = ["./amd64_cron"]
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-test"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -219,9 +219,9 @@
     [nodeset_b.node_specs.node]
       # name = "b_node3"
       capabilities = ["./amd64_cron"]
-      # docker_ctx = "../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-test"
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -242,6 +242,7 @@
       capabilities = ["./amd64_cron"]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-test"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

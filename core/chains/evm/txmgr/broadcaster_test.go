@@ -65,7 +65,7 @@ func NewTestEthBroadcaster(
 	ethClient client.Client,
 	keyStore keystore.Eth,
 	databaseListener txmgr.ListenerConfig,
-	config evmconfig.ChainScopedConfig,
+	config evmconfig.EVM,
 	checkerFactory txmgr.TransmitCheckerFactory,
 	nonceAutoSync bool,
 	nonceTracker txmgr.NonceTracker,
@@ -73,17 +73,17 @@ func NewTestEthBroadcaster(
 	t.Helper()
 
 	lggr := logger.Test(t)
-	ge := config.EVM().GasEstimator()
+	ge := config.GasEstimator()
 
 	estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
-		return gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), nil, ge.BlockHistory(), lggr, nil)
+		return gas.NewFixedPriceEstimator(config.GasEstimator(), nil, ge.BlockHistory(), lggr, nil)
 	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	ethBroadcaster := txmgrcommon.NewBroadcaster(txStore,
 		txmgr.NewEvmTxmClient(ethClient, nil),
-		txmgr.NewEvmTxmConfig(config.EVM()),
-		txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()),
-		config.EVM().Transactions(),
+		txmgr.NewEvmTxmConfig(config),
+		txmgr.NewEvmTxmFeeConfig(config.GasEstimator()),
+		config.Transactions(),
 		databaseListener, keyStore, txBuilder, nonceTracker,
 		lggr, checkerFactory, nonceAutoSync, "")
 
@@ -199,7 +199,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, otherAddress, mock.Anything).Return(uint64(0), nil).Once()
 	lggr := logger.Test(t)
 	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, checkerFactory, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	timeNow := time.Now()
 
@@ -398,7 +398,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 	ethClient.On("NonceAt", mock.Anything, otherAddress, mock.Anything).Return(uint64(1), nil).Once()
 	nonceTracker = txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, checkerFactory, false, nonceTracker)
+	eb = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
 
 	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -566,7 +566,7 @@ func TestEthBroadcaster_TransmitChecking(t *testing.T) {
 	checkerFactory := &testCheckerFactory{}
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, checkerFactory, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
 
 	checker := txmgr.TransmitCheckerSpec{
 		CheckerType: txmgr.TransmitCheckerTypeSimulate,
@@ -715,7 +715,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 	nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 		assert.Equal(t, int(1600), int(tx.Gas()))
@@ -748,7 +748,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	nextNonce := evmtypes.Nonce(916714082576372851)
 	firstNonce := nextNonce
 	secondNonce := nextNonce + 1
-	evmcfg := configtest.NewChainScopedConfig(t, nil)
 	ctx := tests.Context(t)
 
 	t.Run("cannot be more than one transaction per address in an unfinished state", func(t *testing.T) {
@@ -789,14 +788,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce but never broadcast", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
 
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so evm.key_states.next_nonce has not been
@@ -828,14 +827,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce and broadcast but it fatally errored before we could save", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
 
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved the nonce to the eth_tx
 		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
@@ -865,14 +864,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce and broadcast and is now in mempool", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
 
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved the nonce to the eth_tx
 		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
@@ -901,14 +900,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	t.Run("previous run assigned nonce and broadcast and now the transaction has been confirmed", func(t *testing.T) {
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
 
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved the nonce to the eth_tx
 		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
@@ -939,14 +938,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
 		db := testutils.NewSqlxDB(t)
 		txStore := cltest.NewTestTxStore(t, db)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.RandomKey{Nonce: nextNonce.Int64()}.MustInsertWithState(t, ethKeyStore)
 
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved the nonce to the eth_tx
 		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
@@ -987,7 +986,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := clienttest.NewClientWithDefaultChainID(t)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 		nonceTracker := txmgr.NewNonceTracker(logger.Test(t), txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Crashed right after we commit the database transaction that saved the nonce to the eth_tx
 		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
@@ -1046,13 +1045,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	evmcfg := configtest.NewChainScopedConfig(t, nil)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 	lggr := logger.Test(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmClient)
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, configtest.NewChainScopedConfig(t, nil).EVM(), &testCheckerFactory{}, false, nonceTracker)
 	ctx := tests.Context(t)
 
 	require.NoError(t, commonutils.JustError(db.Exec(`SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)))
@@ -1181,6 +1179,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 				// same as the parent test, but callback is set by ctor
 				t.Run("callback set by ctor", func(t *testing.T) {
+					evmcfg := configtest.NewChainScopedConfig(t, nil)
 					estimator := gas.NewEvmFeeEstimator(lggr, func(lggr logger.Logger) gas.EvmEstimator {
 						return gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), nil, evmcfg.EVM().GasEstimator().BlockHistory(), lggr, nil)
 					}, evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), evmcfg.EVM().GasEstimator(), ethClient)
@@ -1396,7 +1395,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		etx := mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
-
+		evmcfg := configtest.NewChainScopedConfig(t, nil)
 		// First was underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg.EVM().GasEstimator().PriceDefault().ToInt()) == 0
@@ -1506,16 +1505,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
-		evmcfg2 := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+		evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.BumpMin = assets.NewWeiI(0)
 			c.GasEstimator.BumpPercent = ptr[uint16](0)
 		})
-		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
+		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 
 		// First was underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg2.EVM().GasEstimator().PriceDefault().ToInt()) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(evmcfg.EVM().GasEstimator().PriceDefault().ToInt()) == 0
 		}), fromAddress).Return(multinode.Underpriced, errors.New(underpricedError)).Once()
 
 		// Do the thing
@@ -1595,14 +1594,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
-		evmcfg2 := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+		evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.GasEstimator.BumpMin = assets.NewWeiI(0)
 			c.GasEstimator.BumpPercent = ptr[uint16](0)
 		})
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(localNextNonce, nil).Once()
-		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
+		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
 		underpricedError := "transaction underpriced"
 		localNextNonce = getLocalNextNonce(t, nonceTracker, fromAddress)
@@ -1628,13 +1627,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		gasTipCapDefault := assets.NewWeiI(42)
 
-		evmcfg2 := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+		evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
 			c.GasEstimator.EIP1559DynamicFees = ptr(true)
 			c.GasEstimator.TipCapDefault = gasTipCapDefault
 		})
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
 		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(localNextNonce, nil).Once()
-		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
+		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 		// Second was underpriced but above minimum
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -1642,11 +1641,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(multinode.Underpriced, errors.New(underpricedError)).Once()
 		// Resend at the bumped price
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg2.EVM().GasEstimator().BumpMin().ToInt())) == 0
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg.EVM().GasEstimator().BumpMin().ToInt())) == 0
 		}), fromAddress).Return(multinode.Underpriced, errors.New(underpricedError)).Once()
 		// Final bump succeeds
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EVM().GasEstimator().BumpMin().ToInt(), big.NewInt(2)))) == 0
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg.EVM().GasEstimator().BumpMin().ToInt(), big.NewInt(2)))) == 0
 		}), fromAddress).Return(multinode.Successful, nil).Once()
 
 		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
@@ -1747,7 +1746,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
 	lggr := logger.Test(t)
 	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, kst, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, kst, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 	ctx := tests.Context(t)
 	_, err := nonceTracker.GetNextSequence(ctx, fromAddress)
 	require.NoError(t, err)
@@ -1795,7 +1794,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	lggr := logger.Test(t)
 	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, &testCheckerFactory{}, false, nonceTracker)
+	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), &testCheckerFactory{}, false, nonceTracker)
 
 	eb.Trigger(testutils.NewAddress())
 	eb.Trigger(testutils.NewAddress())
@@ -1865,7 +1864,7 @@ func TestEthBroadcaster_NonceTracker_InProgressTx(t *testing.T) {
 		// Tx with nonce 0 in DB will set local nonce map to value to 1
 		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(inProgressTxNonce), fromAddress)
 		nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
-		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg, checkerFactory, false, nonceTracker)
+		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
 
 		// Check the local nonce map was set to 1 higher than in-progress tx nonce
 		nonce := getLocalNextNonce(t, nonceTracker, fromAddress)
