@@ -3619,13 +3619,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		for {
 			select {
 			case e := <-messageReceivedEvent:
-				messageID := string(e.MessageId[:])
-				messageContent := e.Data
-				messageSender := string(e.Sender)
-				log.Info().Msgf("Message event received for message id: 0x%x", messageID)
-				log.Info().Msgf("Message event received with content: %+v", string(messageContent))
-				log.Info().Msgf("Message event received with sender: 0x%x", messageSender[len(messageSender)-20:])
-				lane.Dest.MessageReceivedWatcher.Store(messageID, messageContent)
+				processMessageReceivedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}
@@ -3764,6 +3758,16 @@ func processExecutionStateChangedEvent(lane *CCIPLane, e *evm_2_evm_offramp.EVM2
 	lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
 }
 
+func processMessageReceivedEvent(lane *CCIPLane, e *maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived) {
+	messageID := string(e.MessageId[:])
+	messageContent := e.Data
+	messageSender := string(e.Sender)
+	log.Info().Msgf("Message event received for message id: 0x%x", messageID)
+	log.Info().Msgf("Message event received with content: %+v", string(messageContent))
+	log.Info().Msgf("Message event received with sender: 0x%x", messageSender[len(messageSender)-20:])
+	lane.Dest.MessageReceivedWatcher.Store(messageID, messageContent)
+}
+
 func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator) error {
 	lane.Logger.Info().Msg("Starting event watchers, Polling")
 	if lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
@@ -3783,11 +3787,6 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 		return err
 	}
 	go func() {
-		defer func() {
-			if err := sc.Sentinel.Unsubscribe(lane.SourceChain.GetChainID().Int64(), lane.Source.OnRamp.EthAddress, evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{}.Topic(), sendReqEventSub); err != nil {
-				lane.Logger.Error().Err(err).Msg("failed to unsubscribe from CCIPSendRequested event")
-			}
-		}()
 		for {
 			select {
 			case <-sc.Ctx.Done():
@@ -3816,11 +3815,6 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 		return errors.New("failed to subscribe to ReportAccepted event")
 	}
 	go func() {
-		defer func() {
-			if err := sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.CommitStore.EthAddress, commit_store.CommitStoreReportAccepted{}.Topic(), reportAcceptedSub); err != nil {
-				lane.Logger.Error().Err(err).Msg("failed to unsubscribe from ReportAccepted event")
-			}
-		}()
 		for {
 			select {
 			case <-sc.Ctx.Done():
@@ -3861,11 +3855,6 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 		}
 
 		go func() {
-			defer func() {
-				if err := sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.Common.ARM.EthAddress, rmn_contract.RMNContractTaggedRootBlessed{}.Topic(), reportBlessedEventSub); err != nil {
-					lane.Logger.Error().Err(err).Msg("failed to unsubscribe from TaggedRootBlessed event")
-				}
-			}()
 			for {
 				select {
 				case <-sc.Ctx.Done():
@@ -3906,11 +3895,6 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 	}
 
 	go func() {
-		defer func() {
-			if err := sc.Sentinel.Unsubscribe(lane.DestChain.GetChainID().Int64(), lane.Dest.OffRamp.EthAddress, evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{}.Topic(), execStateChangedEventSub); err != nil {
-				lane.Logger.Error().Err(err).Msg("failed to unsubscribe from ExecutionStateChanged event")
-			}
-		}()
 		for {
 			select {
 			case <-sc.Ctx.Done():
@@ -3933,6 +3917,33 @@ func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator
 					continue
 				}
 				processExecutionStateChangedEvent(lane, e)
+			case <-lane.Context.Done():
+				return
+			}
+		}
+	}()
+	messageReceivedSub, err := sc.Sentinel.Subscribe(
+		lane.DestChain.GetChainID().Int64(),
+		lane.Dest.ReceiverDapp.EthAddress,
+		maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived{}.Topic(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("error in setting up polling to MaybeRevertMessageReceiverMessageReceived event")
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case <-sc.Ctx.Done():
+				return
+			case event, ok := <-messageReceivedSub:
+				if !ok {
+					lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+					return
+				}
+				typesLog, _ := sentinel.ConvertAPILogToTypesLog(event)
+				e, _ := lane.Dest.ReceiverDapp.Instance.MaybeRevertMessageReceiverFilterer.ParseMessageReceived(*typesLog)
+				processMessageReceivedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}

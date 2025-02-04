@@ -1078,7 +1078,7 @@ func (b *CommitStore) WatchReportAccepted(opts *bind.WatchOpts, acceptedEvent ch
 type ReceiverDapp struct {
 	client     blockchain.EVMClient
 	logger     *zerolog.Logger
-	instance   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
+	Instance   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 	EthAddress common.Address
 }
 
@@ -1091,7 +1091,7 @@ func (rDapp *ReceiverDapp) ToggleRevert(revert bool) error {
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
-	tx, err := rDapp.instance.SetRevert(opts, revert)
+	tx, err := rDapp.Instance.SetRevert(opts, revert)
 	if err != nil {
 		return fmt.Errorf("error setting revert: %w", err)
 	}
@@ -1106,8 +1106,8 @@ func (rDapp *ReceiverDapp) ToggleRevert(revert bool) error {
 
 // WatchMessageReceived watches for `MessageReceived` events from the ReceiverDapp contract.
 func (rDapp *ReceiverDapp) WatchMessageReceived(opts *bind.WatchOpts, messageReceivedEvent chan *maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived) (event.Subscription, error) {
-	if rDapp.instance != nil {
-		return rDapp.instance.WatchMessageReceived(opts, messageReceivedEvent)
+	if rDapp.Instance != nil {
+		return rDapp.Instance.WatchMessageReceived(opts, messageReceivedEvent)
 	}
 
 	newInstance, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(rDapp.EthAddress, wrappers.MustNewWrappedContractBackend(rDapp.client, nil))
