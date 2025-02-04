@@ -23,7 +23,8 @@ func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.Bootstrap
 	return
 }
 
-// GetValidatedBootstrapPeers will error unless at least one valid bootstrap peer is found
+// GetValidatedBootstrapPeers will error unless at least one valid bootstrap is found or
+// no bootstrappers are found and allowNoBootstrappers is true.
 func GetValidatedBootstrapPeers(specPeers []string, configPeers []commontypes.BootstrapperLocator, allowNoBootstrappers bool) ([]commontypes.BootstrapperLocator, error) {
 	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {
