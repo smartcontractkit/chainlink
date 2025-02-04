@@ -11,7 +11,7 @@ contractConfigConfirmations = 1
 pluginType = 'median'
 captureEATelemetry = false
 captureAutomationCustomTelemetry = false
-AllowNoBootstrappers = false
+allowNoBootstrappers = false
 
 [relayConfig]
 chainID = 1337
