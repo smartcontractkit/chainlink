@@ -1302,6 +1302,12 @@ MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
+### GlobalCountLimit
+```toml
+GlobalCountLimit = 50 # Default
+```
+GlobalCountLimit is the maximum number of engines that can be registered globally.
+
 ## Capabilities.ExternalRegistry
 ```toml
 [Capabilities.ExternalRegistry]

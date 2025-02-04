@@ -404,6 +404,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 							MaxConfigSize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxConfigSize()),
 						},
 					),
+					syncer.WithEngineRegistry(syncer.NewEngineRegistry(syncer.WithGlobalCountLimit(cfg.Capabilities().WorkflowRegistry().GlobalCountLimit()))),
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")

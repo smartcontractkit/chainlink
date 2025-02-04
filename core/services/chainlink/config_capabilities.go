@@ -153,6 +153,10 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 	return *c.c.MaxConfigSize
 }
 
+func (c *capabilitiesWorkflowRegistry) GlobalCountLimit() uint {
+	return *c.c.GlobalCountLimit
+}
+
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }

@@ -545,10 +545,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	// This shouldn't happen because we call the handler serially and
-	// check for running engines above, see the call to engineRegistry.IsRunning.
 	if err := h.engineRegistry.Add(wfID, engine); err != nil {
-		return fmt.Errorf("invariant violation: %w", err)
+		return fmt.Errorf("failed to add engine to the registry: %w", err)
 	}
 
 	return nil

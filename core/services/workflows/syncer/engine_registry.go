@@ -7,14 +7,34 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-type EngineRegistry struct {
-	engines map[string]services.Service
-	mu      sync.RWMutex
+const defaultGlobalCountLimit = 50
+
+type EngineRegistryConfig struct {
+	GlobalCountLimit uint
 }
 
-func NewEngineRegistry() *EngineRegistry {
-	return &EngineRegistry{
-		engines: make(map[string]services.Service),
+type EngineRegistry struct {
+	engines          map[string]services.Service
+	mu               sync.RWMutex
+	globalCountLimit uint
+}
+
+func NewEngineRegistry(opts ...func(*EngineRegistry)) *EngineRegistry {
+	er := &EngineRegistry{
+		engines:          make(map[string]services.Service),
+		globalCountLimit: defaultGlobalCountLimit,
+	}
+
+	for _, o := range opts {
+		o(er)
+	}
+
+	return er
+}
+
+func WithGlobalCountLimit(gcl uint) func(*EngineRegistry) {
+	return func(e *EngineRegistry) {
+		e.globalCountLimit = gcl
 	}
 }
 
@@ -24,6 +44,11 @@ func (r *EngineRegistry) Add(id string, engine services.Service) error {
 	defer r.mu.Unlock()
 	if _, found := r.engines[id]; found {
 		return errors.New("attempting to register duplicate engine")
+	}
+
+	// validate if adding another engine would exceed the global count limit
+	if len(r.engines)+1 > int(r.globalCountLimit) {
+		return errors.New("global engine count limit reached")
 	}
 	r.engines[id] = engine
 	return nil

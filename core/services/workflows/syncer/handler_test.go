@@ -462,6 +462,45 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 		},
+		{
+			Name: "engine registry global count limit reached",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+				return &mockEngine{}, nil
+			},
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
+				return WorkflowRegistryWorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+				me := &mockEngine{}
+				h.engineRegistry.Add(wfID, me)
+				err := h.workflowRegisteredEvent(ctx, event)
+				require.Error(t, err)
+				require.ErrorContains(t, err, "global engine count limit reached")
+			},
+			WithGlobalCountLimit: func() *uint {
+				limit := uint(0)
+				return &limit
+			}(),
+		},
 	}
 
 	for _, tc := range tt {
@@ -470,17 +509,18 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 }
 
 type testCase struct {
-	Name            string
-	SecretsURL      string
-	BinaryURL       string
-	GiveBinary      []byte
-	GiveConfig      []byte
-	ConfigURL       string
-	WFOwner         []byte
-	fetcher         FetcherFunc
-	Event           func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn    func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
-	engineFactoryFn func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+	Name                 string
+	SecretsURL           string
+	BinaryURL            string
+	GiveBinary           []byte
+	GiveConfig           []byte
+	ConfigURL            string
+	WFOwner              []byte
+	fetcher              FetcherFunc
+	Event                func([]byte) WorkflowRegistryWorkflowRegisteredV1
+	validationFn         func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
+	engineFactoryFn      func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+	WithGlobalCountLimit *uint
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -508,7 +548,12 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 		event := tc.Event(giveWFID[:])
 
-		er := NewEngineRegistry()
+		var er *EngineRegistry
+		if tc.WithGlobalCountLimit != nil {
+			er = NewEngineRegistry(WithGlobalCountLimit(*tc.WithGlobalCountLimit))
+		} else {
+			er = NewEngineRegistry()
+		}
 		opts := []func(*eventHandler){
 			WithEngineRegistry(er),
 		}
