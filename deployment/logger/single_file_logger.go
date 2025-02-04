@@ -27,7 +27,7 @@ var _ corelogger.Logger = (*SingleFileLogger)(nil)
 // The file name includes the test name + timestamp so that parallel tests don’t collide.
 func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 	// Our logs will go here so GH can upload them:
-	dir := "./deployment/environment/memory/logs"
+	dir := "../environment/memory/logs"
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		log.Fatalf("Failed to create logs dir %q: %v", dir, err)
