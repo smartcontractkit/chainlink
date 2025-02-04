@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -2175,7 +2177,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	emptyTransmitterAddress := `
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = ''
 	`
 	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+emptyTransmitterAddress, nil)
@@ -2187,7 +2189,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	metaNotSliceDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = 'val1'
@@ -2202,7 +2204,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	hintNotValidDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		hint = ['some-invalid-hint']
@@ -2217,7 +2219,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	invalidRefundFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		hint = ['calldata','logs']
@@ -2232,7 +2234,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	invalidRefundAddressFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		hint = ['calldata','logs']
@@ -2247,7 +2249,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	invalidRefundPercentFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		hint = ['calldata','logs']
@@ -2262,7 +2264,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	invalidRefundPercentTotalFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		hint = ['calldata','logs']
@@ -2277,7 +2279,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 	completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2330,7 +2332,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2351,7 +2353,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2385,7 +2387,7 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true
 		[relayConfig.dualTransmission]
-		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C' 
+		contractAddress = '0x613a38AC1659769640aaE063C651F48E0250454C'
 		transmitterAddress = '%s'
 		[relayConfig.dualTransmission.meta]
 		key1 = ['val1']
@@ -2401,4 +2403,144 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 
 		require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "cannot be a secondary transmitter address because it's used a primary transmitter in another job")
 	})
+}
+
+func Test_FindGatewayJobID(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	gatewayJob, err := gateway.ValidatedGatewaySpec(testspecs.GetGatewaySpec())
+	require.NoError(t, err, "failed to validate gateway spec")
+
+	err = orm.CreateJob(ctx, &gatewayJob)
+	require.NoError(t, err, "failed to create gateway job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get gateway job from db")
+
+	// find only by auth gateway id
+	gatewayJobSpec := job.GatewaySpec{
+		GatewayConfig: job.JSONConfig{
+			"ConnectionManagerConfig": map[string]interface{}{
+				"AuthGatewayId": "gateway",
+			},
+		},
+	}
+	id, err := orm.FindGatewayJobID(ctx, gatewayJobSpec)
+	require.NoError(t, err, "failed to find gateway job by auth gateway id")
+	require.Equal(t, jobSpec.ID, id, "mismatch job id")
+}
+
+func Test_FindGatewayJobID_NoMatch(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	gatewayJob, err := gateway.ValidatedGatewaySpec(testspecs.GetGatewaySpec())
+	require.NoError(t, err, "failed to validate gateway spec")
+
+	err = orm.CreateJob(ctx, &gatewayJob)
+	require.NoError(t, err, "failed to create gateway job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get gateway job from db")
+
+	// different auth gateway id
+	gatewayJobSpec := job.GatewaySpec{
+		GatewayConfig: job.JSONConfig{
+			"ConnectionManagerConfig": map[string]interface{}{
+				"AuthGatewayId": "another_gateway",
+			},
+		},
+	}
+	id, err := orm.FindGatewayJobID(ctx, gatewayJobSpec)
+	require.Error(t, err, "found gateway job by auth gateway id")
+	require.Equal(t, int32(0), id, "found non-zero job id")
+}
+
+func Test_FindStandardCapabilityJobID(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	stdJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(testspecs.GetStandardCapabilitySpec())
+	require.NoError(t, err, "failed to validate standard capabilities spec")
+
+	err = orm.CreateJob(ctx, &stdJob)
+	require.NoError(t, err, "failed to create standard capabilities job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get standard capabilities job from db")
+
+	stdCapJobSpec := job.StandardCapabilitiesSpec{
+		Command: "/home/capabilities/some_capability_linux_amd64",
+	}
+
+	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
+	require.NoError(t, err, "failed to find standard capabilities by command")
+	require.Equal(t, jobSpec.ID, id, "mismatch job id")
+}
+
+func Test_FindStandardCapabilityJobID_NoMatch(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(ctx, cltest.DefaultOCRKey)
+	require.NoError(t, err, "failed to add OCR key")
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db)
+	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
+
+	stdJob, err := standardcapabilities.ValidatedStandardCapabilitiesSpec(testspecs.GetStandardCapabilitySpec())
+	require.NoError(t, err, "failed to validate standard capabilities spec")
+
+	err = orm.CreateJob(ctx, &stdJob)
+	require.NoError(t, err, "failed to create standard capabilities job")
+	var jobSpec job.Job
+	err = db.Get(&jobSpec, "SELECT * FROM jobs")
+	require.NoError(t, err, "failed to get standard capabilities job from db")
+
+	stdCapJobSpec := job.StandardCapabilitiesSpec{
+		Command: "/home/capabilities/some_other_capability_linux_amd64",
+	}
+
+	id, err := orm.FindStandardCapabilityJobID(ctx, stdCapJobSpec)
+	require.Error(t, err, "found standard capabilities with different command")
+	require.Equal(t, int32(0), id, "found non-zero job id")
 }

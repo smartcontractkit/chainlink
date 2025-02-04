@@ -35,27 +35,17 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     s_feeQuoter.applyDestChainConfigUpdates(configs);
   }
 
-  // ----------------------------------------------------------------
-  // TEST: EVM path
-  // ----------------------------------------------------------------
-  function test_processChainFamilySelectorEVM() public {
+  function test_processChainFamilySelector_EVM() public {
     Client.EVMExtraArgsV2 memory evmArgs = Client.EVMExtraArgsV2({gasLimit: 400_000, allowOutOfOrderExecution: true});
     bytes memory encodedEvmArgs = Client._argsToBytes(evmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(
-      EVM_SELECTOR,
-      false, // isMessageWithTokenTransfer
-      encodedEvmArgs
-    );
+    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(EVM_SELECTOR, encodedEvmArgs);
 
     assertEq(resultBytes, encodedEvmArgs, "Should return the same EVM-encoded bytes");
     assertEq(outOfOrder, evmArgs.allowOutOfOrderExecution, "Out-of-order mismatch");
   }
 
-  // ----------------------------------------------------------------
-  // TEST: SVM path
-  // ----------------------------------------------------------------
-  function test_processChainFamilySelectorSVM_WithTokenTransfer() public {
+  function test_processChainFamilySelector_SVM_WithTokenTransfer() public {
     // Construct an SVMExtraArgsV1 with a non-zero tokenReceiver
     Client.SVMExtraArgsV1 memory svmArgs = Client.SVMExtraArgsV1({
       computeUnits: 1_500_000, // within the limit
@@ -66,11 +56,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     });
     bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(
-      SVM_SELECTOR,
-      true, // isMessageWithTokenTransfer
-      encodedSvmArgs
-    );
+    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, encodedSvmArgs);
 
     // The function should NOT revert since tokenReceiver != 0
     // Check that it returned the SVM-encoded bytes
@@ -79,7 +65,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     assertTrue(outOfOrder, "Out-of-order for SVM must be true");
   }
 
-  function test_processChainFamilySelectorSVM_NoTokenTransfer() public {
+  function test_processChainFamilySelector_SVM_NoTokenTransfer() public {
     Client.SVMExtraArgsV1 memory svmArgs = Client.SVMExtraArgsV1({
       computeUnits: 2_000_000,
       accountIsWritableBitmap: 0,
@@ -89,43 +75,17 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     });
     bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(
-      SVM_SELECTOR,
-      false, // no token transfer
-      encodedSvmArgs
-    );
+    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, encodedSvmArgs);
 
     // Should succeed with outOfOrder = true
     assertEq(resultBytes, encodedSvmArgs, "Should return the SVM-encoded bytes");
     assertTrue(outOfOrder, "Out-of-order should be true for SVM");
   }
 
-  // TEST: SVM path → reverts
-
-  function test_processChainFamilySelector_RevertWhen_TokenTransferNoTokenReceiver() public {
-    // Construct an SVMExtraArgsV1 with tokenReceiver == 0
-    Client.SVMExtraArgsV1 memory svmArgs = Client.SVMExtraArgsV1({
-      computeUnits: 1_500_000,
-      accountIsWritableBitmap: 0,
-      tokenReceiver: bytes32(0), // <-- zero
-      allowOutOfOrderExecution: true,
-      accounts: new bytes32[](0)
-    });
-    bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
-
-    vm.expectRevert(FeeQuoter.InvalidTokenReceiver.selector);
-
-    s_feeQuoter.processChainFamilySelector(
-      SVM_SELECTOR,
-      true, // token transfer
-      encodedSvmArgs
-    );
-  }
-
   function test_processChainFamilySelector_RevertWhen_InvalidChainFamilySelector() public {
     // Provide random extraArgs
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, bytes4(0)));
 
-    s_feeQuoter.processChainFamilySelector(INVALID_SELECTOR, false, "0x1234");
+    s_feeQuoter.processChainFamilySelector(INVALID_SELECTOR, "0x1234");
   }
 }

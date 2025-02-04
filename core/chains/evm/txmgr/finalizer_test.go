@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
@@ -869,6 +870,29 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxFatalError, etx.State)
 		require.Equal(t, txmgr.ErrCouldNotGetReceipt, etx.Error.String)
+	})
+
+	t.Run("attempts requiring receipt fetch is not fetched from TxStore every head", func(t *testing.T) {
+		txStore := mocks.NewEvmTxStore(t)
+		finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
+
+		// Mock finalizer txstore calls that are not needed
+		txStore.On("SaveFetchedReceipts", mock.Anything, mock.Anything).Return(nil).Maybe()
+		txStore.On("FindTxesPendingCallback", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+		txStore.On("UpdateTxCallbackCompleted", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		txStore.On("FindConfirmedTxesReceipts", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+		txStore.On("FindTxesByIDs", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+
+		// RPC returns nil receipt for attempt
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		// Should fetch attempts list from txstore
+		attempt := cltest.NewLegacyEthTxAttempt(t, 0)
+		txStore.On("FindAttemptsRequiringReceiptFetch", mock.Anything, mock.Anything).Return([]txmgr.TxAttempt{attempt}, nil).Once()
+		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
+		// Should use the attempts cache for receipt fetch
+		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
+		require.NoError(t, finalizer.FetchAndStoreReceipts(ctx, head, latestFinalizedHead))
 	})
 }
 
