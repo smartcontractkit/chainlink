@@ -54,8 +54,6 @@ flowchart LR
 	chainlink-starknet/relayer --> chainlink-common
 	click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-ccip
-	chainlink/v2 --> chainlink-ccip/chains/solana
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
@@ -189,8 +187,6 @@ flowchart LR
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-ccip
-	chainlink/v2 --> chainlink-ccip/chains/solana
 	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
