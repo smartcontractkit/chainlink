@@ -180,6 +180,7 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 		restClient: chainlinkClient,
 		Name:       nodeInfo.Name,
 		adminAddr:  nodeInfo.AdminAddr,
+		multiAddr:  nodeInfo.MultiAddr,
 		labels:     labels,
 	}, nil
 }
