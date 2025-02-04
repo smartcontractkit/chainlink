@@ -173,10 +173,7 @@ flowchart LR
 	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink/core/scripts --> ccip-owner-contracts
-	chainlink/core/scripts --> chainlink-protos/job-distributor
-	chainlink/core/scripts --> chainlink-testing-framework/lib
-	chainlink/core/scripts --> chainlink/v2
+	chainlink/core/scripts --> chainlink/deployment
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
 	chainlink/deployment --> chainlink-protos/job-distributor
