@@ -402,27 +402,6 @@ func (r *RPCClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.H
 
 	// if new head based on http polling is enabled, we will replace it for WS newHead subscription
 	if r.newHeadsPollInterval > 0 {
-<<<<<<< HEAD
-		interval := r.newHeadsPollInterval
-		timeout := interval
-		isHealthCheckRequest := multinode.CtxIsHealthCheckRequest(ctx)
-		poller, channel := multinode.NewPoller[*evmtypes.Head](interval, func(ctx context.Context) (*evmtypes.Head, error) {
-			if isHealthCheckRequest {
-				ctx = multinode.CtxAddHealthCheckFlag(ctx)
-			}
-			return r.latestBlock(ctx)
-		}, timeout, r.rpcLog)
-		if err = poller.Start(ctx); err != nil {
-			return nil, nil, err
-		}
-
-		err = r.registerSub(&poller, chStopInFlight)
-		if err != nil {
-			return nil, nil, err
-		}
-
-=======
->>>>>>> 8bec69ba6a95864c34ceeb7623506c8eef2c70e8
 		lggr.Debugf("Polling new heads over http")
 		return r.RPCClientBase.SubscribeToHeads(ctx)
 	}
@@ -1293,52 +1272,6 @@ func (r *RPCClient) Name() string {
 	return r.name
 }
 
-<<<<<<< HEAD
-func (r *RPCClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
-	if head == nil {
-		return
-	}
-
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHealthCheckRequest(ctx) {
-		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
-		r.highestUserObservations.TotalDifficulty = multinode.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
-	}
-	select {
-	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
-		return
-	default:
-		r.latestChainInfo.BlockNumber = head.Number
-		r.latestChainInfo.TotalDifficulty = head.TotalDifficulty
-	}
-}
-
-func (r *RPCClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
-	if head == nil {
-		return
-	}
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	if !multinode.CtxIsHealthCheckRequest(ctx) {
-		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
-	}
-	select {
-	case <-requestCh: // no need to update latestChainInfo, as RPCClient already started new life cycle
-		return
-	default:
-		r.latestChainInfo.FinalizedBlockNumber = head.Number
-	}
-}
-
-func (r *RPCClient) GetInterceptedChainInfo() (latest, highestUserObservations multinode.ChainInfo) {
-	r.chainInfoLock.Lock()
-	defer r.chainInfoLock.Unlock()
-	return r.latestChainInfo, r.highestUserObservations
-}
-
-=======
->>>>>>> 8bec69ba6a95864c34ceeb7623506c8eef2c70e8
 func ToBlockNumArg(number *big.Int) string {
 	if number == nil {
 		return "latest"
