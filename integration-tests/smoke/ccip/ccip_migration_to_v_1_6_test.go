@@ -110,7 +110,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Add(1)
 	// send continuous messages in real router until done is closed
 	go func() {
-		initialBlock, v1_5Msgs, v1_6Msgs = SendMessages(t, &e, &state, pairs[0].SourceChainSelector, pairs[0].DestChainSelector, done)
+		initialBlock, v1_5Msgs, v1_6Msgs = SendContinuousMessages(
+			t, &e, &state, pairs[0].SourceChainSelector, pairs[0].DestChainSelector, done)
 		wg.Done()
 	}()
 	// send a message from the other lane src2 -> dest
@@ -377,7 +378,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 }
 
 // SendMessages sends messages from src to dest until done is closed
-func SendMessages(
+func SendContinuousMessages(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
 	state *changeset.CCIPOnChainState,
@@ -393,7 +394,7 @@ func SendMessages(
 	for {
 		select {
 		case <-ticker.C:
-			msg := sendMessage(t, e, state, src, dest)
+			msg := sendMessageInRealRouter(t, e, state, src, dest)
 			switch msg := msg.(type) {
 			case *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested:
 				v1_5Msgs = append(v1_5Msgs, msg)
@@ -414,8 +415,8 @@ func SendMessages(
 	}
 }
 
-// sendMessage sends a message and filter the log topic to identify the event type nad parse the event data.
-func sendMessage(
+// sendMessageInRealRouter sends a message and filter the log topic to identify the event type nad parse the event data.
+func sendMessageInRealRouter(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
 	state *changeset.CCIPOnChainState,
