@@ -7,6 +7,9 @@
   # change to your version
   image = "jd-test-1:latest"
 
+[fake]
+  port = 8171
+
 [workflow_config]
 	don_id = 1
 	workflow_name = "abcdefgasd"
@@ -14,8 +17,8 @@
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = false
-  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  should_compile_new_workflow = true
+  workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"

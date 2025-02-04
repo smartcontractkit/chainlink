@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -96,6 +97,7 @@ type WorkflowTestConfig struct {
 	NodeSet        *ns.Input         `toml:"nodeset" validate:"required"`
 	WorkflowConfig *WorkflowConfig   `toml:"workflow_config" validate:"required"`
 	JD             *jd.Input         `toml:"jd" validate:"required"`
+	Fake           *fake.Input       `toml:"fake"  validate:"required"`
 }
 
 func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToken string) ([]byte, error) {
@@ -722,7 +724,7 @@ func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Cli
 }
 
 //revive:disable // ignore confusing-results
-func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID string, settingsFile *os.File) (string, string) {
+func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID, dataURL string, settingsFile *os.File) (string, string) {
 	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err, "failed to create workflow config file")
 
@@ -739,7 +741,7 @@ func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsum
 
 	workflowConfig := PoRWorkflowConfig{
 		FeedID:          feedIDToUse,
-		URL:             "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+		URL:             dataURL,
 		ConsumerAddress: feedsConsumerAddress.Hex(),
 	}
 
@@ -830,7 +832,7 @@ func preapreCRECLISettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workfl
 	return settingsFile
 }
 
-func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL string) {
+func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL, dataURL string) {
 	// Register workflow directly using the provided binary and config URLs
 	// This is a legacy solution, probably we can remove it soon
 	if !in.WorkflowConfig.ShouldCompileNewWorkflow && !in.WorkflowConfig.UseCRECLI {
@@ -854,7 +856,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 
 	// compile and upload the workflow, if we are not using an existing one
 	if in.WorkflowConfig.ShouldCompileNewWorkflow {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, settingsFile)
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, dataURL, settingsFile)
 	} else {
 		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
 		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
@@ -967,7 +969,6 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 				# assuming that node0 is the bootstrap node
 				DefaultBootstrappers = ['%s@node0:6690']
 
-				# This is needed for the target capability to be initialized
 				[[EVM]]
 				ChainID = '%s'
 
@@ -976,6 +977,7 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 				WSURL = '%s'
 				HTTPURL = '%s'
 
+				# This is needed for the target capability to be initialized
 				[EVM.Workflow]
 				FromAddress = '%s'
 				ForwarderAddress = '%s'
@@ -1055,7 +1057,7 @@ func mustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
-func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet) {
+func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, fakePort int) {
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
 	require.NoError(t, err, "failed to get OCR3 contract address")
@@ -1156,6 +1158,10 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 				WriteTimeoutMillis = 1_000
 				[gatewayConfig.HTTPClientConfig]
 				MaxResponseBytes = 100_000_000
+				AllowedPorts = [90, 443, %d]
+				# Gist
+				AllowedIps = ["185.199.108.133"]
+				AllowedIPsCIDR = ["192.168.0.0/24", "192.168.65.0/24"]
 			`,
 			uuid.NewString(),
 			// ETH keys of the workflow nodes
@@ -1163,6 +1169,7 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 			don.Nodes[2].AccountAddr[chainIDUint64],
 			don.Nodes[3].AccountAddr[chainIDUint64],
 			don.Nodes[4].AccountAddr[chainIDUint64],
+			fakePort,
 		)
 
 		gatewayJobRequest := &jobv1.ProposeJobRequest{
@@ -1737,6 +1744,25 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 		Build()
 	require.NoError(t, err, "failed to create seth client")
 
+	// Start the fake API server
+	fk, err := fake.NewFakeDataProvider(in.Fake)
+	_ = fk
+	require.NoError(t, err)
+	fakeApiPath := "/fake/api/price"
+	fakeFinalUrl := fmt.Sprintf("http://host.docker.internal:%d%s", in.Fake.Port, fakeApiPath)
+
+	//set initial price
+	prices := []*big.Int{big.NewInt(123456789), big.NewInt(987654321)}
+
+	var setNewPrice = func(price *big.Int) {
+		fake.JSON("GET", fakeApiPath, map[string]interface{}{
+			"price":     price.String(),
+			"updatedAt": time.Now().Unix(),
+		}, 200)
+	}
+
+	setNewPrice(prices[0])
+
 	// Start job distributor
 	jdOutput := startJobDistributor(t, in)
 
@@ -1758,14 +1784,16 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Deploy and configure Keystone Feeds Consumer contract
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
+	//dataURL := "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
+
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, fakeFinalUrl)
 
 	// Create OCR3 and capability jobs for each node JD
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
 	// JD client needs to be reinitialised after restarting nodes
 	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
-	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet)
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, in.Fake.Port)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1801,6 +1829,8 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	startTime := time.Now()
 	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
 
+	var pricesFound []*big.Int
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1815,8 +1845,16 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
 			if price.String() != "0" {
-				testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
-				return
+				testLogger.Info().Msgf("Feed updated after %s - price set, price=%s\n", elapsed, price)
+				pricesFound = append(pricesFound, price)
+
+				if len(pricesFound) == len(prices) {
+					require.EqualValues(t, prices, pricesFound, "prices do not match")
+					return
+				} else {
+					require.Less(t, len(pricesFound), len(prices), "more prices found than expected")
+					setNewPrice(prices[len(pricesFound)])
+				}
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
 		}
