@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -332,7 +332,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -416,7 +416,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -433,6 +433,8 @@ jobs:
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
+
+          current_branch_name="${{ github.head_ref || github.ref_name }} "
       
           # Aggregate Flakeguard test results
           flakeguard aggregate-results \
@@ -442,6 +444,7 @@ jobs:
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO" \
             --repo-url "$GH_INPUTS_REPO_URL" \
+            --branch-name "$current_branch_name" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
@@ -697,4 +700,4 @@ jobs:
                   ]
                 }
               ]
-            }   
+            }
