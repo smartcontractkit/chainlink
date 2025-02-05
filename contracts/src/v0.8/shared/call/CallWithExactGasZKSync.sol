@@ -64,7 +64,7 @@ library CallWithExactGasZKSync {
     // This require is more of a safety protection for the users that call this function with incorrect parameters.
     //
     // Ultimately, the entire `gas` sent to this call can be spent on compute regardless of the `_maxTotalGas` parameter.
-    if (_maxTotalGas < gasleft()) {
+    if (_maxTotalGas > gasleft()) {
       revert NotEnoughGasForCall();
     }
 
