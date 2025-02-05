@@ -103,16 +103,20 @@ func (t *transmissionReaper) runLoop(ctx context.Context) {
 				// deletion)
 				//
 				// https://smartcontract-it.atlassian.net/browse/MERC-6807
-				if n, err := t.reapStale(ctx, TransmissionReaperBatchSize); err != nil {
-					t.lggr.Errorw("Failed to reap", "err", err)
-					select {
-					case <-ctx.Done():
-						return
-					case <-time.After(TransmissionReaperRetryFrequency):
-						continue
+				n, err := t.reapStale(ctx, TransmissionReaperBatchSize)
+				if err == nil {
+					if n > 0 {
+						t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
 					}
-				} else if n > 0 {
-					t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
+					break
+				}
+
+				t.lggr.Errorw("Failed to reap", "err", err)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(TransmissionReaperRetryFrequency):
+					continue
 				}
 			}
 		}
