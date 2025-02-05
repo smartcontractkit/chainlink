@@ -1308,7 +1308,6 @@ func (o *CCIPTestSetUpOutputs) addChainToSentinel(chain blockchain.EVMClient) er
 	err := o.SC.Sentinel.AddChain(addChainConfig)
 
 	return err
-
 }
 
 // CreateEnvironment creates the environment for the test and registers the test clean-up function to tear down the set-up environment
