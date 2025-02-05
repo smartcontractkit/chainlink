@@ -212,11 +212,12 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
+    bytes memory tokenReceiver = IFeeQuoter(s_dynamicConfig.feeQuoter).getTokenReceiver(destChainSelector, message);
     // Lock / burn the tokens as last step. TokenPools may not always be trusted.
     Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i] =
-        _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, message.receiver, originalSender);
+        _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, tokenReceiver, originalSender);
     }
 
     // Convert message fee to juels and retrieve converted args.

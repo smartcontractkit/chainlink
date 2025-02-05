@@ -1057,6 +1057,25 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken);
   }
 
+  /// @inheritdoc IFeeQuoter
+  function getTokenReceiver(
+    uint64 destChainSelector,
+    Client.EVM2AnyMessage calldata message
+  ) external view returns (bytes memory) {
+    DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      return message.receiver;
+    }
+    if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
+      return abi.encode(
+        _parseSVMExtraArgsFromBytes(
+          message.extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder
+        ).tokenReceiver
+      );
+    }
+    revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
+  }
+
   /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
   /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
   // solhint-disable-next-line chainlink-solidity/explicit-returns
@@ -1073,9 +1092,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     }
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      // If extraArgs passes the parsing it's valid and can be returned unchanged.
-      _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
-
+      // If extraArgs passes the parsing in getTokenReceiver, it's valid and can be returned unchanged.
       // ExtraArgs are required on SVM, meaning the supplied extraArgs are either invalid and we would have reverted
       // or we have valid extraArgs and we can return them without having to re-encode them.
       return (extraArgs, true);

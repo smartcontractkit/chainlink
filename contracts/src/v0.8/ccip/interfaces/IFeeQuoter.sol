@@ -43,4 +43,12 @@ interface IFeeQuoter is IPriceRegistry {
       bytes memory convertedExtraArgs,
       bytes[] memory destExecDataPerToken
     );
+
+  /// @notice Returns the token receiver for the given message.
+  /// @param destChainSelector destination chain selector to process, must be a configured valid chain.
+  /// @param message The message to get the token receiver for.
+  function getTokenReceiver(
+    uint64 destChainSelector,
+    Client.EVM2AnyMessage calldata message
+  ) external view returns (bytes memory tokenReceiver);
 }

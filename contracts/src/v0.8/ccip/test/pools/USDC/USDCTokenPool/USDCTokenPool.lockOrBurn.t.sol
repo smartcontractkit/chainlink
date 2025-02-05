@@ -52,6 +52,89 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
 
+  function testFuzz_LockOrBurn_EVM_Success(bytes32 destinationReceiver, uint256 amount) public {
+    vm.assume(destinationReceiver != bytes32(0));
+    amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
+    s_token.transfer(address(s_usdcTokenPool), amount);
+    vm.startPrank(s_routerAllowedOnRamp);
+
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
+
+    vm.expectEmit();
+    emit RateLimiter.TokensConsumed(amount);
+
+    vm.expectEmit();
+    emit ITokenMessenger.DepositForBurn(
+      s_mockUSDC.s_nonce(),
+      address(s_token),
+      amount,
+      address(s_usdcTokenPool),
+      destinationReceiver,
+      expectedDomain.domainIdentifier,
+      s_mockUSDC.DESTINATION_TOKEN_MESSENGER(),
+      expectedDomain.allowedCaller
+    );
+
+    vm.expectEmit();
+    emit TokenPool.Burned(s_routerAllowedOnRamp, amount);
+
+    Pool.LockOrBurnOutV1 memory poolReturnDataV1 = s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(destinationReceiver),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
+      })
+    );
+
+    uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
+    assertEq(s_mockUSDC.s_nonce() - 1, nonce);
+    assertEq(poolReturnDataV1.destTokenAddress, abi.encode(DEST_CHAIN_USDC_TOKEN));
+  }
+
+  function test_LockOrBurn_SVM() public {
+    bytes32 receiver = bytes32(uint256(uint160(STRANGER)));
+    bytes32 associatedTokenAccount = bytes32("ATA");
+    s_usdcTokenPool.setAssociatedTokenAccount(DEST_CHAIN_SELECTOR, associatedTokenAccount);
+    uint256 amount = 1;
+    s_token.transfer(address(s_usdcTokenPool), amount);
+    vm.startPrank(s_routerAllowedOnRamp);
+
+    USDCTokenPool.Domain memory expectedDomain = s_usdcTokenPool.getDomain(DEST_CHAIN_SELECTOR);
+
+    vm.expectEmit();
+    emit RateLimiter.TokensConsumed(amount);
+
+    vm.expectEmit();
+    emit ITokenMessenger.DepositForBurn(
+      s_mockUSDC.s_nonce(),
+      address(s_token),
+      amount,
+      address(s_usdcTokenPool),
+      associatedTokenAccount,
+      expectedDomain.domainIdentifier,
+      s_mockUSDC.DESTINATION_TOKEN_MESSENGER(),
+      expectedDomain.allowedCaller
+    );
+
+    vm.expectEmit();
+    emit TokenPool.Burned(s_routerAllowedOnRamp, amount);
+
+    Pool.LockOrBurnOutV1 memory poolReturnDataV1 = s_usdcTokenPool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: abi.encodePacked(receiver),
+        amount: amount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_token)
+      })
+    );
+
+    uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
+    assertEq(s_mockUSDC.s_nonce() - 1, nonce);
+  }
+
   function testFuzz_LockOrBurn_Success(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(destinationReceiver != bytes32(0));
     amount = bound(amount, 1, _getOutboundRateLimiterConfig().capacity);
