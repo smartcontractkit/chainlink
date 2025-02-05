@@ -39,7 +39,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     Client.EVMExtraArgsV2 memory evmArgs = Client.EVMExtraArgsV2({gasLimit: 400_000, allowOutOfOrderExecution: true});
     bytes memory encodedEvmArgs = Client._argsToBytes(evmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(EVM_SELECTOR, encodedEvmArgs);
+    (bytes memory resultBytes, bool outOfOrder, bytes memory tokenReceiver) = s_feeQuoter.processChainFamilySelector(EVM_SELECTOR, MESSAGE_RECEIVER, encodedEvmArgs);
 
     assertEq(resultBytes, encodedEvmArgs, "Should return the same EVM-encoded bytes");
     assertEq(outOfOrder, evmArgs.allowOutOfOrderExecution, "Out-of-order mismatch");
@@ -56,7 +56,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     });
     bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, encodedSvmArgs);
+    (bytes memory resultBytes, bool outOfOrder, bytes memory tokenReceiver) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, MESSAGE_RECEIVER, encodedSvmArgs);
 
     // The function should NOT revert since tokenReceiver != 0
     // Check that it returned the SVM-encoded bytes
@@ -75,7 +75,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     });
     bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, encodedSvmArgs);
+    (bytes memory resultBytes, bool outOfOrder, bytes memory tokenReceiver) = s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, MESSAGE_RECEIVER, encodedSvmArgs);
 
     // Should succeed with outOfOrder = true
     assertEq(resultBytes, encodedSvmArgs, "Should return the SVM-encoded bytes");
@@ -86,6 +86,6 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     // Provide random extraArgs
     vm.expectRevert(abi.encodeWithSelector(FeeQuoter.InvalidChainFamilySelector.selector, bytes4(0)));
 
-    s_feeQuoter.processChainFamilySelector(INVALID_SELECTOR, "0x1234");
+    s_feeQuoter.processChainFamilySelector(INVALID_SELECTOR, MESSAGE_RECEIVER, "0x1234");
   }
 }
