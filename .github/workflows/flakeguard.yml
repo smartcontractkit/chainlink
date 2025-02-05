@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -332,15 +332,26 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
+        id: run-tests
         env:
           GH_INPUTS_PROJECT_PATH: ${{ inputs.projectPath }}
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
-        run: flakeguard run --project-path=$GH_INPUTS_PROJECT_PATH --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=$GH_INPUTS_MAX_PASS_RATIO --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
+        run: |
+          flakeguard run --project-path=$GH_INPUTS_PROJECT_PATH --test-packages=${{ matrix.testPackages }} --run-count=${{ env.TEST_REPEAT_COUNT }} --max-pass-ratio=$GH_INPUTS_MAX_PASS_RATIO --race=${{ env.RUN_WITH_RACE }} --shuffle=${{ env.RUN_WITH_SHUFFLE }} --shuffle-seed=${{ env.SHUFFLE_SEED }} --skip-tests=${{ env.SKIPPED_TESTS }} --output-json=test-result.json --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
+          # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
+          EXIT_CODE=$?
+          echo "$EXIT_CODE" > status_${GITHUB_JOB}.txt
+          if [ $EXIT_CODE -e 1 ]; then
+            echo "Found flaky tests"
+          elif [ $EXIT_CODE -e 2 ]; then
+            echo "ERROR: Flakeguard encountered an error"
+          fi
+          exit $EXIT_CODE
 
       - name: Upload test result as artifact
         if: always()
@@ -363,6 +374,23 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
+
+      - name: Check For Flakeguard Run Errors
+        id: check-errors
+        run: |
+          # 2 indicates that the flakeguard run encountered an error
+          AGGREGATED_STATUS=0
+          for status_file in status_*.txt; do
+            status=$(cat $status_file)
+            if [ $status -e 2 ]; then
+              AGGREGATED_STATUS=$status
+            fi
+          done
+          if [ $AGGREGATED_STATUS -e 2 ]; then
+            echo "ERROR: Flakeguard encountered an unrecoverable error while running tests"
+            echo "ERROR: Flakeguard encountered an unrecoverable error while running tests" >> $GITHUB_STEP_SUMMARY
+            exit 2
+          fi
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -388,7 +416,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@45f933c508e5d4a481a646574a0abdea92d69852 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -421,6 +449,12 @@ jobs:
             --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             --splunk-event "${{ github.event_name }}"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -e 2 ]; then
+            echo "ERROR: Flakeguard encountered an error while aggregating results"
+            echo "ERROR: Flakeguard encountered an error while aggregating results" >> $GITHUB_STEP_SUMMARY
+            exit $EXIT_CODE
+          fi
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
@@ -457,6 +491,7 @@ jobs:
       - name: Generate Flakeguard Reports
         shell: bash
         if: success() || failure()
+        id: generate-report
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
@@ -500,6 +535,12 @@ jobs:
               --repo-url "https://github.com/${{ github.repository }}" \
               --action-run-id "${{ github.run_id }}" \
               --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"          
+          fi
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -e 2 ]; then
+            echo "ERROR: Flakeguard encountered an error while generating reports"
+            echo "ERROR: Flakeguard encountered an error while generating reports" >> $GITHUB_STEP_SUMMARY
+            exit $EXIT_CODE
           fi
         
       - name: Add Github Summary
@@ -625,3 +666,35 @@ jobs:
                 }
               ]
             }
+
+      - name: Send Slack message for Flakeguard Errors
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && (steps.check-errors.conclusion == 'failure' || steps.results.conclusion == 'failure' || steps.generate-report.conclusion == 'failure') }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#C62828",
+                  "blocks": [
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "## Flakeguard Encountered and Unrecoverable Error :x:"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ format('<{0}/{1}/actions/runs/{2}|See details>', github.server_url, github.repository, github.run_id) }} and diagnose the issue."
+                      }
+                    }
+                  ]
+                }
+              ]
+            }   
