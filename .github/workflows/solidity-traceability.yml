@@ -22,7 +22,7 @@ jobs:
       changesets_files: ${{ steps.files-changed.outputs.changesets_files }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -59,7 +59,7 @@ jobs:
       # Include the pull request ref in the checkout action to prevent merge commit
       # https://github.com/actions/checkout?tab=readme-ov-file#checkout-pull-request-head-commit-instead-of-merge-commit
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -95,7 +95,7 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Checkout .Github repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
@@ -193,11 +193,11 @@ jobs:
           body: |
             ## Solidity Review Jira issue
             Hey! We have taken the liberty to link this PR to a Jira issue for Solidity Review.
-            
+
             This is a new feature, that's currently in the pilot phase, so please make sure that the linkage is correct. In a contrary case, please update it manually in JIRA and replace Solidity Review issue key in the changeset file with the correct one.
             Please reach out to the Test Tooling team and notify them about any issues you encounter.
-            
+
             Any changes to the Solidity Review Jira issue should be reflected in the changeset file. If you need to update the issue key, please do so manually in the following changeset file: `${{ needs.files-changed.outputs.changesets_files }}`
-            
+
             This PR has been linked to Solidity Review Jira issue: [${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }}](${{ vars.JIRA_HOST }}browse/${{ env.SOLIDITY_REVIEW_JIRA_ISSUE_KEY }})
           edit-mode: replace

@@ -48,7 +48,7 @@ jobs:
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -65,7 +65,7 @@ jobs:
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Detect changes
@@ -153,7 +153,7 @@ jobs:
           ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -218,7 +218,7 @@ jobs:
         shell: bash
         working-directory: contracts/src/v0.8
         run: |
-          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')  
+          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')
           for version in $exact_versions; do
             echo "Installing exact version: $version"
             if ! svm install "$version"; then
@@ -326,12 +326,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout this repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Checkout .github repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
@@ -414,7 +414,7 @@ jobs:
 
       - name: Checkout earlier version of this repository
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.base_ref }}
@@ -608,7 +608,7 @@ jobs:
     steps:
       - name: Checkout the repo
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive

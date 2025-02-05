@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -132,7 +132,7 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Golang Lint (${{ matrix.modules }})
@@ -200,7 +200,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -341,7 +341,7 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-ci-core == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -371,7 +371,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
@@ -474,7 +474,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
