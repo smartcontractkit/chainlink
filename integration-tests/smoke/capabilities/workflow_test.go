@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-yaml/yaml"
 	"github.com/google/go-github/v41/github"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -41,12 +42,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1026,6 +1029,25 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 	return nodeset, nodeClients
 }
 
+func reinitialiseJDClient(t *testing.T, ctfEnv *deployment.Environment, jdOutput *jd.Output, nodeOutput *ns.Output) deployment.Environment {
+	nodeInfo, err := getNodeInfo(nodeOutput, 1)
+	require.NoError(t, err, "failed to get node info")
+
+	jdConfig := devenv.JDConfig{
+		GRPC:     jdOutput.HostGRPCUrl,
+		WSRPC:    jdOutput.DockerWSRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: nodeInfo,
+	}
+
+	offChain, err := devenv.NewJDClient(context.Background(), jdConfig)
+	require.NoError(t, err, "failed to create JD client")
+
+	ctfEnv.Offchain = offChain
+
+	return *ctfEnv
+}
+
 func mustSafeUint64(input int64) uint64 {
 	if input < 0 {
 		panic(fmt.Errorf("int64 %d is below uint64 min value", input))
@@ -1033,22 +1055,23 @@ func mustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
-func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, donID uint32) {
+func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet) {
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
 	require.NoError(t, err, "failed to get OCR3 contract address")
 
 	ocr3CapabilityAddress := ocr3Contract.Address().Hex()
 
-	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
-	require.NoError(t, err, "failed to get bootstrap node peer ID")
-
 	chainIDInt, err := strconv.Atoi(bc.ChainID)
 	require.NoError(t, err, "failed to convert chain ID to int")
 	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
 
-	// Create gateway and bootstrap (ocr3) jobs for the bootstrap node
-	bootstrapNode := nodeClients[0]
+	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
+	require.NoError(t, err, "failed to get bootstrap node peer ID")
+
+	jobCount := 2 + (len(don.Nodes)-1)*3
+	errCh := make(chan error, jobCount)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -1057,49 +1080,52 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 		bootstrapJobSpec := fmt.Sprintf(`
 				type = "bootstrap"
 				schemaVersion = 1
+				externalJobID = "%s"
 				name = "Botostrap"
 				contractID = "%s"
 				contractConfigTrackerPollInterval = "1s"
 				contractConfigConfirmations = 1
 				relay = "evm"
-
 				[relayConfig]
 				chainID = %s
 				providerType = "ocr3-capability"
-			`,
+			`, uuid.NewString(),
 			ocr3CapabilityAddress,
-			bc.ChainID,
-		)
-		r, _, bootErr := bootstrapNode.CreateJobRaw(bootstrapJobSpec)
-		assert.NoError(t, bootErr, "failed to create bootstrap job for the bootstrap node")
-		assert.Empty(t, r.Errors, "failed to create bootstrap job for the bootstrap node")
+			bc.ChainID)
+
+		bootstrapJobRequest := &jobv1.ProposeJobRequest{
+			NodeId: don.Nodes[0].NodeID,
+			Spec:   bootstrapJobSpec,
+		}
+
+		_, bootErr := ctfEnv.Offchain.ProposeJob(context.Background(), bootstrapJobRequest)
+		if bootErr != nil {
+			errCh <- errors.Wrapf(bootErr, "failed to propose bootstrap job")
+			return
+		}
 
 		gatewayJobSpec := fmt.Sprintf(`
 				type = "gateway"
 				schemaVersion = 1
+				externalJobID = "%s"
 				name = "Gateway"
 				forwardingAllowed = false
-
 				[gatewayConfig.ConnectionManagerConfig]
 				AuthChallengeLen = 10
 				AuthGatewayId = "por_gateway"
 				AuthTimestampToleranceSec = 5
 				HeartbeatIntervalSec = 20
-
 				[[gatewayConfig.Dons]]
-				DonId = "%s"
+				DonId = "1"
 				F = 1
 				HandlerName = "web-api-capabilities"
-
 					[gatewayConfig.Dons.HandlerConfig]
 					MaxAllowedMessageAgeSec = 1_000
-
 						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
 						GlobalBurst = 10
 						GlobalRPS = 50
 						PerSenderBurst = 10
 						PerSenderRPS = 10
-
 					[[gatewayConfig.Dons.Members]]
 					Address = "%s"
 					Name = "Workflow Node 1"
@@ -1112,7 +1138,6 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 					[[gatewayConfig.Dons.Members]]
 					Address = "%s"
 					Name = "Workflow Node 4"
-
 				[gatewayConfig.NodeServerConfig]
 				HandshakeTimeoutMillis = 1_000
 				MaxRequestBytes = 100_000
@@ -1121,7 +1146,6 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 				ReadTimeoutMillis = 1_000
 				RequestTimeoutMillis = 10_000
 				WriteTimeoutMillis = 1_000
-
 				[gatewayConfig.UserServerConfig]
 				ContentTypeHeader = "application/jsonrpc"
 				MaxRequestBytes = 100_000
@@ -1130,11 +1154,10 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 				ReadTimeoutMillis = 1_000
 				RequestTimeoutMillis = 10_000
 				WriteTimeoutMillis = 1_000
-
 				[gatewayConfig.HTTPClientConfig]
 				MaxResponseBytes = 100_000_000
 			`,
-			strconv.FormatUint(uint64(donID), 10),
+			uuid.NewString(),
 			// ETH keys of the workflow nodes
 			don.Nodes[1].AccountAddr[chainIDUint64],
 			don.Nodes[2].AccountAddr[chainIDUint64],
@@ -1142,13 +1165,19 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 			don.Nodes[4].AccountAddr[chainIDUint64],
 		)
 
-		r, _, gatewayErr := bootstrapNode.CreateJobRaw(gatewayJobSpec)
-		assert.NoError(t, gatewayErr, "failed to create gateway job for the bootstrap node")
-		assert.Empty(t, r.Errors, "failed to create gateway job for the bootstrap node")
+		gatewayJobRequest := &jobv1.ProposeJobRequest{
+			NodeId: don.Nodes[0].NodeID,
+			Spec:   gatewayJobSpec,
+		}
+
+		_, gateErr := ctfEnv.Offchain.ProposeJob(context.Background(), gatewayJobRequest)
+		if gateErr != nil {
+			errCh <- errors.Wrapf(gateErr, "failed to propose gateway job for the bootstrap node")
+		}
 	}()
 
 	// for each capability that's required by the workflow, create a job for workflow each node
-	for i, nodeClient := range nodeClients {
+	for i, node := range don.Nodes {
 		// First node is a bootstrap node, so we skip it
 		if i == 0 {
 			continue
@@ -1159,24 +1188,35 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 			defer wg.Done()
 			// since we are using a capability that is not bundled-in, we need to copy it to the Docker container
 			// and point the job to the copied binary
+
+			// failed to propose job. err: rpc error: code = Internal desc = failed to propose job to node: failed to generate a job based on spec: unknown job type: standardcapabilities
 			cronJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "cron-capabilities"
 					forwardingAllowed = false
 					command = "/home/capabilities/%s"
 					config = ""
 				`,
-				cronCapabilityAssetFile,
-			)
+				uuid.NewString(),
+				cronCapabilityAssetFile)
 
-			response, _, errCron := nodeClient.CreateJobRaw(cronJobSpec)
-			assert.NoError(t, errCron, "failed to create cron job")
-			assert.Empty(t, response.Errors, "failed to create cron job")
+			cronJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   cronJobSpec,
+			}
 
-			computeJobSpec := `
+			_, cronErr := ctfEnv.Offchain.ProposeJob(context.Background(), cronJobRequest)
+			if cronErr != nil {
+				errCh <- errors.Wrapf(cronErr, "failed to propose cron job for node %s", node.NodeID)
+				return
+			}
+
+			computeJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "compute-capabilities"
 					forwardingAllowed = false
 					command = "__builtin_custom-compute-action"
@@ -1188,15 +1228,24 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 						perSenderRPS = 1.0
 						perSenderBurst = 5
 					"""
-				`
+				`,
+				uuid.NewString())
 
-			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
-			assert.NoError(t, errCompute, "failed to create compute job")
-			assert.Empty(t, response.Errors, "failed to create compute job")
+			computeJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   computeJobSpec,
+			}
+
+			_, compErr := ctfEnv.Offchain.ProposeJob(context.Background(), computeJobRequest)
+			if compErr != nil {
+				errCh <- errors.Wrapf(compErr, "failed to propose compute job for node %s", node.NodeID)
+				return
+			}
 
 			consensusJobSpec := fmt.Sprintf(`
 					type = "offchainreporting2"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "Keystone OCR3 Consensus Capability"
 					contractID = "%s"
 					ocrKeyBundleID = "%s"
@@ -1206,37 +1255,52 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, don *
 					relay = "evm"
 					pluginType = "plugin"
 					transmitterID = "%s"
-
 					[relayConfig]
 					chainID = "%s"
-
 					[pluginConfig]
 					command = "/usr/local/bin/chainlink-ocr3-capability"
 					ocrVersion = 3
 					pluginName = "ocr-capability"
 					providerType = "ocr3-capability"
 					telemetryType = "plugin"
-
 					[onchainSigningStrategy]
 					strategyName = 'multi-chain'
 					[onchainSigningStrategy.config]
 					evm = "%s"
 					`,
+				uuid.NewString(),
 				ocr3CapabilityAddress,
-				don.Nodes[i].Ocr2KeyBundleID,
+				node.Ocr2KeyBundleID,
 				bootstrapNodePeerId,
 				"node0:5001",
-				don.Nodes[i].AccountAddr[chainIDUint64],
+				node.AccountAddr[chainIDUint64],
 				bc.ChainID,
-				don.Nodes[i].Ocr2KeyBundleID,
+				node.Ocr2KeyBundleID,
 			)
-			fmt.Println("consensusJobSpec", consensusJobSpec)
-			response, _, errCons := nodeClient.CreateJobRaw(consensusJobSpec)
-			assert.NoError(t, errCons, "failed to create consensus job")
-			assert.Empty(t, response.Errors, "failed to create consensus job")
+
+			consensusJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   consensusJobSpec,
+			}
+
+			_, consErr := ctfEnv.Offchain.ProposeJob(context.Background(), consensusJobRequest)
+			if consErr != nil {
+				errCh <- errors.Wrapf(consErr, "failed to propose consensus job for node %s ", node.NodeID)
+			}
 		}()
 	}
 	wg.Wait()
+
+	close(errCh)
+
+	errFound := false
+	for err := range errCh {
+		errFound = true
+		//nolint:testifylint // we want to assert here to catch all errors
+		assert.NoError(t, err, "job creation/acception failed")
+	}
+
+	require.False(t, errFound, "failed to create at least one job")
 }
 
 func noOpTransformFn(value string) string {
@@ -1697,9 +1761,11 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
 	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
 
-	// Create OCR3 and capability jobs for each node without JD
-	ns, nodeClients := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
-	createNodeJobs(t, nodeClients, don, bc, keystoneContractSet, in.WorkflowConfig.DonID)
+	// Create OCR3 and capability jobs for each node JD
+	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+	// JD client needs to be reinitialised after restarting nodes
+	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1738,7 +1804,8 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	for {
 		select {
 		case <-ctx.Done():
-			t.Fatalf("feed did not update, timeout after %s", timeout)
+			testLogger.Error().Msgf("feed did not update, timeout after %s", timeout)
+			t.FailNow()
 		case <-time.After(10 * time.Second):
 			elapsed := time.Since(startTime).Round(time.Second)
 			price, _, err := feedsConsumerInstance.GetPrice(

@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@96581547bab07e3982df522dd4343c998619ca77 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -332,7 +332,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@96581547bab07e3982df522dd4343c998619ca77 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -388,7 +388,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@96581547bab07e3982df522dd4343c998619ca77 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@32d2999ffd11edff77f5251f9a1510803b8652ae # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -420,7 +420,7 @@ jobs:
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            --splunk-event "${{ github.event }}"
+            --splunk-event "${{ github.event_name }}"
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"

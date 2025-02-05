@@ -438,6 +438,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
 		CaptureAutomationCustomTelemetry:   ptr(true),
+		AllowNoBootstrappers:               ptr(true),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
@@ -1050,6 +1051,7 @@ DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
 CaptureAutomationCustomTelemetry = true
+AllowNoBootstrappers = true
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false

@@ -17,7 +17,7 @@
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
-  cre_cli_version = "v1.0.2"
+  cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"

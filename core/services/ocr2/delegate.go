@@ -178,6 +178,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
+	AllowNoBootstrappers() bool
 }
 
 type insecureConfig interface {
@@ -476,7 +477,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers(), spec.AllowNoBootstrappers)
 	if err != nil {
 		return nil, err
 	}
