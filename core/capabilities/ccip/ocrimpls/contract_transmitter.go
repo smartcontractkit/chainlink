@@ -100,9 +100,9 @@ func ToExecCalldata(
 	}, nil
 }
 
-var _ ocr3types.ContractTransmitter[[]byte] = &commitTransmitter{}
+var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
 
-type commitTransmitter struct {
+type ccipTransmitter struct {
 	cw             commontypes.ContractWriter
 	fromAccount    ocrtypes.Account
 	contractName   string
@@ -119,7 +119,7 @@ func XXXNewContractTransmitterTestsOnly(
 	offrampAddress string,
 	toCalldataFn ToCalldataFunc,
 ) ocr3types.ContractTransmitter[[]byte] {
-	return &commitTransmitter{
+	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   contractName,
@@ -134,7 +134,7 @@ func NewCommitContractTransmitter(
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
-	return &commitTransmitter{
+	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   consts.ContractNameOffRamp,
@@ -149,7 +149,7 @@ func NewExecContractTransmitter(
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
-	return &commitTransmitter{
+	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		contractName:   consts.ContractNameOffRamp,
@@ -160,12 +160,12 @@ func NewExecContractTransmitter(
 }
 
 // FromAccount implements ocr3types.ContractTransmitter.
-func (c *commitTransmitter) FromAccount(context.Context) (ocrtypes.Account, error) {
+func (c *ccipTransmitter) FromAccount(context.Context) (ocrtypes.Account, error) {
 	return c.fromAccount, nil
 }
 
 // Transmit implements ocr3types.ContractTransmitter.
-func (c *commitTransmitter) Transmit(
+func (c *ccipTransmitter) Transmit(
 	ctx context.Context,
 	configDigest ocrtypes.ConfigDigest,
 	seqNr uint64,
