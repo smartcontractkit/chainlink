@@ -201,6 +201,10 @@ func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[s
 			return make(map[string][]string), fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
 		}
 		for _, j := range jobs.Jobs {
+			// skip deleted jobs
+			if j.DeletedAt != nil {
+				continue
+			}
 			for _, propID := range j.ProposalIds {
 				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &jobv1.GetProposalRequest{
 					Id: propID,

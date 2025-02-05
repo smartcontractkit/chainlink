@@ -910,9 +910,6 @@ func setCandidateOnExistingDon(
 		false,
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
-	}
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
@@ -920,7 +917,9 @@ func setCandidateOnExistingDon(
 			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
 		}
 	}
-
+	if err != nil {
+		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
+	}
 	return []mcms.Operation{{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
@@ -968,10 +967,6 @@ func promoteCandidateOp(
 		false,
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%s): %w",
-			donID, types.PluginType(pluginType).String(), err)
-	}
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
@@ -980,7 +975,10 @@ func promoteCandidateOp(
 				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
 		}
 	}
-
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%s): %w",
+			donID, types.PluginType(pluginType).String(), err)
+	}
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
