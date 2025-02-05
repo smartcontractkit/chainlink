@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"regexp"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
 
