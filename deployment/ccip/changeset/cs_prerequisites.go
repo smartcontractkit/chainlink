@@ -38,6 +38,7 @@ var (
 // Or the contracts which are already deployed on the chain ( for example, tokens, feeds, etc)
 // Caller should update the environment's address book with the returned addresses.
 func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequisiteConfig) (deployment.ChangesetOutput, error) {
+	env.Logger.Infow("initiating DeployPrerequisitesChangeset")
 	err := cfg.Validate()
 	if err != nil {
 		return deployment.ChangesetOutput{}, errors.Wrapf(deployment.ErrInvalidConfig, "%v", err)
@@ -53,6 +54,8 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
+		JobSpecs:    nil,
+		Jobs:        nil,
 	}, nil
 }
 
