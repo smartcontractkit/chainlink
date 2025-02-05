@@ -7,14 +7,19 @@
   # change to your version
   image = "jd-test-1:latest"
 
-[fake]
-  port = 8171
+[data_source_config]
+  # without 0x prefix!
+  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+  # used only if [data_source_config.fake] is not present
+  # url = "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
+
+  [data_source_config.fake]
+    port = 8171
+    prices = [182.9, 162.71, 172.02]
 
 [workflow_config]
 	don_id = 1
 	workflow_name = "abcdefgasd"
-  # without 0x prefix!
-	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
   should_compile_new_workflow = true
