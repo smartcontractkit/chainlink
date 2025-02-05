@@ -1,9 +1,6 @@
 package changeset_test
 
 import (
-	"encoding/base64"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"regexp"
 	"testing"
@@ -30,24 +27,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
-
-func TestDecode(t *testing.T) {
-	// Define the 2D slice of byte arrays
-	data := [][]byte{
-		{186, 232, 223, 87, 219, 203, 149, 237, 3, 150, 106, 93, 53, 190, 83, 194, 0, 137, 48, 134, 21, 196, 7, 103, 89, 114, 161, 169, 91, 102, 224, 182},
-		{224, 218, 60, 43, 144, 5, 23, 143, 71, 49, 201, 244, 1, 100, 241, 147, 58, 208, 11, 172, 157, 108, 19, 173, 76, 161, 168, 167, 99, 65, 99, 128},
-	}
-
-	// Convert each byte array to hex and base64
-	for i, bytes := range data {
-		hexStr := hex.EncodeToString(bytes)
-		base64Str := base64.StdEncoding.EncodeToString(bytes)
-
-		fmt.Printf("Array %d:\n", i+1)
-		fmt.Printf("Hex: %s\n", hexStr)
-		fmt.Printf("Base64: %s\n\n", base64Str)
-	}
-}
 
 func TestInvalidOCR3Params(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t,

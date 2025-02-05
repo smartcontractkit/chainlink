@@ -28,7 +28,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		return deployment.ChangesetOutput{}, err
 	}
 	// find existing jobs
-	existingSpecs, err := acceptedJobSpecs(env, nodes)
+	existingSpecs, err := acceptedOrPendingAcceptedJobSpecs(env, nodes)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -189,7 +189,9 @@ func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
 		bytes.Equal(relayConfigValue.([]byte), relayConfigValueNew.([]byte)), nil
 }
 
-func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
+// acceptedOrPendingAcceptedJobSpecs returns a map of nodeID to job specs that are either accepted or pending review
+// or proposed
+func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
 	existingSpecs := make(map[string][]string)
 	for _, node := range nodes {
 		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
