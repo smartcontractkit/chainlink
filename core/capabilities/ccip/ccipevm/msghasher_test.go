@@ -38,7 +38,7 @@ func TestMessageHasher_EVM2EVM(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("tc_%d", i), func(tt *testing.T) {
-			testHasherEVM2EVM(ctx, tt, d, tc)
+			testHasherEVM2EVM(ctx, tt, d, tc) // test test test
 		})
 	}
 }
