@@ -34,7 +34,11 @@ func NewEngineRegistry(opts ...func(*EngineRegistry)) *EngineRegistry {
 
 func WithGlobalCountLimit(gcl uint) func(*EngineRegistry) {
 	return func(e *EngineRegistry) {
-		e.globalCountLimit = gcl
+		if gcl != 0 {
+			e.globalCountLimit = gcl
+			return
+		}
+		e.globalCountLimit = defaultGlobalCountLimit
 	}
 }
 

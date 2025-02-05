@@ -209,7 +209,11 @@ func WithMaxArtifactSize(cfg ArtifactConfig) func(*eventHandler) {
 
 func WithWorkflowsPerOwnerLimit(limit uint) func(*eventHandler) {
 	return func(eh *eventHandler) {
-		eh.workflowsPerOwnerLimit = limit
+		if limit != 0 {
+			eh.workflowsPerOwnerLimit = limit
+			return
+		}
+		eh.workflowsPerOwnerLimit = defaultWorkflowsPerOwnerLimit
 	}
 }
 
@@ -244,6 +248,7 @@ func NewEventHandler(
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
+
 	for _, o := range opts {
 		o(eh)
 	}

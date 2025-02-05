@@ -491,15 +491,18 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
 				me := &mockEngine{}
-				h.engineRegistry.Add(wfID, me)
-				err := h.workflowRegisteredEvent(ctx, event)
+				// we add a workflow ID to the engine registry
+				prevWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "prev-name", binary, config, secretsURL)
+				require.NoError(t, err)
+				prevWFIDEncoded := hex.EncodeToString(prevWFID[:])
+				h.engineRegistry.Add(prevWFIDEncoded, me)
+
+				// we now try to register a new workflow
+				err = h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
 				require.ErrorContains(t, err, "global engine count limit reached")
 			},
-			WithGlobalCountLimit: func() *uint {
-				limit := uint(0)
-				return &limit
-			}(),
+			WithGlobalCountLimit: uint(1),
 		},
 		{
 			Name: "workflow per owner limit reached",
@@ -529,16 +532,25 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
-				me := &mockEngine{}
-				h.engineRegistry.Add(wfID, me)
-				err := h.workflowRegisteredEvent(ctx, event)
+				// we add a workflow
+				prevWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "prev-name", binary, config, secretsURL)
+				require.NoError(t, err)
+				err = h.workflowRegisteredEvent(ctx, WorkflowRegistryWorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    prevWFID,
+					WorkflowOwner: wfOwner,
+					WorkflowName:  "prev-name",
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				})
+
+				// we now try to register a new workflow
+				err = h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
-				require.ErrorContains(t, err, "failed to register new workflow, limit of 0 per owner already reached")
+				require.ErrorContains(t, err, "failed to register new workflow, limit of 1 per owner already reached")
 			},
-			WithWorkflowsPerOwnerLimit: func() *uint {
-				limit := uint(0)
-				return &limit
-			}(),
+			WithWorkflowsPerOwnerLimit: uint(1),
 		},
 	}
 
@@ -559,8 +571,8 @@ type testCase struct {
 	Event                      func([]byte) WorkflowRegistryWorkflowRegisteredV1
 	validationFn               func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
 	engineFactoryFn            func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
-	WithGlobalCountLimit       *uint
-	WithWorkflowsPerOwnerLimit *uint
+	WithGlobalCountLimit       uint
+	WithWorkflowsPerOwnerLimit uint
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -588,21 +600,14 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 		event := tc.Event(giveWFID[:])
 
-		var er *EngineRegistry
-		if tc.WithGlobalCountLimit != nil {
-			er = NewEngineRegistry(WithGlobalCountLimit(*tc.WithGlobalCountLimit))
-		} else {
-			er = NewEngineRegistry()
-		}
 		opts := []func(*eventHandler){
-			WithEngineRegistry(er),
+			WithEngineRegistry(NewEngineRegistry(WithGlobalCountLimit(tc.WithGlobalCountLimit))),
+			WithWorkflowsPerOwnerLimit(tc.WithWorkflowsPerOwnerLimit),
 		}
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
-		if tc.WithWorkflowsPerOwnerLimit != nil {
-			opts = append(opts, WithWorkflowsPerOwnerLimit(*tc.WithWorkflowsPerOwnerLimit))
-		}
+
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
