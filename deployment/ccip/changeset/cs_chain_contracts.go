@@ -954,8 +954,8 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 			return deployment.ChangesetOutput{}, err
 		}
 		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
-				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, fee_quoter.FeeQuoterABI)
+			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
+				return deployment.ChangesetOutput{}, err
 			}
 		} else {
 			batches = append(batches, timelock.BatchChainOperation{
@@ -1401,7 +1401,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			return deployment.ChangesetOutput{}, err
 		}
 		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[remote], tx, err); err != nil {
+			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[remote], tx, offramp.OffRampABI, err); err != nil {
 				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
 			}
 		} else {
@@ -1514,7 +1514,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 			return deployment.ChangesetOutput{}, err
 		}
 		if cfg.MCMS == nil {
-			if _, err := deployment.ConfirmIfNoError(e.Chains[chainSel], tx, err); err != nil {
+			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, offramp.OffRampABI, err); err != nil {
 				return deployment.ChangesetOutput{}, deployment.DecodedErrFromABIIfDataErr(err, offramp.OffRampABI)
 			}
 			e.Logger.Infow("Updated offramp dynamic config", "chain", chain.String(), "config", dCfg)
