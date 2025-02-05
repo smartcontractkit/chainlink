@@ -118,12 +118,12 @@ jobs:
           # if scheduled, run for all modules. Otherwise, run for only affected modules.
           if [[ "$GH_EVENT_NAME" == "schedule" ]]; then
             json_array=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
-            echo "module_names=$json_array" >> "$GITHUB_OUTPUT"            
+            echo "module_names=$json_array" >> "$GITHUB_OUTPUT"
           else
             # Ensure the step uses `with.list-files: json` to get the list of files in JSON format
             bash ./.github/scripts/map-affected-files-to-modules.sh '${{ steps.match-every.outputs.all_files }}'
           fi
-  
+
   golangci:
     name: GolangCI Lint
     needs: [filter, run-frequency]
@@ -148,20 +148,18 @@ jobs:
       - name: Golang Lint (${{ matrix.modules }})
         id: golang-lint
         uses: ./.github/actions/golangci-lint
-        with: 
+        with:
           go-directory: ${{ matrix.modules }}
       - name: Notify Slack
         if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
-          channel-id: "#team-core"
-          slack-message: |
-            "golangci-lint failed (${{ matrix.modules }})
-                - Run: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
-                - Report: ${{ steps.golang-lint.outputs.golang-report-artifact-url }}"
-  
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
+            text: "golangci-lint failed (${{ matrix.modules }}): <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Report>"
+
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
   # Inclusive check: all (new) modules are analyzed, but no need to enable "required" checks for each one
@@ -336,13 +334,13 @@ jobs:
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
           needs.filter.outputs.should-run-ci-core == 'true'
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
-          channel-id: "#topic-data-races"
-          slack-message: |
-            Race Tests Failed: ${{ steps.print-races.outputs.run_url }}
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
+            text: "Race Tests Failed: <${{ steps.print-races.outputs.run_url }}|Run>"
 
   core-scripts-tests:
     name: test-scripts
@@ -358,7 +356,7 @@ jobs:
         with:
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
-      
+
       - name: Run Tests
         env:
           OUTPUT_FILE: ./output.txt
@@ -372,7 +370,7 @@ jobs:
           path: |
             ./output.txt
             ./coverage.txt
-          retention-days: 7 
+          retention-days: 7
 
   scan:
     name: SonarQube Scan
@@ -412,7 +410,7 @@ jobs:
             echo "Found $integration_tests_artifact"
             integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
             integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
-            
+
             # Append to existing paths if they are set, otherwise assign directly
             sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
             sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
@@ -424,14 +422,14 @@ jobs:
               echo "Found $scripts_tests_artifact"
               scripts_coverage_paths=$(find "$scripts_tests_artifact" -name coverage.txt | paste -sd "," -)
               scripts_tests_paths=$(find "$scripts_tests_artifact" -name output.txt | paste -sd "," -)
-    
+
               # Append to existing paths if they are set, otherwise assign directly
               sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
               sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$scripts_tests_paths"
           fi
 
           # Check and assign paths for lint reports
-          # To find reports in the folders named differently (because of the matrix strategy), 
+          # To find reports in the folders named differently (because of the matrix strategy),
           # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
           for golang_lint_artifact in golangci-lint-report*
           do
