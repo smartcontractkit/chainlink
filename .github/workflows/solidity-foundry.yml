@@ -421,14 +421,14 @@ jobs:
 
       - name: Download Slither scripts
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: tmp-slither-scripts-${{ github.sha }}
           path: ./dot_github/tools/scripts/solidity
 
       - name: Download configs
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
@@ -476,7 +476,7 @@ jobs:
 
       - name: Download Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: slither-reports-current-${{ github.sha }}
           path: contracts/slither-reports-current
