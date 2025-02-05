@@ -9,7 +9,6 @@ import {Pool} from "../../libraries/Pool.sol";
 import {FeeQuoterFeeSetup} from "./FeeQuoterSetup.t.sol";
 
 contract FeeQuoter_processPoolReturnData is FeeQuoterFeeSetup {
-
   function test_processPoolReturnData() public view {
     Client.EVMTokenAmount[] memory sourceTokenAmounts = new Client.EVMTokenAmount[](2);
     sourceTokenAmounts[0].amount = 1e18;
@@ -28,7 +27,7 @@ contract FeeQuoter_processPoolReturnData is FeeQuoterFeeSetup {
 
     // No revert - successful
     bytes[] memory destExecData =
-              s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, tokenAmounts, sourceTokenAmounts);
+      s_feeQuoter.processPoolReturnData(DEST_CHAIN_SELECTOR, tokenAmounts, sourceTokenAmounts);
 
     for (uint256 i = 0; i < destExecData.length; ++i) {
       assertEq(destExecData[i], expectedDestExecData[i]);
