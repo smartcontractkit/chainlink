@@ -212,7 +212,14 @@ func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[s
 				if err != nil {
 					return nil, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
 				}
-				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+				if jbProposal.Proposal == nil {
+					return nil, fmt.Errorf("job proposal %s on node %s is nil", propID, node.NodeID)
+				}
+				if jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED ||
+					jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING ||
+					jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED {
+					existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+				}
 			}
 		}
 	}
