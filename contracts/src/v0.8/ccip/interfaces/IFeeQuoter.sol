@@ -21,7 +21,6 @@ interface IFeeQuoter is IPriceRegistry {
   /// @param feeToken token address used to pay for message fees, must be a configured valid fee token.
   /// @param feeTokenAmount Fee token amount.
   /// @param extraArgs Message extra args that were passed in by the client.
-  /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message.
   /// @return msgFeeJuels message fee in juels.
   /// @return isOutOfOrderExecution true if the message should be executed out of order.
   /// @return convertedExtraArgs extra args converted to the latest family-specific args version.
@@ -31,8 +30,7 @@ interface IFeeQuoter is IPriceRegistry {
     address feeToken,
     uint256 feeTokenAmount,
     bytes calldata extraArgs,
-    bytes calldata messageReceiver,
-    Client.EVMTokenAmount[] calldata sourceTokenAmounts
+    bytes calldata messageReceiver
   )
     external
     view

@@ -1029,8 +1029,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     address feeToken,
     uint256 feeTokenAmount,
     bytes calldata extraArgs,
-    bytes calldata messageReceiver,
-    Client.EVMTokenAmount[] calldata sourceTokenAmounts
+    bytes calldata messageReceiver
   )
     external
     view
@@ -1050,7 +1049,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    (convertedExtraArgs, isOutOfOrderExecution, tokenReceiver) = _processChainFamilySelector(destChainSelector,  messageReceiver, extraArgs);
+    (convertedExtraArgs, isOutOfOrderExecution, tokenReceiver) =
+      _processChainFamilySelector(destChainSelector, messageReceiver, extraArgs);
 
     return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, tokenReceiver);
   }
@@ -1079,11 +1079,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
         extraArgs,
         true,
         abi.encode(
-          _parseSVMExtraArgsFromBytes(
-            extraArgs,
-            destChainConfig.maxPerMsgGasLimit,
-            destChainConfig.enforceOutOfOrder
-          ).tokenReceiver
+          _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder)
+            .tokenReceiver
         )
       );
     }

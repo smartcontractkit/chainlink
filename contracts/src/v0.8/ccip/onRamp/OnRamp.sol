@@ -219,9 +219,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
     bytes memory tokenReceiver;
     (newMessage.feeValueJuels, isOutOfOrderExecution, newMessage.extraArgs, tokenReceiver) = IFeeQuoter(
       s_dynamicConfig.feeQuoter
-    ).processMessageArgs(
-      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, message.receiver, tokenAmounts
-    );
+    ).processMessageArgs(destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, message.receiver);
 
     // Lock / burn the tokens as last step. TokenPools may not always be trusted.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
