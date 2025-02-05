@@ -176,6 +176,7 @@ type eventHandler struct {
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
 	ratelimiter              *ratelimiter.RateLimiter
+	workflowsPerOwnerLimit   uint
 }
 
 type Event interface {
@@ -183,7 +184,10 @@ type Event interface {
 	GetData() any
 }
 
-var defaultSecretsFreshnessDuration = 24 * time.Hour
+var (
+	defaultSecretsFreshnessDuration = 24 * time.Hour
+	defaultWorkflowsPerOwnerLimit   = uint(5)
+)
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -200,6 +204,12 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 func WithMaxArtifactSize(cfg ArtifactConfig) func(*eventHandler) {
 	return func(eh *eventHandler) {
 		eh.limits = &cfg
+	}
+}
+
+func WithWorkflowsPerOwnerLimit(limit uint) func(*eventHandler) {
+	return func(eh *eventHandler) {
+		eh.workflowsPerOwnerLimit = limit
 	}
 }
 
@@ -230,6 +240,7 @@ func NewEventHandler(
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		ratelimiter:              ratelimiter,
+		workflowsPerOwnerLimit:   defaultWorkflowsPerOwnerLimit,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
@@ -461,6 +472,15 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
+	// Validate if adding a new workflow would be within the limits of workflows per owner
+	ownerWorkflows, err := h.orm.GetWorkflowSpecByOwner(ctx, hex.EncodeToString(payload.WorkflowOwner))
+	if err != nil {
+		return fmt.Errorf("failed to get workflow specs by owner: %w", err)
+	}
+	if len(ownerWorkflows) >= int(h.workflowsPerOwnerLimit) {
+		return fmt.Errorf("failed to register new workflow, limit of %d per owner already reached", h.workflowsPerOwnerLimit)
+	}
+
 	// Fetch the workflow artifacts from the database or download them from the specified URLs
 	decodedBinary, config, err := h.getWorkflowArtifacts(ctx, payload)
 	if err != nil {

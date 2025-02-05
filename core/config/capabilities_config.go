@@ -28,6 +28,7 @@ type CapabilitiesWorkflowRegistry interface {
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
 	GlobalCountLimit() uint
+	WorkflowsPerOwnerLimit() uint
 }
 
 type GatewayConnector interface {

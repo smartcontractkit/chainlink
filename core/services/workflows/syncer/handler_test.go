@@ -501,6 +501,45 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				return &limit
 			}(),
 		},
+		{
+			Name: "workflow per owner limit reached",
+			fetcher: newMockFetcher(map[string]mockFetchResp{
+				binaryURL:  {Body: encodedBinary, Err: nil},
+				configURL:  {Body: config, Err: nil},
+				secretsURL: {Body: []byte("secrets"), Err: nil},
+			}),
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error) {
+				return &mockEngine{}, nil
+			},
+			GiveConfig: config,
+			ConfigURL:  configURL,
+			SecretsURL: secretsURL,
+			BinaryURL:  binaryURL,
+			GiveBinary: binary,
+			WFOwner:    wfOwner,
+			Event: func(wfID []byte) WorkflowRegistryWorkflowRegisteredV1 {
+				return WorkflowRegistryWorkflowRegisteredV1{
+					Status:        uint8(0),
+					WorkflowID:    [32]byte(wfID),
+					WorkflowOwner: wfOwner,
+					WorkflowName:  workflowName,
+					BinaryURL:     binaryURL,
+					ConfigURL:     configURL,
+					SecretsURL:    secretsURL,
+				}
+			},
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string) {
+				me := &mockEngine{}
+				h.engineRegistry.Add(wfID, me)
+				err := h.workflowRegisteredEvent(ctx, event)
+				require.Error(t, err)
+				require.ErrorContains(t, err, "failed to register new workflow, limit of 0 per owner already reached")
+			},
+			WithWorkflowsPerOwnerLimit: func() *uint {
+				limit := uint(0)
+				return &limit
+			}(),
+		},
 	}
 
 	for _, tc := range tt {
@@ -509,18 +548,19 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 }
 
 type testCase struct {
-	Name                 string
-	SecretsURL           string
-	BinaryURL            string
-	GiveBinary           []byte
-	GiveConfig           []byte
-	ConfigURL            string
-	WFOwner              []byte
-	fetcher              FetcherFunc
-	Event                func([]byte) WorkflowRegistryWorkflowRegisteredV1
-	validationFn         func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
-	engineFactoryFn      func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
-	WithGlobalCountLimit *uint
+	Name                       string
+	SecretsURL                 string
+	BinaryURL                  string
+	GiveBinary                 []byte
+	GiveConfig                 []byte
+	ConfigURL                  string
+	WFOwner                    []byte
+	fetcher                    FetcherFunc
+	Event                      func([]byte) WorkflowRegistryWorkflowRegisteredV1
+	validationFn               func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, wfOwner []byte, wfName string, wfID string)
+	engineFactoryFn            func(ctx context.Context, wfid string, owner string, name workflows.WorkflowNamer, config []byte, binary []byte) (services.Service, error)
+	WithGlobalCountLimit       *uint
+	WithWorkflowsPerOwnerLimit *uint
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -560,6 +600,9 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
+		if tc.WithWorkflowsPerOwnerLimit != nil {
+			opts = append(opts, WithWorkflowsPerOwnerLimit(*tc.WithWorkflowsPerOwnerLimit))
+		}
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -567,7 +610,6 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		require.NoError(t, err)
 		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
 			workflowkey.Key{}, rl, opts...)
-
 		tc.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
 	})
 }

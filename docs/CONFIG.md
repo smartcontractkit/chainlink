@@ -1308,6 +1308,12 @@ GlobalCountLimit = 50 # Default
 ```
 GlobalCountLimit is the maximum number of engines that can be registered globally.
 
+### WorkflowsPerOwnerLimit
+```toml
+WorkflowsPerOwnerLimit = 5 # Default
+```
+WorkflowsPerOwnerLimit is the maximum number of workflows that can be registered per owner.
+
 ## Capabilities.ExternalRegistry
 ```toml
 [Capabilities.ExternalRegistry]

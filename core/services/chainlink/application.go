@@ -405,6 +405,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 						},
 					),
 					syncer.WithEngineRegistry(syncer.NewEngineRegistry(syncer.WithGlobalCountLimit(cfg.Capabilities().WorkflowRegistry().GlobalCountLimit()))),
+					syncer.WithWorkflowsPerOwnerLimit(cfg.Capabilities().WorkflowRegistry().WorkflowsPerOwnerLimit()),
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")

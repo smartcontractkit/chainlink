@@ -157,6 +157,10 @@ func (c *capabilitiesWorkflowRegistry) GlobalCountLimit() uint {
 	return *c.c.GlobalCountLimit
 }
 
+func (c *capabilitiesWorkflowRegistry) WorkflowsPerOwnerLimit() uint {
+	return *c.c.WorkflowsPerOwnerLimit
+}
+
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }
