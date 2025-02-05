@@ -201,6 +201,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			seqNum: it.Event.SequenceNumber,
 		},
 		timestamp: header.Time,
+		round:     int(requestedRound),
 	}
 
 	// always store the lowest seen number as the start seq num
