@@ -69,6 +69,38 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				}
 			}
 		}
+		if out.MCMSTimelockProposals != nil {
+			for _, prop := range out.MCMSTimelockProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+				for _, sel := range chains.ToSlice() {
+					timelockContracts, ok := timelockContractsPerChain[sel]
+					if !ok || timelockContracts == nil {
+						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
+					}
+
+					proposalutils.ExecuteProposalV2(t, e, p, sel)
+				}
+			}
+		}
+		if out.MCMSProposals != nil {
+			for _, prop := range out.MCMSProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSProposal(t, e, &prop)
+				p.UseSimulatedBackend(true)
+				for _, sel := range chains.ToSlice() {
+					proposalutils.ExecuteProposalV2(t, e, p, sel)
+				}
+			}
+		}
 		currentEnv = deployment.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,

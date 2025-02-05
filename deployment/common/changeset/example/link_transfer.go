@@ -11,9 +11,9 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcms2 "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	types2 "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -177,9 +177,9 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	// Initialize state for each chain
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
 
-	allBatches := []timelock.BatchChainOperation{}
+	allBatches := []types2.BatchOperation{}
 	for chainSelector := range cfg.Transfers {
-		chainID := mcms.ChainIdentifier(chainSelector)
+		chainID := types2.ChainSelector(chainSelector)
 		chain := e.Chains[chainSelector]
 		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
 		mcmsState := mcmsStatePerChain[chainSelector]
@@ -190,9 +190,9 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 		mcmsPerChain[uint64(chainID)] = mcmsState.ProposerMcm
 
 		timelockAddresses[chainSelector] = timelockAddress
-		batch := timelock.BatchChainOperation{
-			ChainIdentifier: chainID,
-			Batch:           []mcms.Operation{},
+		batch := types2.BatchOperation{
+			ChainSelector: chainID,
+			Transactions:  []types2.Transaction{},
 		}
 
 		opts := getDeployer(e, chainSelector, cfg.McmsConfig)
@@ -202,13 +202,8 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			op := mcms.Operation{
-				To:           linkAddress,
-				Data:         tx.Data(),
-				Value:        big.NewInt(0),
-				ContractType: string(types.LinkToken),
-			}
-			batch.Batch = append(batch.Batch, op)
+			op := evm.NewTransaction(linkAddress, tx.Data(), big.NewInt(0), string(types.LinkToken), []string{})
+			batch.Transactions = append(batch.Transactions, op)
 			totalAmount.Add(totalAmount, transfer.Value)
 		}
 
@@ -216,7 +211,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	}
 
 	if cfg.McmsConfig != nil {
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
 			timelockAddresses,
 			mcmsPerChain,
 			allBatches,
@@ -228,7 +223,7 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 		}
 
 		return deployment.ChangesetOutput{
-			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+			MCMSTimelockProposals: []mcms2.TimelockProposal{*proposal},
 		}, nil
 	}
 
