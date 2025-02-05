@@ -124,7 +124,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       ,
       bool isOutOfOrderExecution,
       bytes memory convertedExtraArgs,
-      , /* tokenReceiver */
+      /* tokenReceiver */
     ) = s_feeQuoter.processMessageArgs(DEST_CHAIN_SELECTOR, s_sourceTokens[0], 0, extraArgs, MESSAGE_RECEIVER);
 
     assertTrue(isOutOfOrderExecution);
