@@ -301,9 +301,9 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	tlOps := make(chan timelock.BatchChainOperation)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
+		ctx := e.GetContext()
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			ctx := e.GetContext()
 			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
@@ -982,9 +982,9 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	tlOps := make(chan timelock.BatchChainOperation)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
+		ctx := e.GetContext()
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			ctx := e.GetContext()
 			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
@@ -1023,7 +1023,6 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 		})
 	}
 	close(tlOps)
-
 	if err = g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1120,9 +1119,9 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	tlOps := make(chan timelock.BatchChainOperation)
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainSel, updates := chainSel, updates
+		ctx := e.GetContext()
 		g.Go(func() error {
 			txOpts := e.Chains[chainSel].DeployerKey
-			ctx := e.GetContext()
 			txOpts.Context = ctx
 			if cfg.MCMS != nil {
 				txOpts = deployment.SimTransactOpts()
@@ -1170,7 +1169,6 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 		})
 	}
 	close(tlOps)
-
 	if err = g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1363,8 +1361,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 		})
 	}
 	close(tlOps)
-	err = g.Wait()
-	if err != nil {
+	if err := g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
@@ -1520,8 +1517,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 		})
 	}
 	close(tlOps)
-	err = g.Wait()
-	if err != nil {
+	if err := g.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
