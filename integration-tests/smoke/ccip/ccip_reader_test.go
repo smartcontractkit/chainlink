@@ -14,10 +14,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
