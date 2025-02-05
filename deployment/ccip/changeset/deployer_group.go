@@ -33,7 +33,6 @@ type DeployerGroup struct {
 type DeploymentContext struct {
 	description    string
 	transactions   map[uint64][]*types.Transaction
-	txToAbi        map[*types.Transaction]string
 	previousConfig *DeploymentContext
 }
 
