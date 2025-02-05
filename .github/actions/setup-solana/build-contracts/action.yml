@@ -41,7 +41,7 @@ runs:
           ARTIFACT_NAME=$(echo "$artifact" | jq -r '.name')
           ARTIFACT_EXPIRED=$(echo "$artifact" | jq -r '.expired')
           ARTIFACT_DOWNLOAD_URL=$(echo "$artifact" | jq -r '.archive_download_url')
-          
+
           if [[ "$ARTIFACT_NAME" == "${{ env.ARTIFACT_NAME }}" && "$ARTIFACT_EXPIRED" == false ]]; then
             # First non-expired artifact found, set variables and break loop
             echo "Artifact found"
@@ -81,4 +81,3 @@ runs:
       with:
         name: ${{ env.ARTIFACT_NAME }}
         path: chainlink-ccip/chains/solana/contracts/target/deploy/*.so
-       
