@@ -147,7 +147,7 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, p *mcms2.Proposa
 	return p
 }
 
-func ExecuteProposalV2(t *testing.T, env deployment.Environment, proposal *mcms2.Proposal, sel uint64) {
+func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcms2.Proposal, sel uint64) {
 	t.Log("Executing proposal on chain", sel)
 
 	encoders, err := proposal.GetEncoders()
@@ -175,6 +175,33 @@ func ExecuteProposalV2(t *testing.T, env deployment.Environment, proposal *mcms2
 		require.NoError(t, err)
 
 		evmTransaction = result.RawTransaction.(*types2.Transaction)
+		_, err = chain.Confirm(evmTransaction)
+		require.NoError(t, err)
+	}
+}
+
+// ExecuteMCMSTimelockProposalV2 - Includes an option to set callProxy to execute the calls through a proxy.
+// If the callProxy is not set, the calls will be executed directly to the timelock.
+func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcms2.TimelockProposal, sel uint64, opts ...mcms2.Option) {
+	tExecutors := map[types.ChainSelector]sdk.TimelockExecutor{}
+	chain := env.Chains[sel]
+
+	chainSel := types.ChainSelector(sel)
+	tExecutors[chainSel] = evm.NewTimelockExecutor(
+		env.Chains[sel].Client,
+		env.Chains[sel].DeployerKey)
+
+	timelockExecutable, err := mcms2.NewTimelockExecutable(timelockProposal, tExecutors)
+	require.NoError(t, err)
+
+	err = timelockExecutable.IsReady(env.GetContext())
+	require.NoError(t, err)
+
+	var tx = types.TransactionResult{}
+	for i := range timelockProposal.Operations {
+		tx, err = timelockExecutable.Execute(env.GetContext(), i, opts...)
+		require.NoError(t, err, "Failed to mine execution transaction on Chain A")
+		evmTransaction := tx.RawTransaction.(*types2.Transaction)
 		_, err = chain.Confirm(evmTransaction)
 		require.NoError(t, err)
 	}

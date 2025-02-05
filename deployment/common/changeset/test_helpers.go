@@ -83,7 +83,8 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
 
-					proposalutils.ExecuteProposalV2(t, e, p, sel)
+					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
+					proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop, sel)
 				}
 			}
 		}
@@ -97,7 +98,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
 				p.UseSimulatedBackend(true)
 				for _, sel := range chains.ToSlice() {
-					proposalutils.ExecuteProposalV2(t, e, p, sel)
+					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
 				}
 			}
 		}
