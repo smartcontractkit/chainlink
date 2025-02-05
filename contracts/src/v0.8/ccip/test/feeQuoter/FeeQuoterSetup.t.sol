@@ -53,6 +53,7 @@ contract FeeQuoterSetup is TokenSetup {
   uint224 internal constant PACKED_USD_PER_GAS =
     (uint224(USD_PER_DATA_AVAILABILITY_GAS) << Internal.GAS_PRICE_BITS) + USD_PER_GAS;
 
+  bytes internal MESSAGE_RECEIVER = abi.encode(makeAddr("MESSAGE_RECEIVER"));
   FeeQuoterHelper internal s_feeQuoter;
   // Cheat to store the price updates in storage since struct arrays aren't supported.
   bytes internal s_encodedInitialPriceUpdates;

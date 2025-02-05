@@ -212,29 +212,29 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
       tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
     });
 
-    bytes memory tokenReceiver = IFeeQuoter(s_dynamicConfig.feeQuoter).getTokenReceiver(destChainSelector, message);
-    // Lock / burn the tokens as last step. TokenPools may not always be trusted.
+    // Convert message fee to juels and retrieve converted args.
+    // Validate pool return data after it is populated (view function - no state changes).
     Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
+    bool isOutOfOrderExecution;
+    bytes memory tokenReceiver;
+    (newMessage.feeValueJuels, isOutOfOrderExecution, newMessage.extraArgs, tokenReceiver) = IFeeQuoter(
+      s_dynamicConfig.feeQuoter
+    ).processMessageArgs(
+      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, message.receiver, tokenAmounts
+    );
+
+    // Lock / burn the tokens as last step. TokenPools may not always be trusted.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i] =
         _lockOrBurnSingleToken(tokenAmounts[i], destChainSelector, tokenReceiver, originalSender);
     }
 
-    // Convert message fee to juels and retrieve converted args.
-    // Validate pool return data after it is populated (view function - no state changes).
-    bool isOutOfOrderExecution;
-    bytes memory convertedExtraArgs;
-    bytes[] memory destExecDataPerToken;
-    (newMessage.feeValueJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken) = IFeeQuoter(
-      s_dynamicConfig.feeQuoter
-    ).processMessageArgs(
-      destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, newMessage.tokenAmounts, tokenAmounts
+    bytes[] memory destExecDataPerToken = IFeeQuoter(s_dynamicConfig.feeQuoter).processPoolReturnData(
+      destChainSelector, newMessage.tokenAmounts, tokenAmounts
     );
-
     newMessage.header.nonce = isOutOfOrderExecution
       ? 0
       : INonceManager(i_nonceManager).getIncrementedOutboundNonce(destChainSelector, originalSender);
-    newMessage.extraArgs = convertedExtraArgs;
 
     for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i].destExecData = destExecDataPerToken[i];
