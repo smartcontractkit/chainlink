@@ -35,8 +35,13 @@ func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 	}
 
 	// For uniqueness, include test name + timestamp
-	filename := fmt.Sprintf("%s_%s.log", tb.Name(), time.Now())
-	fullPath := filepath.Join(dir, filename)
+	filename := fmt.Sprintf("%s_%d.log", tb.Name(), time.Now().UnixNano())
+	fullPath, err := filepath.Abs(filepath.Join(dir, filename))
+	if err != nil {
+		log.Fatalf("Failed to get absolute path for %q: %v", fullPath, err)
+	}
+	// Log the full path
+	log.Printf("Logging to %q", fullPath)
 	f, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("Failed to create %q: %v", fullPath, err)
