@@ -267,6 +267,8 @@ jobs:
       fail-fast: false
       matrix: 
         include: ${{ fromJSON(needs.get-tests.outputs.matrix) }}
+    outputs:
+      flakeguard_error: ${{ steps.run-tests.outputs.flakeguard_error }}
     env:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
@@ -349,7 +351,8 @@ jobs:
           if [ $EXIT_CODE -e 1 ]; then
             echo "Found flaky tests"
           elif [ $EXIT_CODE -e 2 ]; then
-            echo "ERROR: Flakeguard encountered an error"
+            echo "ERROR: Flakeguard encountered an error while running tests"
+            echo "flakeguard_error=true" >> $GITHUB_OUTPUT
           fi
           exit $EXIT_CODE
 
@@ -378,18 +381,10 @@ jobs:
       - name: Check For Flakeguard Run Errors
         id: check-errors
         run: |
-          # 2 indicates that the flakeguard run encountered an error
-          AGGREGATED_STATUS=0
-          for status_file in status_*.txt; do
-            status=$(cat $status_file)
-            if [ $status -e 2 ]; then
-              AGGREGATED_STATUS=$status
-            fi
-          done
-          if [ $AGGREGATED_STATUS -e 2 ]; then
-            echo "ERROR: Flakeguard encountered an unrecoverable error while running tests"
-            echo "ERROR: Flakeguard encountered an unrecoverable error while running tests" >> $GITHUB_STEP_SUMMARY
-            exit 2
+          if ${{ needs.run-tests.outputs.flakeguard_error == true }}; then
+            echo "ERROR: Flakeguard encountered an error while running tests"
+            echo "ERROR: Flakeguard encountered an error while running tests" >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -425,8 +420,6 @@ jobs:
           GH_INPUTS_REPO_URL: ${{ inputs.repoUrl }}
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
         run: |
-          set -e  # Exit immediately if a command exits with a non-zero status.
-      
           # Create test results folder if it doesn't exist
           mkdir -p ci_test_results
       
@@ -502,8 +495,6 @@ jobs:
           GH_EVENT_PULL_REQUEST_BASE_REF: ${{ github.event.pull_request.base.ref }}
           GH_EVENT_PULL_REQUEST_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -e  # Exit immediately if a command exits with a non-zero status.
-      
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
@@ -684,10 +675,10 @@ jobs:
                   "color": "#C62828",
                   "blocks": [
                     {
-                      "type": "section",
+                      "type": "header",
                       "text": {
-                        "type": "mrkdwn",
-                        "text": "## Flakeguard Encountered and Unrecoverable Error :x:"
+                        "type": "plain_text",
+                        "text": "Flakeguard Encountered an Unrecoverable Error :x:"
                       }
                     },
                     {
