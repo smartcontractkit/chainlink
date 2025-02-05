@@ -28,6 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
+var (
+	evm2EVMOnRampABI = abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
+	onRampABI        = abihelpers.MustParseABI(onramp.OnRampABI)
+)
+
 // TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
@@ -110,9 +115,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	wg.Add(1)
 	// send continuous messages in real router until done is closed
 	go func() {
-		initialBlock, v1_5Msgs, v1_6Msgs = SendContinuousMessages(
+		defer wg.Done()
+		initialBlock, v1_5Msgs, v1_6Msgs = sendContinuousMessages(
 			t, &e, &state, pairs[0].SourceChainSelector, pairs[0].DestChainSelector, done)
-		wg.Done()
 	}()
 	// send a message from the other lane src2 -> dest
 	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
@@ -378,7 +383,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 }
 
 // SendMessages sends messages from src to dest until done is closed
-func SendContinuousMessages(
+func sendContinuousMessages(
 	t *testing.T,
 	e *testhelpers.DeployedEnv,
 	state *changeset.CCIPOnChainState,
@@ -395,6 +400,10 @@ func SendContinuousMessages(
 		select {
 		case <-ticker.C:
 			msg := sendMessageInRealRouter(t, e, state, src, dest)
+			if msg == nil {
+				t.Errorf("failed to send message in real router")
+				continue
+			}
 			switch msg := msg.(type) {
 			case *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested:
 				v1_5Msgs = append(v1_5Msgs, msg)
@@ -422,8 +431,6 @@ func sendMessageInRealRouter(
 	state *changeset.CCIPOnChainState,
 	src, dest uint64,
 ) any {
-	evm2EVMOnRampABI := abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
-	onRampABI := abihelpers.MustParseABI(onramp.OnRampABI)
 	cfg := &testhelpers.CCIPSendReqConfig{
 		SourceChain:  src,
 		DestChain:    dest,
