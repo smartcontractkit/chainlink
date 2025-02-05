@@ -36,6 +36,9 @@ const (
 	// TransmissionReaperRetryFrequency is the frequency at which the reaper
 	// will retry if it fails to delete stale transmissions.
 	TransmissionReaperRetryFrequency = 5 * time.Second
+	// OvertimeDeleteTimeout is the maximum time we will spend trying to reap
+	// after exit signal before giving up and logging an error.
+	OvertimeDeleteTimeout = 2 * time.Second
 )
 
 type transmissionReaper struct {
@@ -73,11 +76,25 @@ func (t *transmissionReaper) start(context.Context) error {
 
 func (t *transmissionReaper) runLoop(ctx context.Context) {
 	t.eng.Debugw("Transmission reaper running", "reapFreq", t.reapFreq, "maxAge", t.maxAge)
-	ticker := services.NewTicker(t.reapFreq)
+	ticker := services.TickerConfig{
+		// Don't reap right away, wait some time for the application to settle
+		// down first
+		Initial:   services.DefaultJitter.Apply(t.reapFreq),
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(t.reapFreq)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
+			// make a final effort to clear the database that goes into
+			// overtime
+			overtimeCtx, cancel := context.WithTimeout(context.Background(), OvertimeDeleteTimeout)
+			if n, err := t.reapStale(overtimeCtx, TransmissionReaperBatchSize); err != nil {
+				t.lggr.Errorw("Failed to reap stale transmissions on exit", "err", err)
+			} else if n > 0 {
+				t.lggr.Infow("Reaped stale transmissions on exit", "nDeleted", n)
+			}
+			cancel()
 			return
 		case <-ticker.C:
 			for {
@@ -94,8 +111,8 @@ func (t *transmissionReaper) runLoop(ctx context.Context) {
 					case <-time.After(TransmissionReaperRetryFrequency):
 						continue
 					}
-				} else {
-					t.lggr.Debugw("Reaped stale transmissions", "nDeleted", n)
+				} else if n > 0 {
+					t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
 				}
 			}
 		}

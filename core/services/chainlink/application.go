@@ -906,6 +906,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
+		shutdownStart := time.Now()
 		defer func() {
 			if app.closeLogger == nil {
 				return
@@ -936,7 +937,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = multierr.Append(err, app.profiler.Stop())
 		}
 
-		app.logger.Info("Exited all services")
+		app.logger.Debugf("Closed application in %v", time.Since(shutdownStart))
 
 		app.started = false
 	})

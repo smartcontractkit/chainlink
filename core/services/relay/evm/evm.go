@@ -739,7 +739,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			switch r.mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
 				client = grpc.NewClient(grpc.ClientOpts{
-					Logger:        lggr.Named(server.URL),
+					Logger:        lggr.Named(fmt.Sprintf("%q", server.URL)).With("serverURL", server.URL),
 					ClientPrivKey: privKey.PrivateKey(),
 					ServerPubKey:  ed25519.PublicKey(server.PubKey),
 					ServerURL:     server.URL,
