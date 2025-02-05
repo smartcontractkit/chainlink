@@ -10,6 +10,8 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/types"
 )
 
 const (
@@ -47,6 +49,7 @@ func BuildProposalMetadata(
 // The batches are specified separately because we eventually intend
 // to support user-specified cross chain ordering of batch execution by the tooling itself.
 // TODO: Can/should merge timelocks and proposers into a single map for the chain.
+// Deprecated: Use BuildProposalFromBatchesV2 instead.
 func BuildProposalFromBatches(
 	timelocksPerChain map[uint64]common.Address,
 	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
@@ -85,4 +88,75 @@ func BuildProposalFromBatches(
 		timelock.Schedule,
 		minDelay.String(),
 	)
+}
+
+// BuildProposalFromBatchesV2 uses the new MCMS library which replaces the implementation in BuildProposalFromBatches.
+func BuildProposalFromBatchesV2(
+	timelocksPerChain map[uint64]common.Address,
+	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
+	batches []types.BatchOperation,
+	description string,
+	minDelay time.Duration,
+) (*mcmslib.TimelockProposal, error) {
+	if len(batches) == 0 {
+		return nil, errors.New("no operations in batch")
+	}
+
+	chains := mapset.NewSet[uint64]()
+	for _, op := range batches {
+		chains.Add(uint64(op.ChainSelector))
+	}
+
+	mcmsMd, err := buildProposalMetadataV2(chains.ToSlice(), proposerMcmsesPerChain)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsPerChainID := make(map[types.ChainSelector]string)
+	for chainID, tl := range timelocksPerChain {
+		tlsPerChainID[types.ChainSelector(chainID)] = tl.Hex()
+	}
+	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
+
+	builder := mcmslib.NewTimelockProposalBuilder()
+	builder.
+		SetVersion("v1").
+		SetAction(types.TimelockActionSchedule).
+		//nolint:gosec // G115
+		SetValidUntil(uint32(validUntil)).
+		SetDescription(description).
+		SetDelay(types.NewDuration(minDelay)).
+		SetOverridePreviousRoot(false).
+		SetChainMetadata(mcmsMd).
+		SetTimelockAddresses(tlsPerChainID).
+		SetOperations(batches)
+
+	build, err := builder.Build()
+	if err != nil {
+		return nil, err
+	}
+	return build, nil
+}
+
+func buildProposalMetadataV2(
+	chainSelectors []uint64,
+	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
+) (map[types.ChainSelector]types.ChainMetadata, error) {
+	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
+	for _, selector := range chainSelectors {
+		proposerMcms, ok := proposerMcmsesPerChain[selector]
+		if !ok {
+			return nil, fmt.Errorf("missing proposer mcm for chain %d", selector)
+		}
+		chainID := types.ChainSelector(selector)
+		opCount, err := proposerMcms.GetOpCount(nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get op count for chain %d: %w", selector, err)
+		}
+		metaDataPerChain[chainID] = types.ChainMetadata{
+			StartingOpCount: opCount.Uint64(),
+			MCMAddress:      proposerMcms.Address().Hex(),
+		}
+	}
+	return metaDataPerChain, nil
 }
