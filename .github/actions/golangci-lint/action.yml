@@ -106,7 +106,7 @@ runs:
     - name: Store Golangci-lint report artifact
       if: always()
       id: upload-artifact
-      uses: actions/upload-artifact@v4.4.3
+      uses: actions/upload-artifact@v4
       with:
         # Use a unique suffix for each lint report artifact to avoid duplication errors
         name: golangci-lint-report-${{ steps.suffix.outputs.suffix }}

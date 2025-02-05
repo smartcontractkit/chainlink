@@ -308,7 +308,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -356,7 +356,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: go_core_scripts_tests_logs
           path: |

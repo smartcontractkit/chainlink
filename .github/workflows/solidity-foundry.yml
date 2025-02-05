@@ -382,7 +382,7 @@ jobs:
       # in that case we extract new issues introduced by the changes by using an LLM model
       - name: Upload Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -393,7 +393,7 @@ jobs:
       # we need to upload scripts and configuration in case base_ref doesn't have the scripts, or they are in different version
       - name: Upload Slither scripts
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -403,7 +403,7 @@ jobs:
 
       - name: Upload configs
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         with:
           name: tmp-configs-${{ github.sha }}
@@ -465,7 +465,7 @@ jobs:
 
       - name: Upload Slither report
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -529,7 +529,7 @@ jobs:
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
       - name: Upload Slither reports
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 10
         continue-on-error: true
         with:

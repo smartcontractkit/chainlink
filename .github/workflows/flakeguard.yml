@@ -359,7 +359,7 @@ jobs:
 
       - name: Upload test result as artifact
         if: always()
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: test-result-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: test-result.json
@@ -463,7 +463,7 @@ jobs:
 
       - name: Upload All Test Results as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/all-test-results.json
           name: all-test-results.json
@@ -471,7 +471,7 @@ jobs:
 
       - name: Upload Failed Test Results as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results.json
           name: failed-test-results.json
@@ -479,7 +479,7 @@ jobs:
 
       - name: Upload Failed Test Results With Logs as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
           name: failed-test-results-with-logs.json

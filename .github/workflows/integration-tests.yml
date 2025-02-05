@@ -774,7 +774,7 @@ jobs:
           CHAINLINK_USER_TEAM: "BIX"
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
