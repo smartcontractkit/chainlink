@@ -70,7 +70,7 @@ jobs:
           version: ^9.0.0
 
       - name: Setup node
-        uses: actions/setup-node@v4.0.4
+        uses: actions/setup-node@v4
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
           node-version: 20
