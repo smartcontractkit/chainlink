@@ -44,6 +44,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
 
     assertEq(resultBytes, encodedEvmArgs, "Should return the same EVM-encoded bytes");
     assertEq(outOfOrder, evmArgs.allowOutOfOrderExecution, "Out-of-order mismatch");
+    assertEq(tokenReceiver, MESSAGE_RECEIVER, "Token receiver mismatch");
   }
 
   function test_processChainFamilySelector_SVM_WithTokenTransfer() public {
@@ -65,6 +66,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     assertEq(resultBytes, encodedSvmArgs, "Should return the same SVM-encoded bytes");
     // The function always returns `true` for outOfOrder on SVM
     assertTrue(outOfOrder, "Out-of-order for SVM must be true");
+    assertEq(tokenReceiver, abi.encode(bytes32("someReceiver")));
   }
 
   function test_processChainFamilySelector_SVM_NoTokenTransfer() public {
@@ -77,7 +79,7 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
     });
     bytes memory encodedSvmArgs = Client._svmArgsToBytes(svmArgs);
 
-    (bytes memory resultBytes, bool outOfOrder, bytes memory tokenReceiver) =
+    (bytes memory resultBytes, bool outOfOrder,) =
       s_feeQuoter.processChainFamilySelector(SVM_SELECTOR, MESSAGE_RECEIVER, encodedSvmArgs);
 
     // Should succeed with outOfOrder = true
