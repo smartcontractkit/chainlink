@@ -72,9 +72,7 @@ build_standard_capabilities() {
 }
 
 install_remote_plugins() {
-  # Create array of ldflags
-  ldflags=(-ldflags "$(./tools/bin/ldflags)")
-  make install-plugins GOFLAGS="$(printf '%q ' "${ldflags[@]}")"
+  make install-plugins
 }
 
 # binary build post hook
