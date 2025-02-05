@@ -691,36 +691,9 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 
 func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
 	relayOpts := types.NewRelayOpts(rargs)
-	var relayConfig types.RelayConfig
-	{
-		var err error
-		relayConfig, err = relayOpts.RelayConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get relay config: %w", err)
-		}
-	}
-	if relayConfig.LLODONID == 0 {
-		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
-	}
-	switch relayConfig.LLOConfigMode {
-	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
-	default:
-		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
-	}
-
-	var lloCfg lloconfig.PluginConfig
-	if err := json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-	if err := lloCfg.Validate(); err != nil {
-		return nil, err
-	}
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
-	}
-	if relayConfig.LLODONID == 0 {
-		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
 	}
 	if relayConfig.LLOConfigMode == "" {
 		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (can be either: %q or %q)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
@@ -731,6 +704,25 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
+	if relayConfig.LLODONID == 0 {
+		return nil, errors.New("donID must be specified in relayConfig for LLO jobs")
+	}
+	// ensure that child loggers are namespaced by job ID which ought to be globally unique
+	lggr := r.lggr.Named(fmt.Sprintf("job-%d", rargs.JobID)).With("donID", relayConfig.LLODONID, "transmitterID", relayConfig.EffectiveTransmitterID.String)
+
+	switch relayConfig.LLOConfigMode {
+	case types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen:
+	default:
+		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
+	}
+
+	var lloCfg lloconfig.PluginConfig
+	if err = json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+	if err = lloCfg.Validate(); err != nil {
+		return nil, err
+	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
@@ -738,8 +730,8 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 
 	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
-		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
-		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
+		lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
+		transmitter = bm.NewTransmitter(lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
 		clients := make(map[string]grpc.Client)
 		for _, server := range lloCfg.GetServers() {
@@ -747,7 +739,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			switch r.mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
 				client = grpc.NewClient(grpc.ClientOpts{
-					Logger:        r.lggr,
+					Logger:        lggr.Named(server.URL),
 					ClientPrivKey: privKey.PrivateKey(),
 					ServerPubKey:  ed25519.PublicKey(server.PubKey),
 					ServerURL:     server.URL,
@@ -764,11 +756,11 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			clients[server.URL] = client
 		}
 		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:           r.lggr,
+			Lggr:           lggr,
 			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:           r.lggr,
+				Lggr:           lggr,
 				Registerer:     r.registerer,
 				VerboseLogging: r.mercuryCfg.VerboseLogging(),
 				Cfg:            r.mercuryCfg.Transmitter(),
@@ -791,7 +783,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 	}
 
 	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
-	return NewLLOProvider(ctx, transmitter, r.lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
+	return NewLLOProvider(ctx, transmitter, lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {

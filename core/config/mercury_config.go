@@ -46,6 +46,8 @@ type MercuryTransmitter interface {
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 	TransmitConcurrency() uint32
+	ReaperFrequency() commonconfig.Duration
+	ReaperMaxAge() commonconfig.Duration
 }
 
 type Mercury interface {

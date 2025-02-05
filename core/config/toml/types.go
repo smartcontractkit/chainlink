@@ -1333,6 +1333,8 @@ type MercuryTransmitter struct {
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
+	ReaperFrequency      *commonconfig.Duration
+	ReaperMaxAge         *commonconfig.Duration
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
@@ -1347,6 +1349,12 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 	}
 	if v := f.TransmitConcurrency; v != nil {
 		m.TransmitConcurrency = v
+	}
+	if v := f.ReaperFrequency; v != nil {
+		m.ReaperFrequency = v
+	}
+	if v := f.ReaperMaxAge; v != nil {
+		m.ReaperMaxAge = v
 	}
 }
 

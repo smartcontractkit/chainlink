@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -150,7 +149,7 @@ func newTransmitter(opts Opts) *transmitter {
 	}
 	return &transmitter{
 		services.StateMachine{},
-		sugared.Named("LLOMercuryTransmitter").With("donID", opts.ORM.DonID()),
+		sugared.Named("LLOMercuryTransmitter"),
 		opts.VerboseLogging,
 		opts.Cfg,
 		opts.ORM,
@@ -170,6 +169,11 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 		}
 
 		g, startCtx := errgroup.WithContext(ctx)
+		// Number of goroutines spawned per server will be
+		// TransmitConcurrency+2 (1 for persistence manager, 1 for client)
+		//
+		// This could potentially be reduced by implementing transmit batching,
+		// see: https://smartcontract-it.atlassian.net/browse/MERC-6635
 		for _, s := range mt.servers {
 			// concurrent start of all servers
 			g.Go(func() error {
@@ -182,30 +186,17 @@ func (mt *transmitter) Start(ctx context.Context) (err error) {
 
 				// Start all associated services
 				//
-				// starting pm after loading from it is fine because it simply
-				// spawns some garbage collection/prune goroutines
-				//
 				// client, queue etc should be started before spawning server loops
-				startClosers := []services.StartClose{s.c, s.q, s.pm}
+				//
+				// pm must be stopped last to give it a chance to clean up the
+				// remaining transmissions
+				startClosers := []services.StartClose{s.pm, s.c, s.q}
 				if err := (&services.MultiStart{}).Start(startCtx, startClosers...); err != nil {
 					return err
 				}
 
-				// Spawn loops for the server
-				//
-				// Number of goroutines per transmitter will be roughly
-				// 2*nServers*TransmitConcurrency because each server has a
-				// delete queue and a transmit queue.
-				//
-				// This could potentially be reduced by implementing transmit batching,
-				// see: https://smartcontract-it.atlassian.net/browse/MERC-6635
-				nThreads := int(mt.cfg.TransmitConcurrency())
-				mt.wg.Add(2 * nThreads)
-				donIDStr := strconv.FormatUint(uint64(mt.donID), 10)
-				for i := 0; i < nThreads; i++ {
-					go s.runDeleteQueueLoop(mt.stopCh, mt.wg)
-					go s.runQueueLoop(mt.stopCh, mt.wg, donIDStr)
-				}
+				// Spawn transmission loop threads
+				s.spawnTransmitLoops(mt.stopCh, mt.wg, mt.donID, int(mt.cfg.TransmitConcurrency()))
 				return nil
 			})
 		}
@@ -273,6 +264,12 @@ func (mt *transmitter) transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) error {
+	// On shutdown appears that libocr can pass us a pre-canceled context;
+	// don't even bother trying to insert/transmit in this case
+	if ctx.Err() != nil {
+		return fmt.Errorf("cannot transmit; context already canceled: %w", ctx.Err())
+	}
+
 	transmissions := make([]*Transmission, 0, len(mt.servers))
 	for serverURL := range mt.servers {
 		transmissions = append(transmissions, &Transmission{
@@ -283,27 +280,53 @@ func (mt *transmitter) transmit(
 			Sigs:         sigs,
 		})
 	}
+	// NOTE: This insert on its own can leave orphaned records in the case of
+	// shutdown, because:
+	// 1. Transmitter is shut down after oracle
+	// 2. OCR may pass a pre-canceled context or a context that is canceled mid-transmit
+	// 3. Insert can succeed even if the context is canceled, but return error
+	//
+	// Usually the number of orphaned records will be very small, and they
+	// would be transmitted/cleaned up on the next boot anyway.
+	//
+	// However, there are two ways to avoid this:
+	// 1. Use a transaction to rollback the insert on error
+	// 2. Allow the insert anyway (it will be transmitted on next boot) and be
+	// sure that the persistence manager issues a final cleanup that truncates
+	// the table to exactly maxSize records. Since persistenceManager is shut
+	// down AFTER the Oracle closes, this should always catch the straggler
+	// records.
+	//
+	// Since this is a hot path, the performance impact of holding a
+	// transaction open is too high, hence we choose option 2.
+	//
+	// In very rare cases if the final delete fails for some reason, we could
+	// end up with slightly more than maxSize records persisted to the DB on
+	// application exit.
+	//
+	// Must insert BEFORE pushing to queue since the queue will handle deletion
+	// on queue overflow.
 	if err := mt.orm.Insert(ctx, transmissions); err != nil {
 		return err
 	}
 
-	g := new(errgroup.Group)
 	for i := range transmissions {
 		t := transmissions[i]
 		if mt.verboseLogging {
-			mt.lggr.Debugw("LLOMercuryTransmit", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
+			mt.lggr.Debugw("Transmit report", "digest", digest.Hex(), "seqNr", seqNr, "reportFormat", report.Info.ReportFormat, "reportLifeCycleStage", report.Info.LifeCycleStage, "transmissionHash", fmt.Sprintf("%x", t.Hash()))
 		}
-		g.Go(func() error {
-			s := mt.servers[t.ServerURL]
-			if ok := s.q.Push(t); !ok {
-				s.transmitQueuePushErrorCount.Inc()
-				return errors.New("transmit queue is closed")
-			}
-			return nil
-		})
+		s := mt.servers[t.ServerURL]
+		// OK to do this synchronously since pushing to queue is just a mutex
+		// lock and array append and ought to be extremely fast
+		if ok := s.q.Push(t); !ok {
+			s.transmitQueuePushErrorCount.Inc()
+			// This shouldn't be possible since transmitter is always shut down
+			// after oracle
+			return errors.New("transmit queue is closed")
+		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 // FromAccount returns the stringified (hex) CSA public key
