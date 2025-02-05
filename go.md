@@ -165,11 +165,10 @@ flowchart LR
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
-	chainlink-testing-framework/lib --> chainlink-testing-framework/wasp
 	click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-testing-framework/seth --> seth
+	chainlink-testing-framework/seth
 	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/wasp href "https://github.com/smartcontractkit/chainlink-testing-framework"
@@ -177,11 +176,12 @@ flowchart LR
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-owner-contracts
 	chainlink/deployment --> chainlink-protos/job-distributor
-	chainlink/deployment --> chainlink-testing-framework/framework
 	chainlink/deployment --> chainlink-testing-framework/lib
 	chainlink/deployment --> chainlink/v2
+	chainlink/deployment --> mcms
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
+	chainlink/integration-tests --> chainlink-testing-framework/wasp
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink/integration-tests
@@ -200,8 +200,10 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
-	seth
-	click seth href "https://github.com/smartcontractkit/seth"
+	mcms --> chain-selectors
+	mcms --> chainlink-ccip/chains/solana
+	mcms --> chainlink-testing-framework/framework
+	click mcms href "https://github.com/smartcontractkit/mcms"
 	tdh2/go/ocr2/decryptionplugin --> libocr
 	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
