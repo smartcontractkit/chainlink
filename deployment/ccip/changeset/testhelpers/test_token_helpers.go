@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -18,6 +19,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	testlogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -201,4 +203,81 @@ func DeployTestTokenPools(
 	}
 
 	return e
+}
+
+// SetupTokens deploys transferable tokens on the source and dest, mints tokens for the source and dest, and
+// approves the router to spend the tokens
+func SetupTransferableTokens(
+	t *testing.T,
+	state changeset.CCIPOnChainState,
+	tenv DeployedEnv,
+	src, dest uint64,
+	transferTokenMintAmount,
+	feeTokenMintAmount *big.Int,
+) (
+	srcToken *burn_mint_erc677.BurnMintERC677,
+	dstToken *burn_mint_erc677.BurnMintERC677,
+) {
+	lggr := testlogger.TestLogger(t)
+	e := tenv.Env
+
+	// Deploy the token to test transferring
+	srcToken, _, dstToken, _, err := DeployTransferableToken(
+		lggr,
+		tenv.Env.Chains,
+		src,
+		dest,
+		tenv.Env.Chains[src].DeployerKey,
+		tenv.Env.Chains[dest].DeployerKey,
+		state,
+		tenv.Env.ExistingAddresses,
+		"MY_TOKEN",
+	)
+	require.NoError(t, err)
+
+	linkToken := state.Chains[src].LinkToken
+
+	tx, err := srcToken.Mint(
+		e.Chains[src].DeployerKey,
+		e.Chains[src].DeployerKey.From,
+		transferTokenMintAmount,
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	// Mint a destination token
+	tx, err = dstToken.Mint(
+		e.Chains[dest].DeployerKey,
+		e.Chains[dest].DeployerKey.From,
+		transferTokenMintAmount,
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcToken.Approve(e.Chains[src].DeployerKey, state.Chains[src].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	tx, err = dstToken.Approve(e.Chains[dest].DeployerKey, state.Chains[dest].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	// Grant mint and burn roles to the deployer key for the newly deployed linkToken
+	// Since those roles are not granted automatically
+	tx, err = linkToken.GrantMintAndBurnRoles(e.Chains[src].DeployerKey, e.Chains[src].DeployerKey.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	// Mint link token and confirm the tx
+	tx, err = linkToken.Mint(
+		e.Chains[src].DeployerKey,
+		e.Chains[src].DeployerKey.From,
+		feeTokenMintAmount,
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	return srcToken, dstToken
 }

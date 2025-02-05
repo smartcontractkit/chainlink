@@ -32,7 +32,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 
 	testhelpers.AddLanesForAll(t, &testEnv, onChainState)
 
-	srcToken, _ := setupTokens(
+	srcToken, _ := testhelpers.SetupTransferableTokens(
 		t,
 		onChainState,
 		testEnv,
