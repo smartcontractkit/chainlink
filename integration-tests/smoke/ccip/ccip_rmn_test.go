@@ -32,12 +32,16 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
-func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
+func TestRMN_ThreeMessagesOnThreeLanesIncludingBatchingAndUnblessedRoots(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
-			f: map[int]int{chain0: 1, chain1: 1},
+			f: map[int]int{
+				chain0: 1,
+				chain1: 1,
+				// notice that chain 2 is missing, which indicates RMN-disabled for that source chain
+			},
 		},
 		remoteChainsConfig: []remoteChainConfig{
 			{chainIdx: chain0, f: 1},
@@ -51,6 +55,7 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
 			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
+			{fromChainIdx: chain2, toChainIdx: chain0, count: 3}, // RMN-disabled
 		},
 	})
 }
@@ -174,7 +179,7 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 	})
 }
 
-func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
+func TestRMN_ThreeMessagesOneSourceChainCursed(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -199,11 +204,12 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1}, // <----- this message should not be committed
 			{fromChainIdx: chain1, toChainIdx: chain0, count: 1},
+			{fromChainIdx: chain2, toChainIdx: chain0, count: 1}, // RMN-disabled, should be committed
 		},
 	})
 }
 
-func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
+func TestRMN_GlobalCurseThreeMessagesOnThreeLanes(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
@@ -213,6 +219,7 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 		remoteChainsConfig: []remoteChainConfig{
 			{chainIdx: chain0, f: 1},
 			{chainIdx: chain1, f: 1},
+			{chainIdx: chain2, f: 0},
 		},
 		rmnNodes: []rmnNode{
 			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
@@ -222,10 +229,12 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
 			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
+			{fromChainIdx: chain2, toChainIdx: chain0, count: 1},
 		},
 		cursedSubjectsPerChain: map[int][]int{
 			chain1: {globalCurse},
 			chain0: {globalCurse},
+			chain2: {globalCurse},
 		},
 		passIfNoCommitAfter: 15 * time.Second,
 	})
@@ -234,6 +243,7 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 const (
 	chain0      = 0
 	chain1      = 1
+	chain2      = 2
 	globalCurse = 1000
 )
 
@@ -319,8 +329,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	tc.killMarkedRmnNodes(t, rmnCluster)
 
 	envWithRMN.RmnEnabledSourceChains = make(map[uint64]bool)
-	for _, chain := range envWithRMN.Env.Chains {
-		envWithRMN.RmnEnabledSourceChains[chain.Selector] = true
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		envWithRMN.RmnEnabledSourceChains[chainSel] = true
 	}
 
 	testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
