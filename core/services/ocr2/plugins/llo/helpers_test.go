@@ -34,7 +34,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
@@ -57,9 +57,9 @@ var _ pb.MercuryServer = &wsrpcMercuryServer{}
 
 type mercuryServer struct {
 	rpc.UnimplementedTransmitterServer
-	privKey ed25519.PrivateKey
-	reqsCh  chan *rpc.TransmitRequest
-	t       *testing.T
+	privKey   ed25519.PrivateKey
+	packetsCh chan *packet
+	t         *testing.T
 }
 
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
@@ -86,12 +86,21 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 	return
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan *rpc.TransmitRequest) *mercuryServer {
-	return &mercuryServer{rpc.UnimplementedTransmitterServer{}, privKey, reqsCh, t}
+//nolint:containedctx // it's just to pass the context back for testing
+type packet struct {
+	req *rpc.TransmitRequest
+	ctx context.Context
+}
+
+func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, packetsCh chan *packet) *mercuryServer {
+	return &mercuryServer{rpc.UnimplementedTransmitterServer{}, privKey, packetsCh, t}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *rpc.TransmitRequest) (*rpc.TransmitResponse, error) {
-	s.reqsCh <- req
+	s.packetsCh <- &packet{
+		req: req,
+		ctx: ctx,
+	}
 
 	return &rpc.TransmitResponse{
 		Code:  1,
@@ -200,7 +209,7 @@ func setupNode(
 	dbName string,
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
-	transmissionMode config.MercuryTransmitterProtocol,
+	f func(*chainlink.Config),
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -239,13 +248,17 @@ func setupNode(
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = ptr(true)
-		c.Mercury.Transmitter.TransmitConcurrency = ptr(uint32(5)) // Avoid a ridiculous number of goroutines
-		if transmissionMode != "" {
-			c.Mercury.Transmitter.Protocol = ptr(transmissionMode)
+
+		// [Log]
+		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+
+		// Optional overrides
+		if f != nil {
+			f(c)
 		}
 	})
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
 	if backend != nil {
 		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	} else {

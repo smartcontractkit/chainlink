@@ -1,0 +1,20 @@
+ChainID = 4200
+ChainType = "zkevm"
+FinalityDepth = 1000
+FinalityTagEnabled = false
+LogPollInterval = "4s" # blockrate is 3s; adding a 1s buffer
+MinIncomingConfirmations = 1
+RPCDefaultBatchSize = 100
+
+[HeadTracker]
+HistoryDepth = 2000
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = "3m"
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3

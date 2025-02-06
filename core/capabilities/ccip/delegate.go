@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/avast/retry-go/v4"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -155,13 +156,29 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	// since all queries are scoped by config digest.
 	ocrDB := ocr2.NewDB(d.ds, spec.ID, 0, d.lggr)
 
-	homeChainContractReader, ccipConfigBinding, err := d.getHomeChainContractReader(
-		ctx,
-		homeChainRelayer,
-		spec.CCIPSpec.CapabilityLabelledName,
-		spec.CCIPSpec.CapabilityVersion)
+	var (
+		homeChainContractReader types.ContractReader
+		ccipConfigBinding       types.BoundContract
+	)
+	err = retry.Do(func() error {
+		var err2 error
+		homeChainContractReader, ccipConfigBinding, err2 = d.getHomeChainContractReader(
+			ctx,
+			homeChainRelayer,
+			spec.CCIPSpec.CapabilityLabelledName,
+			spec.CCIPSpec.CapabilityVersion)
+		return err2
+	},
+		retry.Attempts(0), // retry forever
+		retry.Delay(10*time.Second),
+		retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(attempt uint, err error) {
+			d.lggr.Warnw("failed to get home chain contract reader, retrying", "attempt", attempt, "err", err)
+		}),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home chain contract reader: %w", err)
+		// shouldn't happen since the above should retry forever.
+		return nil, fmt.Errorf("failed to get home chain contract reader, fatal error: %w", err)
 	}
 
 	hcr := ccipreaderpkg.NewObservedHomeChainReader(

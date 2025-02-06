@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -66,6 +67,17 @@ func TestValidateDeployTokenPoolContractsConfig(t *testing.T) {
 				},
 			},
 			ErrStr: "missing router",
+		},
+		{
+			Msg: "Test router contract is missing from chain",
+			Input: changeset.DeployTokenPoolContractsConfig{
+				TokenSymbol: "TEST",
+				NewPools: map[uint64]changeset.DeployTokenPoolInput{
+					e.AllChainSelectors()[0]: changeset.DeployTokenPoolInput{},
+				},
+				IsTestRouter: true,
+			},
+			ErrStr: "missing test router",
 		},
 	}
 
@@ -189,124 +201,105 @@ func TestValidateDeployTokenPoolInput(t *testing.T) {
 	}
 }
 
-func TestDeployTokenPool(t *testing.T) {
+func TestDeployTokenPoolContracts(t *testing.T) {
 	t.Parallel()
 
-	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 	acceptLiquidity := false
 
+	type Ownable interface {
+		Owner(opts *bind.CallOpts) (common.Address, error)
+	}
+
 	tests := []struct {
-		Msg   string
-		Input changeset.DeployTokenPoolInput
+		Msg     string
+		Input   changeset.DeployTokenPoolInput
+		GetPool func(changeset.CCIPChainState) Ownable
 	}{
 		{
 			Msg: "BurnMint",
 			Input: changeset.DeployTokenPoolInput{
-				TokenAddress:       tokens[selectorA].Address,
 				Type:               changeset.BurnMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs changeset.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnMintTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_5_1]
 			},
 		},
 		{
 			Msg: "BurnWithFromMint",
 			Input: changeset.DeployTokenPoolInput{
-				TokenAddress:       tokens[selectorA].Address,
 				Type:               changeset.BurnWithFromMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs changeset.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnWithFromMintTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_5_1]
 			},
 		},
 		{
 			Msg: "BurnFromMint",
 			Input: changeset.DeployTokenPoolInput{
-				TokenAddress:       tokens[selectorA].Address,
 				Type:               changeset.BurnFromMintTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
+			},
+			GetPool: func(cs changeset.CCIPChainState) Ownable {
+				tokenPools, ok := cs.BurnFromMintTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_5_1]
 			},
 		},
 		{
 			Msg: "LockRelease",
 			Input: changeset.DeployTokenPoolInput{
-				TokenAddress:       tokens[selectorA].Address,
 				Type:               changeset.LockReleaseTokenPool,
 				LocalTokenDecimals: testhelpers.LocalTokenDecimals,
 				AllowList:          []common.Address{},
 				AcceptLiquidity:    &acceptLiquidity,
+			},
+			GetPool: func(cs changeset.CCIPChainState) Ownable {
+				tokenPools, ok := cs.LockReleaseTokenPools[testhelpers.TestTokenSymbol]
+				require.True(t, ok)
+				require.Len(t, tokenPools, 1)
+				return tokenPools[deployment.Version1_5_1]
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			addressBook := deployment.NewMemoryAddressBook()
+			e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
+
+			test.Input.TokenAddress = tokens[selectorA].Address
+
+			e, err := commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
+				commonchangeset.ChangesetApplication{
+					Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
+					Config: changeset.DeployTokenPoolContractsConfig{
+						TokenSymbol: testhelpers.TestTokenSymbol,
+						NewPools: map[uint64]changeset.DeployTokenPoolInput{
+							selectorA: test.Input,
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+
 			state, err := changeset.LoadOnchainState(e)
 			require.NoError(t, err)
 
-			_, err = changeset.DeployTokenPool(
-				e.Logger,
-				e.Chains[selectorA],
-				state.Chains[selectorA],
-				addressBook,
-				test.Input,
-			)
+			pool := test.GetPool(state.Chains[selectorA])
+			owner, err := pool.Owner(nil)
 			require.NoError(t, err)
-
-			err = e.ExistingAddresses.Merge(addressBook)
-			require.NoError(t, err)
-
-			state, err = changeset.LoadOnchainState(e)
-			require.NoError(t, err)
-
-			switch test.Input.Type {
-			case changeset.BurnMintTokenPool:
-				_, ok := state.Chains[selectorA].BurnMintTokenPools[testhelpers.TestTokenSymbol]
-				require.True(t, ok)
-			case changeset.LockReleaseTokenPool:
-				_, ok := state.Chains[selectorA].LockReleaseTokenPools[testhelpers.TestTokenSymbol]
-				require.True(t, ok)
-			case changeset.BurnWithFromMintTokenPool:
-				_, ok := state.Chains[selectorA].BurnWithFromMintTokenPools[testhelpers.TestTokenSymbol]
-				require.True(t, ok)
-			case changeset.BurnFromMintTokenPool:
-				_, ok := state.Chains[selectorA].BurnFromMintTokenPools[testhelpers.TestTokenSymbol]
-				require.True(t, ok)
-			}
+			require.Equal(t, e.Chains[selectorA].DeployerKey.From, owner)
 		})
 	}
-}
-
-func TestDeployTokenPoolContracts(t *testing.T) {
-	t.Parallel()
-
-	e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
-
-	e, err := commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-		commonchangeset.ChangesetApplication{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			Config: changeset.DeployTokenPoolContractsConfig{
-				TokenSymbol: testhelpers.TestTokenSymbol,
-				NewPools: map[uint64]changeset.DeployTokenPoolInput{
-					selectorA: {
-						TokenAddress:       tokens[selectorA].Address,
-						Type:               changeset.BurnMintTokenPool,
-						LocalTokenDecimals: testhelpers.LocalTokenDecimals,
-						AllowList:          []common.Address{},
-					},
-				},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	state, err := changeset.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	burnMintTokenPools, ok := state.Chains[selectorA].BurnMintTokenPools[testhelpers.TestTokenSymbol]
-	require.True(t, ok)
-	require.Len(t, burnMintTokenPools, 1)
-	owner, err := burnMintTokenPools[deployment.Version1_5_1].Owner(nil)
-	require.NoError(t, err)
-	require.Equal(t, e.Chains[selectorA].DeployerKey.From, owner)
 }
