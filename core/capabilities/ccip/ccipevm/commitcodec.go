@@ -28,32 +28,28 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 }
 
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
-	blessedMerkleRoots := make([]ccip_encoding_utils.InternalMerkleRoot, 0, len(report.BlessedMerkleRoots))
+	isBlessed := make(map[cciptypes.ChainSelector]bool)
 	for _, root := range report.BlessedMerkleRoots {
-		blessedMerkleRoots = append(blessedMerkleRoots, ccip_encoding_utils.InternalMerkleRoot{
-			SourceChainSelector: uint64(root.ChainSel),
-			// TODO: abi-encoded address for EVM source, figure out what to do for non-EVM.
-			OnRampAddress: common.LeftPadBytes(root.OnRampAddress, 32),
-			MinSeqNr:      uint64(root.SeqNumsRange.Start()),
-			MaxSeqNr:      uint64(root.SeqNumsRange.End()),
-			MerkleRoot:    root.MerkleRoot,
-		})
+		isBlessed[root.ChainSel] = true
 	}
 
-	// TODO: de-dup
-	// -------------------------------
+	blessedMerkleRoots := make([]ccip_encoding_utils.InternalMerkleRoot, 0, len(report.BlessedMerkleRoots))
 	unblessedMerkleRoots := make([]ccip_encoding_utils.InternalMerkleRoot, 0, len(report.UnblessedMerkleRoots))
-	for _, root := range report.UnblessedMerkleRoots {
-		unblessedMerkleRoots = append(unblessedMerkleRoots, ccip_encoding_utils.InternalMerkleRoot{
+	for _, root := range append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...) {
+		imr := ccip_encoding_utils.InternalMerkleRoot{
 			SourceChainSelector: uint64(root.ChainSel),
 			// TODO: abi-encoded address for EVM source, figure out what to do for non-EVM.
 			OnRampAddress: common.LeftPadBytes(root.OnRampAddress, 32),
 			MinSeqNr:      uint64(root.SeqNumsRange.Start()),
 			MaxSeqNr:      uint64(root.SeqNumsRange.End()),
 			MerkleRoot:    root.MerkleRoot,
-		})
+		}
+		if isBl, ok := isBlessed[root.ChainSel]; ok && isBl {
+			blessedMerkleRoots = append(blessedMerkleRoots, imr)
+		} else {
+			unblessedMerkleRoots = append(unblessedMerkleRoots, imr)
+		}
 	}
-	// -------------------------------
 
 	rmnSignatures := make([]ccip_encoding_utils.IRMNRemoteSignature, 0, len(report.RMNSignatures))
 	for _, sig := range report.RMNSignatures {
@@ -125,24 +121,15 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 
 	commitReport := *abi.ConvertType(unpacked[0], new(ccip_encoding_utils.OffRampCommitReport)).(*ccip_encoding_utils.OffRampCommitReport)
 
-	blessedMerkleRoots := make([]cciptypes.MerkleRootChain, 0, len(commitReport.BlessedMerkleRoots))
+	isBlessed := make(map[uint64]bool)
 	for _, root := range commitReport.BlessedMerkleRoots {
-		blessedMerkleRoots = append(blessedMerkleRoots, cciptypes.MerkleRootChain{
-			ChainSel:      cciptypes.ChainSelector(root.SourceChainSelector),
-			OnRampAddress: root.OnRampAddress,
-			SeqNumsRange: cciptypes.NewSeqNumRange(
-				cciptypes.SeqNum(root.MinSeqNr),
-				cciptypes.SeqNum(root.MaxSeqNr),
-			),
-			MerkleRoot: root.MerkleRoot,
-		})
+		isBlessed[root.SourceChainSelector] = true
 	}
 
-	// todo: dedup
-	// ---------------------------------
+	blessedMerkleRoots := make([]cciptypes.MerkleRootChain, 0, len(commitReport.BlessedMerkleRoots))
 	unblessedMerkleRoots := make([]cciptypes.MerkleRootChain, 0, len(commitReport.UnblessedMerkleRoots))
-	for _, root := range commitReport.UnblessedMerkleRoots {
-		unblessedMerkleRoots = append(unblessedMerkleRoots, cciptypes.MerkleRootChain{
+	for _, root := range append(commitReport.BlessedMerkleRoots, commitReport.UnblessedMerkleRoots...) {
+		mrc := cciptypes.MerkleRootChain{
 			ChainSel:      cciptypes.ChainSelector(root.SourceChainSelector),
 			OnRampAddress: root.OnRampAddress,
 			SeqNumsRange: cciptypes.NewSeqNumRange(
@@ -150,9 +137,13 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 				cciptypes.SeqNum(root.MaxSeqNr),
 			),
 			MerkleRoot: root.MerkleRoot,
-		})
+		}
+		if isBlessed[root.SourceChainSelector] {
+			blessedMerkleRoots = append(blessedMerkleRoots, mrc)
+		} else {
+			unblessedMerkleRoots = append(unblessedMerkleRoots, mrc)
+		}
 	}
-	// ---------------------------------
 
 	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
