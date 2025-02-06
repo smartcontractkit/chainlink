@@ -1580,6 +1580,9 @@ func TestTooManyLogResults(t *testing.T) {
 			if to-from >= 4 {
 				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
 			}
+			if to-from >= 8 {
+				return []types.Log{}, context.DeadlineExceeded // simulate RPC client timeout as a "too many results" scenario
+			}
 			return logs, err
 		})
 
