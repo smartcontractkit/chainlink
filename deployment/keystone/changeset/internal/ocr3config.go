@@ -37,7 +37,10 @@ type OracleConfig struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
 	MaxReportLengthBytes      uint32
-	MaxRequestBatchSize       uint32
+	MaxOutcomeLengthBytes     uint32
+	MaxReportCount            uint32
+	MaxBatchSize              uint32
+	OutcomePruningThreshold   uint64
 	UniqueReports             bool
 
 	DeltaProgressMillis               uint32
@@ -200,7 +203,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 offchain public key. expected %d but got %d", ed25519.PublicKeySize, nCopied)
 		}
 
-		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
+		offchainPubKeysBytes = append(offchainPubKeysBytes, pkBytesFixed)
 	}
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
@@ -216,7 +219,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 			return OCR2OracleConfig{}, fmt.Errorf("wrong num elements copied from ocr2 config public key. expected %d but got %d", ed25519.PublicKeySize, n)
 		}
 
-		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
+		configPubKeysBytes = append(configPubKeysBytes, pkBytesFixed)
 	}
 
 	identities := []confighelper.OracleIdentityExtra{}
@@ -236,7 +239,10 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
 		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
 		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-		MaxRequestBatchSize:       cfg.MaxRequestBatchSize,
+		MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
+		MaxReportCount:            cfg.MaxReportCount,
+		MaxBatchSize:              cfg.MaxBatchSize,
+		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
 		UniqueReports:             cfg.UniqueReports,
 	})
 	if err != nil {
