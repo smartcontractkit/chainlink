@@ -25,7 +25,6 @@ binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c17
 config_url = "https://gist.githubusercontent.com/Tofel/19c80e6297914a79449f916e5e65dfdd/raw/1344c259ef7e970dbabaa1e9e885845b8eba5da9/config.json3674692696"
 
 [nodeset]
-name = "proxytest"
 nodes = 5
 override_mode = "each"
 
