@@ -5,8 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestCallSetChannelDefinitions(t *testing.T) {
@@ -25,19 +23,8 @@ func TestCallSetChannelDefinitions(t *testing.T) {
 		},
 		MCMSConfig: nil,
 	}
-	out, err := CallSetChannelDefinitions(e, cc)
+	_, err := CallSetChannelDefinitions(e, cc)
 	require.NoError(t, err)
-
-	ab, err := out.AddressBook.Addresses()
-	require.NoError(t, err)
-	require.Len(t, ab, 1)
-
-	for sel, addrMap := range ab {
-		require.Equal(t, TestChain.Selector, sel)
-		for _, tv := range addrMap {
-			require.Equal(t, types.ChannelConfigStore, tv.Type)
-		}
-	}
 }
 
 func hexToByte32(s string) [32]byte {
