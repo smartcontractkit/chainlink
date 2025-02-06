@@ -1951,12 +1951,25 @@ func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *Workfl
 	}
 
 	// we need to explicitly allow the port used by the fake data provider
-	// and IP corresponding to host.docker.internal, because that's where the fake data provider is running
-	// we also need to explicitly allow Gist's IP
-	dockerHostIp, err := resolveHostDockerInternaIp(testLogger, nodeOutput)
+	// and IP corresponding to host.docker.internal or the IP of the host machine, if we are running on Linux,
+	// because that's where the fake data provider is running
+	var hostIp string
+	var err error
+
+	system := runtime.GOOS
+	switch system {
+	case "darwin":
+		hostIp, err = resolveHostDockerInternaIp(testLogger, nodeOutput)
+		require.NoError(t, err, "failed to resolve host.docker.internal IP")
+	case "linux":
+		hostIp = strings.ReplaceAll("http://", framework.HostDockerInternal(), "")
+	default:
+		err = fmt.Errorf("unsupported OS: %s", system)
+	}
 	require.NoError(t, err, "failed to resolve host.docker.internal IP")
 
-	return []string{dockerHostIp, GistIP}, []int{in.DataSource.Fake.Port}
+	// we also need to explicitly allow Gist's IP
+	return []string{hostIp, GistIP}, []int{in.DataSource.Fake.Port}
 }
 
 /*
