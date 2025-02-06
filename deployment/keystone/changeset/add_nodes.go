@@ -122,7 +122,7 @@ func (capabilities CapabilityIdentities) resolve(registry *kcr.CapabilitiesRegis
 	return out, nil
 }
 
-type CreateNodesRequest struct {
+type CreateNodeRequest struct {
 	NOPIdentity
 	Signer               [32]byte // signer address of the NOP
 	P2PID                [32]byte // p2p ID of the node
@@ -130,7 +130,7 @@ type CreateNodesRequest struct {
 	CapabilityIdentities          // the capabilities of the node; must all exist in the capabilities registry
 }
 
-func (r *CreateNodesRequest) Validate() error {
+func (r *CreateNodeRequest) Validate() error {
 	if err := r.NOPIdentity.Validate(); err != nil {
 		return fmt.Errorf("invalid NOPIdentity: %w", err)
 	}
@@ -149,7 +149,7 @@ func (r *CreateNodesRequest) Validate() error {
 	return nil
 }
 
-func (r *CreateNodesRequest) Resolve(registry *kcr.CapabilitiesRegistry) (kcr.CapabilitiesRegistryNodeParams, error) {
+func (r *CreateNodeRequest) Resolve(registry *kcr.CapabilitiesRegistry) (kcr.CapabilitiesRegistryNodeParams, error) {
 	id, err := r.NOPIdentity.resolve(registry)
 	if err != nil {
 		return kcr.CapabilitiesRegistryNodeParams{}, fmt.Errorf("failed to resolve NOPIdentity: %w", err)
@@ -170,7 +170,7 @@ func (r *CreateNodesRequest) Resolve(registry *kcr.CapabilitiesRegistry) (kcr.Ca
 type AddNodesRequest struct {
 	RegistryChainSel uint64
 
-	CreateNodeRequests map[string]CreateNodesRequest
+	CreateNodeRequests map[string]CreateNodeRequest
 	// MCMS is the configuration for the Multi-Chain Manager Service
 	// Required if the registry contract has be delegated to MCMS
 	// If nil, the registry contract will be used directly

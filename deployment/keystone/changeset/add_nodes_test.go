@@ -20,7 +20,7 @@ func TestAddNodes(t *testing.T) {
 
 	type input struct {
 		te                 test.TestEnv
-		CreateNodeRequests map[string]changeset.CreateNodesRequest
+		CreateNodeRequests map[string]changeset.CreateNodeRequest
 		MCMSConfig         *changeset.MCMSConfig
 	}
 	type testCase struct {
@@ -50,7 +50,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - unregistered nop",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodesRequest{
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: math.MaxUint32,
@@ -75,7 +75,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - unregistered capability",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodesRequest{
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: 1,
@@ -103,7 +103,7 @@ func TestAddNodes(t *testing.T) {
 					name: "add one node",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodesRequest{
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -123,7 +123,7 @@ func TestAddNodes(t *testing.T) {
 					name: "add two nodes",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodesRequest{
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
@@ -155,7 +155,7 @@ func TestAddNodes(t *testing.T) {
 					name: "error - deduplicate",
 					input: input{
 						te: te,
-						CreateNodeRequests: map[string]changeset.CreateNodesRequest{
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
 							"test-node": {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
