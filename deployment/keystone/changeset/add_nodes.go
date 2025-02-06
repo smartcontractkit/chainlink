@@ -50,7 +50,7 @@ func (i NOPIdentity) resolve(registry *kcr.CapabilitiesRegistry) (uint32, error)
 	id := uint32(0)
 	for _, nop := range nops {
 		if nop.Name == i.Operator.Name && nop.Admin == i.Operator.Admin {
-			id = id + 1 // 1-indexed; ordered
+			id++ // 1-indexed; ordered
 			break
 		}
 	}
@@ -251,6 +251,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
+		//nolint:staticcheck SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
 	}
 	return out, nil

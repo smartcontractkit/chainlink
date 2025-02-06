@@ -422,7 +422,7 @@ func mustCapabilityIds(t *testing.T, registry *capabilities_registry.Capabilitie
 	return out
 }
 
-func MustCapabilityId(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, c capabilities_registry.CapabilitiesRegistryCapability) [32]byte {
+func MustCapabilityID(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, c capabilities_registry.CapabilitiesRegistryCapability) [32]byte {
 	t.Helper()
 	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, c.LabelledName, c.Version)
 	require.NoError(t, err)
