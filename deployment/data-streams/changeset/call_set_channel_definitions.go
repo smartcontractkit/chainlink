@@ -21,6 +21,7 @@ import (
 
 type (
 	SetChannelDefinitionsConfig struct {
+		// DefinitionsByChain is a map of chain selectors -> ChannelConfigStore addresses -> ChannelDefinitions to deploy.
 		DefinitionsByChain map[uint64]map[string]ChannelDefinition // Use string for address because of future non-EVM chains.
 		MCMSConfig         *MCMSConfig
 	}
@@ -44,11 +45,12 @@ type (
 )
 
 func (cfg SetChannelDefinitionsConfig) Validate() error {
-	// TODO Implement.
+	if len(cfg.DefinitionsByChain) == 0 {
+		return fmt.Errorf("DefinitionsByChain cannot be empty")
+	}
 	return nil
 }
 
-// TODO Add tests.
 func CallSetChannelDefinitions(e deployment.Environment, cfg SetChannelDefinitionsConfig) (deployment.ChangesetOutput, error) {
 	err := cfg.Validate()
 	if err != nil {
@@ -182,17 +184,13 @@ func maybeLoadChannelConfigStoreState(e deployment.Environment, chainSel uint64,
 		return nil, fmt.Errorf("unable to find channlConfigStore contract on chain %s (chain selector %d)", chain.Name(), chain.Selector)
 	}
 
-	// Supported contract types and versions:
-	ccsTV_Version1_0_0 := deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0) // TODO Add contract version to the config.
-
 	var ccs *channel_config_store.ChannelConfigStore
-	switch tv {
-	case ccsTV_Version1_0_0:
+	if tv.Type == types.ChannelConfigStore && tv.Version == deployment.Version1_0_0 {
 		ccs, err = channel_config_store.NewChannelConfigStore(common.HexToAddress(contractAddr), chain.Client)
 		if err != nil {
 			return nil, err
 		}
-	default:
+	} else {
 		return nil, fmt.Errorf("unexpected contract type %s for channlConfigStore on chain %s (chain selector %d)", tv, chain.Name(), chain.Selector)
 	}
 
