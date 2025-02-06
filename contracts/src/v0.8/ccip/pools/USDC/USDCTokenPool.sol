@@ -72,10 +72,6 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   // A mapping of CCIP chain identifiers to destination domains
   mapping(uint64 chainSelector => Domain CCTPDomain) private s_chainToDomain;
 
-  // Mapping specifically for SVM chains, stores a fixed ATA for each chain
-  // The corresponding ATA is passed as mintRecipient when calling depositForBurnWithCaller
-  mapping(uint64 chainSelector => bytes32 associatedTokenAccount) private s_chainToAssociatedTokenAccount;
-
   constructor(
     ITokenMessenger tokenMessenger,
     IERC20 token,
@@ -111,17 +107,13 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (lockOrBurnIn.receiver.length != 32) {
       revert InvalidReceiver(lockOrBurnIn.receiver);
     }
+    bytes32 decodedReceiver = abi.decode(lockOrBurnIn.receiver, (bytes32));
 
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
     // replaceDepositForBurn, the tokens cannot be maliciously re-routed to another address.
-    // If a corresponding ATA is set for the chain, it will be used as the mintRecipient
-    bytes32 associatedTokenAccount = s_chainToAssociatedTokenAccount[lockOrBurnIn.remoteChainSelector];
-    bytes32 decodedMintRecipient =
-      associatedTokenAccount != bytes32(0) ? associatedTokenAccount : abi.decode(lockOrBurnIn.receiver, (bytes32));
-
     uint64 nonce = i_tokenMessenger.depositForBurnWithCaller(
-      lockOrBurnIn.amount, domain.domainIdentifier, decodedMintRecipient, address(i_token), domain.allowedCaller
+      lockOrBurnIn.amount, domain.domainIdentifier, decodedReceiver, address(i_token), domain.allowedCaller
     );
 
     emit Burned(msg.sender, lockOrBurnIn.amount);
@@ -236,19 +228,5 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
       });
     }
     emit DomainsSet(domains);
-  }
-
-  /// @notice Gets the ATA for a given CCIP chain selector.
-  /// Only used for SVM chains
-  function getAssociatedTokenAccount(
-    uint64 chainSelector
-  ) external view returns (bytes32) {
-    return s_chainToAssociatedTokenAccount[chainSelector];
-  }
-
-  /// @notice Sets the ATA for a CCIP chain selector.
-  /// Only used for SVM chains
-  function setAssociatedTokenAccount(uint64 chainSelector, bytes32 associatedTokenAccount) external onlyOwner {
-    s_chainToAssociatedTokenAccount[chainSelector] = associatedTokenAccount;
   }
 }
