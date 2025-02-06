@@ -18,22 +18,16 @@ type ChangesetLinkInput struct {
 // This changeset deploys and transfers an specific amount of LINK to an address
 var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkInput) (deployment.ChangesetOutput, error) {
 
-	// TODO: Previous reports should come from the user. If present, would allow retryability
-	reporter := deployment.NewMemoryReporter([]deployment.Report[any, any, any]{})
-
 	// Prepare operation context
 	auth := e.Chains[config.chainID].DeployerKey
 	client := e.Chains[config.chainID].Client
-	ethCtx := deployment.Context[deployment_ethereum.EthereumDeps]{
-		Log: e.Logger,
-		Deps: deployment_ethereum.EthereumDeps{
-			Auth:    auth,
-			Client:  client,
-			Confirm: e.Chains[config.chainID].ConfirmByHash,
-		},
+	ethCtx := deployment_ethereum.EthereumDeps{
+		Auth:    auth,
+		Client:  client,
+		Confirm: e.Chains[config.chainID].ConfirmByHash,
 	}
 
-	linkDeployReport, err := deployment.ExecuteOp(reporter, DeployLinkOp, ethCtx, deployment.EmptyInput{})
+	linkDeployReport, err := deployment.ExecuteOp(e.OpEnv, DeployLinkOp, ethCtx, deployment.EmptyInput{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -43,7 +37,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		To:              auth.From,
 	}
 
-	_, err = deployment.ExecuteOp(reporter, GrantMintLinkOp, ethCtx, grantMintInput)
+	_, err = deployment.ExecuteOp(e.OpEnv, GrantMintLinkOp, ethCtx, grantMintInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -54,7 +48,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		Amount:          config.MintAmount,
 	}
 
-	_, err = deployment.ExecuteOp(reporter, MintLinkOp, ethCtx, mintInput)
+	_, err = deployment.ExecuteOp(e.OpEnv, MintLinkOp, ethCtx, mintInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -65,7 +59,7 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 		Amount:          config.Amount,
 	}
 
-	_, err = deployment.ExecuteOp(reporter, TransferLinkOp, ethCtx, transferInput)
+	_, err = deployment.ExecuteOp(e.OpEnv, TransferLinkOp, ethCtx, transferInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -73,6 +67,6 @@ var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkIn
 	// TODO: Changeset should return its own Report with a unique ID, storing low level operation reports
 	return deployment.ChangesetOutput{
 		// Should include Address Book and other relevant information
-		Reports: reporter.GetReports(),
+		Reports: e.OpEnv.Reporter.GetReports(),
 	}, err
 }

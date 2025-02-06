@@ -275,3 +275,10 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }
+
+// TODO: Temporarily to not break existing tests.
+func NewMemoryEnvironmentWithOps(t *testing.T, lggr logger.Logger, logLevel zapcore.Level, config MemoryEnvironmentConfig) deployment.Environment {
+	env := NewMemoryEnvironment(t, lggr, logLevel, config)
+	reporter := deployment.NewMemoryReporter([]deployment.ReportAny{})
+	return *deployment.NewEnvironmentWithOpEnv(env, reporter)
+}

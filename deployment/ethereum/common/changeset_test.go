@@ -1,7 +1,6 @@
 package deployment_common
 
 import (
-	"encoding/json"
 	"math/big"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 func TestLinkChangeset(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+	e := memory.NewMemoryEnvironmentWithOps(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains: 1,
 	})
 	chain1 := e.AllChainSelectors()[0]
@@ -29,12 +28,10 @@ func TestLinkChangeset(t *testing.T) {
 	ret, err := LinkExampleChangeset(e, changesetInput)
 	require.NoError(t, err)
 
-	jsonReports, err := json.MarshalIndent(ret.Reports, "", "  ")
-	if err != nil {
-		t.Errorf("Failed to marshal reports to JSON: %v", err)
-	}
-	t.Log(string(jsonReports))
+	// Check the report
+	reports := e.OpEnv.Reporter.GetReports()
+	require.Len(t, reports, 4)
 
-	require.NoError(t, err)
-	require.NotNil(t, ret)
+	// Check the output
+	require.Len(t, ret.Reports, 4)
 }

@@ -48,20 +48,13 @@ Process:
 - feeQuoterContract.ApplyAuthorizedCallerUpdates()
 */
 var DeployChain = func(env deployment.Environment, input DeployChainInput) (deployment.ChangesetOutput, error) {
-
-	// Reporter should be injected through the environment
-	reporter := deployment.NewMemoryReporter([]deployment.Report[any, any, any]{})
-
 	// Prepare operation context
 	auth := env.Chains[input.ChainID].DeployerKey
 	client := env.Chains[input.ChainID].Client
-	ethCtx := deployment.Context[deployment_ethereum.EthereumDeps]{
-		Log: env.Logger,
-		Deps: deployment_ethereum.EthereumDeps{
-			Auth:    auth,
-			Client:  client,
-			Confirm: env.Chains[input.ChainID].Confirm,
-		},
+	ethCtx := deployment_ethereum.EthereumDeps{
+		Auth:    auth,
+		Client:  client,
+		Confirm: env.Chains[input.ChainID].ConfirmByHash,
 	}
 
 	// Deploy RMNRemote
@@ -70,7 +63,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		LegacyRMN:          input.RMNAddress,
 	}
 
-	deployRMNRemoteRep, err := deployment.ExecuteOp(reporter, DeployRMNRemoteOp, ethCtx, deployRMNRemoteInput)
+	deployRMNRemoteRep, err := deployment.ExecuteOp(env.OpEnv, DeployRMNRemoteOp, ethCtx, deployRMNRemoteInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -97,7 +90,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		},
 	}
 
-	_, err = deployment.ExecuteOp(reporter, RMNRemoteSetConfigOp, ethCtx, setConfigInput)
+	_, err = deployment.ExecuteOp(env.OpEnv, RMNRemoteSetConfigOp, ethCtx, setConfigInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -107,7 +100,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		wrappedNative: input.Weth9ContractAddress,
 		armProxy:      input.RMNProxyAddress,
 	}
-	_, err = deployment.ExecuteOp(reporter, DeployRouterOp, ethCtx, deployRouterInput)
+	_, err = deployment.ExecuteOp(env.OpEnv, DeployRouterOp, ethCtx, deployRouterInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -116,7 +109,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 	deployNonceManagerInput := DeployNonceManagerInput{
 		AuthorizedCallers: []common.Address{},
 	}
-	deployNonceManagerRep, err := deployment.ExecuteOp(reporter, DeployNonceManagerOp, ethCtx, deployNonceManagerInput)
+	deployNonceManagerRep, err := deployment.ExecuteOp(env.OpEnv, DeployNonceManagerOp, ethCtx, deployNonceManagerInput)
 
 	// Deploy FeeQuoter
 	deployFeeQuoterInput := DeployFeeQuoterInput{
@@ -142,7 +135,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		input.FeeQuoterParams.DestChainConfigArgs,
 	}
 
-	deployFeeQuoterRep, err := deployment.ExecuteOp(reporter, DeployFeeQuoterOp, ethCtx, deployFeeQuoterInput)
+	deployFeeQuoterRep, err := deployment.ExecuteOp(env.OpEnv, DeployFeeQuoterOp, ethCtx, deployFeeQuoterInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -162,7 +155,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		},
 		[]onramp.OnRampDestChainConfigArgs{},
 	}
-	deployOnrampRep, err := deployment.ExecuteOp(reporter, DeployOnRampOp, ethCtx, deployOnrampInput)
+	deployOnrampRep, err := deployment.ExecuteOp(env.OpEnv, DeployOnRampOp, ethCtx, deployOnrampInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -183,7 +176,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		},
 		[]offramp.OffRampSourceChainConfigArgs{},
 	}
-	deployOfframpRep, err := deployment.ExecuteOp(reporter, DeployOffRampOp, ethCtx, deployOfframpInput)
+	deployOfframpRep, err := deployment.ExecuteOp(env.OpEnv, DeployOffRampOp, ethCtx, deployOfframpInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -196,7 +189,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		},
 	}
 
-	_, err = deployment.ExecuteOp(reporter, FeeQuoterApplyCallerUpdatesOp, ethCtx, applyAuthorizedCallerUpdatesInput)
+	_, err = deployment.ExecuteOp(env.OpEnv, FeeQuoterApplyCallerUpdatesOp, ethCtx, applyAuthorizedCallerUpdatesInput)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -208,7 +201,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		},
 	}
 
-	_, err = deployment.ExecuteOp(reporter, NonceManagerApplyCallerUpdatesOp, ethCtx, nmApplyAuthorizedCallerUpdatesInput)
+	_, err = deployment.ExecuteOp(env.OpEnv, NonceManagerApplyCallerUpdatesOp, ethCtx, nmApplyAuthorizedCallerUpdatesInput)
 
 	// We can compile every address deployed in the address book
 	ab := deployment.NewMemoryAddressBook()
@@ -221,7 +214,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
-		Reports:     reporter.GetReports(),
+		Reports:     env.OpEnv.Reporter.GetReports(),
 	}, nil
 
 }

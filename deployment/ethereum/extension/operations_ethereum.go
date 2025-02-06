@@ -45,14 +45,14 @@ func NewEthDeployOperationFromBinding[I, C any](
 	version string,
 ) *deployment.Operation[I, EthereumTxOutput, EthereumDeps] {
 	return deployment.NewOperation[I](version, "Deploy Contract Operation",
-		func(ctx deployment.Context[EthereumDeps], input I) (EthereumTxOutput, error) {
-			address, tx, _, err := binding(ctx.Deps.Auth, ctx.Deps.Client, input)
+		func(ctx deployment.OpContext, deps EthereumDeps, input I) (EthereumTxOutput, error) {
+			address, tx, _, err := binding(deps.Auth, deps.Client, input)
 			if err != nil {
 				return EthereumTxOutput{}, err
 			}
 
 			hash := tx.Hash()
-			rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
+			rec, err := deps.Confirm(deps.Client, hash)
 			if err != nil {
 				return EthereumTxOutput{}, err
 			}
@@ -62,14 +62,14 @@ func NewEthDeployOperationFromBinding[I, C any](
 }
 
 func NewEthDeployOperationFromBindingNoParams[C any](binding DeployContractBindingNoParamsFn[C], version string) *deployment.Operation[deployment.EmptyInput, EthereumTxOutput, EthereumDeps] {
-	return deployment.NewOperation(version, "Deploy Contract Operation", func(ctx deployment.Context[EthereumDeps], input deployment.EmptyInput) (EthereumTxOutput, error) {
-		address, tx, _, err := binding(ctx.Deps.Auth, ctx.Deps.Client)
+	return deployment.NewOperation(version, "Deploy Contract Operation", func(ctx deployment.OpContext, deps EthereumDeps, input deployment.EmptyInput) (EthereumTxOutput, error) {
+		address, tx, _, err := binding(deps.Auth, deps.Client)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
 		hash := tx.Hash()
-		rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
+		rec, err := deps.Confirm(deps.Client, hash)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
@@ -79,24 +79,24 @@ func NewEthDeployOperationFromBindingNoParams[C any](binding DeployContractBindi
 }
 
 func NewEthOperationFromBinding[I EthMethodInput](metadata *bind.MetaData, version string, method string) *deployment.Operation[I, EthereumTxOutput, EthereumDeps] {
-	return deployment.NewOperation[I](version, "Contract Transactor Operation", func(ctx deployment.Context[EthereumDeps], input I) (EthereumTxOutput, error) {
+	return deployment.NewOperation[I](version, "Contract Transactor Operation", func(ctx deployment.OpContext, deps EthereumDeps, input I) (EthereumTxOutput, error) {
 		parsed, err := metadata.GetAbi()
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
-		contract, err := bind.NewBoundContract(input.Address(), *parsed, nil, ctx.Deps.Client, nil), nil
+		contract, err := bind.NewBoundContract(input.Address(), *parsed, nil, deps.Client, nil), nil
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
-		tx, err := contract.Transact(ctx.Deps.Auth, method, input.GetOrderedParams()...)
+		tx, err := contract.Transact(deps.Auth, method, input.GetOrderedParams()...)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}
 
 		hash := tx.Hash()
-		rec, err := ctx.Deps.Confirm(ctx.Deps.Client, hash)
+		rec, err := deps.Confirm(deps.Client, hash)
 		if err != nil {
 			return EthereumTxOutput{}, err
 		}

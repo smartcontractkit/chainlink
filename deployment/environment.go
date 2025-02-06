@@ -109,6 +109,8 @@ type Environment struct {
 	Offchain          OffchainClient
 	GetContext        func() context.Context
 	OCRSecrets        OCRSecrets
+	// Operations related
+	OpEnv OpEnv
 }
 
 func NewEnvironment(
@@ -132,6 +134,28 @@ func NewEnvironment(
 		Offchain:          offchain,
 		GetContext:        ctx,
 		OCRSecrets:        secrets,
+	}
+}
+
+// Should replace NewEnvironment. This is a temporary to not break existing code.
+func NewEnvironmentWithOpEnv(
+	env Environment,
+	reporter IReporter,
+) *Environment {
+	return &Environment{
+		Name:              env.Name,
+		Logger:            env.Logger,
+		ExistingAddresses: env.ExistingAddresses,
+		Chains:            env.Chains,
+		SolChains:         env.SolChains,
+		NodeIDs:           env.NodeIDs,
+		Offchain:          env.Offchain,
+		GetContext:        env.GetContext,
+		OCRSecrets:        env.OCRSecrets,
+		OpEnv: OpEnv{
+			Reporter: reporter,
+			Log:      env.Logger,
+		},
 	}
 }
 
