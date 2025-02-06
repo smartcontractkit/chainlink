@@ -50,12 +50,14 @@ import (
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -1415,7 +1417,10 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		MaxQueryLengthBytes:               1000000,
 		MaxObservationLengthBytes:         1000000,
 		MaxReportLengthBytes:              1000000,
-		MaxRequestBatchSize:               1000,
+		MaxOutcomeLengthBytes:             1000000,
+		MaxReportCount:                    20,
+		MaxBatchSize:                      1000,
+		OutcomePruningThreshold:           3600,
 		UniqueReports:                     true,
 	}
 
