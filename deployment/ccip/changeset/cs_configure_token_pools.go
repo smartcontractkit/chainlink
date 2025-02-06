@@ -85,9 +85,13 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
+	tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
+	if err != nil {
+		return fmt.Errorf("failed to connect address %s with token pool bindings: %w", tokenPoolAddress, err)
+	}
 
 	// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, state.Timelock.Address(), state.TokenAdminRegistry); err != nil {
+	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, state.Timelock.Address(), tokenPool); err != nil {
 		return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
 	}
 
