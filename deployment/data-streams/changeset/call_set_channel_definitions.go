@@ -185,14 +185,12 @@ func maybeLoadChannelConfigStoreState(e deployment.Environment, chainSel uint64,
 		return nil, fmt.Errorf("unable to find channlConfigStore contract on chain %s (chain selector %d)", chain.Name(), chain.Selector)
 	}
 
-	var ccs *channel_config_store.ChannelConfigStore
-	if tv.Type == types.ChannelConfigStore && tv.Version == deployment.Version1_0_0 {
-		ccs, err = channel_config_store.NewChannelConfigStore(common.HexToAddress(contractAddr), chain.Client)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	if tv.Type != types.ChannelConfigStore || tv.Version != deployment.Version1_0_0 {
 		return nil, fmt.Errorf("unexpected contract type %s for channlConfigStore on chain %s (chain selector %d)", tv, chain.Name(), chain.Selector)
+	}
+	ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(contractAddr), chain.Client)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ChannelConfigStoreState{
