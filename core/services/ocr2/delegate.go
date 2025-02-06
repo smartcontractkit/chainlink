@@ -378,7 +378,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		return llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector)
+		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
+			// Cleanup is optimistic. Don't return error here, as we don't want
+			// to block job deletion
+			d.lggr.Errorw("failed to cleanup llo", "err", err, "spec", spec)
+		}
+		return nil
 	default:
 		return nil
 	}

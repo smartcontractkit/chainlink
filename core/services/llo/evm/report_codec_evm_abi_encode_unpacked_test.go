@@ -271,8 +271,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			require.NoError(t, err)
 
 			cd := llotypes.ChannelDefinition{
-				// ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
-				ReportFormat: llotypes.ReportFormat(4), // FIXME: When chainlink-common is fixed
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   linkQuoteStreamID,
@@ -501,8 +500,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			require.NoError(t, err)
 
 			cd := llotypes.ChannelDefinition{
-				// ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
-				ReportFormat: llotypes.ReportFormat(4), // FIXME: When chainlink-common is fixed
+				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
 						StreamID:   linkQuoteStreamID,
@@ -585,7 +583,61 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 
 func TestReportCodecEVMABIEncodeUnpacked_Encode(t *testing.T) {
 	t.Run("ABI and values length mismatch error", func(t *testing.T) {
-		// TODO
+		report := llo.Report{
+			ConfigDigest:                types.ConfigDigest{0x01},
+			SeqNr:                       0x02,
+			ChannelID:                   llotypes.ChannelID(0x03),
+			ValidAfterSeconds:           0x04,
+			ObservationTimestampSeconds: 0x05,
+			Values: []llo.StreamValue{
+				&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: decimal.NewFromFloat(7.4), Ask: decimal.NewFromFloat(8.2332)},
+				&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: decimal.NewFromFloat(10.0), Ask: decimal.NewFromFloat(11.33)},
+				llo.ToDecimal(decimal.NewFromFloat(100)),
+				llo.ToDecimal(decimal.NewFromFloat(101)),
+				llo.ToDecimal(decimal.NewFromFloat(102)),
+			},
+			Specimen: false,
+		}
+
+		opts := ReportFormatEVMABIEncodeOpts{
+			ABI: []ABIEncoder{},
+		}
+		serializedOpts, err := opts.Encode()
+		require.NoError(t, err)
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Streams: []llotypes.Stream{
+				{
+					StreamID:   0x06,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   0x07,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   0x08,
+					Aggregator: llotypes.AggregatorQuote,
+				},
+				{
+					StreamID:   0x09,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   0x0a,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+			},
+			Opts: serializedOpts,
+		}
+
+		codec := ReportCodecEVMABIEncodeUnpacked{}
+		_, err = codec.Encode(tests.Context(t), report, cd)
+		assert.EqualError(t, err, "failed to build payload; ABI and values length mismatch; ABI: 0, Values: 3")
+
+		report.Values = []llo.StreamValue{}
+		_, err = codec.Encode(tests.Context(t), report, cd)
+		assert.EqualError(t, err, "ReportCodecEVMABIEncodeUnpacked requires at least 2 values (NativePrice, LinkPrice, ...); got report.Values: []")
 	})
 }
 

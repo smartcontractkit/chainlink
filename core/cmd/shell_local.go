@@ -364,6 +364,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if err := ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
+		lggr.Debug("Closed DB")
 		if err := s.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}

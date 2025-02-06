@@ -1966,6 +1966,8 @@ Protocol = "wsrpc" # Default
 TransmitQueueMaxSize = 100_000 # Default
 TransmitTimeout = "5s" # Default
 TransmitConcurrency = 100 # Default
+ReaperFrequency = "1h" # Default
+ReaperMaxAge = "48h" # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
@@ -2005,6 +2007,20 @@ TransmitConcurrency = 100 # Default
 TransmitConcurrency is the max number of concurrent transmits to each server.
 
 Only has effect with LLO jobs.
+
+### ReaperFrequency
+```toml
+ReaperFrequency = "1h" # Default
+```
+ReaperFrequency controls how often the stale transmission reaper will run.
+Setting to 0 disables the reaper.
+
+### ReaperMaxAge
+```toml
+ReaperMaxAge = "48h" # Default
+```
+ReaperMaxAge controls how old a transmission can be before it is considered
+stale. Setting to 0 disables the reaper.
 
 ## Telemetry
 ```toml
