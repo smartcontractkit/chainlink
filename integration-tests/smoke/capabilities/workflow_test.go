@@ -1058,8 +1058,13 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *ns.Input, nodeOutput
 	require.NoError(t, err, "failed to convert chain ID to int")
 	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
 
+	// [Capabilities.Peering.V2]
+	// Enabled = true
+	// ListenAddresses = ['0.0.0.0:6690']
+	// DefaultBootstrappers = ['%s@%s:6690']
+
 	// bootstrap node in the DON always points to itself as the p2p v2 bootstrapper
-	nodeInput.NodeSpecs[0].Node.TestConfigOverrides = fmt.Sprintf(`
+	bootstrapNodeConfig := fmt.Sprintf(`
 				[Feature]
 				LogPoller = true
 
@@ -1073,11 +1078,6 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *ns.Input, nodeOutput
 				ListenAddresses = ['0.0.0.0:5001']
 				DefaultBootstrappers = ['%s@localhost:5001']
 
-				[Capabilities.Peering.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:6690']
-				DefaultBootstrappers = ['%s@%s:6690']
-
 				# This is needed for the target capability to be initialized
 				[[EVM]]
 				ChainID = '%s'
@@ -1088,12 +1088,28 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *ns.Input, nodeOutput
 				HTTPURL = '%s'
 			`,
 		donBootstrapNodePeerId,
-		globalBootstraperPeerId,
-		globalBootstraperAddress,
+		// globalBootstraperPeerId,
+		// globalBootstraperAddress,
 		bc.ChainID,
 		bc.Nodes[0].DockerInternalWSUrl,
 		bc.Nodes[0].DockerInternalHTTPUrl,
 	)
+
+	// do not configure peering capability for capabilities DON's bootstrap node
+	// since it doesn't have any capabilities
+	if donType&WorkflowDON != 0 {
+		bootstrapNodeConfig += fmt.Sprintf(`
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				DefaultBootstrappers = ['%s@%s:6690']
+				`,
+			globalBootstraperPeerId,
+			globalBootstraperAddress,
+		)
+	}
+
+	nodeInput.NodeSpecs[0].Node.TestConfigOverrides = bootstrapNodeConfig
 
 	// configure worker nodes with p2p, peering capabilitity (for DON-2-DON communication),
 	// capability (external) registry, workflow registry and gateway connector (required for reading from workflow registry and for external communication)

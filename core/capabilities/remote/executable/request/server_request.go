@@ -73,6 +73,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 }
 
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
+	e.lggr.Debugw("aaaa - OnMessage called", "msgId", msg.MessageId)
 	e.mux.Lock()
 	defer e.mux.Unlock()
 
