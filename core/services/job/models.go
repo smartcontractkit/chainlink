@@ -387,6 +387,9 @@ type OCR2OracleSpec struct {
 	UpdatedAt                         time.Time            `toml:"-"`
 	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
 	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
+	// AllowNoBootstrappers is a flag that allows the job to start without any bootstrappers
+	// This is useful for testing and deployments where the node is not configured to conduct consensus (i.e. f = 0 and n = 1).
+	AllowNoBootstrappers bool `toml:"allowNoBootstrappers"`
 }
 
 func validateRelayID(id types.RelayID) error {
@@ -821,6 +824,22 @@ func (s *GatewaySpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
+}
+
+// AuthGatewayID returns AuthGatewayId or empty string, if not found or it's not a string
+func (s *GatewaySpec) AuthGatewayID() string {
+	// not using config.GatewayConfig directly to avoid import cycle
+	if nsc, ok := s.GatewayConfig["ConnectionManagerConfig"]; ok {
+		if nscMap, ok := nsc.(map[string]interface{}); ok {
+			if authGatewayID, ok := nscMap["AuthGatewayId"]; ok {
+				if authGatewayIDStr, ok := authGatewayID.(string); ok {
+					return authGatewayIDStr
+				}
+			}
+		}
+	}
+
+	return ""
 }
 
 // EALSpec defines the job spec for the gas station.

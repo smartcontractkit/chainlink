@@ -38,11 +38,21 @@ func mustNewChainClient(t *testing.T, wsURL string, sendonlys ...url.URL) client
 }
 
 func mustNewChainClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) client.Client {
+	ctx := tests.Context(t)
 	cfg := client.TestNodePoolConfig{
 		NodeSelectionMode: multinode.NodeSelectionModeRoundRobin,
 	}
-	c, err := client.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
+	c, err := client.NewChainClientWithTestNode(t, cfg, 0, cfg.NodeLeaseDuration, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
+	require.NoError(t, c.Dial(ctx))
+	require.Eventually(t, func() bool {
+		for _, state := range c.NodeStates() {
+			if state == "Alive" {
+				return true
+			}
+		}
+		return false
+	}, time.Minute, time.Second, "no live nodes available")
 	return c
 }
 
@@ -83,8 +93,6 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
 		receipt, err := ethClient.TransactionReceipt(tests.Context(t), hash)
@@ -113,11 +121,9 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		hash := common.HexToHash(txHash)
-		_, err = ethClient.TransactionReceipt(tests.Context(t), hash)
+		_, err := ethClient.TransactionReceipt(tests.Context(t), hash)
 		require.Equal(t, ethereum.NotFound, pkgerrors.Cause(err))
 	})
 }
@@ -149,8 +155,6 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	}).WSURL().String()
 
 	ethClient := mustNewChainClient(t, wsURL)
-	err := ethClient.Dial(tests.Context(t))
-	require.NoError(t, err)
 
 	result, err := ethClient.PendingNonceAt(tests.Context(t), address)
 	require.NoError(t, err)
@@ -194,8 +198,6 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			}).WSURL().String()
 
 			ethClient := mustNewChainClient(t, wsURL)
-			err := ethClient.Dial(tests.Context(t))
-			require.NoError(t, err)
 
 			result, err := ethClient.BalanceAt(tests.Context(t), address, nil)
 			require.NoError(t, err)
@@ -225,8 +227,6 @@ func TestEthClient_LatestBlockHeight(t *testing.T) {
 	}).WSURL().String()
 
 	ethClient := mustNewChainClient(t, wsURL)
-	err := ethClient.Dial(tests.Context(t))
-	require.NoError(t, err)
 
 	result, err := ethClient.LatestBlockHeight(tests.Context(t))
 	require.NoError(t, err)
@@ -280,8 +280,6 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			}).WSURL().String()
 
 			ethClient := mustNewChainClient(t, wsURL)
-			err := ethClient.Dial(tests.Context(t))
-			require.NoError(t, err)
 
 			result, err := ethClient.TokenBalance(ctx, userAddress, contractAddress)
 			require.NoError(t, err)
@@ -357,8 +355,6 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			}).WSURL().String()
 
 			ethClient := mustNewChainClient(t, wsURL)
-			err := ethClient.Dial(tests.Context(t))
-			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(tests.Context(t), 5*time.Second)
 			result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
@@ -398,10 +394,8 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	}).WSURL().String()
 
 	ethClient := mustNewChainClient(t, wsURL)
-	err := ethClient.Dial(tests.Context(t))
-	require.NoError(t, err)
 
-	err = ethClient.SendTransaction(tests.Context(t), tx)
+	err := ethClient.SendTransaction(tests.Context(t), tx)
 	assert.NoError(t, err)
 }
 
@@ -437,8 +431,6 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	require.NoError(t, err)
 
 	ethClient := mustNewChainClient(t, wsURL, *sendonlyURL, *sendonlyURL)
-	err = ethClient.Dial(tests.Context(t))
-	require.NoError(t, err)
 
 	err = ethClient.SendTransaction(tests.Context(t), tx)
 	require.NoError(t, err)
@@ -486,8 +478,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -512,8 +502,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -537,8 +525,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.NoError(t, err)
@@ -563,8 +549,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -589,8 +573,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -615,8 +597,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -641,8 +621,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -667,8 +645,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -693,8 +669,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
 		errType, err := ethClient.SendTransactionReturnCode(tests.Context(t), tx, fromAddress)
 		assert.Error(t, err)
@@ -723,8 +697,6 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	}).WSURL().String()
 
 	ethClient := mustNewChainClientWithChainID(t, wsURL, chainId)
-	err := ethClient.Dial(tests.Context(t))
-	require.NoError(t, err)
 
 	headCh, sub, err := ethClient.SubscribeToHeads(ctx)
 	require.NoError(t, err)
@@ -777,10 +749,8 @@ func TestEthClient_BatchCallContext(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(tests.Context(t))
-		require.NoError(t, err)
 
-		err = ethClient.BatchCallContext(context.Background(), b)
+		err := ethClient.BatchCallContext(context.Background(), b)
 		require.NoError(t, err)
 		for _, elem := range b {
 			require.Equal(t, elem.Error.Error(), rpcError.Error())

@@ -240,6 +240,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
 
 	retirementReportCache := llo.NewRetirementReportCache(appLggr, ds)
+	lloReaper := llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration())
 
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	// create the relayer-chain interoperators from application configuration
@@ -257,7 +258,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			ListenerConfig: cfg.Database().Listener(),
 			FeatureConfig:  cfg.Feature(),
@@ -338,6 +339,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		GRPCOpts:                   grpcOpts,
 		MercuryPool:                mercuryPool,
 		RetirementReportCache:      retirementReportCache,
+		LLOTransmissionReaper:      lloReaper,
 		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }

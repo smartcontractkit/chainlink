@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -238,3 +239,10 @@ func TestORM_Reinitialize(t *testing.T) {
 		})
 	}
 }
+
+type mockListener struct {
+	jobID int32
+}
+
+func (l *mockListener) JobID() int32                             { return l.jobID }
+func (l *mockListener) HandleLog(context.Context, log.Broadcast) {}

@@ -19,9 +19,9 @@ func TestSimulateTx_Default(t *testing.T) {
 
 	fromAddress := testutils.NewAddress()
 	toAddress := testutils.NewAddress()
-	ctx := tests.Context(t)
 
 	t.Run("returns without error if simulation passes", func(t *testing.T) {
+		ctx := tests.Context(t)
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
@@ -38,8 +38,6 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(ctx)
-		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
 			From: fromAddress,
@@ -51,6 +49,7 @@ func TestSimulateTx_Default(t *testing.T) {
 	})
 
 	t.Run("returns error if simulation returns zk out-of-counters error", func(t *testing.T) {
+		ctx := tests.Context(t)
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
@@ -69,8 +68,6 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(ctx)
-		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
 			From: fromAddress,
@@ -82,6 +79,7 @@ func TestSimulateTx_Default(t *testing.T) {
 	})
 
 	t.Run("returns without error if simulation returns non-OOC error", func(t *testing.T) {
+		ctx := tests.Context(t)
 		wsURL := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 			switch method {
 			case "eth_subscribe":
@@ -99,8 +97,6 @@ func TestSimulateTx_Default(t *testing.T) {
 		}).WSURL().String()
 
 		ethClient := mustNewChainClient(t, wsURL)
-		err := ethClient.Dial(ctx)
-		require.NoError(t, err)
 
 		msg := ethereum.CallMsg{
 			From: fromAddress,

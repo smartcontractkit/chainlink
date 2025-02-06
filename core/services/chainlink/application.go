@@ -193,6 +193,7 @@ type ApplicationOpts struct {
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
 	RetirementReportCache      llo.RetirementReportCache
+	LLOTransmissionReaper      services.ServiceCtx
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
@@ -488,6 +489,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if opts.RetirementReportCache != nil {
 		srvcs = append(srvcs, opts.RetirementReportCache)
 	}
+	if opts.LLOTransmissionReaper != nil {
+		srvcs = append(srvcs, opts.LLOTransmissionReaper)
+	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
 	// TODO: BCF-2510, BCF-2511
@@ -622,7 +626,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if !cfg.EVMRPCEnabled() {
+	if !cfg.EVMConfigs().RPCEnabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
@@ -902,6 +906,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
+		shutdownStart := time.Now()
 		defer func() {
 			if app.closeLogger == nil {
 				return
@@ -932,7 +937,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = multierr.Append(err, app.profiler.Stop())
 		}
 
-		app.logger.Info("Exited all services")
+		app.logger.Debugf("Closed application in %v", time.Since(shutdownStart))
 
 		app.started = false
 	})

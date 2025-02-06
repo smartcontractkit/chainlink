@@ -6,8 +6,9 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -27,29 +28,13 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		return deployment.ChangesetOutput{}, err
 	}
 	// find existing jobs
-	existingSpecs := make(map[string][]string)
-	for _, node := range nodes {
-		jobs, err := env.Offchain.ListJobs(env.GetContext(), &job.ListJobsRequest{
-			Filter: &job.ListJobsRequest_Filter{
-				NodeIds: []string{node.NodeID},
-			},
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
-		}
-		for _, j := range jobs.Jobs {
-			for _, propID := range j.ProposalIds {
-				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &job.GetProposalRequest{
-					Id: propID,
-				})
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
-				}
-				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
-			}
-		}
+	existingSpecs, err := acceptedJobSpecs(env, nodes)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
-	// Generate a set of brand new job specs for CCIP for a specific environment
+	// We first generate the job specs for the CCIP capability. so that if
+	// there are any errors in the job specs, we can fail early.
+	// Generate a set of new job specs for CCIP for a specific environment
 	// (including NOPs) and new addresses.
 	// We want to assign one CCIP capability job to each node. And node with
 	// an addr we'll list as bootstrapper.
@@ -114,11 +99,40 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 			nodesToJobSpecs[node.NodeID] = append(nodesToJobSpecs[node.NodeID], spec)
 		}
 	}
+	// Now we propose the job specs to the offchain system.
+	var Jobs []deployment.ProposedJob
+	for nodeID, jobs := range nodesToJobSpecs {
+		nodeID := nodeID
+		for _, job := range jobs {
+			Jobs = append(Jobs, deployment.ProposedJob{
+				Node: nodeID,
+				Spec: job,
+			})
+			if !isJobProposed(env, nodeID, job) {
+				// we add a label to the job spec so that we can identify it later
+				labels := []*ptypes.Label{
+					{
+						Key:   "node_id",
+						Value: &nodeID,
+					},
+				}
+				res, err := env.Offchain.ProposeJob(env.GetContext(),
+					&jobv1.ProposeJobRequest{
+						NodeId: nodeID,
+						Spec:   job,
+						Labels: labels,
+					})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to propose job: %w", err)
+				}
+				Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
+			}
+		}
+	}
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: nil,
-		JobSpecs:    nodesToJobSpecs,
-		Jobs:        nil,
+		Jobs:        Jobs,
 	}, nil
 }
 
@@ -173,4 +187,40 @@ func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
 		p2pBootstrapperValue == p2pBootstrapperValueNew &&
 		bytes.Equal(pluginConfigValue.([]byte), pluginConfigValueNew.([]byte)) &&
 		bytes.Equal(relayConfigValue.([]byte), relayConfigValueNew.([]byte)), nil
+}
+
+func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
+	existingSpecs := make(map[string][]string)
+	for _, node := range nodes {
+		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
+			Filter: &jobv1.ListJobsRequest_Filter{
+				NodeIds: []string{node.NodeID},
+			},
+		})
+		if err != nil {
+			return make(map[string][]string), fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
+		}
+		for _, j := range jobs.Jobs {
+			for _, propID := range j.ProposalIds {
+				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &jobv1.GetProposalRequest{
+					Id: propID,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
+				}
+				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+			}
+		}
+	}
+	return existingSpecs, nil
+}
+
+// isJobProposed returns true if the job spec is already proposed to a node
+// currently there is no way to check if a job spec is already proposed to a specific node
+// so we return false TODO implement this check when it is available
+// there is no downside to proposing the same job spec to a node multiple times
+// It will only be accepted once by node
+func isJobProposed(env deployment.Environment, nodeID string, spec string) bool {
+	// implement this when it is available
+	return false
 }

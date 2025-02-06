@@ -38,7 +38,7 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			opts: legacyevm.ChainOpts{
-				AppConfig:      cfg,
+				ChainConfigs:   cfg.EVMConfigs(),
 				DatabaseConfig: cfg.Database(),
 				ListenerConfig: cfg.Database().Listener(),
 				FeatureConfig:  cfg.Feature(),
