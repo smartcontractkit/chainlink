@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -231,6 +233,17 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		})
 	}
 
+	cfgBytes, err := proto.Marshal(&types2.ReportingPluginConfig{
+		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
+		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
+		MaxRequestBatchSize:       cfg.MaxRequestBatchSize,
+		UniqueReports:             cfg.UniqueReports,
+	})
+	if err != nil {
+		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
+	}
+
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsDeterministic(
 		secrets.EphemeralSk,
 		secrets.SharedSecret,
@@ -244,8 +257,8 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		cfg.MaxRoundsPerEpoch,
 		cfg.TransmissionSchedule,
 		identities,
-		nil, // reportingPluginConfig
-		nil, // maxDurationInitialization
+		cfgBytes, // reportingPluginConfig
+		nil,      // maxDurationInitialization
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,
