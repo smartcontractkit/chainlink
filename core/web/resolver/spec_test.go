@@ -503,6 +503,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 						PluginType:                        types.Median,
 						PluginConfig:                      pluginConfig,
+						AllowNoBootstrappers:              true,
 					},
 				}, nil)
 			},
@@ -527,6 +528,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									transmitterID
 									pluginType
 									pluginConfig
+									allowNoBootstrappers
 								}
 							}
 						}
@@ -560,7 +562,8 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"pluginType": "median",
 							"pluginConfig": {
 								"juelsPerFeeCoinSource": 100000000
-							}
+							},
+							"allowNoBootstrappers": true
 						}
 					}
 				}

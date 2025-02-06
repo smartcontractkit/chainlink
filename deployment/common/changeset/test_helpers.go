@@ -6,9 +6,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -50,23 +47,6 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			}
 		} else {
 			addresses = currentEnv.ExistingAddresses
-		}
-		if out.JobSpecs != nil {
-			// TODO: Delete this when out.JobSpecs are no longer in use.
-			ctx := testcontext.Get(t)
-			for nodeID, jobs := range out.JobSpecs {
-				for _, job := range jobs {
-					// Note these auto-accept
-					_, err := currentEnv.Offchain.ProposeJob(ctx,
-						&jobv1.ProposeJobRequest{
-							NodeId: nodeID,
-							Spec:   job,
-						})
-					if err != nil {
-						return e, fmt.Errorf("failed to propose job: %w", err)
-					}
-				}
-			}
 		}
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.

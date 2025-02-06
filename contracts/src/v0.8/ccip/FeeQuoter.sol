@@ -48,6 +48,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   error InvalidFeeRange(uint256 minFeeUSDCents, uint256 maxFeeUSDCents);
   error InvalidChainFamilySelector(bytes4 chainFamilySelector);
   error InvalidTokenReceiver();
+  error TooManySVMExtraArgsAccounts(uint256 numAccounts, uint256 maxAccounts);
+  error InvalidSVMExtraArgsWritableBitmap(uint64 accountIsWritableBitmap, uint256 numAccounts);
 
   event FeeTokenAdded(address indexed feeToken);
   event FeeTokenRemoved(address indexed feeToken);
@@ -1004,6 +1006,12 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       if (numberOfTokens > 0 && svmExtraArgsV1.tokenReceiver == bytes32(0)) {
         revert InvalidTokenReceiver();
       }
+      if (svmExtraArgsV1.accounts.length > Client.SVM_EXTRA_ARGS_MAX_ACCOUNTS) {
+        revert TooManySVMExtraArgsAccounts(svmExtraArgsV1.accounts.length, Client.SVM_EXTRA_ARGS_MAX_ACCOUNTS);
+      }
+      if (svmExtraArgsV1.accountIsWritableBitmap >> svmExtraArgsV1.accounts.length != 0) {
+        revert InvalidSVMExtraArgsWritableBitmap(svmExtraArgsV1.accountIsWritableBitmap, svmExtraArgsV1.accounts.length);
+      }
       gasLimit = svmExtraArgsV1.computeUnits;
     } else {
       revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
@@ -1042,8 +1050,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    (convertedExtraArgs, isOutOfOrderExecution) =
-      _processChainFamilySelector(destChainSelector, sourceTokenAmounts.length > 0, extraArgs);
+    (convertedExtraArgs, isOutOfOrderExecution) = _processChainFamilySelector(destChainSelector, extraArgs);
 
     destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
 
@@ -1052,26 +1059,22 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
   /// as it was the only way to prevent a stack too deep error, and makes future chain family additions easier.
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _processChainFamilySelector(
     uint64 destChainSelector,
-    bool isMessageWithTokenTransfer,
     bytes calldata extraArgs
-  ) internal view returns (bytes memory, bool) {
+  ) internal view returns (bytes memory validatedExtraArgs, bool allowOutOfOrderExecution) {
+    // Since this function is called after getFee, which already validates the params, no validation is necessary.
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      // Since the message is called after getFee, which already validates the params, no validation is necessary.
       Client.EVMExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
     }
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
-      bytes32 tokenReceiver = _parseSVMExtraArgsFromBytes(
-        extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder
-      ).tokenReceiver;
-      if (isMessageWithTokenTransfer && tokenReceiver == bytes32(0)) {
-        revert InvalidTokenReceiver();
-      }
+      // If extraArgs passes the parsing it's valid and can be returned unchanged.
+      _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
 
       // ExtraArgs are required on SVM, meaning the supplied extraArgs are either invalid and we would have reverted
       // or we have valid extraArgs and we can return them without having to re-encode them.

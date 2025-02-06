@@ -1,7 +1,9 @@
 package changeset_test
 
 import (
+	"bytes"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -40,7 +42,7 @@ func validateMemberOfTokenPoolPair(
 	t *testing.T,
 	state changeset.CCIPOnChainState,
 	tokenPool *token_pool.TokenPool,
-	expectedRemotePools []string,
+	expectedRemotePools []common.Address,
 	tokens map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
 	tokenSymbol changeset.TokenSymbol,
 	chainSelector uint64,
@@ -73,16 +75,25 @@ func validateMemberOfTokenPoolPair(
 
 		remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, supportedChain)
 		require.NoError(t, err)
-		require.Equal(t, tokens[supportedChain].Address.Bytes(), remoteTokenAddress)
+		require.Equal(t, common.LeftPadBytes(tokens[supportedChain].Address.Bytes(), 32), remoteTokenAddress)
 
 		remotePoolAddresses, err := tokenPool.GetRemotePools(nil, supportedChain)
 		require.NoError(t, err)
 
-		remotePoolsStr := make([]string, len(remotePoolAddresses))
-		for i, remotePool := range remotePoolAddresses {
-			remotePoolsStr[i] = common.HexToAddress(common.Bytes2Hex(remotePool)).String()
+		require.Equal(t, len(expectedRemotePools), len(remotePoolAddresses))
+		expectedRemotePoolAddressesBytes := make([][]byte, len(expectedRemotePools))
+		for i, remotePool := range expectedRemotePools {
+			expectedRemotePoolAddressesBytes[i] = common.LeftPadBytes(remotePool.Bytes(), 32)
 		}
-		require.ElementsMatch(t, expectedRemotePools, remotePoolsStr)
+		sort.Slice(expectedRemotePoolAddressesBytes, func(i, j int) bool {
+			return bytes.Compare(expectedRemotePoolAddressesBytes[i], expectedRemotePoolAddressesBytes[j]) < 0
+		})
+		sort.Slice(remotePoolAddresses, func(i, j int) bool {
+			return bytes.Compare(remotePoolAddresses[i], remotePoolAddresses[j]) < 0
+		})
+		for i := range expectedRemotePoolAddressesBytes {
+			require.Equal(t, expectedRemotePoolAddressesBytes[i], remotePoolAddresses[i])
+		}
 	}
 }
 
@@ -531,7 +542,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							t,
 							state,
 							pools[selector].LockRelease,
-							[]string{pools[remoteChainSelector].LockRelease.Address().String()},
+							[]common.Address{pools[remoteChainSelector].LockRelease.Address()},
 							tokens,
 							testhelpers.TestTokenSymbol,
 							selector,
@@ -596,9 +607,9 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							updatePool = test.UpdatePass.UpdatePoolOnB
 							updateRemotePool = test.UpdatePass.UpdatePoolOnA
 						}
-						remotePoolAddresses := []string{pools[remoteChainSelector].LockRelease.Address().String()} // add registered pool by default
-						if updateRemotePool {                                                                      // if remote pool address is being updated, we push the new address
-							remotePoolAddresses = append(remotePoolAddresses, pools[remoteChainSelector].BurnMint.Address().String())
+						remotePoolAddresses := []common.Address{pools[remoteChainSelector].LockRelease.Address()} // add registered pool by default
+						if updateRemotePool {                                                                     // if remote pool address is being updated, we push the new address
+							remotePoolAddresses = append(remotePoolAddresses, pools[remoteChainSelector].BurnMint.Address())
 						}
 						tokenPool := pools[selector].LockRelease
 						if updatePool {

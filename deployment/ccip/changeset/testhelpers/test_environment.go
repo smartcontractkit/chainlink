@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -243,19 +242,13 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 }
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
-	ctx := testcontext.Get(t)
 	out, err := changeset.CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
 	require.NoError(t, err)
-	for nodeID, jobs := range out.JobSpecs {
-		for _, job := range jobs {
-			// Note these auto-accept
-			_, err := d.Env.Offchain.ProposeJob(ctx,
-				&jobv1.ProposeJobRequest{
-					NodeId: nodeID,
-					Spec:   job,
-				})
-			require.NoError(t, err)
-		}
+	require.NotEmpty(t, out.Jobs)
+	for _, job := range out.Jobs {
+		require.NotEmpty(t, job.JobID)
+		require.NotEmpty(t, job.Spec)
+		require.NotEmpty(t, job.Node)
 	}
 	// Wait for plugins to register filters?
 	// TODO: Investigate how to avoid.

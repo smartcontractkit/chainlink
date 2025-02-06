@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -26,11 +25,12 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
 	services.StateMachine
-	gc          connector.GatewayConnector
-	method      string
-	lggr        logger.Logger
-	rateLimiter *common.RateLimiter
-	responses   *responses
+	gc              connector.GatewayConnector
+	gatewaySelector *RoundRobinSelector
+	method          string
+	lggr            logger.Logger
+	rateLimiter     *common.RateLimiter
+	responses       *responses
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
@@ -44,11 +44,12 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 	}
 
 	return &OutgoingConnectorHandler{
-		gc:          gc,
-		method:      method,
-		responses:   newResponses(),
-		rateLimiter: rateLimiter,
-		lggr:        lgger,
+		gc:              gc,
+		gatewaySelector: NewRoundRobinSelector(gc.GatewayIDs()),
+		method:          method,
+		responses:       newResponses(),
+		rateLimiter:     rateLimiter,
+		lggr:            lgger,
 	}, nil
 }
 
@@ -87,15 +88,10 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		Payload:   payload,
 	}
 
-	// simply, send request to first available gateway node from sorted list
-	// this allows for deterministic selection of gateway node receiver for easier debugging
-	gatewayIDs := c.gc.GatewayIDs()
-	if len(gatewayIDs) == 0 {
-		return nil, errors.New("no gateway nodes available")
+	selectedGateway, err := c.gatewaySelector.NextGateway()
+	if err != nil {
+		return nil, fmt.Errorf("failed to select gateway: %w", err)
 	}
-	sort.Strings(gatewayIDs)
-
-	selectedGateway := gatewayIDs[0]
 
 	l.Infow("selected gateway, awaiting connection", "gatewayID", selectedGateway)
 
@@ -109,7 +105,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 
 	select {
 	case resp := <-ch:
-		l.Debugw("received response from gateway")
+		l.Debugw("received response from gateway", "gatewayID", selectedGateway)
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()

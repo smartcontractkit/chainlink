@@ -1,0 +1,3 @@
+ChainID = '2522'
+FinalityTagEnabled = true
+LogPollInterval = "2s" #2s block rate
