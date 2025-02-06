@@ -1,0 +1,47 @@
+syntax = "proto3";
+option go_package = "github.com/smartcontractkit/capabilities/loadtestproxy/internal/pb";
+
+package capabilities;
+
+import "google/protobuf/empty.proto";
+
+
+service Proxy {
+  rpc List(ListRequest) returns (ListResponse){}
+  rpc CreateTrigger(CapabilityInfo) returns(CreateTriggerResponse) {}
+  rpc SendTrigger(SendTriggerRequest)returns(SendTriggerResponse) {}
+}
+
+message ListRequest {}
+message ListResponse {
+  repeated CapabilityInfo capInfos = 1;
+}
+enum CapabilityType {
+  Unknown = 0;
+  Trigger = 1;
+  Action = 2;
+  Consensus = 3;
+  Target = 4;
+}
+message DON{
+
+}
+message CapabilityInfo{
+  string ProxyID = 1;
+  string ID = 2;
+  CapabilityType CapabilityType = 3;
+  string Description = 4;
+  DON DON = 5;
+  bool IsLocal = 6;
+}
+
+
+message CreateTriggerResponse{
+  string ProxyID=1;
+}
+message SendTriggerRequest{
+  string ProxyID=1;
+  string EventID=2;
+  bytes Payload=3;
+}
+message SendTriggerResponse{}
