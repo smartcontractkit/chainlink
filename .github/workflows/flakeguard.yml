@@ -457,7 +457,7 @@ jobs:
           jq .summary_data ./flakeguard-report/all-test-results.json          
 
           # Read the summary from the generated report
-          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-summary.json)
+          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-results.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Results as Artifact
