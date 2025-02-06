@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -46,7 +47,7 @@ type (
 
 func (cfg SetChannelDefinitionsConfig) Validate() error {
 	if len(cfg.DefinitionsByChain) == 0 {
-		return fmt.Errorf("DefinitionsByChain cannot be empty")
+		return errors.New("DefinitionsByChain cannot be empty")
 	}
 	return nil
 }
@@ -154,7 +155,7 @@ func transferOrBuildTx(
 	chain deployment.Chain,
 	mcmsConfig *MCMSConfig) (*ethTypes.Transaction, error) {
 	if ccs == nil {
-		return nil, fmt.Errorf("provided ChannelConfigStore is nil")
+		return nil, errors.New("provided ChannelConfigStore is nil")
 	}
 	tx, err := ccs.ChannelConfigStoreTransactor.SetChannelDefinitions(opts, definition.DonID, definition.S3URL, definition.Hash)
 	if err != nil {

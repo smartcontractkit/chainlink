@@ -10,18 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 )
 
-func DeployChannelConfigStore(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook()
-	err := deployChannelConfigStore(e, ab, cc)
-	if err != nil {
-		e.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
-		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
-	}
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
-}
-
 type DeployChannelConfigStoreConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 	ChainsToDeploy []uint64
@@ -40,9 +28,19 @@ func (cc DeployChannelConfigStoreConfig) Validate() error {
 }
 
 // DeployChannelConfigStore deploys ChannelConfigStore to the chains specified in the config.
-//
-// Note that this function modifies the given address book variable, so it should be passed by reference.
-func deployChannelConfigStore(e deployment.Environment, ab deployment.AddressBook, cc DeployChannelConfigStoreConfig) error {
+func DeployChannelConfigStore(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
+	ab := deployment.NewMemoryAddressBook()
+	err := performDeployment(e, ab, cc)
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy ChannelConfigStore", "err", err, "addresses", ab)
+		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
+	}
+	return deployment.ChangesetOutput{
+		AddressBook: ab,
+	}, nil
+}
+
+func performDeployment(e deployment.Environment, ab deployment.AddressBook, cc DeployChannelConfigStoreConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
 	}
