@@ -29,8 +29,8 @@ type NodeUpdate struct {
 }
 
 type UpdateNodesRequest struct {
-	Chain       deployment.Chain
-	ContractSet *ContractSet // contract set for the given chain
+	Chain                deployment.Chain
+	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2pToUpdates map[p2pkey.PeerID]NodeUpdate
 
@@ -41,7 +41,7 @@ type UpdateNodesRequest struct {
 }
 
 func (req *UpdateNodesRequest) NodeParams() ([]kcr.CapabilitiesRegistryNodeParams, error) {
-	return makeNodeParams(req.ContractSet.CapabilitiesRegistry, req.P2pToUpdates)
+	return makeNodeParams(req.CapabilitiesRegistry, req.P2pToUpdates)
 }
 
 // P2PSignerEnc represent the key fields in kcr.CapabilitiesRegistryNodeParams
@@ -79,7 +79,7 @@ func (req *UpdateNodesRequest) Validate() error {
 		}
 	}
 
-	if req.ContractSet.CapabilitiesRegistry == nil {
+	if req.CapabilitiesRegistry == nil {
 		return errors.New("registry is nil")
 	}
 
@@ -110,7 +110,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 	if req.UseMCMS {
 		txOpts = deployment.SimTransactOpts()
 	}
-	registry := req.ContractSet.CapabilitiesRegistry
+	registry := req.CapabilitiesRegistry
 	tx, err := registry.UpdateNodes(txOpts, params)
 	if err != nil {
 		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)

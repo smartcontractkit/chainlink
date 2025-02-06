@@ -46,9 +46,7 @@ func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainCon
 	}
 
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		JobSpecs:    nil,
 	}, nil
 }
 

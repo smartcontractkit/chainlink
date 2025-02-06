@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"testing"
 	"time"
@@ -42,13 +43,15 @@ type SetupTestRegistryRequest struct {
 }
 
 type SetupTestRegistryResponse struct {
-	Registry         *capabilities_registry.CapabilitiesRegistry
-	Chain            deployment.Chain
-	RegistrySelector uint64
-	ContractSet      *internal.ContractSet
-	CapabilityCache  *CapabilityCache
+	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
+	Chain                deployment.Chain
+	RegistrySelector     uint64
+	CapabilityCache      *CapabilityCache
 }
 
+// SetupTestRegistry deploys a capabilities registry to the given chain
+// and adds the given capabilities and node operators
+// It can be used in tests that mutate the registry without any other setup such as actual nodes, dons, jobs, etc.
 func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryRequest) *SetupTestRegistryResponse {
 	chain := testChain(t)
 
@@ -75,19 +78,16 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 	addDons(t, lggr, chain, registry, capCache, req.Dons)
 
 	return &SetupTestRegistryResponse{
-		Registry:         registry,
-		Chain:            chain,
-		RegistrySelector: chain.Selector,
-		ContractSet: &internal.ContractSet{
-			CapabilitiesRegistry: registry,
-		},
-		CapabilityCache: capCache,
+		CapabilitiesRegistry: registry,
+		Chain:                chain,
+		RegistrySelector:     chain.Selector,
+		CapabilityCache:      capCache,
 	}
 }
 
 // ToNodeParams transforms a map of node operators to nops and a map of node p2pID to capabilities
-// into a slice of node params required to register the nodes.  The number of capabilities
 // must match the number of nodes.
+// The order of returned nodeParams is deterministic and sorted by node operator name.
 func ToNodeParams(t *testing.T,
 	nop2Nodes map[capabilities_registry.CapabilitiesRegistryNodeOperator][]*internal.P2PSignerEnc,
 	p2pToCapabilities map[p2pkey.PeerID][][32]byte,
@@ -96,7 +96,18 @@ func ToNodeParams(t *testing.T,
 
 	var nodeParams []capabilities_registry.CapabilitiesRegistryNodeParams
 	var i uint32
-	for _, p2pSignerEncs := range nop2Nodes {
+	// deterministic order
+	// get the keys of the map and sort them
+	var keys []capabilities_registry.CapabilitiesRegistryNodeOperator
+	for k := range maps.Keys(nop2Nodes) {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].Name < keys[j].Name
+	})
+	for _, k := range keys {
+		p2pSignerEncs, ok := nop2Nodes[k]
+		require.True(t, ok, "missing node operator %s", k.Name)
 		for _, p2pSignerEnc := range p2pSignerEncs {
 			_, exists := p2pToCapabilities[p2pSignerEnc.P2PKey]
 			require.True(t, exists, "missing capabilities for p2pID %s", p2pSignerEnc.P2PKey)
@@ -106,7 +117,7 @@ func ToNodeParams(t *testing.T,
 				P2pId:               p2pSignerEnc.P2PKey,
 				EncryptionPublicKey: p2pSignerEnc.EncryptionPublicKey,
 				HashedCapabilityIds: p2pToCapabilities[p2pSignerEnc.P2PKey],
-				NodeOperatorId:      i + 1,
+				NodeOperatorId:      i + 1, // one-indexed
 			})
 		}
 		i++

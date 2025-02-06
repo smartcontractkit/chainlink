@@ -642,7 +642,7 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]interface{})
-		assert.Equal(t, "0x13", receipt["blockNumber"])
+		assert.Equal(t, "0x19", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})
@@ -1286,7 +1286,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
 	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),

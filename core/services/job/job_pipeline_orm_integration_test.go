@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -155,11 +156,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db)
 		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-			GeneralConfig:  config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),
-			Client:         evmtest.NewEthClientMockWithDefaultChain(t),
+			Client:         clienttest.NewClientWithDefaultChainID(t),
 			DB:             db,
 			KeyStore:       ethKeyStore,
 		})

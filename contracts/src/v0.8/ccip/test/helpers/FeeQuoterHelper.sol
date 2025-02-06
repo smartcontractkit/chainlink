@@ -91,10 +91,9 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function processChainFamilySelector(
     uint64 chainFamilySelector,
-    bool isMessageWithTokenTransfer,
     bytes calldata extraArgs
   ) external view returns (bytes memory, bool) {
-    return _processChainFamilySelector(chainFamilySelector, isMessageWithTokenTransfer, extraArgs);
+    return _processChainFamilySelector(chainFamilySelector, extraArgs);
   }
 
   function validateDestFamilyAddress(

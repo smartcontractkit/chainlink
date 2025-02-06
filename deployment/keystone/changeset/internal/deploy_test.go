@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -11,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -21,7 +22,7 @@ func Test_RegisterNOPS(t *testing.T) {
 		useMCMS   bool
 		lggr      = logger.Test(t)
 		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry  = setupResp.Registry
+		registry  = setupResp.CapabilitiesRegistry
 		chain     = setupResp.Chain
 		nops      = make([]kcr.CapabilitiesRegistryNodeOperator, 0)
 	)
@@ -58,21 +59,32 @@ func Test_RegisterNOPS(t *testing.T) {
 
 func Test_AddCapabilities(t *testing.T) {
 	var (
-		useMCMS      bool
-		lggr         = logger.Test(t)
-		setupResp    = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry     = setupResp.Registry
-		chain        = setupResp.Chain
-		capabilities = make([]kcr.CapabilitiesRegistryCapability, 0)
+		useMCMS   bool
+		lggr      = logger.Test(t)
+		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
+		registry  = setupResp.CapabilitiesRegistry
+		chain     = setupResp.Chain
 	)
 
+	assertExists := func(t *testing.T, registry *kcr.CapabilitiesRegistry, capabilities ...kcr.CapabilitiesRegistryCapability) {
+		for _, capability := range capabilities {
+			wantID, err := registry.GetHashedCapabilityId(nil, capability.LabelledName, capability.Version)
+			require.NoError(t, err)
+			got, err := registry.GetCapability(nil, wantID)
+			require.NoError(t, err)
+			require.NotEmpty(t, got)
+			assert.Equal(t, capability.CapabilityType, got.CapabilityType)
+			assert.Equal(t, capability.LabelledName, got.LabelledName)
+			assert.Equal(t, capability.Version, got.Version)
+		}
+	}
 	t.Run("successfully create mcms proposal", func(t *testing.T) {
 		useMCMS = true
-		capabilities = append(capabilities, kcr.CapabilitiesRegistryCapability{
+		capabilities := []kcr.CapabilitiesRegistryCapability{kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "cap1",
 			Version:        "1.0.0",
 			CapabilityType: 0,
-		})
+		}}
 		ops, err := internal.AddCapabilities(lggr, registry, chain, capabilities, useMCMS)
 		require.NoError(t, err)
 		require.NotNil(t, ops)
@@ -83,6 +95,39 @@ func Test_AddCapabilities(t *testing.T) {
 		ops, err := internal.AddCapabilities(lggr, registry, chain, nil, useMCMS)
 		require.NoError(t, err)
 		require.Nil(t, ops)
+	})
+
+	t.Run("idempotent", func(t *testing.T) {
+		capabilities := []kcr.CapabilitiesRegistryCapability{kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "idempotent-cap",
+			Version:        "1.0.0",
+			CapabilityType: 0,
+		},
+		}
+		_, err := internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities...)
+		_, err = internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities...)
+	})
+
+	t.Run("dedup", func(t *testing.T) {
+		capabilities := []kcr.CapabilitiesRegistryCapability{
+			{
+				LabelledName:   "would-be-duplicate",
+				Version:        "1.0.0",
+				CapabilityType: 0,
+			},
+			{
+				LabelledName:   "would-be-duplicate",
+				Version:        "1.0.0",
+				CapabilityType: 0,
+			},
+		}
+		_, err := internal.AddCapabilities(lggr, registry, chain, capabilities, false)
+		require.NoError(t, err)
+		assertExists(t, registry, capabilities[0])
 	})
 }
 
@@ -114,7 +159,7 @@ func Test_RegisterNodes(t *testing.T) {
 			P2pToCapabilities: initialp2pToCapabilities,
 			NopToNodes:        nopToNodes,
 		})
-		registry = setupResp.Registry
+		registry = setupResp.CapabilitiesRegistry
 		chain    = setupResp.Chain
 
 		registeredCapabilities = kstest.GetRegisteredCapabilities(t, lggr, initialp2pToCapabilities, setupResp.CapabilityCache)
@@ -282,7 +327,7 @@ func Test_RegisterDons(t *testing.T) {
 		useMCMS   bool
 		lggr      = logger.Test(t)
 		setupResp = kstest.SetupTestRegistry(t, lggr, &kstest.SetupTestRegistryRequest{})
-		registry  = setupResp.Registry
+		registry  = setupResp.CapabilitiesRegistry
 		chain     = setupResp.Chain
 	)
 	t.Run("success create add DONs mcms proposal", func(t *testing.T) {
@@ -377,7 +422,7 @@ func Test_RegisterDons(t *testing.T) {
 					},
 				},
 			})
-			regContract = setupResp.Registry
+			regContract = setupResp.CapabilitiesRegistry
 		)
 
 		env := &deployment.Environment{
