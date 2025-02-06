@@ -407,10 +407,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
+				wfRegRid := cfg.Capabilities().WorkflowRegistry().RelayID()
+				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
+				if err != nil {
+					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
+				}
 				wfSyncer := syncer.NewWorkflowRegistry(
 					lggr,
 					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-						return relayer.NewContractReader(ctx, bytes)
+						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{

@@ -900,9 +900,9 @@ type WorkflowSpec struct {
 	Config   string `toml:"config" db:"config"` // the raw representation of the config
 	// fields derived from the yaml spec, used for indexing the database
 	// note: i tried to make these private, but translating them to the database seems to require them to be public
-	WorkflowID    string             `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
-	WorkflowOwner string             `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
-	WorkflowName  string             `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
+	WorkflowID    string             `toml:"-" db:"workflow_id"` // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string             `toml:"workflow_owner" db:"workflow_owner"`
+	WorkflowName  string             `toml:"workflow_name" db:"workflow_name"`
 	Status        WorkflowSpecStatus `db:"status"`
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
@@ -931,8 +931,14 @@ func (w *WorkflowSpec) Validate(ctx context.Context) error {
 		return err
 	}
 
-	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
-	w.WorkflowName = s.Name
+	// For yaml-based workflow specs, use the owner & name fields defined there.
+	// For wasm workflows, use the `workflow_name` & `workflow_owner` fields directly from the job spec.
+	if s.Owner+s.Name != "" {
+		w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
+		w.WorkflowName = s.Name
+	} else {
+		w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
+	}
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
