@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 //import { KeeperCompatibleInterface } from "../interfaces/KeeperCompatibleInterface.sol";
 
-contract DataBombContract {
+contract ReturnDataUpkeep {
     uint256 public testRange;
     uint256 public interval;
     uint256 public lastTimestamp;
@@ -26,9 +26,9 @@ contract DataBombContract {
         size = _size;
     }
 
-    function checkUpkeep(bytes calldata data) external view returns (bool upkeepNeeded, bytes memory performData) {
+    function checkUpkeep(bytes calldata _data) external view returns (bool upkeepNeeded, bytes memory performData) {
         if (initialTimestamp == 0) {
-            return (true, data);
+            return (true, _data);
         }
 
         return ((block.timestamp - initialTimestamp) < testRange && (block.timestamp - lastTimestamp) >= interval, "");

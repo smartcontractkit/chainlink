@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import { KeeperCompatibleInterface } from "../interfaces/KeeperCompatibleInterface.sol";
 
-contract DataBombContract is KeeperCompatibleInterface {
+contract ReturnDataUpkeepCompatible is KeeperCompatibleInterface {
     uint256 public testRange;
     uint256 public interval;
     uint256 public lastTimestamp;
