@@ -236,7 +236,8 @@ func subscribeExecutionEvents(
 			lggr.Debugw("received execution event for",
 				"destChain", chainSelector,
 				"sourceChain", event.SourceChainSelector,
-				"sequenceNumber", event.SequenceNumber)
+				"sequenceNumber", event.SequenceNumber,
+				"blockNumber", event.Raw.BlockNumber)
 			// push metrics to loki here
 			blockNum := event.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))

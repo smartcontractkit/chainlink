@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"math"
 	"math/big"
 	"math/rand"
@@ -30,27 +31,31 @@ type SeqNumRange struct {
 }
 
 type DestinationGun struct {
-	l             logger.Logger
-	env           deployment.Environment
-	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
-	roundNum      *atomic.Int32
-	chainSelector uint64
-	receiver      common.Address
-	testConfig    *ccip.LoadConfig
-	messageKeys   map[uint64]*bind.TransactOpts
-	chainOffset   int
-	metricPipe    chan messageData
+	l                  logger.Logger
+	env                deployment.Environment
+	state              *ccipchangeset.CCIPOnChainState
+	seqNums            map[testhelpers.SourceDestPair]SeqNumRange
+	roundNum           *atomic.Int32
+	chainSelector      uint64
+	receiver           common.Address
+	testConfig         *ccip.LoadConfig
+	messageKeys        map[uint64]*bind.TransactOpts
+	chainOffset        int
+	metricPipe         chan messageData
+	transferableTokens map[uint64]*burn_mint_erc677.BurnMintERC677
 }
 
 func NewDestinationGun(
 	l logger.Logger,
 	chainSelector uint64,
 	env deployment.Environment,
+	state *ccipchangeset.CCIPOnChainState,
 	receiver common.Address,
 	overrides *ccip.LoadConfig,
 	messageKeys map[uint64]*bind.TransactOpts,
 	chainOffset int,
 	metricPipe chan messageData,
+	transferableTokens map[uint64]*burn_mint_erc677.BurnMintERC677,
 ) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
@@ -63,16 +68,18 @@ func NewDestinationGun(
 		}
 	}
 	dg := DestinationGun{
-		l:             l,
-		env:           env,
-		seqNums:       seqNums,
-		roundNum:      &atomic.Int32{},
-		chainSelector: chainSelector,
-		receiver:      receiver,
-		testConfig:    overrides,
-		messageKeys:   messageKeys,
-		chainOffset:   chainOffset,
-		metricPipe:    metricPipe,
+		l:                  l,
+		env:                env,
+		state:              state,
+		seqNums:            seqNums,
+		roundNum:           &atomic.Int32{},
+		chainSelector:      chainSelector,
+		receiver:           receiver,
+		testConfig:         overrides,
+		messageKeys:        messageKeys,
+		chainOffset:        chainOffset,
+		metricPipe:         metricPipe,
+		transferableTokens: transferableTokens,
 	}
 
 	err := dg.Validate()
@@ -123,7 +130,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	r := state.Chains[src].Router
 
-	msg, err := m.GetMessage()
+	msg, err := m.GetMessage(src)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
@@ -230,7 +237,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 }
 
 // GetMessage will return the message to be sent while considering expected load of different messages
-func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
+func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
@@ -249,7 +256,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			Receiver: rcv,
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  common.HexToAddress("0x0"),
+					Token:  m.transferableTokens[src].Address(),
 					Amount: big.NewInt(1),
 				},
 			},
@@ -262,7 +269,7 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			Data:     common.Hex2Bytes("message with token"),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  common.HexToAddress("0x0"),
+					Token:  m.transferableTokens[src].Address(),
 					Amount: big.NewInt(1),
 				},
 			},
