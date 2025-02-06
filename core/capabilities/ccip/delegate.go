@@ -23,7 +23,8 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
@@ -42,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -380,7 +380,7 @@ func bindReader(ctx context.Context,
 		return nil, types.BoundContract{}, fmt.Errorf("failed to bind home chain contract reader: %w", err)
 	}
 
-	hid, err := ccipcommon.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
+	hid, err := common.HashedCapabilityID(capabilityLabelledName, capabilityVersion)
 	if err != nil {
 		return nil, types.BoundContract{}, fmt.Errorf("failed to hash capability id: %w", err)
 	}

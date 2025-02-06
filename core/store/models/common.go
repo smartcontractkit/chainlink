@@ -17,8 +17,8 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 // CronParser is the global parser for crontabs.

@@ -30,12 +30,6 @@ packages:
       TxStrategy:
       TxAttemptBuilder:
       TxStore:
-  github.com/smartcontractkit/chainlink-framework/multinode:
-    config:
-      dir: common/types/mocks
-      outpkg: mocks
-    interfaces:
-      Subscription:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
@@ -47,39 +41,9 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/evm/client:
-    config:
-      dir: evm/client/clienttest
-      outpkg: clienttest
-    interfaces:
-      Client:
-  github.com/smartcontractkit/chainlink/v2/evm/config:
-    interfaces:
-      GasEstimator:
-      ChainScopedConfig:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
     interfaces:
       ORM:
-  github.com/smartcontractkit/chainlink/v2/evm/gas:
-    interfaces:
-      Config:
-      EvmFeeEstimator:
-      feeEstimatorClient:
-        config:
-          mockname: FeeEstimatorClient
-      feeHistoryEstimatorClient:
-        config:
-          mockname: FeeHistoryEstimatorClient
-      EvmEstimator:
-  github.com/smartcontractkit/chainlink/v2/evm/gas/rollups:
-    interfaces:
-      L1Oracle:
-      l1OracleClient:
-        config:
-          mockname: L1OracleClient
-  github.com/smartcontractkit/chainlink/v2/evm/keystore:
-    interfaces:
-      Eth:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
     interfaces:
       Broadcaster:
@@ -88,9 +52,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
     interfaces:
       LogPoller:
-  github.com/smartcontractkit/chainlink/v2/evm/monitor:
-    interfaces:
-      BalanceMonitor:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
     interfaces:
       Client:
