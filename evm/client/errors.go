@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -718,8 +719,12 @@ const (
 )
 
 func IsTooManyResults(err error, clientErrors config.ClientErrors) bool {
-	var rpcErr rpc.Error
+	// Context timeouts often occur when recieving too many results from RPCs
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
 
+	var rpcErr rpc.Error
 	if !pkgerrors.As(err, &rpcErr) {
 		return false
 	}

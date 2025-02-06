@@ -896,19 +896,12 @@ func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.L
 // or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
-	stopCtx, cancel := lp.stopCh.NewCtx()
-	defer cancel()
-
 	for from := start; from <= end; from += batchSize {
 		to := mathutil.Min(from+batchSize-1, end)
 
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			if stopCtx.Err() != nil {
-				return err
-			}
-			// Retry on context deadline exceeded since we may be able to get logs by reducing the block range.
-			if !client.IsTooManyResults(err, lp.clientErrors) && !errors.Is(err, context.DeadlineExceeded) {
+			if !client.IsTooManyResults(err, lp.clientErrors) {
 				lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
 				return err
 			}

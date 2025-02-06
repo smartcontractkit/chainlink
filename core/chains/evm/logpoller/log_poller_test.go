@@ -1668,6 +1668,47 @@ func TestTooManyLogResults(t *testing.T) {
 		assert.Contains(t, errors[1].Message, "Failed to poll and save logs, retrying later")
 		require.Empty(t, warns)
 	})
+
+	t.Run("halves size on context deadline exceeded, then succeeds", func(t *testing.T) {
+		/* TODO
+		// Simulate currentBlock = 300
+		head.Number = 300
+		finalized.Number = head.Number - lpOpts.FinalityDepth
+		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
+
+		filterLogsCall = ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+			if fq.BlockHash != nil {
+				return []types.Log{}, nil // succeed when single block requested
+			}
+			from := fq.FromBlock.Uint64()
+			to := fq.ToBlock.Uint64()
+			if to-from >= 4 {
+				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
+			}
+			return logs, err
+		})
+
+		addr := testutils.NewAddress()
+		err := lp.RegisterFilter(ctx, logpoller.Filter{
+			Name:      "Integration test",
+			EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+			Addresses: []common.Address{addr},
+		})
+		require.NoError(t, err)
+		lp.PollAndSaveLogs(ctx, 5)
+		block, err2 := o.SelectLatestBlock(ctx)
+		require.NoError(t, err2)
+		assert.Equal(t, int64(298), block.BlockNumber)
+
+		logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
+		// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
+		require.Len(t, logs, 3)
+		for i, s := range expected[:3] {
+			assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
+		}
+		filterLogsCall.Unset()
+		*/
+	})
 }
 
 func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
