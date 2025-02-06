@@ -1858,9 +1858,9 @@ func (l *LivePriceHelper) Port() int {
 
 func (l *LivePriceHelper) CheckPrices() {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
-	// as long as it's != 0
-	require.Greater(l.t, len(l.actualPrices), 0, "no prices found in the feed")
-	require.False(l.t, l.actualPrices[0].Cmp(big.NewInt(0)) == 0, "price found in the feed is 0")
+	// as long as it's != 0. And we only wait for the first price to be set.
+	require.NotEmpty(l.t, l.actualPrices, "no prices found in the feed")
+	require.NotEqual(l.t, l.actualPrices[0], big.NewInt(0), "price found in the feed is 0")
 }
 
 // FakePriceHelper is a PriceHelper implementation that uses a mocked feed to get the price
