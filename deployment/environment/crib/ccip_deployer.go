@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -443,26 +443,20 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 
 func GenerateRMNNodeIdentities(rmnNodeCount uint) ([]RMNNodeConfig, error) {
 	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
-	net, err := docker.CreateNetwork(lggr)
-	defer net.Remove(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
 	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
 
 	for i := uint(0); i < rmnNodeCount; i++ {
-		peerId, rawKeystore, _, err := devenv.GeneratePeerId(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "rageproxy", "latest")
+		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "rageproxy", "latest")
 		if err != nil {
 			return nil, err
 		}
 
-		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "afn2proxy", "latest")
+		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(lggr, "afn2proxy", "latest")
 		if err != nil {
 			return nil, err
 		}
 
-		newPeedId, err := p2pkey.MakePeerID(peerId.String())
+		newPeerID, err := p2pkey.MakePeerID(peerID.String())
 		if err != nil {
 			return nil, err
 		}
@@ -472,7 +466,7 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint) ([]RMNNodeConfig, error) {
 				NodeIndex:           uint64(i),
 				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
 				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
-				PeerId:              newPeedId,
+				PeerId:              newPeerID,
 			},
 			rageproxyKeystore: rawKeystore,
 			rmnKeystore:       rawRMNKeystore,

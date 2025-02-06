@@ -105,7 +105,7 @@ type RMNKeys struct {
 	EVMOnchainPublicKey common.Address
 }
 
-func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (RMNKeys, string, string, error) {
+func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (keys RMNKeys, fileString string, passphrase string, err error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			AutoRemove: false,
@@ -119,19 +119,18 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (RMN
 		Started: true,
 		Logger:  &lggr,
 	})
-	defer (func() {
-		err := container.Terminate(context.Background())
-		if err != nil {
-			log.Fatalf("Failed to stop container: %v", err)
+	defer func() {
+		if terminateErr := container.Terminate(context.Background()); terminateErr != nil {
+			log.Printf("Failed to stop container: %v", terminateErr)
 		}
-	})()
+	}()
 
 	if err != nil {
 		return RMNKeys{}, "", "", err
 	}
 
 	// Copy the file from container
-	reader, err := container.CopyFileFromContainer(context.Background(), fmt.Sprintf("/app/%s", RMNKeyStore))
+	reader, err := container.CopyFileFromContainer(context.Background(), "/app/"+RMNKeyStore)
 	if err != nil {
 		log.Fatalf("Failed to copy file: %v", err)
 		return RMNKeys{}, "", "", err
@@ -144,20 +143,23 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (RMN
 		return RMNKeys{}, "", "", err
 	}
 
-	fileString := string(fileContents)
+	fileString = string(fileContents)
 
 	address, publicKey, err := extractKeys(fileContents)
 	if err != nil {
 		return RMNKeys{}, "", "", err
 	}
 
-	return RMNKeys{
+	keys = RMNKeys{
 		OffchainPublicKey:   publicKey,
 		EVMOnchainPublicKey: address,
-	}, fileString, DefaultAFNPassphrase, nil
+	}
+	passphrase = DefaultAFNPassphrase
+
+	return keys, fileString, passphrase, nil
 }
 
-func GeneratePeerId(lggr zerolog.Logger, image string, version string) (p2ptypes.PeerID, string, string, error) {
+func GeneratePeerID(lggr zerolog.Logger, image string, version string) (p2ptypes.PeerID, string, string, error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			AutoRemove: false,
@@ -183,7 +185,7 @@ func GeneratePeerId(lggr zerolog.Logger, image string, version string) (p2ptypes
 	}
 
 	// Copy the file from container
-	reader, err := container.CopyFileFromContainer(context.Background(), fmt.Sprintf("/app/%s", ProxyKeyStore))
+	reader, err := container.CopyFileFromContainer(context.Background(), "/app/"+ProxyKeyStore)
 	if err != nil {
 		return p2ptypes.PeerID{}, "", "", err
 	}
