@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -252,7 +251,7 @@ var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
+		ExtraArgsCodec:      ccipevm.NewExtraDataCodec(),
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
 		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
@@ -261,7 +260,7 @@ var plugins = map[string]plugin{
 	chainsel.FamilySolana: {
 		CommitPluginCodec:   ccipsolana.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  ccipsolana.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
+		ExtraArgsCodec:      ccipsolana.NewExtraDataCodec(),
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipsolana.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
 		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
