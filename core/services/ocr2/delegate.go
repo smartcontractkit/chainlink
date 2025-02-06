@@ -178,6 +178,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
+	AllowNoBootstrappers() bool
 }
 
 type insecureConfig interface {
@@ -377,7 +378,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		return llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector)
+		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
+			// Cleanup is optimistic. Don't return error here, as we don't want
+			// to block job deletion
+			d.lggr.Errorw("failed to cleanup llo", "err", err, "spec", spec)
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -476,7 +482,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers(), spec.AllowNoBootstrappers)
 	if err != nil {
 		return nil, err
 	}

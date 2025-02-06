@@ -574,10 +574,10 @@ func (o *orm) insertOCROracleSpec(ctx context.Context, spec *OCROracleSpec) (spe
 
 func (o *orm) insertOCR2OracleSpec(ctx context.Context, spec *OCR2OracleSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
-					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
+					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, allow_no_bootstrappers,
 					created_at, updated_at)
 			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
-					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
+					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :allow_no_bootstrappers,
 					NOW(), NOW())
 			RETURNING id;`, spec)
 }

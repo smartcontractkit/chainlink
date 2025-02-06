@@ -54,8 +54,6 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		JobSpecs:    nil,
-		Jobs:        nil,
 	}, nil
 }
 

@@ -61,8 +61,6 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: newAddresses,
-		Jobs:        nil,
-		JobSpecs:    nil,
 	}, nil
 }
 

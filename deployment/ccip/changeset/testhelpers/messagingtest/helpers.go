@@ -125,9 +125,11 @@ func getLatestNonce(tc TestCase) uint64 {
 
 // Run runs a messaging test case.
 func Run(tc TestCase) (out TestCaseOutput) {
-	// check latest nonce
-	latestNonce := getLatestNonce(tc)
-	require.Equal(tc.T, tc.Nonce, latestNonce)
+	if tc.ValidateResp {
+		// check latest nonce
+		latestNonce := getLatestNonce(tc)
+		require.Equal(tc.T, tc.Nonce, latestNonce)
+	}
 
 	startBlocks := make(map[uint64]*uint64)
 	msgSentEvent := testhelpers.TestSendRequest(
@@ -186,7 +188,7 @@ func Run(tc TestCase) (out TestCaseOutput) {
 		)
 
 		// check the sender latestNonce on the dest, should be incremented
-		latestNonce = getLatestNonce(tc)
+		latestNonce := getLatestNonce(tc)
 		require.Equal(tc.T, tc.Nonce+1, latestNonce)
 		out.Nonce = latestNonce
 		tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)

@@ -90,6 +90,7 @@ func NewTestEthBroadcaster(
 	// Mark instance as test
 	ethBroadcaster.XXXTestDisableUnstartedTxAutoProcessing()
 	servicetest.Run(t, ethBroadcaster)
+	time.Sleep(time.Second) // let background initiate
 	return ethBroadcaster
 }
 
