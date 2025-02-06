@@ -244,7 +244,6 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		MaxReportCount:            cfg.MaxReportCount,
 		MaxBatchSize:              cfg.MaxBatchSize,
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-		UniqueReports:             cfg.UniqueReports,
 	})
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
