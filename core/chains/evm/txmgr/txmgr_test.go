@@ -558,8 +558,8 @@ func TestTxm_Reset(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Maybe()
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
-	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(128), nil).Maybe()
-	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(44), nil).Maybe()
+	ethClient.On("NonceAt", mock.Anything, addr, mock.Anything).Return(uint64(128), nil).Maybe()
+	ethClient.On("NonceAt", mock.Anything, addr2, mock.Anything).Return(uint64(44), nil).Maybe()
 
 	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, evmConfig.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)

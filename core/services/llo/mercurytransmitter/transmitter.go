@@ -144,7 +144,7 @@ func newTransmitter(opts Opts) *transmitter {
 	sugared := logger.Sugared(opts.Lggr).Named("LLOMercuryTransmitter")
 	servers := make(map[string]*server, len(opts.Clients))
 	for serverURL, client := range opts.Clients {
-		sLggr := sugared.Named(serverURL).With("serverURL", serverURL)
+		sLggr := sugared.Named(fmt.Sprintf("%q", serverURL)).With("serverURL", serverURL)
 		servers[serverURL] = newServer(sLggr, opts.VerboseLogging, opts.Cfg, client, opts.ORM, serverURL)
 	}
 	return &transmitter{

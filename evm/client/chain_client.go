@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -102,7 +101,7 @@ type chainClient struct {
 		*big.Int,
 		*RPCClient,
 	]
-	txSender     *multinode.TransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient]
+	txSender     *multinode.TransactionSender[*types.Transaction, struct{}, *big.Int, *RPCClient]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -131,12 +130,12 @@ func NewChainClient(
 		deathDeclarationDelay,
 	)
 
-	txSender := multinode.NewTransactionSender[*types.Transaction, *SendTxResult, *big.Int, *RPCClient](
+	txSender := multinode.NewTransactionSender[*types.Transaction, struct{}, *big.Int, *RPCClient](
 		lggr,
 		chainID,
 		chainFamily,
 		multiNode,
-		NewSendTxResult,
+		func(err error) multinode.SendTxReturnCode { return 0 },
 		0, // use the default value provided by the implementation
 	)
 
@@ -150,7 +149,7 @@ func NewChainClient(
 }
 
 func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +164,7 @@ func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blo
 // might not be properly handled and returned results might have weaker finality guarantees. It's highly recommended
 // to use HeadTracker to identify latest finalized block.
 func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return err
 	}
@@ -175,7 +174,7 @@ func (c *chainClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 // Similar to BatchCallContext, ensure the provided BatchElem slice is passed through
 func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
 	if c.chainType == chaintype.ChainHedera {
-		activeRPC, err := c.multiNode.SelectRPC()
+		activeRPC, err := c.multiNode.SelectRPC(ctx)
 		if err != nil {
 			return err
 		}
@@ -187,7 +186,7 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem
 	defer wg.Wait()
 
 	// Select main RPC to use for return value
-	main, selectionErr := c.multiNode.SelectRPC()
+	main, selectionErr := c.multiNode.SelectRPC(ctx)
 
 	doFunc := func(ctx context.Context, rpc *RPCClient, isSendOnly bool) {
 		if rpc == main {
@@ -219,7 +218,7 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
 func (c *chainClient) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Block, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return b, err
 	}
@@ -228,7 +227,7 @@ func (c *chainClient) BlockByHash(ctx context.Context, hash common.Hash) (b *typ
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
 func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return b, err
 	}
@@ -236,7 +235,7 @@ func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *ty
 }
 
 func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return err
 	}
@@ -244,7 +243,7 @@ func (c *chainClient) CallContext(ctx context.Context, result interface{}, metho
 }
 
 func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +251,7 @@ func (c *chainClient) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 }
 
 func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +264,7 @@ func (c *chainClient) Close() {
 }
 
 func (c *chainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -285,14 +284,14 @@ func (c *chainClient) Dial(ctx context.Context) error {
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return 0, err
 	}
 	return r.EstimateGas(ctx, call)
 }
 func (c *chainClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +299,7 @@ func (c *chainClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (c *chainClient) HeaderByHash(ctx context.Context, h common.Hash) (head *types.Header, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return head, err
 	}
@@ -308,7 +307,7 @@ func (c *chainClient) HeaderByHash(ctx context.Context, h common.Hash) (head *ty
 }
 
 func (c *chainClient) HeaderByNumber(ctx context.Context, n *big.Int) (head *types.Header, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return head, err
 	}
@@ -316,7 +315,7 @@ func (c *chainClient) HeaderByNumber(ctx context.Context, n *big.Int) (head *typ
 }
 
 func (c *chainClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +323,7 @@ func (c *chainClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.
 }
 
 func (c *chainClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +335,7 @@ func (c *chainClient) IsL2() bool {
 }
 
 func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +343,7 @@ func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, l
 }
 
 func (c *chainClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +355,7 @@ func (c *chainClient) NodeStates() map[string]string {
 }
 
 func (c *chainClient) PendingCodeAt(ctx context.Context, account common.Address) (b []byte, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return b, err
 	}
@@ -365,7 +364,7 @@ func (c *chainClient) PendingCodeAt(ctx context.Context, account common.Address)
 
 // TODO-1663: change this to evmtypes.Nonce(int64) once client.go is deprecated.
 func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -374,20 +373,16 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	var result *SendTxResult
 	if c.chainType == chaintype.ChainHedera {
-		activeRPC, err := c.multiNode.SelectRPC()
+		activeRPC, err := c.multiNode.SelectRPC(ctx)
 		if err != nil {
 			return err
 		}
-		result = activeRPC.SendTransaction(ctx, tx)
-	} else {
-		result = c.txSender.SendTransaction(ctx, tx)
+		_, _, err = activeRPC.SendTransaction(ctx, tx)
+		return err
 	}
-	if result == nil {
-		return errors.New("SendTransaction failed: result is nil")
-	}
-	return result.Error()
+	_, _, err := c.txSender.SendTransaction(ctx, tx)
+	return err
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (multinode.SendTxReturnCode, error) {
@@ -397,7 +392,7 @@ func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.T
 }
 
 func (c *chainClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -405,7 +400,7 @@ func (c *chainClient) NonceAt(ctx context.Context, account common.Address, block
 }
 
 func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (s ethereum.Subscription, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return s, err
 	}
@@ -413,7 +408,7 @@ func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (c *chainClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -427,7 +422,7 @@ func (c *chainClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.He
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return p, err
 	}
@@ -435,7 +430,7 @@ func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err erro
 }
 
 func (c *chainClient) SuggestGasTipCap(ctx context.Context) (t *big.Int, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return t, err
 	}
@@ -443,7 +438,7 @@ func (c *chainClient) SuggestGasTipCap(ctx context.Context) (t *big.Int, err err
 }
 
 func (c *chainClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +446,7 @@ func (c *chainClient) TokenBalance(ctx context.Context, address common.Address, 
 }
 
 func (c *chainClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +455,7 @@ func (c *chainClient) TransactionByHash(ctx context.Context, txHash common.Hash)
 
 // TODO-1663: return custom Receipt type instead of geth's once client.go is deprecated.
 func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return receipt, err
 	}
@@ -469,7 +464,7 @@ func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 }
 
 func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +472,7 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 }
 
 func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, lastBlock *big.Int, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
-	r, err := c.multiNode.SelectRPC()
+	r, err := c.multiNode.SelectRPC(ctx)
 	if err != nil {
 		return feeHistory, err
 	}

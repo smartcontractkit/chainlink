@@ -82,7 +82,7 @@ func NewPersistenceManager(lggr logger.Logger, orm ORM, serverURL string, maxTra
 	return &persistenceManager{
 		orm:                           orm,
 		donID:                         orm.DonID(),
-		lggr:                          logger.Sugared(lggr).Named("LLOPersistenceManager").With("serverURL", serverURL),
+		lggr:                          logger.Sugared(lggr).Named("LLOPersistenceManager"),
 		serverURL:                     serverURL,
 		stopCh:                        make(services.StopChan),
 		maxTransmitQueueSize:          maxTransmitQueueSize,
@@ -127,7 +127,12 @@ func (pm *persistenceManager) runFlushDeletesLoop() {
 	ctx, cancel := pm.stopCh.NewCtx()
 	defer cancel()
 
-	ticker := services.NewTicker(pm.flushDeletesFrequency)
+	ticker := services.TickerConfig{
+		// Don't prune right away, wait some time for the application to settle
+		// down first
+		Initial:   services.DefaultJitter.Apply(pm.pruneFrequency),
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(pm.pruneFrequency)
 	defer ticker.Stop()
 	for {
 		select {

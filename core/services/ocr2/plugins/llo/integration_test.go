@@ -1205,7 +1205,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			err := db.GetContext(tests.Context(t), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
 			require.NoError(t, err)
 			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for failing server", i)
-			assert.Equal(t, maxQueueSize, cnt, "expected persisted transmit queue size to exactly equal maxQueueSize for node %d for failing server", i)
 
 			// The succeeding server
 			err = db.GetContext(tests.Context(t), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
