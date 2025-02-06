@@ -106,7 +106,7 @@ type RPCClient struct {
 }
 
 var _ multinode.RPCClient[*big.Int, *evmtypes.Head] = (*RPCClient)(nil)
-var _ multinode.SendTxRPCClient[*types.Transaction, *SendTxResult] = (*RPCClient)(nil)
+var _ multinode.SendTxRPCClient[*types.Transaction, struct{}] = (*RPCClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -701,29 +701,7 @@ func (r *RPCClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 	return
 }
 
-type SendTxResult struct {
-	err  error
-	code multinode.SendTxReturnCode
-}
-
-var _ multinode.SendTxResult = (*SendTxResult)(nil)
-
-func NewSendTxResult(err error) *SendTxResult {
-	result := &SendTxResult{
-		err: err,
-	}
-	return result
-}
-
-func (r *SendTxResult) Error() error {
-	return r.err
-}
-
-func (r *SendTxResult) Code() multinode.SendTxReturnCode {
-	return r.code
-}
-
-func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) *SendTxResult {
+func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) (struct{}, multinode.SendTxReturnCode, error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx, r.largePayloadRPCTimeout)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
@@ -740,10 +718,7 @@ func (r *RPCClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "SendTransaction")
 
-	return &SendTxResult{
-		err:  err,
-		code: ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()),
-	}
+	return struct{}{}, ClassifySendError(err, r.clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, r.chainType.IsL2()), err
 }
 
 func (r *RPCClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {

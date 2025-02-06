@@ -2,32 +2,39 @@ package ccip
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
-func TestMigrateFromV1_5ToV1_6(t *testing.T) {
-	t.Skipf("Skipping test due to flakiness. " +
-		"This test getting face lifted in this ticket CCIP-4883 and will resolve the flakiness part of it.")
+var (
+	evm2EVMOnRampABI = abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
+	onRampABI        = abihelpers.MustParseABI(onramp.OnRampABI)
+)
 
+// TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
+func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
@@ -98,27 +105,42 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// ensure that all lanes are functional
-	for _, pair := range pairs {
-		sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-			testhelpers.WithSourceChain(pair.SourceChainSelector),
-			testhelpers.WithDestChain(pair.DestChainSelector),
-			testhelpers.WithTestRouter(false),
-			testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-				Receiver:     common.LeftPadBytes(state.Chains[pair.DestChainSelector].Receiver.Address().Bytes(), 32),
-				Data:         []byte("hello"),
-				TokenAmounts: nil,
-				FeeToken:     common.HexToAddress("0x0"),
-				ExtraArgs:    nil,
-			}),
-		)
-		require.NoError(t, err)
-		require.NotNil(t, sentEvent)
-		destChain := e.Env.Chains[pair.DestChainSelector]
-		destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
-		require.NoError(t, err)
-		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].CommitStore[src1], sentEvent.Message.SequenceNumber)
-		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[pair.SourceChainSelector], destChain, state.Chains[dest].EVM2EVMOffRamp[src1], []uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
-	}
+	var (
+		done                                = make(chan bool) // channel to stop sending messages in real router
+		wg                                  sync.WaitGroup    // wait group to wait for all the messages to be delivered
+		v1_5Msgs                            = make([]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, 0)
+		v1_6Msgs                            = make([]*onramp.OnRampCCIPMessageSent, 0)
+		initialBlock, lastNonce, firstNonce uint64
+	)
+	wg.Add(1)
+	// send continuous messages in real router until done is closed
+	go func() {
+		defer wg.Done()
+		initialBlock, v1_5Msgs, v1_6Msgs = sendContinuousMessages(
+			t, &e, &state, pairs[0].SourceChainSelector, pairs[0].DestChainSelector, done)
+	}()
+	// send a message from the other lane src2 -> dest
+	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, state,
+		testhelpers.WithSourceChain(src2),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(false),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, sentEvent)
+	destChain := e.Env.Chains[dest]
+	destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+	require.NoError(t, err)
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src2], destChain, state.Chains[dest].CommitStore[src2],
+		sentEvent.Message.SequenceNumber)
+	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], destChain, state.Chains[dest].EVM2EVMOffRamp[src2],
+		[]uint64{sentEvent.Message.SequenceNumber}, destStartBlock.Number.Uint64())
 
 	// now that all 1.5 lanes work transfer ownership of the contracts to MCMS
 	contractsByChain := make(map[uint64][]common.Address)
@@ -249,29 +271,12 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 
 	// This sleep is needed so that plugins come up and start indexing logs.
 	// Otherwise test will flake.
-	time.Sleep(15 * time.Second)
+	time.Sleep(30 * time.Second)
 	testhelpers.ReplayLogs(t, e.Env.Offchain, map[uint64]uint64{
 		src1: msgSentEvent.Raw.BlockNumber,
 	})
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
-
-	// send a message from real router, the send requested event should be received in 1.5 onRamp
-	// the request should get delivered to 1.5 offRamp
-	sentEventBeforeSwitch, err := v1_5testhelpers.SendRequest(t, e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-			Data:         []byte("hello"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		}),
-	)
-	require.NoError(t, err)
-	require.NotNil(t, sentEventBeforeSwitch)
 
 	// now that the 1.6 lane is working, we can enable the real router
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
@@ -328,35 +333,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
-	// send a message from real router the send requested event should be received in 1.6 onRamp
-	// the request should get delivered to 1.6 offRamp
-	destStartBlock, err := e.Env.Chains[dest].Client.HeaderByNumber(context.Background(), nil)
-	require.NoError(t, err)
-	sentEventAfterSwitch, err := testhelpers.DoSendRequest(
-		t, e.Env, state,
-		testhelpers.WithSourceChain(src1),
-		testhelpers.WithDestChain(dest),
-		testhelpers.WithTestRouter(false),
-		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
-			Data:         []byte("hello"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		}))
-	require.NoError(t, err)
-	// verify that before switch message is received in 1.5 offRamp
-	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src1],
-		[]uint64{sentEventBeforeSwitch.Message.SequenceNumber}, destStartBlock.Number.Uint64())
-
-	// verify that after switch message is received in 1.6 offRamp
-	expectedSeqNumExec[testhelpers.SourceDestPair{
-		SourceChainSelector: src1,
-		DestChainSelector:   dest,
-	}] = []uint64{sentEventAfterSwitch.SequenceNumber}
-	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
-
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
 		testhelpers.WithSourceChain(src2),
@@ -371,7 +347,133 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}),
 	)
 	require.NoError(t, err)
-	require.NotNil(t, sentEventOnOtherLane)
+	require.NotNil(t, sentEvent)
+
 	v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src2], e.Env.Chains[dest], state.Chains[dest].EVM2EVMOffRamp[src2],
 		[]uint64{sentEventOnOtherLane.Message.SequenceNumber}, destStartBlock.Number.Uint64())
+
+	// stop the continuous messages in real router
+	close(done) // stop sending messages in real router
+	wg.Wait()
+	// start validating the messages sent in 1.5 and 1.6
+	for _, msg := range v1_5Msgs {
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, state.Chains[dest].CommitStore[src1],
+			msg.Message.SequenceNumber)
+		v1_5testhelpers.WaitForExecute(t, e.Env.Chains[src1], destChain, state.Chains[dest].EVM2EVMOffRamp[src1],
+			[]uint64{msg.Message.SequenceNumber}, initialBlock)
+		lastNonce = msg.Message.Nonce
+	}
+	for _, msg := range v1_6Msgs {
+		if firstNonce == 0 {
+			firstNonce = msg.Message.Header.Nonce
+		}
+		expectedSeqNumExec[testhelpers.SourceDestPair{
+			SourceChainSelector: src1,
+			DestChainSelector:   dest,
+		}] = []uint64{msg.Message.Header.SequenceNumber}
+		expectedSeqNums[testhelpers.SourceDestPair{
+			SourceChainSelector: src1,
+			DestChainSelector:   dest,
+		}] = msg.Message.Header.SequenceNumber
+	}
+	startBlocks[dest] = &initialBlock
+	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
+	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
+	require.Equal(t, lastNonce+1, firstNonce, "sender nonce in 1.6 OnRamp event is not plus one to sender nonce in 1.5 OnRamp")
+}
+
+// SendMessages sends messages from src to dest until done is closed
+func sendContinuousMessages(
+	t *testing.T,
+	e *testhelpers.DeployedEnv,
+	state *changeset.CCIPOnChainState,
+	src, dest uint64,
+	done chan bool,
+) (uint64, []*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, []*onramp.OnRampCCIPMessageSent) {
+	var (
+		ticker           = time.NewTicker(10 * time.Second)
+		initialDestBlock uint64
+		v1_6Msgs         []*onramp.OnRampCCIPMessageSent
+		v1_5Msgs         []*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested
+	)
+	for {
+		select {
+		case <-ticker.C:
+			msg := sendMessageInRealRouter(t, e, state, src, dest)
+			if msg == nil {
+				t.Errorf("failed to send message in real router")
+				continue
+			}
+			switch msg := msg.(type) {
+			case *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested:
+				v1_5Msgs = append(v1_5Msgs, msg)
+				if initialDestBlock == 0 {
+					destChain := e.Env.Chains[dest]
+					destStartBlock, err := destChain.Client.HeaderByNumber(context.Background(), nil)
+					if err != nil {
+						t.Errorf("failed to get block header")
+					}
+					initialDestBlock = destStartBlock.Number.Uint64()
+				}
+			case *onramp.OnRampCCIPMessageSent:
+				v1_6Msgs = append(v1_6Msgs, msg)
+			}
+		case <-done:
+			return initialDestBlock, v1_5Msgs, v1_6Msgs
+		}
+	}
+}
+
+// sendMessageInRealRouter sends a message and filter the log topic to identify the event type nad parse the event data.
+func sendMessageInRealRouter(
+	t *testing.T,
+	e *testhelpers.DeployedEnv,
+	state *changeset.CCIPOnChainState,
+	src, dest uint64,
+) any {
+	cfg := &testhelpers.CCIPSendReqConfig{
+		SourceChain:  src,
+		DestChain:    dest,
+		Sender:       e.Env.Chains[src].DeployerKey,
+		IsTestRouter: false,
+		Evm2AnyMessage: router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		},
+	}
+	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
+
+	tx, _, err := testhelpers.CCIPSendRequest(e.Env, *state, cfg)
+	if err != nil {
+		t.Errorf("failed to send message: %v", err)
+	}
+	receipt, err := e.Env.Chains[src].Client.TransactionReceipt(context.Background(), tx.Hash())
+	if err != nil {
+		t.Errorf("failed to get transaction receipt: %v", err)
+	}
+	// filter the log topic to identify the event type and parse the event data
+	for _, lg := range receipt.Logs {
+		if lg.Topics[0].Hex() == evm2EVMOnRampABI.Events["CCIPSendRequested"].ID.Hex() {
+			unpackedMsg, err := evm2EVMOnRampABI.Events["CCIPSendRequested"].Inputs.Unpack(lg.Data)
+			if err != nil {
+				t.Errorf("failed to unpack ccip send requested event")
+			}
+			return &evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+				Message: *abi.ConvertType(unpackedMsg[0], new(evm_2_evm_onramp.InternalEVM2EVMMessage)).(*evm_2_evm_onramp.InternalEVM2EVMMessage),
+			}
+		} else if lg.Topics[0].Hex() == onRampABI.Events["CCIPMessageSent"].ID.Hex() {
+			unpackedMsg, err := onRampABI.Events["CCIPMessageSent"].Inputs.Unpack(lg.Data)
+			if err != nil {
+				t.Errorf("failed to unpack ccip message sent event")
+			}
+			return &onramp.OnRampCCIPMessageSent{
+				Message: *abi.ConvertType(unpackedMsg[0], new(onramp.InternalEVM2AnyRampMessage)).(*onramp.InternalEVM2AnyRampMessage),
+			}
+		}
+	}
+	return nil
 }

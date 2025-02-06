@@ -110,3 +110,21 @@ func httpRequestCtx(ctx context.Context, t Task, cfg Config) (requestCtx context
 	}
 	return
 }
+
+// statusCodeGroup maps to course status code group (e.g. 2xx, 4xx, 5xx) to reduce metric cardinality.
+func statusCodeGroup(status int) string {
+	switch {
+	case status >= 100 && status < 200:
+		return "1xx"
+	case status >= 200 && status < 300:
+		return "2xx"
+	case status >= 300 && status < 400:
+		return "3xx"
+	case status >= 400 && status < 500:
+		return "4xx"
+	case status >= 500 && status < 600:
+		return "5xx"
+	default:
+		return "unknown"
+	}
+}

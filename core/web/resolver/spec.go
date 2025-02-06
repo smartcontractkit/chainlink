@@ -600,6 +600,10 @@ func (r *OCR2SpecResolver) FeedID() *string {
 	return &feedID
 }
 
+func (r *OCR2SpecResolver) AllowNoBootstrappers() bool {
+	return r.spec.AllowNoBootstrappers
+}
+
 type VRFSpecResolver struct {
 	spec job.VRFSpec
 }
