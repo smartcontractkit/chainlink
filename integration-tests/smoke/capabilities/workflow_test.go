@@ -293,6 +293,7 @@ const (
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
+	GistIP                             = "185.199.108.133"
 )
 
 var (
@@ -904,9 +905,9 @@ func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns
 }
 
 func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) (string, error) {
-	// s := `curl -v http://host.docker.internal 2>&1 | sed -n 's/.*Trying \([0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' | head -n1`
-
 	containerName := nsOutput.CLNodes[0].Node.ContainerName
+	// this is the only tool that's installed on the CL image that can resolve host.docker.internal, well, kind of
+	// but it would be way better to use dig or nslookup
 	cmd := []string{"curl", "-v", "http://host.docker.internal"}
 	output, err := framework.ExecContainer(containerName, cmd)
 	if err != nil {
@@ -1216,9 +1217,6 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 				allowedPorts,
 			)
 		}
-
-		// # host.docker.internal
-		// # AllowedIPsCIDR = ["192.168.0.0/24", "192.168.65.0/24"]
 
 		if len(extraAllowedIps) != 0 {
 			allowedIPs := strings.Join(extraAllowedIps, `", "`)
@@ -1758,13 +1756,10 @@ func logTestInfo(l zerolog.Logger, feedId, workflowName, feedConsumerAddr, forwa
 }
 
 func float64ToBigInt(f float64) *big.Int {
-	// Multiply the float64 by 100
 	f *= 100
 
-	// Convert float64 to big.Float
 	bigFloat := new(big.Float).SetFloat64(f)
 
-	// Convert big.Float to big.Int
 	bigInt := new(big.Int)
 	bigFloat.Int(bigInt) // Truncate towards zero
 
@@ -1795,45 +1790,62 @@ func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *Workflow
 		return response
 	}
 
-	fake.Func("GET", fakeApiPath, func(c *gin.Context) {
+	err = fake.Func("GET", fakeApiPath, func(c *gin.Context) {
 		c.JSON(200, getPriceResponseFn())
 	})
+
+	require.NoError(t, err, "failed to set up fake data provider")
 
 	return fakeFinalUrl
 }
 
 func configurePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
 	if in.DataSource.Fake != nil {
-		return newFakePriceHelper(t, testLogger, in)
+		return NewFakePriceHelper(t, testLogger, in)
 	}
 
-	return newLivePriceHelper(testLogger, in)
+	return NewLivePriceHelper(t, testLogger, in)
 }
 
+// PriceHelper abstracts away the logic of checking whether the feed has been correctly updated
+// and it also returns port and URL of the data source. This is so, because when using a mocked
+// data source we need start a separate service and whitelist its port and IP with the gateway job.
+// Also, since it's a mocked data source we can now check whether the feed has been correctly updated
+// instead of only checking whether it has some price that's != 0.
 type PriceHelper interface {
 	URL() string
 	Port() int
-	CheckPrice(price *big.Int, elapsed time.Duration) bool
+	NextPrice(price *big.Int, elapsed time.Duration) bool
+	CheckPrices()
 }
 
+// LivePriceHelper is a PriceHelper implementation that uses a live feed to get the price, typically http://api.real-time-reserves.verinumus.io
 type LivePriceHelper struct {
-	testLogger zerolog.Logger
-	url        string
+	t            *testing.T
+	testLogger   zerolog.Logger
+	url          string
+	actualPrices []*big.Int
 }
 
-func newLivePriceHelper(testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
+func NewLivePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
 	return &LivePriceHelper{
 		testLogger: testLogger,
 		url:        in.DataSource.URL,
+		t:          t,
 	}
 }
 
-func (l *LivePriceHelper) CheckPrice(price *big.Int, elapsed time.Duration) bool {
-	// we don't have a way to check the price in the live feed, so we just log it
-	// and assume it's correct
-	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+func (l *LivePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
 
-	return true
+	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+	l.actualPrices = append(l.actualPrices, price)
+
+	// no other price to return, we are done
+	return false
 }
 
 func (l *LivePriceHelper) URL() string {
@@ -1844,7 +1856,16 @@ func (l *LivePriceHelper) Port() int {
 	return 0
 }
 
-type fakePriceHelper struct {
+func (l *LivePriceHelper) CheckPrices() {
+	// we don't have a way to check the price in the live feed, so we always assume it's correct
+	// as long as it's != 0
+	require.Greater(l.t, len(l.actualPrices), 0, "no prices found in the feed")
+	require.False(l.t, l.actualPrices[0].Cmp(big.NewInt(0)) == 0, "price found in the feed is 0")
+}
+
+// FakePriceHelper is a PriceHelper implementation that uses a mocked feed to get the price
+// It returns a configured price sequence and makes sure that the feed has been correctly updated
+type FakePriceHelper struct {
 	t              *testing.T
 	testLogger     zerolog.Logger
 	priceIndex     *int
@@ -1854,14 +1875,16 @@ type fakePriceHelper struct {
 	actualPrices   []*big.Int
 }
 
-func newFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
+func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
 	priceIndex := ptr.Ptr(0)
 	expectedPrices := make([]*big.Int, len(in.DataSource.Fake.Prices))
 	for i, p := range in.DataSource.Fake.Prices {
+		// convert float64 to big.Int by multiplying by 100
+		// just like the PoR workflow does
 		expectedPrices[i] = float64ToBigInt(p)
 	}
 
-	return &fakePriceHelper{
+	return &FakePriceHelper{
 		t:              t,
 		testLogger:     testLogger,
 		expectedPrices: expectedPrices,
@@ -1871,7 +1894,7 @@ func newFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTes
 	}
 }
 
-func (f *fakePriceHelper) priceAlreadyFound(price *big.Int) bool {
+func (f *FakePriceHelper) priceAlreadyFound(price *big.Int) bool {
 	for _, p := range f.actualPrices {
 		if p.Cmp(price) == 0 {
 			return true
@@ -1881,37 +1904,59 @@ func (f *fakePriceHelper) priceAlreadyFound(price *big.Int) bool {
 	return false
 }
 
-func (f *fakePriceHelper) CheckPrice(price *big.Int, elapsed time.Duration) bool {
+func (f *FakePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
+
 	if !f.priceAlreadyFound(price) {
 		f.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
 		f.actualPrices = append(f.actualPrices, price)
 
 		if len(f.actualPrices) == len(f.expectedPrices) {
-			require.EqualValues(f.t, f.expectedPrices, f.actualPrices, "prices found in the feed do not match prices set in the mock")
-			f.testLogger.Info().Msgf("All %d prices were found in the feed", len(f.expectedPrices))
-
-			// all prices found, test passed
-			return true
+			// all prices found, nothing more to check
+			return false
 		} else {
 			require.Less(f.t, len(f.actualPrices), len(f.expectedPrices), "more prices found than expected")
 			f.testLogger.Info().Msgf("Changing data source price to %f", f.expectedPrices[len(f.actualPrices)])
 			*f.priceIndex = len(f.actualPrices)
 
-			// continue checking
-			return false
+			// set new price and continue checking
+			return true
 		}
 	}
 
-	// continu checking
-	return false
+	// continue checking, price not updated yet
+	return true
 }
 
-func (f *fakePriceHelper) URL() string {
+func (f *FakePriceHelper) CheckPrices() {
+	require.EqualValues(f.t, f.expectedPrices, f.actualPrices, "prices found in the feed do not match prices set in the mock")
+	f.testLogger.Info().Msgf("All %d mocked prices were found in the feed", len(f.expectedPrices))
+}
+
+func (f *FakePriceHelper) URL() string {
 	return f.url
 }
 
-func (f *fakePriceHelper) Port() int {
+func (f *FakePriceHelper) Port() int {
 	return f.port
+}
+
+func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, nodeOutput *ns.Output) ([]string, []int) {
+	// no need to allow anything, if we are using live feed
+	if in.DataSource.Fake == nil {
+		return nil, nil
+	}
+
+	// we need to explicitly allow the port used by the fake data provider
+	// and IP corresponding to host.docker.internal, because that's where the fake data provider is running
+	// we also need to explicitly allow Gist's IP
+	dockerHostIp, err := resolveHostDockerInternaIp(testLogger, nodeOutput)
+	require.NoError(t, err, "failed to resolve host.docker.internal IP")
+
+	return []string{dockerHostIp, GistIP}, []int{in.DataSource.Fake.Port}
 }
 
 /*
@@ -1969,9 +2014,6 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Deploy the DON
 	nodeOutput := startNodes(t, in, bc)
 
-	dockerHostIp, err := resolveHostDockerInternaIp(testLogger, nodeOutput)
-	require.NoError(t, err, "failed to resolve host.docker.internal IP")
-
 	// Prepare the chainlink/deployment environment
 	ctfEnv, don, chainSelector := buildChainlinkDeploymentEnv(t, jdOutput, nodeOutput, bc, sc)
 
@@ -1994,7 +2036,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
 	// JD client needs to be reinitialised after restarting nodes
 	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
-	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, []int{ph.Port()}, []string{"185.199.108.133", dockerHostIp})
+
+	ips, ports := extraAllowedPortsAndIps(t, testLogger, in, ns)
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, ports, ips)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -2043,8 +2087,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if price.String() != "0" && ph.CheckPrice(price, elapsed) {
-				// finish the test
+			if !ph.NextPrice(price, elapsed) {
+				// check if all expected prices were found and finish the test
+				ph.CheckPrices()
 				return
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)

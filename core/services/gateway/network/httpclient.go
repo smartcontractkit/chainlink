@@ -28,7 +28,6 @@ type HTTPClientConfig struct {
 	AllowedPorts     []int
 	AllowedSchemes   []string
 	AllowedIPs       []string
-	AllowedIPsCIDR   []string
 }
 
 var (
@@ -91,7 +90,6 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		GetConfigBuilder().
 		SetTimeout(config.DefaultTimeout).
 		SetAllowedIPs(config.AllowedIPs...).
-		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
 		SetAllowedPorts(config.AllowedPorts...).
 		SetAllowedSchemes(config.AllowedSchemes...).
 		SetBlockedIPs(config.BlockedIPs...).
