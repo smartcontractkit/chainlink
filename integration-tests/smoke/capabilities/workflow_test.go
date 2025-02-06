@@ -903,6 +903,28 @@ func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns
 	return nodeset
 }
 
+func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) (string, error) {
+	// s := `curl -v http://host.docker.internal 2>&1 | sed -n 's/.*Trying \([0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p' | head -n1`
+
+	containerName := nsOutput.CLNodes[0].Node.ContainerName
+	cmd := []string{"curl", "-v", "http://host.docker.internal"}
+	output, err := framework.ExecContainer(containerName, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	re := regexp.MustCompile(`.*Trying ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*`)
+	matches := re.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		testLogger.Error().Msgf("failed to extract IP address from curl output:\n%s", output)
+		return "", errors.New("failed to extract IP address from curl output")
+	}
+
+	testLogger.Info().Msgf("Resolved host.docker.internal to %s", matches[1])
+
+	return matches[1], nil
+}
+
 func fundNodes(t *testing.T, don *devenv.DON, sc *seth.Client) {
 	for _, node := range don.Nodes {
 		_, err := actions.SendFunds(zerolog.Logger{}, sc, actions.FundsToSendPayload{
@@ -1072,7 +1094,7 @@ func mustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
-func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, allowedPort int) {
+func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, extraAllowedPorts []int, extraAllowedIps []string) {
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
 	require.NoError(t, err, "failed to get OCR3 contract address")
@@ -1182,15 +1204,29 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 			don.Nodes[4].AccountAddr[chainIDUint64],
 		)
 
-		if allowedPort != 0 {
+		if len(extraAllowedPorts) != 0 {
+			var allowedPorts string
+			for _, port := range extraAllowedPorts {
+				allowedPorts += fmt.Sprintf("%d, ", port)
+			}
+
 			gatewayJobSpec += fmt.Sprintf(`
-				AllowedPorts = [90, 443, %d]
-				# Gist IP
-				AllowedIps = ["185.199.108.133"]
-				# host.docker.internal
-				AllowedIPsCIDR = ["192.168.0.0/24", "192.168.65.0/24"]
+				AllowedPorts = [90, 443, %s]
 				`,
-				allowedPort,
+				allowedPorts,
+			)
+		}
+
+		// # host.docker.internal
+		// # AllowedIPsCIDR = ["192.168.0.0/24", "192.168.65.0/24"]
+
+		if len(extraAllowedIps) != 0 {
+			allowedIPs := strings.Join(extraAllowedIps, `", "`)
+
+			gatewayJobSpec += fmt.Sprintf(`
+			AllowedIps = ["%s"]
+			`,
+				allowedIPs,
 			)
 		}
 
@@ -1858,7 +1894,7 @@ func (f *fakePriceHelper) CheckPrice(price *big.Int, elapsed time.Duration) bool
 			return true
 		} else {
 			require.Less(f.t, len(f.actualPrices), len(f.expectedPrices), "more prices found than expected")
-			f.testLogger.Info().Msgf("Changing data source price to %f", f.actualPrices[len(f.actualPrices)])
+			f.testLogger.Info().Msgf("Changing data source price to %f", f.expectedPrices[len(f.actualPrices)])
 			*f.priceIndex = len(f.actualPrices)
 
 			// continue checking
@@ -1933,6 +1969,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Deploy the DON
 	nodeOutput := startNodes(t, in, bc)
 
+	dockerHostIp, err := resolveHostDockerInternaIp(testLogger, nodeOutput)
+	require.NoError(t, err, "failed to resolve host.docker.internal IP")
+
 	// Prepare the chainlink/deployment environment
 	ctfEnv, don, chainSelector := buildChainlinkDeploymentEnv(t, jdOutput, nodeOutput, bc, sc)
 
@@ -1955,7 +1994,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
 	// JD client needs to be reinitialised after restarting nodes
 	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
-	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, ph.Port())
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, []int{ph.Port()}, []string{"185.199.108.133", dockerHostIp})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {

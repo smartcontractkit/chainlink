@@ -27,10 +27,8 @@ type HTTPClientConfig struct {
 	BlockedIPsCIDR   []string
 	AllowedPorts     []int
 	AllowedSchemes   []string
-
-	// for testing
-	AllowedIPs     []string
-	AllowedIPsCIDR []string
+	AllowedIPs       []string
+	AllowedIPsCIDR   []string
 }
 
 var (
