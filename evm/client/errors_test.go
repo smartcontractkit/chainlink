@@ -1,13 +1,13 @@
 package client_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"testing"
-
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
@@ -569,4 +569,8 @@ func Test_IsTooManyResultsError(t *testing.T) {
 			assert.Equal(t, test.expect, evmclient.IsTooManyResults(err, &customErrors))
 		})
 	}
+
+	t.Run("Context Deadline Exceeded is TooManyResults", func(t *testing.T) {
+		assert.True(t, evmclient.IsTooManyResults(context.DeadlineExceeded, nil))
+	})
 }
