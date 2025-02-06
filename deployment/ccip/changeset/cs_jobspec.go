@@ -23,7 +23,6 @@ var _ deployment.ChangeSet[any] = CCIPCapabilityJobspecChangeset
 // CCIPCapabilityJobspecChangeset returns the job specs for the CCIP capability.
 // The caller needs to propose these job specs to the offchain system.
 func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployment.ChangesetOutput, error) {
-	env.Logger.Infow("initiating CCIPCapabilityJobspecChangeset")
 	nodes, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

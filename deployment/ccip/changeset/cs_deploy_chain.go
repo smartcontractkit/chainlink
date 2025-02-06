@@ -37,7 +37,6 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsCha
 // if there is no existing RMN address found, RMNRemote will be deployed with 0x0 address for previous RMN address
 // which will set RMN to 0x0 address immutably in RMNRemote.
 func DeployChainContractsChangeset(env deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
-	env.Logger.Infow("initiating DeployChainContractsChangeset")
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
