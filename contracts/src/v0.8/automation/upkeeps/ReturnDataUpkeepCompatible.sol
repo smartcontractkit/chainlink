@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { KeeperCompatibleInterface } from "../interfaces/KeeperCompatibleInterface.sol";
-
-contract ReturnDataUpkeepCompatible is KeeperCompatibleInterface {
+contract ReturnDataUpkeepCompatible {
     uint256 public testRange;
     uint256 public interval;
     uint256 public lastTimestamp;
@@ -26,7 +24,7 @@ contract ReturnDataUpkeepCompatible is KeeperCompatibleInterface {
         size = _size;
     }
 
-    function checkUpkeep(bytes calldata _data) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    function checkUpkeep(bytes calldata _data) external view returns (bool upkeepNeeded, bytes memory performData) {
         if (initialTimestamp == 0) {
             return (true, _data);
         }
@@ -34,7 +32,7 @@ contract ReturnDataUpkeepCompatible is KeeperCompatibleInterface {
         return ((block.timestamp - initialTimestamp) < testRange && (block.timestamp - lastTimestamp) >= interval, "");
     }
 
-    function performUpkeep(bytes calldata /* performData */) external override {
+    function performUpkeep(bytes calldata /* performData */) external {
         for (uint256 i = 0; i < length; i++) {
             data[i] = new bytes(length);
         }
