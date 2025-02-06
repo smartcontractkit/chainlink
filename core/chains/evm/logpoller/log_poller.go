@@ -892,8 +892,6 @@ func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.L
 
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
-// Retries until ctx cancelled. Will return an error if cancelled
-// or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
 	for from := start; from <= end; from += batchSize {

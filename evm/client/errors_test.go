@@ -570,7 +570,7 @@ func Test_IsTooManyResultsError(t *testing.T) {
 		})
 	}
 
-	t.Run("Context Deadline Exceeded is TooManyResults", func(t *testing.T) {
+	t.Run("Context DeadlineExceeded is TooManyResults", func(t *testing.T) {
 		assert.True(t, evmclient.IsTooManyResults(context.DeadlineExceeded, nil))
 	})
 }
