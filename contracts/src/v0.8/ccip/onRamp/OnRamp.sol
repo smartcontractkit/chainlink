@@ -214,13 +214,13 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
 
     // Convert message fee to juels and retrieve converted args.
     // Validate pool return data after it is populated (view function - no state changes).
-    Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
     bool isOutOfOrderExecution;
     bytes memory tokenReceiver;
     (newMessage.feeValueJuels, isOutOfOrderExecution, newMessage.extraArgs, tokenReceiver) = IFeeQuoter(
       s_dynamicConfig.feeQuoter
     ).processMessageArgs(destChainSelector, message.feeToken, feeTokenAmount, message.extraArgs, message.receiver);
 
+    Client.EVMTokenAmount[] memory tokenAmounts = message.tokenAmounts;
     // Lock / burn the tokens as last step. TokenPools may not always be trusted.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       newMessage.tokenAmounts[i] =
