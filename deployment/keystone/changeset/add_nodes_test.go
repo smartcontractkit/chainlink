@@ -216,10 +216,8 @@ func TestAddNodes(t *testing.T) {
 							tc.checkErr(t, useMCMS, err)
 							return
 						}
-						//nolint:staticcheck SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-						require.NotNil(t, r.Proposals)
-						//nolint:staticcheck SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-						require.Len(t, r.Proposals, 1)
+						require.NotNil(t, r.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+						require.Len(t, r.Proposals, 1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 						applyErr := applyProposal(t, tc.input.te, []commonchangeset.ChangesetApplication{
 							{
 								Changeset: commonchangeset.WrapChangeSet(changeset.AddNodes),

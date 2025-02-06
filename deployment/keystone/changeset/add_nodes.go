@@ -251,8 +251,8 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		//nolint:staticcheck SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+
+		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal} //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 	}
 	return out, nil
 }
