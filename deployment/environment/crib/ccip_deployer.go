@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,7 +25,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -340,4 +346,138 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
 		NodeIDs:     e.NodeIDs,
 	}, err
+}
+
+type RMNNodeConfig struct {
+	changeset.RMNNopConfig
+	rageproxyKeystore string
+	rmnKeystore       string
+	passphrase        string
+}
+
+func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, nodes []RMNNodeConfig) error {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return err
+	}
+
+	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
+	for i, node := range nodes {
+		rmnNodes[i] = rmn_home.RMNHomeNode{
+			PeerId:            node.PeerId,
+			OffchainPublicKey: node.OffchainPublicKey,
+		}
+	}
+
+	_, err = changeset.SetRMNHomeCandidateConfigChangeset(*e, changeset.SetRMNHomeCandidateConfig{
+		HomeChainSelector: homeChainSel,
+		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+			Nodes:          rmnNodes,
+			OffchainConfig: []byte{},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return err
+	}
+
+	configDigest, err := state.Chains[homeChainSel].RMNHome.GetCandidateDigest(nil)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(*e, changeset.PromoteRMNHomeCandidateConfig{
+		HomeChainSelector: homeChainSel,
+		DigestToPromote:   configDigest,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	signers := make([]rmn_remote.RMNRemoteSigner, len(nodes))
+	for i, node := range nodes {
+		signers[i] = node.ToRMNRemoteSigner()
+	}
+
+	allChains := e.AllChainSelectors()
+	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
+	for _, chain := range allChains {
+		rmnRemoteConfig[chain] = changeset.RMNRemoteConfig{
+			Signers: signers,
+			F:       1,
+		}
+	}
+
+	_, err = changeset.SetRMNRemoteConfigChangeset(*e, changeset.SetRMNRemoteConfig{
+		HomeChainSelector: homeChainSel,
+		RMNRemoteConfigs:  rmnRemoteConfig,
+	})
+	if err != nil {
+		return err
+	}
+
+	updates := make(map[uint64]changeset.OffRampParams)
+	for _, chainIdx := range allChains {
+		updates[chainIdx] = changeset.OffRampParams{
+			IsRMNVerificationDisabled:               false,
+			PermissionLessExecutionThresholdSeconds: 86400,
+		}
+	}
+
+	_, err = changeset.UpdateDynamicConfigOffRampChangeset(*e, changeset.UpdateDynamicConfigOffRampConfig{
+		Updates: updates,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GenerateRMNNodeIdentities(rmnNodeCount uint) ([]RMNNodeConfig, error) {
+	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
+	net, err := docker.CreateNetwork(lggr)
+	defer net.Remove(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
+
+	for i := uint(0); i < rmnNodeCount; i++ {
+		peerId, rawKeystore, _, err := devenv.GeneratePeerId(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "rageproxy", "latest")
+		if err != nil {
+			return nil, err
+		}
+
+		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "afn2proxy", "latest")
+		if err != nil {
+			return nil, err
+		}
+
+		newPeedId, err := p2pkey.MakePeerID(peerId.String())
+		if err != nil {
+			return nil, err
+		}
+
+		rmnNodeConfigs[i] = RMNNodeConfig{
+			RMNNopConfig: changeset.RMNNopConfig{
+				NodeIndex:           uint64(i),
+				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
+				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
+				PeerId:              newPeedId,
+			},
+			rageproxyKeystore: rawKeystore,
+			rmnKeystore:       rawRMNKeystore,
+			passphrase:        afnPassphrase,
+		}
+	}
+	return rmnNodeConfigs, nil
 }
