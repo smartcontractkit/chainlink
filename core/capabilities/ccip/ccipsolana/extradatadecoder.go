@@ -7,8 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -41,15 +39,6 @@ func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSe
 		return nil, nil
 	}
 
-	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
-	}
-
-	if family != chainsel.FamilySolana {
-		return nil, fmt.Errorf("chain selector family is %d, expect %s", sourceChainSelector, chainsel.FamilySolana)
-	}
-
 	return DecodeExtraArgsToMap(extraArgs)
 }
 
@@ -57,15 +46,6 @@ func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Byt
 	if len(destExecData) == 0 {
 		// return empty map if destExecData is empty
 		return nil, nil
-	}
-
-	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
-	}
-
-	if family != chainsel.FamilySolana {
-		return nil, fmt.Errorf("chain selector family is %d, expect %s", sourceChainSelector, chainsel.FamilySolana)
 	}
 
 	return DecodeDestExecDataToMap(destExecData)
