@@ -6,28 +6,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-type ExtraDataCodec struct{}
-
-func NewExtraDataCodec() ExtraDataCodec {
-	return ExtraDataCodec{}
-}
-
-func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	if len(extraArgs) == 0 {
-		// return empty map if extraArgs is empty
-		return nil, nil
-	}
-	return DecodeExtraArgsToMap(extraArgs)
-}
-
-func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	if len(destExecData) == 0 {
-		// return empty map if destExecData is empty
-		return nil, nil
-	}
-	return DecodeDestExecDataToMap(destExecData)
-}
-
 func DecodeDestExecDataToMap(DestExecData cciptypes.Bytes) (map[string]interface{}, error) {
 	destGasAmount, err := abiDecodeUint32(DestExecData)
 	if err != nil {

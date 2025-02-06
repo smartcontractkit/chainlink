@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -279,7 +279,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		nil,
 		chainD,
 		rmnRemoteAddr.Bytes(),
-		ccipevm.NewExtraDataCodec(),
+		ccipcommon.NewExtraDataCodec(),
 	)
 
 	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
@@ -404,7 +404,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
-		ccipevm.NewExtraDataCodec(),
+		ccipcommon.NewExtraDataCodec(),
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1515,7 +1515,7 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraDataCodec()
+	edc := ccipcommon.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, edc)
 
 	return reader
@@ -1631,7 +1631,7 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	edc := ccipevm.NewExtraDataCodec()
+	edc := ccipcommon.NewExtraDataCodec()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, edc)
 
 	t.Cleanup(func() {

@@ -2,14 +2,11 @@ package ccipsolana
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 )
@@ -28,30 +25,6 @@ var (
 	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
-
-type ExtraDataCodec struct{}
-
-func NewExtraDataCodec() ExtraDataCodec {
-	return ExtraDataCodec{}
-}
-
-func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	if len(extraArgs) == 0 {
-		// return empty map if extraArgs is empty
-		return nil, errors.New("empty extra arguments")
-	}
-
-	return DecodeExtraArgsToMap(extraArgs)
-}
-
-func (c ExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
-	if len(destExecData) == 0 {
-		// return empty map if destExecData is empty
-		return nil, nil
-	}
-
-	return DecodeDestExecDataToMap(destExecData)
-}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any, which will be saved in ocr report.message.ExtraArgsDecoded
 func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
