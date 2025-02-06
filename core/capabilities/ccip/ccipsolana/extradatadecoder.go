@@ -2,6 +2,7 @@ package ccipsolana
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -36,7 +37,7 @@ func NewExtraDataCodec() ExtraDataCodec {
 func (c ExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error) {
 	if len(extraArgs) == 0 {
 		// return empty map if extraArgs is empty
-		return nil, nil
+		return nil, errors.New("empty extra arguments")
 	}
 
 	return DecodeExtraArgsToMap(extraArgs)
