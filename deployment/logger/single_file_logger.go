@@ -42,7 +42,7 @@ func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 		log.Fatalf("Failed to create logs dir %q: %v", dir, err)
 	}
 
-	fullPath, err := filepath.Abs(filepath.Join(dir, filename))
+	fullPath, err := filepath.Abs(filepath.Join(baseDir, filename))
 	if err != nil {
 		log.Fatalf("Failed to get absolute path for %q: %v", fullPath, err)
 	}
