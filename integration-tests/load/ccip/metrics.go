@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"context"
 	"fmt"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ type MetricManager struct {
 	loki      *wasp.LokiClient
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
-	DoneChan  chan struct{}
+	ctx       context.Context
 }
 
 type metricState struct {
@@ -45,40 +46,29 @@ type messageData struct {
 	round     int
 }
 
-func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
+func NewMetricsManager(ctx context.Context, t *testing.T, l logger.Logger) *MetricManager {
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
 
 	return &MetricManager{
+		ctx:       ctx,
 		lggr:      l,
 		loki:      loki,
 		InputChan: make(chan messageData),
-		DoneChan:  make(chan struct{}),
 		state:     make(map[srcDstSeqNum]metricState),
 	}
 }
 
 func (mm *MetricManager) Stop() {
-	if isClosed(mm.DoneChan) {
-		return
-	}
-	close(mm.DoneChan)
 	close(mm.InputChan)
 }
 
-func isClosed(ch <-chan struct{}) bool {
-	select {
-	case <-ch:
-		return true
-	default:
-		return false
-	}
-}
 func (mm *MetricManager) Start() {
 	for {
 		select {
-		case <-mm.DoneChan:
+		case <-mm.ctx.Done():
+			mm.lggr.Infow("received timeout, pushing remaining state to loki")
 			// any remaining data in state should be pushed to loki as incomplete
 			for srcDstSeqNum, metricState := range mm.state {
 				commitDuration, execDuration := uint64(0), uint64(0)
@@ -101,6 +91,7 @@ func (mm *MetricManager) Start() {
 					SequenceNumber: srcDstSeqNum.seqNum,
 				})
 			}
+			close(mm.InputChan)
 			mm.loki.Stop()
 			return
 		case data := <-mm.InputChan:
@@ -116,14 +107,16 @@ func (mm *MetricManager) Start() {
 				state.round = data.round
 			}
 			mm.state[data.srcDstSeqNum] = state
+			if data.eventType == executed {
 
+				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "round", state.round, "timestamps", state.timestamps)
+			}
 			// we have all data needed to push to Loki
 			if state.timestamps[0] != 0 && state.timestamps[1] != 0 && state.timestamps[2] != 0 {
 				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
-				mm.lggr.Infow("publishing data for ", "dst", data.dst, "seqNum", data.seqNum, "round", state.round)
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
 					ExecDuration:   state.timestamps[2] - state.timestamps[1],
 					CommitDuration: state.timestamps[1] - state.timestamps[0],

@@ -47,6 +47,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// comment out when executing the test
 	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
+	ctx, cancel := context.WithCancel(tests.Context(t))
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
@@ -77,7 +78,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 
-	mm := NewMetricsManager(t, env.Logger)
+	mm := NewMetricsManager(ctx, t, env.Logger)
 	go mm.Start()
 	defer mm.Stop()
 
@@ -87,7 +88,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// Only create a destination gun if we have decided to send traffic to this chain
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
-		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(context.Background(), nil)
+		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[cs] = &block
@@ -133,7 +134,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 		wg.Add(2)
 		go subscribeCommitEvents(
-			tests.Context(t),
+			ctx,
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,
@@ -145,7 +146,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			&wg,
 			mm.InputChan)
 		go subscribeExecutionEvents(
-			tests.Context(t),
+			ctx,
 			lggr,
 			state.Chains[cs].OffRamp,
 			otherChains,
@@ -207,8 +208,18 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		}
 	}
 
+	// after load is finished, wait for a "timeout duration" before considering that messages are timed out
+	timeout := userOverrides.GetTimeoutDuration()
+	if timeout != 0 {
+		testTimer := time.NewTimer(timeout)
+		go func() {
+			<-testTimer.C
+			cancel()
+		}()
+	}
+
 	wg.Wait()
-	lggr.Infow("finished wait group")
+	lggr.Infow("closed event subscribers")
 }
 
 // setupTokens deploys transferable tokens on the source and dest, mints tokens for the source and dest, and
