@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 	commontypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type headSaver struct {

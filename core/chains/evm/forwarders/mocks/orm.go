@@ -4,7 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	big "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	big "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	context "context"
 

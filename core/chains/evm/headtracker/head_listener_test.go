@@ -17,11 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -48,7 +47,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	subscribeAwaiter := testutils.NewAwaiter()
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := commonmocks.NewSubscription(t)
+	sub := clienttest.NewSubscription(t)
 	ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(chHeads), sub, nil).Once().Run(func(args mock.Arguments) {
 		subscribeAwaiter.ItHappened()
 	})
@@ -101,7 +100,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	subscribeAwaiter := testutils.NewAwaiter()
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := commonmocks.NewSubscription(t)
+	sub := clienttest.NewSubscription(t)
 	ethClient.On("SubscribeToHeads", mock.Anything).Return((<-chan *evmtypes.Head)(chHeads), sub, nil).Once().Run(func(args mock.Arguments) {
 		subscribeAwaiter.ItHappened()
 	})
@@ -155,7 +154,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 
 			chSubErrTest := make(chan error)
 			var chSubErr <-chan error = chSubErrTest
-			sub := commonmocks.NewSubscription(t)
+			sub := clienttest.NewSubscription(t)
 			// sub.Err is called twice because we enter the select loop two times: once
 			// initially and once again after exactly one head has been received
 			sub.On("Err").Return(chSubErr).Twice()
@@ -193,7 +192,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				// Expect a resubscribe
 				chSubErrTest2 := make(chan error)
 				var chSubErr2 <-chan error = chSubErrTest2
-				sub2 := commonmocks.NewSubscription(t)
+				sub2 := clienttest.NewSubscription(t)
 				sub2.On("Err").Return(chSubErr2)
 				subscribeAwaiter2 := testutils.NewAwaiter()
 
