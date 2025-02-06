@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -1403,7 +1404,7 @@ func Transfer(
 	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
-	receiver common.Address,
+	receiver []byte,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
@@ -1413,7 +1414,7 @@ func Transfer(
 	startBlocks[destChain] = &block
 
 	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
+		Receiver:     common.LeftPadBytes(receiver, 32),
 		Data:         data,
 		TokenAmounts: tokens,
 		FeeToken:     common.HexToAddress("0x0"),
@@ -1425,13 +1426,13 @@ func Transfer(
 type TestTransferRequest struct {
 	Name                   string
 	SourceChain, DestChain uint64
-	Receiver               common.Address
+	Receiver               []byte
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
-	ExpectedTokenBalances map[common.Address]*big.Int
+	ExpectedTokenBalances []ExpectedBalance
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1451,7 +1452,7 @@ func TransferMultiple(
 	map[uint64]*uint64,
 	map[SourceDestPair]cciptypes.SeqNumRange,
 	map[SourceDestPair]map[uint64]int,
-	map[uint64]map[TokenReceiverIdentifier]*big.Int,
+	map[uint64][]ExpectedTokenBalance,
 ) {
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNums := make(map[SourceDestPair]cciptypes.SeqNumRange)
@@ -1494,67 +1495,49 @@ func TransferMultiple(
 	return startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances
 }
 
-// TransferAndWaitForSuccess sends a message from sourceChain to destChain and waits for it to be executed
-func TransferAndWaitForSuccess(
-	ctx context.Context,
-	t *testing.T,
-	env deployment.Environment,
-	state changeset.CCIPOnChainState,
-	sourceChain, destChain uint64,
-	tokens []router.ClientEVMTokenAmount,
-	receiver common.Address,
-	data []byte,
-	expectedStatus int,
-	extraArgs []byte,
-) {
-	identifier := SourceDestPair{
-		SourceChainSelector: sourceChain,
-		DestChainSelector:   destChain,
-	}
-
-	expectedSeqNum := make(map[SourceDestPair]uint64)
-	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
-
-	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, data, extraArgs)
-	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
-	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
-
-	// Wait for all commit reports to land.
-	ConfirmCommitForAllWithExpectedSeqNums(t, env, state, expectedSeqNum, startBlocks)
-
-	// Wait for all exec reports to land
-	states := ConfirmExecWithSeqNrsForAll(t, env, state, expectedSeqNumExec, startBlocks)
-	require.Equal(t, expectedStatus, states[identifier][msgSentEvent.SequenceNumber])
-}
-
 // TokenBalanceAccumulator is a convenient accumulator to aggregate expected balances of different tokens
 // used across the tests. You can iterate over your test cases and build the final "expected" balances for tokens (per chain, per sender)
 // For instance, if your test runs multiple transfers for the same token, and you want to verify the balance of tokens at
 // the end of the execution, you can simply use that struct for aggregating expected tokens
 // Please also see WaitForTokenBalances to better understand how you can assert token balances
-type TokenBalanceAccumulator map[uint64]map[TokenReceiverIdentifier]*big.Int
+type TokenBalanceAccumulator map[uint64][]ExpectedTokenBalance
 
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
-	receiver common.Address,
-	expectedBalance map[common.Address]*big.Int) {
-	for token, balance := range expectedBalance {
+	receiver []byte,
+	expectedBalances []ExpectedBalance) {
+	for _, expected := range expectedBalances {
+		token := expected.Token
+		balance := expected.Amount
 		tkIdentifier := TokenReceiverIdentifier{token, receiver}
 
-		if _, ok := t[destChain]; !ok {
-			t[destChain] = make(map[TokenReceiverIdentifier]*big.Int)
+		idx := slices.IndexFunc(t[destChain], func(b ExpectedTokenBalance) bool {
+			return slices.Equal(b.Receiver.receiver, tkIdentifier.receiver) && slices.Equal(b.Receiver.token, tkIdentifier.token)
+		})
+
+		if idx < 0 {
+			t[destChain] = append(t[destChain], ExpectedTokenBalance{
+				Receiver: tkIdentifier,
+				Amount:   balance,
+			})
+		} else {
+			t[destChain][idx].Amount = new(big.Int).Add(t[destChain][idx].Amount, balance)
 		}
-		actual, ok := t[destChain][tkIdentifier]
-		if !ok {
-			actual = big.NewInt(0)
-		}
-		t[destChain][tkIdentifier] = new(big.Int).Add(actual, balance)
 	}
 }
 
+type ExpectedBalance struct {
+	Token  []byte
+	Amount *big.Int
+}
+
+type ExpectedTokenBalance struct {
+	Receiver TokenReceiverIdentifier
+	Amount   *big.Int
+}
 type TokenReceiverIdentifier struct {
-	token    common.Address
-	receiver common.Address
+	token    []byte
+	receiver []byte
 }
 
 // WaitForTokenBalances waits for multiple ERC20 tokens to reach a particular balance
@@ -1564,16 +1547,33 @@ type TokenReceiverIdentifier struct {
 func WaitForTokenBalances(
 	ctx context.Context,
 	t *testing.T,
-	chains map[uint64]deployment.Chain,
-	expectedBalances map[uint64]map[TokenReceiverIdentifier]*big.Int,
+	env deployment.Environment,
+	expectedBalances map[uint64][]ExpectedTokenBalance,
 ) {
 	errGrp := &errgroup.Group{}
-	for chainID, tokens := range expectedBalances {
-		for id, balance := range tokens {
-			id := id
-			balance := balance
+	for chainSelector, tokens := range expectedBalances {
+		for _, expected := range tokens {
+			id := expected.Receiver
+			balance := expected.Amount
 			errGrp.Go(func() error {
-				WaitForTheTokenBalance(ctx, t, id.token, id.receiver, chains[chainID], balance)
+				family, err := chainsel.GetSelectorFamily(chainSelector)
+				if err != nil {
+					return err
+				}
+
+				switch family {
+				case chainsel.FamilyEVM:
+					token := common.BytesToAddress(id.token)
+					receiver := common.BytesToAddress(id.receiver)
+					WaitForTheTokenBalance(ctx, t, token, receiver, env.Chains[chainSelector], balance)
+				case chainsel.FamilySolana:
+					expectedBalance := balance.Uint64()
+					// TODO: need to pass env rather than chains
+					token := solana.PublicKeyFromBytes(id.token)
+					receiver := solana.PublicKeyFromBytes(id.receiver)
+					WaitForTheTokenBalanceSol(ctx, t, token, receiver, env.SolChains[chainSelector], expectedBalance)
+				default:
+				}
 				return nil
 			})
 		}

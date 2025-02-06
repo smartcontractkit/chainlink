@@ -6,7 +6,6 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -100,9 +99,9 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver: utils.RandomAddress(),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				destToken.Address(): oneE18,
+			Receiver: utils.RandomAddress().Bytes(),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{destToken.Address().Bytes(), oneE18},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -116,9 +115,9 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address(),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				destToken.Address(): oneE18,
+			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{destToken.Address().Bytes(), oneE18},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -140,11 +139,11 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
-				srcToken.Address():          oneE18,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{selfServeSrcToken.Address().Bytes(), new(big.Int).Add(oneE18, oneE18)},
+				{srcToken.Address().Bytes(), oneE18},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -162,11 +161,11 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: new(big.Int).Add(oneE18, oneE18),
 				},
 			},
-			Receiver:  utils.RandomAddress(),
+			Receiver:  utils.RandomAddress().Bytes(),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				selfServeSrcToken.Address(): oneE18,
-				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{selfServeSrcToken.Address().Bytes(), oneE18},
+				{srcToken.Address().Bytes(), new(big.Int).Add(oneE18, oneE18)},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -184,12 +183,12 @@ func TestTokenTransfer(t *testing.T) {
 					Amount: oneE18,
 				},
 			},
-			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
 			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
 			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				selfServeSrcToken.Address(): big.NewInt(0),
-				srcToken.Address():          big.NewInt(0),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{selfServeSrcToken.Address().Bytes(), big.NewInt(0)},
+				{srcToken.Address().Bytes(), big.NewInt(0)},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
 		},
