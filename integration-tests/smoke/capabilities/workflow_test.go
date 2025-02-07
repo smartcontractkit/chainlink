@@ -74,12 +74,8 @@ type WorkflowConfig struct {
 	WorkflowFolderLocation *string             `toml:"workflow_folder_location"`
 	CompiledWorkflowConfig *CompiledConfig     `toml:"compiled_config"`
 	DependenciesConfig     *DependenciesConfig `toml:"dependencies"`
-	// id, which will be used, when registering the DON with the workflow registry,
-	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
-	WorkflowDonID     uint32 `toml:"workflow_don_id" validate:"required"`
-	CapabilitiesDonID uint32 `toml:"capabilities_don_id" validate:"required"`
-	WorkflowName      string `toml:"workflow_name" validate:"required" `
-	FeedID            string `toml:"feed_id" validate:"required"`
+	WorkflowName           string              `toml:"workflow_name" validate:"required" `
+	FeedID                 string              `toml:"feed_id" validate:"required"`
 }
 
 // Defines relases/versions of test dependencies that will be downloaded from Github
@@ -97,11 +93,10 @@ type CompiledConfig struct {
 }
 
 type TestConfig struct {
-	BlockchainA    *blockchain.Input         `toml:"blockchain_a" validate:"required"`
-	NodeSetA       *CapabilitiesAwareNodeSet `toml:"nodeset_a" validate:"required"`
-	NodeSetB       *CapabilitiesAwareNodeSet `toml:"nodeset_b"`
-	WorkflowConfig *WorkflowConfig           `toml:"workflow_config" validate:"required"`
-	JD             *jd.Input                 `toml:"jd" validate:"required"`
+	BlockchainA    *blockchain.Input           `toml:"blockchain_a" validate:"required"`
+	NodeSets       []*CapabilitiesAwareNodeSet `toml:"nodesets" validate:"required"`
+	WorkflowConfig *WorkflowConfig             `toml:"workflow_config" validate:"required"`
+	JD             *jd.Input                   `toml:"jd" validate:"required"`
 }
 
 type CapabilitiesAwareNodeSet struct {
@@ -953,6 +948,7 @@ const (
 	CronCapability
 	CustomComputeCapability
 	WriteEVMCapability
+	// Add more capabilities as needed here
 )
 
 const (
@@ -1008,11 +1004,53 @@ func hasFlag(value uint, flag uint) bool {
 	return value&flag != 0
 }
 
+func mustOneDONTopologyWithFlag(t *testing.T, donTopologies []*DONTopology, flag uint) *DONTopology {
+	donTopologies = DONTopologyWithFlag(donTopologies, flag)
+	require.Len(t, donTopologies, 1, "expected exactly one DON topology with flag %d", flag)
+
+	return donTopologies[0]
+}
+
+func DONTopologyWithFlag(donTopologies []*DONTopology, flag uint) []*DONTopology {
+	var result []*DONTopology
+
+	for _, donTopology := range donTopologies {
+		if hasFlag(donTopology.Flags, flag) {
+			result = append(result, donTopology)
+		}
+	}
+
+	return result
+}
+
+type PeeringData struct {
+	GlobalBootstraperPeerId  string
+	GlobalBootstraperAddress string
+	Enabled                  bool
+}
+
+func peeringData(donTopologies []*DONTopology) (PeeringData, error) {
+	if len(donTopologies) == 1 {
+		return PeeringData{Enabled: false}, nil
+	}
+
+	globalBootstraperPeerId, globalBootstraperAddress, err := globalBootstraperNodeData(donTopologies)
+	if err != nil {
+		return PeeringData{}, err
+	}
+
+	return PeeringData{
+		GlobalBootstraperPeerId:  globalBootstraperPeerId,
+		GlobalBootstraperAddress: globalBootstraperAddress,
+		Enabled:                  true,
+	}, nil
+}
+
 func configureNodes(t *testing.T, donTopologies []*DONTopology, ctfEnv *deployment.Environment, jdOutput *jd.Output, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, workflowRegistryAddr common.Address) ([]*DONTopology, *deployment.Environment) {
 	require.GreaterOrEqual(t, len(donTopologies), 1, "expected at least one DON topology")
 
-	globalBootstraperPeerId, globalBootstraperAddress, err := globalBootstraperNodeData(donTopologies)
-	require.NoError(t, err, "failed to get global bootstraper node data")
+	peeringData, err := peeringData(donTopologies)
+	require.NoError(t, err, "failed to get peering data")
 
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
@@ -1021,7 +1059,7 @@ func configureNodes(t *testing.T, donTopologies []*DONTopology, ctfEnv *deployme
 	ocr3CapabilityAddress := ocr3Contract.Address()
 
 	for i, donTopology := range donTopologies {
-		donTopologies[i].NodeOutput = configureDON(t, donTopology.DON, donTopology.NodeInput, donTopology.NodeOutput, bc, donTopology.ID, donTopology.Flags, globalBootstraperPeerId, globalBootstraperAddress, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+		donTopologies[i].NodeOutput = configureDON(t, donTopology.DON, donTopology.NodeInput, donTopology.NodeOutput, bc, donTopology.ID, donTopology.Flags, peeringData, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
 	}
 
 	nodeOutputs := make([]*WrappedNodeOutput, 0, len(donTopologies))
@@ -1029,8 +1067,8 @@ func configureNodes(t *testing.T, donTopologies []*DONTopology, ctfEnv *deployme
 		nodeOutputs = append(nodeOutputs, donTopologies[i].NodeOutput)
 	}
 
-	// after restarting the nodes, we need to reinitialize the JD clients
-	// otherwise job creation will fail due to invalidated session cookie
+	// after restarting the nodes, we need to reinitialize the JD clients otherwise
+	// communication between JD and nodes will fail due to invalidated session cookie
 	ctfEnv = reinitialiseJDClients(t, ctfEnv, jdOutput, nodeOutputs...)
 
 	for _, donTopology := range donTopologies {
@@ -1050,8 +1088,8 @@ func globalBootstraperNodeData(donTopologies []*DONTopology) (string, string, er
 		return peerId, donTopologies[0].NodeOutput.CLNodes[0].Node.ContainerName, nil
 	} else if len(donTopologies) > 1 {
 		// if there's more than one DON and remote capabilities are used, then peering capabilitity needs to point
-		// to point to the same bootstrap node for all the DONs. So we need to find it first. We assume it will
-		// be the bootstrap node of the workflow DON.
+		// the same bootstrap node for all the DONs, so we need to find it first. For us, it will always be the
+		// bootstrap node of the workflow DON.
 		for _, donTopology := range donTopologies {
 			if hasFlag(donTopology.Flags, WorkflowDON) {
 				peerId, err := nodeToP2PID(donTopology.DON.Nodes[0], keyExtractingTransformFn)
@@ -1069,19 +1107,13 @@ func globalBootstraperNodeData(donTopologies []*DONTopology) (string, string, er
 	return "", "", errors.New("expected at least one DON topology")
 }
 
-func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNodeSet, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, donID uint32, flags uint, globalBootstraperPeerId, globalBootstraperAddress string, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) *WrappedNodeOutput {
+func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNodeSet, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, donID uint32, flags uint, peeringData PeeringData, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) *WrappedNodeOutput {
 	workflowNodeSet := don.Nodes[1:]
 
 	donBootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
 	require.NoError(t, err, "failed to get bootstrap node peer ID")
 
 	donBootstrapNodeAddress := nodeOutput.CLNodes[0].Node.ContainerName
-
-	// workflow DON, use DON's bootstrap node as the global bootstrapper
-	if hasFlag(flags, WorkflowDON) {
-		globalBootstraperPeerId = donBootstrapNodePeerId
-		globalBootstraperAddress = donBootstrapNodeAddress
-	}
 
 	chainIDInt, err := strconv.Atoi(bc.ChainID)
 	require.NoError(t, err, "failed to convert chain ID to int")
@@ -1102,7 +1134,6 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				ListenAddresses = ['0.0.0.0:5001']
 				DefaultBootstrappers = ['%s@localhost:5001']
 
-				# This is needed for the target capability to be initialized
 				[[EVM]]
 				ChainID = '%s'
 
@@ -1119,7 +1150,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 
 	// do configure peering capability for workflow DON's bootstrap node, but not for other DON's bootstrap nodes
 	// since they do not have any capabilities
-	if hasFlag(flags, WorkflowDON) {
+	if peeringData.Enabled && hasFlag(flags, WorkflowDON) {
 		bootstrapNodeConfig += fmt.Sprintf(`
 				[Capabilities.Peering.V2]
 				Enabled = true
@@ -1133,7 +1164,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				NetworkID = 'evm'
 				ChainID = '%s'
 				`,
-			globalBootstraperPeerId,
+			peeringData.GlobalBootstraperPeerId,
 			"localhost", // bootstrap node should always point to itself as the bootstrapper
 			capRegAddr,
 			bc.ChainID,
@@ -1143,7 +1174,6 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 	nodeInput.NodeSpecs[0].Node.TestConfigOverrides = bootstrapNodeConfig
 
 	// configure worker nodes with p2p, peering capabilitity (for DON-2-DON communication),
-	// capability (external) registry, workflow registry and gateway connector (required for reading from workflow registry and for external communication)
 	for i := range workflowNodeSet {
 		workerNodeConfig := fmt.Sprintf(`
 				[Feature]
@@ -1157,14 +1187,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				[P2P.V2]
 				Enabled = true
 				ListenAddresses = ['0.0.0.0:5001']
-				# assuming that workflow-node0 is the bootstrap node
 				DefaultBootstrappers = ['%s@%s:5001']
-
-				[Capabilities.Peering.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:6690']
-				# assuming that workflow-node0 is the bootstrap node for peering (DON-2-DON communication)
-				DefaultBootstrappers = ['%s@%s:6690']
 
 				[[EVM]]
 				ChainID = '%s'
@@ -1182,8 +1205,6 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				`,
 			donBootstrapNodePeerId,
 			donBootstrapNodeAddress,
-			globalBootstraperPeerId,
-			globalBootstraperAddress,
 			bc.ChainID,
 			bc.Nodes[0].DockerInternalWSUrl,
 			bc.Nodes[0].DockerInternalHTTPUrl,
@@ -1191,9 +1212,21 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 			bc.ChainID,
 		)
 
+		if peeringData.Enabled {
+			workerNodeConfig += fmt.Sprintf(`
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				DefaultBootstrappers = ['%s@%s:6690']
+				`,
+				peeringData.GlobalBootstraperPeerId,
+				peeringData.GlobalBootstraperAddress,
+			)
+		}
+
 		if hasFlag(flags, WriteEVMCapability) {
 			writeEVMConfig := fmt.Sprintf(`
-				# This is required for the target capability to be initialized
+				# Required for the target capability to be initialized
 				[EVM.Workflow]
 				FromAddress = '%s'
 				ForwarderAddress = '%s'
@@ -1220,12 +1253,10 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 			workerNodeConfig += workflowRegistryConfig
 		}
 
-		// workflow DON nodes always needs gateway connector,
-		// otherwise they won't be able to fetch the workflow
-		// it's also required by custom compute, which can only
-		// run on workflow node
+		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
+		// it's also required by custom compute, which can only run on workflow node
 		if hasFlag(flags, WorkflowDON) || hasFlag(flags, CustomComputeCapability) {
-			// assume for now that gateway always used port 5003 and /node path
+			// assuming for now that gateway always used port 5003 and /node path
 			gatewayAddress := fmt.Sprintf("ws://%s:5003/node", donBootstrapNodeAddress)
 			gatewayConfig := fmt.Sprintf(`
 				[Capabilities.GatewayConnector]
@@ -1384,9 +1415,8 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// since we are using a capability that is not bundled-in, we need to copy it to the Docker container
-			// and point the job to the copied binary
 
+			// since we are using a capability that is not bundled-in, we need to point the job to the copied binary
 			if hasFlag(flags, CronCapability) {
 				cronJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
@@ -1412,7 +1442,7 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 				}
 			}
 
-			// but, be mindful that the story goes that compute needs to live on the workflow DON due to it's WASM-capability
+			// the story goes that compute needs to run on the workflow DON due to it's WASM-capability
 			if hasFlag(flags, CustomComputeCapability) {
 				computeJobSpec := fmt.Sprintf(`
 				type = "standardcapabilities"
@@ -1428,8 +1458,8 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 					globalBurst = 30
 					perSenderRPS = 1.0
 					perSenderBurst = 5
-				"""
-			`, uuid.NewString(),
+				"""`,
+					uuid.NewString(),
 				)
 
 				computeJobRequest := &jobv1.ProposeJobRequest{
@@ -1579,7 +1609,7 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "cron-trigger",
 					Version:        "1.0.0",
-					CapabilityType: uint8(0), // trigger
+					CapabilityType: 0, // TRIGGER
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
@@ -1590,7 +1620,7 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "custom-compute",
 					Version:        "1.0.0",
-					CapabilityType: uint8(1), // action
+					CapabilityType: 1, // ACTION
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
@@ -1648,10 +1678,21 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 
 	var transmissionSchedule []int
 
-	for _, donTopology := range donTopologies {
-		if hasFlag(donTopology.Flags, OCR3Capability) {
-			transmissionSchedule = []int{len(donTopology.DON.Nodes) - 1}
-			break
+	// we need a different transmission schedule if there's only 1 DON
+	if len(donTopologies) == 1 {
+		for i := range donTopologies[0].DON.Nodes {
+			if i == 0 {
+				continue
+			}
+
+			transmissionSchedule = append(transmissionSchedule, i)
+		}
+	} else {
+		for _, donTopology := range donTopologies {
+			if hasFlag(donTopology.Flags, OCR3Capability) {
+				transmissionSchedule = []int{len(donTopology.DON.Nodes) - 1}
+				break
+			}
 		}
 	}
 
@@ -1702,57 +1743,49 @@ func startJobDistributor(t *testing.T, in *TestConfig) *jd.Output {
 	return jdOutput
 }
 
+func nodeSetFlags(nodeSet *CapabilitiesAwareNodeSet) (uint, error) {
+	var stringCaps []string
+	if len(nodeSet.Capabilities) == 0 && nodeSet.DONType == "" {
+		// if no flags are set, we assign all known capabilities to the DON
+		return SingleDonFlags, nil
+	}
+
+	stringCaps = append(stringCaps, nodeSet.Capabilities...)
+	return StringsToFlags(append(stringCaps, nodeSet.DONType))
+}
+
 func buildDONTopology(t *testing.T, in *TestConfig, dons []*devenv.DON, nodeOutputs []*WrappedNodeOutput) []*DONTopology {
 	require.Equal(t, len(dons), len(nodeOutputs), "number of DONs and node outputs must match")
+	donTopologies := make([]*DONTopology, len(dons))
 
 	// one DON to do everything
 	if len(dons) == 1 {
-		flags, err := StringsToFlags(append(in.NodeSetA.Capabilities, in.NodeSetA.DONType))
-		require.NoError(t, err, "failed to convert string flags to bitmap")
+		flags, err := nodeSetFlags(in.NodeSets[0])
+		require.NoError(t, err, "failed to convert string flags to bitmap for nodeset %s", in.NodeSets[0].Name)
 
-		// if no flags are set, we assign all capabilities to the DON
-		if flags == 0 {
-			flags = SingleDonFlags
+		donTopologies[0] = &DONTopology{
+			DON:        dons[0],
+			NodeInput:  in.NodeSets[0],
+			NodeOutput: nodeOutputs[0],
+			ID:         1,
+			Flags:      flags,
 		}
+	} else {
+		for i, don := range dons {
+			flags, err := nodeSetFlags(in.NodeSets[i])
+			require.NoError(t, err, "failed to convert string flags to bitmap for nodeset %s", in.NodeSets[i].Name)
 
-		return []*DONTopology{
-			{
-				DON:        dons[0],
-				NodeInput:  in.NodeSetA,
-				NodeOutput: nodeOutputs[0],
-				ID:         in.WorkflowConfig.WorkflowDonID,
+			donTopologies[i] = &DONTopology{
+				DON:        don,
+				NodeInput:  in.NodeSets[i],
+				NodeOutput: nodeOutputs[i],
+				ID:         uint32(i + 1),
 				Flags:      flags,
-			},
-		}
-	} else if len(dons) == 2 {
-		flagsA, err := StringsToFlags(append(in.NodeSetA.Capabilities, in.NodeSetA.DONType))
-		require.NoError(t, err, "failed to convert string flags to bitmap for nodesetA")
-
-		flagsB, err := StringsToFlags(append(in.NodeSetB.Capabilities, in.NodeSetB.DONType))
-		require.NoError(t, err, "failed to convert string flags to bitmap for nodesetB")
-
-		return []*DONTopology{
-			// workflow DON
-			{
-				DON:        dons[0],
-				NodeInput:  in.NodeSetA,
-				NodeOutput: nodeOutputs[0],
-				ID:         in.WorkflowConfig.WorkflowDonID,
-				Flags:      flagsA,
-			},
-			// write chain DON
-			{
-				DON:        dons[1],
-				NodeInput:  in.NodeSetB,
-				NodeOutput: nodeOutputs[1],
-				ID:         in.WorkflowConfig.CapabilitiesDonID,
-				Flags:      flagsB,
-			},
+			}
 		}
 	}
 
-	t.Fatalf("unsupported number of DONs: %d. Must be either 1 or 2 DONs", len(dons))
-	return nil
+	return donTopologies
 }
 
 func getLogFileHandles(t *testing.T, l zerolog.Logger, ns *ns.Output) ([]*os.File, error) {
@@ -2027,8 +2060,11 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 		!!! IMPORTANT !!!
 
+		TODO:
+		- DUMP logs manually!
+		- Get rid of double pointer
+		- Remove logs before test starts
 	*/
-	// TODO: DUMP logs manually!
 
 	// clean up is LIFO, so we need to make sure we execute the debug report transmission after logs are written down
 	// by function added to clean up by framework.Load() method
@@ -2067,14 +2103,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	jdOutput := startJobDistributor(t, in)
 
 	// Deploy the DONs
-	// TODO support for dynamic number of DONs?
 	var nodeOutputs []*WrappedNodeOutput
-	if in.NodeSetA != nil && len(in.NodeSetA.NodeSpecs) > 0 {
-		nodeOutputs = append(nodeOutputs, startSingleNodeSet(t, in.NodeSetA, bc))
-	}
-
-	if in.NodeSetB != nil && len(in.NodeSetB.NodeSpecs) > 0 {
-		nodeOutputs = append(nodeOutputs, startSingleNodeSet(t, in.NodeSetB, bc))
+	for _, don := range in.NodeSets {
+		nodeOutputs = append(nodeOutputs, startSingleNodeSet(t, don, bc))
 	}
 
 	// Prepare the chainlink/deployment environment, which also configures chains for nodes and job distributor
@@ -2083,23 +2114,25 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Fund the nodes
 	fundNodes(t, dons, sc)
 
+	donTopology := buildDONTopology(t, in, dons, nodeOutputs)
+	workflowDONID := mustOneDONTopologyWithFlag(t, donTopology, WorkflowDON).ID
+
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability)
 	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnv, chainSelector)
 
 	// Deploy and pre-configure workflow registry contract (using only workflow DON id)
-	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, in.WorkflowConfig.WorkflowDonID)
+	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, workflowDONID)
 
 	// Deploy and configure Keystone Feeds Consumer contract
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly; using only workflow DON id)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.WorkflowDonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, workflowDONID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
 
 	// set variables that are needed for the cleanup function, which debugs report transmissions
 	workflowNodes = &nodeOutputs[0] // assuming that regardless of the number of DONs the first one is the workflow DON
 	wsRPCURL = &bc.Nodes[0].HostWSUrl
 
-	donTopology := buildDONTopology(t, in, dons, nodeOutputs)
 	donTopology, ctfEnv = configureNodes(t, donTopology, ctfEnv, jdOutput, bc, keystoneContractSet, workflowRegistryAddr)
 
 	// Log extra information that might help debugging

@@ -8,14 +8,12 @@
   image = "jd-test-1:latest"
 
 [workflow_config]
-	workflow_don_id = 1
-  capabilities_don_id = 2
 	workflow_name = "abcdefgasd"
   # without 0x prefix!
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = true
+  should_compile_new_workflow = false
   workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
 
   [workflow_config.dependencies]
@@ -23,23 +21,23 @@
   cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/ee56735e7814070d63c32e1c4d059a7b/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/f940187351ac8e3d20e7efdf984dbc5d/raw/4bb2de46661e0275ce525ca1a7cc2b5233fa2000/config.json596220333"
+    binary_url = "https://gist.githubusercontent.com/Tofel/0257fdf525406e2999f185ef088d324a/raw/f503a91926b7c6959c75dc611504e0f5a4cd35ee/config.json515011430"
+    config_url = "https://gist.githubusercontent.com/Tofel/0257fdf525406e2999f185ef088d324a/raw/f503a91926b7c6959c75dc611504e0f5a4cd35ee/config.json515011430"
 
-[nodeset_a]
+[[nodesets]]
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
 
-  [nodeset_a.db]
+  [nodesets.db]
     image = "postgres:12.0"
     port = 13000
     volume_name = "workflow_volume"
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -55,28 +53,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodeset_a.node_specs]]
-
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
@@ -93,9 +72,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
@@ -112,9 +91,28 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]

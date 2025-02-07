@@ -8,8 +8,6 @@
   image = "jd-test-1:latest"
 
 [workflow_config]
-	workflow_don_id = 1
-  capabilities_don_id = 2
 	workflow_name = "abcdefgasd"
   # without 0x prefix!
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
@@ -26,22 +24,22 @@
     binary_url = "https://gist.githubusercontent.com/Tofel/ee56735e7814070d63c32e1c4d059a7b/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
     config_url = "https://gist.githubusercontent.com/Tofel/f940187351ac8e3d20e7efdf984dbc5d/raw/4bb2de46661e0275ce525ca1a7cc2b5233fa2000/config.json596220333"
 
-[nodeset_a]
+[[nodesets]]
+  capabilities = ["cron", "custom-compute", "ocr3"]
+  don_type = "workflow"
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
-  capabilities = ["cron", "custom-compute", "ocr3"]
-  don_type = "workflow"
 
-  [nodeset_a.db]
+  [nodesets.db]
     image = "postgres:12.0"
     port = 13000
     volume_name = "workflow_volume"
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -57,28 +55,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodeset_a.node_specs]]
-
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
@@ -95,9 +74,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
@@ -114,9 +93,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_a.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_a.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
@@ -133,24 +112,41 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-# this DON is not used, even though chain write capability is being registered, there's no much point in using it
-# until we figure out why
-[nodeset_b]
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+  don_type = "capabilities"
+	capabilities = ["write-evm"]
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
-  don_type = "capabilities"
-	capabilities = ["write-evm"]
 
-  [nodeset_b.db]
+  [nodesets.db]
     image = "postgres:12.0"
     port = 13100
     volume_name = "capabilities_volume"
 
-  [[nodeset_b.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_b.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -166,10 +162,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_b.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_b.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -185,10 +180,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_b.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_b.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -204,10 +198,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_b.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_b.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -223,10 +216,9 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset_b.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset_b.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
