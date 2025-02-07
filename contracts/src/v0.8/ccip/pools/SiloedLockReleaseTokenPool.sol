@@ -97,15 +97,15 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     SiloConfig storage remoteConfig = s_chainConfigs[releaseOrMintIn.remoteChainSelector];
 
     // Since remoteConfig.isSiloed is used more than once, caching in memory saves gas instead of multiple SLOADs.
-    bool isSiloed = remoteConfig.isSiloed;
+    bool chainIsSiloed = remoteConfig.isSiloed;
 
     // Prevent A silent underflow by explicitly ensuring that enough funds are available to release
-    uint256 availableLiquidity = isSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
+    uint256 availableLiquidity = chainIsSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
     if (localAmount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, localAmount);
 
     // Tracking balances independently by chain is a security measure to prevent liquidity for one chain from being
     // released by another chain.
-    if (isSiloed) {
+    if (chainIsSiloed) {
       remoteConfig.tokenBalance -= localAmount;
     } else {
       s_unsiloedTokenBalance -= localAmount;

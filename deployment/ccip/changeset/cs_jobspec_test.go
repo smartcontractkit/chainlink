@@ -4,37 +4,51 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestJobSpecChangeset(t *testing.T) {
 	t.Parallel()
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-		Nodes:  4,
-	})
-	// TODO: Replace this with a changeset which proposes the jobs, and returns job ids.
-	output, err := changeset.CCIPCapabilityJobspecChangeset(e, nil)
-	require.NoError(t, err)
-	require.NotNil(t, output.JobSpecs)
+	var err error
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
+	e := tenv.Env
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
+			Config: changeset.DeployHomeChainConfig{
+				HomeChainSel:     tenv.HomeChainSel,
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[tenv.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	output, err := changeset.CCIPCapabilityJobspecChangeset(e, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, output.Jobs)
+	nodeIDs := make(map[string]struct{})
+	for _, job := range output.Jobs {
+		require.NotEmpty(t, job.JobID)
+		require.NotEmpty(t, job.Spec)
+		require.NotEmpty(t, job.Node)
+		nodeIDs[job.Node] = struct{}{}
+		_, err = ccip.ValidatedCCIPSpec(job.Spec)
+		require.NoError(t, err)
+	}
 	for _, node := range nodes {
-		jobs, exists := output.JobSpecs[node.NodeID]
-		require.True(t, exists)
-		require.NotNil(t, jobs)
-		for _, job := range jobs {
-			_, err = ccip.ValidatedCCIPSpec(job)
-			require.NoError(t, err)
-		}
+		_, ok := nodeIDs[node.NodeID]
+		require.True(t, ok)
 	}
 }
 
@@ -44,5 +58,5 @@ func TestJobSpecChangesetIdempotent(t *testing.T) {
 	// as the job specs are already created in the first call
 	output, err := changeset.CCIPCapabilityJobspecChangeset(e.Env, nil)
 	require.NoError(t, err)
-	require.Empty(t, output.JobSpecs)
+	require.Empty(t, output.Jobs)
 }

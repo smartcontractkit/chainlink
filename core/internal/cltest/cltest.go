@@ -46,7 +46,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -91,12 +97,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
@@ -1332,7 +1332,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *commonmocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *clienttest.Subscription) {
 	t.Helper()
 
 	// Start

@@ -13,11 +13,11 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/report_codec"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.ExecutePluginReport {

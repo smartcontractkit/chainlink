@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // FluxAggregatorABI initializes the Flux Aggregator ABI

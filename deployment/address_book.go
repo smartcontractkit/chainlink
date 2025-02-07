@@ -32,9 +32,9 @@ var (
 )
 
 type TypeAndVersion struct {
-	Type    ContractType   `json:"type"`
-	Version semver.Version `json:"version"`
-	Labels  LabelSet       `json:"labels,omitempty"`
+	Type    ContractType   `json:"Type"`
+	Version semver.Version `json:"Version"`
+	Labels  LabelSet       `json:"Labels,omitempty"`
 }
 
 func (tv TypeAndVersion) String() string {

@@ -6,9 +6,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -51,23 +48,6 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		} else {
 			addresses = currentEnv.ExistingAddresses
 		}
-		if out.JobSpecs != nil {
-			// TODO: Delete this when out.JobSpecs are no longer in use.
-			ctx := testcontext.Get(t)
-			for nodeID, jobs := range out.JobSpecs {
-				for _, job := range jobs {
-					// Note these auto-accept
-					_, err := currentEnv.Offchain.ProposeJob(ctx,
-						&jobv1.ProposeJobRequest{
-							NodeId: nodeID,
-							Spec:   job,
-						})
-					if err != nil {
-						return e, fmt.Errorf("failed to propose job: %w", err)
-					}
-				}
-			}
-		}
 		if out.Jobs != nil {
 			// do nothing, as these jobs auto-accept.
 		}
@@ -86,6 +66,38 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 					}
 
 					proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel)
+				}
+			}
+		}
+		if out.MCMSTimelockProposals != nil {
+			for _, prop := range out.MCMSTimelockProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+				for _, sel := range chains.ToSlice() {
+					timelockContracts, ok := timelockContractsPerChain[sel]
+					if !ok || timelockContracts == nil {
+						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
+					}
+
+					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
+					proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop, sel)
+				}
+			}
+		}
+		if out.MCMSProposals != nil {
+			for _, prop := range out.MCMSProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSProposal(t, e, &prop)
+				for _, sel := range chains.ToSlice() {
+					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
 				}
 			}
 		}

@@ -60,8 +60,6 @@ func DeployChainContractsChangeset(env deployment.Environment, c DeployChainCont
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: newAddresses,
-		Jobs:        nil,
-		JobSpecs:    nil,
 	}, nil
 }
 
@@ -362,7 +360,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		},
 		FSign: 0, // TODO: update when we have signers
 	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_remote.RMNRemoteABI, err); err != nil {
 		e.Logger.Errorw("Failed to confirm RMNRemote config", "chain", chain.String(), "err", err)
 		return err
 	}
@@ -519,7 +517,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		// Should be removed after.
 		AddedCallers: []common.Address{offRampContract.Address(), chain.DeployerKey.From},
 	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, fee_quoter.FeeQuoterABI, err); err != nil {
 		e.Logger.Errorw("Failed to confirm fee quoter authorized caller update", "chain", chain.String(), "err", err)
 		return err
 	}
@@ -527,7 +525,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 	tx, err = nmContract.ApplyAuthorizedCallerUpdates(chain.DeployerKey, nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 		AddedCallers: []common.Address{offRampContract.Address(), onRampContract.Address()},
 	})
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, nonce_manager.NonceManagerABI, err); err != nil {
 		e.Logger.Errorw("Failed to update nonce manager with ramps", "chain", chain.String(), "err", err)
 		return err
 	}
@@ -571,8 +569,6 @@ func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipR
 
 	instruction, err := solRouter.NewInitializeInstruction(
 		chain.Selector,                         // chain selector
-		deployment.SolDefaultGasLimit,          // default gas limit
-		true,                                   // allow out of order execution
 		EnableExecutionAfter,                   // period to wait before allowing manual execution
 		solana.PublicKey{},                     // fee aggregator (TODO: changeset to set the fee aggregator)
 		linkTokenAddress,                       // link token mint
