@@ -98,6 +98,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	chains := make(map[uint64]deployment.Chain)
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
+		chainCfg := chainCfg
 		g.Go(func() error {
 			selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
 			if err != nil {
