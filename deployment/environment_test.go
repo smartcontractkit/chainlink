@@ -297,15 +297,7 @@ func test32Byte(t *testing.T, s string) [32]byte {
 	return out
 }
 
-func testByte(t *testing.T, s string) []byte {
-	b := []byte(s)
-	return b
-}
-
 func hexFrom32Byte(t *testing.T, s string) string {
 	b := test32Byte(t, s)
 	return hex.EncodeToString(b[:])
-}
-func ptr[T any](v T) *T {
-	return &v
 }

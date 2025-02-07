@@ -15,7 +15,7 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/test"
+	"github.com/smartcontractkit/chainlink/deployment/environment/test"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -359,7 +359,6 @@ func TestNewJDServiceFromListNodes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.ElementsMatch(t, testData.Nodes, got.Nodes)
-
 }
 
 func testPeerID(t *testing.T, s string) p2pkey.PeerID {

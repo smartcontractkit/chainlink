@@ -354,7 +354,7 @@ func (n Node) ChainConfigs() ([]*nodev1.ChainConfig, error) {
 	return out, nil
 }
 
-func mustPeerIDFromString(s string) p2pkey.PeerID {
+func MustPeerIDFromString(s string) p2pkey.PeerID {
 	p := p2pkey.PeerID{}
 	if err := p.UnmarshalString(s); err != nil {
 		panic(err)
@@ -422,11 +422,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
-	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
-	bootstrap := false
-	peerID := mustPeerIDFromString(chainConfigs[0].Ocr2Config.P2PKeyBundle.PeerId)
-	var multiAddr string
-	var adminAddr string
 
 	// the protobuf does not map well to the domain model
 	// we have to infer the p2p key, bootstrap and multiaddr from some chain config
@@ -439,17 +434,16 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 			break
 		}
 	}
-	if goldenConfig != nil {
-		peerID = mustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId)
-		multiAddr = goldenConfig.Ocr2Config.Multiaddr
-		adminAddr = goldenConfig.AdminAddress
-		bootstrap = goldenConfig.Ocr2Config.IsBootstrap
-		if !bootstrap { // no ocr config on bootstrap
-			var err error
-			selToOCRConfig, err = chainConfigsToOCRConfig(chainConfigs)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get chain to ocr config: %w", err)
-			}
+	if goldenConfig == nil {
+		return nil, fmt.Errorf("no EVM chain config found")
+	}
+	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
+	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
+	if !bootstrap { // no ocr config on bootstrap
+		var err error
+		selToOCRConfig, err = chainConfigsToOCRConfig(chainConfigs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain to ocr config: %w", err)
 		}
 	}
 	return &Node{
@@ -458,9 +452,9 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		CSAKey:         jdNode.PublicKey,
 		SelToOCRConfig: selToOCRConfig,
 		IsBootstrap:    bootstrap,
-		PeerID:         peerID,
-		MultiAddr:      multiAddr,
-		AdminAddr:      adminAddr,
+		PeerID:         MustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId),
+		MultiAddr:      goldenConfig.Ocr1Config.Multiaddr,
+		AdminAddr:      goldenConfig.AdminAddress,
 		Labels:         jdNode.Labels,
 	}, nil
 }
@@ -492,7 +486,7 @@ func chainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,
-			PeerID:                    mustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
+			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 			ConfigEncryptionPublicKey: cpk,
 			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
@@ -503,7 +497,7 @@ func chainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 
 func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	var family string
-	switch t := c.Type; t {
+	switch c.Type {
 	case nodev1.ChainType_CHAIN_TYPE_EVM:
 		family = chain_selectors.FamilyEVM
 	case nodev1.ChainType_CHAIN_TYPE_APTOS:
@@ -513,7 +507,7 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
 		family = chain_selectors.FamilyStarknet
 	default:
-		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", t)
+		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
 
 	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)

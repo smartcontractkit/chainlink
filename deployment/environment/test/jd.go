@@ -3,17 +3,15 @@ package test
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
-	//"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	// "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -65,14 +63,13 @@ func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest)
 }
 
 func (s *JDNodeService) ListNodes(ctx context.Context, req *nodev1.ListNodesRequest) (*nodev1.ListNodesResponse, error) {
-
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	var nodes []*nodev1.Node
 	for _, w := range s.store.list() {
 		n := newJDNode(w.Node)
-		if include(req.Filter, n) {
+		if memory.ApplyNodeFilter(req.Filter, n) {
 			nodes = append(nodes, n)
 		}
 	}
@@ -117,7 +114,7 @@ func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	n, _ := s.store.getNodeByCSA(csaKey(req.PublicKey))
+	n, _ := s.store.getNodeByCSA(req.PublicKey)
 	if n != nil {
 		return nil, fmt.Errorf("node already registered with CSA key %s", req.PublicKey)
 	}
@@ -144,7 +141,7 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 	}
 	var out []*nodev1.ChainConfig
 	for _, w := range s.store.list() {
-		if include(filter, w.toJDNode()) {
+		if memory.ApplyNodeFilter(filter, w.toJDNode()) {
 			cc, err := w.Node.ChainConfigs()
 			if err != nil {
 				return nil, err
@@ -226,14 +223,6 @@ func (w *wrappedNode) toJDNode() *nodev1.Node {
 	return newJDNode(w.Node)
 }
 
-func wrapAll(m map[string]deployment.Node) map[string]*wrappedNode {
-	w := make(map[string]*wrappedNode)
-	for k, v := range m {
-		w[k] = newWrapper(v)
-	}
-	return w
-}
-
 // p2pKey is a wrapper around string to make it easier to read
 type p2pKey string
 
@@ -268,7 +257,7 @@ func newStore(node []deployment.Node) *store {
 		w := newWrapper(v)
 		s.db2[v.NodeID] = w
 		s.p2pToID[p2pKey(w.Node.PeerID.String())] = v.NodeID
-		s.csaToID[csaKey(w.Node.CSAKey)] = v.NodeID
+		s.csaToID[w.Node.CSAKey] = v.NodeID
 	}
 	return s
 }
@@ -319,45 +308,4 @@ func (s *store) put(n *wrappedNode) {
 	s.db2[n.Node.NodeID] = n
 	s.csaToID[n.Node.CSAKey] = n.NodeID
 	s.p2pToID[p2pKey(n.Node.PeerID.String())] = n.NodeID
-}
-
-func include(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
-	if filter == nil {
-		return true
-	}
-	if len(filter.Ids) > 0 {
-		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
-			return node.Id == id
-		})
-		if idx < 0 {
-			return false
-		}
-	}
-	for _, selector := range filter.Selectors {
-		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
-			return label.Key == selector.Key
-		})
-		if idx < 0 {
-			return false
-		}
-		label := node.Labels[idx]
-
-		switch selector.Op {
-		case ptypes.SelectorOp_IN:
-			values := strings.Split(*selector.Value, ",")
-			found := slices.Contains(values, *label.Value)
-			if !found {
-				return false
-			}
-		case ptypes.SelectorOp_EQ:
-			if *label.Value != *selector.Value {
-				return false
-			}
-		case ptypes.SelectorOp_EXIST:
-			// do nothing
-		default:
-			panic("unimplemented selector")
-		}
-	}
-	return true
 }
