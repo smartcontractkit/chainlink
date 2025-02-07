@@ -83,8 +83,26 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
 		}
 
+		h.lggr.Debugw("decoding dest gas amount", "destGasAmount", destGasAmount)
+
+		sourcePoolAddressABIEncoded, err := abiEncodeAddressBytes(rta.SourcePoolAddress)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
+		}
+
+		h.lggr.Debugw("abi encoded source pool address as bytes", "sourcePoolAddressABIEncoded", hexutil.Encode(sourcePoolAddressABIEncoded))
+
+		sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
+		}
+
+		h.lggr.Debugw("abi encoded source pool address as address", "sourcePoolAddressABIEncodedAsAddress", hexutil.Encode(sourcePoolAddressABIEncodedAsAddress))
+
 		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
-			SourcePoolAddress: rta.SourcePoolAddress,
+			// SourcePoolAddress: common.LeftPadBytes(rta.SourcePoolAddress, 32),
+			// SourcePoolAddress: sourcePoolAddressABIEncoded,
+			SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
 			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
@@ -124,6 +142,8 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
 	}
+
+	h.lggr.Debugw("decoded gas limit", "gasLimit", gasLimit)
 
 	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
@@ -181,6 +201,19 @@ func abiDecodeUint32(data []byte) (uint32, error) {
 
 func abiEncodeUint32(data uint32) ([]byte, error) {
 	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
+func abiEncodeAddressBytes(data []byte) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "bytes" }]`, data)
+}
+
+// TODO: this is incorrect for nonEVM sources.
+// need to revisit.
+// e.g on Solana, we would be abi.encode()ing bytes or bytes32.
+// encoding 20 bytes as a solidity bytes is not the same as encoding a 20 byte address
+// or a bytes32.
+func abiEncodeAddress(data common.Address) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "address" }]`, data)
 }
 
 // Interface compliance check
