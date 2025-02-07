@@ -11,6 +11,11 @@ type OpContext struct {
 	Log logger.Logger
 }
 
+// TODO: We might want to enforce Validation on inputs
+type Input interface {
+	Validate() error
+}
+
 type ExecuteFunc[I, O, D any] func(ctx OpContext, deps D, input I) (output O, err error)
 
 // An Operation is defined by a unique ID and version. It has a description explaining what it does.
@@ -18,11 +23,6 @@ type OperationDefinition struct {
 	ID          string
 	Version     string
 	Description string
-}
-
-// TODO: We might want to enforce Validation on inputs
-type Input interface {
-	Validate() error
 }
 
 // Operations are the low level building blocks of the system. Developers are completely free to define their own operation with their own input and output types.
