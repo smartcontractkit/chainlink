@@ -295,8 +295,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
 						src1: {
-							IsEnabled:  true,
-							TestRouter: false,
+							IsEnabled:                 true,
+							TestRouter:                false,
+							IsRMNVerificationDisabled: true,
 						},
 					},
 				},

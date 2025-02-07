@@ -151,7 +151,7 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 					},
 				},
 			},
-			MerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+			BlessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
 				{
 					SourceChainSelector: uint64(chainS1),
 					MinSeqNr:            10,
@@ -310,7 +310,6 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	}, offramp.OffRampDynamicConfig{
 		FeeQuoter:                               utils.RandomAddress(),
 		PermissionLessExecutionThresholdSeconds: 1,
-		IsRMNVerificationDisabled:               true,
 		MessageInterceptor:                      utils.RandomAddress(),
 	}, []offramp.OffRampSourceChainConfigArgs{})
 	require.NoError(t, err)
@@ -443,13 +442,13 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 	}, 30*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports, numReports-1)
-	assert.Len(t, reports[0].Report.MerkleRoots, 1)
-	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
-	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
-	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
-	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
+	assert.Len(t, reports[0].Report.BlessedMerkleRoots, 1)
+	assert.Equal(t, chainS1, reports[0].Report.BlessedMerkleRoots[0].ChainSel)
+	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.BlessedMerkleRoots[0].OnRampAddress))
+	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.Start())
+	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.End())
 	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
-		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
+		reports[0].Report.BlessedMerkleRoots[0].MerkleRoot.String())
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
 	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
@@ -504,13 +503,13 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	}, 30*time.Second, 50*time.Millisecond)
 
 	assert.Len(t, reports, numReports-1)
-	assert.Len(t, reports[0].Report.MerkleRoots, 1)
-	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
-	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
-	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
-	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
+	assert.Len(t, reports[0].Report.BlessedMerkleRoots, 1)
+	assert.Equal(t, chainS1, reports[0].Report.BlessedMerkleRoots[0].ChainSel)
+	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.BlessedMerkleRoots[0].OnRampAddress))
+	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.Start())
+	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.End())
 	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
-		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
+		reports[0].Report.BlessedMerkleRoots[0].MerkleRoot.String())
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
 	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)

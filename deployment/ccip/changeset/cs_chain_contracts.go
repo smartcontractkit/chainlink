@@ -994,6 +994,8 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 type OffRampSourceUpdate struct {
 	IsEnabled  bool // If false, disables the source by setting router to 0x0.
 	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
+	// IsRMNVerificationDisabled is a flag to disable RMN verification for this source chain.
+	IsRMNVerificationDisabled bool
 }
 
 type UpdateOffRampSourcesConfig struct {
@@ -1072,10 +1074,11 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			}
 			onRamp := state.Chains[source].OnRamp
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
-				SourceChainSelector: source,
-				Router:              router,
-				IsEnabled:           update.IsEnabled,
-				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				SourceChainSelector:       source,
+				Router:                    router,
+				IsEnabled:                 update.IsEnabled,
+				OnRamp:                    common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}
 		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
@@ -1506,7 +1509,6 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 		dCfg := offramp.OffRampDynamicConfig{
 			FeeQuoter:                               state.Chains[chainSel].FeeQuoter.Address(),
 			PermissionLessExecutionThresholdSeconds: params.PermissionLessExecutionThresholdSeconds,
-			IsRMNVerificationDisabled:               params.IsRMNVerificationDisabled,
 			MessageInterceptor:                      params.MessageInterceptor,
 		}
 		tx, err := offRamp.SetDynamicConfig(txOpts, dCfg)

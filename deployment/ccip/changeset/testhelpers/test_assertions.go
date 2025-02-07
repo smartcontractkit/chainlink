@@ -15,9 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -311,10 +312,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		if len(report.MerkleRoots) > 0 {
+		if len(report.BlessedMerkleRoots) > 0 {
 			// Check the interval of sequence numbers and make sure it matches
 			// the expected range.
-			for _, mr := range report.MerkleRoots {
+			for _, mr := range report.BlessedMerkleRoots {
 				t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
 					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
 
@@ -333,6 +334,33 @@ func ConfirmCommitWithExpectedSeqNumRange(
 				}
 			}
 		}
+
+		// todo: dedup
+		// -------------------------------------------
+		if len(report.UnblessedMerkleRoots) > 0 {
+			// Check the interval of sequence numbers and make sure it matches
+			// the expected range.
+			for _, mr := range report.UnblessedMerkleRoots {
+				t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
+
+				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
+
+				if mr.SourceChainSelector == srcSelector &&
+					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
+					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
+					t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					return true
+				}
+
+				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
+					t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					return true
+				}
+			}
+		}
+		// -------------------------------------------
+
 		return false
 	}
 
