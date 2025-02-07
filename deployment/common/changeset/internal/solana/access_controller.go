@@ -103,17 +103,19 @@ func initAccessController(
 	return nil
 }
 
+const accessControllerAccountSize = uint64(8 + 32 + 32 + ((32 * 64) + 8))
+
 func initializeAccessController(
 	e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey, account solana.PrivateKey,
 ) error {
 	// discriminator + owner + proposed owner + access_list (64 max addresses + length)
-	dataSize := uint64(8 + 32 + 32 + ((32 * 64) + 8))
-	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(), dataSize, rpc.CommitmentConfirmed)
+	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(),
+		accessControllerAccountSize, rpc.CommitmentConfirmed)
 	if err != nil {
 		return fmt.Errorf("failed to get minimum balance for rent exemption: %w", err)
 	}
 
-	createAccountInstruction, err := system.NewCreateAccountInstruction(rentExemption, dataSize,
+	createAccountInstruction, err := system.NewCreateAccountInstruction(rentExemption, accessControllerAccountSize,
 		programID, chain.DeployerKey.PublicKey(), account.PublicKey()).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to create CreateAccount instruction: %w", err)
