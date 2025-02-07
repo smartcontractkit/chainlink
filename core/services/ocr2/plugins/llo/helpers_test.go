@@ -434,7 +434,7 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"data":{"data":"foo"}}`, string(b))
+		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()

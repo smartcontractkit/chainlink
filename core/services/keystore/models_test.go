@@ -62,7 +62,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		decryptedKeyRing, err := encryptedKr.Decrypt(password)
 		require.NoError(t, err)
 		// compare cosmos keys
-		require.Equal(t, 2, len(decryptedKeyRing.Cosmos))
+		require.Len(t, decryptedKeyRing.Cosmos, 2)
 		require.Equal(t, originalKeyRing.Cosmos[tk1.ID()].PublicKey(), decryptedKeyRing.Cosmos[tk1.ID()].PublicKey())
 		require.Equal(t, originalKeyRing.Cosmos[tk2.ID()].PublicKey(), decryptedKeyRing.Cosmos[tk2.ID()].PublicKey())
 		// compare tron keys
@@ -70,15 +70,15 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.Equal(t, originalKeyRing.Tron[uk1.ID()].Base58Address(), decryptedKeyRing.Tron[uk1.ID()].Base58Address())
 		require.Equal(t, originalKeyRing.Tron[uk2.ID()].Base58Address(), decryptedKeyRing.Tron[uk2.ID()].Base58Address())
 		// compare csa keys
-		require.Equal(t, 2, len(decryptedKeyRing.CSA))
+		require.Len(t, decryptedKeyRing.CSA, 2)
 		require.Equal(t, originalKeyRing.CSA[csa1.ID()].PublicKey, decryptedKeyRing.CSA[csa1.ID()].PublicKey)
 		require.Equal(t, originalKeyRing.CSA[csa2.ID()].PublicKey, decryptedKeyRing.CSA[csa2.ID()].PublicKey)
 		// compare eth keys
-		require.Equal(t, 2, len(decryptedKeyRing.Eth))
+		require.Len(t, decryptedKeyRing.Eth, 2)
 		require.Equal(t, originalKeyRing.Eth[eth1.ID()].Address, decryptedKeyRing.Eth[eth1.ID()].Address)
 		require.Equal(t, originalKeyRing.Eth[eth2.ID()].Address, decryptedKeyRing.Eth[eth2.ID()].Address)
 		// compare ocr keys
-		require.Equal(t, 2, len(decryptedKeyRing.OCR))
+		require.Len(t, decryptedKeyRing.OCR, 2)
 		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.X, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.X)
 		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.Y)
 		require.Equal(t, originalKeyRing.OCR[ocr[0].ID()].OnChainSigning.D, decryptedKeyRing.OCR[ocr[0].ID()].OnChainSigning.D)
@@ -98,16 +98,16 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 			require.Equal(t, originalKeyRing.OCR2[id].ChainType(), decryptedKeyRing.OCR2[id].ChainType())
 		}
 		// compare p2p keys
-		require.Equal(t, 2, len(decryptedKeyRing.P2P))
+		require.Len(t, decryptedKeyRing.P2P, 2)
 		require.Equal(t, originalKeyRing.P2P[p2p1.ID()].PublicKeyHex(), decryptedKeyRing.P2P[p2p1.ID()].PublicKeyHex())
 		require.Equal(t, originalKeyRing.P2P[p2p1.ID()].PeerID(), decryptedKeyRing.P2P[p2p1.ID()].PeerID())
 		require.Equal(t, originalKeyRing.P2P[p2p2.ID()].PublicKeyHex(), decryptedKeyRing.P2P[p2p2.ID()].PublicKeyHex())
 		require.Equal(t, originalKeyRing.P2P[p2p2.ID()].PeerID(), decryptedKeyRing.P2P[p2p2.ID()].PeerID())
 		// compare solana keys
-		require.Equal(t, 2, len(decryptedKeyRing.Solana))
+		require.Len(t, decryptedKeyRing.Solana, 2)
 		require.Equal(t, originalKeyRing.Solana[sol1.ID()].GetPublic(), decryptedKeyRing.Solana[sol1.ID()].GetPublic())
 		// compare vrf keys
-		require.Equal(t, 2, len(decryptedKeyRing.VRF))
+		require.Len(t, decryptedKeyRing.VRF, 2)
 		require.Equal(t, originalKeyRing.VRF[vrf1.ID()].PublicKey, decryptedKeyRing.VRF[vrf1.ID()].PublicKey)
 		require.Equal(t, originalKeyRing.VRF[vrf2.ID()].PublicKey, decryptedKeyRing.VRF[vrf2.ID()].PublicKey)
 	})
@@ -138,7 +138,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		newRawJson, _ := json.Marshal(allKeys)
 		err = originalKeyRing.LegacyKeys.StoreUnsupported(newRawJson, originalKeyRing)
 		require.NoError(t, err)
-		require.Equal(t, originalKeyRing.LegacyKeys.legacyRawKeys.len(), 6)
+		require.Equal(t, 6, originalKeyRing.LegacyKeys.legacyRawKeys.len())
 		marshalledRawKeyRingJson, err := json.Marshal(originalKeyRing.raw())
 		require.NoError(t, err)
 		unloadedKeysJson, err := originalKeyRing.LegacyKeys.UnloadUnsupported(marshalledRawKeyRingJson)
@@ -148,7 +148,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check if keys where added to the raw json
-		require.Equal(t, shouldHaveAllKeys["foo"], []string{"bar", "biz"})
+		require.Equal(t, []string{"bar", "biz"}, shouldHaveAllKeys["foo"])
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key1.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["OCR2"], newOCR2Key2.Raw().String())
 		require.Contains(t, shouldHaveAllKeys["P2P"], newP2PKey1.Raw().String())

@@ -836,7 +836,7 @@ func ParseJSONAPIResponse(t testing.TB, resp *http.Response, resource interface{
 	input := ParseResponseBody(t, resp)
 	err := jsonapi.Unmarshal(input, resource)
 	if err != nil {
-		return fmt.Errorf("web: unable to unmarshal data, %+v", err)
+		return fmt.Errorf("web: unable to unmarshal data, %w", err)
 	}
 
 	return nil
@@ -1553,7 +1553,7 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
+		err = ds.GetContext(ctx, &count, "SELECT count(*) FROM "+tableName)
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
@@ -1585,7 +1585,7 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	require.NoError(t, err)
 
 	for _, table := range tables {
-		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err = tx.Exec("DELETE FROM " + table)
 		require.NoError(t, err)
 	}
 

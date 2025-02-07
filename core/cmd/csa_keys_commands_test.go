@@ -3,7 +3,6 @@ package cmd_test
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 
@@ -64,10 +63,10 @@ func TestShell_ListCSAKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.CSAKeyPresenters)
-	assert.Equal(t, fmt.Sprintf("csa_%s", key.PublicKeyString()), keys[0].PubKey)
+	assert.Equal(t, "csa_"+key.PublicKeyString(), keys[0].PubKey)
 }
 
 func TestShell_CreateCSAKey(t *testing.T) {
@@ -116,7 +115,7 @@ func TestShell_ImportExportCsaKey(t *testing.T) {
 	set = flag.NewFlagSet("test CSA export", 0)
 	flagSetApplyFromAction(client.ExportCSAKey, set, "")
 
-	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
+	require.NoError(t, set.Parse([]string{key.ID()}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 
@@ -146,6 +145,6 @@ func requireCSAKeyCount(t *testing.T, app chainlink.Application, length int) []c
 
 	keys, err := app.GetKeyStore().CSA().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, length, len(keys))
+	require.Len(t, keys, length)
 	return keys
 }

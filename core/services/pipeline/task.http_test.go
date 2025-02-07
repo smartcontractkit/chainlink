@@ -361,7 +361,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -376,7 +376,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.NotNil(t, result.Error)
+		assert.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -407,7 +407,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 3}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})

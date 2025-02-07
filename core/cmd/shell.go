@@ -539,7 +539,7 @@ type server struct {
 
 func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
-	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTP on %s", addr), "ip", ip, "port", port)
+	s.lggr.Infow("Listening and serving HTTP on "+addr, "ip", ip, "port", port)
 	s.httpServer = createServer(s.handler, addr, writeTimeout)
 	err := s.httpServer.ListenAndServe()
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
@@ -547,7 +547,7 @@ func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
 
 func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) error {
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
-	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTPS on %s", addr), "ip", ip, "port", port)
+	s.lggr.Infow("Listening and serving HTTPS on "+addr, "ip", ip, "port", port)
 	s.tlsServer = createServer(s.handler, addr, requestTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")

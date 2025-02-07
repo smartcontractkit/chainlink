@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -271,7 +272,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(3), fields["version"])
 		assert.Equal(t, "http://example.com/foo3", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())
@@ -354,7 +355,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(5), fields["version"])
 		assert.Equal(t, "http://example.com/foo5", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())

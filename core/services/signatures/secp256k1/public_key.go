@@ -56,7 +56,7 @@ func NewPublicKeyFromBytes(rawKey []byte) (PublicKey, error) {
 	}
 	var k PublicKey
 	if c := copy(k[:], rawKey); c != CompressedPublicKeyLength {
-		panic(fmt.Errorf("failed to copy entire key to return value"))
+		panic(errors.New("failed to copy entire key to return value"))
 	}
 	return k, nil
 }

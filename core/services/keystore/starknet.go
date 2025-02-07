@@ -191,5 +191,5 @@ func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte)
 
 // TODO what is this supposed to return for starknet?
 func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
-	return nil, fmt.Errorf("unimplemented")
+	return nil, errors.New("unimplemented")
 }

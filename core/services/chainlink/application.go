@@ -365,7 +365,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	legacyEVMChains := relayerChainInterops.LegacyEVMChains()
 	if legacyEVMChains == nil {
-		return nil, fmt.Errorf("no evm chains found")
+		return nil, errors.New("no evm chains found")
 	}
 
 	srvcs = append(srvcs, mailMon)
@@ -519,7 +519,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	} else {
-		return nil, fmt.Errorf("P2P stack required for OCR or OCR2")
+		return nil, errors.New("P2P stack required for OCR or OCR2")
 	}
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
@@ -1251,7 +1251,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 		return nil, err
 	}
 	if !app.Config.Feature().LogPoller() {
-		return nil, fmt.Errorf("FindLCA is only available if LogPoller is enabled")
+		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
 
 	lca, err := chain.LogPoller().FindLCA(ctx)
@@ -1269,7 +1269,7 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 		return err
 	}
 	if !app.Config.Feature().LogPoller() {
-		return fmt.Errorf("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
+		return errors.New("DeleteLogPollerDataAfter is only available if LogPoller is enabled")
 	}
 
 	err = chain.LogPoller().DeleteLogsAndBlocksAfter(ctx, start)

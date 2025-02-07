@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -152,7 +153,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	}
 
 	destChainFamily := chaintype.EVM
-	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
+	destRelayID := types.NewRelayID(string(destChainFamily), strconv.FormatUint(chainID, 10))
 
 	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
 	for _, n := range config.Config.Nodes {

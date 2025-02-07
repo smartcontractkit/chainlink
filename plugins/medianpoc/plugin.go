@@ -36,7 +36,7 @@ type PipelineNotFoundError struct {
 }
 
 func (e *PipelineNotFoundError) Error() string {
-	return fmt.Sprintf("no pipeline found for %s", e.Key)
+	return "no pipeline found for " + e.Key
 }
 
 func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
@@ -171,7 +171,7 @@ type reportingPluginValidationService struct {
 func (r *reportingPluginValidationService) ValidateConfig(ctx context.Context, config map[string]interface{}) error {
 	tt, ok := config["telemetryType"]
 	if !ok {
-		return fmt.Errorf("expected telemtry type")
+		return errors.New("expected telemtry type")
 	}
 	telemetryType, ok := tt.(string)
 	if !ok {

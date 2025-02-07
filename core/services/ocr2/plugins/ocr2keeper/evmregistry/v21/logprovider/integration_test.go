@@ -145,8 +145,8 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(5))
-	require.Equal(t, 1, len(contracts))
-	require.Equal(t, 1, len(addrs))
+	require.Len(t, contracts, 1)
+	require.Len(t, addrs, 1)
 
 	t.Run("update filter config", func(t *testing.T) {
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "111")

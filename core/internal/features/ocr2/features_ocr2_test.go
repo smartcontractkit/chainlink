@@ -259,7 +259,7 @@ updateInterval = "1m"
 	metaLock.Lock()
 	maps.Copy(em, expectedMeta)
 	metaLock.Unlock()
-	assert.Len(t, em, 0, "expected metadata %v", em)
+	assert.Empty(t, em, "expected metadata %v", em)
 
 	// Assert we can read the latest config digest and epoch after a report has been submitted.
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
