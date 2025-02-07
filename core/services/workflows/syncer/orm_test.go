@@ -238,62 +238,6 @@ func Test_GetWorkflowSpecByID(t *testing.T) {
 	})
 }
 
-func Test_GetWorkflowSpecByOwner(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	orm := &orm{ds: db, lggr: lggr}
-
-	t.Run("get workflows spec by owner", func(t *testing.T) {
-		workflowOwner := "owner-123"
-		defaultSpec := &job.WorkflowSpec{
-			Workflow:      "test_workflow",
-			Config:        "test_config",
-			WorkflowID:    "cid-123",
-			WorkflowOwner: workflowOwner,
-			WorkflowName:  "Test Workflow",
-			Status:        job.WorkflowSpecStatusActive,
-			BinaryURL:     "http://example.com/binary",
-			ConfigURL:     "http://example.com/config",
-			CreatedAt:     time.Now(),
-			SpecType:      job.WASMFile,
-		}
-		firstSpec := *defaultSpec
-		firstSpec.WorkflowID = "wid-1"
-		firstSpec.WorkflowName = "Test Workflow 1"
-		id, err := orm.UpsertWorkflowSpec(ctx, &firstSpec)
-		require.NoError(t, err)
-		require.NotZero(t, id)
-
-		secondSpec := *defaultSpec
-		secondSpec.WorkflowID = "wid-2"
-		secondSpec.WorkflowName = "Test Workflow 2"
-		id, err = orm.UpsertWorkflowSpec(ctx, &secondSpec)
-		require.NoError(t, err)
-		require.NotZero(t, id)
-
-		thirdSpec := *defaultSpec
-		thirdSpec.WorkflowID = "wid-3"
-		thirdSpec.WorkflowOwner = "another-owner"
-		id, err = orm.UpsertWorkflowSpec(ctx, &thirdSpec)
-		require.NoError(t, err)
-		require.NotZero(t, id)
-
-		dbSpecs, err := orm.GetWorkflowSpecByOwner(ctx, workflowOwner)
-		require.NoError(t, err)
-		require.Len(t, dbSpecs, 2)
-		require.Equal(t, firstSpec.Workflow, dbSpecs[0].Workflow)
-		require.Equal(t, secondSpec.Workflow, dbSpecs[1].Workflow)
-
-		err = orm.DeleteWorkflowSpec(ctx, firstSpec.WorkflowOwner, firstSpec.WorkflowName)
-		require.NoError(t, err)
-		err = orm.DeleteWorkflowSpec(ctx, secondSpec.WorkflowOwner, secondSpec.WorkflowName)
-		require.NoError(t, err)
-		err = orm.DeleteWorkflowSpec(ctx, thirdSpec.WorkflowOwner, thirdSpec.WorkflowName)
-		require.NoError(t, err)
-	})
-}
-
 func Test_GetContentsByWorkflowID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)

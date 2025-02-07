@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -177,8 +177,7 @@ type eventHandler struct {
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
 	ratelimiter              *ratelimiter.RateLimiter
-	globalEngineCounter      *atomic.Int32
-	globalEngineCountLimit   int32
+	workflowSyncerLimiter    *syncerlimiter.WorkflowSyncerLimiter
 }
 
 type Event interface {
@@ -186,10 +185,7 @@ type Event interface {
 	GetData() any
 }
 
-var (
-	defaultSecretsFreshnessDuration = 24 * time.Hour
-	defaultWorkflowsPerOwnerLimit   = uint(5)
-)
+var defaultSecretsFreshnessDuration = 24 * time.Hour
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -209,14 +205,6 @@ func WithMaxArtifactSize(cfg ArtifactConfig) func(*eventHandler) {
 	}
 }
 
-func WithGlobalEngineCountLimit(limit int32) func(*eventHandler) {
-	return func(eh *eventHandler) {
-		if limit != 0 {
-			eh.globalEngineCountLimit = limit
-		}
-	}
-}
-
 // NewEventHandler returns a new eventHandler instance.
 func NewEventHandler(
 	lggr logger.Logger,
@@ -228,7 +216,7 @@ func NewEventHandler(
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
 	ratelimiter *ratelimiter.RateLimiter,
-	globalEngineCounter *atomic.Int32,
+	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter,
 	opts ...func(*eventHandler),
 ) *eventHandler {
 	eh := &eventHandler{
@@ -245,7 +233,7 @@ func NewEventHandler(
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		ratelimiter:              ratelimiter,
-		globalEngineCounter:      globalEngineCounter,
+		workflowSyncerLimiter:    workflowSyncerLimiter,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
@@ -563,8 +551,10 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
+	// This shouldn't happen because we call the handler serially and
+	// check for running engines above, see the call to engineRegistry.IsRunning.
 	if err := h.engineRegistry.Add(wfID, engine); err != nil {
-		return fmt.Errorf("failed to add engine to the registry: %w", err)
+		return fmt.Errorf("invariant violation: %w", err)
 	}
 
 	return nil
@@ -615,19 +605,18 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	}
 
 	cfg := workflows.Config{
-		Lggr:                   h.lggr,
-		Workflow:               *sdkSpec,
-		WorkflowID:             id,
-		WorkflowOwner:          owner, // this gets hex encoded in the engine.
-		WorkflowName:           name,
-		Registry:               h.capRegistry,
-		Store:                  h.workflowStore,
-		Config:                 config,
-		Binary:                 binary,
-		SecretsFetcher:         h,
-		RateLimiter:            h.ratelimiter,
-		GlobalEngineCounter:    h.globalEngineCounter,
-		GlobalEngineCountLimit: h.globalEngineCountLimit,
+		Lggr:                  h.lggr,
+		Workflow:              *sdkSpec,
+		WorkflowID:            id,
+		WorkflowOwner:         owner, // this gets hex encoded in the engine.
+		WorkflowName:          name,
+		Registry:              h.capRegistry,
+		Store:                 h.workflowStore,
+		Config:                config,
+		Binary:                binary,
+		SecretsFetcher:        h,
+		RateLimiter:           h.ratelimiter,
+		WorkflowSyncerLimiter: h.workflowSyncerLimiter,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

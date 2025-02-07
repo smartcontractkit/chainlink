@@ -3,7 +3,6 @@ package workflows
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -17,16 +16,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 type Delegate struct {
-	registry               core.CapabilitiesRegistry
-	secretsFetcher         secretsFetcher
-	logger                 logger.Logger
-	store                  store.Store
-	ratelimiter            *ratelimiter.RateLimiter
-	globalEngineCounter    *atomic.Int32
-	globalEngineCountLimit int32
+	registry              core.CapabilitiesRegistry
+	secretsFetcher        secretsFetcher
+	logger                logger.Logger
+	store                 store.Store
+	ratelimiter           *ratelimiter.RateLimiter
+	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -72,14 +71,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		WorkflowName: defaultName{
 			name: spec.WorkflowSpec.WorkflowName,
 		},
-		Registry:               d.registry,
-		Store:                  d.store,
-		Config:                 config,
-		Binary:                 binary,
-		SecretsFetcher:         d.secretsFetcher,
-		RateLimiter:            d.ratelimiter,
-		GlobalEngineCounter:    d.globalEngineCounter,
-		GlobalEngineCountLimit: d.globalEngineCountLimit,
+		Registry:              d.registry,
+		Store:                 d.store,
+		Config:                config,
+		Binary:                binary,
+		SecretsFetcher:        d.secretsFetcher,
+		RateLimiter:           d.ratelimiter,
+		WorkflowSyncerLimiter: d.workflowSyncerLimiter,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -104,17 +102,15 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
-	globalEngineCounter *atomic.Int32,
-	globalEngineCountLimit int32,
+	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter,
 ) *Delegate {
 	return &Delegate{
-		logger:                 logger,
-		registry:               registry,
-		secretsFetcher:         newNoopSecretsFetcher(),
-		store:                  store,
-		ratelimiter:            ratelimiter,
-		globalEngineCounter:    globalEngineCounter,
-		globalEngineCountLimit: globalEngineCountLimit,
+		logger:                logger,
+		registry:              registry,
+		secretsFetcher:        newNoopSecretsFetcher(),
+		store:                 store,
+		ratelimiter:           ratelimiter,
+		workflowSyncerLimiter: workflowSyncerLimiter,
 	}
 }
 

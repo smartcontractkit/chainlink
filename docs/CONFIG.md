@@ -1263,6 +1263,8 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
+GlobalEngineCountLimit = 50 # Default
+WorkflowsPerOwnerLimit = 5 # Default
 ```
 
 

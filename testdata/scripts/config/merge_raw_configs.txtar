@@ -433,6 +433,8 @@ ChainID = '1'
 MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
+GlobalEngineCountLimit = 50
+WorkflowsPerOwnerLimit = 5
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''

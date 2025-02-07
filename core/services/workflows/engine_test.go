@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -39,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 const (
@@ -182,6 +182,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	})
 	require.NoError(t, err)
 
+	sl, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+		Global:   50,
+		PerOwner: 5,
+	})
+	require.NoError(t, err)
+
 	reg.SetLocalRegistry(&testConfigProvider{})
 	cfg := Config{
 		WorkflowID:    testWorkflowID,
@@ -207,10 +213,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onRateLimit: func(weid string) {
 			rateLimited <- weid
 		},
-		SecretsFetcher:      mockSecretsFetcher{},
-		clock:               clock,
-		RateLimiter:         rl,
-		GlobalEngineCounter: new(atomic.Int32),
+		SecretsFetcher:        mockSecretsFetcher{},
+		clock:                 clock,
+		RateLimiter:           rl,
+		WorkflowSyncerLimiter: sl,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -618,7 +624,7 @@ func TestEngine_RateLimit(t *testing.T) {
 	})
 }
 
-func TestEngine_EngineCountLimit(t *testing.T) {
+func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
 	t.Run("global limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -644,11 +650,17 @@ func TestEngine_EngineCountLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		globalEngineCounter := new(atomic.Int32)
-		globalEngineCounter.Add(1)
-		setGlobalEngineCountLimit := func(c *Config) {
-			c.GlobalEngineCounter = globalEngineCounter
-			c.GlobalEngineCountLimit = 1
+		workflowSyncerLimiter, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+			Global:   1,
+			PerOwner: 5,
+		})
+		require.NoError(t, err)
+
+		// we allow one owner, so the second one should be rate limited
+		workflowSyncerLimiter.Allow("some-previous-owner")
+
+		setWorkflowSyncerLimiter := func(c *Config) {
+			c.WorkflowSyncerLimiter = workflowSyncerLimiter
 		}
 
 		sdkSpec, err := (&job.WorkflowSpec{
@@ -661,9 +673,62 @@ func TestEngine_EngineCountLimit(t *testing.T) {
 			t,
 			reg,
 			sdkSpec,
-			setGlobalEngineCountLimit,
+			setWorkflowSyncerLimiter,
 		)
 		require.ErrorContains(t, err, "global engine count limit reached")
+	})
+
+	t.Run("global limit", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+		trigger, _ := mockTrigger(t)
+		require.NoError(t, reg.Add(ctx, trigger))
+		require.NoError(t, reg.Add(ctx, mockConsensus("")))
+		target1 := mockTarget("")
+		require.NoError(t, reg.Add(ctx, target1))
+
+		target2 := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_ethereum-testnet-sepolia@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a write capability targeting ethereum sepolia testnet",
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				m := req.Inputs.Underlying["report"].(*values.Map)
+				return capabilities.CapabilityResponse{
+					Value: m,
+				}, nil
+			},
+		)
+		require.NoError(t, reg.Add(ctx, target2))
+
+		workflowSyncerLimiter, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+			Global:   10,
+			PerOwner: 1,
+		})
+		require.NoError(t, err)
+
+		// we allow one workflow for this particular owner, so the second one should be rate limited
+		workflowSyncerLimiter.Allow(testWorkflowOwner)
+
+		setWorkflowSyncerLimiter := func(c *Config) {
+			c.WorkflowSyncerLimiter = workflowSyncerLimiter
+		}
+
+		sdkSpec, err := (&job.WorkflowSpec{
+			Workflow: hardcodedWorkflow,
+			SpecType: job.YamlSpec,
+		}).SDKSpec(testutils.Context(t))
+		require.NoError(t, err)
+
+		_, _, err = newTestEngine(
+			t,
+			reg,
+			sdkSpec,
+			setWorkflowSyncerLimiter,
+		)
+		require.ErrorContains(t, err, "per owner engine count limit reached")
 	})
 }
 

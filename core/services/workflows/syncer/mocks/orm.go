@@ -599,65 +599,6 @@ func (_c *ORM_GetWorkflowSpecByID_Call) RunAndReturn(run func(context.Context, s
 	return _c
 }
 
-// GetWorkflowSpecByOwner provides a mock function with given fields: ctx, owner
-func (_m *ORM) GetWorkflowSpecByOwner(ctx context.Context, owner string) ([]job.WorkflowSpec, error) {
-	ret := _m.Called(ctx, owner)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetWorkflowSpecByOwner")
-	}
-
-	var r0 []job.WorkflowSpec
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) ([]job.WorkflowSpec, error)); ok {
-		return rf(ctx, owner)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) []job.WorkflowSpec); ok {
-		r0 = rf(ctx, owner)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]job.WorkflowSpec)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, owner)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ORM_GetWorkflowSpecByOwner_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowSpecByOwner'
-type ORM_GetWorkflowSpecByOwner_Call struct {
-	*mock.Call
-}
-
-// GetWorkflowSpecByOwner is a helper method to define mock.On call
-//   - ctx context.Context
-//   - owner string
-func (_e *ORM_Expecter) GetWorkflowSpecByOwner(ctx interface{}, owner interface{}) *ORM_GetWorkflowSpecByOwner_Call {
-	return &ORM_GetWorkflowSpecByOwner_Call{Call: _e.mock.On("GetWorkflowSpecByOwner", ctx, owner)}
-}
-
-func (_c *ORM_GetWorkflowSpecByOwner_Call) Run(run func(ctx context.Context, owner string)) *ORM_GetWorkflowSpecByOwner_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *ORM_GetWorkflowSpecByOwner_Call) Return(_a0 []job.WorkflowSpec, _a1 error) *ORM_GetWorkflowSpecByOwner_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *ORM_GetWorkflowSpecByOwner_Call) RunAndReturn(run func(context.Context, string) ([]job.WorkflowSpec, error)) *ORM_GetWorkflowSpecByOwner_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Update provides a mock function with given fields: ctx, secretsURL, contents
 func (_m *ORM) Update(ctx context.Context, secretsURL string, contents string) (int64, error) {
 	ret := _m.Called(ctx, secretsURL, contents)

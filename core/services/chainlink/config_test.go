@@ -448,6 +448,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PerSenderRPS:   ptr(100.0),
 			PerSenderBurst: ptr(100),
 		},
+
 		Peering: toml.P2P{
 			IncomingMessageBufferSize: ptr[int64](13),
 			OutgoingMessageBufferSize: ptr[int64](17),
@@ -466,9 +467,11 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		ExternalRegistry: toml.ExternalRegistry{
-			Address:   ptr(""),
-			ChainID:   ptr("1"),
-			NetworkID: ptr("evm"),
+			Address:                ptr(""),
+			ChainID:                ptr("1"),
+			NetworkID:              ptr("evm"),
+			GlobalEngineCountLimit: ptr(int32(50)),
+			WorkflowsPerOwnerLimit: ptr(int32(5)),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
 			Address:                 ptr(""),

@@ -12,16 +12,10 @@ type EngineRegistry struct {
 	mu      sync.RWMutex
 }
 
-func NewEngineRegistry(opts ...func(*EngineRegistry)) *EngineRegistry {
-	er := &EngineRegistry{
+func NewEngineRegistry() *EngineRegistry {
+	return &EngineRegistry{
 		engines: make(map[string]services.Service),
 	}
-
-	for _, o := range opts {
-		o(er)
-	}
-
-	return er
 }
 
 // Add adds an engine to the registry.
@@ -31,7 +25,6 @@ func (r *EngineRegistry) Add(id string, engine services.Service) error {
 	if _, found := r.engines[id]; found {
 		return errors.New("attempting to register duplicate engine")
 	}
-
 	r.engines[id] = engine
 	return nil
 }

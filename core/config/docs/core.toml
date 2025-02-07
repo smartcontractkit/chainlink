@@ -469,6 +469,10 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 # MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 MaxConfigSize = '50.00kb' # Default
+# GlobalEngineCountLimit is the maximum number of engines that can be registered globally.
+GlobalEngineCountLimit = 50 # Default
+# WorkflowsPerOwnerLimit is the maximum number of workflows that can be registered per owner.
+WorkflowsPerOwnerLimit = 5 # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.

@@ -55,9 +55,6 @@ type WorkflowSpecsDS interface {
 
 	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
 	GetWorkflowSpecByID(ctx context.Context, id string) (*job.WorkflowSpec, error)
-
-	// GetWorkflowSpecByOwner returns all workflow spec for the given workflowOwner.
-	GetWorkflowSpecByOwner(ctx context.Context, owner string) ([]job.WorkflowSpec, error)
 }
 
 type ORM interface {
@@ -406,22 +403,6 @@ func (orm *orm) GetWorkflowSpecByID(ctx context.Context, id string) (*job.Workfl
 	}
 
 	return &spec, nil
-}
-
-func (orm *orm) GetWorkflowSpecByOwner(ctx context.Context, owner string) ([]job.WorkflowSpec, error) {
-	query := `
-		SELECT *
-		FROM workflow_specs
-		WHERE workflow_owner = $1
-	`
-
-	var specs []job.WorkflowSpec
-	err := orm.ds.SelectContext(ctx, &specs, query, owner)
-	if err != nil {
-		return nil, err
-	}
-
-	return specs, nil
 }
 
 func (orm *orm) DeleteWorkflowSpec(ctx context.Context, owner, name string) error {
