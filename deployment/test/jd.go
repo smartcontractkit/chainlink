@@ -281,7 +281,7 @@ func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.Li
 
 	var out []*nodev1.ChainConfig
 	for _, w := range s.store.list() {
-		cc, err := deployment.ChainConfigs(w.Node)
+		cc, err := w.Node.ChainConfigs()
 		if err != nil {
 			return nil, err
 		}

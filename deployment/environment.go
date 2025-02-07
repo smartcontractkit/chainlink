@@ -317,7 +317,44 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	return c, ok
 }
 
-func MustPeerIDFromString(s string) p2pkey.PeerID {
+// ChainConfigs returns the chain configs for this node
+// in the format required by JD
+//
+// WARNING: this is a lossy conversion because the Node abstraction
+// is not as rich as the JD abstraction
+func (n Node) ChainConfigs() ([]*nodev1.ChainConfig, error) {
+	var out []*nodev1.ChainConfig
+	for details, ocrCfg := range n.SelToOCRConfig {
+		c, err := detailsToChain(details)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get convert chain details: %w", err)
+		}
+		out = append(out, &nodev1.ChainConfig{
+			Chain: c,
+			// only have ocr2 in Node
+			Ocr2Config: &nodev1.OCR2Config{
+				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+					OffchainPublicKey:     hex.EncodeToString(ocrCfg.OffchainPublicKey[:]),
+					OnchainSigningAddress: hex.EncodeToString(ocrCfg.OnchainPublicKey),
+					ConfigPublicKey:       hex.EncodeToString(ocrCfg.ConfigEncryptionPublicKey[:]),
+					BundleId:              ocrCfg.KeyBundleID,
+				},
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: n.PeerID.String(),
+					// note: we don't have the public key in the OCRConfig struct
+				},
+				IsBootstrap: n.IsBootstrap,
+				Multiaddr:   n.MultiAddr,
+			},
+			AccountAddress: string(ocrCfg.TransmitAccount),
+			AdminAddress:   n.AdminAddr,
+			NodeId:         n.NodeID,
+		})
+	}
+	return out, nil
+}
+
+func mustPeerIDFromString(s string) p2pkey.PeerID {
 	p := p2pkey.PeerID{}
 	if err := p.UnmarshalString(s); err != nil {
 		panic(err)
@@ -387,7 +424,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	bootstrap := false
-	peerID := MustPeerIDFromString(chainConfigs[0].Ocr2Config.P2PKeyBundle.PeerId)
+	peerID := mustPeerIDFromString(chainConfigs[0].Ocr2Config.P2PKeyBundle.PeerId)
 	var multiAddr string
 	var adminAddr string
 
@@ -403,13 +440,13 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		}
 	}
 	if goldenConfig != nil {
-		peerID = MustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId)
+		peerID = mustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId)
 		multiAddr = goldenConfig.Ocr2Config.Multiaddr
 		adminAddr = goldenConfig.AdminAddress
 		bootstrap = goldenConfig.Ocr2Config.IsBootstrap
 		if !bootstrap { // no ocr config on bootstrap
 			var err error
-			selToOCRConfig, err = ChainToOCRConfig(chainConfigs)
+			selToOCRConfig, err = chainConfigsToOCRConfig(chainConfigs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get chain to ocr config: %w", err)
 			}
@@ -428,7 +465,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 	}, nil
 }
 
-func ChainToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
+func chainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	for _, chainConfig := range chainConfigs {
 		b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)
@@ -447,7 +484,7 @@ func ChainToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.C
 			pubkey = common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OnchainSigningAddress)
 		}
 
-		details, err := chainDetails(chainConfig.Chain)
+		details, err := chainToDetails(chainConfig.Chain)
 		if err != nil {
 			return nil, err
 		}
@@ -455,7 +492,7 @@ func ChainToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.C
 		selToOCRConfig[details] = OCRConfig{
 			OffchainPublicKey:         opk,
 			OnchainPublicKey:          pubkey,
-			PeerID:                    MustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
+			PeerID:                    mustPeerIDFromString(chainConfig.Ocr2Config.P2PKeyBundle.PeerId),
 			TransmitAccount:           types2.Account(chainConfig.AccountAddress),
 			ConfigEncryptionPublicKey: cpk,
 			KeyBundleID:               chainConfig.Ocr2Config.OcrKeyBundle.BundleId,
@@ -464,38 +501,7 @@ func ChainToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.C
 	return selToOCRConfig, nil
 }
 
-func ChainConfigs(n Node) ([]*nodev1.ChainConfig, error) {
-	var out []*nodev1.ChainConfig
-	for details, ocrCfg := range n.SelToOCRConfig {
-		c, err := detailsToChain(details)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get convert chain details: %w", err)
-		}
-		out = append(out, &nodev1.ChainConfig{
-			Chain: c,
-			Ocr2Config: &nodev1.OCR2Config{
-				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-					OffchainPublicKey:     hex.EncodeToString(ocrCfg.OffchainPublicKey[:]),
-					OnchainSigningAddress: hex.EncodeToString(ocrCfg.OnchainPublicKey),
-					ConfigPublicKey:       hex.EncodeToString(ocrCfg.ConfigEncryptionPublicKey[:]),
-					BundleId:              ocrCfg.KeyBundleID,
-				},
-				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-					PeerId: ocrCfg.PeerID.String(),
-					// note: we don't have the public key in the OCRConfig struct
-				},
-				IsBootstrap: n.IsBootstrap,
-				Multiaddr:   n.MultiAddr,
-			},
-			AccountAddress: string(ocrCfg.TransmitAccount),
-			AdminAddress:   n.AdminAddr,
-			NodeId:         n.NodeID,
-		})
-	}
-	return out, nil
-}
-
-func chainDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
+func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	var family string
 	switch t := c.Type; t {
 	case nodev1.ChainType_CHAIN_TYPE_EVM:
