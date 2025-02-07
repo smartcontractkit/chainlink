@@ -159,7 +159,6 @@ func (c *client) UnregisterFromWorkflow(ctx context.Context, unregisterRequest c
 }
 
 func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
-	c.lggr.Debugw("aaaa - executing remote execute capability")
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
 		c.requestTimeout)
 	if err != nil {
@@ -208,7 +207,6 @@ func (c *client) sendRequest(req *request.ClientRequest) error {
 }
 
 func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
-	c.lggr.Debugw("aaaa - Remote client executable receiving message", "messageID", msg.MessageId)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

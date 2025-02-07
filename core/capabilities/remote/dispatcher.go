@@ -152,7 +152,6 @@ func (d *dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
-	d.lggr.Debug("aaaa - sending message to peer ", peerID)
 	//nolint:gosec // disable G115
 	msgBody.Version = uint32(d.cfg.SupportedVersion())
 	msgBody.Sender = d.peerID[:]
@@ -175,16 +174,13 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 }
 
 func (d *dispatcher) receive() {
-	d.lggr.Info("aaaaa - started - entering receive")
 	recvCh := d.peer.Receive()
-	d.lggr.Info("aaaaa - started - entered receive")
 	for {
 		select {
 		case <-d.stopCh:
 			d.lggr.Info("stopped - exiting receive")
 			return
 		case msg := <-recvCh:
-			d.lggr.Debug("aaaa - received some message")
 			if !d.rateLimiter.Allow(msg.Sender.String()) {
 				d.lggr.Debugw("rate limit exceeded, dropping message", "sender", msg.Sender)
 				continue
