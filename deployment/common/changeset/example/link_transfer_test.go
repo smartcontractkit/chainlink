@@ -370,3 +370,76 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestLinkTransferMCMSV2(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	env := setupLinkTransferTestEnv(t)
+	chainSelector := env.AllChainSelectors()[0]
+	chain := env.Chains[chainSelector]
+	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+	require.Len(t, addrs, 6)
+
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	require.NoError(t, err)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
+	require.NoError(t, err)
+	timelockAddress := mcmsState.Timelock.Address()
+
+	// Mint some funds
+	// grant minter permissions
+	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
+		chainSelector: {
+			Timelock:  mcmsState.Timelock,
+			CallProxy: mcmsState.CallProxy,
+		},
+	}
+	// Apply the changeset
+	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
+		// the changeset produces proposals, ApplyChangesets will sign & execute them.
+		// in practice, signing and executing are separated processes.
+		{
+			Changeset: changeset.WrapChangeSet(example.LinkTransferV2),
+			Config: &example.LinkTransferConfig{
+				From: timelockAddress,
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{
+							To:    chain.DeployerKey.From,
+							Value: big.NewInt(500),
+						},
+					},
+				},
+				McmsConfig: &example.MCMSConfig{
+					MinDelay:     0,
+					OverrideRoot: true,
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Check new balances
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
+	require.NoError(t, err)
+	expectedBalance := big.NewInt(500)
+	require.Equal(t, expectedBalance, endBalance)
+
+	// check timelock balance
+	endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
+	require.NoError(t, err)
+	expectedBalance = big.NewInt(250)
+	require.Equal(t, expectedBalance, endBalance)
+}

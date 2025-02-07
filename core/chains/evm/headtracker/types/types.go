@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 	htrktypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 // HeadSaver maintains chains persisted in DB. All methods are thread-safe.

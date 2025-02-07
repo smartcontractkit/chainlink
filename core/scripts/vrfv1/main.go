@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	linktoken "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -22,7 +23,6 @@ import (
 	vrfoc "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_ownerless_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func main() {

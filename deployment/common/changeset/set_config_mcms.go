@@ -90,7 +90,7 @@ func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment
 		return nil, err
 	}
 	if !useMCMS {
-		_, err = deployment.ConfirmIfNoError(chain, tx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(chain, tx, gethwrappers.ManyChainMultiSigABI, err)
 		if err != nil {
 			return nil, err
 		}

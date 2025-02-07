@@ -215,7 +215,7 @@ func docker(id, goos, goarch, environment string, isDevspace bool) config.Docker
 
 	if strings.Contains(id, "ccip") {
 		buildFlagTemplates = append(buildFlagTemplates,
-			"--build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config")
+			"--build-arg=CL_CHAIN_DEFAULTS=/ccip-config")
 	}
 
 	if strings.Contains(id, "plugins") || isDevspace {

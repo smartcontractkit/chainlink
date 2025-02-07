@@ -186,7 +186,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	var salt [32]byte
 	binary.BigEndian.PutUint32(salt[:], uint32(time.Now().Unix()))
 	tx, err = tls.Timelock.ScheduleBatch(e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt, big.NewInt(0))
-	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("scheduled transfer ownership batch with tx %s", tx.Hash().Hex())
@@ -199,7 +199,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error executing batch: %w", err)
 	}
-	if _, err = deployment.ConfirmIfNoError(e.Chains[cfg.ChainSel], tx, err); err != nil {
+	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
@@ -266,7 +266,7 @@ func RenounceTimelockDeployer(e deployment.Environment, cfg RenounceTimelockDepl
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke deployer key: %w", err)
 	}
-	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infof("revoked deployer key from owning contract %s", tl.Address().Hex())

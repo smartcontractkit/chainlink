@@ -23,6 +23,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
@@ -42,13 +43,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type RelayGetter interface {
 	Get(types.RelayID) (loop.Relayer, error)
 	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+}
+
+type Keystore[K keystore.Key] interface {
+	GetAll() ([]K, error)
 }
 
 type Delegate struct {
@@ -280,44 +284,65 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 	return ocrKeys, nil
 }
 
+func getKeys[K keystore.Key](ks Keystore[K]) ([]string, error) {
+	result := make([]string, 0)
+
+	keys, err := ks.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("error getting all keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.ID())
+	}
+
+	return result, nil
+}
+
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
+		}
+
+		var keys []string
+		var err error
 		switch relayID.Network {
-		case relay.NetworkSolana:
-			solKeys, err := d.keystore.Solana().GetAll()
-			if err != nil {
-				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", relayID.ChainID, err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range solKeys {
-					r = append(r, key.PublicKey().String())
-				}
-				return
-			}()
 		case relay.NetworkEVM:
-			chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
-			if !ok {
-				return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
-			}
-
-			ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
-			if err != nil {
-				return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
-			}
-
-			transmitterKeys[relayID] = func() (r []string) {
-				for _, key := range ethKeys {
-					r = append(r, key.Hex())
-				}
-				return
-			}()
+			keys, err = d.getEVMKeys(ctx, chainID)
+		case relay.NetworkSolana:
+			keys, err = getKeys(d.keystore.Solana())
+		case relay.NetworkAptos:
+			keys, err = getKeys(d.keystore.Aptos())
+		case relay.NetworkCosmos:
+			keys, err = getKeys(d.keystore.Cosmos())
+		case relay.NetworkStarkNet:
+			keys, err = getKeys(d.keystore.StarkNet())
 		default:
 			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
+
+		if err != nil {
+			return nil, err
+		}
+		transmitterKeys[relayID] = keys
 	}
 	return transmitterKeys, nil
+}
+
+func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, error) {
+	result := make([]string, 0)
+	ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return result, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+	}
+
+	for _, key := range ethKeys {
+		result = append(result, key.Hex())
+	}
+	return result, nil
 }
 
 func (d *Delegate) getHomeChainContractReader(

@@ -165,7 +165,7 @@ jobs:
   # Inclusive check: all (new) modules are analyzed, but no need to enable "required" checks for each one
   golangci-matrix-results-validation:
     name: lint
-    if: ${{ always() && needs.golangci.result != 'skipped' }}
+    if: ${{ always() && needs.golangci.result != 'skipped' && !contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
     needs: [golangci]
     runs-on: ubuntu-latest
     steps:

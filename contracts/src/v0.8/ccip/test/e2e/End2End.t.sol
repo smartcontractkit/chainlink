@@ -264,7 +264,7 @@ contract E2E is OnRampSetup, OffRampSetup {
     uint256 feeAmount = router.getFee(DEST_CHAIN_SELECTOR, message);
 
     message.receiver = abi.encode(address(s_receiver));
-    Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
+    Internal.EVM2AnyRampMessage memory msgEvent = _evmMessageToEvent(
       message, sourceChainSelector, expectedSeqNum, nonce, feeAmount, feeAmount, OWNER, metadataHash, tokenAdminRegistry
     );
 

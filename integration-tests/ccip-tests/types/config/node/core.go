@@ -11,11 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	itutils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewConfigFromToml(tomlConfig []byte, opts ...node.NodeConfigOpt) (*chainlink.Config, error) {
