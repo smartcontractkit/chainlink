@@ -87,7 +87,7 @@ func getTestSolanaChainSelectors() []uint64 {
 	return result
 }
 
-func GenerateSolanaKeypair(dir string) (solana.PrivateKey, error) {
+func generateSolanaKeypair(dir string) (solana.PrivateKey, error) {
 	privateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
 		return solana.PrivateKey{}, fmt.Errorf("failed to generate private key: %w", err)
@@ -128,7 +128,7 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	chains := make(map[uint64]SolanaChain)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
-		admin, err := GenerateSolanaKeypair(tmpDir)
+		admin, err := generateSolanaKeypair(tmpDir)
 		require.NoError(t, err)
 		url, wsURL, err := solChain(t, chainID, &admin)
 		require.NoError(t, err)
