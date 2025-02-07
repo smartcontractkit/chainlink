@@ -106,7 +106,6 @@ func initMCM(
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
 
-	// FIXME: review if we need to setup an "AddressLookupTable".
 	return nil
 }
 
