@@ -983,14 +983,14 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.6.0
       CCIP_V16_TEST_ENV: docker
 
-  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_ThreeMessagesOnThreeLanesIncludingBatchingAndUnblessedRoots$
+  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_ThreeMessagesOnThreeLanesIncludingBatchingAndUnblessedRoots$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
@@ -1079,14 +1079,14 @@ runner-test-matrix:
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
-  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_ThreeMessagesOneSourceChainCursed$
+  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOneSourceChainCursed$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_ThreeMessagesOneSourceChainCursed$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOneSourceChainCursed$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
@@ -1095,14 +1095,14 @@ runner-test-matrix:
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
-  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_GlobalCurseThreeMessagesOnThreeLanes$
+  - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu20.04-8cores-32GB
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseThreeMessagesOnThreeLanes$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
