@@ -14,16 +14,19 @@ import (
 	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
 
+// TODO: Replace with call for offramp once on-chain changes are merged
+var ccipOfframpIDL string
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
+	sourceChainSelectorPath = "Info.AbstractReports.SourceChainSelector"
 	destChainSelectorPath   = "Info.AbstractReports.Messages.Header.DestChainSelector"
 	destTokenAddress        = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
 	merkleRootChainSelector = "Info.MerkleRoots.ChainSel"
+	merkleRoot              = "Info.MerkleRoots.MerkleRoot"
 )
 
-func getCommitMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey) chainwriter.MethodConfig {
-	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
+func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -36,17 +39,16 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 		},
 		ChainSpecificName: "commit",
 		LookupTables: chainwriter.LookupTables{
-			StaticLookupTables: []solana.PublicKey{
-				commonAddressesLookupTable,
+			DerivedLookupTables: []chainwriter.DerivedLookupTable{
+				getCommonAddressLookupTableConfig(offrampProgramAddress),
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			getRouterAccountConfig(routerProgramAddress),
+			getOfframpAccountConfig(offrampProgramAddress),
+			getReferenceAddressesConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
-				Name: "SourceChainState",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "SourceChainState",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
@@ -55,35 +57,42 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				IsWritable: true,
 			},
 			chainwriter.PDALookups{
-				Name: "RouterReportAccount",
-				PublicKey: chainwriter.AccountConstant{
-					Address:    routerProgramAddress,
-					IsSigner:   false,
-					IsWritable: false,
-				},
+				Name:      "CommitReport",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
-					{Dynamic: chainwriter.AccountLookup{
-						Location: "Info.MerkleRoots.MerkleRoot",
-					}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRoot}},
+				},
+				IsSigner:   false,
+				IsWritable: true,
+			},
+			getAuthorityAccountConstant(fromAddress),
+			getSystemProgramConstant(),
+			getSysVarInstructionConstant(),
+			chainwriter.PDALookups{
+				Name:      "FeeBillingSigner",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("fee_billing_signer")},
 				},
 				IsSigner:   false,
 				IsWritable: false,
 			},
-			getAuthorityAccountConstant(fromAddress),
-			getSystemProgramConstant(),
-			chainwriter.AccountConstant{
-				Name:       "SysvarInstructions",
-				Address:    sysvarInstructionsAddress,
-				IsSigner:   true,
+			getFeeQuoterConfig(offrampProgramAddress),
+			chainwriter.PDALookups{
+				Name: "FeeQuoterConfig",
+				// Fetch fee quoter public key to use as program ID for PDA
+				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("config")},
+				},
+				IsSigner:   false,
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
-				Name: "GlobalState",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "GlobalState",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("state")},
 				},
@@ -91,10 +100,8 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
-				Name: "BillingTokenConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "BillingTokenConfig",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("fee_billing_token_config")},
 					{Dynamic: chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}},
@@ -103,10 +110,8 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
-				Name: "ChainConfigGasPrice",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "ChainConfigGasPrice",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("dest_chain_state")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
@@ -119,8 +124,7 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 	}
 }
 
-func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, commonAddressesLookupTable solana.PublicKey) chainwriter.MethodConfig {
-	sysvarInstructionsAddress := solana.SysVarInstructionsPubkey.String()
+func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -138,10 +142,8 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 				{
 					Name: "PoolLookupTable",
 					Accounts: chainwriter.PDALookups{
-						Name: "TokenAdminRegistry",
-						PublicKey: chainwriter.AccountConstant{
-							Address: routerProgramAddress,
-						},
+						Name:      "TokenAdminRegistry",
+						PublicKey: offrampAddressConstant(offrampProgramAddress),
 						Seeds: []chainwriter.Seed{
 							{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 						},
@@ -153,46 +155,39 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 						},
 					},
 				},
-			},
-			StaticLookupTables: []solana.PublicKey{
-				commonAddressesLookupTable,
+				getCommonAddressLookupTableConfig(offrampProgramAddress),
 			},
 		},
 		Accounts: []chainwriter.Lookup{
-			getRouterAccountConfig(routerProgramAddress),
+			getOfframpAccountConfig(offrampProgramAddress),
+			getReferenceAddressesConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
-				Name: "SourceChainState",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "SourceChainState",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
-				Name: "CommitReport",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "CommitReport",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("external_execution_config")},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Static: []byte("commit_report")},
+					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
 					{Dynamic: chainwriter.AccountLookup{
 						// The seed is the merkle root of the report, as passed into the input params.
-						Location: "Info.MerkleRoots.MerkleRoot",
+						Location: merkleRoot,
 					}},
 				},
 				IsSigner:   false,
 				IsWritable: true,
 			},
 			chainwriter.PDALookups{
-				Name: "ExternalExecutionConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "ExternalExecutionConfig",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_execution_config")},
 				},
@@ -201,17 +196,10 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 			},
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
-			chainwriter.AccountConstant{
-				Name:       "SysvarInstructions",
-				Address:    sysvarInstructionsAddress,
-				IsSigner:   true,
-				IsWritable: false,
-			},
+			getSysVarInstructionConstant(),
 			chainwriter.PDALookups{
-				Name: "ExternalTokenPoolsSigner",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "ExternalTokenPoolsSigner",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_token_pools_signer")},
 				},
@@ -242,10 +230,8 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
-				Name: "PerChainTokenConfig",
-				PublicKey: chainwriter.AccountConstant{
-					Address: routerProgramAddress,
-				},
+				Name:      "PerChainTokenConfig",
+				PublicKey: offrampAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("ccip_tokenpool_billing")},
 					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
@@ -277,7 +263,7 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 	}
 }
 
-func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLookupTable solana.PublicKey, fromAddress string) (chainwriter.ChainWriterConfig, error) {
+func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string) (chainwriter.ChainWriterConfig, error) {
 	// check fromAddress
 	pk, err := solana.PublicKeyFromBase58(fromAddress)
 	if err != nil {
@@ -288,38 +274,94 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 		return chainwriter.ChainWriterConfig{}, errors.New("from address cannot be empty")
 	}
 
-	// validate CCIP Router IDL, errors not expected
+	// validate CCIP Offramp IDL, errors not expected
 	var idl solanacodec.IDL
-	if err = json.Unmarshal([]byte(ccipRouterIDL), &idl); err != nil {
-		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
+	if err = json.Unmarshal([]byte(ccipOfframpIDL), &idl); err != nil {
+		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Offramp IDL, error: %w", err)
 	}
 
-	// solConfig references the ccip_example_config.go from github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter, which is currently subject to change
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
-			"ccip-router": {
+			"ccip-offramp": {
 				Methods: map[string]chainwriter.MethodConfig{
-					"execute": getExecuteMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable),
-					"commit":  getCommitMethodConfig(fromAddress, routerProgramAddress, commonAddressesLookupTable),
+					"execute": getExecuteMethodConfig(fromAddress, offrampProgramAddress),
+					"commit":  getCommitMethodConfig(fromAddress, offrampProgramAddress),
 				},
-				IDL: ccipRouterIDL},
+				IDL: ccipOfframpIDL,
+			},
+			// Required for the CCIP args transform configured for the execute method which relies on the TokenAdminRegistry stored in the router
+			"ccip-router": {
+				IDL: ccipRouterIDL,
+			},
 		},
 	}
 
 	return solConfig, nil
 }
 
-func getRouterAccountConfig(routerProgramAddress string) chainwriter.PDALookups {
+func getOfframpAccountConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
-		Name: "RouterAccountConfig",
+		Name: "OfframpAccountConfig",
 		PublicKey: chainwriter.AccountConstant{
-			Address: routerProgramAddress,
+			Address: offrampProgramAddress,
 		},
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("config")},
 		},
 		IsSigner:   false,
 		IsWritable: false,
+	}
+}
+
+func offrampAddressConstant(offrampProgramAddress string) chainwriter.AccountConstant {
+	return chainwriter.AccountConstant{
+		Address: offrampProgramAddress,
+	}
+}
+
+func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
+	return chainwriter.PDALookups{
+		Name:      "FeeQuoter",
+		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("reference_addresses")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+		// Reads the address from the reference addresses account
+		InternalField: chainwriter.InternalField{
+			TypeName: "ReferenceAddresses",
+			Location: "feeQuoter",
+		},
+	}
+}
+
+func getReferenceAddressesConfig(offrampProgramAddress string) chainwriter.PDALookups {
+	return chainwriter.PDALookups{
+		Name:      "ReferenceAddresses",
+		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("reference_addresses")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+	}
+}
+
+func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter.DerivedLookupTable {
+	return chainwriter.DerivedLookupTable{
+		Name: "CommonAddressLookupTable",
+		Accounts: chainwriter.PDALookups{
+			Name:      "OfframpLookupTable",
+			PublicKey: offrampAddressConstant(offrampProgramAddress),
+			Seeds: []chainwriter.Seed{
+				{Static: []byte("reference_addresses")},
+			},
+			InternalField: chainwriter.InternalField{
+				TypeName: "ReferenceAddresses",
+				Location: "offrampLookupTable",
+			},
+		},
 	}
 }
 
@@ -336,6 +378,15 @@ func getSystemProgramConstant() chainwriter.AccountConstant {
 	return chainwriter.AccountConstant{
 		Name:       "SystemProgram",
 		Address:    solana.SystemProgramID.String(),
+		IsSigner:   false,
+		IsWritable: false,
+	}
+}
+
+func getSysVarInstructionConstant() chainwriter.AccountConstant {
+	return chainwriter.AccountConstant{
+		Name:       "SysvarInstructions",
+		Address:    solana.SysVarInstructionsPubkey.String(),
 		IsSigner:   false,
 		IsWritable: false,
 	}
