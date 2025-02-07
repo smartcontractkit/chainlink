@@ -230,9 +230,6 @@ func deployChainContractsForChains(
 	deployGrp := errgroup.Group{}
 
 	for chainSel, contractParams := range contractParamsPerChain {
-		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
-			return fmt.Errorf("chain %d not supported", chainSel)
-		}
 		// already validated family
 		family, _ := chainsel.GetSelectorFamily(chainSel)
 		var deployFn func() error

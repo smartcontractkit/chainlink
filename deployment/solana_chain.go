@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -84,36 +86,96 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 		"--url", c.URL, // rpc url
 	}
 
-	var cmd *exec.Cmd
 	if _, err := os.Stat(programKeyPair); err == nil {
-		// Keypair exists, include program-id
+		baseArgs = append(baseArgs, "--program-id", programKeyPair)
 		logger.Infow("Deploying program with existing keypair",
 			"programFile", programFile,
 			"programKeyPair", programKeyPair)
-		cmd = exec.Command("solana", append(baseArgs, "--program-id", programKeyPair)...) // #nosec G204
 	} else {
-		// Keypairs wont be created for devenvs
-		logger.Infow("Deploying new program",
-			"programFile", programFile)
-		cmd = exec.Command("solana", baseArgs...) // #nosec G204
+		logger.Infow("Deploying new program", "programFile", programFile)
 	}
 
-	// Capture the command output
+	// Create context with timeout to run the deploy command
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Create command without context
+	cmd := exec.Command("solana", baseArgs...)
+	logger.Infow("Running deploy program command", "cmd", strings.Join(cmd.Args, " "))
+
+	// Connect standard streams with both buffer and real-time logging
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.Stdin = os.Stdin
 
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error deploying program: %s: %s", err.Error(), stderr.String())
+	// Set up pipe for stdout
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("error creating stdout pipe: %w", err)
+	}
+	// Set up pipe for stderr
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("error creating stderr pipe: %w", err)
 	}
 
-	// Parse and return the program ID
-	output := stdout.String()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("error starting program deployment: %w", err)
+	}
 
-	// TODO: obviously need to do this better
-	time.Sleep(5 * time.Second)
-	return parseProgramID(output)
+	// Create a channel to signal command completion
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	// Copy output to both buffer and logger in real-time
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			logger.Infow("Program deployment stdout", "line", line)
+			stdout.WriteString(line + "\n")
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			logger.Infow("Program deployment stderr", "line", line)
+			stderr.WriteString(line + "\n")
+		}
+	}()
+
+	// Wait for either completion or timeout
+	select {
+	case <-ctx.Done():
+		logger.Errorw("Program deployment timed out",
+			"stdout", stdout.String(),
+			"stderr", stderr.String())
+		// Try to kill the process and its children
+		pgid, err := syscall.Getpgid(cmd.Process.Pid)
+		if err == nil {
+			syscall.Kill(-pgid, syscall.SIGTERM)
+		}
+		cmd.Process.Kill()
+		return "", fmt.Errorf("deployment timed out after 5 minutes")
+	case err := <-done:
+		if err != nil {
+			logger.Errorw("Program deployment failed",
+				"error", err,
+				"stdout", stdout.String(),
+				"stderr", stderr.String())
+			return "", fmt.Errorf("error deploying program: %s: %s", err.Error(), stderr.String())
+		}
+	}
+
+	outputStr := stdout.String()
+	logger.Infow("Program deployment successful",
+		"stdout", outputStr,
+		"stderr", stderr.String())
+	return parseProgramID(outputStr)
 }
 
 func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {

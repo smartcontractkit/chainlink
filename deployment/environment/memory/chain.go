@@ -87,13 +87,10 @@ func getTestSolanaChainSelectors() []uint64 {
 	return result
 }
 
-func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
-	// Create a temporary directory that will be cleaned up after the test
-	tmpDir := t.TempDir()
-
+func generateSolanaKeypair(dir string) (solana.PrivateKey, error) {
 	privateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to generate private key: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
 	// Convert private key bytes to JSON array
@@ -107,16 +104,16 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 
 	keypairJSON, err := json.Marshal(intArray)
 	if err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to marshal keypair: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to marshal keypair: %w", err)
 	}
 
 	// Create the keypair file in the temporary directory
-	keypairPath := filepath.Join(tmpDir, "solana-keypair.json")
+	keypairPath := filepath.Join(dir, "solana-keypair.json")
 	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
-		return solana.PrivateKey{}, "", fmt.Errorf("failed to write keypair to file: %w", err)
+		return solana.PrivateKey{}, fmt.Errorf("failed to write keypair to file: %w", err)
 	}
 
-	return privateKey, keypairPath, nil
+	return privateKey, nil
 }
 
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
@@ -124,10 +121,13 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	if len(testSolanaChainSelectors) < numChains {
 		t.Fatalf("not enough test solana chain selectors available")
 	}
+	// Create a temporary directory that will be cleaned up after the test
+	tmpDir := t.TempDir()
+
 	chains := make(map[uint64]SolanaChain)
 	for i := 0; i < numChains; i++ {
 		chainID := testSolanaChainSelectors[i]
-		admin, keypairPath, err := generateSolanaKeypair(t)
+		admin, err := generateSolanaKeypair(tmpDir)
 		require.NoError(t, err)
 		url, wsURL, err := solChain(t, chainID, &admin)
 		require.NoError(t, err)
@@ -140,7 +140,7 @@ func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 			DeployerKey: admin,
 			URL:         url,
 			WSURL:       wsURL,
-			KeypairPath: keypairPath,
+			KeypairPath: tmpDir,
 		}
 	}
 	return chains

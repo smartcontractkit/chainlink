@@ -26,10 +26,6 @@ const (
 
 // DeployLinkToken deploys a link token contract to the chain identified by the ChainSelector.
 func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.ChangesetOutput, error) {
-	err := deployment.ValidateSelectorsInEnvironment(e, chains)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain)
@@ -123,6 +119,10 @@ func deployLinkTokenContractSolana(
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
 ) error {
+	if chain.DeployerKey == nil {
+		return fmt.Errorf("deployer key must be set")
+	}
+
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
 	mint, _ := solana.NewRandomPrivateKey()
 	mintPublicKey := mint.PublicKey() // this is the token address
