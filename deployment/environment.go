@@ -422,7 +422,6 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 }
 
 func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
-
 	// the protobuf does not map well to the domain model
 	// we have to infer the p2p key, bootstrap and multiaddr from some chain config
 	// arbitrarily pick the first EVM chain config
@@ -435,7 +434,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		}
 	}
 	if goldenConfig == nil {
-		return nil, fmt.Errorf("no EVM chain config found")
+		return nil, errors.New("no EVM chain config found")
 	}
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
@@ -453,7 +452,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		SelToOCRConfig: selToOCRConfig,
 		IsBootstrap:    bootstrap,
 		PeerID:         MustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId),
-		MultiAddr:      goldenConfig.Ocr1Config.Multiaddr,
+		MultiAddr:      goldenConfig.Ocr2Config.Multiaddr,
 		AdminAddr:      goldenConfig.AdminAddress,
 		Labels:         jdNode.Labels,
 	}, nil
