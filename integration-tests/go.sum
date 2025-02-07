@@ -1454,8 +1454,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250203204555-c245a764047
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250203204555-c245a7640475/go.mod h1:KzOY2/2wXeGeUT+ILqO1D4oyFmuZYkSRy0utVOLAiOc=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d h1:hf1Ust1ub9r3+PgRgiry3065QXCXmw6P7YImnue1NEw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.1.1-0.20250117224137-afdcdd75070d/go.mod h1:lgG9JT2P19KnYuBheKIis5ZeCO+AaSta+RfzvwDQS2Y=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.9-0.20250203190744-8094529f5917 h1:SCCRZAY2YqX9Mx5vLbo3l/r8n+2WNZZwSSrsDM5LJMU=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.9-0.20250203190744-8094529f5917/go.mod h1:WYxCxAWpeXEHfhB0GaiV2sj21Ooh9r/Nf7tzmJgAibs=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.0 h1:ywpcisqGbSqW2t+BwiBNLFlIuEHBFeJfXRmaB/2/wYI=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.0/go.mod h1:WYxCxAWpeXEHfhB0GaiV2sj21Ooh9r/Nf7tzmJgAibs=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2 h1:GDGrC5OGiV0RyM1znYWehSQXyZQWTOzrEeJRYmysPCE=
 github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2/go.mod h1:DsT43c1oTBmp3iQkMcoZOoKThwZvt8X3Pz6UmznJ4GY=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.21 h1:1UYLu0QApJc4EvFDiLy5goCim6RIB2/xvJRFF1qFwLk=
