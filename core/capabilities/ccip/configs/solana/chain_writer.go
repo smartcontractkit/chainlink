@@ -275,9 +275,14 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	}
 
 	// validate CCIP Offramp IDL, errors not expected
-	var idl solanacodec.IDL
-	if err = json.Unmarshal([]byte(ccipOfframpIDL), &idl); err != nil {
+	var offrampIDL solanacodec.IDL
+	if err = json.Unmarshal([]byte(ccipOfframpIDL), &offrampIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Offramp IDL, error: %w", err)
+	}
+	// validate CCIP Router IDL, errors not expected
+	var routerIDL solanacodec.IDL 
+	if err = json.Unmarshal([]byte(ccipOfframpIDL), &routerIDL); err != nil {
+		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
 	solConfig := chainwriter.ChainWriterConfig{
