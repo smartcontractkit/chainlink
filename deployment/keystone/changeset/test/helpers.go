@@ -216,7 +216,8 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, err)
 
 	var ocr3Config = internal.OracleConfig{
-		MaxFaultyOracles: len(wfNodes) / 3,
+		MaxFaultyOracles:     len(wfNodes) / 3,
+		TransmissionSchedule: []int{len(wfNodes)},
 	}
 	var allDons = []internal.DonCapabilities{wfDon, cwDon, assetDon}
 
