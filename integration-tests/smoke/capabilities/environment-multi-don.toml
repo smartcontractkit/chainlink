@@ -31,6 +31,8 @@
   override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
+  capabilities = ["cron", "custom-compute", "ocr3"]
+  don_type = "workflow"
 
   [nodeset_a.db]
     image = "postgres:12.0"
@@ -138,6 +140,8 @@
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
+  don_type = "capabilities"
+	capabilities = ["write-evm"]
 
   [nodeset_b.db]
     image = "postgres:12.0"
