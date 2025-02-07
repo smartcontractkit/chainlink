@@ -23,7 +23,7 @@ import (
 func Test_Client(t *testing.T) {
 	ctx := tests.Context(t)
 	clientPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
-	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32))
+	serverPrivKey := ed25519.NewKeyFromSeed(randomBytes(t, 32)) ////zzzzz
 
 	t.Run("Transmit errors if not started", func(t *testing.T) {
 		c := NewClient(ClientOpts{
