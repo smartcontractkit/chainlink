@@ -394,7 +394,7 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 
 	var ghReadToken string
 	// this is a small hack to avoid changing the reusable workflow
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		// This part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
 		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
@@ -889,7 +889,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns.Output {
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
 		image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
@@ -1493,7 +1493,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 }
 
 func startJobDistributor(t *testing.T, in *WorkflowTestConfig) *jd.Output {
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		jdImage := ctfconfig.MustReadEnvVar_String(e2eJobDistributorImageEnvVarName)
 		jdVersion := os.Getenv(e2eJobDistributorVersionEnvVarName)
 		in.JD.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
@@ -1962,11 +1962,13 @@ func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *Workfl
 		hostIp, err = resolveHostDockerInternaIp(testLogger, nodeOutput)
 		require.NoError(t, err, "failed to resolve host.docker.internal IP")
 	case "linux":
-		hostIp = strings.ReplaceAll("http://", framework.HostDockerInternal(), "")
+		hostIp = strings.ReplaceAll(framework.HostDockerInternal(), "http://", "")
 	default:
 		err = fmt.Errorf("unsupported OS: %s", system)
 	}
 	require.NoError(t, err, "failed to resolve host.docker.internal IP")
+
+	testLogger.Info().Msgf("Will allow IP %s and port %d for the fake data provider", hostIp, in.DataSource.Fake.Port)
 
 	// we also need to explicitly allow Gist's IP
 	return []string{hostIp, GistIP}, []int{in.DataSource.Fake.Port}
