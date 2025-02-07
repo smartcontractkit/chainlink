@@ -13,7 +13,7 @@
 	feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = false
+  should_compile_new_workflow = true
   workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
 
   [workflow_config.dependencies]

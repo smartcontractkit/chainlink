@@ -19,8 +19,8 @@
   cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/8a39af5b68c213d2200446c175b5c99e/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/19c80e6297914a79449f916e5e65dfdd/raw/1344c259ef7e970dbabaa1e9e885845b8eba5da9/config.json3674692696"
+    binary_url = "https://gist.githubusercontent.com/Tofel/ee56735e7814070d63c32e1c4d059a7b/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    config_url = "https://gist.githubusercontent.com/Tofel/f940187351ac8e3d20e7efdf984dbc5d/raw/4bb2de46661e0275ce525ca1a7cc2b5233fa2000/config.json596220333"
 
 [[nodesets]]
   don_type = "workflow"

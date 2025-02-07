@@ -1026,14 +1026,9 @@ func DONTopologyWithFlag(donTopologies []*DONTopology, flag uint) []*DONTopology
 type PeeringData struct {
 	GlobalBootstraperPeerId  string
 	GlobalBootstraperAddress string
-	Enabled                  bool
 }
 
 func peeringData(donTopologies []*DONTopology) (PeeringData, error) {
-	if len(donTopologies) == 1 {
-		return PeeringData{Enabled: false}, nil
-	}
-
 	globalBootstraperPeerId, globalBootstraperAddress, err := globalBootstraperNodeData(donTopologies)
 	if err != nil {
 		return PeeringData{}, err
@@ -1042,7 +1037,6 @@ func peeringData(donTopologies []*DONTopology) (PeeringData, error) {
 	return PeeringData{
 		GlobalBootstraperPeerId:  globalBootstraperPeerId,
 		GlobalBootstraperAddress: globalBootstraperAddress,
-		Enabled:                  true,
 	}, nil
 }
 
@@ -1141,21 +1135,6 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				Name = 'anvil'
 				WSURL = '%s'
 				HTTPURL = '%s'
-			`,
-		donBootstrapNodePeerId,
-		bc.ChainID,
-		bc.Nodes[0].DockerInternalWSUrl,
-		bc.Nodes[0].DockerInternalHTTPUrl,
-	)
-
-	// do configure peering capability for workflow DON's bootstrap node, but not for other DON's bootstrap nodes
-	// since they do not have any capabilities
-	if peeringData.Enabled && hasFlag(flags, WorkflowDON) {
-		bootstrapNodeConfig += fmt.Sprintf(`
-				[Capabilities.Peering.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:6690']
-				DefaultBootstrappers = ['%s@%s:6690']
 
 				# Capabilities registry address, requried for do2don p2p mesh to work, without it the node won't be able to
 				# figure out, which nodes can connect to it, will reject all connection attempts and mesh won't be formed
@@ -1163,11 +1142,26 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				Address = '%s'
 				NetworkID = 'evm'
 				ChainID = '%s'
+			`,
+		donBootstrapNodePeerId,
+		bc.ChainID,
+		bc.Nodes[0].DockerInternalWSUrl,
+		bc.Nodes[0].DockerInternalHTTPUrl,
+		capRegAddr,
+		bc.ChainID,
+	)
+
+	// do configure peering capability for workflow DON's bootstrap node, but not for other DON's bootstrap nodes
+	// since they do not have any capabilities
+	if hasFlag(flags, WorkflowDON) {
+		bootstrapNodeConfig += fmt.Sprintf(`
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				DefaultBootstrappers = ['%s@%s:6690']
 				`,
 			peeringData.GlobalBootstraperPeerId,
 			"localhost", // bootstrap node should always point to itself as the bootstrapper
-			capRegAddr,
-			bc.ChainID,
 		)
 	}
 
@@ -1189,6 +1183,11 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				ListenAddresses = ['0.0.0.0:5001']
 				DefaultBootstrappers = ['%s@%s:5001']
 
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				DefaultBootstrappers = ['%s@%s:6690']
+
 				[[EVM]]
 				ChainID = '%s'
 
@@ -1205,24 +1204,14 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				`,
 			donBootstrapNodePeerId,
 			donBootstrapNodeAddress,
+			peeringData.GlobalBootstraperPeerId,
+			peeringData.GlobalBootstraperAddress,
 			bc.ChainID,
 			bc.Nodes[0].DockerInternalWSUrl,
 			bc.Nodes[0].DockerInternalHTTPUrl,
 			capRegAddr,
 			bc.ChainID,
 		)
-
-		if peeringData.Enabled {
-			workerNodeConfig += fmt.Sprintf(`
-				[Capabilities.Peering.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:6690']
-				DefaultBootstrappers = ['%s@%s:6690']
-				`,
-				peeringData.GlobalBootstraperPeerId,
-				peeringData.GlobalBootstraperAddress,
-			)
-		}
 
 		if hasFlag(flags, WriteEVMCapability) {
 			writeEVMConfig := fmt.Sprintf(`
