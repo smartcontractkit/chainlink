@@ -80,8 +80,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 
-	mm := NewMetricsManager(ctx, t, env.Logger)
-	go mm.Start()
+	mm := NewMetricsManager(t, env.Logger)
+	go mm.Start(ctx)
 	defer mm.Stop()
 
 	// gunMap holds a destinationGun for every enabled destination chain

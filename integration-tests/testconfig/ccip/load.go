@@ -42,5 +42,8 @@ func (l *LoadConfig) GetLoadDuration() time.Duration {
 
 func (l *LoadConfig) GetTimeoutDuration() time.Duration {
 	ld, _ := time.ParseDuration(*l.TimeoutDuration)
+	if ld == 0 {
+		return 30 * time.Minute
+	}
 	return ld
 }
