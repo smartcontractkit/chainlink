@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
@@ -482,10 +483,10 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 	lgr := logger.TestLogger(t)
 	require.GreaterOrEqual(t, len(bs.Nodes), 1, "expected at least one node in the blockchain output")
 
-	var envs []*deployment.Environment
-	var dons []*devenv.DON
+	envs := make([]*deployment.Environment, len(nodeOutputs))
+	dons := make([]*devenv.DON, len(nodeOutputs))
 
-	for _, nodeOutput := range nodeOutputs {
+	for i, nodeOutput := range nodeOutputs {
 		// assume that each nodeset has only one bootstrap node
 		nodeInfo, err := getNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
 		require.NoError(t, err, "failed to get node info")
@@ -520,13 +521,13 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
 		require.NoError(t, err, "failed to create environment")
 
-		envs = append(envs, env)
-		dons = append(dons, don)
+		envs[i] = env
+		dons[i] = don
 	}
 
-	var nodeIds []string
+	var nodeIDs []string
 	for _, env := range envs {
-		nodeIds = append(nodeIds, env.NodeIDs...)
+		nodeIDs = append(nodeIDs, env.NodeIDs...)
 	}
 
 	// we assume that all DONs run on the same chain and that there's only one chain
@@ -541,7 +542,7 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 		Offchain:          envs[0].Offchain,
 		OCRSecrets:        envs[0].OCRSecrets,
 		GetContext:        envs[0].GetContext,
-		NodeIDs:           nodeIds,
+		NodeIDs:           nodeIDs,
 	}
 
 	return unifiedEnv, dons
@@ -1136,7 +1137,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				WSURL = '%s'
 				HTTPURL = '%s'
 
-				# Capabilities registry address, requried for do2don p2p mesh to work, without it the node won't be able to
+				# Capabilities registry address, required for do2don p2p mesh to work, without it the node won't be able to
 				# figure out, which nodes can connect to it, will reject all connection attempts and mesh won't be formed
 				[Capabilities.ExternalRegistry]
 				Address = '%s'
@@ -1495,7 +1496,7 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 					node.Ocr2KeyBundleID,
 					donBootstrapNodePeerId,
 					// assume that OCR3 nodes always use port 5001 (that's P2P V2 port of the bootstrap node)
-					fmt.Sprintf("%s:5001", donBootstrapNodeAddress),
+					donBootstrapNodeAddress+":5001",
 					don.Nodes[i].AccountAddr[chainIDUint64],
 					bc.ChainID,
 					node.Ocr2KeyBundleID,
@@ -1528,9 +1529,9 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 }
 
 func reinitialiseJDClients(t *testing.T, ctfEnv *deployment.Environment, jdOutput *jd.Output, nodeOutputs ...*WrappedNodeOutput) *deployment.Environment {
-	var offchainClients []deployment.OffchainClient
+	offchainClients := make([]deployment.OffchainClient, len(nodeOutputs))
 
-	for _, nodeOutput := range nodeOutputs {
+	for i, nodeOutput := range nodeOutputs {
 		nodeInfo, err := getNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
 		require.NoError(t, err, "failed to get node info")
 
@@ -1544,7 +1545,7 @@ func reinitialiseJDClients(t *testing.T, ctfEnv *deployment.Environment, jdOutpu
 		offChain, err := devenv.NewJDClient(context.Background(), jdConfig)
 		require.NoError(t, err, "failed to create JD client")
 
-		offchainClients = append(offchainClients, offChain)
+		offchainClients[i] = offChain
 	}
 
 	// we don't really care, which instance we set here, since there's only one
@@ -1560,6 +1561,17 @@ func mustSafeUint64(input int64) uint64 {
 		panic(fmt.Errorf("int64 %d is below uint64 min value", input))
 	}
 	return uint64(input)
+}
+
+func mustSafeUint32(input int) uint32 {
+	if input < 0 {
+		panic(fmt.Errorf("int %d is below uint32 min value", input))
+	}
+	maxUint32 := (1 << 32) - 1
+	if input > maxUint32 {
+		panic(fmt.Errorf("int %d exceeds uint32 max value", input))
+	}
+	return uint32(input)
 }
 
 func noOpTransformFn(value string) string {
@@ -1656,7 +1668,7 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 			Nodes: donPeerIds,
 		}
 
-		donName := fmt.Sprintf("%s-don", donTopology.NodeOutput.NodeSetName)
+		donName := donTopology.NodeOutput.NodeSetName + "-don"
 		donCapabilities = append(donCapabilities, keystone_changeset.DonCapabilities{
 			Name:         donName,
 			F:            1,
@@ -1674,7 +1686,7 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 		}
 	}
 
-	require.Greater(t, len(transmissionSchedule), 0, "failed to find OCR3 capability in the DON topologies")
+	require.NotEmpty(t, transmissionSchedule, "transmission schedule must not be empty")
 
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := keystone_changeset.OracleConfig{
@@ -1757,7 +1769,7 @@ func buildDONTopology(t *testing.T, in *TestConfig, dons []*devenv.DON, nodeOutp
 				DON:        don,
 				NodeInput:  in.NodeSets[i],
 				NodeOutput: nodeOutputs[i],
-				ID:         uint32(i + 1),
+				ID:         mustSafeUint32(i + 1),
 				Flags:      flags,
 			}
 		}
@@ -2081,9 +2093,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	jdOutput := startJobDistributor(t, in)
 
 	// Deploy the DONs
-	var nodeOutputs []*WrappedNodeOutput
-	for _, don := range in.NodeSets {
-		nodeOutputs = append(nodeOutputs, startSingleNodeSet(t, don, bc))
+	nodeOutputs := make([]*WrappedNodeOutput, len(in.NodeSets))
+	for i, don := range in.NodeSets {
+		nodeOutputs[i] = startSingleNodeSet(t, don, bc)
 	}
 
 	// Prepare the chainlink/deployment environment, which also configures chains for nodes and job distributor

@@ -37,8 +37,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "replace-me"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -55,8 +54,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "replace-me"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -74,8 +72,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "replace-me"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -93,8 +90,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "replace-me"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -112,8 +108,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "replace-me"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
