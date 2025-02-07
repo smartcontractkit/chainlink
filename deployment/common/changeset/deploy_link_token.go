@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/gagliardetto/solana-go"
@@ -122,11 +121,11 @@ func deployLinkTokenContractSolana(
 	ab deployment.AddressBook,
 ) error {
 	if chain.DeployerKey == nil {
-		return errors.New("deployer key must be set")
+		return fmt.Errorf("deployer key must be set")
 	}
 
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
-  mint, _ := solana.NewRandomPrivateKey()
+	mint, _ := solana.NewRandomPrivateKey()
 	mintPublicKey := mint.PublicKey() // this is the token address
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
