@@ -602,51 +602,6 @@ func (_c *GeneralConfig_EVMEnabled_Call) RunAndReturn(run func() bool) *GeneralC
 	return _c
 }
 
-// EVMRPCEnabled provides a mock function with no fields
-func (_m *GeneralConfig) EVMRPCEnabled() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EVMRPCEnabled")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GeneralConfig_EVMRPCEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMRPCEnabled'
-type GeneralConfig_EVMRPCEnabled_Call struct {
-	*mock.Call
-}
-
-// EVMRPCEnabled is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) EVMRPCEnabled() *GeneralConfig_EVMRPCEnabled_Call {
-	return &GeneralConfig_EVMRPCEnabled_Call{Call: _e.mock.On("EVMRPCEnabled")}
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) Run(run func()) *GeneralConfig_EVMRPCEnabled_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) Return(_a0 bool) *GeneralConfig_EVMRPCEnabled_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_EVMRPCEnabled_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Feature provides a mock function with no fields
 func (_m *GeneralConfig) Feature() config.Feature {
 	ret := _m.Called()

@@ -21,7 +21,7 @@ type AppendNodeCapabilitiesRequest = MutateNodeCapabilitiesRequest
 // AppendNodeCapabilities adds any new capabilities to the registry, merges the new capabilities with the existing capabilities
 // of the node, and updates the nodes in the registry host the union of the new and existing capabilities.
 func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilitiesRequest) (deployment.ChangesetOutput, error) {
-	c, err := req.convert(env)
+	c, contractSet, err := req.convert(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -35,10 +35,10 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]common.Address{
-			c.Chain.Selector: c.ContractSet.Timelock.Address(),
+			c.Chain.Selector: contractSet.Timelock.Address(),
 		}
 		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			c.Chain.Selector: c.ContractSet.ProposerMcm,
+			c.Chain.Selector: contractSet.ProposerMcm,
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatches(
@@ -56,27 +56,24 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 	return out, nil
 }
 
-func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, error) {
-	if err := req.Validate(); err != nil {
-		return nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
+func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, *ContractSet, error) {
+	if err := req.Validate(e); err != nil {
+		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
-	registryChain, ok := e.Chains[req.RegistryChainSel]
-	if !ok {
-		return nil, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
-	}
+	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
 	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get contract sets: %w", err)
+		return nil, nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	contracts := resp.ContractSets[req.RegistryChainSel]
+	contractSet := resp.ContractSets[req.RegistryChainSel]
 
 	return &internal.AppendNodeCapabilitiesRequest{
-		Chain:             registryChain,
-		ContractSet:       &contracts,
-		P2pToCapabilities: req.P2pToCapabilities,
-		UseMCMS:           req.UseMCMS(),
-	}, nil
+		Chain:                registryChain,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		P2pToCapabilities:    req.P2pToCapabilities,
+		UseMCMS:              req.UseMCMS(),
+	}, &contractSet, nil
 }

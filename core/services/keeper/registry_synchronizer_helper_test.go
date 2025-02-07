@@ -38,7 +38,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
@@ -47,7 +47,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 		DB:             db,
 		Client:         ethClient,
 		LogBroadcaster: lbMock,
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),

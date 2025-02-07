@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -90,6 +90,15 @@ func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
 	return r.ContractSets
 }
 
+func (te TestEnv) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
+	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
+		Chains:      te.Env.Chains,
+		AddressBook: te.Env.ExistingAddresses,
+	})
+	require.NoError(te.t, err)
+	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
+}
+
 // SetupTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
@@ -151,9 +160,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
-	ocr3CapCfg := kstest.GetDefaultCapConfig(t, internal.OCR3Cap)
-	writerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.WriteChainCap)
-	streamTriggerChainCapCfg := kstest.GetDefaultCapConfig(t, internal.StreamTriggerCap)
+	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
+	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
+	streamTriggerChainCapCfg := GetDefaultCapConfig(t, internal.StreamTriggerCap)
 
 	// TODO: partition nodes into multiple nops
 

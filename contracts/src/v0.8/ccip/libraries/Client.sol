@@ -45,6 +45,9 @@ library Client {
   // bytes4(keccak256("CCIP SVMExtraArgsV1"));
   bytes4 public constant SVM_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
 
+  /// @dev The maximum number of accounts that can be passed in SVMExtraArgs.
+  uint256 public constant SVM_EXTRA_ARGS_MAX_ACCOUNTS = 64;
+
   /// @param gasLimit: gas limit for the callback on the destination chain.
   /// @param allowOutOfOrderExecution: if true, it indicates that the message can be executed in any order relative to
   /// other messages from the same sender. This value's default varies by chain. On some chains, a particular value is
