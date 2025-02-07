@@ -1667,21 +1667,10 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 
 	var transmissionSchedule []int
 
-	// we need a different transmission schedule if there's only 1 DON
-	if len(donTopologies) == 1 {
-		for i := range donTopologies[0].DON.Nodes {
-			if i == 0 {
-				continue
-			}
-
-			transmissionSchedule = append(transmissionSchedule, i)
-		}
-	} else {
-		for _, donTopology := range donTopologies {
-			if hasFlag(donTopology.Flags, OCR3Capability) {
-				transmissionSchedule = []int{len(donTopology.DON.Nodes) - 1}
-				break
-			}
+	for _, donTopology := range donTopologies {
+		if hasFlag(donTopology.Flags, OCR3Capability) {
+			transmissionSchedule = []int{len(donTopology.DON.Nodes) - 1}
+			break
 		}
 	}
 
