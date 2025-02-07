@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -19,11 +20,13 @@ import (
 )
 
 type Delegate struct {
-	registry       core.CapabilitiesRegistry
-	secretsFetcher secretsFetcher
-	logger         logger.Logger
-	store          store.Store
-	ratelimiter    *ratelimiter.RateLimiter
+	registry               core.CapabilitiesRegistry
+	secretsFetcher         secretsFetcher
+	logger                 logger.Logger
+	store                  store.Store
+	ratelimiter            *ratelimiter.RateLimiter
+	globalEngineCounter    *atomic.Int32
+	globalEngineCountLimit int32
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -69,12 +72,14 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		WorkflowName: defaultName{
 			name: spec.WorkflowSpec.WorkflowName,
 		},
-		Registry:       d.registry,
-		Store:          d.store,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: d.secretsFetcher,
-		RateLimiter:    d.ratelimiter,
+		Registry:               d.registry,
+		Store:                  d.store,
+		Config:                 config,
+		Binary:                 binary,
+		SecretsFetcher:         d.secretsFetcher,
+		RateLimiter:            d.ratelimiter,
+		GlobalEngineCounter:    d.globalEngineCounter,
+		GlobalEngineCountLimit: d.globalEngineCountLimit,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -99,13 +104,17 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
+	globalEngineCounter *atomic.Int32,
+	globalEngineCountLimit int32,
 ) *Delegate {
 	return &Delegate{
-		logger:         logger,
-		registry:       registry,
-		secretsFetcher: newNoopSecretsFetcher(),
-		store:          store,
-		ratelimiter:    ratelimiter,
+		logger:                 logger,
+		registry:               registry,
+		secretsFetcher:         newNoopSecretsFetcher(),
+		store:                  store,
+		ratelimiter:            ratelimiter,
+		globalEngineCounter:    globalEngineCounter,
+		globalEngineCountLimit: globalEngineCountLimit,
 	}
 }
 

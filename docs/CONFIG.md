@@ -1302,11 +1302,11 @@ MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
-### GlobalCountLimit
+### GlobalEngineCountLimit
 ```toml
-GlobalCountLimit = 50 # Default
+GlobalEngineCountLimit = 50 # Default
 ```
-GlobalCountLimit is the maximum number of engines that can be registered globally.
+GlobalEngineCountLimit is the maximum number of engines that can be registered globally.
 
 ### WorkflowsPerOwnerLimit
 ```toml

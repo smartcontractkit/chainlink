@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -292,6 +293,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
+	globalEngineCounter := new(atomic.Int32)
+	globalEngineCountLimit := cfg.Capabilities().WorkflowRegistry().GlobalEngineCountLimit()
+
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
 	if cfg.Capabilities().GatewayConnector().DonID() != "" {
 		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.Capabilities().GatewayConnector().DonID())
@@ -397,6 +401,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					clockwork.NewRealClock(),
 					keys[0],
 					workflowRateLimiter,
+					globalEngineCounter,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
@@ -404,8 +409,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 							MaxConfigSize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxConfigSize()),
 						},
 					),
-					syncer.WithEngineRegistry(syncer.NewEngineRegistry(syncer.WithGlobalCountLimit(cfg.Capabilities().WorkflowRegistry().GlobalCountLimit()))),
-					syncer.WithWorkflowsPerOwnerLimit(cfg.Capabilities().WorkflowRegistry().WorkflowsPerOwnerLimit()),
+					syncer.WithEngineRegistry(syncer.NewEngineRegistry()),
+					syncer.WithGlobalEngineCountLimit(globalEngineCountLimit),
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
@@ -630,6 +635,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry,
 		workflowORM,
 		workflowRateLimiter,
+		globalEngineCounter,
+		globalEngineCountLimit,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

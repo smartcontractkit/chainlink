@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -139,8 +140,9 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock       clockwork.Clock
-	ratelimiter *ratelimiter.RateLimiter
+	clock               clockwork.Clock
+	ratelimiter         *ratelimiter.RateLimiter
+	globalEngineCounter *atomic.Int32
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -1219,6 +1221,9 @@ func (e *Engine) Close() error {
 		if err != nil {
 			return err
 		}
+		// decrement the global engine counter
+		e.globalEngineCounter.Add(-1)
+
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
 		return nil
@@ -1234,23 +1239,25 @@ func (e *Engine) Name() string {
 }
 
 type Config struct {
-	Workflow             sdk.WorkflowSpec
-	WorkflowID           string
-	WorkflowOwner        string
-	WorkflowName         WorkflowNamer
-	Lggr                 logger.Logger
-	Registry             core.CapabilitiesRegistry
-	MaxWorkerLimit       int
-	QueueSize            int
-	NewWorkerTimeout     time.Duration
-	MaxExecutionDuration time.Duration
-	Store                store.Store
-	Config               []byte
-	Binary               []byte
-	SecretsFetcher       secretsFetcher
-	HeartbeatCadence     time.Duration
-	StepTimeout          time.Duration
-	RateLimiter          *ratelimiter.RateLimiter
+	Workflow               sdk.WorkflowSpec
+	WorkflowID             string
+	WorkflowOwner          string
+	WorkflowName           WorkflowNamer
+	Lggr                   logger.Logger
+	Registry               core.CapabilitiesRegistry
+	MaxWorkerLimit         int
+	QueueSize              int
+	NewWorkerTimeout       time.Duration
+	MaxExecutionDuration   time.Duration
+	Store                  store.Store
+	Config                 []byte
+	Binary                 []byte
+	SecretsFetcher         secretsFetcher
+	HeartbeatCadence       time.Duration
+	StepTimeout            time.Duration
+	RateLimiter            *ratelimiter.RateLimiter
+	GlobalEngineCounter    *atomic.Int32
+	GlobalEngineCountLimit int32
 
 	// For testing purposes only
 	maxRetries          int
@@ -1262,12 +1269,13 @@ type Config struct {
 }
 
 const (
-	defaultWorkerLimit          = 100
-	defaultQueueSize            = 100000
-	defaultNewWorkerTimeout     = 2 * time.Second
-	defaultMaxExecutionDuration = 10 * time.Minute
-	defaultHeartbeatCadence     = 5 * time.Minute
-	defaultStepTimeout          = 2 * time.Minute
+	defaultWorkerLimit            = 100
+	defaultQueueSize              = 100000
+	defaultNewWorkerTimeout       = 2 * time.Second
+	defaultMaxExecutionDuration   = 10 * time.Minute
+	defaultHeartbeatCadence       = 5 * time.Minute
+	defaultStepTimeout            = 2 * time.Minute
+	defaultGlobalEngineCountLimit = 50
 )
 
 func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
@@ -1331,6 +1339,18 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
+	if cfg.GlobalEngineCounter == nil {
+		return nil, &workflowError{reason: "global engine counter must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
+	if cfg.GlobalEngineCountLimit == 0 {
+		cfg.GlobalEngineCountLimit = defaultGlobalEngineCountLimit
+	}
+
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
@@ -1338,6 +1358,12 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	// - that the `ref` for any triggers is empty -- and filled in with `trigger`
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
+
+	// validate if adding another engine would exceed the global count limit
+	if cfg.GlobalEngineCounter.Load() >= cfg.GlobalEngineCountLimit {
+		return nil, errors.New("global engine count limit reached")
+	}
+	cfg.GlobalEngineCounter.Add(1)
 
 	// spin up monitoring resources
 	em, err := initMonitoringResources()
@@ -1384,6 +1410,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
+		globalEngineCounter:  cfg.GlobalEngineCounter,
 	}
 
 	return engine, nil

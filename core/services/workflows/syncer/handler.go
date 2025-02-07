@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -176,7 +177,8 @@ type eventHandler struct {
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
 	ratelimiter              *ratelimiter.RateLimiter
-	workflowsPerOwnerLimit   uint
+	globalEngineCounter      *atomic.Int32
+	globalEngineCountLimit   int32
 }
 
 type Event interface {
@@ -207,13 +209,11 @@ func WithMaxArtifactSize(cfg ArtifactConfig) func(*eventHandler) {
 	}
 }
 
-func WithWorkflowsPerOwnerLimit(limit uint) func(*eventHandler) {
+func WithGlobalEngineCountLimit(limit int32) func(*eventHandler) {
 	return func(eh *eventHandler) {
 		if limit != 0 {
-			eh.workflowsPerOwnerLimit = limit
-			return
+			eh.globalEngineCountLimit = limit
 		}
-		eh.workflowsPerOwnerLimit = defaultWorkflowsPerOwnerLimit
 	}
 }
 
@@ -228,6 +228,7 @@ func NewEventHandler(
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
 	ratelimiter *ratelimiter.RateLimiter,
+	globalEngineCounter *atomic.Int32,
 	opts ...func(*eventHandler),
 ) *eventHandler {
 	eh := &eventHandler{
@@ -244,7 +245,7 @@ func NewEventHandler(
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		ratelimiter:              ratelimiter,
-		workflowsPerOwnerLimit:   defaultWorkflowsPerOwnerLimit,
+		globalEngineCounter:      globalEngineCounter,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
@@ -477,15 +478,6 @@ func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowRegisteredV1,
 ) error {
-	// Validate if adding a new workflow would be within the limits of workflows per owner
-	ownerWorkflows, err := h.orm.GetWorkflowSpecByOwner(ctx, hex.EncodeToString(payload.WorkflowOwner))
-	if err != nil {
-		return fmt.Errorf("failed to get workflow specs by owner: %w", err)
-	}
-	if len(ownerWorkflows) >= int(h.workflowsPerOwnerLimit) {
-		return fmt.Errorf("failed to register new workflow, limit of %d per owner already reached", h.workflowsPerOwnerLimit)
-	}
-
 	// Fetch the workflow artifacts from the database or download them from the specified URLs
 	decodedBinary, config, err := h.getWorkflowArtifacts(ctx, payload)
 	if err != nil {
@@ -542,6 +534,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 	}
+
 	if _, err = h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, payload.SecretsURL, hex.EncodeToString(urlHash), string(secrets)); err != nil {
 		return fmt.Errorf("failed to upsert workflow spec with secrets: %w", err)
 	}
@@ -622,17 +615,19 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	}
 
 	cfg := workflows.Config{
-		Lggr:           h.lggr,
-		Workflow:       *sdkSpec,
-		WorkflowID:     id,
-		WorkflowOwner:  owner, // this gets hex encoded in the engine.
-		WorkflowName:   name,
-		Registry:       h.capRegistry,
-		Store:          h.workflowStore,
-		Config:         config,
-		Binary:         binary,
-		SecretsFetcher: h,
-		RateLimiter:    h.ratelimiter,
+		Lggr:                   h.lggr,
+		Workflow:               *sdkSpec,
+		WorkflowID:             id,
+		WorkflowOwner:          owner, // this gets hex encoded in the engine.
+		WorkflowName:           name,
+		Registry:               h.capRegistry,
+		Store:                  h.workflowStore,
+		Config:                 config,
+		Binary:                 binary,
+		SecretsFetcher:         h,
+		RateLimiter:            h.ratelimiter,
+		GlobalEngineCounter:    h.globalEngineCounter,
+		GlobalEngineCountLimit: h.globalEngineCountLimit,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

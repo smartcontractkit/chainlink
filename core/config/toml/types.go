@@ -1494,8 +1494,8 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
-	GlobalCountLimit        *uint
-	WorkflowsPerOwnerLimit  *uint
+	GlobalEngineCountLimit  *int32
+	WorkflowsPerOwnerLimit  *int32
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1523,8 +1523,8 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 		r.MaxConfigSize = f.MaxConfigSize
 	}
 
-	if f.GlobalCountLimit != nil {
-		r.GlobalCountLimit = f.GlobalCountLimit
+	if f.GlobalEngineCountLimit != nil {
+		r.GlobalEngineCountLimit = f.GlobalEngineCountLimit
 	}
 
 	if f.WorkflowsPerOwnerLimit != nil {
