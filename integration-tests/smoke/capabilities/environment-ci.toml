@@ -14,7 +14,8 @@
 
   [data_source_config.fake]
     port = 8171
-    prices = [182.9, 162.71, 172.02]
+    # use only 1 price, so that test doesn't run too long in the CI
+    prices = [182.9]
 
 [workflow_config]
 	don_id = 1
