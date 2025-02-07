@@ -331,7 +331,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 		// Reads the address from the reference addresses account
 		InternalField: chainwriter.InternalField{
 			TypeName: "ReferenceAddresses",
-			Location: "feeQuoter",
+			Location: "FeeQuoter",
 		},
 	}
 }
@@ -359,7 +359,7 @@ func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter
 			},
 			InternalField: chainwriter.InternalField{
 				TypeName: "ReferenceAddresses",
-				Location: "offrampLookupTable",
+				Location: "OfframpLookupTable",
 			},
 		},
 	}
