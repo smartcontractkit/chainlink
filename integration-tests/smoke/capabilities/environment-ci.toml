@@ -23,7 +23,6 @@
     config_url = "https://gist.githubusercontent.com/Tofel/f940187351ac8e3d20e7efdf984dbc5d/raw/4bb2de46661e0275ce525ca1a7cc2b5233fa2000/config.json596220333"
 
 [[nodesets]]
-  don_type = "workflow"
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10100

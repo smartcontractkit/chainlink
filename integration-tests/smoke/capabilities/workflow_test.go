@@ -438,6 +438,17 @@ func validateInputsAndEnvVars(t *testing.T, in *TestConfig) {
 
 	// make sure the feed id is in the correct format
 	in.WorkflowConfig.FeedID = strings.TrimPrefix(in.WorkflowConfig.FeedID, "0x")
+
+	if len(in.NodeSets) == 1 {
+		noneEmpty := in.NodeSets[0].DONType != "" && len(in.NodeSets[0].Capabilities) > 0
+		bothEmpty := in.NodeSets[0].DONType == "" && len(in.NodeSets[0].Capabilities) == 0
+		require.True(t, noneEmpty || bothEmpty, "either both DONType and Capabilities must be set or both must be empty, when using only one node set")
+	} else {
+		for _, nodeSet := range in.NodeSets {
+			require.NotEmpty(t, nodeSet.Capabilities, "capabilities must be set for each node set")
+			require.NotEmpty(t, nodeSet.DONType, "don_type must be set for each node set")
+		}
+	}
 }
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
