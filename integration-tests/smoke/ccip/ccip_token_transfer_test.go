@@ -216,5 +216,149 @@ func TestTokenTransfer(t *testing.T) {
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
+}
+
+func TestTokenTransfer_Solana(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := tests.Context(t)
+
+	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
+		testhelpers.WithNumOfUsersPerChain(3),
+		testhelpers.WithSolChains(1))
+
+	e := tenv.Env
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(e.Chains), 2)
+
+	allChainSelectors := maps.Keys(e.Chains)
+	allSolChainSelectors := maps.Keys(e.SolChains)
+	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
+	ownerSourceChain := e.Chains[sourceChain].DeployerKey
+	// ownerDestChain := e.SolChains[destChain].DeployerKey
+
+	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
+	// require.GreaterOrEqual(t, len(tenv.Users[destChain]), 2) TODO: ???
+	// selfServeSrcTokenPoolDeployer := tenv.Users[sourceChain][1]
+	// selfServeDestTokenPoolDeployer := tenv.Users[destChain][1]
+
+	oneE18 := new(big.Int).SetUint64(1e18)
+
+	// Deploy tokens and pool by CCIP Owner
+	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
+		t,
+		lggr,
+		e,
+		sourceChain,
+		destChain,
+		ownerSourceChain,
+		e.ExistingAddresses,
+		"OWNER_TOKEN",
+	)
+	require.NoError(t, err)
+
+	// TODO: we need to initialize ATA for receiver?
+
+	// Deploy Self Serve tokens and pool
+	// selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
+	// 	lggr,
+	// 	tenv.Env.Chains,
+	// 	sourceChain,
+	// 	destChain,
+	// 	selfServeSrcTokenPoolDeployer,
+	// 	selfServeDestTokenPoolDeployer,
+	// 	state,
+	// 	e.ExistingAddresses,
+	// 	"SELF_SERVE_TOKEN",
+	// )
+	// require.NoError(t, err)
+	//
+	testhelpers.AddLanesForAll(t, &tenv, state)
+
+	testhelpers.MintAndAllow(
+		t,
+		e,
+		state,
+		map[uint64][]testhelpers.MintTokenInfo{
+			sourceChain: {
+				// testhelpers.NewMintTokenInfo(selfServeSrcTokenPoolDeployer, selfServeSrcToken),
+				testhelpers.NewMintTokenInfo(ownerSourceChain, srcToken),
+			},
+			// destChain: {
+			// 	// testhelpers.NewMintTokenInfo(selfServeDestTokenPoolDeployer, selfServeDestToken),
+			// 	testhelpers.NewMintTokenInfo(ownerDestChain, destToken),
+			// },
+		},
+	)
+	// TODO: how to do MintAndAllow on Solana?
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:        "Send token to contract",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  srcToken.Address(),
+					Amount: oneE18,
+				},
+			},
+			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{destToken.Bytes(), oneE18},
+			},
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+		// {
+		// 	Name:        "Send N tokens to contract",
+		// 	SourceChain: destChain,
+		// 	DestChain:   sourceChain,
+		// 	Tokens: []router.ClientEVMTokenAmount{
+		// 		{
+		// 			Token:  selfServeDestToken.Address(),
+		// 			Amount: oneE18,
+		// 		},
+		// 		{
+		// 			Token:  destToken.Address(),
+		// 			Amount: oneE18,
+		// 		},
+		// 		{
+		// 			Token:  selfServeDestToken.Address(),
+		// 			Amount: oneE18,
+		// 		},
+		// 	},
+		// 	Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
+		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
+		// 	ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+		// 		{selfServeSrcToken.Address().Bytes(), new(big.Int).Add(oneE18, oneE18)},
+		// 		{srcToken.Address().Bytes(), oneE18},
+		// 	},
+		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		// },
+	}
+
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
+		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommits(
+		t,
+		e,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+		t,
+		e,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
 }
