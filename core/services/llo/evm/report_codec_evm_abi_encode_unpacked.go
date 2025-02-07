@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (

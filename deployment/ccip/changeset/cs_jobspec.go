@@ -28,7 +28,7 @@ func CCIPCapabilityJobspecChangeset(env deployment.Environment, _ any) (deployme
 		return deployment.ChangesetOutput{}, err
 	}
 	// find existing jobs
-	existingSpecs, err := acceptedJobSpecs(env, nodes)
+	existingSpecs, err := acceptedOrPendingAcceptedJobSpecs(env, nodes)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -189,7 +189,9 @@ func areCCIPSpecsEqual(existingSpecStr, newSpecStr string) (bool, error) {
 		bytes.Equal(relayConfigValue.([]byte), relayConfigValueNew.([]byte)), nil
 }
 
-func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
+// acceptedOrPendingAcceptedJobSpecs returns a map of nodeID to job specs that are either accepted or pending review
+// or proposed
+func acceptedOrPendingAcceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[string][]string, error) {
 	existingSpecs := make(map[string][]string)
 	for _, node := range nodes {
 		jobs, err := env.Offchain.ListJobs(env.GetContext(), &jobv1.ListJobsRequest{
@@ -201,6 +203,10 @@ func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[s
 			return make(map[string][]string), fmt.Errorf("failed to list jobs for node %s: %w", node.NodeID, err)
 		}
 		for _, j := range jobs.Jobs {
+			// skip deleted jobs
+			if j.DeletedAt != nil {
+				continue
+			}
 			for _, propID := range j.ProposalIds {
 				jbProposal, err := env.Offchain.GetProposal(env.GetContext(), &jobv1.GetProposalRequest{
 					Id: propID,
@@ -208,7 +214,14 @@ func acceptedJobSpecs(env deployment.Environment, nodes deployment.Nodes) (map[s
 				if err != nil {
 					return nil, fmt.Errorf("failed to get job proposal %s on node %s: %w", propID, node.NodeID, err)
 				}
-				existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+				if jbProposal.Proposal == nil {
+					return nil, fmt.Errorf("job proposal %s on node %s is nil", propID, node.NodeID)
+				}
+				if jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED ||
+					jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PENDING ||
+					jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_PROPOSED {
+					existingSpecs[node.NodeID] = append(existingSpecs[node.NodeID], jbProposal.Proposal.Spec)
+				}
 			}
 		}
 	}

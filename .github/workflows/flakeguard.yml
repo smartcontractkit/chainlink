@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6d6c1b28224c181f0925bf0d5ce169a830d3dad7 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -334,7 +334,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6d6c1b28224c181f0925bf0d5ce169a830d3dad7 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -411,7 +411,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@051b483f1e9e99b0219d1ccea4d8f7bf3be203b7 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6d6c1b28224c181f0925bf0d5ce169a830d3dad7 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -454,10 +454,10 @@ jobs:
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
-          jq . ./flakeguard-report/all-test-summary.json          
+          jq .summary_data ./flakeguard-report/all-test-results.json          
 
           # Read the summary from the generated report
-          summary=$(jq -c '.' ./flakeguard-report/all-test-summary.json)
+          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-results.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Results as Artifact
@@ -503,7 +503,6 @@ jobs:
           if [ "$GH_EVENT_NAME" = "pull_request" ]; then
             flakeguard generate-report \
               --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --summary-path ./flakeguard-report/all-test-summary.json \
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
@@ -518,7 +517,6 @@ jobs:
           else
             flakeguard generate-report \
               --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --summary-path ./flakeguard-report/all-test-summary.json \
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \

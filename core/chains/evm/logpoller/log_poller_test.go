@@ -28,17 +28,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func logRuntime(t testing.TB, start time.Time) {
@@ -1577,6 +1577,9 @@ func TestTooManyLogResults(t *testing.T) {
 			}
 			from := fq.FromBlock.Uint64()
 			to := fq.ToBlock.Uint64()
+			if to-from >= 8 {
+				return []types.Log{}, context.DeadlineExceeded // simulate RPC client timeout as a "too many results" scenario
+			}
 			if to-from >= 4 {
 				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
 			}

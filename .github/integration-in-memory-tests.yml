@@ -30,7 +30,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 12m -test.parallel=2 -count=1 -json
-  
   - id: smoke/ccip/ccip_message_limitations_test.go:*
     path: integration-tests/smoke/ccip/ccip_message_limitations_test.go
     test_env_type: in-memory
@@ -46,7 +45,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_fee_boosting_test.go -timeout 12m -test.parallel=2 -count=1 -json
-  
   - id: smoke/ccip/ccip_batching_test.go:*
     path: integration-tests/smoke/ccip/ccip_batching_test.go
     test_env_type: in-memory
@@ -54,7 +52,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 25m -test.parallel=2 -count=1 -json
-  
+
   - id: smoke/ccip/ccip_add_chain_test.go:*
     path: integration-tests/smoke/ccip/ccip_add_chain_test.go
     test_env_type: in-memory
@@ -118,6 +116,5 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip/ && go test ccip_disable_lane_test.go -timeout 10m -test.parallel=1 -count=1 -json
-
 
   # END: CCIP tests

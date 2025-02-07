@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 func Test_QueryArgs(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 // ErrNoChains indicates that no EVM chains have been started

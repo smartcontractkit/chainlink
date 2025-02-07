@@ -9,10 +9,10 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 var (

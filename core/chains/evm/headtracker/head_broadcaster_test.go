@@ -18,16 +18,16 @@ import (
 
 	commonhtrk "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
@@ -52,7 +52,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	logger := logger.Test(t)
 
-	sub := commonmocks.NewSubscription(t)
+	sub := clienttest.NewSubscription(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)

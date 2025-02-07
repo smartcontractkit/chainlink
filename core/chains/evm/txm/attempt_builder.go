@@ -10,9 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 )
 
 type AttemptBuilderKeystore interface {

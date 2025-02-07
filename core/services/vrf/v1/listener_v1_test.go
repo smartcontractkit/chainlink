@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestConfirmedLogExtraction(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type (

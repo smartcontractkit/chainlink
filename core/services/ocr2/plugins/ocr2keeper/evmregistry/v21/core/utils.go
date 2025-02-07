@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 // GetTxBlock calls eth_getTransactionReceipt on the eth client to obtain a tx receipt

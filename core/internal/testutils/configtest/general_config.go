@@ -10,13 +10,13 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"

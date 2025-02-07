@@ -20,13 +20,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

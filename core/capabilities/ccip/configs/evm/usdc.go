@@ -1,7 +1,7 @@
 package evm
 
 import (
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 var (

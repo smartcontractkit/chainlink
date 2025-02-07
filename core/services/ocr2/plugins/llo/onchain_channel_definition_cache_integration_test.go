@@ -23,6 +23,8 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
@@ -31,8 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 type mockHTTPClient struct {
