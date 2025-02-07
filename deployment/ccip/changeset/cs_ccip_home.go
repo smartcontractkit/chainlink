@@ -720,17 +720,17 @@ func newDonWithCandidateOp(
 		false, // acceptsWorkflows
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ %s config: %w",
-			types.PluginType(pluginConfig.PluginType).String(), err)
-	}
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, addDonTx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, addDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return mcms.Operation{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
 	}
-
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ %s config: %w",
+			types.PluginType(pluginConfig.PluginType).String(), err)
+	}
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  addDonTx.Data(),
@@ -910,22 +910,16 @@ func setCandidateOnExistingDon(
 		false,
 		nodes.DefaultF(),
 	)
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+		if err != nil {
+			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
 	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
-		}
-	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
-		}
-	}
-
 	return []mcms.Operation{{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
@@ -973,17 +967,18 @@ func promoteCandidateOp(
 		false,
 		nodes.DefaultF(),
 	)
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+		if err != nil {
+			return mcms.Operation{},
+				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
+		}
+	}
 	if err != nil {
 		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%s): %w",
 			donID, types.PluginType(pluginType).String(), err)
 	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return mcms.Operation{}, fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
-		}
-	}
-
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
@@ -1202,7 +1197,9 @@ func revokeCandidateOps(
 		return nil, fmt.Errorf("update don w/ revokeCandidate call: %w", deployment.MaybeDataErr(err))
 	}
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx,
+			capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
 		}
@@ -1321,7 +1318,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 
 	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
 	if cfg.MCMS == nil {
-		_, err = deployment.ConfirmIfNoError(e.Chains[cfg.HomeChainSelector], tx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

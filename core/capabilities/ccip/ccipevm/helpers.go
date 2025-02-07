@@ -8,6 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
+const (
+	svmV1DecodeName    = "decodeSVMExtraArgsV1"
+	evmV1DecodeName    = "decodeEVMExtraArgsV1"
+	evmV2DecodeName    = "decodeEVMExtraArgsV2"
+	evmDestExecDataKey = "destGasAmount"
+)
+
 var (
 	abiUint32               = ABITypeOrPanic("uint32")
 	TokenDestGasOverheadABI = abi.Arguments{
@@ -24,9 +31,9 @@ func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
 
 	var method string
 	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
-		method = "decodeEVMExtraArgsV1"
+		method = evmV1DecodeName
 	} else if bytes.Equal(extraArgs[:4], evmExtraArgsV2Tag) {
-		method = "decodeEVMExtraArgsV2"
+		method = evmV2DecodeName
 	} else {
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
 	}

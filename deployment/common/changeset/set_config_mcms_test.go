@@ -161,6 +161,115 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 	}
 }
 
+func TestSetConfigMCMSV2Variants(t *testing.T) {
+	// Add the timelock as a signer to check state changes
+	for _, tc := range []struct {
+		name       string
+		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication
+	}{
+		{
+			name: "MCMS disabled",
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
+				return []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMSV2),
+						Config: commonchangeset.MCMSConfig{
+							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
+								chainSel: {
+									Proposer:  cfgProp,
+									Canceller: cfgCancel,
+									Bypasser:  cfgBypass,
+								},
+							},
+						},
+					},
+				}
+			},
+		},
+		{
+			name: "MCMS enabled",
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
+				return []commonchangeset.ChangesetApplication{
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+						Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+							ContractsByChain: map[uint64][]common.Address{
+								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
+							},
+						},
+					},
+					{
+						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMSV2),
+						Config: commonchangeset.MCMSConfig{
+							ProposalConfig: &commonchangeset.TimelockConfig{
+								MinDelay: 0,
+							},
+							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
+								chainSel: {
+									Proposer:  cfgProp,
+									Canceller: cfgCancel,
+									Bypasser:  cfgBypass,
+								},
+							},
+						},
+					},
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
+
+			env := setupSetConfigTestEnv(t)
+			chainSelector := env.AllChainSelectors()[0]
+			chain := env.Chains[chainSelector]
+			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+			require.NoError(t, err)
+			require.Len(t, addrs, 6)
+
+			mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+			require.NoError(t, err)
+			timelockAddress := mcmsState.Timelock.Address()
+			cfgProposer := proposalutils.SingleGroupMCMS(t)
+			cfgProposer.Signers = append(cfgProposer.Signers, timelockAddress)
+			cfgProposer.Quorum = 2 // quorum should change to 2 out of 2 signers
+			timelockMap := map[uint64]*proposalutils.TimelockExecutionContracts{
+				chainSelector: {
+					Timelock:  mcmsState.Timelock,
+					CallProxy: mcmsState.CallProxy,
+				},
+			}
+			cfgCanceller := proposalutils.SingleGroupMCMS(t)
+			cfgBypasser := proposalutils.SingleGroupMCMS(t)
+			cfgBypasser.Signers = append(cfgBypasser.Signers, timelockAddress)
+			cfgBypasser.Signers = append(cfgBypasser.Signers, mcmsState.ProposerMcm.Address())
+			cfgBypasser.Quorum = 3 // quorum should change to 3 out of 3 signers
+
+			// Set config on all 3 MCMS contracts
+			changesetsToApply := tc.changeSets(mcmsState, chainSelector, cfgProposer, cfgCanceller, cfgBypasser)
+			_, err = commonchangeset.ApplyChangesets(t, env, timelockMap, changesetsToApply)
+			require.NoError(t, err)
+
+			// Check new State
+			expected := cfgProposer.ToRawConfig()
+			opts := &bind.CallOpts{Context: ctx}
+			newConf, err := mcmsState.ProposerMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+
+			expected = cfgBypasser.ToRawConfig()
+			newConf, err = mcmsState.BypasserMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+
+			expected = cfgCanceller.ToRawConfig()
+			newConf, err = mcmsState.CancellerMcm.GetConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, expected, newConf)
+		})
+	}
+}
+
 func TestValidate(t *testing.T) {
 	env := setupSetConfigTestEnv(t)
 

@@ -203,6 +203,16 @@ func MaybeDataErr(err error) error {
 	return err
 }
 
+// ConfirmIfNoErrorWithABI confirms the transaction if no error occurred.
+// if the error is a DataError, it will return the decoded error message and data.
+func ConfirmIfNoErrorWithABI(chain Chain, tx *types.Transaction, abi string, err error) (uint64, error) {
+	if err != nil {
+		return 0, fmt.Errorf("transaction reverted on chain %s: Error %w",
+			chain.String(), DecodedErrFromABIIfDataErr(err, abi))
+	}
+	return chain.Confirm(tx)
+}
+
 func DecodedErrFromABIIfDataErr(err error, abi string) error {
 	var d rpc.DataError
 	ok := errors.As(err, &d)

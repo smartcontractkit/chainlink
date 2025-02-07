@@ -20,8 +20,10 @@ import (
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
@@ -35,6 +37,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmchaintypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -47,19 +54,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmchaintypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (
-	chainS1 = cciptypes.ChainSelector(1)
-	chainS2 = cciptypes.ChainSelector(2)
-	chainS3 = cciptypes.ChainSelector(3)
-	chainD  = cciptypes.ChainSelector(4)
+	chainS1   = cciptypes.ChainSelector(1)
+	chainS2   = cciptypes.ChainSelector(2)
+	chainS3   = cciptypes.ChainSelector(3)
+	chainD    = cciptypes.ChainSelector(4)
+	chainSEVM = cciptypes.ChainSelector(5009297550715157269)
 )
 
 var (
@@ -116,10 +118,10 @@ func setupExecutedMessagesTest(ctx context.Context, t testing.TB, useHeavyDB boo
 	})
 }
 
-func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool) *testSetupData {
+func setupMsgsBetweenSeqNumsTest(ctx context.Context, t testing.TB, useHeavyDB bool, sourceChainSel cciptypes.ChainSelector) *testSetupData {
 	sb, auth := setupSimulatedBackendAndAuth(t)
 	return testSetup(ctx, t, testSetupParams{
-		ReaderChain:        chainS1,
+		ReaderChain:        sourceChainSel,
 		DestChain:          chainD,
 		OnChainSeqNums:     nil,
 		Cfg:                evmconfig.SourceReaderConfig,
@@ -569,11 +571,11 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
-	s := setupMsgsBetweenSeqNumsTest(ctx, t, false)
+	s := setupMsgsBetweenSeqNumsTest(ctx, t, false, chainSEVM)
 	_, err := s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 0},
-			SourceChainSelector: uint64(chainS1),
+			SourceChainSelector: uint64(chainSEVM),
 			DestChainSelector:   uint64(chainD),
 			SequenceNumber:      10,
 		},
@@ -591,7 +593,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	_, err = s.contract.EmitCCIPMessageSent(s.auth, uint64(chainD), ccip_reader_tester.InternalEVM2AnyRampMessage{
 		Header: ccip_reader_tester.InternalRampMessageHeader{
 			MessageId:           [32]byte{1, 0, 0, 0, 1},
-			SourceChainSelector: uint64(chainS1),
+			SourceChainSelector: uint64(chainSEVM),
 			DestChainSelector:   uint64(chainD),
 			SequenceNumber:      15,
 		},
@@ -616,7 +618,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	require.Eventually(t, func() bool {
 		msgs, err = s.reader.MsgsBetweenSeqNums(
 			ctx,
-			chainS1,
+			chainSEVM,
 			cciptypes.NewSeqNumRange(5, 20),
 		)
 		require.NoError(t, err)
@@ -641,7 +643,7 @@ func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
 	require.Equal(t, int64(4), msgs[1].TokenAmounts[1].Amount.Int64())
 
 	for _, msg := range msgs {
-		require.Equal(t, chainS1, msg.Header.SourceChainSelector)
+		require.Equal(t, chainSEVM, msg.Header.SourceChainSelector)
 		require.Equal(t, chainD, msg.Header.DestChainSelector)
 	}
 }
@@ -1274,7 +1276,7 @@ func Benchmark_CCIPReader_MessageSentRanges(b *testing.B) {
 func benchmarkMessageSentRanges(b *testing.B, logsInserted int, startSeqNum, endSeqNum cciptypes.SeqNum) {
 	// Initialize test setup
 	ctx := tests.Context(b)
-	s := setupMsgsBetweenSeqNumsTest(ctx, b, true)
+	s := setupMsgsBetweenSeqNumsTest(ctx, b, true, chainS1)
 	expectedRangeLen := calculateExpectedRangeLen(logsInserted, startSeqNum, endSeqNum)
 
 	err := s.extendedCR.Bind(ctx, []types.BoundContract{

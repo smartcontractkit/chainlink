@@ -5,7 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 type headBroadcaster = headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]

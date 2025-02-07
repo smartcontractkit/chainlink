@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -218,7 +217,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	sub := commonmocks.NewSubscription(t)
+	sub := clienttest.NewSubscription(t)
 	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
