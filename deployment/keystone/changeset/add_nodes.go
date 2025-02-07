@@ -181,6 +181,11 @@ func (r *AddNodesRequest) Validate() error {
 	if len(r.CreateNodeRequests) == 0 {
 		return errors.New("must provide create node requests")
 	}
+	for nodeName, cr := range r.CreateNodeRequests {
+		if err := cr.Validate(); err != nil {
+			return fmt.Errorf("invalid create node request for node %s: %w", nodeName, err)
+		}
+	}
 	return nil
 }
 
@@ -202,15 +207,15 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 
 	nodeParams := make(map[string]kcr.CapabilitiesRegistryNodeParams)
 	for nodeName, cr := range req.CreateNodeRequests {
-		p, err := cr.Resolve(contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry)
+		params, err := cr.Resolve(contractSetResp.ContractSets[req.RegistryChainSel].CapabilitiesRegistry)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to resolve node params for node %s: %w", nodeName, err)
 		}
-		p2p := string(p.P2pId[:])
+		p2p := string(params.P2pId[:])
 		if _, exists := nodeParams[p2p]; exists {
 			return deployment.ChangesetOutput{}, fmt.Errorf("duplicate p2pid %s at node %s", p2p, nodeName)
 		}
-		nodeParams[p2p] = p
+		nodeParams[p2p] = params
 	}
 
 	var (
