@@ -14,6 +14,7 @@ const (
 	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
+	ManyChainMultisig          deployment.ContractType = "ManyChainMultiSig"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
 	CallProxy                  deployment.ContractType = "CallProxy"
 	// LinkToken is the burn/mint link token. It should be used everywhere for
