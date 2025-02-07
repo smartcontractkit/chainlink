@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "2.20.0-ccip1.5.17",
+  "version": "2.20.0-ccip1.5.18",
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {
