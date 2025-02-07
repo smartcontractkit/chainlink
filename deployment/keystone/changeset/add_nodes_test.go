@@ -152,7 +152,7 @@ func TestAddNodes(t *testing.T) {
 				},
 
 				{
-					name: "error - deduplicate",
+					name: "error - deduplicate p2p",
 					input: input{
 						te: te,
 						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
@@ -160,8 +160,8 @@ func TestAddNodes(t *testing.T) {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
 								},
-								Signer:              test32byte(t, "dupe signer"),
-								EncryptionPublicKey: test32byte(t, "dupe enc key"),
+								Signer:              test32byte(t, "signer p2p 1"),
+								EncryptionPublicKey: test32byte(t, "enc key"),
 								P2PID:               testPeerID(t, "dupe p2p key"),
 								CapabilityIdentities: changeset.CapabilityIdentities{
 									{RegistrationID: te.CapabilityInfos()[0].HashedId},
@@ -171,8 +171,8 @@ func TestAddNodes(t *testing.T) {
 								NOPIdentity: changeset.NOPIdentity{
 									RegistrationID: te.Nops()[0].NodeOperatorId,
 								},
-								Signer:              test32byte(t, "dupe signer"),
-								EncryptionPublicKey: test32byte(t, "dupe enc key"),
+								Signer:              test32byte(t, "signer p2p 2"),
+								EncryptionPublicKey: test32byte(t, "another enc key"),
 								P2PID:               testPeerID(t, "dupe p2p key"),
 								CapabilityIdentities: changeset.CapabilityIdentities{
 									{RegistrationID: te.CapabilityInfos()[0].HashedId},
@@ -185,6 +185,46 @@ func TestAddNodes(t *testing.T) {
 						require.Error(t, err)
 						// this error is the same independent of mcms; ie in creating the proposal not exec'ing it
 						assert.ErrorContains(t, err, "duplicate p2pid")
+					},
+				},
+				{
+					name: "error - deduplicate signer",
+					input: input{
+						te: te,
+						CreateNodeRequests: map[string]changeset.CreateNodeRequest{
+							"test-node": {
+								NOPIdentity: changeset.NOPIdentity{
+									RegistrationID: te.Nops()[0].NodeOperatorId,
+								},
+								Signer:              test32byte(t, "dupe signer"),
+								EncryptionPublicKey: test32byte(t, "enc key"),
+								P2PID:               testPeerID(t, "p2p key a"),
+								CapabilityIdentities: changeset.CapabilityIdentities{
+									{RegistrationID: te.CapabilityInfos()[0].HashedId},
+								},
+							},
+							"test-node-2": {
+								NOPIdentity: changeset.NOPIdentity{
+									RegistrationID: te.Nops()[0].NodeOperatorId,
+								},
+								Signer:              test32byte(t, "dupe signer"),
+								EncryptionPublicKey: test32byte(t, "another enc key"),
+								P2PID:               testPeerID(t, "p2p key b"),
+								CapabilityIdentities: changeset.CapabilityIdentities{
+									{RegistrationID: te.CapabilityInfos()[0].HashedId},
+								},
+							},
+						},
+						MCMSConfig: mc,
+					},
+					checkErr: func(t *testing.T, useMCMS bool, err error) {
+						require.Error(t, err)
+						// contract error if two nodes have the same signer
+						if useMCMS {
+							assert.ErrorContains(t, err, "underlying transaction reverted")
+						} else {
+							assert.ErrorContains(t, err, "InvalidNodeSigner")
+						}
 					},
 				},
 			}
