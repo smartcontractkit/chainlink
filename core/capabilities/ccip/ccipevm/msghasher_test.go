@@ -3,7 +3,9 @@ package ccipevm
 import (
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -246,20 +248,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				FeeToken:     common.HexToAddress(feeToken).Bytes(),
 				TokenAmounts: []cciptypes.RampTokenAmount{},
 			}
-			any2EVMMessage = message_hasher.InternalAny2EVMRampMessage{
-				Header: message_hasher.InternalRampMessageHeader{
-					MessageId:           msg.Header.MessageID,
-					SourceChainSelector: uint64(sourceChainSelector),
-					DestChainSelector:   uint64(destChainSelector),
-					SequenceNumber:      uint64(msg.Header.SequenceNumber),
-					Nonce:               msg.Header.Nonce,
-				},
-				Sender:       common.LeftPadBytes(msg.Sender, 32),
-				Data:         msg.Data,
-				Receiver:     common.BytesToAddress(msg.Receiver),
-				GasLimit:     big.NewInt(200_000),
-				TokenAmounts: []message_hasher.InternalAny2EVMTokenTransfer{},
-			}
+			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg)
 		)
 
 		onchainHash, err := msghasher.Hash(&bind.CallOpts{
@@ -313,28 +302,27 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				},
 			}
 
-			any2EVMMessage = message_hasher.InternalAny2EVMRampMessage{
-				Header: message_hasher.InternalRampMessageHeader{
-					MessageId:           messageID,
-					SourceChainSelector: uint64(sourceChainSelector),
-					DestChainSelector:   uint64(destChainSelector),
-					SequenceNumber:      uint64(sequenceNumber),
+			msg = cciptypes.Message{
+				Header: cciptypes.RampMessageHeader{
+					MessageID:           messageID,
+					SourceChainSelector: sourceChainSelector,
+					DestChainSelector:   destChainSelector,
+					SequenceNumber:      sequenceNumber,
 					Nonce:               nonce,
+					MsgHash:             cciptypes.Bytes32{},
+					OnRamp:              onRampAddress,
 				},
-				Sender:   common.LeftPadBytes(senderAddress, 32),
-				Data:     nil,
-				Receiver: common.BytesToAddress(receiverAddress),
-				GasLimit: big.NewInt(200_000),
-				TokenAmounts: []message_hasher.InternalAny2EVMTokenTransfer{
-					{
-						SourcePoolAddress: mustEncodeAddress(t, common.BytesToAddress(tokenAmounts[0].SourcePoolAddress)),
-						DestTokenAddress:  common.BytesToAddress(tokenAmounts[0].DestTokenAddress),
-						DestGasAmount:     125_000,
-						ExtraData:         tokenAmounts[0].ExtraData,
-						Amount:            tokenAmounts[0].Amount.Int,
-					},
-				},
+				Sender:         senderAddress,
+				Data:           hexutil.MustDecode(dataField),
+				Receiver:       receiverAddress,
+				ExtraArgs:      extraArgs,
+				FeeToken:       feeToken.Bytes(),
+				FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
+				FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),
+				TokenAmounts:   tokenAmounts,
 			}
+
+			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg)
 		)
 
 		const (
@@ -342,25 +330,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		)
 
 		h := NewMessageHasherV1(logger.Test(t))
-		msgH, err := h.Hash(tests.Context(t), cciptypes.Message{
-			Header: cciptypes.RampMessageHeader{
-				MessageID:           messageID,
-				SourceChainSelector: sourceChainSelector,
-				DestChainSelector:   destChainSelector,
-				SequenceNumber:      sequenceNumber,
-				Nonce:               nonce,
-				MsgHash:             cciptypes.Bytes32{},
-				OnRamp:              onRampAddress,
-			},
-			Sender:         senderAddress,
-			Data:           hexutil.MustDecode(dataField),
-			Receiver:       receiverAddress,
-			ExtraArgs:      extraArgs,
-			FeeToken:       feeToken.Bytes(),
-			FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
-			FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),
-			TokenAmounts:   tokenAmounts,
-		})
+		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 
 		msgHashOnchain, err := msghasher.Hash(&bind.CallOpts{
@@ -372,6 +342,69 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.Equal(t, msgHashOnchain, [32]byte(msgH), "my hash and onchain hash should match")
 		require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
 	})
+
+	t.Run("other vectors", func(t *testing.T) {
+		// These test vectors are from real ccip transactions on sepolia.
+		// onramp address: 0x89559ce6904d4c4b0f6aab9065ad02b1ed531be4
+		// sequence numbers 386 to 419.
+		var msgs []cciptypes.Message
+		data, err := ioutil.ReadFile("msgs_test_vector.json")
+		require.NoError(t, err)
+
+		err = json.Unmarshal(data, &msgs)
+		require.NoError(t, err)
+
+		msgHasher := NewMessageHasherV1(logger.Test(t))
+
+		for _, msg := range msgs {
+			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg)
+
+			onchainHash, err := msghasher.Hash(&bind.CallOpts{
+				Context: tests.Context(t),
+			}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
+			require.NoError(t, err)
+
+			myHash, err := msgHasher.Hash(tests.Context(t), msg)
+			require.NoError(t, err)
+
+			t.Logf("onchain hash: %s, my hash: %s", hexutil.Encode(onchainHash[:]), myHash.String())
+			require.Equal(t, [32]byte(myHash), onchainHash, "my hash and onchain hash should match")
+		}
+	})
+}
+
+func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message) message_hasher.InternalAny2EVMRampMessage {
+	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
+	for _, rta := range msg.TokenAmounts {
+		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		require.NoError(t, err)
+
+		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
+			SourcePoolAddress: common.LeftPadBytes(rta.SourcePoolAddress, 32),
+			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
+			ExtraData:         rta.ExtraData[:],
+			Amount:            rta.Amount.Int,
+			DestGasAmount:     destGasAmount,
+		})
+	}
+
+	gasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+	require.NoError(t, err)
+
+	return message_hasher.InternalAny2EVMRampMessage{
+		Header: message_hasher.InternalRampMessageHeader{
+			MessageId:           msg.Header.MessageID,
+			SourceChainSelector: uint64(msg.Header.SourceChainSelector),
+			DestChainSelector:   uint64(msg.Header.DestChainSelector),
+			SequenceNumber:      uint64(msg.Header.SequenceNumber),
+			Nonce:               msg.Header.Nonce,
+		},
+		Sender:       common.LeftPadBytes(msg.Sender, 32),
+		Data:         msg.Data,
+		Receiver:     common.BytesToAddress(msg.Receiver),
+		GasLimit:     gasLimit,
+		TokenAmounts: tokenAmounts,
+	}
 }
 
 func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
