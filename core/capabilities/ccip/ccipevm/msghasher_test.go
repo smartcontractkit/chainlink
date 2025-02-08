@@ -202,6 +202,18 @@ func testSetup(t *testing.T) *testSetupData {
 }
 
 func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+	transactor := testutils.MustNewSimTransactor(t)
+	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
+		transactor.From: {Balance: assets.Ether(1000).ToInt()},
+	}, 30e6)
+
+	msghasherAddr, _, _, err := message_hasher.DeployMessageHasher(transactor, backend)
+	require.NoError(t, err)
+	backend.Commit()
+
+	msghasher, err := message_hasher.NewMessageHasher(msghasherAddr, backend)
+	require.NoError(t, err)
+
 	t.Run("vec1", func(t *testing.T) {
 		const (
 			messageID           = "c6f553ab71282f01324bbdbcc82e22a7e66efbcd108881ecc4cdbd728aed9b1e"
@@ -216,61 +228,54 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			expectedMsgHash     = "0x1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f"
 		)
 
+		var (
+			msg = cciptypes.Message{
+				Header: cciptypes.RampMessageHeader{
+					MessageID:           cciptypes.Bytes32(common.Hex2Bytes(messageID)),
+					SourceChainSelector: sourceChainSelector,
+					DestChainSelector:   destChainSelector,
+					SequenceNumber:      1,
+					Nonce:               1,
+					MsgHash:             cciptypes.Bytes32{},
+					OnRamp:              common.HexToAddress(onRampAddress).Bytes(),
+				},
+				Sender:       common.HexToAddress(senderAddress).Bytes(),
+				Data:         common.Hex2Bytes(dataField),
+				Receiver:     common.Hex2Bytes(receiverAddress),
+				ExtraArgs:    common.Hex2Bytes(extraArgs),
+				FeeToken:     common.HexToAddress(feeToken).Bytes(),
+				TokenAmounts: []cciptypes.RampTokenAmount{},
+			}
+			any2EVMMessage = message_hasher.InternalAny2EVMRampMessage{
+				Header: message_hasher.InternalRampMessageHeader{
+					MessageId:           msg.Header.MessageID,
+					SourceChainSelector: uint64(sourceChainSelector),
+					DestChainSelector:   uint64(destChainSelector),
+					SequenceNumber:      uint64(msg.Header.SequenceNumber),
+					Nonce:               msg.Header.Nonce,
+				},
+				Sender:       common.LeftPadBytes(msg.Sender, 32),
+				Data:         msg.Data,
+				Receiver:     common.BytesToAddress(msg.Receiver),
+				GasLimit:     big.NewInt(200_000),
+				TokenAmounts: []message_hasher.InternalAny2EVMTokenTransfer{},
+			}
+		)
+
+		onchainHash, err := msghasher.Hash(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
+		require.NoError(t, err)
+
 		h := NewMessageHasherV1(logger.Test(t))
-		msgH, err := h.Hash(context.Background(), cciptypes.Message{
-			Header: cciptypes.RampMessageHeader{
-				MessageID:           cciptypes.Bytes32(common.Hex2Bytes(messageID)),
-				SourceChainSelector: sourceChainSelector,
-				DestChainSelector:   destChainSelector,
-				SequenceNumber:      1,
-				Nonce:               1,
-				MsgHash:             cciptypes.Bytes32{},
-				OnRamp:              common.HexToAddress(onRampAddress).Bytes(),
-			},
-			Sender:       common.HexToAddress(senderAddress).Bytes(),
-			Data:         common.Hex2Bytes(dataField),
-			Receiver:     common.Hex2Bytes(receiverAddress),
-			ExtraArgs:    common.Hex2Bytes(extraArgs),
-			FeeToken:     common.HexToAddress(feeToken).Bytes(),
-			TokenAmounts: []cciptypes.RampTokenAmount{},
-		})
+		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 		require.Equal(t, expectedMsgHash, msgH.String())
+		require.Equal(t, onchainHash, [32]byte(msgH), "my hash and onchain hash should match")
 	})
 
 	t.Run("vec2", func(t *testing.T) {
-		transactor := testutils.MustNewSimTransactor(t)
-		backend := backends.NewSimulatedBackend(types.GenesisAlloc{
-			transactor.From: {Balance: assets.Ether(1000).ToInt()},
-		}, 30e6)
-
-		msghasherAddr, _, _, err := message_hasher.DeployMessageHasher(transactor, backend)
-		require.NoError(t, err)
-		backend.Commit()
-
-		msghasher, err := message_hasher.NewMessageHasher(msghasherAddr, backend)
-		require.NoError(t, err)
-
 		// source chain tx: https://sepolia.etherscan.io/tx/0x3b64b5cb2c972a3f5064801187f17360c2025fbcc51e11b67b25c7949daeec24#eventlog
-		// delegate_test.go:61: event dest chain selector: 3478487238524512106
-		// delegate_test.go:62: event sequence number: 386
-		// delegate_test.go:63: header message id: cdad95e113e35cf691295c1f42455d41062ba9a1b96a6280c1a5a678ef801721
-		// delegate_test.go:64: header source chain selector: 16015286601757825753
-		// delegate_test.go:65: header dest chain selector: 3478487238524512106
-		// delegate_test.go:66: header sequence number: 386
-		// delegate_test.go:67: header nonce: 1
-		// delegate_test.go:68: sender: 0x269895AC2a2eC6e1Df37F68AcfbBDa53e62b71B1
-		// delegate_test.go:69: data:
-		// delegate_test.go:70: receiver: 000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1
-		// delegate_test.go:71: extra args: 181dcf100000000000000000000000000000000000000000000000000000000000030d400000000000000000000000000000000000000000000000000000000000000000
-		// delegate_test.go:72: fee token: 0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534
-		// delegate_test.go:73: fee token amount: 114310554250104
-		// delegate_test.go:74: fee value juels: 16499514422603741
-		// delegate_test.go:76: source pool address: 0xBBE734cAB186C0988CFBAfdFdbe442979a0c8697
-		// delegate_test.go:77: dest token address: 000000000000000000000000b8d6a6a41d5dd732aec3c438e91523b7613b963b
-		// delegate_test.go:78: extra data: 0000000000000000000000000000000000000000000000000000000000000012
-		// delegate_test.go:79: amount: 100000000000000000
-		// delegate_test.go:80: dest exec data: 000000000000000000000000000000000000000000000000000000000001e848
 		var (
 			// header fields
 			messageID           = mustBytes32FromString(t, "0xcdad95e113e35cf691295c1f42455d41062ba9a1b96a6280c1a5a678ef801721")
@@ -282,7 +287,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			// sender is parsed unpadded since its emitted unpadded from EVM.
 			senderAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x269895AC2a2eC6e1Df37F68AcfbBDa53e62b71B1"))
 			// onRampAddress is parsed padded because its set as a padded address in the offRamp
-			onRampAddress = hexutil.MustDecode("0x0000000000000000000000007a2088a1bfc9d81c55368ae168c2c02570cb814f")
+			onRampAddress = hexutil.MustDecode("0x00000000000000000000000089559ce6904d4c4B0f6aaB9065Ad02B1ed531Be4")
 			dataField     = "0x"
 			// receiver address is parsed padded because its emitted as padded from EVM.
 			receiverAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"))
@@ -323,12 +328,10 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				TokenAmounts: []message_hasher.InternalAny2EVMTokenTransfer{
 					{
 						SourcePoolAddress: mustEncodeAddress(t, common.BytesToAddress(tokenAmounts[0].SourcePoolAddress)),
-						// SourcePoolAddress: common.LeftPadBytes(tokenAmounts[0].SourcePoolAddress, 32),
-						// SourcePoolAddress: mustEncodeAddress(t, tokenAmounts[0].SourcePoolAddress),
-						DestTokenAddress: common.BytesToAddress(tokenAmounts[0].DestTokenAddress),
-						DestGasAmount:    125_000,
-						ExtraData:        tokenAmounts[0].ExtraData,
-						Amount:           tokenAmounts[0].Amount.Int,
+						DestTokenAddress:  common.BytesToAddress(tokenAmounts[0].DestTokenAddress),
+						DestGasAmount:     125_000,
+						ExtraData:         tokenAmounts[0].ExtraData,
+						Amount:            tokenAmounts[0].Amount.Int,
 					},
 				},
 			}
@@ -368,7 +371,6 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		t.Logf("rmn hash: %s, onchain hash: %s, my hash: %s", rmnMsgHash, hexutil.Encode(msgHashOnchain[:]), msgH.String())
 		require.Equal(t, msgHashOnchain, [32]byte(msgH), "my hash and onchain hash should match")
 		require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
-		require.Equal(t, rmnMsgHash, hexutil.Encode(msgHashOnchain[:]), "rmn hash and onchain hash should match")
 	})
 }
 
