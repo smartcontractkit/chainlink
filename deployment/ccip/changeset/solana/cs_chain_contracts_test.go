@@ -33,7 +33,7 @@ func TestAddRemoteChain(t *testing.T) {
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
 	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
@@ -78,7 +78,7 @@ func TestAddRemoteChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
 	var destChainStateAccount solRouter.DestChain
@@ -360,7 +360,6 @@ func TestTokenAdminRegistry(t *testing.T) {
 	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 	require.NoError(t, err)
 	require.Equal(t, newTokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
-
 }
 
 func TestPoolLookupTable(t *testing.T) {
@@ -444,6 +443,6 @@ func TestPoolLookupTable(t *testing.T) {
 
 	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
 	require.NoError(t, err)
-	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), tokenAdminRegistry.Administrator)
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistry.Administrator)
 	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 }

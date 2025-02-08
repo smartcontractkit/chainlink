@@ -33,8 +33,6 @@ flowchart LR
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-cosmos --> chainlink-framework/chains
-	click chainlink-cosmos href "https://github.com/smartcontractkit/chainlink-cosmos"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-feeds --> chainlink-common
@@ -53,17 +51,13 @@ flowchart LR
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
-	chainlink-starknet/relayer --> chainlink-common
-	click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-integrations/evm
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> chainlink-starknet/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	grpc-proxy
@@ -141,8 +135,6 @@ flowchart LR
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-cosmos --> chainlink-framework/chains
-	click chainlink-cosmos href "https://github.com/smartcontractkit/chainlink-cosmos"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-feeds --> chainlink-common
@@ -163,8 +155,6 @@ flowchart LR
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
-	chainlink-starknet/relayer --> chainlink-common
-	click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
 	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
@@ -173,6 +163,8 @@ flowchart LR
 	click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/sentinel --> chainlink-testing-framework/lib
+	click chainlink-testing-framework/sentinel href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/seth
 	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib/grafana
@@ -186,20 +178,19 @@ flowchart LR
 	chainlink/deployment --> mcms
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
 	chainlink/integration-tests --> chainlink-testing-framework/havoc
+	chainlink/integration-tests --> chainlink-testing-framework/sentinel
 	chainlink/integration-tests --> chainlink-testing-framework/wasp
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
-	chainlink/v2 --> chainlink-cosmos
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-integrations/evm
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
-	chainlink/v2 --> chainlink-starknet/relayer
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	grpc-proxy
@@ -251,6 +242,7 @@ flowchart LR
 		 chainlink-testing-framework/havoc
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana
+		 chainlink-testing-framework/sentinel
 		 chainlink-testing-framework/seth
 		 chainlink-testing-framework/wasp
 	end

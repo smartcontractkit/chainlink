@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -12,6 +13,10 @@ import (
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -84,6 +89,7 @@ var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWit
 // It assumes that DeployMCMSWithTimelock has already been run s.t.
 // the timelock and mcmses exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
+// Deprecated: Use TransferToMCMSWithTimelockV2 instead.
 func TransferToMCMSWithTimelock(
 	e deployment.Environment,
 	cfg TransferToMCMSWithTimelockConfig,
@@ -144,6 +150,69 @@ func TransferToMCMSWithTimelock(
 	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
 }
 
+var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWithTimelockV2
+
+// TransferToMCMSWithTimelockV2 is a reimplementation of TransferToMCMSWithTimelock which uses the new MCMS library.
+func TransferToMCMSWithTimelockV2(
+	e deployment.Environment,
+	cfg TransferToMCMSWithTimelockConfig,
+) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	batches := []mcmstypes.BatchOperation{}
+	timelockAddressByChain := make(map[uint64]string)
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	proposerAddressByChain := make(map[uint64]string)
+	for chainSelector, contracts := range cfg.ContractsByChain {
+		// Already validated that the timelock/proposer exists.
+		timelockAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
+		proposerAddr, _ := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.ProposerManyChainMultisig)
+		timelockAddressByChain[chainSelector] = timelockAddr
+		proposerAddressByChain[chainSelector] = proposerAddr
+		inspectorPerChain[chainSelector] = evm.NewInspector(e.Chains[chainSelector].Client)
+
+		var ops []mcmstypes.Transaction
+		for _, contract := range contracts {
+			// Just using the ownership interface.
+			// Already validated is ownable.
+			owner, c, _ := LoadOwnableContract(contract, e.Chains[chainSelector].Client)
+			if owner.String() == timelockAddr {
+				// Already owned by timelock.
+				e.Logger.Infof("contract %s already owned by timelock", contract)
+				continue
+			}
+			tx, err := c.TransferOwnership(e.Chains[chainSelector].DeployerKey, common.HexToAddress(timelockAddr))
+			_, err = deployment.ConfirmIfNoError(e.Chains[chainSelector], tx, err)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of contract %T: %w", contract, err)
+			}
+			tx, err = c.AcceptOwnership(deployment.SimTransactOpts())
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate accept ownership calldata of %s: %w", contract, err)
+			}
+			ops = append(ops, mcmstypes.Transaction{
+				To:               contract.Hex(),
+				Data:             tx.Data(),
+				AdditionalFields: json.RawMessage(`{"value": 0}`), // JSON-encoded `{"value": 0}`
+			})
+		}
+		batches = append(batches, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chainSelector),
+			Transactions:  ops,
+		})
+	}
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
+		batches, "Transfer ownership to timelock", cfg.MinDelay)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w, batches: %+v", err, batches)
+	}
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+}
+
 var _ deployment.ChangeSet[TransferToDeployerConfig] = TransferToDeployer
 
 type TransferToDeployerConfig struct {
@@ -194,6 +263,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error creating timelock executor proxy: %w", err)
 	}
+
 	tx, err = timelockExecutorProxy.ExecuteBatch(
 		e.Chains[cfg.ChainSel].DeployerKey, calls, [32]byte{}, salt)
 	if err != nil {
@@ -202,6 +272,7 @@ func TransferToDeployer(e deployment.Environment, cfg TransferToDeployerConfig) 
 	if _, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.ChainSel], tx, owner_helpers.RBACTimelockABI, err); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	e.Logger.Infof("executed transfer ownership to deployer key with tx %s", tx.Hash().Hex())
 
 	tx, err = ownable.AcceptOwnership(e.Chains[cfg.ChainSel].DeployerKey)

@@ -651,7 +651,7 @@ jobs:
       #          comment_on_pr: false
       #          theme: 'dark'
       - name: Run Tests
-        uses: smartcontractkit/.github/actions/ctf-run-tests@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # ctf-run-tests@0.1.0
+        uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -668,10 +668,11 @@ jobs:
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ""
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
         env:
           E2E_TEST_SELECTED_NETWORK: ${{ env.SELECTED_NETWORKS}}
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}

@@ -240,7 +240,7 @@ func doAddRemoteChainToSolana(
 			return fmt.Errorf("failed to generate instructions: %w", err)
 		}
 
-		solFeeQuoter.SetProgramID(feeQuoterId)
+		solFeeQuoter.SetProgramID(feeQuoterID)
 		feeQuoterIx, err := solFeeQuoter.NewAddDestChainInstruction(
 			remoteChainSel,
 			update.FeeQuoterDestinationConfig,
@@ -360,8 +360,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 			instructions = append(instructions, instruction)
 		}
 		if cfg.MCMS == nil {
-			err := e.SolChains[remote].Confirm(instructions)
-			if err != nil {
+			if err := e.SolChains[remote].Confirm(instructions); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		}
@@ -614,11 +613,10 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	// verified
 	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
-	billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
+	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
 
 	// addressing errcheck in the next PR
-	// I dont think this is correct, because in chainlink-ccip this is actually state.FindFeeBillingSignerPDA(CcipRouterProgram)
-	billingSignerPDA, _, _ := solState.FindFqBillingSignerPDA(chainState.FeeQuoter)
+	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenprogramID, tokenPubKey, billingSignerPDA)
 
 	e.Logger.Infow("chainState.FeeQuoterConfigPDA", "feeQuoterConfigPDA", chainState.FeeQuoterConfigPDA.String())
@@ -626,7 +624,7 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 	ixConfig, cerr := solFeeQuoter.NewAddBillingTokenConfigInstruction(
 		cfg.Config,
 		chainState.FeeQuoterConfigPDA,
-		billingConfigPDA,
+		tokenBillingPDA,
 		tokenprogramID,
 		tokenPubKey,
 		token2022Receiver,

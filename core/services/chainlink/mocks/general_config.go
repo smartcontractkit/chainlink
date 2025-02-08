@@ -3,12 +3,8 @@
 package mocks
 
 import (
-	chainlinkconfig "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
-
-	cosmosconfig "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -372,19 +368,19 @@ func (_c *GeneralConfig_ConfigTOML_Call) RunAndReturn(run func() (string, string
 }
 
 // CosmosConfigs provides a mock function with no fields
-func (_m *GeneralConfig) CosmosConfigs() cosmosconfig.TOMLConfigs {
+func (_m *GeneralConfig) CosmosConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for CosmosConfigs")
 	}
 
-	var r0 cosmosconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() cosmosconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmosconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -408,12 +404,12 @@ func (_c *GeneralConfig_CosmosConfigs_Call) Run(run func()) *GeneralConfig_Cosmo
 	return _c
 }
 
-func (_c *GeneralConfig_CosmosConfigs_Call) Return(_a0 cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+func (_c *GeneralConfig_CosmosConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_CosmosConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_CosmosConfigs_Call) RunAndReturn(run func() cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+func (_c *GeneralConfig_CosmosConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_CosmosConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1680,19 +1676,19 @@ func (_c *GeneralConfig_StarkNetEnabled_Call) RunAndReturn(run func() bool) *Gen
 }
 
 // StarknetConfigs provides a mock function with no fields
-func (_m *GeneralConfig) StarknetConfigs() chainlinkconfig.TOMLConfigs {
+func (_m *GeneralConfig) StarknetConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for StarknetConfigs")
 	}
 
-	var r0 chainlinkconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() chainlinkconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chainlinkconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -1716,12 +1712,12 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Run(run func()) *GeneralConfig_Sta
 	return _c
 }
 
-func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -20,7 +20,6 @@ import (
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
 func Test_CCIPMessaging(t *testing.T) {
@@ -278,66 +277,4 @@ func boolsToBitFlags(bools []bool) *big.Int {
 		}
 	}
 	return encodedFlags
-}
-
-func Test_CCIPMessaging_Solana(t *testing.T) {
-	// Setup 2 chains (EVM and Solana) and a single lane.
-	// ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
-
-	state, err := changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	allChainSelectors := maps.Keys(e.Env.Chains)
-	allSolChainSelectors := maps.Keys(e.Env.SolChains)
-	sourceChain := allChainSelectors[0]
-	destChain := allSolChainSelectors[0]
-
-	// connect a single lane, source to dest
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
-	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
-	state, _ = changeset.LoadOnchainState(e.Env)
-
-	out, err := state.Chains[sourceChain].Router.GetFee(nil, destChain, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(state.SolChains[destChain].Receiver.Bytes(), 32),
-		Data:         []byte("hello CCIPReceiver"),
-		TokenAmounts: nil,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    nil,
-	})
-	require.NoError(t, err)
-	t.Logf("fee: %d", out)
-	// require.Equal(t, uint64(0), out.Fee)
-	// latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
-	// require.NoError(t, err)
-	// sender := common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
-	// setup := testCaseSetup{
-	// 	t:            t,
-	// 	sender:       sender,
-	// 	deployedEnv:  e,
-	// 	onchainState: state,
-	// 	sourceChain:  sourceChain,
-	// 	destChain:    destChain,
-	// }
-	// out := messagingTestCaseOutput{}
-	// out = runMessagingTestCase(
-	// 	messagingTestCase{
-	// 		testCaseSetup: setup,
-	// 		replayed:      out.replayed,
-	// 		nonce:         out.nonce,
-	// 	},
-	// 	state.SolChains[destChain].Receiver.Bytes(),
-	// 	[]byte("hello CCIPReceiver"),
-	// 	nil, // default extraArgs
-	// 	testhelpers.EXECUTION_STATE_SUCCESS,
-	// 	// func(t *testing.T) {
-	// 	// 	iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-	// 	// 		Context: ctx,
-	// 	// 		Start:   latestHead.Number.Uint64(),
-	// 	// 	})
-	// 	// 	require.NoError(t, err)
-	// 	// 	require.True(t, iter.Next())
-	// 	// 	// MessageReceived doesn't emit the data unfortunately, so can't check that.
-	// 	// },
-	// )
 }
