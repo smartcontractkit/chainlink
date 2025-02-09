@@ -17,9 +17,11 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   uint32 public s_lastResponseLength;
   uint32 public s_lastErrorLength;
 
+  address public router = 0x234a5fb5Bd614a7AA2FfAB244D603abFA0Ac5C5C;
+
   error UnexpectedRequestID(bytes32 requestId);
 
-  constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) {}
+  constructor() FunctionsClient(router) ConfirmedOwner(msg.sender) {}
 
   /// @notice Send a simple request
   /// @param source JavaScript source code
