@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -31,17 +30,15 @@ func TestAppendNodeCapabilities(t *testing.T) {
 	)
 	t.Run("no mcms", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
-			newCapabilities[k] = caps
+		for _, id := range te.GetP2PIDs("wfDon") {
+			newCapabilities[id] = caps
 		}
 
 		t.Run("succeeds if existing capabilities not explicit", func(t *testing.T) {
@@ -60,18 +57,16 @@ func TestAppendNodeCapabilities(t *testing.T) {
 	})
 	t.Run("with mcms", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
-			newCapabilities[k] = caps
+		for _, id := range te.GetP2PIDs("wfDon") {
+			newCapabilities[id] = caps
 		}
 
 		cfg := changeset.AppendNodeCapabilitiesRequest{
@@ -110,7 +105,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
 func validateCapabilityAppends(t *testing.T, te test.TestEnv, appended map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
-	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
+	wfP2PIDs := p2p32Bytes(t, te.GetP2PIDs("wfDon"))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
 	require.NoError(t, err)
 	require.Len(t, nodes, len(wfP2PIDs))

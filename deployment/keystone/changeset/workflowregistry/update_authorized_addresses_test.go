@@ -75,9 +75,9 @@ func TestUpdateAuthorizedAddresses(t *testing.T) {
 
 func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 	te := test.SetupTestEnv(t, test.TestConfig{
-		WFDonConfig:     test.DonConfig{N: 4},
-		AssetDonConfig:  test.DonConfig{N: 4},
-		WriterDonConfig: test.DonConfig{N: 4},
+		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+		AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+		WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 		NumChains:       1,
 		UseMCMS:         true,
 	})

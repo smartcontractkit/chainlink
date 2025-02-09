@@ -59,7 +59,7 @@ type TestEnvI interface {
 	CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo
 	Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded
 
-	GetDon(name string) deployment.Nodes
+	GetP2PIDs(donName string) []p2pkey.PeerID
 }
 
 // TODO: separate the config into different types; wf should expand to types of ocr keybundles; writer to target chains; ...
@@ -92,14 +92,14 @@ func (c TestConfig) Validate() error {
 	return nil
 }
 
+var _ TestEnvI = (*TestEnv)(nil)
+
 type TestEnv struct {
 	t                *testing.T
 	Env              deployment.Environment
 	RegistrySelector uint64
 
-	WFNodes    map[string]memory.Node
-	CWNodes    map[string]memory.Node
-	AssetNodes map[string]memory.Node
+	dons map[string]map[string]memory.Node
 }
 
 func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
@@ -139,6 +139,20 @@ func (te TestEnv) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
 			Admin:          n.Admin,
 			Name:           n.Name,
 		}
+	}
+	return out
+}
+
+func (te TestEnv) GetP2PIDs(donName string) []p2pkey.PeerID {
+	d, ok := te.dons[donName]
+	require.True(te.t, ok, "don %s not found", donName)
+	return memoryNodesP2pIDs(te.t, d)
+}
+
+func memoryNodesP2pIDs(t *testing.T, m map[string]memory.Node) []p2pkey.PeerID {
+	var out []p2pkey.PeerID
+	for _, n := range m {
+		out = append(out, n.Keys.PeerID)
 	}
 	return out
 }
@@ -204,6 +218,11 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
 
+	dons := make(map[string]map[string]memory.Node)
+	dons[c.WFDonConfig.Name] = wfNodes
+	dons[c.WriterDonConfig.Name] = cwNodes
+	dons[c.AssetDonConfig.Name] = assetNodes
+
 	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
 	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
 	streamTriggerChainCapCfg := GetDefaultCapConfig(t, internal.StreamTriggerCap)
@@ -211,7 +230,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	// TODO: partition nodes into multiple nops
 
 	wfDon := internal.DonCapabilities{
-		Name: internal.WFDonName,
+		Name: c.WFDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 1",
@@ -223,7 +242,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 	}
 	cwDon := internal.DonCapabilities{
-		Name: internal.TargetDonName,
+		Name: c.WriterDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 2",
@@ -235,7 +254,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 	}
 	assetDon := internal.DonCapabilities{
-		Name: internal.StreamDonName,
+		Name: c.AssetDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 3",
@@ -340,9 +359,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		t:                t,
 		Env:              env,
 		RegistrySelector: registryChainSel,
-		WFNodes:          wfNodes,
-		CWNodes:          cwNodes,
-		AssetNodes:       assetNodes,
+		//WFNodes:          wfNodes,
+		//CWNodes:          cwNodes,
+		//AssetNodes: assetNodes,
+		dons: dons,
 	}
 }
 

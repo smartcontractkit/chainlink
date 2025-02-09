@@ -15,9 +15,9 @@ func TestSetupTestEnv(t *testing.T) {
 	ctx := tests.Context(t)
 	for _, useMCMS := range []bool{true, false} {
 		te := SetupTestEnv(t, TestConfig{
-			WFDonConfig:     DonConfig{N: 4},
-			AssetDonConfig:  DonConfig{N: 4},
-			WriterDonConfig: DonConfig{N: 4},
+			WFDonConfig:     DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: DonConfig{Name: "writerDon", N: 4},
 			NumChains:       3,
 			UseMCMS:         useMCMS,
 		})
@@ -29,6 +29,9 @@ func TestSetupTestEnv(t *testing.T) {
 			r, err := te.Env.Offchain.ListNodes(ctx, &node.ListNodesRequest{})
 			require.NoError(t, err)
 			require.Len(t, r.Nodes, 12)
+			for _, donNames := range []string{"wfDon", "assetDon", "writerDon"} {
+				require.Len(t, te.GetP2PIDs(donNames), 4, "don %s should have 4 p2p ids", donNames)
+			}
 		})
 	}
 }
