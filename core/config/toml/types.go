@@ -1487,6 +1487,21 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
+type WorkflowLimits struct {
+	WorkflowsGlobalLimit   *int32
+	WorkflowsPerOwnerLimit *int32
+}
+
+func (r *WorkflowLimits) setFrom(f *WorkflowLimits) {
+	if f.WorkflowsGlobalLimit != nil {
+		r.WorkflowsGlobalLimit = f.WorkflowsGlobalLimit
+	}
+
+	if f.WorkflowsPerOwnerLimit != nil {
+		r.WorkflowsPerOwnerLimit = f.WorkflowsPerOwnerLimit
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -1494,8 +1509,7 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
-	WorkflowsGlobalLimit    *int32
-	WorkflowsPerOwnerLimit  *int32
+	Limits                  WorkflowLimits
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1523,13 +1537,7 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 		r.MaxConfigSize = f.MaxConfigSize
 	}
 
-	if f.WorkflowsGlobalLimit != nil {
-		r.WorkflowsGlobalLimit = f.WorkflowsGlobalLimit
-	}
-
-	if f.WorkflowsPerOwnerLimit != nil {
-		r.WorkflowsPerOwnerLimit = f.WorkflowsPerOwnerLimit
-	}
+	r.Limits.setFrom(&f.Limits)
 }
 
 type Dispatcher struct {

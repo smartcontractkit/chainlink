@@ -154,11 +154,11 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 }
 
 func (c *capabilitiesWorkflowRegistry) WorkflowsGlobalLimit() int32 {
-	return *c.c.WorkflowsGlobalLimit
+	return *c.c.Limits.WorkflowsGlobalLimit
 }
 
 func (c *capabilitiesWorkflowRegistry) WorkflowsPerOwnerLimit() int32 {
-	return *c.c.WorkflowsPerOwnerLimit
+	return *c.c.Limits.WorkflowsPerOwnerLimit
 }
 
 type gatewayConnector struct {

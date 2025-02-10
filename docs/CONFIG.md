@@ -1263,8 +1263,6 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
-WorkflowsGlobalLimit = 50 # Default
-WorkflowsPerOwnerLimit = 5 # Default
 ```
 
 
@@ -1303,6 +1301,14 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+
+## Capabilities.WorkflowRegistry.Limits
+```toml
+[Capabilities.WorkflowRegistry.Limits]
+WorkflowsGlobalLimit = 50 # Default
+WorkflowsPerOwnerLimit = 5 # Default
+```
+
 
 ### WorkflowsGlobalLimit
 ```toml
