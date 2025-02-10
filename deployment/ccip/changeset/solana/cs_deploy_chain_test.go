@@ -43,6 +43,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
+	solanaBuildConfig := make(map[uint64]changeset.BuildSolanaConfig)
 	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
@@ -55,8 +56,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			ChainSelector: chain,
 		})
 	}
-
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -82,6 +81,13 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
 			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.BuildSolanaChangeset),
+			Config: changeset.BuildSolanaConfig{
+				ChainSelector: solChainSelectors[0],
+				GitCommitSha:  "1b2ee24da54b",
 			},
 		},
 		{
