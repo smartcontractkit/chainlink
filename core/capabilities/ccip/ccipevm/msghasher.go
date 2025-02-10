@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -73,11 +74,14 @@ func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
       )
     );
 */
-func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
-	lggr := logger.With(h.lggr,
+func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	lggr := logutil.WithContextValues(ctx, h.lggr)
+	lggr = logger.With(
+		lggr,
 		"msgID", msg.Header.MessageID.String(),
 		"ANY_2_EVM_MESSAGE_HASH", hexutil.Encode(ANY_2_EVM_MESSAGE_HASH[:]),
-		"onrampAddress", msg.Header.OnRamp)
+		"onrampAddress", msg.Header.OnRamp,
+	)
 	lggr.Debugw("hashing message", "msg", msg)
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
