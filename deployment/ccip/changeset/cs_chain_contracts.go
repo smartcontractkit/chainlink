@@ -32,6 +32,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+const (
+	// https://github.com/smartcontractkit/chainlink/blob/1423e2581e8640d9e5cd06f745c6067bb2893af2/contracts/src/v0.8/ccip/libraries/Internal.sol#L275-L279
+	/*
+				```Solidity
+					// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+				```
+	*/
+	EVMFamilySelector = "2812d52c"
+	SVMFamilySelector = "1e10bdc4"
+)
+
 var (
 	_ deployment.ChangeSet[UpdateOnRampDestsConfig]          = UpdateOnRampsDestsChangeset
 	_ deployment.ChangeSet[UpdateOnRampDynamicConfig]        = UpdateOnRampDynamicConfigChangeset
@@ -1619,15 +1633,14 @@ func isOCR3ConfigSetOnOffRamp(
 
 // DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
 // with the config enabled/disabled based on the configEnabled flag.
-func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDestChainConfig {
-	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
-	/*
-		```Solidity
-			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-			bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
-		```
-	*/
-	evmFamilySelector, _ := hex.DecodeString("2812d52c")
+func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
+	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
+	if len(destChainSelector) > 0 {
+		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
+		if destFamily == chain_selectors.FamilySolana {
+			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+		}
+	}
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
@@ -1645,6 +1658,6 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDes
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
 		NetworkFeeUSDCents:                1,
-		ChainFamilySelector:               [4]byte(evmFamilySelector),
+		ChainFamilySelector:               [4]byte(familySelector),
 	}
 }
