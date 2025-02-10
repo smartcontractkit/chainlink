@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	defaultGlobalEngineCountLimit   = 50
-	defaultPerOwnerEngineCountLimit = 5
+	defaultWorkflowsGlobalLimit    = 50
+	defaultWorkfllowsPerOwnerLimit = 5
 )
 
 type WorkflowLimiter struct {
@@ -23,8 +23,8 @@ type Config struct {
 
 func NewWorkflowLimiter(config Config) (*WorkflowLimiter, error) {
 	if config.Global <= 0 || config.PerOwner <= 0 {
-		config.Global = defaultGlobalEngineCountLimit
-		config.PerOwner = defaultPerOwnerEngineCountLimit
+		config.Global = defaultWorkflowsGlobalLimit
+		config.PerOwner = defaultWorkfllowsPerOwnerLimit
 	}
 
 	return &WorkflowLimiter{

@@ -467,11 +467,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		ExternalRegistry: toml.ExternalRegistry{
-			Address:                ptr(""),
-			ChainID:                ptr("1"),
-			NetworkID:              ptr("evm"),
-			GlobalEngineCountLimit: ptr(int32(50)),
-			WorkflowsPerOwnerLimit: ptr(int32(5)),
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
 			Address:                 ptr(""),
@@ -480,6 +478,8 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
+			WorkflowsGlobalLimit:    ptr(int32(50)),
+			WorkflowsPerOwnerLimit:  ptr(int32(5)),
 		},
 		Dispatcher: toml.Dispatcher{
 			SupportedVersion:   ptr(1),

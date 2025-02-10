@@ -1263,7 +1263,7 @@ ChainID = '1' # Default
 MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
-GlobalEngineCountLimit = 50 # Default
+WorkflowsGlobalLimit = 50 # Default
 WorkflowsPerOwnerLimit = 5 # Default
 ```
 
@@ -1304,11 +1304,11 @@ MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
-### GlobalEngineCountLimit
+### WorkflowsGlobalLimit
 ```toml
-GlobalEngineCountLimit = 50 # Default
+WorkflowsGlobalLimit = 50 # Default
 ```
-GlobalEngineCountLimit is the maximum number of engines that can be registered globally.
+WorkflowsGlobalLimit is the maximum number of workflows that can be registered globally.
 
 ### WorkflowsPerOwnerLimit
 ```toml

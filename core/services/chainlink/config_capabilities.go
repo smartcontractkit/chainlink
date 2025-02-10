@@ -153,8 +153,8 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 	return *c.c.MaxConfigSize
 }
 
-func (c *capabilitiesWorkflowRegistry) GlobalEngineCountLimit() int32 {
-	return *c.c.GlobalEngineCountLimit
+func (c *capabilitiesWorkflowRegistry) WorkflowsGlobalLimit() int32 {
+	return *c.c.WorkflowsGlobalLimit
 }
 
 func (c *capabilitiesWorkflowRegistry) WorkflowsPerOwnerLimit() int32 {
