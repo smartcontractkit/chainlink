@@ -219,8 +219,8 @@ Please read the [Foundry Guide](FOUNDRY_GUIDE.md). No new tests should be writte
 - Otherwise, Solidity contracts should have a pragma that is locked to a specific version.
   - Example: Most concrete contracts.
 - Avoid changing pragmas after the audit. Unless there is a bug that affects your contract, then you should try to stick to a known good pragma. In practice, this means we typically only support one (occasionally two) pragma for any “major”(minor by Semver naming) Solidity version.
-- The current advised pragma is `0.8.24`, lower versions should be avoided when starting a new project. Newer versions can be considered.
-  - Explicitly use the `Paris` hardfork when compiling with 0.8.24 to keep the bytecode compatible with all chains.
+- The current advised pragma is `0.8.26`, lower versions should be avoided when starting a new project. Newer versions can be considered.
+  - Explicitly use the `Paris` hardfork when compiling with >=0.8.20 to keep the bytecode compatible with all chains.
 - All contracts should have an SPDX license identifier. If unsure about which one to pick, please consult with legal. Most older contracts have been MIT, but some of the newer products have been using BUSL-1.1
 
 
