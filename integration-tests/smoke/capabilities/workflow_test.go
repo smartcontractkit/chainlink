@@ -1770,7 +1770,7 @@ func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *Workflow
 	_, err := fake.NewFakeDataProvider(in.DataSource.Fake.Input)
 	require.NoError(t, err)
 	fakeApiPath := "/fake/api/price"
-	fakeFinalUrl := fmt.Sprintf("http://host.docker.internal:%d%s", in.DataSource.Fake.Port, fakeApiPath)
+	fakeFinalUrl := fmt.Sprintf("%s:%d%s", framework.HostDockerInternal(), in.DataSource.Fake.Port, fakeApiPath)
 
 	getPriceResponseFn := func() map[string]interface{} {
 		response := map[string]interface{}{
