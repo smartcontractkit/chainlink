@@ -533,7 +533,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 }
 
 // TODO: move everything below to solana file
-func solProgramData(e deployment.Environment, chain deployment.SolChain, programId solana.PublicKey) (struct {
+func solProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
 }, error) {
@@ -541,7 +541,7 @@ func solProgramData(e deployment.Environment, chain deployment.SolChain, program
 		DataType uint32
 		Address  solana.PublicKey
 	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programId, &solRpc.GetAccountInfoOpts{
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
 		Commitment: solRpc.CommitmentConfirmed,
 	})
 	if err != nil {
