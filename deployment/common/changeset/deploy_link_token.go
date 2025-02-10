@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -120,7 +121,7 @@ func deployLinkTokenContractSolana(
 	ab deployment.AddressBook,
 ) error {
 	if chain.DeployerKey == nil {
-		return fmt.Errorf("deployer key must be set")
+		return errors.New("deployer key must be set")
 	}
 
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
