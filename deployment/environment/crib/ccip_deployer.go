@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -406,19 +407,24 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	}
 
 	allChains := e.AllChainSelectors()
-	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
+	g, ctx := errgroup.WithContext(context.Background())
 	for _, chain := range allChains {
-		rmnRemoteConfig[chain] = changeset.RMNRemoteConfig{
-			Signers: signers,
-			F:       1,
-		}
-	}
+		g.Go(func() error {
+			rmnRemoteConfig := map[uint64]changeset.RMNRemoteConfig{
+				chain: {
+					Signers: signers,
+					F:       1,
+				},
+			}
 
-	_, err = changeset.SetRMNRemoteConfigChangeset(*e, changeset.SetRMNRemoteConfig{
-		HomeChainSelector: homeChainSel,
-		RMNRemoteConfigs:  rmnRemoteConfig,
-	})
-	if err != nil {
+			_, err := changeset.SetRMNRemoteConfigChangeset(*e, changeset.SetRMNRemoteConfig{
+				HomeChainSelector: homeChainSel,
+				RMNRemoteConfigs:  rmnRemoteConfig,
+			})
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
 		return err
 	}
 

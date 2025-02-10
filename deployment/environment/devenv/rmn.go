@@ -132,7 +132,7 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (key
 	// Copy the file from container
 	reader, err := container.CopyFileFromContainer(context.Background(), "/app/"+RMNKeyStore)
 	if err != nil {
-		log.Fatalf("Failed to copy file: %v", err)
+		log.Printf("Failed to copy file: %v", err)
 		return RMNKeys{}, "", "", err
 	}
 	defer reader.Close()
