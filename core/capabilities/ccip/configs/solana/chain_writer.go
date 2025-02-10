@@ -19,7 +19,7 @@ var ccipOfframpIDL string
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
-	sourceChainSelectorPath = "Info.AbstractReports.SourceChainSelector"
+	sourceChainSelectorPath = "Info.AbstractReports.Messages.Header.SourceChainSelector"
 	destChainSelectorPath   = "Info.AbstractReports.Messages.Header.DestChainSelector"
 	destTokenAddress        = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
 	merkleRootChainSelector = "Info.MerkleRoots.ChainSel"
@@ -70,16 +70,19 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
 			getSysVarInstructionConstant(),
+			getFeeBillingSignerConfig(offrampProgramAddress),
+			getFeeQuoterConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
-				Name:      "FeeBillingSigner",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				Name: "FeeQuoterAllowedPriceUpdater",
+				// Fetch fee quoter public key to use as program ID for PDA
+				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("fee_billing_signer")},
+					{Static: []byte("allowed_price_updater")},
+					{Dynamic: getFeeBillingSignerConfig(offrampProgramAddress)},
 				},
 				IsSigner:   false,
 				IsWritable: false,
 			},
-			getFeeQuoterConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
 				Name: "FeeQuoterConfig",
 				// Fetch fee quoter public key to use as program ID for PDA
@@ -185,6 +188,23 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				IsSigner:   false,
 				IsWritable: true,
 			},
+			chainwriter.AccountConstant{
+				Name:       "Offramp",
+				Address:    offrampProgramAddress,
+				IsSigner:   false,
+				IsWritable: false,
+			},
+			chainwriter.PDALookups{
+				Name:      "AllowedOfframp",
+				PublicKey: getRouterConfig(offrampProgramAddress),
+				Seeds: []chainwriter.Seed{
+					{Static: []byte("allowed_offramp")},
+					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
+					{Dynamic: offrampAddressConstant(offrampProgramAddress)},
+				},
+				IsSigner:   false,
+				IsWritable: false,
+			},
 			chainwriter.PDALookups{
 				Name:      "ExternalExecutionConfig",
 				PublicKey: offrampAddressConstant(offrampProgramAddress),
@@ -259,7 +279,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				IncludeIndexes:  []int{},
 			},
 		},
-		DebugIDLocation: "AbstractReport.Message.MessageID",
+		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
 	}
 }
 
@@ -280,7 +300,7 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Offramp IDL, error: %w", err)
 	}
 	// validate CCIP Router IDL, errors not expected
-	var routerIDL solanacodec.IDL 
+	var routerIDL solanacodec.IDL
 	if err = json.Unmarshal([]byte(ccipOfframpIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
@@ -341,12 +361,41 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	}
 }
 
+func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
+	return chainwriter.PDALookups{
+		Name:      "Router",
+		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("reference_addresses")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+		// Reads the address from the reference addresses account
+		InternalField: chainwriter.InternalField{
+			TypeName: "ReferenceAddresses",
+			Location: "Router",
+		},
+	}
+}
+
 func getReferenceAddressesConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
 		Name:      "ReferenceAddresses",
 		PublicKey: offrampAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
+		},
+		IsSigner:   false,
+		IsWritable: false,
+	}
+}
+
+func getFeeBillingSignerConfig(offrampProgramAddress string) chainwriter.PDALookups {
+	return chainwriter.PDALookups{
+		Name:      "FeeBillingSigner",
+		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		Seeds: []chainwriter.Seed{
+			{Static: []byte("fee_billing_signer")},
 		},
 		IsSigner:   false,
 		IsWritable: false,
