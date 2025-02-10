@@ -206,28 +206,51 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			w.lggr.Debugw("Waiting for DON...")
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to wait for don", "err", err)
+				w.lggr.Criticalw("failed to wait for don", "err", err)
 				return
 			}
 
-			reader, err := w.newWorkflowRegistryContractReader(ctx)
-			if err != nil {
-				w.lggr.Criticalf("contract reader unavailable : %s", err)
-				return
-			}
-
-			w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
-			loadWorkflowsHead, err := w.loadWorkflows(ctx, don, reader)
-			if err != nil {
-				// TODO - this is a temporary fix to handle the case where the chainreader errors because the contract
-				// contains no workflows.  To track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
-				if !strings.Contains(err.Error(), "attempting to unmarshal an empty string while arguments are expected") {
-					w.lggr.Errorw("failed to load workflows", "err", err)
+			ticker := w.getTicker()
+			var reader ContractReader
+			var loadWorkflowsHead *types.Head
+			shouldRetry := true
+			for shouldRetry {
+				select {
+				case <-ctx.Done():
+					w.lggr.Criticalw("error initializing workflow registry chain reader: %s", ctx.Err())
 					return
-				}
+				case <-ticker:
+					if reader == nil {
+						r, err := w.newWorkflowRegistryContractReader(ctx)
+						if err != nil {
+							w.lggr.Errorf("contract reader unavailable : %s", err)
+							continue
+						}
 
-				loadWorkflowsHead = &types.Head{
-					Height: "0",
+						reader = r
+					}
+
+					w.lggr.Debugw("Loading initial workflows for DON", "DON", don.ID)
+					// Note: we can safely retry this because it will only return
+					// an error if it couldn't fetch any data; not if it failed
+					// to process the events part-way through.
+					lwh, err := w.loadWorkflows(ctx, don, reader)
+					if err != nil {
+						// TODO - this is a temporary fix to handle the case where the chainreader errors because the contract
+						// contains no workflows.  To track: https://smartcontract-it.atlassian.net/browse/CAPPL-393
+						if !strings.Contains(err.Error(), "attempting to unmarshal an empty string while arguments are expected") {
+							w.lggr.Errorw("failed to load workflows", "err", err)
+							continue
+						}
+
+						loadWorkflowsHead = &types.Head{
+							Height: "0",
+						}
+					} else {
+						loadWorkflowsHead = lwh
+					}
+
+					shouldRetry = false
 				}
 			}
 
