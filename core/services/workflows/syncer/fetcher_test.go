@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
@@ -44,6 +45,7 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("OK-valid_request", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 		fetcher := NewFetcherService(lggr, wrapper)
 		require.NoError(t, fetcher.Start(ctx))
@@ -55,9 +57,8 @@ func TestNewFetcherService(t *testing.T) {
 		}).Return(nil).Times(1)
 		connector.EXPECT().DonID().Return(donID)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
-		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		payload, err := fetcher.Fetch(ctx, url)
+		payload, err := fetcher.Fetch(ctx, url, 0)
 		require.NoError(t, err)
 
 		expectedPayload := []byte("response body")
@@ -79,7 +80,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url, 0)
 		require.Error(t, err)
 	})
 
@@ -98,7 +99,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url)
+		_, err := fetcher.Fetch(ctx, url, 0)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid response from gateway")
 	})
@@ -132,7 +133,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err = fetcher.Fetch(ctx, url)
+		_, err = fetcher.Fetch(ctx, url, math.MaxUint32)
 		require.Error(t, err, "execution error from gateway: http: request body too large")
 	})
 }

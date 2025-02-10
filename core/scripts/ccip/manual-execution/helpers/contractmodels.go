@@ -51,7 +51,7 @@ type InternalEVM2EVMMessage struct {
 	Data                []byte
 	TokenAmounts        []ClientEVMTokenAmount
 	SourceTokenData     [][]byte
-	MessageId           [32]byte
+	MessageID           [32]byte
 }
 
 type ClientEVMTokenAmount struct {

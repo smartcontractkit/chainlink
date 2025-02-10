@@ -8,9 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 type bytesProducer interface {
@@ -153,7 +152,7 @@ func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
 	return q.withField("word_value", wordValue)
 }
 
-func (q *queryArgs) withConfs(confs evmtypes.Confirmations) *queryArgs {
+func (q *queryArgs) withConfs(confs types.Confirmations) *queryArgs {
 	return q.withField("confs", confs)
 }
 

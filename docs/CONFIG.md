@@ -902,6 +902,7 @@ DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
 CaptureAutomationCustomTelemetry = true # Default
+AllowNoBootstrappers = false # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
@@ -1001,6 +1002,12 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 CaptureAutomationCustomTelemetry = true # Default
 ```
 CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
+
+### AllowNoBootstrappers
+```toml
+AllowNoBootstrappers = false # Default
+```
+AllowNoBootstrappers enables single-node consensus without bootstrapper nodes (i.e. f=0, n=1)
 
 ### DefaultTransactionQueueDepth
 ```toml
@@ -1213,12 +1220,49 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.RateLimit
+```toml
+[Capabilities.RateLimit]
+GlobalRPS = 200 # Default
+GlobalBurst = 200 # Default
+PerSenderRPS = 100 # Default
+PerSenderBurst = 100 # Default
+```
+
+
+### GlobalRPS
+```toml
+GlobalRPS = 200 # Default
+```
+GlobalRPS is the global rate limit for the dispatcher.
+
+### GlobalBurst
+```toml
+GlobalBurst = 200 # Default
+```
+GlobalBurst is the global burst limit for the dispatcher.
+
+### PerSenderRPS
+```toml
+PerSenderRPS = 100 # Default
+```
+PerSenderRPS is the per-sender rate limit for the dispatcher.
+
+### PerSenderBurst
+```toml
+PerSenderBurst = 100 # Default
+```
+PerSenderBurst is the per-sender burst limit for the dispatcher.
+
 ## Capabilities.WorkflowRegistry
 ```toml
 [Capabilities.WorkflowRegistry]
 Address = '0x0' # Example
 NetworkID = 'evm' # Default
 ChainID = '1' # Default
+MaxBinarySize = '20.00mb' # Default
+MaxEncryptedSecretsSize = '26.40kb' # Default
+MaxConfigSize = '50.00kb' # Default
 ```
 
 
@@ -1239,6 +1283,24 @@ NetworkID identifies the target network where the remote registry is located.
 ChainID = '1' # Default
 ```
 ChainID identifies the target chain id where the remote registry is located.
+
+### MaxBinarySize
+```toml
+MaxBinarySize = '20.00mb' # Default
+```
+MaxBinarySize is the maximum size of a binary that can be fetched from the registry.
+
+### MaxEncryptedSecretsSize
+```toml
+MaxEncryptedSecretsSize = '26.40kb' # Default
+```
+MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fetched from the given secrets url.
+
+### MaxConfigSize
+```toml
+MaxConfigSize = '50.00kb' # Default
+```
+MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 
 ## Capabilities.ExternalRegistry
 ```toml
@@ -1904,6 +1966,8 @@ Protocol = "wsrpc" # Default
 TransmitQueueMaxSize = 100_000 # Default
 TransmitTimeout = "5s" # Default
 TransmitConcurrency = 100 # Default
+ReaperFrequency = "1h" # Default
+ReaperMaxAge = "48h" # Default
 ```
 Mercury.Transmitter controls settings for the mercury transmitter
 
@@ -1943,6 +2007,20 @@ TransmitConcurrency = 100 # Default
 TransmitConcurrency is the max number of concurrent transmits to each server.
 
 Only has effect with LLO jobs.
+
+### ReaperFrequency
+```toml
+ReaperFrequency = "1h" # Default
+```
+ReaperFrequency controls how often the stale transmission reaper will run.
+Setting to 0 disables the reaper.
+
+### ReaperMaxAge
+```toml
+ReaperMaxAge = "48h" # Default
+```
+ReaperMaxAge controls how old a transmission can be before it is considered
+stale. Setting to 0 disables the reaper.
 
 ## Telemetry
 ```toml
@@ -2934,9 +3012,9 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '5 gwei'
+PriceDefault = '1 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '3 gwei'
+PriceMin = '1 gwei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
@@ -3220,6 +3298,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 100
 FinalityTagEnabled = true
+LinkContractAddress = '0xe74037112db8807B3B4B3895F5790e5bc1866a29'
 LogBackfillBatchSize = 1000
 LogPollInterval = '6s'
 LogKeepBlocksDepth = 100000
@@ -3363,7 +3442,7 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '5 gwei'
+PriceDefault = '1 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
 LimitDefault = 500000
@@ -3761,6 +3840,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x8418c4d7e8e17ab90232DC72150730E6c4b84F57'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -3980,6 +4060,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x71052BAe71C25C78E37fD12E5ff1101A71d9018F'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -4196,6 +4277,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x71052BAe71C25C78E37fD12E5ff1101A71d9018F'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -4308,6 +4390,7 @@ BlockBackfillSkip = false
 ChainType = 'xlayer'
 FinalityDepth = 500
 FinalityTagEnabled = false
+LinkContractAddress = '0x724593f6FCb0De4E6902d4C55D7C74DaA2AF0E55'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
@@ -4417,6 +4500,7 @@ BlockBackfillSkip = false
 ChainType = 'xlayer'
 FinalityDepth = 500
 FinalityTagEnabled = false
+LinkContractAddress = '0x8aF9711B44695a5A081F25AB9903DDB73aCf8FA9'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
@@ -4526,6 +4610,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 2000
 FinalityTagEnabled = true
+LinkContractAddress = '0x709229D9587886a1eDFeE6b5cE636E1D70d1cE39'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -4737,6 +4822,113 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Fraxtal Mainnet (252)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Kroma Mainnet (255)</summary><p>
 
 ```toml
@@ -4746,6 +4938,7 @@ BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
 FinalityTagEnabled = true
+LinkContractAddress = '0xC1F6f7622ad37C3f46cDF6F8AA0344ADE80BF450'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -4849,7 +5042,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>zkSync Goerli (280)</summary><p>
+<details><summary>ZKsync Goerli (280)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -4858,6 +5051,7 @@ BlockBackfillSkip = false
 ChainType = 'zksync'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0xD29F4Cc763A064b6C563B8816f09351b3Fbb61A0'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -4969,6 +5163,7 @@ BlockBackfillSkip = false
 ChainType = 'hedera'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x7Ce6bb2Cc2D3Fd45a974Da6a0F29236cb9513a98'
 LogBackfillBatchSize = 1000
 LogPollInterval = '10s'
 LogKeepBlocksDepth = 100000
@@ -5077,6 +5272,7 @@ BlockBackfillSkip = false
 ChainType = 'hedera'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x90a386d59b9A6a4795a011e8f032Fc21ED6FEFb6'
 LogBackfillBatchSize = 1000
 LogPollInterval = '10s'
 LogKeepBlocksDepth = 100000
@@ -5176,7 +5372,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>zkSync Sepolia (300)</summary><p>
+<details><summary>ZKsync Sepolia (300)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -5185,6 +5381,7 @@ BlockBackfillSkip = false
 ChainType = 'zksync'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x23A1aFD896c8c8876AF46aDc38521f4432658d1e'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -5287,7 +5484,7 @@ GasLimitDefault = 400000
 
 </p></details>
 
-<details><summary>zkSync Mainnet (324)</summary><p>
+<details><summary>ZKsync Mainnet (324)</summary><p>
 
 ```toml
 AutoCreateKey = true
@@ -5296,6 +5493,7 @@ BlockBackfillSkip = false
 ChainType = 'zksync'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x52869bae3E091e36b0915941577F2D47d8d8B534'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -5520,6 +5718,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 2500
 FinalityTagEnabled = true
+LinkContractAddress = '0x915b648e994d5f31059B38223b9fbe98ae185473'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -5740,6 +5939,7 @@ BlockBackfillSkip = false
 ChainType = 'astar'
 FinalityDepth = 100
 FinalityTagEnabled = true
+LinkContractAddress = '0x31EFB841d5e0b4082F7E1267dab8De1b853f2A9d'
 LogBackfillBatchSize = 1000
 LogPollInterval = '6s'
 LogKeepBlocksDepth = 100000
@@ -5848,6 +6048,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x925a4bfE64AE2bFAC8a02b35F78e60C29743755d'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -6064,9 +6265,10 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0xd2FE54D1E5F568eB710ba9d898Bf4bD02C7c0353'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -6175,6 +6377,7 @@ BlockBackfillSkip = false
 ChainType = 'zkevm'
 FinalityDepth = 500
 FinalityTagEnabled = false
+LinkContractAddress = '0xdB7A504CF869484dd6aC5FaF925c8386CBF7573D'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
@@ -6284,6 +6487,7 @@ BlockBackfillSkip = false
 ChainType = 'wemix'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x80f1FcdC96B55e459BF52b998aBBE2c364935d69'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -6392,6 +6596,7 @@ BlockBackfillSkip = false
 ChainType = 'wemix'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x3580c7A817cCD41f7e02143BFa411D4EeAE78093'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -6499,6 +6704,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 7
 FinalityTagEnabled = false
+LinkContractAddress = '0x6C475841d1D7871940E93579E5DBaE01634e17aA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -6714,6 +6920,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 2000
 FinalityTagEnabled = true
+LinkContractAddress = '0x436a1907D9e6a65E6db73015F08f9C66F6B63E45'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -6826,6 +7033,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 2000
 FinalityTagEnabled = true
+LinkContractAddress = '0xda40816f278Cd049c137F6612822D181065EBfB4'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -7045,7 +7253,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
-LinkContractAddress = '0x7ea13478Ea3961A0e8b538cb05a9DF0477c79Cd2'
+LinkContractAddress = '0x32D8F819C8080ae44375F8d383Ffd39FC642f3Ec'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -7487,6 +7695,7 @@ BlockBackfillSkip = false
 ChainType = 'kroma'
 FinalityDepth = 400
 FinalityTagEnabled = true
+LinkContractAddress = '0xa75cCA5b404ec6F4BB6EC4853D177FE7057085c8'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -7599,6 +7808,7 @@ BlockBackfillSkip = false
 ChainType = 'zkevm'
 FinalityDepth = 500
 FinalityTagEnabled = false
+LinkContractAddress = '0x5576815a38A3706f37bf815b261cCc7cCA77e975'
 LogBackfillBatchSize = 1000
 LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
@@ -7699,6 +7909,113 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Fraxtal Testnet (2522)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Botanix Testnet (3636)</summary><p>
 
 ```toml
@@ -7707,6 +8024,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x7311DED199CC28D80E58e81e8589aa160199FCD2'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -7914,6 +8232,115 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Merlin Mainnet (4200)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zkevm'
+FinalityDepth = 1000
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '4s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 2000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Worldchain Testnet (4801)</summary><p>
 
 ```toml
@@ -7923,6 +8350,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 2500
 FinalityTagEnabled = true
+LinkContractAddress = '0xC82Ea35634BcE95C394B6BC00626f827bB0F4801'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -8035,6 +8463,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 1200
 FinalityTagEnabled = true
+LinkContractAddress = '0xfe36cF0B43aAe49fBc5cFC5c0AF22a623114E043'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -8148,6 +8577,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 1200
 FinalityTagEnabled = true
+LinkContractAddress = '0x22bdEdEa0beBdD7CfFC95bA53826E55afFE9DE04'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -8368,6 +8798,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -8471,6 +8902,113 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Monad Testnet (10143)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 120
+FinalityTagEnabled = false
+LogBackfillBatchSize = 100
+LogPollInterval = '2s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '1m0s'
+LogBroadcasterEnabled = false
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '1m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'FeeHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 100
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '2s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '4s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Gnosis Chiado (10200)</summary><p>
 
 ```toml
@@ -8480,6 +9018,7 @@ BlockBackfillSkip = false
 ChainType = 'gnosis'
 FinalityDepth = 100
 FinalityTagEnabled = false
+LinkContractAddress = '0xDCA67FD8324990792C0bfaE95903B8A64097754F'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -8811,6 +9350,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x685cE6742351ae9b618F383883D6d1e0c5A31B4B'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -8919,6 +9459,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x183E3691EfF3524B2315D3703D94F922CbE51F54'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -9031,6 +9572,7 @@ BlockBackfillSkip = false
 ChainType = 'zksync'
 FinalityDepth = 40
 FinalityTagEnabled = false
+LinkContractAddress = '0x7f1b9eE544f9ff9bB521Ab79c205d79C55250a36'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -9254,6 +9796,7 @@ BlockBackfillSkip = false
 ChainType = 'celo'
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0xd07294e6E917e07dfDcee882dd1e2565085C2ae0'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -9578,6 +10121,7 @@ BlockBackfillSkip = false
 ChainType = 'celo'
 FinalityDepth = 2750
 FinalityTagEnabled = true
+LinkContractAddress = '0x32E08557B14FaD8908025619797221281D439071'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -9700,7 +10244,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true
@@ -9815,7 +10359,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '15m0s'
+NoNewFinalizedHeadsThreshold = '40m0s'
 
 [Transactions]
 Enabled = true
@@ -9915,6 +10459,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x61876F0429726D7777B46f663e1C9ab75d08Fc56'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -10023,6 +10568,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 3000
 FinalityTagEnabled = true
+LinkContractAddress = '0x71052BAe71C25C78E37fD12E5ff1101A71d9018F'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -10241,6 +10787,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 900
 FinalityTagEnabled = false
+LinkContractAddress = '0xF64E6E064a71B45514691D397ad4204972cD6508'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -10350,6 +10897,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 300
 FinalityTagEnabled = false
+LinkContractAddress = '0xa18152629128738a5c081eb226335FEd4B9C95e9'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -10457,9 +11005,10 @@ GasLimitDefault = 400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-ChainType = 'metis'
+ChainType = 'optimismBedrock'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x9870D6a0e05F867EAAe696e106741843F7fD116D'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -10568,6 +11117,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 3150
 FinalityTagEnabled = true
+LinkContractAddress = '0x5aB885CDa7216b163fb6F813DEC1E1532516c833'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -10635,6 +11185,117 @@ OracleAddress = '0x420000000000000000000000000000000000000F'
 
 [HeadTracker]
 HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Treasure Mainnet (61166)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '10s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '5m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '25 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
+[HeadTracker]
+HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -10787,6 +11448,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
 FinalityTagEnabled = false
+LinkContractAddress = '0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -10894,6 +11556,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 10
 FinalityTagEnabled = false
+LinkContractAddress = '0x52CEEed7d3f8c6618e4aaD6c6e555320d0D83271'
 LogBackfillBatchSize = 1000
 LogPollInterval = '6s'
 LogKeepBlocksDepth = 100000
@@ -10993,6 +11656,114 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Berachain Mainnet (80094)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 10
+FinalityTagEnabled = false
+LinkContractAddress = '0x52CEEed7d3f8c6618e4aaD6c6e555320d0D83271'
+LogBackfillBatchSize = 1000
+LogPollInterval = '6s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '5m0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 100
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Blast Mainnet (81457)</summary><p>
 
 ```toml
@@ -11002,6 +11773,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x93202eC683288a9EA75BB829c6baCFb2BfeA9013'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -11226,6 +11998,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0xE4aB69C077896252FAFBD49EFD26B5D171A32410'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -11337,6 +12110,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 21
 FinalityTagEnabled = false
+LinkContractAddress = '0x2A5bACb2440BC17D53B7b9Be73512dDf92265e48'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -11444,6 +12218,7 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 21
 FinalityTagEnabled = false
+LinkContractAddress = '0x56B275c0Ec034a229a1deD8DB17089544bc276D9'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -11776,6 +12551,7 @@ BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0xb1D4538B4571d411F07960EF2838Ce337FE1E80E'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
 LogKeepBlocksDepth = 100000
@@ -11887,6 +12663,7 @@ BlockBackfillSkip = false
 ChainType = 'scroll'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x231d45b53C905c3d6201318156BDC725c9c3B9B1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -12000,6 +12777,7 @@ BlockBackfillSkip = false
 ChainType = 'scroll'
 FinalityDepth = 10
 FinalityTagEnabled = true
+LinkContractAddress = '0x548C6944cba02B9D1C0570102c89de64D258d3Ac'
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
@@ -12104,6 +12882,115 @@ GasLimitDefault = 400000
 
 </p></details>
 
+<details><summary>Merlin Testnet (686868)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zkevm'
+FinalityDepth = 1000
+FinalityTagEnabled = false
+LogBackfillBatchSize = 1000
+LogPollInterval = '4s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 1
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '3m0s'
+
+[Transactions.AutoPurge]
+Enabled = true
+MinAttempts = 3
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 2000
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
 <details><summary>Ink Testnet (763373)</summary><p>
 
 ```toml
@@ -12113,6 +13000,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 3000
 FinalityTagEnabled = true
+LinkContractAddress = '0x3423C922911956b1Ccbc2b5d4f38216a6f4299b4'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -12225,6 +13113,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 3150
 FinalityTagEnabled = true
+LinkContractAddress = '0xcd2AfB2933391E35e8682cbaaF75d9CA7339b183'
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
@@ -12292,6 +13181,117 @@ OracleAddress = '0x420000000000000000000000000000000000000F'
 
 [HeadTracker]
 HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
+PersistenceEnabled = true
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+```
+
+</p></details>
+
+<details><summary>Treasure Testnet (978658)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+ChainType = 'zksync'
+FinalityDepth = 50
+FinalityTagEnabled = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '10s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '10m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 250
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '100 mwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'zksync'
+
+[HeadTracker]
+HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -12445,6 +13445,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0xE4aB69C077896252FAFBD49EFD26B5D171A32410'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -12557,6 +13558,7 @@ BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x7311DED199CC28D80E58e81e8589aa160199FCD2'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -12668,6 +13670,7 @@ BlockBackfillSkip = false
 ChainType = 'arbitrum'
 FinalityDepth = 50
 FinalityTagEnabled = true
+LinkContractAddress = '0x996EfAb6011896Be832969D91E9bc1b3983cfdA1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogKeepBlocksDepth = 100000
@@ -12779,6 +13782,7 @@ BlockBackfillSkip = false
 ChainType = 'optimismBedrock'
 FinalityDepth = 200
 FinalityTagEnabled = true
+LinkContractAddress = '0x02c359ebf98fc8BF793F970F9B8302bb373BdF32'
 LogBackfillBatchSize = 1000
 LogPollInterval = '2s'
 LogKeepBlocksDepth = 100000
@@ -14559,6 +15563,7 @@ SelectionMode = 'PriorityLevel' # Default
 SyncThreshold = 5 # Default
 NodeIsSyncingEnabled = false # Default
 LeaseDuration = '1m0s' # Default
+NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
@@ -14611,6 +15616,12 @@ NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes 
 LeaseDuration = '1m0s' # Default
 ```
 LeaseDuration is the max duration a node can be leased for.
+
+### NewHeadsPollInterval
+```toml
+NewHeadsPollInterval = '10s' # Default
+```
+NewHeadsPollInterval is the rate to poll for new heads.
 
 ### FinalizedBlockPollInterval
 ```toml

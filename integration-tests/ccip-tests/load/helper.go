@@ -206,7 +206,7 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 		// try to send requests on lanes on which curse is applied on source RMN and the request should revert
 		// data-only transfer is sufficient
 		lane.Source.TransferAmount = []*big.Int{}
-		failedTx, _, _, err := lane.Source.SendRequest(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+		failedTx, _, _, _, err := lane.Source.SendRequest(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 		if lane.Source.Common.ChainClient.GetNetworkConfig().MinimumConfirmations > 0 {
 			require.Error(l.t, err)
 		} else {

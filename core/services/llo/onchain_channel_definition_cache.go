@@ -132,7 +132,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		logpoller.NewAddressFilter(addr),
 		logpoller.NewEventSigFilter(NewChannelDefinition),
 		logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-			{Value: donIDTopic, Operator: primitives.Eq},
+			{Values: []common.Hash{donIDTopic}, Operator: primitives.Eq},
 		}),
 		// NOTE: Optimize for fast pickup of new channel definitions. On
 		// Arbitrum, finalization can take tens of minutes

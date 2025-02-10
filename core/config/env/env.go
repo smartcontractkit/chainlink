@@ -20,13 +20,14 @@ var (
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
 	// Migrations env vars
 	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
-	CustomDefaults                 = Var("CL_CHAIN_DEFAULTS")
 )
 
 // LOOPP commands and vars
 var (
 	MedianPlugin   = NewPlugin("median")
 	MercuryPlugin  = NewPlugin("mercury")
+	AptosPlugin    = NewPlugin("aptos")
+	CosmosPlugin   = NewPlugin("cosmos")
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
 	TronPlugin     = NewPlugin("tron")
@@ -63,6 +64,8 @@ func (e Secret) Get() models.Secret { return models.Secret(os.Getenv(string(e)))
 type Plugin struct {
 	Cmd Var
 	Env Var
+
+	CmdDefault string
 }
 
 func NewPlugin(kind string) Plugin {
@@ -70,5 +73,7 @@ func NewPlugin(kind string) Plugin {
 	return Plugin{
 		Cmd: Var(fmt.Sprintf("CL_%s_CMD", kind)),
 		Env: Var(fmt.Sprintf("CL_%s_ENV", kind)),
+
+		CmdDefault: "chainlink-" + strings.ToLower(kind),
 	}
 }

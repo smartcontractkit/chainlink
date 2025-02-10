@@ -1,6 +1,10 @@
 # CODEOWNERS Best Practices
 # 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
+# 2. Per Github docs:
+# "create a new file called CODEOWNERS in the .github/, root, or docs/ directory of the repository...
+# ...GitHub will search for them in that order and use the first one it finds."
+# Please put the CODEOWNERS file in .github
 
 # Root
 * @smartcontractkit/foundations @smartcontractkit/core
@@ -10,10 +14,11 @@
 # Chains
 /common @smartcontractkit/bix-framework @smartcontractkit/core
 /core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
+/evm @jmank88 @pavel-raykov @DylanTinianov
 
 # Services
 /core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/deployment-automation @eutopian @smartcontractkit/core
+/core/services/feeds @smartcontractkit/deployment-automation @smartcontractkit/core
 /core/services/synchronization/telem @smartcontractkit/realtime @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
 /core/capabilities/ccip @smartcontractkit/ccip-offchain
@@ -83,6 +88,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/**/*l2ep* @smartcontractkit/bix-ship
 /contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
 /contracts/**/*operatorforwarder* @smartcontractkit/data-feeds-engineers
+/contracts/**/*data-feeds* @smartcontractkit/data-feeds-engineers
 /contracts/**/*vrf* @smartcontractkit/dev-services
 /contracts/**/*keystone* @smartcontractkit/keystone
 
@@ -93,6 +99,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
 # TODO: mocks folder, folder should be removed and files moved to the correct folders
 /contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/data-feeds @smartcontractkit/data-feeds-engineers
 /contracts/src/v0.8/shared @smartcontractkit/core-solidity
 /contracts/src/v0.8/vrf @smartcontractkit/dev-services
 /contracts/src/v0.8/keystone @smartcontractkit/keystone
@@ -104,6 +111,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/gethwrappers/liquiditymanager @smartcontractkit/ccip-onchain
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
+/core/gethwrappers/data-feeds @smartcontractkit/data-feeds-engineers
 /core/gethwrappers/shared @smartcontractkit/core-solidity
 /core/gethwrappers/workflow @smartcontractkit/dev-services
 
@@ -136,8 +144,8 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-/deployment @smartcontractkit/ccip @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip @smartcontractkit/ccip @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/deployment-automation
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 
@@ -159,8 +167,8 @@ contracts/scripts/requirements.txt @smartcontractkit/core
 .nvmrc @smartcontractkit/core
 contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
 contracts/pnpm.lock @smartcontractkit/core
-go.mod @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
-go.sum @smartcontractkit/core @smartcontractkit/releng @smartcontractkit/foundations
+go.mod @smartcontractkit/core @smartcontractkit/foundations
+go.sum @smartcontractkit/core @smartcontractkit/foundations
 integration-tests/go.mod @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 integration-tests/go.sum @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
 flake.nix @smartcontractkit/core

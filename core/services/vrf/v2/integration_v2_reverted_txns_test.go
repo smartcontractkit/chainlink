@@ -16,12 +16,12 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -39,8 +39,8 @@ import (
 )
 
 var (
-	coordinatorV2ABI      = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
+	coordinatorV2ABI      = types.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	batchCoordinatorV2ABI = types.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
 
 func TestVRFV2Integration_SingleRevertedTxn_ForceFulfillment(t *testing.T) {
@@ -133,17 +133,17 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 3, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 4, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0}},
 	}
 	allForceTxns := revertedForceTxns
 	res := v2.UniqueByReqID(revertedForceTxns, allForceTxns)
@@ -161,17 +161,17 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 1, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 2, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 2, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 3, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 3, EVMReceipt: types.Receipt{Status: 0}},
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-			ForceFulfillmentAttempt: 4, EVMReceipt: evmtypes.Receipt{Status: 0}},
+			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0}},
 	}
 	allForceTxns := []v2.TxnReceiptDB{}
 	allForceTxns = append(allForceTxns, revertedForceTxns...)
@@ -482,7 +482,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 		WITH txes AS (
 			SELECT *
 			FROM evm.txes
-			WHERE (state = 'confirmed' OR state = 'unconfirmed')
+			WHERE (state = 'confirmed' OR state = 'finalized')
 				AND id = $1
 		), attempts AS (
 			SELECT *

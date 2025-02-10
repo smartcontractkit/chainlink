@@ -15,19 +15,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
@@ -309,7 +309,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetAccountString(i int) string {
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommontypes.ContractReader {
 	ctx := it.Helper.Context(t)
-	lggr := logger.NullLogger
+	lggr := logger.Nop()
 
 	cr, err := evm.NewChainReaderService(ctx, lggr, it.Helper.LogPoller(t), it.Helper.HeadTracker(t), it.client, it.chainReaderConfigSupplier(t))
 	require.NoError(t, err)
@@ -319,7 +319,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) GetContractReader(t T) clcommont
 }
 
 func (it *EVMChainComponentsInterfaceTester[T]) GetContractWriter(t T) clcommontypes.ContractWriter {
-	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t))
+	cw, err := evm.NewChainWriterService(logger.Nop(), it.client, it.Helper.TXM(t, it.client), nil, it.chainWriterConfigSupplier(t))
 	require.NoError(t, err)
 
 	cw = it.Helper.WrappedChainWriter(cw, it.client)

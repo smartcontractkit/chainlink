@@ -1,14 +1,13 @@
 package launcher
 
 import (
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	mocktypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 )
 

@@ -72,20 +72,35 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     uint256 feeValueJuels,
     address originalSender
   ) internal view returns (Internal.EVM2AnyRampMessage memory) {
-    return _messageToEvent(
-      message,
-      SOURCE_CHAIN_SELECTOR,
-      seqNum,
-      nonce,
-      feeTokenAmount,
-      feeValueJuels,
-      originalSender,
-      s_metadataHash,
-      s_tokenAdminRegistry
-    );
+    bytes4 chainFamilySelector = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR).chainFamilySelector;
+    if (chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
+      return _evmMessageToEvent(
+        message,
+        SOURCE_CHAIN_SELECTOR,
+        seqNum,
+        nonce,
+        feeTokenAmount,
+        feeValueJuels,
+        originalSender,
+        s_metadataHash,
+        s_tokenAdminRegistry
+      );
+    } else {
+      return _svmMessageToEvent(
+        message,
+        SOURCE_CHAIN_SELECTOR,
+        seqNum,
+        nonce,
+        feeTokenAmount,
+        feeValueJuels,
+        originalSender,
+        s_metadataHash,
+        s_tokenAdminRegistry
+      );
+    }
   }
 
-  function _messageToEvent(
+  function _evmMessageToEvent(
     Client.EVM2AnyMessage memory message,
     uint64 sourceChainSelector,
     uint64 seqNum,
@@ -111,6 +126,47 @@ contract OnRampSetup is FeeQuoterFeeSetup {
       data: message.data,
       receiver: message.receiver,
       extraArgs: Client._argsToBytes(extraArgs),
+      feeToken: message.feeToken,
+      feeTokenAmount: feeTokenAmount,
+      feeValueJuels: feeValueJuels,
+      tokenAmounts: new Internal.EVM2AnyTokenTransfer[](message.tokenAmounts.length)
+    });
+
+    for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
+      messageEvent.tokenAmounts[i] =
+        _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry, DEST_CHAIN_SELECTOR);
+    }
+
+    messageEvent.header.messageId = Internal._hash(messageEvent, metadataHash);
+    return messageEvent;
+  }
+
+  function _svmMessageToEvent(
+    Client.EVM2AnyMessage memory message,
+    uint64 sourceChainSelector,
+    uint64 seqNum,
+    uint64 nonce,
+    uint256 feeTokenAmount,
+    uint256 feeValueJuels,
+    address originalSender,
+    bytes32 metadataHash,
+    TokenAdminRegistry tokenAdminRegistry
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
+    Client.SVMExtraArgsV1 memory extraArgs =
+      s_feeQuoter.parseSVMExtraArgsFromBytes(message.extraArgs, s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR));
+
+    Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
+      header: Internal.RampMessageHeader({
+        messageId: "",
+        sourceChainSelector: sourceChainSelector,
+        destChainSelector: DEST_CHAIN_SELECTOR,
+        sequenceNumber: seqNum,
+        nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
+      }),
+      sender: originalSender,
+      data: message.data,
+      receiver: message.receiver,
+      extraArgs: Client._svmArgsToBytes(extraArgs),
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
       feeValueJuels: feeValueJuels,

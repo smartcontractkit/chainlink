@@ -10,8 +10,8 @@ import (
 
 	"github.com/urfave/cli"
 
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 

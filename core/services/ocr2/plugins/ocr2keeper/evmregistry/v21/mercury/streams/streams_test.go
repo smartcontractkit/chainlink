@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
@@ -30,7 +31,6 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -107,7 +107,7 @@ func setupStreams(t *testing.T) *streams {
 	mercuryConfig := new(MockMercuryConfigProvider)
 	blockSubscriber := new(MockBlockSubscriber)
 	registry := &mockRegistry{}
-	client := evmClientMocks.NewClient(t)
+	client := clienttest.NewClient(t)
 
 	streams := NewStreamsLookup(
 		mercuryConfig,
@@ -234,7 +234,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			s := setupStreams(t)
 			defer s.Close()
 
@@ -393,7 +393,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			s := setupStreams(t)
 			defer s.Close()
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
@@ -535,7 +535,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			defer s.Close()
 			s.registry = tt.registry
 
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			s.client = client
 
 			mc := new(MockMercuryConfigProvider)
@@ -871,7 +871,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 			defer s.Close()
 			s.registry = tt.registry
 
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			s.client = client
 
 			mc := new(MockMercuryConfigProvider)

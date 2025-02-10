@@ -22,19 +22,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/logger"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	v2toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -146,7 +147,7 @@ func NewNode(
 	})
 
 	// Set logging.
-	lggr := logger.TestLogger(t)
+	lggr := logger.NewSingleFileLogger(t)
 	lggr.SetLogLevel(logLevel)
 
 	// Create clients for the core node backed by sim.
@@ -168,7 +169,10 @@ func NewNode(
 	mailMon := mailbox.NewMonitor("node", lggr.Named("mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig: cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
+			DatabaseConfig: cfg.Database(),
+			ListenerConfig: cfg.Database().Listener(),
+			FeatureConfig:  cfg.Feature(),
 			GenEthClient: func(i *big.Int) client.Client {
 				ethClient, ok := clients[i.Uint64()]
 				if !ok {
@@ -417,7 +421,7 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 		ChainID:   &chainID,
 		Enabled:   ptr(true),
 		Chain:     chainConfig,
-		MultiNode: solcfg.MultiNodeConfig{},
+		MultiNode: mnCfg.MultiNodeConfig{},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,

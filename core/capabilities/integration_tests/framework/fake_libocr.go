@@ -182,7 +182,9 @@ func (m *FakeLibOCR) Start(ctx context.Context) error {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					err := m.simulateProtocolRound(ctx)
+					serviceCtx, cancel := m.stopCh.NewCtx()
+					err := m.simulateProtocolRound(serviceCtx)
+					cancel()
 					if err != nil {
 						m.lggr.Errorf("simulating protocol round: %v", err)
 					}

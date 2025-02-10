@@ -61,6 +61,10 @@ func (o *ocr2Config) CaptureAutomationCustomTelemetry() bool {
 	return *o.c.CaptureAutomationCustomTelemetry
 }
 
+func (o *ocr2Config) AllowNoBootstrappers() bool {
+	return *o.c.AllowNoBootstrappers
+}
+
 func (o *ocr2Config) DefaultTransactionQueueDepth() uint32 {
 	return *o.c.DefaultTransactionQueueDepth
 }

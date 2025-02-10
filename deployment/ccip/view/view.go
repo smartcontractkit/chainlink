@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -17,12 +18,15 @@ type ChainView struct {
 	// v1.2
 	Router map[string]v1_2.RouterView `json:"router,omitempty"`
 	// v1.5
-	TokenAdminRegistry map[string]v1_5.TokenAdminRegistryView `json:"tokenAdminRegistry,omitempty"`
-	CommitStore        map[string]v1_5.CommitStoreView        `json:"commitStore,omitempty"`
-	PriceRegistry      map[string]v1_2.PriceRegistryView      `json:"priceRegistry,omitempty"`
-	EVM2EVMOnRamp      map[string]v1_5.OnRampView             `json:"evm2evmOnRamp,omitempty"`
-	EVM2EVMOffRamp     map[string]v1_5.OffRampView            `json:"evm2evmOffRamp,omitempty"`
-	RMN                map[string]v1_5.RMNView                `json:"rmn,omitempty"`
+	TokenAdminRegistry   map[string]v1_5.TokenAdminRegistryView                `json:"tokenAdminRegistry,omitempty"`
+	BurnMintTokenPool    map[string]map[string]v1_5_1.TokenPoolView            `json:"burnMintTokenPool,omitempty"`
+	LockReleaseTokenPool map[string]map[string]v1_5_1.LockReleaseTokenPoolView `json:"lockReleaseTokenPool,omitempty"`
+	USDCTokenPool        map[string]map[string]v1_5_1.USDCTokenPoolView        `json:"usdcTokenPool,omitempty"`
+	CommitStore          map[string]v1_5.CommitStoreView                       `json:"commitStore,omitempty"`
+	PriceRegistry        map[string]v1_2.PriceRegistryView                     `json:"priceRegistry,omitempty"`
+	EVM2EVMOnRamp        map[string]v1_5.OnRampView                            `json:"evm2evmOnRamp,omitempty"`
+	EVM2EVMOffRamp       map[string]v1_5.OffRampView                           `json:"evm2evmOffRamp,omitempty"`
+	RMN                  map[string]v1_5.RMNView                               `json:"rmn,omitempty"`
 
 	// v1.6
 	FeeQuoter    map[string]v1_6.FeeQuoterView    `json:"feeQuoter,omitempty"`

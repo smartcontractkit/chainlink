@@ -12,26 +12,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 type block struct {
@@ -707,7 +702,7 @@ func TestLogPollerFilters(t *testing.T) {
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 
-	dbx := pgtest.NewSqlxDB(t)
+	dbx := testutils.NewSqlxDB(t)
 	orm := logpoller.NewORM(chainID, dbx, lggr)
 
 	event1 := EmitterABI.Events["Log1"].ID
@@ -823,7 +818,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 
 		for idx, value := range topicValues {
 			topicFilters.Expressions[idx] = logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(value), Operator: primitives.Eq},
+				{Values: []common.Hash{logpoller.EvmWord(value)}, Operator: primitives.Eq},
 			})
 		}
 
@@ -919,7 +914,7 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(1, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(2), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(2)}, Operator: primitives.Gte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		},
@@ -934,10 +929,10 @@ func TestORM_IndexedLogs(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(min), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(min)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(max), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(max)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1093,10 +1088,10 @@ func TestORM_DataWords(t *testing.T) {
 			logpoller.NewAddressFilter(addr),
 			logpoller.NewEventSigFilter(eventSig),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word1), Operator: primitives.Gte},
+				{Values: []common.Hash{logpoller.EvmWord(word1)}, Operator: primitives.Gte},
 			}),
 			logpoller.NewEventByWordFilter(wordIdx, []logpoller.HashedValueComparator{
-				{Value: logpoller.EvmWord(word2), Operator: primitives.Lte},
+				{Values: []common.Hash{logpoller.EvmWord(word2)}, Operator: primitives.Lte},
 			}),
 			query.Confidence(primitives.Unconfirmed),
 		}
@@ -1161,7 +1156,7 @@ func TestORM_DataWords(t *testing.T) {
 		logpoller.NewAddressFilter(addr),
 		logpoller.NewEventSigFilter(eventSig),
 		logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-			{Value: logpoller.EvmWord(1), Operator: primitives.Gte},
+			{Values: []common.Hash{logpoller.EvmWord(1)}, Operator: primitives.Gte},
 		}),
 		query.Confidence(primitives.Unconfirmed),
 	}
@@ -1326,7 +1321,7 @@ func Test_ExecPagedQuery(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, lggr)
 
 	m := mockQueryExecutor{}
@@ -1779,7 +1774,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 		name                string
 		events              []common.Hash
 		addrs               []common.Address
-		confs               evmtypes.Confirmations
+		confs               types.Confirmations
 		fromBlock           int64
 		expectedBlockNumber int64
 	}{
@@ -1811,7 +1806,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			name:                "only finalized log is picked",
 			events:              []common.Hash{event1, event2},
 			addrs:               []common.Address{address1, address2},
-			confs:               evmtypes.Finalized,
+			confs:               types.Finalized,
 			fromBlock:           0,
 			expectedBlockNumber: 1,
 		},
@@ -1884,7 +1879,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		confs        evmtypes.Confirmations
+		confs        types.Confirmations
 		after        time.Time
 		expectedLogs []expectedLog
 	}{
@@ -1929,7 +1924,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 		{
 			name:  "returns only finalized log",
-			confs: evmtypes.Finalized,
+			confs: types.Finalized,
 			after: block1ts,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
@@ -1938,18 +1933,17 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 	}
 
-	filter := func(timestamp time.Time, confs evmtypes.Confirmations, topicIdx int, topicVals []common.Hash) query.KeyFilter {
+	filter := func(timestamp time.Time, confs types.Confirmations, topicIdx uint64, topicVals []common.Hash) query.KeyFilter {
 		filters := []query.Expression{
 			logpoller.NewAddressFilter(address),
 			logpoller.NewEventSigFilter(event),
 		}
 
 		if len(topicVals) > 0 {
-			exp := make([]query.Expression, len(topicVals))
-			for idx, val := range topicVals {
-				exp[idx] = logpoller.NewEventByTopicFilter(uint64(topicIdx), []logpoller.HashedValueComparator{
-					{Value: val, Operator: primitives.Eq},
-				})
+			exp := []query.Expression{
+				logpoller.NewEventByTopicFilter(topicIdx, []logpoller.HashedValueComparator{
+					{Values: topicVals, Operator: primitives.Eq},
+				}),
 			}
 
 			filters = append(filters, query.Expression{
@@ -2024,7 +2018,7 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	}))
 
 	// Empty logs when block are not persisted
-	logs, err := th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, evmtypes.Unconfirmed)
+	logs, err := th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, types.Unconfirmed)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 
@@ -2032,12 +2026,12 @@ func TestNestedLogPollerBlocksQuery(t *testing.T) {
 	require.NoError(t, th.ORM.InsertBlock(ctx, utils.RandomHash(), 10, time.Now(), 0))
 
 	// Check if query actually works well with provided dataset
-	logs, err = th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, evmtypes.Unconfirmed)
+	logs, err = th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, types.Unconfirmed)
 	require.NoError(t, err)
 	require.Len(t, logs, 1)
 
 	// Empty logs when number of confirmations is too deep
-	logs, err = th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, evmtypes.Confirmations(4))
+	logs, err = th.ORM.SelectIndexedLogs(ctx, address, event, 1, []common.Hash{event}, types.Confirmations(4))
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 }
@@ -2049,9 +2043,9 @@ func TestInsertLogsWithBlock(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
-	// Using pgtest.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
+	// Using testutils.NewSqlxDB(t) will run all tests in TXs which is not desired for this type of test
 	// (inner tx rollback will rollback outer tx, blocking rest of execution)
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, logger.Test(t))
 
 	correctLog := GenLog(chainID, 1, 1, utils.RandomAddress().String(), event[:], address)
@@ -2138,7 +2132,7 @@ func TestInsertLogsInTx(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	// We need full db here, because we want to test transaction rollbacks.
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, logger.Test(t))
 
 	logs := make([]logpoller.Log, maxLogsSize, maxLogsSize+1)
@@ -2251,10 +2245,10 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 				logpoller.NewAddressFilter(address),
 				logpoller.NewEventSigFilter(eventSig),
 				logpoller.NewEventByWordFilter(0, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Lte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Lte},
 				}),
 				logpoller.NewEventByWordFilter(1, []logpoller.HashedValueComparator{
-					{Value: logpoller.EvmWord(word), Operator: primitives.Gte},
+					{Values: []common.Hash{logpoller.EvmWord(word)}, Operator: primitives.Gte},
 				}),
 				query.Confidence(primitives.Unconfirmed),
 			},
@@ -2272,7 +2266,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logs, err := th.ORM.SelectLogsDataWordBetween(ctx, address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), evmtypes.Unconfirmed)
+			logs, err := th.ORM.SelectLogsDataWordBetween(ctx, address, eventSig, 0, 1, logpoller.EvmWord(tt.wordValue), types.Unconfirmed)
 
 			assertion(t, logs, err, tt.expectedLogs)
 
@@ -2285,7 +2279,7 @@ func TestSelectLogsDataWordBetween(t *testing.T) {
 
 func Benchmark_LogsDataWordBetween(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	ctx := testutils.Context(b)
 
@@ -2329,7 +2323,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 			2,
 			3,
 			logpoller.EvmWord(uint64(numberOfReports*numberOfMessagesPerReport/2)), // Pick the middle report
-			evmtypes.Unconfirmed,
+			types.Unconfirmed,
 		)
 		assert.NoError(b, err)
 		assert.Len(b, logs, 1)
@@ -2338,7 +2332,7 @@ func Benchmark_LogsDataWordBetween(b *testing.B) {
 
 func Benchmark_DeleteExpiredLogs(b *testing.B) {
 	chainId := big.NewInt(137)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	ctx := testutils.Context(b)
 

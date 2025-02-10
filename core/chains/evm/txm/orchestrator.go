@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -18,13 +19,13 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	txmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type OrchestratorTxStore interface {
@@ -39,8 +40,8 @@ type OrchestratorKeystore interface {
 }
 
 type OrchestratorAttemptBuilder[
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
+	BLOCK_HASH chains.Hashable,
+	HEAD chains.Head[BLOCK_HASH],
 ] interface {
 	services.Service
 	OnNewLongestChain(ctx context.Context, head HEAD)
@@ -48,8 +49,8 @@ type OrchestratorAttemptBuilder[
 
 // Generics are necessary to keep TXMv2 backwards compatible
 type Orchestrator[
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
+	BLOCK_HASH chains.Hashable,
+	HEAD chains.Head[BLOCK_HASH],
 ] struct {
 	services.StateMachine
 	lggr           logger.SugaredLogger
@@ -62,7 +63,7 @@ type Orchestrator[
 	resumeCallback txmgr.ResumeCallback
 }
 
-func NewTxmOrchestrator[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]](
+func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]](
 	lggr logger.Logger,
 	chainID *big.Int,
 	txm *Txm,
@@ -86,7 +87,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 	return o.StartOnce("Orchestrator", func() error {
 		var ms services.MultiStart
 		if err := ms.Start(ctx, o.attemptBuilder); err != nil {
-			return fmt.Errorf("Orchestrator: AttemptBuilder failed to start: %w", err)
+			// TODO: hacky fix for DualBroadcast
+			if !strings.Contains(err.Error(), "already been started once") {
+				return fmt.Errorf("Orchestrator: AttemptBuilder failed to start: %w", err)
+			}
 		}
 		addresses, err := o.keystore.EnabledAddressesForChain(ctx, o.chainID)
 		if err != nil {
@@ -121,7 +125,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 			merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop Txm: %w", err))
 		}
 		if err := o.attemptBuilder.Close(); err != nil {
-			merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop AttemptBuilder: %w", err))
+			// TODO: hacky fix for DualBroadcast
+			if !strings.Contains(err.Error(), "already been stopped") {
+				merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop AttemptBuilder: %w", err))
+			}
 		}
 		return merr
 	})

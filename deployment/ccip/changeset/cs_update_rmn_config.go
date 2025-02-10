@@ -1,11 +1,11 @@
 package changeset
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -119,7 +120,7 @@ func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain,
 		return mcms.Operation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
 	}
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(chain, setRMNTx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(chain, setRMNTx, rmn_proxy_contract.RMNProxyABI, err)
 		if err != nil {
 			return mcms.Operation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
 		}
@@ -166,10 +167,6 @@ func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) 
 	}
 
 	return deployment.SimTransactOpts()
-}
-
-type MCMSConfig struct {
-	MinDelay time.Duration
 }
 
 type SetRMNHomeCandidateConfig struct {
@@ -234,6 +231,50 @@ func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 	}
 
 	return nil
+}
+
+func isRMNStaticConfigEqual(a, b rmn_home.RMNHomeStaticConfig) bool {
+	if len(a.Nodes) != len(b.Nodes) {
+		return false
+	}
+	nodesByPeerID := make(map[p2pkey.PeerID]rmn_home.RMNHomeNode)
+	for i := range a.Nodes {
+		nodesByPeerID[a.Nodes[i].PeerId] = a.Nodes[i]
+	}
+	for i := range b.Nodes {
+		node, exists := nodesByPeerID[b.Nodes[i].PeerId]
+		if !exists {
+			return false
+		}
+		if !bytes.Equal(node.OffchainPublicKey[:], b.Nodes[i].OffchainPublicKey[:]) {
+			return false
+		}
+	}
+
+	return bytes.Equal(a.OffchainConfig, b.OffchainConfig)
+}
+
+func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
+	if len(a.SourceChains) != len(b.SourceChains) {
+		return false
+	}
+	sourceChainBySelector := make(map[uint64]rmn_home.RMNHomeSourceChain)
+	for i := range a.SourceChains {
+		sourceChainBySelector[a.SourceChains[i].ChainSelector] = a.SourceChains[i]
+	}
+	for i := range b.SourceChains {
+		sourceChain, exists := sourceChainBySelector[b.SourceChains[i].ChainSelector]
+		if !exists {
+			return false
+		}
+		if sourceChain.FObserve != b.SourceChains[i].FObserve {
+			return false
+		}
+		if sourceChain.ObserverNodesBitmap.Cmp(b.SourceChains[i].ObserverNodesBitmap) != 0 {
+			return false
+		}
+	}
+	return bytes.Equal(a.OffchainConfig, b.OffchainConfig)
 }
 
 type PromoteRMNHomeCandidateConfig struct {
@@ -525,7 +566,8 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("set RMNHome dynamic config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
@@ -548,7 +590,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNHome dynamic config for chain %s: %w", chain.String(), err)
 	}
 
-	return deployerGroup.Enact("Set RMNHome dynamic config")
+	return deployerGroup.Enact()
 }
 
 type RevokeCandidateConfig struct {
@@ -595,7 +637,8 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS)
+
+	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("revoke candidate config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
@@ -617,7 +660,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke candidate config for chain %s: %w", chain.String(), err)
 	}
 
-	return deployerGroup.Enact("Revoke candidate config")
+	return deployerGroup.Enact()
 }
 
 func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {

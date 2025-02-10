@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -89,6 +90,38 @@ func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
 	return r.ContractSets
 }
 
+func (te TestEnv) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
+	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
+		Chains:      te.Env.Chains,
+		AddressBook: te.Env.ExistingAddresses,
+	})
+	require.NoError(te.t, err)
+	return r.ContractSets[te.RegistrySelector].CapabilitiesRegistry
+}
+
+func (te TestEnv) CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo {
+	te.t.Helper()
+	caps, err := te.CapabilitiesRegistry().GetCapabilities(nil)
+	require.NoError(te.t, err)
+	return caps
+}
+
+func (te TestEnv) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
+	te.t.Helper()
+	nops, err := te.CapabilitiesRegistry().GetNodeOperators(nil)
+	require.NoError(te.t, err)
+	out := make([]kcr.CapabilitiesRegistryNodeOperatorAdded, len(nops))
+	id := uint32(0)
+	for i, n := range nops {
+		out[i] = kcr.CapabilitiesRegistryNodeOperatorAdded{
+			NodeOperatorId: id + 1, // 1-indexed
+			Admin:          n.Admin,
+			Name:           n.Name,
+		}
+	}
+	return out
+}
+
 // SetupTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
@@ -137,18 +170,22 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	wfChains := map[uint64]deployment.Chain{}
 	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, c.WFDonConfig.N, 0, crConfig)
+	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
 	require.Len(t, wfNodes, c.WFDonConfig.N)
 
 	writerChains := map[uint64]deployment.Chain{}
 	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, c.WriterDonConfig.N, 0, crConfig)
+	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
 	require.Len(t, cwNodes, c.WriterDonConfig.N)
 
 	assetChains := map[uint64]deployment.Chain{}
 	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, c.AssetDonConfig.N, 0, crConfig)
+	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
 	require.Len(t, assetNodes, c.AssetDonConfig.N)
+
+	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
+	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
+	streamTriggerChainCapCfg := GetDefaultCapConfig(t, internal.StreamTriggerCap)
 
 	// TODO: partition nodes into multiple nops
 
@@ -160,7 +197,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(wfNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.OCR3Cap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
+		},
 	}
 	cwDon := internal.DonCapabilities{
 		Name: internal.TargetDonName,
@@ -170,7 +209,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(cwNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.WriteChainCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
+		},
 	}
 	assetDon := internal.DonCapabilities{
 		Name: internal.StreamDonName,
@@ -180,7 +221,9 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 				Nodes: maps.Keys(assetNodes),
 			},
 		},
-		Capabilities: []kcr.CapabilitiesRegistryCapability{internal.StreamTriggerCap},
+		Capabilities: []internal.DONCapabilityWithConfig{
+			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
+		},
 	}
 
 	allChains := make(map[uint64]deployment.Chain)
@@ -190,13 +233,14 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	maps.Copy(allNodes, wfNodes)
 	maps.Copy(allNodes, cwNodes)
 	maps.Copy(allNodes, assetNodes)
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, allNodes)
+	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, nil, allNodes)
 	// set the env addresses to the deployed addresses that were created prior to configuring the nodes
 	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
 	require.NoError(t, err)
 
 	var ocr3Config = internal.OracleConfig{
-		MaxFaultyOracles: len(wfNodes) / 3,
+		MaxFaultyOracles:     len(wfNodes) / 3,
+		TransmissionSchedule: []int{len(wfNodes)},
 	}
 	var allDons = []internal.DonCapabilities{wfDon, cwDon, assetDon}
 
@@ -355,10 +399,6 @@ func capIDs(t *testing.T, cfgs []kcr.CapabilitiesRegistryCapabilityConfiguration
 	return out
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 func p2pIDs(t *testing.T, vals []string) [][32]byte {
 	var out [][32]byte
 	for _, v := range vals {
@@ -372,8 +412,8 @@ func p2pIDs(t *testing.T, vals []string) [][32]byte {
 func expectedHashedCapabilities(t *testing.T, registry *kcr.CapabilitiesRegistry, don internal.DonCapabilities) [][32]byte {
 	out := make([][32]byte, len(don.Capabilities))
 	var err error
-	for i, cap := range don.Capabilities {
-		out[i], err = registry.GetHashedCapabilityId(nil, cap.LabelledName, cap.Version)
+	for i, capWithCfg := range don.Capabilities {
+		out[i], err = registry.GetHashedCapabilityId(nil, capWithCfg.Capability.LabelledName, capWithCfg.Capability.Version)
 		require.NoError(t, err)
 	}
 	return out
