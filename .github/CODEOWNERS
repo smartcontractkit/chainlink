@@ -141,8 +141,8 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-/deployment @AnieeG @kylesmartin @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip @AnieeG @kylesmartin @smartcontractkit/ccip-offchain @smartcontractkit/deployment-automation
+/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/deployment-automation
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 

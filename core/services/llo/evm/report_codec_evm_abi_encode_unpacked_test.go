@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"

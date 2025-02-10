@@ -278,8 +278,8 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to send transaction: %w", err)
 				}
-
-				_, err = d.e.Chains[selector].Confirm(tx)
+				// TODO how to pass abi here to decode error reason
+				_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx, err)
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("waiting for tx to be mined failed: %w", err)
 				}

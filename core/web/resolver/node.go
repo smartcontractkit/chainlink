@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	evmtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
-	evmtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // NodeResolver resolves the Node type.

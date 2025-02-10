@@ -37,6 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
+	"github.com/smartcontractkit/chainlink-testing-framework/sentinel/blockchain_client_wrapper"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -47,6 +49,7 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
@@ -577,6 +580,7 @@ type CCIPTestSetUpOutputs struct {
 	Balance                *actions.BalanceSheet
 	BootstrapAdded         *atomic.Bool
 	JobAddGrp              *errgroup.Group
+	SC                     *sentinel.SentinelCoordinator
 }
 
 func (o *CCIPTestSetUpOutputs) AddToLanes(lane *BiDirectionalLaneConfig) {
@@ -883,6 +887,17 @@ func (o *CCIPTestSetUpOutputs) StartEventWatchers() {
 		require.NoError(o.Cfg.Test, err)
 		if lane.ReverseLane != nil {
 			err = lane.ReverseLane.StartEventWatchers()
+			require.NoError(o.Cfg.Test, err)
+		}
+	}
+}
+
+func (o *CCIPTestSetUpOutputs) StartEventWatchersPolling() {
+	for _, lane := range o.ReadLanes() {
+		err := lane.ForwardLane.StartEventWatchersPolling(o.SC)
+		require.NoError(o.Cfg.Test, err)
+		if lane.ReverseLane != nil {
+			err = lane.ReverseLane.StartEventWatchersPolling(o.SC)
 			require.NoError(o.Cfg.Test, err)
 		}
 	}
@@ -1215,7 +1230,21 @@ func CCIPDefaultTestSetUp(
 	}
 
 	// start event watchers for all lanes
-	setUpArgs.StartEventWatchers()
+	if useWebSocket(chainClientByChainID) {
+		setUpArgs.StartEventWatchers()
+	} else {
+		setUpArgs.SC = sentinel.NewSentinelCoordinator(*lggr)
+		err := setUpArgs.addChains()
+		require.NoError(t, err, "error adding chain to Sentinel")
+		setUpArgs.StartEventWatchersPolling()
+		t.Cleanup(func() {
+			if setUpArgs.SC != nil {
+				lggr.Info().Msg("Closing Sentinel")
+				setUpArgs.SC.Sentinel.Close()
+			}
+		})
+	}
+
 	// now that lane configs are already dumped to file, we can clean up the lane config map
 	setUpArgs.LaneConfig = nil
 	setUpArgs.TearDown = func() error {
@@ -1238,6 +1267,47 @@ func CCIPDefaultTestSetUp(
 	}
 	lggr.Info().Msg("Test setup completed")
 	return setUpArgs
+}
+
+func useWebSocket(chainClientByChainID map[int64]blockchain.EVMClient) bool {
+	for _, c := range chainClientByChainID {
+		if !c.GetEthClient().Client().SupportsSubscriptions() {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *CCIPTestSetUpOutputs) addChains() error {
+	for _, lane := range o.ReadLanes() {
+		// Add both forward and reverse lanes
+		err := o.addChainToSentinel(lane.ForwardLane.SourceChain)
+		if err != nil {
+			return err
+		}
+		err = o.addChainToSentinel(lane.ForwardLane.DestChain)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addChainToSentinel is a helper function to add a chain to Sentinel
+func (o *CCIPTestSetUpOutputs) addChainToSentinel(chain blockchain.EVMClient) error {
+	blockchainClient := blockchain_client_wrapper.NewGethClientWrapper(chain.GetEthClient())
+
+	// Define the chain poller service configuration
+	addChainConfig := sentinel.AddChainConfig{
+		ChainID:          chain.GetChainID().Int64(),
+		PollInterval:     30 * time.Second,
+		BlockchainClient: blockchainClient,
+	}
+
+	// Add the chain to Sentinel
+	err := o.SC.Sentinel.AddChain(addChainConfig)
+
+	return err
 }
 
 // CreateEnvironment creates the environment for the test and registers the test clean-up function to tear down the set-up environment

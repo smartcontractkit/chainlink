@@ -55,23 +55,6 @@ install_local_plugins() {
   make install-ocr3-capability
 }
 
-get_remote_plugin_paths() {
-  plugins=(
-    "github.com/smartcontractkit/chainlink-solana|/pkg/solana/cmd/chainlink-solana"
-    "github.com/smartcontractkit/chainlink-starknet/relayer|/pkg/chainlink/cmd/chainlink-starknet"
-    "github.com/smartcontractkit/chainlink-feeds|/cmd/chainlink-feeds"
-    "github.com/smartcontractkit/chainlink-data-streams|/mercury/cmd/chainlink-mercury"
-  )
-
-  for plugin in "${plugins[@]}"; do
-    plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
-    plugin_main=$(echo "$plugin" | cut -d"|" -f2)
-
-    full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
-    echo "$full_plugin_path"
-  done
-}
-
 build_standard_capabilities() {
   echo "Building standard capabilities"
   cpath=./capabilities
@@ -89,12 +72,7 @@ build_standard_capabilities() {
 }
 
 install_remote_plugins() {
-  ldflags=(-ldflags "$(./tools/bin/ldflags)")
-
-  for plugin in $(get_remote_plugin_paths); do
-    go install "${ldflags[@]}" "$plugin" 
-  done  
-
+  make install-plugins
 }
 
 # binary build post hook

@@ -59,7 +59,7 @@ func DeployMCMSWithConfig(
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, mcmsTx, owner_helpers.ManyChainMultiSigABI, err); err != nil {
 		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
