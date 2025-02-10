@@ -1,6 +1,3 @@
-ok Cosmos.Foo.Chain
-ok Cosmos.Foo.Relayer
-ok Cosmos.Foo.Txm
 ok EVM.0
 ok EVM.0.BalanceMonitor
 ok EVM.0.HeadBroadcaster
@@ -29,8 +26,5 @@ ok Solana.Bar.Chain
 ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
-ok StarkNet.Baz.Chain
-ok StarkNet.Baz.Chain.Txm
-ok StarkNet.Baz.Relayer
 ok TelemetryManager
 ok WorkflowDBStore

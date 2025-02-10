@@ -30,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -80,8 +82,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -193,6 +193,7 @@ type ApplicationOpts struct {
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
 	RetirementReportCache      llo.RetirementReportCache
+	LLOTransmissionReaper      services.ServiceCtx
 	CapabilitiesRegistry       *capabilities.Registry
 	CapabilitiesDispatcher     remotetypes.Dispatcher
 	CapabilitiesPeerWrapper    p2ptypes.PeerWrapper
@@ -406,10 +407,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
+				wfRegRid := cfg.Capabilities().WorkflowRegistry().RelayID()
+				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
+				if err != nil {
+					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
+				}
 				wfSyncer := syncer.NewWorkflowRegistry(
 					lggr,
 					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-						return relayer.NewContractReader(ctx, bytes)
+						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{
@@ -487,6 +493,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if opts.RetirementReportCache != nil {
 		srvcs = append(srvcs, opts.RetirementReportCache)
+	}
+	if opts.LLOTransmissionReaper != nil {
+		srvcs = append(srvcs, opts.LLOTransmissionReaper)
 	}
 
 	// EVM chains are used all over the place. This will need to change for fully EVM extraction
@@ -902,6 +911,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
+		shutdownStart := time.Now()
 		defer func() {
 			if app.closeLogger == nil {
 				return
@@ -932,7 +942,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = multierr.Append(err, app.profiler.Stop())
 		}
 
-		app.logger.Info("Exited all services")
+		app.logger.Debugf("Closed application in %v", time.Since(shutdownStart))
 
 		app.started = false
 	})

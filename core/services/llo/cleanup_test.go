@@ -2,6 +2,7 @@ package llo
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -14,8 +15,17 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
+
+func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
+	transmissions := make([]*mercurytransmitter.Transmission, n)
+	for i := 0; i < n; i++ {
+		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo") //nolint:gosec // G115 don't care in test code
+	}
+	return transmissions
+}
 
 func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Transmission {
 	return &mercurytransmitter.Transmission{
@@ -84,19 +94,52 @@ func Test_Cleanup(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, pd)
 	})
-	t.Run("removes transmissions", func(t *testing.T) {
-		trs, err := torm1.Get(ctx, srvURL1)
-		require.NoError(t, err)
-		assert.Len(t, trs, 0)
-		trs, err = torm1.Get(ctx, srvURL2)
-		require.NoError(t, err)
-		assert.Len(t, trs, 0)
-
-		trs, err = torm2.Get(ctx, srvURL1)
+	t.Run("does not remove transmissions", func(t *testing.T) {
+		trs, err := torm1.Get(ctx, srvURL1, 10)
 		require.NoError(t, err)
 		assert.Len(t, trs, 1)
-		trs, err = torm2.Get(ctx, srvURL2)
+		trs, err = torm1.Get(ctx, srvURL2, 10)
+		require.NoError(t, err)
+		assert.Len(t, trs, 1)
+
+		trs, err = torm2.Get(ctx, srvURL1, 10)
+		require.NoError(t, err)
+		assert.Len(t, trs, 1)
+		trs, err = torm2.Get(ctx, srvURL2, 10)
 		require.NoError(t, err)
 		assert.Len(t, trs, 1)
 	})
+}
+
+func Test_TransmissionReaper(t *testing.T) {
+	ds := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
+	ctx := testutils.Context(t)
+
+	const n = 13
+
+	transmissions := makeSampleTransmissions(n)
+	torm := mercurytransmitter.NewORM(ds, 1)
+	err := torm.Insert(testutils.Context(t), transmissions)
+	require.NoError(t, err)
+	pgtest.MustExec(t, ds, `
+UPDATE llo_mercury_transmit_queue 
+SET inserted_at = NOW() - INTERVAL '48 hours'
+WHERE transmission_hash IN (
+    SELECT transmission_hash FROM llo_mercury_transmit_queue 
+    LIMIT 5
+);
+`)
+
+	// test batching
+	d, err := tr.reapStale(ctx, n/3)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), d)
+
+	pgtest.MustExec(t, ds, "UPDATE llo_mercury_transmit_queue SET inserted_at = NOW() - INTERVAL '48 hours'")
+
+	d, err = tr.reapStale(ctx, n/3)
+	require.NoError(t, err)
+	assert.Equal(t, int64(n-5), d)
 }

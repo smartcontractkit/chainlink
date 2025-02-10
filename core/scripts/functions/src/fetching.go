@@ -10,9 +10,9 @@ import (
 
 	"github.com/urfave/cli"
 
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type ocr2Bundle struct {

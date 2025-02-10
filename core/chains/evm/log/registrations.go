@@ -12,9 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.

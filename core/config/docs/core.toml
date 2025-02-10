@@ -725,6 +725,12 @@ TransmitTimeout = "5s" # Default
 #
 # Only has effect with LLO jobs.
 TransmitConcurrency = 100 # Default
+# ReaperFrequency controls how often the stale transmission reaper will run.
+# Setting to 0 disables the reaper.
+ReaperFrequency = "1h" # Default
+# ReaperMaxAge controls how old a transmission can be before it is considered
+# stale. Setting to 0 disables the reaper.
+ReaperMaxAge = "48h" # Default
 
 # Telemetry holds OTEL settings.
 # This data includes open telemetry metrics, traces, & logs.

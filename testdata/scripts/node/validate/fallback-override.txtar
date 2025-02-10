@@ -390,6 +390,8 @@ Protocol = 'wsrpc'
 TransmitQueueMaxSize = 100000
 TransmitTimeout = '5s'
 TransmitConcurrency = 100
+ReaperFrequency = '1h0m0s'
+ReaperMaxAge = '48h0m0s'
 
 [Capabilities]
 [Capabilities.RateLimit]

@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	v1 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var hash = hexutil.MustDecode("0x552c2cea3ab43bae137d89ee6142a01db3ae2b5678bc3c9bd5f509f537bea57b")

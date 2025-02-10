@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 )
 
 const (

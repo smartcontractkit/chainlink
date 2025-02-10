@@ -16,6 +16,7 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var ErrUnsupported = errors.New("unsupported with config v2")
@@ -1333,6 +1333,8 @@ type MercuryTransmitter struct {
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
+	ReaperFrequency      *commonconfig.Duration
+	ReaperMaxAge         *commonconfig.Duration
 }
 
 func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
@@ -1347,6 +1349,12 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 	}
 	if v := f.TransmitConcurrency; v != nil {
 		m.TransmitConcurrency = v
+	}
+	if v := f.ReaperFrequency; v != nil {
+		m.ReaperFrequency = v
+	}
+	if v := f.ReaperMaxAge; v != nil {
+		m.ReaperMaxAge = v
 	}
 }
 

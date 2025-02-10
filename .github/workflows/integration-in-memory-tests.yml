@@ -74,7 +74,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@0632b5652dd5eb03bfa87e23a2b3e2911484fe59
+    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
     with:
       workflow_name: Run CCIP Integration Tests For PR
       test_path: .github/integration-in-memory-tests.yml
@@ -85,6 +85,8 @@ jobs:
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
+      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
 
   run-ccip-integration-tests-for-merge-queue:
     name: Run CCIP Integration Tests For Merge Queue
@@ -96,7 +98,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@277f9fd8a8c9c81103ab02e631350d544ce77a8c
+    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       test_path: .github/integration-in-memory-tests.yml
