@@ -6,6 +6,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -37,7 +38,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.D
 		return deployment.ChangesetOutput{}, err
 	}
 
-	for chainSel, _ := range c.ContractParamsPerChain {
+	for chainSel := range c.ContractParamsPerChain {
 		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not supported", chainSel)
 		}
