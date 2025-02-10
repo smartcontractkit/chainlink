@@ -107,13 +107,6 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
 		}
-		// node Labels so that it's easier to query them
-		for key, value := range info.Labels {
-			node.labels = append(node.labels, &ptypes.Label{
-				Key:   key,
-				Value: &value,
-			})
-		}
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
 			if info.MultiAddr == "" {
@@ -168,11 +161,21 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", err)
 	}
+	// node Labels so that it's easier to query them
+	labels := make([]*ptypes.Label, 0)
+	for key, value := range nodeInfo.Labels {
+		labels = append(labels, &ptypes.Label{
+			Key:   key,
+			Value: &value,
+		})
+	}
 	return &Node{
 		gqlClient:  gqlClient,
 		restClient: chainlinkClient,
 		Name:       nodeInfo.Name,
 		adminAddr:  nodeInfo.AdminAddr,
+		multiAddr:  nodeInfo.MultiAddr,
+		labels:     labels,
 	}, nil
 }
 
@@ -251,7 +254,8 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
 		// fetch node labels to know if the node is bootstrap or plugin
-		isBootstrap := false
+		// if multi address is set, then it's a bootstrap node
+		isBootstrap := n.multiAddr != ""
 		for _, label := range n.labels {
 			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
 				isBootstrap = true

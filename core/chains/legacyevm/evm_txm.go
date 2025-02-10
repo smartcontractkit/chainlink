@@ -4,14 +4,14 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 func newEvmTxm(

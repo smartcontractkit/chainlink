@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -46,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // DeployedLocalDevEnvironment is a helper struct for setting up a local dev environment with docker

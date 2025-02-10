@@ -8,7 +8,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 )
 
 func panicErr(err error) {

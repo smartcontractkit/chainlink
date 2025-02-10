@@ -68,15 +68,15 @@ install-ocr3-capability: ## Build & install the chainlink-ocr3-capability binary
 .PHONY: install-plugins
 install-plugins: ## Build & install LOOPP binaries for products and chains.
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds) && \
-	go install ./cmd/chainlink-feeds
+	go install $(GOFLAGS) ./cmd/chainlink-feeds
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
-	go install ./mercury/cmd/chainlink-mercury
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-cosmos) && \
-	go install ./pkg/cosmos/cmd/chainlink-cosmos
+	go install $(GOFLAGS) ./mercury/cmd/chainlink-mercury
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@f740e9ae54e79762991bdaf8ad6b50363261c056 | jq -r .Dir) && \
+	go install $(GOFLAGS) ./pkg/cosmos/cmd/chainlink-cosmos
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
-	go install ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer) && \
-	go install ./pkg/chainlink/cmd/chainlink-starknet
+	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@9a780650af4708e4bd9b75495feff2c5b4054e46 | jq -r .Dir) && \
+	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
 docker:

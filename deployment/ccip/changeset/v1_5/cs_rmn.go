@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
 )
 
 var _ deployment.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
@@ -129,7 +130,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		}
 		tx, err := RMN.OwnerRemoveThenAddPermaBlessedCommitStores(txOpts, removes, adds)
 		if c.MCMSConfig == nil {
-			_, err = deployment.ConfirmIfNoError(env.Chains[destChain], tx, err)
+			_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChain], tx, rmn_contract.RMNContractABI, err)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}

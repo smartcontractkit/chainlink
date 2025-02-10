@@ -31,14 +31,14 @@ runs:
         echo "ANCHOR_VERSION=${anchor}" >> $GITHUB_ENV
     - name: cache docker build image
       id: cache-image
-      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      uses: actions/cache@v4 # v4.0.2
       with:
         lookup-only: true
         path: chains/solana/contracts/docker-build.tar
         key: ${{ runner.os }}-solana-build-${{ env.ANCHOR_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
     - name: Cache cargo target dir
       id: cache-target
-      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      uses: actions/cache@v4 # v4.0.2
       with:
         lookup-only: true
         path: chains/solana/contracts/target

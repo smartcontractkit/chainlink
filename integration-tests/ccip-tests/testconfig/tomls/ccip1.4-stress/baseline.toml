@@ -1,21 +1,21 @@
 ## Baseline performance test on simulated environment (with chaos)
-## 30 chains / 300 lanes
+## 50 chains / 300 lanes
 ## historyDepth 200 / finalityDepth 200
 ## block_time = 1s
 ## throughput 1msg / 5s
 ## 20% Token, 60% DataWithToken, 15% Regular size msgs, 5% Large msgs
 ##
-## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:ccip-develop  \
+## make test_load_ccip testimage=<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip-tests:bd48750f7072c2a40454483f2e36bad7efaaeba5 \
 ##      testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos \
-##      override_toml=./testconfig/tomls/ccip-1.4-stress/baseline.toml
+##      override_toml=./testconfig/tomls/ccip1.4-stress/baseline.toml
 
 ## Adjust this value depending on what you want to test.
 # Using releases and git tag requires changing the image name to the correct one in `~/.testsecrets`, e.g.
-# E2E_TEST_CHAINLINK_IMAGE="public.ecr.aws/w0i8p0z9/chainlink-ccip"
+# E2E_TEST_CHAINLINK_IMAGE="public.ecr.aws/chainlink/ccip"
 # If you want to use a specific commit or a branch you need to switch to the internal ECR in `~/.testsecrets`
 # E2E_TEST_CHAINLINK_IMAGE="<aws account number>.dkr.ecr.<aws region>.amazonaws.com/chainlink-ccip"
 [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
-version = "2.14.0-ccip1.5.0"
+version = "2.20.0-ccip1.5.17-beta.2"
 
 [CCIP]
 [CCIP.ContractVersions]
@@ -26,7 +26,7 @@ TokenPool = '1.4.0'
 CommitStore = '1.2.0'
 
 [CCIP.Env]
-TTL = '10h'
+TTL = '12h'
 
 [CCIP.Env.Network]
 selected_networks = ['PRIVATE-CHAIN-1', 'PRIVATE-CHAIN-2']
@@ -72,15 +72,15 @@ block_time = 1
 
 [CCIP.Env.NewCLCluster]
 NoOfNodes = 17
-NodeMemory = '10Gi'
+NodeMemory = '16Gi'
 NodeCPU = '4'
-DBMemory = '16Gi'
-DBCPU = '4'
+DBMemory = '32Gi'
+DBCPU = '8'
 DBStorageClass = 'gp3'
 PromPgExporter = true
-DBCapacity = '50Gi'
+DBCapacity = '70Gi'
 IsStateful = true
-DBArgs = ['shared_buffers=4096MB', 'effective_cache_size=8192MB', 'work_mem=128MB']
+DBArgs = ['shared_buffers=8192MB', 'effective_cache_size=16384MB', 'work_mem=128MB']
 
 [CCIP.Env.NewCLCluster.Common]
 BaseConfigTOML = """
@@ -110,7 +110,7 @@ HTTPSPort = 0
 
 [Database]
 MaxIdleConns = 20
-MaxOpenConns = 30
+MaxOpenConns = 40
 MigrateOnStartup = true
 
 [OCR2]
@@ -149,7 +149,7 @@ NoOfCommitNodes = 16
 PhaseTimeout = '40m'
 NodeFunding = 1000.0
 NoOfRoutersPerPair = 1
-NoOfNetworks = 30
+NoOfNetworks = 50
 MaxNoOfLanes = 300
 
 [CCIP.Groups.load.OffRampConfig]
@@ -163,7 +163,7 @@ DynamicPriceUpdateInterval = '15s'
 CCIPOwnerTokens = true
 
 [CCIP.Groups.load.LoadProfile]
-TestDuration = '6h'
+TestDuration = '10h'
 TimeUnit = '5s'
 RequestPerUnitTime = [1]
 OptimizeSpace = true
