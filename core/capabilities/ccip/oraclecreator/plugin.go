@@ -435,8 +435,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
-		offrampAddress := solana.PublicKeyFromBytes(config.Config.OfframpAddress)
-
 		cw, err1 := createChainWriter(
 			ctx,
 			chainID,
@@ -444,7 +442,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			i.transmitters,
 			execBatchGasLimit,
 			relayChainFamily,
-			offrampAddress.String(),
+			config.Config.OfframpAddress,
 		)
 		if err1 != nil {
 			return nil, nil, err1
@@ -565,7 +563,7 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
-	offrampProgramAddress string,
+	offrampProgramAddress []byte,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -574,7 +572,8 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress, transmitter[0]); err == nil {
+		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0]); err == nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

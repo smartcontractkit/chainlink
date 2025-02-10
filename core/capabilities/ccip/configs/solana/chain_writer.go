@@ -313,7 +313,6 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	if err = json.Unmarshal([]byte(ccipOfframpIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
-
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
 			"ccip-offramp": {
