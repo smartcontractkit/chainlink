@@ -74,6 +74,19 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		},
 	}
 
+	if len(report.RMNSignatures) > 1 {
+		return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
+	} else if len(report.RMNSignatures) == 1 {
+		if report.BlessedMerkleRoots == nil {
+			return nil, fmt.Errorf("RMN signature included without a blessed root")
+		}
+		var rmnSig64Array [64]uint8
+		copy(rmnSig64Array[:32], report.RMNSignatures[0].R[:])
+		copy(rmnSig64Array[32:], report.RMNSignatures[0].S[:])
+		commit.RmnSignatures = [][64]uint8{rmnSig64Array}
+	} else if report.UnblessedMerkleRoots == nil {
+		return nil, fmt.Errorf("No RMN signature included for the blessed root")
+	}
 	err := commit.MarshalWithEncoder(encoder)
 	if err != nil {
 		return nil, err
@@ -118,13 +131,32 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		})
 	}
 
-	return cciptypes.CommitPluginReport{
-		UnblessedMerkleRoots: merkleRoots,
+	commitPluginReport := cciptypes.CommitPluginReport{
 		PriceUpdates: cciptypes.PriceUpdates{
 			TokenPriceUpdates: tokenPriceUpdates,
 			GasPriceUpdates:   gasPriceUpdates,
 		},
-	}, nil
+	}
+
+	if len(commitReport.RmnSignatures) == 0 {
+		commitPluginReport.UnblessedMerkleRoots = merkleRoots
+	} else {
+		commitPluginReport.BlessedMerkleRoots = merkleRoots
+		rmnSigs := make([]cciptypes.RMNECDSASignature, 0, len(commitReport.RmnSignatures))
+		for _, sig := range commitReport.RmnSignatures {
+			var r [32]byte
+			copy(r[:], sig[:32])
+			var s [32]byte
+			copy(s[:], sig[32:])
+			rmnSigs = append(rmnSigs, cciptypes.RMNECDSASignature{
+				R: r,
+				S: s,
+			})
+		}
+		commitPluginReport.RMNSignatures = rmnSigs
+	}
+
+	return commitPluginReport, nil
 }
 
 func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
@@ -155,6 +187,17 @@ func decodeLEToBigInt(data []byte) cciptypes.BigInt {
 	}
 
 	return cciptypes.NewBigInt(bi)
+}
+
+func encodedRMNSignature(signature cciptypes.Bytes32) [64]uint8 {
+	rmnSig64 := make([]uint8, 0, 64)
+
+	// RMN signature on SVM onchain is 64 bytes long.
+	// So left pad 32 bytes with 0s, and then 32 bytes of signature
+	rmnSig64 = append(rmnSig64[:32], signature[:]...)
+	var rmnSig64Array [64]uint8
+	copy(rmnSig64Array[:], rmnSig64[:64])
+	return rmnSig64Array
 }
 
 // Ensure CommitPluginCodec implements the CommitPluginCodec interface
