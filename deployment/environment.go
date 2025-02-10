@@ -284,6 +284,14 @@ func (n Nodes) DefaultF() uint8 {
 	return uint8(len(n) / 3)
 }
 
+func (n Nodes) IDs() []string {
+	var ids []string
+	for _, node := range n {
+		ids = append(ids, node.NodeID)
+	}
+	return ids
+}
+
 func (n Nodes) BootstrapLocators() []string {
 	bootstrapMp := make(map[string]struct{})
 	for _, node := range n {
@@ -426,7 +434,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create deployment node from JD metadata: %w", err)
+			return nil, fmt.Errorf("failed to create deployment node from JD metadata for node %s: %w", node.Id, err)
 		}
 
 		nodes = append(nodes, *n)

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -133,10 +135,14 @@ func (d *memoryDon) Name() string {
 
 type viewOnlyDon struct {
 	name string
-	m    map[string]deployment.Node
+	m    map[string]*deployment.Node
 }
 
-func newViewOnlyDon(name string, m map[string]deployment.Node) *viewOnlyDon {
+func newViewOnlyDon(name string, nodes []*deployment.Node) *viewOnlyDon {
+	m := make(map[string]*deployment.Node)
+	for _, n := range nodes {
+		m[n.PeerID.String()] = n
+	}
 	return &viewOnlyDon{name: name, m: m}
 }
 
@@ -256,6 +262,25 @@ func (d *viewOnlyDons) P2PIDs() P2PIDs {
 	return out.Unique()
 }
 
+func (d *viewOnlyDons) AllNodes() map[string]*deployment.Node {
+	out := make(map[string]*deployment.Node)
+	for _, d := range d.dons {
+		for k, v := range d.m {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func (d *viewOnlyDons) NodeList() deployment.Nodes {
+	tmp := d.AllNodes()
+	nodes := make([]deployment.Node, 0, len(tmp))
+	for _, v := range tmp {
+		nodes = append(nodes, *v)
+	}
+	return nodes
+}
+
 // TODO: separate the config into different types; wf should expand to types of ocr keybundles; writer to target chains; ...
 type WFDonConfig = DonConfig
 type AssetDonConfig = DonConfig
@@ -267,7 +292,7 @@ type TestConfig struct {
 	WriterDonConfig
 	NumChains int
 
-	ContractOnly bool
+	contractOnly bool
 	UseMCMS      bool
 }
 
@@ -388,6 +413,11 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	return registryChainSel, env
 }
 
+func SetupContractOnlyTestEnv(t *testing.T, c TestConfig) TestEnv {
+	c.contractOnly = true
+	return SetupTestEnv(t, c)
+}
+
 // SetupTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
 func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
@@ -395,14 +425,15 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	lggr := logger.Test(t)
 
 	registryChainSel, envWithContracts := initEnv(t, c.NumChains)
+	lggr.Debug("done init env")
 	var (
 		dons TestDons
 		env  deployment.Environment
 	)
-	if c.ContractOnly {
-		panic("ContractOnly not implemented")
+	if c.contractOnly {
+		dons, env = setupViewOnlyNodeTest(t, registryChainSel, envWithContracts.Chains, c)
 	} else {
-		dons, env = makeTestDonsEnv(t, registryChainSel, envWithContracts.Chains, c)
+		dons, env = setupMemoryNodeTest(t, registryChainSel, envWithContracts.Chains, c)
 	}
 	err := env.ExistingAddresses.Merge(envWithContracts.ExistingAddresses)
 	require.NoError(t, err)
@@ -449,10 +480,6 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			{Capability: internal.StreamTriggerCap, Config: streamTriggerChainCapCfg},
 		},
 	}
-
-	//x := dons.(*memoryDons)
-	//allNodes := x.AllNodes()
-	// set the env addresses to the deployed addresses that were created prior to configuring the nodes
 
 	var ocr3Config = internal.OracleConfig{
 		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
@@ -539,7 +566,59 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	}
 }
 
-func makeTestDonsEnv(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c TestConfig) (TestDons, deployment.Environment) {
+func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c TestConfig) (TestDons, deployment.Environment) {
+	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
+	wfConfig := make([]envtest.TestNodeConfig, 0, len(c.WFDonConfig.ChainSelectors))
+	for i := 0; i < c.WFDonConfig.N; i++ {
+		wfConfig = append(wfConfig, envtest.TestNodeConfig{
+			ChainSelectors: []uint64{registryChainSel},
+			Name:           fmt.Sprintf("%s-%d", c.WFDonConfig.Name, i),
+		})
+	}
+	wfNodes := envtest.NewNodes(t, wfConfig)
+	require.Len(t, wfNodes, c.WFDonConfig.N)
+
+	assetConfig := make([]envtest.TestNodeConfig, 0, len(c.AssetDonConfig.ChainSelectors))
+	for i := 0; i < c.AssetDonConfig.N; i++ {
+		assetConfig = append(assetConfig, envtest.TestNodeConfig{
+			ChainSelectors: maps.Keys(chains),
+			Name:           fmt.Sprintf("%s-%d", c.AssetDonConfig.Name, i),
+		})
+	}
+	assetNodes := envtest.NewNodes(t, assetConfig)
+	require.Len(t, assetNodes, c.AssetDonConfig.N)
+
+	writerConfig := make([]envtest.TestNodeConfig, 0, len(c.WriterDonConfig.ChainSelectors))
+	for i := 0; i < c.WriterDonConfig.N; i++ {
+		writerConfig = append(writerConfig, envtest.TestNodeConfig{
+			ChainSelectors: maps.Keys(chains),
+			Name:           fmt.Sprintf("%s-%d", c.WriterDonConfig.Name, i),
+		})
+	}
+	writerNodes := envtest.NewNodes(t, writerConfig)
+	require.Len(t, writerNodes, c.WriterDonConfig.N)
+
+	dons := newViewOnlyDons()
+	dons.Put(newViewOnlyDon(c.WFDonConfig.Name, wfNodes))
+	dons.Put(newViewOnlyDon(c.AssetDonConfig.Name, assetNodes))
+	dons.Put(newViewOnlyDon(c.WriterDonConfig.Name, writerNodes))
+
+	env := deployment.NewEnvironment(
+		"view only nodes",
+		logger.Test(t),
+		deployment.NewMemoryAddressBook(),
+		chains,
+		nil,
+		dons.NodeList().IDs(),
+		envtest.NewJDService(dons.NodeList()),
+		func() context.Context { return tests.Context(t) },
+		deployment.XXXGenerateTestOCRSecrets(),
+	)
+
+	return dons, *env
+}
+
+func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c TestConfig) (TestDons, deployment.Environment) {
 	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
 	// TODO: configure the nodes with the correct override functions
 	lggr := logger.Test(t)
