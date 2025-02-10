@@ -158,7 +158,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 							TypeName: "TokenAdminRegistry",
 							Location: "LookupTable",
 							// TokenAdminRegistry is in the router program so need to provide the router's IDL
-							IDL: ccipRouterIDL, 
+							IDL: ccipRouterIDL,
 						},
 					},
 				},
@@ -285,7 +285,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			chainwriter.AccountsFromLookupTable{
 				LookupTableName: "PoolLookupTable",
 				IncludeIndexes:  []int{},
-				LookupOpts: chainwriter.LookupOpts{Optional: true},
+				LookupOpts:      chainwriter.LookupOpts{Optional: true},
 			},
 		},
 		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
@@ -366,7 +366,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 		InternalField: chainwriter.InternalField{
 			TypeName: "ReferenceAddresses",
 			Location: "FeeQuoter",
-			IDL: ccipOfframpIDL,
+			IDL:      ccipOfframpIDL,
 		},
 	}
 }
@@ -384,7 +384,7 @@ func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 		InternalField: chainwriter.InternalField{
 			TypeName: "ReferenceAddresses",
 			Location: "Router",
-			IDL: ccipOfframpIDL,
+			IDL:      ccipOfframpIDL,
 		},
 	}
 }
@@ -425,7 +425,7 @@ func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter
 			InternalField: chainwriter.InternalField{
 				TypeName: "ReferenceAddresses",
 				Location: "OfframpLookupTable",
-				IDL: ccipOfframpIDL,
+				IDL:      ccipOfframpIDL,
 			},
 		},
 	}
