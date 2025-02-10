@@ -3,6 +3,7 @@ package ccipsolana
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -25,7 +26,8 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
-	combinedRoots := append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...)
+	combinedRoots := report.BlessedMerkleRoots
+	combinedRoots = append(combinedRoots, report.UnblessedMerkleRoots...)
 	if len(combinedRoots) != 1 {
 		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(combinedRoots))
 	}
@@ -74,20 +76,24 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		},
 	}
 
-	if len(report.RMNSignatures) > 1 {
-		return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
-	} else if len(report.RMNSignatures) == 1 {
+	switch len(report.RMNSignatures) {
+	case 0:
+		if report.UnblessedMerkleRoots == nil {
+			return nil, errors.New("No RMN signature included for the blessed root")
+		}
+	case 1:
 		if report.BlessedMerkleRoots == nil {
-			return nil, fmt.Errorf("RMN signature included without a blessed root")
+			return nil, errors.New("RMN signature included without a blessed root")
 		}
 		// R part goes into leading 32 bytes, and S part goes into the trailing 32 bytes.
 		var rmnSig64Array [64]uint8
 		copy(rmnSig64Array[:32], report.RMNSignatures[0].R[:])
 		copy(rmnSig64Array[32:], report.RMNSignatures[0].S[:])
 		commit.RmnSignatures = [][64]uint8{rmnSig64Array}
-	} else if report.UnblessedMerkleRoots == nil {
-		return nil, fmt.Errorf("No RMN signature included for the blessed root")
+	default:
+		return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
 	}
+
 	err := commit.MarshalWithEncoder(encoder)
 	if err != nil {
 		return nil, err
