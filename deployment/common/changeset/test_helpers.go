@@ -65,7 +65,10 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
 					}
 
-					proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel)
+					err := proposalutils.ExecuteProposal(t, e, signed, timelockContracts, sel) //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility; we don't have tools to generate the new field
+					if err != nil {
+						return e, fmt.Errorf("failed to execute proposal: %w", err)
+					}
 				}
 			}
 		}

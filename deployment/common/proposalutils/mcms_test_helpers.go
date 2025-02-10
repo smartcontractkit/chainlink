@@ -70,12 +70,12 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 
 // Deprecated: Use ExecuteMCMSTimelockProposalV2 instead.
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelockContracts *TimelockExecutionContracts, sel uint64) {
+	timelockContracts *TimelockExecutionContracts, sel uint64) error {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	if err2 != nil {
-		require.NoError(t, deployment.MaybeDataErr(err2))
+		require.NoError(t, deployment.MaybeDataErr(err2), "failed to set root")
 	}
 
 	_, err2 = env.Chains[sel].Confirm(tx)
@@ -85,7 +85,8 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 		TimelockContracts: timelockContracts,
 		ChainSelector:     sel,
 	}
-	require.NoError(t, RunTimelockExecutor(env, cfg))
+	// return the error so devs can ensure expected reversions
+	return RunTimelockExecutor(env, cfg)
 }
 
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.

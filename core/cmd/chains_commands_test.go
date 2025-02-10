@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	client2 "github.com/smartcontractkit/chainlink-integrations/evm/client"
@@ -15,29 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
-
-func TestShell_IndexCosmosChains(t *testing.T) {
-	t.Parallel()
-
-	chainID := cosmostest.RandomChainID()
-	chain := coscfg.TOMLConfig{
-		ChainID: ptr(chainID),
-		Enabled: ptr(true),
-	}
-	app := cosmosStartNewApplication(t, &chain)
-	client, r := app.NewShellAndRenderer()
-
-	require.NoError(t, cmd.NewChainClient(client, "cosmos").IndexChains(cltest.EmptyCLIContext()))
-	chains := *r.Renders[0].(*cmd.ChainPresenters)
-	require.Len(t, chains, 1)
-	c := chains[0]
-	assert.Equal(t, chainID, c.ID)
-	assertTableRenders(t, r)
-}
 
 func newRandChainID() *big.Big {
 	return big.New(testutils.NewRandomEVMChainID())

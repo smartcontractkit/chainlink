@@ -10,11 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
@@ -108,25 +105,11 @@ func TestDoc(t *testing.T) {
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
 
-	t.Run("Cosmos", func(t *testing.T) {
-		var fallbackDefaults coscfg.TOMLConfig
-		fallbackDefaults.SetDefaults()
-
-		assertTOML(t, fallbackDefaults.Chain, defaults.Cosmos[0].Chain)
-	})
-
 	t.Run("Solana", func(t *testing.T) {
 		var fallbackDefaults solcfg.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)
-	})
-
-	t.Run("Starknet", func(t *testing.T) {
-		var fallbackDefaults stkcfg.TOMLConfig
-		fallbackDefaults.SetDefaults()
-
-		assertTOML(t, fallbackDefaults.Chain, defaults.Starknet[0].Chain)
 	})
 }
 

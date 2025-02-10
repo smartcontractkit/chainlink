@@ -97,6 +97,38 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 	b, err := json.MarshalIndent(got, "", "  ")
 	require.NoError(t, err)
 	require.Equal(t, wantOCR3Config, string(b))
+
+	t.Run("no multiple transmitters", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{}
+		for i := 1; i <= len(nodes); i++ {
+			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
+		}
+		r := configureOCR3Request{
+			cfg:   &cfg2,
+			nodes: nodes,
+			chain: deployment.Chain{
+				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+			},
+			ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
+		}
+		_, err := r.generateOCR3Config()
+		require.Error(t, err)
+	})
+	t.Run("transmitter schedule eqaul num nodes", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
+		r := configureOCR3Request{
+			cfg:   &cfg2,
+			nodes: nodes,
+			chain: deployment.Chain{
+				Selector: chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+			},
+			ocrSecrets: deployment.XXXGenerateTestOCRSecrets(),
+		}
+		_, err := r.generateOCR3Config()
+		require.Error(t, err)
+	})
 }
 
 func loadTestData(t *testing.T, path string) []deployment.Node {
