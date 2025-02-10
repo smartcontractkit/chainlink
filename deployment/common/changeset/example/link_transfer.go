@@ -10,10 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -99,6 +102,9 @@ func (cfg LinkTransferConfig) Validate(e deployment.Environment) error {
 		}
 		// check that from address has enough funds for the transfers
 		balance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, cfg.From)
+		if err != nil {
+			return fmt.Errorf("error getting balance of sender: %w", err)
+		}
 		if balance.Cmp(totalAmount) < 0 {
 			return fmt.Errorf("sender does not have enough funds for transfers for chain selector %d, required: %s, available: %s", chainSel, totalAmount.String(), balance.String())
 		}
@@ -167,15 +173,15 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
 	}
-	chainSelectors := []uint64{}
-	for chainSelector := range cfg.Transfers {
-		chainSelectors = append(chainSelectors, chainSelector)
-	}
+
 	mcmsPerChain := map[uint64]*owner_helpers.ManyChainMultiSig{}
 
 	timelockAddresses := map[uint64]common.Address{}
 	// Initialize state for each chain
 	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	allBatches := []timelock.BatchChainOperation{}
 	for chainSelector := range cfg.Transfers {
@@ -229,6 +235,76 @@ func LinkTransfer(e deployment.Environment, cfg *LinkTransferConfig) (deployment
 
 		return deployment.ChangesetOutput{
 			Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+		}, nil
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+// LinkTransferV2 is an reimplementation of LinkTransfer that uses the new MCMS SDK.
+func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployment.ChangesetOutput, error) {
+	err := cfg.Validate(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid LinkTransferConfig: %w", err)
+	}
+
+	proposerAddressPerChain := map[uint64]string{}
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	timelockAddressesPerChain := map[uint64]string{}
+	linkStatePerChain, mcmsStatePerChain, err := initStatePerChain(cfg, e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	allBatches := []mcmstypes.BatchOperation{}
+	for chainSelector := range cfg.Transfers {
+		chain := e.Chains[chainSelector]
+		linkAddress := linkStatePerChain[chainSelector].LinkToken.Address()
+		mcmsState := mcmsStatePerChain[chainSelector]
+		linkState := linkStatePerChain[chainSelector]
+
+		proposerAddressPerChain[chainSelector] = mcmsState.ProposerMcm.Address().Hex()
+		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
+
+		timelockAddress := mcmsState.Timelock.Address().Hex()
+		timelockAddressesPerChain[chainSelector] = timelockAddress
+
+		batch := mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chainSelector),
+			Transactions:  []mcmstypes.Transaction{},
+		}
+
+		opts := getDeployer(e, chainSelector, cfg.McmsConfig)
+		totalAmount := big.NewInt(0)
+		for _, transfer := range cfg.Transfers[chainSelector] {
+			tx, err := transferOrBuildTx(e, linkState, transfer, opts, chain, cfg.McmsConfig)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			op := evm.NewTransaction(linkAddress, tx.Data(), big.NewInt(0), string(types.LinkToken), []string{})
+			batch.Transactions = append(batch.Transactions, op)
+			totalAmount.Add(totalAmount, transfer.Value)
+		}
+
+		allBatches = append(allBatches, batch)
+	}
+
+	if cfg.McmsConfig != nil {
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			e.GetContext(),
+			timelockAddressesPerChain,
+			proposerAddressPerChain,
+			inspectorPerChain,
+			allBatches,
+			"LINK Value transfer proposal",
+			cfg.McmsConfig.MinDelay,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 		}, nil
 	}
 

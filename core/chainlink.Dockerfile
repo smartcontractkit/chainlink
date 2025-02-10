@@ -67,7 +67,7 @@ COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/l
 RUN chmod 755 /usr/lib/libwasmvm.*.so
 
 # CCIP specific
-COPY ./cci[p]/confi[g] /chainlink/ccip-config
+COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 

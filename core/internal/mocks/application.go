@@ -39,7 +39,7 @@ import (
 
 	txmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 
-	types "github.com/smartcontractkit/chainlink/v2/evm/types"
+	types "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	uuid "github.com/google/uuid"
 

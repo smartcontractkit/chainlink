@@ -2,6 +2,7 @@ package mercurytransmitter
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math"
@@ -19,9 +20,8 @@ type ORM interface {
 	DonID() uint32
 	Insert(ctx context.Context, transmissions []*Transmission) error
 	Delete(ctx context.Context, hashes [][32]byte) error
-	Get(ctx context.Context, serverURL string) ([]*Transmission, error)
-	Prune(ctx context.Context, serverURL string, maxSize int) error
-	Cleanup(ctx context.Context) error
+	Get(ctx context.Context, serverURL string, limit int) ([]*Transmission, error)
+	Prune(ctx context.Context, serverURL string, maxSize, batchSize int) (int64, error)
 }
 
 type orm struct {
@@ -30,7 +30,7 @@ type orm struct {
 }
 
 func NewORM(ds sqlutil.DataSource, donID uint32) ORM {
-	return &orm{ds: ds, donID: donID}
+	return &orm{ds, donID}
 }
 
 func (o *orm) DonID() uint32 {
@@ -116,15 +116,16 @@ func (o *orm) Delete(ctx context.Context, hashes [][32]byte) error {
 }
 
 // Get returns all transmissions in chronologically descending order
-func (o *orm) Get(ctx context.Context, serverURL string) ([]*Transmission, error) {
+func (o *orm) Get(ctx context.Context, serverURL string, limit int) ([]*Transmission, error) {
 	// The priority queue uses seqnr to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
 	rows, err := o.ds.QueryContext(ctx, `
 		SELECT config_digest, seq_nr, report, lifecycle_stage, report_format, signatures, signers
 		FROM llo_mercury_transmit_queue
 		WHERE don_id = $1 AND server_url = $2
-		ORDER BY seq_nr DESC, transmission_hash DESC
-	`, o.donID, serverURL)
+		ORDER BY seq_nr DESC, inserted_at DESC
+		LIMIT $3
+	`, o.donID, serverURL, limit)
 	if err != nil {
 		return nil, fmt.Errorf("llo orm: failed to get transmissions: %w", err)
 	}
@@ -175,31 +176,79 @@ func (o *orm) Get(ctx context.Context, serverURL string) ([]*Transmission, error
 	return transmissions, nil
 }
 
-// Prune keeps at most maxSize rows for the given job ID,
-// deleting the oldest transactions.
-func (o *orm) Prune(ctx context.Context, serverURL string, maxSize int) error {
-	// Prune the oldest requests by epoch and round.
-	_, err := o.ds.ExecContext(ctx, `
-		DELETE FROM llo_mercury_transmit_queue
-		WHERE don_id = $1 AND server_url = $2 AND
-		transmission_hash NOT IN (
-		    SELECT transmission_hash
-			FROM llo_mercury_transmit_queue
-			WHERE don_id = $1 AND server_url = $2
-			ORDER BY seq_nr DESC, transmission_hash DESC
-			LIMIT $3
-		)
-	`, o.donID, serverURL, maxSize)
-	if err != nil {
-		return fmt.Errorf("llo orm: failed to prune transmissions: %w", err)
+// Prune keeps at most maxSize rows for the given (donID, serverURL) pair by
+// deleting the oldest transmissions.
+func (o *orm) Prune(ctx context.Context, serverURL string, maxSize, batchSize int) (rowsDeleted int64, err error) {
+	var oldest uint64
+	err = o.ds.GetContext(ctx, &oldest, `SELECT seq_nr
+		FROM llo_mercury_transmit_queue
+		WHERE don_id = $1 AND server_url = $2
+		ORDER BY seq_nr DESC
+		OFFSET $3
+		LIMIT 1`, o.donID, serverURL, maxSize)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
 	}
-	return nil
-}
+	if err != nil {
+		return 0, fmt.Errorf("llo orm: failed to get oldest seq_nr: %w", err)
+	}
+	// Prune the requests with seq_nr older than this, in batches to avoid long
+	// locking or queries
+	for {
+		var res sql.Result
+		res, err = o.ds.ExecContext(ctx, `
+DELETE FROM llo_mercury_transmit_queue AS q
+USING (
+    SELECT transmission_hash 
+    FROM llo_mercury_transmit_queue
+    WHERE don_id = $1 
+      AND server_url = $2 
+      AND seq_nr < $3
+    ORDER BY seq_nr ASC
+    LIMIT $4
+) AS to_delete
+WHERE q.transmission_hash = to_delete.transmission_hash;
+		`, o.donID, serverURL, oldest, batchSize)
+		if err != nil {
+			return rowsDeleted, fmt.Errorf("llo orm: batch delete failed to prune transmissions: %w", err)
+		}
+		var rowsAffected int64
+		rowsAffected, err = res.RowsAffected()
+		if err != nil {
+			return rowsDeleted, fmt.Errorf("llo orm: batch delete failed to get rows affected: %w", err)
+		}
+		if rowsAffected == 0 {
+			break
+		}
+		rowsDeleted += rowsAffected
+	}
 
-func (o *orm) Cleanup(ctx context.Context) error {
-	_, err := o.ds.ExecContext(ctx, `DELETE FROM llo_mercury_transmit_queue WHERE don_id = $1`, o.donID)
+	// This query to trim off the final few rows to reach exactly maxSize with
+	// should now be fast and efficient because of the batch deletes that
+	// already completed above.
+	res, err := o.ds.ExecContext(ctx, `
+WITH to_delete AS (
+    SELECT ctid
+    FROM (
+        SELECT ctid,
+               ROW_NUMBER() OVER (PARTITION BY don_id, server_url ORDER BY seq_nr DESC, inserted_at DESC) AS row_num
+        FROM llo_mercury_transmit_queue
+		WHERE don_id = $1 AND server_url = $2
+    ) sub
+    WHERE row_num > $3
+)
+DELETE FROM llo_mercury_transmit_queue
+WHERE ctid IN (SELECT ctid FROM to_delete);
+`, o.donID, serverURL, maxSize)
+
 	if err != nil {
-		return fmt.Errorf("llo orm: failed to cleanup transmissions: %w", err)
+		return rowsDeleted, fmt.Errorf("llo orm: final truncate failed to prune transmissions: %w", err)
 	}
-	return nil
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return rowsDeleted, fmt.Errorf("llo orm: final truncate failed to get rows affected: %w", err)
+	}
+	rowsDeleted += rowsAffected
+
+	return rowsDeleted, nil
 }

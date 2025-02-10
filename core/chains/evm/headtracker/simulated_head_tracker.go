@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 // simulatedHeadTracker - simplified version of HeadTracker that works with simulated backed

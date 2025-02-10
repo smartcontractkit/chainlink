@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/mcms"
 )
 
 var (
@@ -34,10 +35,13 @@ type ProposedJob struct {
 // this changeset.
 type ChangesetOutput struct {
 	// Deprecated: Prefer Jobs instead.
-	JobSpecs    map[string][]string `deprecated:"true"`
-	Jobs        []ProposedJob
-	Proposals   []timelock.MCMSWithTimelockProposal
-	AddressBook AddressBook
+	JobSpecs map[string][]string `deprecated:"true"`
+	Jobs     []ProposedJob
+	// Deprecated: Prefer MCMSTimelockProposals instead, will be removed in future
+	Proposals             []timelock.MCMSWithTimelockProposal
+	MCMSTimelockProposals []mcms.TimelockProposal
+	MCMSProposals         []mcms.Proposal
+	AddressBook           AddressBook
 }
 
 // ViewState produces a product specific JSON representation of
