@@ -13,8 +13,8 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
 
     s_siloedLockReleaseTokenPool.setSiloRebalancer(SILOED_CHAIN_SELECTOR, REBALANCER_ADDRESS);
 
-    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(SILOED_CHAIN_SELECTOR), REBALANCER_ADDRESS);
-    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(DEST_CHAIN_SELECTOR), OWNER);
+    assertEq(s_siloedLockReleaseTokenPool.getChainRebalancer(SILOED_CHAIN_SELECTOR), REBALANCER_ADDRESS);
+    assertEq(s_siloedLockReleaseTokenPool.getChainRebalancer(DEST_CHAIN_SELECTOR), OWNER);
   }
 
   function test_setRebalancer_UnsiloedChains() public {
@@ -23,7 +23,7 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
 
     s_siloedLockReleaseTokenPool.setRebalancer(REBALANCER_ADDRESS);
 
-    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(DEST_CHAIN_SELECTOR), REBALANCER_ADDRESS);
+    assertEq(s_siloedLockReleaseTokenPool.getChainRebalancer(DEST_CHAIN_SELECTOR), REBALANCER_ADDRESS);
     assertEq(s_siloedLockReleaseTokenPool.getRebalancer(), REBALANCER_ADDRESS);
   }
 
@@ -33,5 +33,17 @@ contract SiloedLockReleaseTokenPool_setRebalancer is SiloedLockReleaseTokenPoolS
     vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.ChainNotSiloed.selector, DEST_CHAIN_SELECTOR));
 
     s_siloedLockReleaseTokenPool.setSiloRebalancer(DEST_CHAIN_SELECTOR, REBALANCER_ADDRESS);
+  }
+
+  function test_SetSiloRebalancer_RevertWhen_InvalidZeroAddress() public {
+    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidZeroAddress.selector));
+
+    s_siloedLockReleaseTokenPool.setSiloRebalancer(SILOED_CHAIN_SELECTOR, address(0));
+  }
+
+  function test_SetRebalancer_RevertWhen_InvalidZeroAddress() public {
+    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidZeroAddress.selector));
+
+    s_siloedLockReleaseTokenPool.setRebalancer(address(0));
   }
 }
