@@ -1069,6 +1069,18 @@ func setTokenPoolCounterPart(
 		return fmt.Errorf("token pool %s is not supported on chain %d", tokenPool.Address(), destChainSelector)
 	}
 
+	tx, err = tokenPool.AddRemotePool(
+		actor,
+		destChainSelector,
+		destTokenPoolAddress,
+	)
+	if err != nil {
+		return err
+	}
+	if !supported {
+		return fmt.Errorf("token pool %s is not supported on chain %d", tokenPool.Address(), destChainSelector)
+	}
+
 	fmt.Println("tokenPool", tokenPool.Address(), "supported", supported)
 	fmt.Println("destTokenPoolAddress", destTokenPoolAddress)
 	fmt.Println("destChainSelector", destChainSelector)

@@ -533,7 +533,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 }
 
 // TODO: move everything below to solana file
-func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (struct {
+func solProgramData(e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (struct {
 	DataType uint32
 	Address  solana.PublicKey
 }, error) {
@@ -541,7 +541,7 @@ func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, c
 		DataType uint32
 		Address  solana.PublicKey
 	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), ccipRouterProgram, &solRpc.GetAccountInfoOpts{
+	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &solRpc.GetAccountInfoOpts{
 		Commitment: solRpc.CommitmentConfirmed,
 	})
 	if err != nil {
@@ -562,7 +562,7 @@ func initializeRouter(
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 ) error {
-	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
+	programData, err := solProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -601,7 +601,7 @@ func initializeFeeQuoter(
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
 ) error {
-	programData, err := solRouterProgramData(e, chain, feeQuoterAddress)
+	programData, err := solProgramData(e, chain, feeQuoterAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -638,7 +638,7 @@ func intializeOffRamp(
 	offRampAddress solana.PublicKey,
 	addressLookupTable solana.PublicKey,
 ) error {
-	programData, err := solRouterProgramData(e, chain, offRampAddress)
+	programData, err := solProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
@@ -729,7 +729,7 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
 
-		tv := deployment.NewTypeAndVersion(Router, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 
 		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)

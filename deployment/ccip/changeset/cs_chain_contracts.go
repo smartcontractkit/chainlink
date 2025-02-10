@@ -32,6 +32,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 )
 
+const (
+	// https://github.com/smartcontractkit/chainlink/blob/1423e2581e8640d9e5cd06f745c6067bb2893af2/contracts/src/v0.8/ccip/libraries/Internal.sol#L275-L279
+	/*
+				```Solidity
+					// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+				```
+	*/
+	EVMFamilySelector = "2812d52c"
+	SVMFamilySelector = "1e10bdc4"
+)
+
 var (
 	_ deployment.ChangeSet[UpdateOnRampDestsConfig]          = UpdateOnRampsDestsChangeset
 	_ deployment.ChangeSet[UpdateOnRampDynamicConfig]        = UpdateOnRampDynamicConfigChangeset
@@ -1077,7 +1091,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
-				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				// TODO: how would this work when the onRamp is nonEVM?
+				OnRamp: common.LeftPadBytes(onRamp.Address().Bytes(), 32),
 			})
 		}
 		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
@@ -1619,18 +1634,11 @@ func isOCR3ConfigSetOnOffRamp(
 // DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
 // with the config enabled/disabled based on the configEnabled flag.
 func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
-	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
-	/*
-		```Solidity
-			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-			bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
-		```
-	*/
-	familySelector, _ := hex.DecodeString("2812d52c") // evm
+	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
 	if len(destChainSelector) > 0 {
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
 		if destFamily == chain_selectors.FamilySolana {
-			familySelector, _ = hex.DecodeString("1e10bdc4") // solana
+			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{
