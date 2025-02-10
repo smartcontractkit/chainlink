@@ -182,7 +182,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	})
 	require.NoError(t, err)
 
-	sl, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
+	sl, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
 		Global:   50,
 		PerOwner: 5,
 	})
@@ -213,10 +213,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onRateLimit: func(weid string) {
 			rateLimited <- weid
 		},
-		SecretsFetcher:  mockSecretsFetcher{},
-		clock:           clock,
-		RateLimiter:     rl,
-		WorkflowLimiter: sl,
+		SecretsFetcher: mockSecretsFetcher{},
+		clock:          clock,
+		RateLimiter:    rl,
+		WorkflowLimits: sl,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -648,25 +648,25 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimiter, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
 		})
 		require.NoError(t, err)
 
-		setWorkflowLimiter := func(c *Config) {
-			c.WorkflowLimiter = workflowLimiter
+		setWorkflowLimits := func(c *Config) {
+			c.WorkflowLimits = workflowLimits
 		}
 
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
 			hardcodedWorkflow,
-			setWorkflowLimiter,
+			setWorkflowLimits,
 		)
 
 		// we allow one owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimiter.Allow("some-previous-owner")
+		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
 		require.True(t, ownerAllow)
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)
@@ -703,25 +703,25 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimiter, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
 		})
 		require.NoError(t, err)
 
-		setWorkflowLimiter := func(c *Config) {
-			c.WorkflowLimiter = workflowLimiter
+		setWorkflowLimits := func(c *Config) {
+			c.WorkflowLimits = workflowLimits
 		}
 
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
 			hardcodedWorkflow,
-			setWorkflowLimiter,
+			setWorkflowLimits,
 		)
 
 		// we allow one workflow for this particular owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimiter.Allow(testWorkflowOwner)
+		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
 		require.True(t, ownerAllow)
 		require.True(t, globalAllow)
 		servicetest.Run(t, eng)

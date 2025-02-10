@@ -20,12 +20,12 @@ import (
 )
 
 type Delegate struct {
-	registry        core.CapabilitiesRegistry
-	secretsFetcher  secretsFetcher
-	logger          logger.Logger
-	store           store.Store
-	ratelimiter     *ratelimiter.RateLimiter
-	workflowLimiter *syncerlimiter.WorkflowLimiter
+	registry       core.CapabilitiesRegistry
+	secretsFetcher secretsFetcher
+	logger         logger.Logger
+	store          store.Store
+	ratelimiter    *ratelimiter.RateLimiter
+	workflowLimits *syncerlimiter.Limits
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -71,13 +71,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		WorkflowName: defaultName{
 			name: spec.WorkflowSpec.WorkflowName,
 		},
-		Registry:        d.registry,
-		Store:           d.store,
-		Config:          config,
-		Binary:          binary,
-		SecretsFetcher:  d.secretsFetcher,
-		RateLimiter:     d.ratelimiter,
-		WorkflowLimiter: d.workflowLimiter,
+		Registry:       d.registry,
+		Store:          d.store,
+		Config:         config,
+		Binary:         binary,
+		SecretsFetcher: d.secretsFetcher,
+		RateLimiter:    d.ratelimiter,
+		WorkflowLimits: d.workflowLimits,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -102,15 +102,15 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
-	workflowLimiter *syncerlimiter.WorkflowLimiter,
+	workflowLimits *syncerlimiter.Limits,
 ) *Delegate {
 	return &Delegate{
-		logger:          logger,
-		registry:        registry,
-		secretsFetcher:  newNoopSecretsFetcher(),
-		store:           store,
-		ratelimiter:     ratelimiter,
-		workflowLimiter: workflowLimiter,
+		logger:         logger,
+		registry:       registry,
+		secretsFetcher: newNoopSecretsFetcher(),
+		store:          store,
+		ratelimiter:    ratelimiter,
+		workflowLimits: workflowLimits,
 	}
 }
 

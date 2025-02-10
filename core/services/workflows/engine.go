@@ -140,9 +140,9 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock           clockwork.Clock
-	ratelimiter     *ratelimiter.RateLimiter
-	workflowLimiter *syncerlimiter.WorkflowLimiter
+	clock          clockwork.Clock
+	ratelimiter    *ratelimiter.RateLimiter
+	workflowLimits *syncerlimiter.Limits
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -777,7 +777,7 @@ func (e *Engine) worker(ctx context.Context) {
 			}
 
 			// validate if adding another workflow would exceed either the global or per owner engine count limit
-			ownerAllow, globalAllow := e.workflowLimiter.Allow(e.workflow.owner)
+			ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 			if !globalAllow {
 				e.onRateLimit(executionID)
 				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global workflow count limit reached")
@@ -1239,7 +1239,7 @@ func (e *Engine) Close() error {
 			return err
 		}
 		// decrement the global and per owner engine counter
-		e.workflowLimiter.Decrement(e.workflow.owner)
+		e.workflowLimits.Decrement(e.workflow.owner)
 
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
@@ -1273,7 +1273,7 @@ type Config struct {
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
 	RateLimiter          *ratelimiter.RateLimiter
-	WorkflowLimiter      *syncerlimiter.WorkflowLimiter
+	WorkflowLimits       *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int
@@ -1354,8 +1354,8 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
-	if cfg.WorkflowLimiter == nil {
-		return nil, &workflowError{reason: "workflowLimiter must be provided",
+	if cfg.WorkflowLimits == nil {
+		return nil, &workflowError{reason: "workflowLimits must be provided",
 			labels: map[string]string{
 				platform.KeyWorkflowID: cfg.WorkflowID,
 			},
@@ -1415,7 +1415,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
-		workflowLimiter:      cfg.WorkflowLimiter,
+		workflowLimits:       cfg.WorkflowLimits,
 	}
 
 	return engine, nil

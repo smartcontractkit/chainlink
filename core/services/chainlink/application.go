@@ -293,7 +293,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
-	workflowLimiter, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
 		Global:   cfg.Capabilities().WorkflowRegistry().WorkflowsGlobalLimit(),
 		PerOwner: cfg.Capabilities().WorkflowRegistry().WorkflowsPerOwnerLimit(),
 	})
@@ -406,7 +406,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 					clockwork.NewRealClock(),
 					keys[0],
 					workflowRateLimiter,
-					workflowLimiter,
+					workflowLimits,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(cfg.Capabilities().WorkflowRegistry().MaxBinarySize()),
@@ -638,7 +638,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry,
 		workflowORM,
 		workflowRateLimiter,
-		workflowLimiter,
+		workflowLimits,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

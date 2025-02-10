@@ -9,7 +9,7 @@ const (
 	defaultWorkfllowsPerOwnerLimit = 5
 )
 
-type WorkflowLimiter struct {
+type Limits struct {
 	global   *int32
 	perOwner map[string]*int32
 	config   Config
@@ -21,52 +21,52 @@ type Config struct {
 	PerOwner int32 `json:"perOwner"`
 }
 
-func NewWorkflowLimiter(config Config) (*WorkflowLimiter, error) {
+func NewWorkflowLimits(config Config) (*Limits, error) {
 	if config.Global <= 0 || config.PerOwner <= 0 {
 		config.Global = defaultWorkflowsGlobalLimit
 		config.PerOwner = defaultWorkfllowsPerOwnerLimit
 	}
 
-	return &WorkflowLimiter{
+	return &Limits{
 		global:   new(int32),
 		perOwner: make(map[string]*int32),
 		config:   config,
 	}, nil
 }
 
-func (wsl *WorkflowLimiter) Allow(owner string) (ownerAllow bool, globalAllow bool) {
-	wsl.mu.Lock()
-	defer wsl.mu.Unlock()
-	ownerLimiter, ok := wsl.perOwner[owner]
+func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ownerLimiter, ok := l.perOwner[owner]
 	if !ok {
-		wsl.perOwner[owner] = new(int32)
-		ownerLimiter = wsl.perOwner[owner]
+		l.perOwner[owner] = new(int32)
+		ownerLimiter = l.perOwner[owner]
 	}
 
-	if *ownerLimiter < wsl.config.PerOwner {
+	if *ownerLimiter < l.config.PerOwner {
 		ownerAllow = true
 	}
 
-	if *wsl.global < wsl.config.Global {
+	if *l.global < l.config.Global {
 		globalAllow = true
 	}
 
 	if ownerAllow && globalAllow {
 		*ownerLimiter++
-		*wsl.global++
+		*l.global++
 	}
 
 	return ownerAllow, globalAllow
 }
 
-func (wsl *WorkflowLimiter) Decrement(owner string) {
-	wsl.mu.Lock()
-	defer wsl.mu.Unlock()
-	ownerLimiter, ok := wsl.perOwner[owner]
+func (l *Limits) Decrement(owner string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ownerLimiter, ok := l.perOwner[owner]
 	if !ok || *ownerLimiter <= 0 {
 		return
 	}
 
 	*ownerLimiter--
-	*wsl.global--
+	*l.global--
 }
