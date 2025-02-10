@@ -16,6 +16,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -79,6 +80,15 @@ func TestCommitPluginCodecV1(t *testing.T) {
 				report.UnblessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
 				return report
 			},
+		},
+		{
+			name: "multiple merkle roots",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.BlessedMerkleRoots = []cciptypes.MerkleRootChain{
+					report.UnblessedMerkleRoots[0]}
+				return report
+			},
+			expErr: true,
 		},
 		{
 			name: "zero token price",

@@ -25,12 +25,12 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
-	// Solana doesn't have blessed merkle root at the moment
-	if len(report.UnblessedMerkleRoots) != 1 {
-		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.UnblessedMerkleRoots))
+	combinedRoots := append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...)
+	if len(combinedRoots) != 1 {
+		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(combinedRoots))
 	}
 
-	merkleRoot := report.UnblessedMerkleRoots[0]
+	merkleRoot := combinedRoots[0]
 	mr := ccip_router.MerkleRoot{
 		SourceChainSelector: uint64(merkleRoot.ChainSel),
 		OnRampAddress:       merkleRoot.OnRampAddress,
