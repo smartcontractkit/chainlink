@@ -139,7 +139,7 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (key
 
 	fileContents, err := io.ReadAll(reader)
 	if err != nil {
-		log.Fatalf("Failed to read file contents: %v", err)
+		log.Printf("Failed to read file contents: %v", err)
 		return RMNKeys{}, "", "", err
 	}
 
@@ -176,7 +176,7 @@ func GeneratePeerID(lggr zerolog.Logger, image string, version string) (p2ptypes
 	defer (func() {
 		err := container.Terminate(context.Background())
 		if err != nil {
-			log.Fatalf("Failed to stop container: %v", err)
+			log.Printf("Failed to stop container: %v", err)
 		}
 	})()
 
