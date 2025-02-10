@@ -64,6 +64,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    e.AllChainSelectors(),
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
 			Config:    e.AllChainSelectorsSolana(),
 		},
 		{
