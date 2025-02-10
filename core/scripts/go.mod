@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250207143947-22151a16f100
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250207224751-03d585da84ab
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/spf13/cobra v1.8.1
@@ -305,7 +305,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250207140936-540f8266d0c7 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250206215114-fb6c3c35e8e3 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250205171936-649f95193678 // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250205171936-649f95193678 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect

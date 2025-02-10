@@ -15,7 +15,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
@@ -59,7 +59,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	})
 
 	func() {
-		hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), nil, func(context.Context, *evmtypes.Head) error {
+		hl := heads.NewListener(lggr, ethClient, evmcfg.EVM(), nil, func(context.Context, *evmtypes.Head) error {
 			headCount.Add(1)
 			return nil
 		})
@@ -111,7 +111,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	})
 
 	func() {
-		hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), nil, func(context.Context, *evmtypes.Head) error {
+		hl := heads.NewListener(lggr, ethClient, evmcfg.EVM(), nil, func(context.Context, *evmtypes.Head) error {
 			firstHeadAwaiter.ItHappened()
 			return nil
 		})
@@ -166,7 +166,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				subscribeAwaiter.ItHappened()
 			})
 			func() {
-				hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), nil, func(_ context.Context, header *evmtypes.Head) error {
+				hl := heads.NewListener(lggr, ethClient, evmcfg.EVM(), nil, func(_ context.Context, header *evmtypes.Head) error {
 					hnhCalled <- header
 					return nil
 				})

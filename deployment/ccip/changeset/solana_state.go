@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	AddressLookupTable deployment.ContractType = "AddressLookupTable"
-	TokenPool          deployment.ContractType = "TokenPool"
-	Receiver           deployment.ContractType = "Receiver"
-	SPL2022Tokens      deployment.ContractType = "SPL2022Tokens"
-	WSOL               deployment.ContractType = "WSOL"
+	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
+	TokenPool                 deployment.ContractType = "TokenPool"
+	Receiver                  deployment.ContractType = "Receiver"
+	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
+	WSOL                      deployment.ContractType = "WSOL"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -30,19 +30,19 @@ var (
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type SolCCIPChainState struct {
-	LinkToken          solana.PublicKey
-	Router             solana.PublicKey
-	Timelock           solana.PublicKey
-	AddressLookupTable solana.PublicKey // for chain writer
-	Receiver           solana.PublicKey // for tests only
-	SPL2022Tokens      []solana.PublicKey
-	TokenPool          solana.PublicKey
-	WSOL               solana.PublicKey
-	FeeQuoter          solana.PublicKey
-	OffRamp            solana.PublicKey
+	LinkToken                 solana.PublicKey
+	Router                    solana.PublicKey
+	Timelock                  solana.PublicKey
+	OfframpAddressLookupTable solana.PublicKey
+	Receiver                  solana.PublicKey // for tests only
+	SPL2022Tokens             []solana.PublicKey
+	TokenPool                 solana.PublicKey
+	WSOL                      solana.PublicKey
+	FeeQuoter                 solana.PublicKey
+	OffRamp                   solana.PublicKey
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
-	SourceChainStatePDAs map[uint64]solana.PublicKey
+	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
 	DestChainStatePDAs   map[uint64]solana.PublicKey
 	TokenPoolLookupTable map[solana.PublicKey]solana.PublicKey
 	FeeQuoterConfigPDA   solana.PublicKey
@@ -93,9 +93,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case AddressLookupTable:
+		case OfframpAddressLookupTable:
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.AddressLookupTable = pub
+			state.OfframpAddressLookupTable = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub

@@ -140,9 +140,9 @@ func TestAddTokenPool(t *testing.T) {
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
 			Config: changeset_solana.RemoteChainTokenPoolConfig{
-				ChainSelector:       solChain,
+				SolChainSelector:    solChain,
 				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress.String(),
+				SolTokenPubKey:      tokenAddress.String(),
 				RemoteConfig: solTokenPool.RemoteConfig{
 					// TODO:this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},

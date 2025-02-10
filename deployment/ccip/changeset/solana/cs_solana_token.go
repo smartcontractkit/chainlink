@@ -29,13 +29,15 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	tokenAdminPubKey := chain.DeployerKey.PublicKey() // token mint authority
-	mint, _ := solana.NewRandomPrivateKey()
-	mintPublicKey := mint.PublicKey() // this is the token address
+	// token mint authority
+	// can accept a private key in config and pass in pub key here and private key as signer
+	tokenAdminPubKey := chain.DeployerKey.PublicKey()
+	mintPrivKey, _ := solana.NewRandomPrivateKey()
+	mint := mintPrivKey.PublicKey() // this is the token address
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
 		tokenprogramID,
-		mintPublicKey,
+		mint,
 		tokenAdminPubKey,
 		cfg.TokenDecimals,
 		chain.Client,
@@ -44,7 +46,7 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	return instructions, mint, nil
+	return instructions, mintPrivKey, nil
 }
 
 func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (deployment.ChangesetOutput, error) {
@@ -52,12 +54,13 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	instructions, mint, err := NewTokenInstruction(chain, cfg)
+	instructions, mintPrivKey, err := NewTokenInstruction(chain, cfg)
+	mint := mintPrivKey.PublicKey()
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	// TODO:does the mint need to be added as a signer here ?
-	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mint))
+	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mintPrivKey))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
@@ -65,13 +68,13 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 
 	newAddresses := deployment.NewMemoryAddressBook()
 	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
-	err = newAddresses.Save(cfg.ChainSelector, mint.PublicKey().String(), tv)
+	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
-	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
+	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.String(), "chain", chain.String())
 
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
