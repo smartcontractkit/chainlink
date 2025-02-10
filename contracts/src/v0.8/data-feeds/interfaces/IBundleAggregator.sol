@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity ^0.8.4;
 
 import {IBundleBaseAggregator} from "./IBundleBaseAggregator.sol";
 import {ICommonAggregator} from "./ICommonAggregator.sol";

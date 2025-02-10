@@ -29,7 +29,7 @@ contract BundleAggregatorProxy is IBundleAggregatorProxy, ITypeAndVersion, Confi
     return s_currentAggregator.latestBundle();
   }
 
-  function latestBundleTimestamp() external view returns (uint256) {
+  function latestBundleTimestamp() external view returns (uint256 timestamp) {
     return s_currentAggregator.latestBundleTimestamp();
   }
 
@@ -39,23 +39,23 @@ contract BundleAggregatorProxy is IBundleAggregatorProxy, ITypeAndVersion, Confi
   }
 
   /// @notice represents the number of decimals the aggregator responses represent.
-  function bundleDecimals() external view override returns (uint8[] memory) {
+  function bundleDecimals() external view override returns (uint8[] memory decimals) {
     return s_currentAggregator.bundleDecimals();
   }
 
   /// @notice the version number representing the type of aggregator the proxy
   /// points to.
-  function version() external view override returns (uint256) {
+  function version() external view override returns (uint256 aggregatorVersion) {
     return s_currentAggregator.version();
   }
 
   /// @notice returns the description of the aggregator the proxy points to.
-  function description() external view returns (string memory) {
+  function description() external view returns (string memory aggregatorDescription) {
     return s_currentAggregator.description();
   }
 
   /// @notice returns the current proposed aggregator
-  function proposedAggregator() external view returns (address) {
+  function proposedAggregator() external view returns (address proposedAggregatorAddress) {
     return address(s_proposedAggregator);
   }
 

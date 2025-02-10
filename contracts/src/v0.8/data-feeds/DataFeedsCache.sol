@@ -3,11 +3,10 @@ pragma solidity 0.8.26;
 
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IDataFeedsCache} from "./interfaces/IDataFeedsCache.sol";
 import {ITokenRecover} from "./interfaces/ITokenRecover.sol";
-
-import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 import {IERC165} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC165.sol";
 import {IERC20} from "../vendor/openzeppelin-solidity/v5.0.2/contracts/token/ERC20/IERC20.sol";
@@ -24,37 +23,37 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
   /// Cache State
 
   struct WorkflowMetadata {
-    address allowedSender;
-    address allowedWorkflowOwner;
-    bytes10 allowedWorkflowName;
+    address allowedSender; // Address of the sender allowed to send new reports
+    address allowedWorkflowOwner; // ─╮ Address of the workflow owner
+    bytes10 allowedWorkflowName; // ──╯ Name of the workflow
   }
 
   struct FeedConfig {
     uint8[] bundleDecimals; // Only appliciable to Bundle reports - Decimal reports have decimals encoded into the DataId.
-    string description;
-    WorkflowMetadata[] workflowMetadata;
+    string description; // Description of the feed (e.g. "LINK / USD")
+    WorkflowMetadata[] workflowMetadata; // Metadata for the feed
   }
 
   struct ReceivedBundleReport {
-    bytes32 dataId;
-    uint32 timestamp;
-    bytes bundle;
+    bytes32 dataId; // Data ID of the feed from the received report
+    uint32 timestamp; // Timestamp of the feed from the received report
+    bytes bundle; // Report data in raw bytes
   }
 
   struct ReceivedDecimalReport {
-    bytes32 dataId;
-    uint32 timestamp;
-    uint224 answer;
+    bytes32 dataId; // Data ID of the feed from the received report
+    uint32 timestamp; // ─╮ Timestamp of the feed from the received report
+    uint224 answer; // ───╯  Report data in uint224
   }
 
   struct StoredBundleReport {
-    bytes bundle;
-    uint32 timestamp;
+    bytes bundle; // The latest bundle report stored for a feed
+    uint32 timestamp; // The timestamp of the latest bundle report
   }
 
   struct StoredDecimalReport {
-    uint224 answer;
-    uint32 timestamp;
+    uint224 answer; // ───╮ The latest decimal report stored for a feed
+    uint32 timestamp; // ─╯ The timestamp of the latest decimal report
   }
 
   /// The message sender determines which feed is being requested, as each proxy has a single associated feed
@@ -163,7 +162,10 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
   /// @notice Checks to see if this data ID, msg.sender, workflow owner, and workflow name are permissioned
   /// @param dataId The data ID for the feed
   /// @param workflowMetadata workflow metadata
-  function checkFeedPermission(bytes16 dataId, WorkflowMetadata memory workflowMetadata) external view returns (bool) {
+  function checkFeedPermission(
+    bytes16 dataId,
+    WorkflowMetadata memory workflowMetadata
+  ) external view returns (bool hasPermission) {
     bytes32 permission = _createReportHash(
       dataId,
       workflowMetadata.allowedSender,
@@ -520,10 +522,10 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   /// @notice Gets the Decimals of the feed from the data Id
   /// @param dataId The data ID for the feed
-  /// @return decimals The number of decimals the feed has
+  /// @return feedDecimals The number of decimals the feed has
   function _getDecimals(
     bytes16 dataId
-  ) internal pure returns (uint8) {
+  ) internal pure returns (uint8 feedDecimals) {
     // Get the report type from data id. Report type has index of 7
     bytes1 reportType = _getDataType(dataId, 7);
 
@@ -562,8 +564,8 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
   /// @notice Extracts a byte from the data ID, to check data types
   /// @param dataId The data ID for the feed
   /// @param index The index of the byte to extract from the data Id
-  /// @return result The keccak256 hash of the abi.encoded inputs
-  function _getDataType(bytes16 dataId, uint256 index) internal pure returns (bytes1) {
+  /// @return dataType result The keccak256 hash of the abi.encoded inputs
+  function _getDataType(bytes16 dataId, uint256 index) internal pure returns (bytes1 dataType) {
     // Convert bytes16 to bytes
     return abi.encodePacked(dataId)[index];
   }
@@ -596,14 +598,14 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
     return (s_latestBundleReports[dataId].bundle);
   }
 
-  function bundleDecimals() external view returns (uint8[] memory) {
+  function bundleDecimals() external view returns (uint8[] memory bundleFeedDecimals) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
     return s_feedConfigs[dataId].bundleDecimals;
   }
 
-  function latestBundleTimestamp() external view returns (uint256) {
+  function latestBundleTimestamp() external view returns (uint256 timestamp) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -612,21 +614,21 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   /// AggregatorInterface
 
-  function latestAnswer() external view returns (int256) {
+  function latestAnswer() external view returns (int256 answer) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
     return int256(uint256(s_latestDecimalReports[dataId].answer));
   }
 
-  function latestTimestamp() external view returns (uint256) {
+  function latestTimestamp() external view returns (uint256 timestamp) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
     return s_latestDecimalReports[dataId].timestamp;
   }
 
-  function latestRound() external view returns (uint256) {
+  function latestRound() external view returns (uint256 round) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -635,7 +637,7 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   function getAnswer(
     uint256 roundId
-  ) external view returns (int256) {
+  ) external view returns (int256 answer) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -644,7 +646,7 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   function getTimestamp(
     uint256 roundId
-  ) external view returns (uint256) {
+  ) external view returns (uint256 timestamp) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -653,13 +655,13 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   /// AggregatorV3Interface
 
-  function decimals() external view returns (uint8) {
+  function decimals() external view returns (uint8 feedDecimals) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
     return _getDecimals(dataId);
   }
 
-  function description() external view returns (string memory) {
+  function description() external view returns (string memory feedDescription) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -668,7 +670,7 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   function getRoundData(
     uint80 roundId
-  ) external view returns (uint80, int256, uint256, uint256, uint80) {
+  ) external view returns (uint80 id, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -677,7 +679,11 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
     return (roundId, int256(uint256(s_decimalReports[uint256(roundId)][dataId].answer)), timestamp, timestamp, roundId);
   }
 
-  function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80) {
+  function latestRoundData()
+    external
+    view
+    returns (uint80 id, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+  {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];
     if (dataId == bytes16(0)) revert NoMappingForSender(msg.sender);
 
@@ -697,35 +703,35 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   function getBundleDecimals(
     bytes16 dataId
-  ) external view returns (uint8[] memory) {
+  ) external view returns (uint8[] memory bundleFeedDecimals) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return s_feedConfigs[dataId].bundleDecimals;
   }
 
   function getLatestBundleTimestamp(
     bytes16 dataId
-  ) external view returns (uint256) {
+  ) external view returns (uint256 timestamp) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return s_latestBundleReports[dataId].timestamp;
   }
 
   function getLatestAnswer(
     bytes16 dataId
-  ) external view returns (int256) {
+  ) external view returns (int256 answer) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return int256(uint256(s_latestDecimalReports[dataId].answer));
   }
 
   function getLatestTimestamp(
     bytes16 dataId
-  ) external view returns (uint256) {
+  ) external view returns (uint256 timestamp) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return s_latestDecimalReports[dataId].timestamp;
   }
 
   function getLatestRoundData(
     bytes16 dataId
-  ) external view returns (uint80, int256, uint256, uint256, uint80) {
+  ) external view returns (uint80 id, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
     if (dataId == bytes16(0)) revert InvalidDataId();
 
     uint80 roundId = uint80(s_dataIdToRoundId[dataId]);
@@ -736,14 +742,14 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
 
   function getDecimals(
     bytes16 dataId
-  ) external pure returns (uint8) {
+  ) external pure returns (uint8 feedDecimals) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return _getDecimals(dataId);
   }
 
   function getDescription(
     bytes16 dataId
-  ) external view returns (string memory) {
+  ) external view returns (string memory feedDescription) {
     if (dataId == bytes16(0)) revert InvalidDataId();
     return s_feedConfigs[dataId].description;
   }
