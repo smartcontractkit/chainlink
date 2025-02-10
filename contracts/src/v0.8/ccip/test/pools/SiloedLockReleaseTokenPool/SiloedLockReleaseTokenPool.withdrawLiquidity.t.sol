@@ -40,7 +40,7 @@ contract SiloedLockReleaseTokenPool_withdrawLiqudity is SiloedLockReleaseTokenPo
     uint256 balanceBefore = s_token.balanceOf(OWNER);
 
     // Provide the Liquidity first
-    s_siloedLockReleaseTokenPool.provideSiloedLiquidity(DEST_CHAIN_SELECTOR, amount);
+    s_siloedLockReleaseTokenPool.provideLiquidity(amount);
 
     assertEq(s_siloedLockReleaseTokenPool.getUnsiloedLiquidity(), amount);
 

@@ -255,6 +255,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @dev Only the rebalancer for the chain can add liquidity
   function provideSiloedLiquidity(uint64 remoteChainSelector, uint256 amount) external {
     if (remoteChainSelector == 0) revert InvalidChainSelector(0);
+
+    if (!s_chainConfigs[remoteChainSelector].isSiloed) {
+      revert ChainNotSiloed(remoteChainSelector);
+    }
+
     _provideLiquidity(remoteChainSelector, amount);
   }
 
