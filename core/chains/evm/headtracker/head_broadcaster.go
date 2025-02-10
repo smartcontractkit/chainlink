@@ -4,14 +4,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
-type headBroadcaster = headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
+type headBroadcaster = heads.Broadcaster[*evmtypes.Head, common.Hash]
 
 func NewHeadBroadcaster(
 	lggr logger.Logger,
 ) headBroadcaster {
-	return headtracker.NewHeadBroadcaster[*evmtypes.Head, common.Hash](lggr)
+	return heads.NewBroadcaster[*evmtypes.Head, common.Hash](lggr)
 }

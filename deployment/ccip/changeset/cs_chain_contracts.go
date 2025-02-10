@@ -1091,7 +1091,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
-				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				// TODO: how would this work when the onRamp is nonEVM?
+				OnRamp: common.LeftPadBytes(onRamp.Address().Bytes(), 32),
 			})
 		}
 		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
