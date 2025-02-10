@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity 0.8.26;
 
 import {IReceiver} from "../keystone/interfaces/IReceiver.sol";
 
@@ -21,7 +21,7 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
   // solhint-disable-next-line
   uint256 public constant override version = 7;
 
-  // Cache State
+  /// Cache State
 
   struct WorkflowMetadata {
     address allowedSender;
@@ -57,28 +57,28 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
     uint32 timestamp;
   }
 
-  // The message sender determines which feed is being requested, as each proxy has a single associated feed
+  /// The message sender determines which feed is being requested, as each proxy has a single associated feed
   mapping(address aggProxy => bytes16 dataId) private s_aggregatorProxyToDataId;
 
-  // The latest decimal reports for each decimal feed. This will always equal s_decimalReports[s_dataIdToRoundId[dataId]][dataId]
+  /// The latest decimal reports for each decimal feed. This will always equal s_decimalReports[s_dataIdToRoundId[dataId]][dataId]
   mapping(bytes16 dataId => StoredDecimalReport) private s_latestDecimalReports;
 
-  // Decimal reports for each feed, per round
+  /// Decimal reports for each feed, per round
   mapping(uint256 roundId => mapping(bytes16 dataId => StoredDecimalReport)) private s_decimalReports;
 
-  // The latest bundle reports for each bundle feed
+  /// The latest bundle reports for each bundle feed
   mapping(bytes16 dataId => StoredBundleReport) private s_latestBundleReports;
 
-  // The latest round id for each feed
+  /// The latest round id for each feed
   mapping(bytes16 dataId => uint256 roundId) private s_dataIdToRoundId;
 
-  // Addresses that are permitted to configure all feeds
+  /// Addresses that are permitted to configure all feeds
   mapping(address feedAdmin => bool isFeedAdmin) private s_feedAdmins;
 
   mapping(bytes16 dataId => FeedConfig) private s_feedConfigs;
 
-  // Whether a given Sender and Workflow have permission to write feed updates.
-  // reportHash is the keccak256 hash of the abi.encoded(dataId, sender, workflowOwner and workflowName)
+  /// Whether a given Sender and Workflow have permission to write feed updates.
+  /// reportHash is the keccak256 hash of the abi.encoded(dataId, sender, workflowOwner and workflowName)
   mapping(bytes32 reportHash => bool) private s_writePermissions;
 
   event BundleReportUpdated(bytes16 indexed dataId, uint256 indexed timestamp, bytes bundle);
@@ -587,7 +587,7 @@ contract DataFeedsCache is IDataFeedsCache, IReceiver, ITokenRecover, ITypeAndVe
   // │                    Data Access Interface                     │
   // ================================================================
 
-  // Bundle Feed Interface
+  /// Bundle Feed Interface
 
   function latestBundle() external view returns (bytes memory bundle) {
     bytes16 dataId = s_aggregatorProxyToDataId[msg.sender];

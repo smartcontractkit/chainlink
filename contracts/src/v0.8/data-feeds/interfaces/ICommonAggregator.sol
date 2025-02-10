@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.26;
 
 interface ICommonAggregator {
   function description() external view returns (string memory);

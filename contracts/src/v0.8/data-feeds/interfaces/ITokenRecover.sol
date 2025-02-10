@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.26;
 
 import {IERC20} from "./../../vendor/openzeppelin-solidity/v5.0.2/contracts/interfaces/IERC20.sol";
 
