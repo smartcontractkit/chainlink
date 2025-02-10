@@ -3,8 +3,9 @@ package syncerlimiter_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
-	"github.com/test-go/testify/require"
 )
 
 func TestWorkflowLimits(t *testing.T) {
