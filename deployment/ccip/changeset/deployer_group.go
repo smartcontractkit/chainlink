@@ -12,9 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -201,21 +200,22 @@ func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
 
 func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
-	proposals := make([]timelock.MCMSWithTimelockProposal, 0)
+	proposals := make([]mcmslib.TimelockProposal, 0)
 	for _, dc := range contexts {
-		batches := make([]timelock.BatchChainOperation, 0)
+		batches := make([]mcmstypes.BatchOperation, 0)
 		for selector, txs := range dc.transactions {
-			mcmOps := make([]mcms.Operation, len(txs))
+			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
 			for i, tx := range txs {
-				mcmOps[i] = mcms.Operation{
-					To:    *tx.To(),
-					Data:  tx.Data(),
-					Value: tx.Value(),
+				var err error
+				mcmTransactions[i], err = proposalutils.TransactionForChain(selector, tx.To().Hex(), tx.Data(), tx.Value(), "", []string{})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
 				}
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(selector),
-				Batch:           mcmOps,
+
+			batches = append(batches, mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(selector),
+				Transactions:  mcmTransactions,
 			})
 		}
 
@@ -224,50 +224,53 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 			continue
 		}
 
-		timelocksPerChain := BuildTimelockAddressPerChain(d.e, d.state)
+		timelocks := BuildTimelockAddressPerChain(d.e, d.state)
+		proposerMcms := BuildProposerMcmAddressesPerChain(d.e, d.state)
+		inspectors, err := proposalutils.McmsInspectors(d.e)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
+		}
 
-		proposerMCMSes := BuildProposerPerChain(d.e, d.state)
-
-		prop, err := proposalutils.BuildProposalFromBatches(
-			timelocksPerChain,
-			proposerMCMSes,
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			d.e.GetContext(),
+			timelocks,
+			proposerMcms,
+			inspectors,
 			batches,
 			dc.description,
 			d.mcmConfig.MinDelay,
 		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
+		}
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
 		if len(proposals) > 0 {
 			previousProposal := proposals[len(proposals)-1]
 			for chain, metadata := range previousProposal.ChainMetadata {
-				nextStartingOp := metadata.StartingOpCount + getBatchCountForChain(chain, prop)
-				prop.ChainMetadata[chain] = mcms.ChainMetadata{
+				nextStartingOp := metadata.StartingOpCount + getBatchCountForChain(chain, proposal)
+				proposal.ChainMetadata[chain] = mcmstypes.ChainMetadata{
 					StartingOpCount: nextStartingOp,
-					MCMAddress:      prop.ChainMetadata[chain].MCMAddress,
+					MCMAddress:      proposal.ChainMetadata[chain].MCMAddress,
 				}
 			}
 		}
 
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
-		}
-
-		proposals = append(proposals, *prop)
+		proposals = append(proposals, *proposal)
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: proposals,
-	}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: proposals}, nil
 }
 
-func getBatchCountForChain(chain mcms.ChainIdentifier, m *timelock.MCMSWithTimelockProposal) uint64 {
-	batches := make([]timelock.BatchChainOperation, 0)
-	for _, t := range m.Transactions {
-		if t.ChainIdentifier == chain {
-			batches = append(batches, t)
+func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
+	batches := make([]mcmstypes.BatchOperation, 0)
+	for _, batchOperation := range timelockProposal.Operations {
+		if batchOperation.ChainSelector == chain {
+			batches = append(batches, batchOperation)
 		}
 	}
+
 	return uint64(len(batches))
 }
 
@@ -310,19 +313,18 @@ func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 	return timelocksPerChain
 }
 
-func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
-	timelocksPerChain := BuildTimelockPerChain(e, state)
-	timelockAddressPerChain := make(map[uint64]common.Address)
-	for chain, timelock := range timelocksPerChain {
-		timelockAddressPerChain[chain] = timelock.Timelock.Address()
+func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+	addressPerChain := make(map[uint64]string)
+	for _, chain := range e.Chains {
+		addressPerChain[chain.Selector] = state.Chains[chain.Selector].Timelock.Address().Hex()
 	}
-	return timelockAddressPerChain
+	return addressPerChain
 }
 
-func BuildProposerPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*gethwrappers.ManyChainMultiSig {
-	proposerPerChain := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+func BuildProposerMcmAddressesPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		proposerPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm
+		addressPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm.Address().Hex()
 	}
-	return proposerPerChain
+	return addressPerChain
 }
