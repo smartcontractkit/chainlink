@@ -7,7 +7,7 @@ contract ReturnDataUpkeep {
     uint256 public lastTimestamp;
     uint256 public previousPerformBlock;
     uint256 public initialTimestamp;
-    uint256 public length = 300;
+    uint256 public length = 30;
     uint256 public size = 999999;
     mapping(uint256 => bytes) public data;
 
