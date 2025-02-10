@@ -182,7 +182,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	})
 	require.NoError(t, err)
 
-	sl, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+	sl, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
 		Global:   50,
 		PerOwner: 5,
 	})
@@ -213,10 +213,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		onRateLimit: func(weid string) {
 			rateLimited <- weid
 		},
-		SecretsFetcher:        mockSecretsFetcher{},
-		clock:                 clock,
-		RateLimiter:           rl,
-		WorkflowSyncerLimiter: sl,
+		SecretsFetcher:  mockSecretsFetcher{},
+		clock:           clock,
+		RateLimiter:     rl,
+		WorkflowLimiter: sl,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -624,7 +624,7 @@ func TestEngine_RateLimit(t *testing.T) {
 	})
 }
 
-func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
+func TestEngine_WorkflowLimiter(t *testing.T) {
 	t.Run("global limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -650,17 +650,17 @@ func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowSyncerLimiter, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+		workflowLimiter, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
 		})
 		require.NoError(t, err)
 
 		// we allow one owner, so the second one should be rate limited
-		workflowSyncerLimiter.Allow("some-previous-owner")
+		workflowLimiter.Allow("some-previous-owner")
 
-		setWorkflowSyncerLimiter := func(c *Config) {
-			c.WorkflowSyncerLimiter = workflowSyncerLimiter
+		setWorkflowLimiter := func(c *Config) {
+			c.WorkflowLimiter = workflowLimiter
 		}
 
 		sdkSpec, err := (&job.WorkflowSpec{
@@ -673,7 +673,7 @@ func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
 			t,
 			reg,
 			sdkSpec,
-			setWorkflowSyncerLimiter,
+			setWorkflowLimiter,
 		)
 		require.ErrorContains(t, err, "global engine count limit reached")
 	})
@@ -703,17 +703,17 @@ func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowSyncerLimiter, err := syncerlimiter.NewWorkflowSyncerLimiter(syncerlimiter.Config{
+		workflowLimiter, err := syncerlimiter.NewWorkflowLimiter(syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
 		})
 		require.NoError(t, err)
 
 		// we allow one workflow for this particular owner, so the second one should be rate limited
-		workflowSyncerLimiter.Allow(testWorkflowOwner)
+		workflowLimiter.Allow(testWorkflowOwner)
 
-		setWorkflowSyncerLimiter := func(c *Config) {
-			c.WorkflowSyncerLimiter = workflowSyncerLimiter
+		setWorkflowLimiter := func(c *Config) {
+			c.WorkflowLimiter = workflowLimiter
 		}
 
 		sdkSpec, err := (&job.WorkflowSpec{
@@ -726,7 +726,7 @@ func TestEngine_WorkflowSyncerLimiter(t *testing.T) {
 			t,
 			reg,
 			sdkSpec,
-			setWorkflowSyncerLimiter,
+			setWorkflowLimiter,
 		)
 		require.ErrorContains(t, err, "per owner engine count limit reached")
 	})

@@ -7,14 +7,14 @@ import (
 	"github.com/test-go/testify/require"
 )
 
-func TestWorkflowSyncerLimiter(t *testing.T) {
+func TestWorkflowLimiter(t *testing.T) {
 	t.Parallel()
 
 	config := syncerlimiter.Config{
 		Global:   3,
 		PerOwner: 1,
 	}
-	wsl, err := syncerlimiter.NewWorkflowSyncerLimiter(config)
+	wsl, err := syncerlimiter.NewWorkflowLimiter(config)
 	require.NoError(t, err)
 	allowOwner, allowGlobal := wsl.Allow("user1")
 	require.True(t, allowOwner && allowGlobal)

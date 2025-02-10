@@ -140,9 +140,9 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock                 clockwork.Clock
-	ratelimiter           *ratelimiter.RateLimiter
-	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter
+	clock           clockwork.Clock
+	ratelimiter     *ratelimiter.RateLimiter
+	workflowLimiter *syncerlimiter.WorkflowLimiter
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -1222,7 +1222,7 @@ func (e *Engine) Close() error {
 			return err
 		}
 		// decrement the global and per owner engine counter
-		e.workflowSyncerLimiter.Decrement(e.workflow.owner)
+		e.workflowLimiter.Decrement(e.workflow.owner)
 
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
@@ -1239,24 +1239,24 @@ func (e *Engine) Name() string {
 }
 
 type Config struct {
-	Workflow              sdk.WorkflowSpec
-	WorkflowID            string
-	WorkflowOwner         string
-	WorkflowName          WorkflowNamer
-	Lggr                  logger.Logger
-	Registry              core.CapabilitiesRegistry
-	MaxWorkerLimit        int
-	QueueSize             int
-	NewWorkerTimeout      time.Duration
-	MaxExecutionDuration  time.Duration
-	Store                 store.Store
-	Config                []byte
-	Binary                []byte
-	SecretsFetcher        secretsFetcher
-	HeartbeatCadence      time.Duration
-	StepTimeout           time.Duration
-	RateLimiter           *ratelimiter.RateLimiter
-	WorkflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter
+	Workflow             sdk.WorkflowSpec
+	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         WorkflowNamer
+	Lggr                 logger.Logger
+	Registry             core.CapabilitiesRegistry
+	MaxWorkerLimit       int
+	QueueSize            int
+	NewWorkerTimeout     time.Duration
+	MaxExecutionDuration time.Duration
+	Store                store.Store
+	Config               []byte
+	Binary               []byte
+	SecretsFetcher       secretsFetcher
+	HeartbeatCadence     time.Duration
+	StepTimeout          time.Duration
+	RateLimiter          *ratelimiter.RateLimiter
+	WorkflowLimiter      *syncerlimiter.WorkflowLimiter
 
 	// For testing purposes only
 	maxRetries          int
@@ -1337,8 +1337,8 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
-	if cfg.WorkflowSyncerLimiter == nil {
-		return nil, &workflowError{reason: "workflowSyncerLimiter must be provided",
+	if cfg.WorkflowLimiter == nil {
+		return nil, &workflowError{reason: "workflowLimiter must be provided",
 			labels: map[string]string{
 				platform.KeyWorkflowID: cfg.WorkflowID,
 			},
@@ -1354,7 +1354,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	// - etc.
 
 	// validate if adding another engine would exceed either the global or per owner count limit
-	ownerAllow, globalAllow := cfg.WorkflowSyncerLimiter.Allow(cfg.WorkflowOwner)
+	ownerAllow, globalAllow := cfg.WorkflowLimiter.Allow(cfg.WorkflowOwner)
 	if !globalAllow {
 		return nil, errors.New("global engine count limit reached")
 	}
@@ -1390,24 +1390,24 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionStates:       cfg.Store,
-		pendingStepRequests:   make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:      stepUpdateManager{m: map[string]stepUpdateChannel{}},
-		triggerEvents:         make(chan capabilities.TriggerResponse),
-		stopCh:                make(chan struct{}),
-		newWorkerTimeout:      cfg.NewWorkerTimeout,
-		stepTimeoutDuration:   cfg.StepTimeout,
-		maxExecutionDuration:  cfg.MaxExecutionDuration,
-		heartbeatCadence:      cfg.HeartbeatCadence,
-		onExecutionFinished:   cfg.onExecutionFinished,
-		onRateLimit:           cfg.onRateLimit,
-		afterInit:             cfg.afterInit,
-		maxRetries:            cfg.maxRetries,
-		retryMs:               cfg.retryMs,
-		maxWorkerLimit:        cfg.MaxWorkerLimit,
-		clock:                 cfg.clock,
-		ratelimiter:           cfg.RateLimiter,
-		workflowSyncerLimiter: cfg.WorkflowSyncerLimiter,
+		executionStates:      cfg.Store,
+		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
+		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
+		triggerEvents:        make(chan capabilities.TriggerResponse),
+		stopCh:               make(chan struct{}),
+		newWorkerTimeout:     cfg.NewWorkerTimeout,
+		stepTimeoutDuration:  cfg.StepTimeout,
+		maxExecutionDuration: cfg.MaxExecutionDuration,
+		heartbeatCadence:     cfg.HeartbeatCadence,
+		onExecutionFinished:  cfg.onExecutionFinished,
+		onRateLimit:          cfg.onRateLimit,
+		afterInit:            cfg.afterInit,
+		maxRetries:           cfg.maxRetries,
+		retryMs:              cfg.retryMs,
+		maxWorkerLimit:       cfg.MaxWorkerLimit,
+		clock:                cfg.clock,
+		ratelimiter:          cfg.RateLimiter,
+		workflowLimiter:      cfg.WorkflowLimiter,
 	}
 
 	return engine, nil

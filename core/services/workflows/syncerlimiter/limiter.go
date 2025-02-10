@@ -9,7 +9,7 @@ const (
 	defaultPerOwnerEngineCountLimit = 5
 )
 
-type WorkflowSyncerLimiter struct {
+type WorkflowLimiter struct {
 	global   *int32
 	perOwner map[string]*int32
 	config   Config
@@ -21,20 +21,20 @@ type Config struct {
 	PerOwner int32 `json:"perOwner"`
 }
 
-func NewWorkflowSyncerLimiter(config Config) (*WorkflowSyncerLimiter, error) {
+func NewWorkflowLimiter(config Config) (*WorkflowLimiter, error) {
 	if config.Global <= 0 || config.PerOwner <= 0 {
 		config.Global = defaultGlobalEngineCountLimit
 		config.PerOwner = defaultPerOwnerEngineCountLimit
 	}
 
-	return &WorkflowSyncerLimiter{
+	return &WorkflowLimiter{
 		global:   new(int32),
 		perOwner: make(map[string]*int32),
 		config:   config,
 	}, nil
 }
 
-func (wsl *WorkflowSyncerLimiter) Allow(owner string) (ownerAllow bool, globalAllow bool) {
+func (wsl *WorkflowLimiter) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 	wsl.mu.Lock()
 	defer wsl.mu.Unlock()
 	ownerLimiter, ok := wsl.perOwner[owner]
@@ -59,7 +59,7 @@ func (wsl *WorkflowSyncerLimiter) Allow(owner string) (ownerAllow bool, globalAl
 	return ownerAllow, globalAllow
 }
 
-func (wsl *WorkflowSyncerLimiter) Decrement(owner string) {
+func (wsl *WorkflowLimiter) Decrement(owner string) {
 	wsl.mu.Lock()
 	defer wsl.mu.Unlock()
 	ownerLimiter, ok := wsl.perOwner[owner]

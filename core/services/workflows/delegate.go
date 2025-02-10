@@ -20,12 +20,12 @@ import (
 )
 
 type Delegate struct {
-	registry              core.CapabilitiesRegistry
-	secretsFetcher        secretsFetcher
-	logger                logger.Logger
-	store                 store.Store
-	ratelimiter           *ratelimiter.RateLimiter
-	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter
+	registry        core.CapabilitiesRegistry
+	secretsFetcher  secretsFetcher
+	logger          logger.Logger
+	store           store.Store
+	ratelimiter     *ratelimiter.RateLimiter
+	workflowLimiter *syncerlimiter.WorkflowLimiter
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -71,13 +71,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		WorkflowName: defaultName{
 			name: spec.WorkflowSpec.WorkflowName,
 		},
-		Registry:              d.registry,
-		Store:                 d.store,
-		Config:                config,
-		Binary:                binary,
-		SecretsFetcher:        d.secretsFetcher,
-		RateLimiter:           d.ratelimiter,
-		WorkflowSyncerLimiter: d.workflowSyncerLimiter,
+		Registry:        d.registry,
+		Store:           d.store,
+		Config:          config,
+		Binary:          binary,
+		SecretsFetcher:  d.secretsFetcher,
+		RateLimiter:     d.ratelimiter,
+		WorkflowLimiter: d.workflowLimiter,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -102,15 +102,15 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
-	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter,
+	workflowLimiter *syncerlimiter.WorkflowLimiter,
 ) *Delegate {
 	return &Delegate{
-		logger:                logger,
-		registry:              registry,
-		secretsFetcher:        newNoopSecretsFetcher(),
-		store:                 store,
-		ratelimiter:           ratelimiter,
-		workflowSyncerLimiter: workflowSyncerLimiter,
+		logger:          logger,
+		registry:        registry,
+		secretsFetcher:  newNoopSecretsFetcher(),
+		store:           store,
+		ratelimiter:     ratelimiter,
+		workflowLimiter: workflowLimiter,
 	}
 }
 

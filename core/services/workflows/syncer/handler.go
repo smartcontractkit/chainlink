@@ -177,7 +177,7 @@ type eventHandler struct {
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
 	ratelimiter              *ratelimiter.RateLimiter
-	workflowSyncerLimiter    *syncerlimiter.WorkflowSyncerLimiter
+	workflowLimiter          *syncerlimiter.WorkflowLimiter
 }
 
 type Event interface {
@@ -216,7 +216,7 @@ func NewEventHandler(
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
 	ratelimiter *ratelimiter.RateLimiter,
-	workflowSyncerLimiter *syncerlimiter.WorkflowSyncerLimiter,
+	workflowLimiter *syncerlimiter.WorkflowLimiter,
 	opts ...func(*eventHandler),
 ) *eventHandler {
 	eh := &eventHandler{
@@ -233,7 +233,7 @@ func NewEventHandler(
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		ratelimiter:              ratelimiter,
-		workflowSyncerLimiter:    workflowSyncerLimiter,
+		workflowLimiter:          workflowLimiter,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
@@ -605,18 +605,18 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 	}
 
 	cfg := workflows.Config{
-		Lggr:                  h.lggr,
-		Workflow:              *sdkSpec,
-		WorkflowID:            id,
-		WorkflowOwner:         owner, // this gets hex encoded in the engine.
-		WorkflowName:          name,
-		Registry:              h.capRegistry,
-		Store:                 h.workflowStore,
-		Config:                config,
-		Binary:                binary,
-		SecretsFetcher:        h,
-		RateLimiter:           h.ratelimiter,
-		WorkflowSyncerLimiter: h.workflowSyncerLimiter,
+		Lggr:            h.lggr,
+		Workflow:        *sdkSpec,
+		WorkflowID:      id,
+		WorkflowOwner:   owner, // this gets hex encoded in the engine.
+		WorkflowName:    name,
+		Registry:        h.capRegistry,
+		Store:           h.workflowStore,
+		Config:          config,
+		Binary:          binary,
+		SecretsFetcher:  h,
+		RateLimiter:     h.ratelimiter,
+		WorkflowLimiter: h.workflowLimiter,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }
