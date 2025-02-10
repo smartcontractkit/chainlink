@@ -53,13 +53,207 @@ func (c DonConfig) Validate() error {
 	return nil
 }
 
+type P2PIDs []p2pkey.PeerID
+
+func (ps P2PIDs) Strings() []string {
+	out := make([]string, len(ps))
+	for i, p := range ps {
+		out[i] = p.String()
+	}
+	return out
+}
+
+func (ps P2PIDs) Bytes32() [][32]byte {
+	out := make([][32]byte, len(ps))
+	for i, p := range ps {
+		out[i] = p
+	}
+	return out
+}
+
+func (ps P2PIDs) Unique() P2PIDs {
+	dedup := make(map[p2pkey.PeerID]struct{})
+	var out []p2pkey.PeerID
+	for _, p := range ps {
+		if _, exists := dedup[p]; !exists {
+			out = append(out, p)
+
+			dedup[p] = struct{}{}
+		}
+	}
+	return out
+}
+
 type TestEnvI interface {
 	ContractSets() map[uint64]internal.ContractSet
 	CapabilitiesRegistry() *kcr.CapabilitiesRegistry
 	CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo
 	Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded
 
-	GetP2PIDs(donName string) []p2pkey.PeerID
+	GetP2PIDs(donName string) P2PIDs
+}
+
+type TestDon interface {
+	GetP2PIDs() P2PIDs
+	N() int
+	F() int
+	Name() string
+}
+
+var _ TestDon = (*memoryDon)(nil)
+
+type memoryDon struct {
+	name string
+	m    map[string]memory.Node
+}
+
+func newMemoryDon(name string, m map[string]memory.Node) *memoryDon {
+	return &memoryDon{name: name, m: m}
+}
+
+func (d *memoryDon) GetP2PIDs() P2PIDs {
+	var out []p2pkey.PeerID
+	for _, n := range d.m {
+		out = append(out, n.Keys.PeerID)
+	}
+	return out
+}
+
+func (d *memoryDon) N() int {
+	return len(d.m)
+}
+
+func (d *memoryDon) F() int {
+	return (d.N() - 1) / 3
+}
+
+func (d *memoryDon) Name() string {
+	return d.name
+}
+
+type viewOnlyDon struct {
+	name string
+	m    map[string]deployment.Node
+}
+
+func newViewOnlyDon(name string, m map[string]deployment.Node) *viewOnlyDon {
+	return &viewOnlyDon{name: name, m: m}
+}
+
+func (d *viewOnlyDon) GetP2PIDs() P2PIDs {
+	var out []p2pkey.PeerID
+	for _, n := range d.m {
+		out = append(out, n.PeerID)
+	}
+	return out
+}
+
+func (d *viewOnlyDon) N() int {
+	return len(d.m)
+}
+
+func (d *viewOnlyDon) F() int {
+	return (d.N() - 1) / 3
+}
+
+func (d *viewOnlyDon) Name() string {
+	return d.name
+}
+
+type TestDons interface {
+	Get(name string) TestDon
+	Put(d TestDon)
+	List() []TestDon
+	// Unique list of p2pIDs across all dons
+	P2PIDs() P2PIDs
+}
+
+var _ TestDons = (*memoryDons)(nil)
+
+type memoryDons struct {
+	dons map[string]*memoryDon
+}
+
+func newMemoryDons() *memoryDons {
+	return &memoryDons{dons: make(map[string]*memoryDon)}
+}
+
+func (d *memoryDons) Get(name string) TestDon {
+	x := d.dons[name]
+	return x
+}
+
+func (d *memoryDons) Put(d2 TestDon) {
+	d.dons[d2.Name()] = d2.(*memoryDon)
+}
+
+func (d *memoryDons) List() []TestDon {
+	out := make([]TestDon, 0, len(d.dons))
+	donNames := make([]string, 0, len(d.dons))
+	for k := range d.dons {
+		donNames = append(donNames, k)
+	}
+	sort.Strings(donNames)
+	for _, name := range donNames {
+		out = append(out, d.dons[name])
+	}
+	return out
+}
+
+func (d *memoryDons) P2PIDs() P2PIDs {
+	var out P2PIDs
+	for _, d := range d.dons {
+		out = append(out, d.GetP2PIDs()...)
+	}
+	return out.Unique()
+}
+
+func (d *memoryDons) AllNodes() map[string]memory.Node {
+	out := make(map[string]memory.Node)
+	for _, d := range d.dons {
+		for k, v := range d.m {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+type viewOnlyDons struct {
+	dons map[string]*viewOnlyDon
+}
+
+func newViewOnlyDons() *viewOnlyDons {
+	return &viewOnlyDons{dons: make(map[string]*viewOnlyDon)}
+}
+
+func (d *viewOnlyDons) Get(name string) TestDon {
+	x := d.dons[name]
+	return x
+}
+
+func (d *viewOnlyDons) Put(d2 TestDon) {
+	d.dons[d2.Name()] = d2.(*viewOnlyDon)
+}
+
+func (d *viewOnlyDons) List() []TestDon {
+	out := make([]TestDon, 0, len(d.dons))
+	donNames := make([]string, 0, len(d.dons))
+	for k := range d.dons {
+		donNames = append(donNames, k)
+	}
+	sort.Strings(donNames)
+	for _, name := range donNames {
+		out = append(out, d.dons[name])
+	}
+	return out
+}
+
+func (d *viewOnlyDons) P2PIDs() P2PIDs {
+	var out P2PIDs
+	for _, d := range d.dons {
+		out = append(out, d.GetP2PIDs()...)
+	}
+	return out.Unique()
 }
 
 // TODO: separate the config into different types; wf should expand to types of ocr keybundles; writer to target chains; ...
@@ -73,7 +267,8 @@ type TestConfig struct {
 	WriterDonConfig
 	NumChains int
 
-	UseMCMS bool
+	ContractOnly bool
+	UseMCMS      bool
 }
 
 func (c TestConfig) Validate() error {
@@ -99,7 +294,7 @@ type TestEnv struct {
 	Env              deployment.Environment
 	RegistrySelector uint64
 
-	dons map[string]map[string]memory.Node
+	dons TestDons
 }
 
 func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
@@ -143,10 +338,8 @@ func (te TestEnv) Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded {
 	return out
 }
 
-func (te TestEnv) GetP2PIDs(donName string) []p2pkey.PeerID {
-	d, ok := te.dons[donName]
-	require.True(te.t, ok, "don %s not found", donName)
-	return memoryNodesP2pIDs(te.t, d)
+func (te TestEnv) GetP2PIDs(donName string) P2PIDs {
+	return te.dons.Get(donName).GetP2PIDs()
 }
 
 func memoryNodesP2pIDs(t *testing.T, m map[string]memory.Node) []p2pkey.PeerID {
@@ -157,24 +350,20 @@ func memoryNodesP2pIDs(t *testing.T, m map[string]memory.Node) []p2pkey.PeerID {
 	return out
 }
 
-// SetupTestEnv sets up a keystone test environment with the given configuration
-// TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
-func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
-	require.NoError(t, c.Validate())
-	lggr := logger.Test(t)
-	ctx := tests.Context(t)
-	chains, _ := memory.NewMemoryChains(t, c.NumChains, 1)
-	registryChainSel := registryChain(t, chains)
+func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment.Environment) {
+	chains, _ := memory.NewMemoryChains(t, nChains, 1)
+	registryChainSel = registryChain(t, chains)
 	// note that all the nodes require TOML configuration of the cap registry address
 	// and writers need forwarder address as TOML config
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
-	e := deployment.Environment{
-		Logger:            lggr,
+	env = deployment.Environment{
+		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+	var err error
+	env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployCapabilityRegistry),
 			Config:    registryChainSel,
@@ -193,35 +382,30 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 	})
 	require.NoError(t, err)
-	require.NotNil(t, e)
-	require.Len(t, e.Chains, c.NumChains)
-	validateInitialChainState(t, e, registryChainSel)
-	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
-	// TODO: configure the nodes with the correct override functions
-	crConfig := deployment.CapabilityRegistryConfig{
-		EVMChainID: registryChainSel,
-		Contract:   [20]byte{},
+	require.NotNil(t, env)
+	require.Len(t, env.Chains, nChains)
+	validateInitialChainState(t, env, registryChainSel)
+	return registryChainSel, env
+}
+
+// SetupTestEnv sets up a keystone test environment with the given configuration
+// TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
+func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
+	require.NoError(t, c.Validate())
+	lggr := logger.Test(t)
+
+	registryChainSel, envWithContracts := initEnv(t, c.NumChains)
+	var (
+		dons TestDons
+		env  deployment.Environment
+	)
+	if c.ContractOnly {
+		panic("ContractOnly not implemented")
+	} else {
+		dons, env = makeTestDonsEnv(t, registryChainSel, envWithContracts.Chains, c)
 	}
-
-	wfChains := map[uint64]deployment.Chain{}
-	wfChains[registryChainSel] = chains[registryChainSel]
-	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
-	require.Len(t, wfNodes, c.WFDonConfig.N)
-
-	writerChains := map[uint64]deployment.Chain{}
-	maps.Copy(writerChains, chains)
-	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
-	require.Len(t, cwNodes, c.WriterDonConfig.N)
-
-	assetChains := map[uint64]deployment.Chain{}
-	assetChains[registryChainSel] = chains[registryChainSel]
-	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
-	require.Len(t, assetNodes, c.AssetDonConfig.N)
-
-	dons := make(map[string]map[string]memory.Node)
-	dons[c.WFDonConfig.Name] = wfNodes
-	dons[c.WriterDonConfig.Name] = cwNodes
-	dons[c.AssetDonConfig.Name] = assetNodes
+	err := env.ExistingAddresses.Merge(envWithContracts.ExistingAddresses)
+	require.NoError(t, err)
 
 	ocr3CapCfg := GetDefaultCapConfig(t, internal.OCR3Cap)
 	writerChainCapCfg := GetDefaultCapConfig(t, internal.WriteChainCap)
@@ -229,36 +413,36 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	// TODO: partition nodes into multiple nops
 
-	wfDon := internal.DonCapabilities{
+	wfDonCapabilities := internal.DonCapabilities{
 		Name: c.WFDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 1",
-				Nodes: maps.Keys(wfNodes),
+				Nodes: dons.Get(c.WFDonConfig.Name).GetP2PIDs().Strings(),
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
 			{Capability: internal.OCR3Cap, Config: ocr3CapCfg},
 		},
 	}
-	cwDon := internal.DonCapabilities{
+	cwDonCapabilities := internal.DonCapabilities{
 		Name: c.WriterDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 2",
-				Nodes: maps.Keys(cwNodes),
+				Nodes: dons.Get(c.WriterDonConfig.Name).GetP2PIDs().Strings(),
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
 			{Capability: internal.WriteChainCap, Config: writerChainCapCfg},
 		},
 	}
-	assetDon := internal.DonCapabilities{
+	assetDonCapabilities := internal.DonCapabilities{
 		Name: c.AssetDonConfig.Name,
 		Nops: []internal.NOP{
 			{
 				Name:  "nop 3",
-				Nodes: maps.Keys(assetNodes),
+				Nodes: dons.Get(c.AssetDonConfig.Name).GetP2PIDs().Strings(),
 			},
 		},
 		Capabilities: []internal.DONCapabilityWithConfig{
@@ -266,23 +450,15 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		},
 	}
 
-	allChains := make(map[uint64]deployment.Chain)
-	maps.Copy(allChains, chains)
-
-	allNodes := make(map[string]memory.Node)
-	maps.Copy(allNodes, wfNodes)
-	maps.Copy(allNodes, cwNodes)
-	maps.Copy(allNodes, assetNodes)
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, allChains, nil, allNodes)
+	//x := dons.(*memoryDons)
+	//allNodes := x.AllNodes()
 	// set the env addresses to the deployed addresses that were created prior to configuring the nodes
-	err = env.ExistingAddresses.Merge(e.ExistingAddresses)
-	require.NoError(t, err)
 
 	var ocr3Config = internal.OracleConfig{
-		MaxFaultyOracles:     len(wfNodes) / 3,
-		TransmissionSchedule: []int{len(wfNodes)},
+		MaxFaultyOracles:     dons.Get(c.WFDonConfig.Name).F(),
+		TransmissionSchedule: []int{dons.Get(c.WFDonConfig.Name).N()},
 	}
-	var allDons = []internal.DonCapabilities{wfDon, cwDon, assetDon}
+	var allDons = []internal.DonCapabilities{wfDonCapabilities, cwDonCapabilities, assetDonCapabilities}
 
 	csOut, err := kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
@@ -307,15 +483,15 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	// check the nodes
 	gotNodes, err := gotRegistry.GetNodes(nil)
 	require.NoError(t, err)
-	require.Len(t, gotNodes, len(allNodes))
-	validateNodes(t, gotRegistry, wfNodes, expectedHashedCapabilities(t, gotRegistry, wfDon))
-	validateNodes(t, gotRegistry, cwNodes, expectedHashedCapabilities(t, gotRegistry, cwDon))
-	validateNodes(t, gotRegistry, assetNodes, expectedHashedCapabilities(t, gotRegistry, assetDon))
+	require.Len(t, gotNodes, len(dons.P2PIDs()))
+	validateNodes(t, gotRegistry, dons.Get(c.WFDonConfig.Name), expectedHashedCapabilities(t, gotRegistry, wfDonCapabilities))
+	validateNodes(t, gotRegistry, dons.Get(c.WriterDonConfig.Name), expectedHashedCapabilities(t, gotRegistry, cwDonCapabilities))
+	validateNodes(t, gotRegistry, dons.Get(c.AssetDonConfig.Name), expectedHashedCapabilities(t, gotRegistry, assetDonCapabilities))
 
 	// check the dons
-	validateDon(t, gotRegistry, wfNodes, wfDon)
-	validateDon(t, gotRegistry, cwNodes, cwDon)
-	validateDon(t, gotRegistry, assetNodes, assetDon)
+	validateDon(t, gotRegistry, dons.Get(c.WFDonConfig.Name), wfDonCapabilities)
+	validateDon(t, gotRegistry, dons.Get(c.WriterDonConfig.Name), cwDonCapabilities)
+	validateDon(t, gotRegistry, dons.Get(c.AssetDonConfig.Name), assetDonCapabilities)
 
 	if c.UseMCMS {
 		// deploy, configure and xfer ownership of MCMS on all chains
@@ -359,11 +535,41 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		t:                t,
 		Env:              env,
 		RegistrySelector: registryChainSel,
-		//WFNodes:          wfNodes,
-		//CWNodes:          cwNodes,
-		//AssetNodes: assetNodes,
-		dons: dons,
+		dons:             dons,
 	}
+}
+
+func makeTestDonsEnv(t *testing.T, registryChainSel uint64, chains map[uint64]deployment.Chain, c TestConfig) (TestDons, deployment.Environment) {
+	// now that we have the initial contracts deployed, we can configure the nodes with the addresses
+	// TODO: configure the nodes with the correct override functions
+	lggr := logger.Test(t)
+	crConfig := deployment.CapabilityRegistryConfig{
+		EVMChainID: registryChainSel,
+		Contract:   [20]byte{},
+	}
+
+	wfChains := map[uint64]deployment.Chain{}
+	wfChains[registryChainSel] = chains[registryChainSel]
+	wfNodes := memory.NewNodes(t, zapcore.InfoLevel, wfChains, nil, c.WFDonConfig.N, 0, crConfig)
+	require.Len(t, wfNodes, c.WFDonConfig.N)
+
+	writerChains := map[uint64]deployment.Chain{}
+	maps.Copy(writerChains, chains)
+	cwNodes := memory.NewNodes(t, zapcore.InfoLevel, writerChains, nil, c.WriterDonConfig.N, 0, crConfig)
+	require.Len(t, cwNodes, c.WriterDonConfig.N)
+
+	assetChains := map[uint64]deployment.Chain{}
+	assetChains[registryChainSel] = chains[registryChainSel]
+	assetNodes := memory.NewNodes(t, zapcore.InfoLevel, assetChains, nil, c.AssetDonConfig.N, 0, crConfig)
+	require.Len(t, assetNodes, c.AssetDonConfig.N)
+
+	dons := newMemoryDons()
+	dons.Put(newMemoryDon(c.WFDonConfig.Name, wfNodes))
+	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
+	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
+
+	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return tests.Context(t) }, lggr, chains, nil, dons.AllNodes())
+	return dons, env
 }
 
 func registryChain(t *testing.T, chains map[uint64]deployment.Chain) uint64 {
@@ -405,20 +611,20 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 }
 
 // validateNodes checks that the nodes exist and have the expected capabilities
-func validateNodes(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes map[string]memory.Node, expectedHashedCaps [][32]byte) {
-	gotNodes, err := gotRegistry.GetNodesByP2PIds(nil, p2pIDs(t, maps.Keys(nodes)))
+func validateNodes(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes TestDon, expectedHashedCaps [][32]byte) {
+	gotNodes, err := gotRegistry.GetNodesByP2PIds(nil, p2p32Bytes(t, nodes.GetP2PIDs()))
 	require.NoError(t, err)
-	require.Len(t, gotNodes, len(nodes))
+	require.Len(t, gotNodes, nodes.N())
 	for _, n := range gotNodes {
 		require.Equal(t, expectedHashedCaps, n.HashedCapabilityIds)
 	}
 }
 
 // validateDon checks that the don exists and has the expected capabilities
-func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes map[string]memory.Node, don internal.DonCapabilities) {
+func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes TestDon, don internal.DonCapabilities) {
 	gotDons, err := gotRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	wantP2PID := sortedHash(p2pIDs(t, maps.Keys(nodes)))
+	wantP2PID := sortedHash(p2p32Bytes(t, nodes.GetP2PIDs()))
 	found := false
 	for _, have := range gotDons {
 		gotP2PID := sortedHash(have.NodeP2PIds)
@@ -436,16 +642,6 @@ func capIDs(t *testing.T, cfgs []kcr.CapabilitiesRegistryCapabilityConfiguration
 	var out [][32]byte
 	for _, cfg := range cfgs {
 		out = append(out, cfg.CapabilityId)
-	}
-	return out
-}
-
-func p2pIDs(t *testing.T, vals []string) [][32]byte {
-	var out [][32]byte
-	for _, v := range vals {
-		id, err := p2pkey.MakePeerID(v)
-		require.NoError(t, err)
-		out = append(out, id)
 	}
 	return out
 }
@@ -469,4 +665,20 @@ func sortedHash(p2pids [][32]byte) string {
 		sha256Hash.Write(id[:])
 	}
 	return hex.EncodeToString(sha256Hash.Sum(nil))
+}
+
+func p2p32Bytes(t *testing.T, p2pIDs []p2pkey.PeerID) [][32]byte {
+	bs := make([][32]byte, len(p2pIDs))
+	for i, p := range p2pIDs {
+		bs[i] = p
+	}
+	return bs
+}
+
+func p2pStrings(t *testing.T, p2pIDs []p2pkey.PeerID) []string {
+	bs := make([]string, len(p2pIDs))
+	for i, p := range p2pIDs {
+		bs[i] = p.String()
+	}
+	return bs
 }
