@@ -1030,8 +1030,8 @@ github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2Lp
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 h1:c77Gi/APraqwbBO8fbd/5JY2wW+MSIpYg8Uma9MEZFE=
 github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250207060333-005a15b407b0 h1:7aVq8aHYRSa3X5mhR4ucuyIXoHtAkOUfBGXzof6F7bQ=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250207060333-005a15b407b0/go.mod h1:opSOqV40CJKODdTpFAQTTOOQP3+WiPLXtBEiC+pLizc=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250210183808-cc142c02970c h1:EO3TlOn00YatZ1e3/8BJDa6BNTRJOFoDKia+k5h3Cb8=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250210183808-cc142c02970c/go.mod h1:opSOqV40CJKODdTpFAQTTOOQP3+WiPLXtBEiC+pLizc=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919 h1:IpGoPTXpvllN38kT2z2j13sifJMz4nbHglidvop7mfg=

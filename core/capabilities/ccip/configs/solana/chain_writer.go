@@ -100,6 +100,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.PDALookups{
 				Name:      "BillingTokenConfig",
@@ -110,6 +111,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.PDALookups{
 				Name:      "ChainConfigGasPrice",
@@ -120,6 +122,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 		},
 		DebugIDLocation: "",
@@ -154,6 +157,8 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 						InternalField: chainwriter.InternalField{
 							TypeName: "TokenAdminRegistry",
 							Location: "LookupTable",
+							// TokenAdminRegistry is in the router program so need to provide the router's IDL
+							IDL: ccipRouterIDL, 
 						},
 					},
 				},
@@ -230,6 +235,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				Location:   "Info.AbstractReports.Message.ExtraArgsDecoded.Accounts",
 				IsWritable: chainwriter.MetaBool{BitmapLocation: "Info.AbstractReports.Message.ExtraArgsDecoded.IsWritableBitmap"},
 				IsSigner:   chainwriter.MetaBool{Value: false},
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.PDALookups{
 				Name: "ReceiverAssociatedTokenAccount",
@@ -247,6 +253,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.PDALookups{
 				Name:      "PerChainTokenConfig",
@@ -258,6 +265,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.PDALookups{
 				Name: "PoolChainConfig",
@@ -272,10 +280,12 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				},
 				IsSigner:   false,
 				IsWritable: false,
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 			chainwriter.AccountsFromLookupTable{
 				LookupTableName: "PoolLookupTable",
 				IncludeIndexes:  []int{},
+				LookupOpts: chainwriter.LookupOpts{Optional: true},
 			},
 		},
 		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
@@ -356,6 +366,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 		InternalField: chainwriter.InternalField{
 			TypeName: "ReferenceAddresses",
 			Location: "FeeQuoter",
+			IDL: ccipOfframpIDL,
 		},
 	}
 }
@@ -373,6 +384,7 @@ func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 		InternalField: chainwriter.InternalField{
 			TypeName: "ReferenceAddresses",
 			Location: "Router",
+			IDL: ccipOfframpIDL,
 		},
 	}
 }
@@ -413,6 +425,7 @@ func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter
 			InternalField: chainwriter.InternalField{
 				TypeName: "ReferenceAddresses",
 				Location: "OfframpLookupTable",
+				IDL: ccipOfframpIDL,
 			},
 		},
 	}
