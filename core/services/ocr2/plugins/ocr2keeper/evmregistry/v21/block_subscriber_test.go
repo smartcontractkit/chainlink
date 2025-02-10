@@ -275,7 +275,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 
 func TestBlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb := htmocks.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)

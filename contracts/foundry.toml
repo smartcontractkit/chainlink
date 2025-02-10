@@ -104,6 +104,13 @@ test = 'src/v0.8/workflow/test'
 via_ir = true # reconsider using the --via-ir flag if compilation takes too long
 evm_version = 'paris'
 
+[profile.data-feeds]
+optimizer_runs = 10_000
+src = 'src/v0.8/data-feeds'
+test = 'src/v0.8/data-feeds/test'
+solc_version = '0.8.26'
+evm_version = 'paris'
+
 [profile.shared]
 optimizer_runs = 1_000_000
 src = 'src/v0.8/shared'

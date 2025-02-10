@@ -11,7 +11,7 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -35,12 +35,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
 	}
 
-	var message ccip_router.Any2SVMRampMessage
+	var message ccip_offramp.Any2SVMRampMessage
 	var offChainTokenData [][]byte
 	if len(chainReport.Messages) > 0 {
 		// currently only allow executing one message at a time
 		msg := chainReport.Messages[0]
-		tokenAmounts := make([]ccip_router.Any2SVMTokenTransfer, 0, len(msg.TokenAmounts))
+		tokenAmounts := make([]ccip_offramp.Any2SVMTokenTransfer, 0, len(msg.TokenAmounts))
 		for _, tokenAmount := range msg.TokenAmounts {
 			if tokenAmount.Amount.IsEmpty() {
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
@@ -55,16 +55,16 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
-			tokenAmounts = append(tokenAmounts, ccip_router.Any2SVMTokenTransfer{
+			tokenAmounts = append(tokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
+				Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
 				DestGasAmount:     destGasAmount,
 			})
 		}
 
-		var extraArgs ccip_router.Any2SVMRampExtraArgs
+		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
 		extraArgs, _, err := parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
@@ -74,8 +74,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("invalid receiver address: %v", msg.Receiver)
 		}
 
-		message = ccip_router.Any2SVMRampMessage{
-			Header: ccip_router.RampMessageHeader{
+		message = ccip_offramp.Any2SVMRampMessage{
+			Header: ccip_offramp.RampMessageHeader{
 				MessageId:           msg.Header.MessageID,
 				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 				DestChainSelector:   uint64(msg.Header.DestChainSelector),
@@ -100,7 +100,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		solanaProofs = append(solanaProofs, proof)
 	}
 
-	solanaReport := ccip_router.ExecutionReportSingleChain{
+	solanaReport := ccip_offramp.ExecutionReportSingleChain{
 		SourceChainSelector: uint64(chainReport.SourceChainSelector),
 		Message:             message,
 		OffchainTokenData:   offChainTokenData,
@@ -119,7 +119,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (cciptypes.ExecutePluginReport, error) {
 	decoder := agbinary.NewBorshDecoder(encodedReport)
-	executeReport := ccip_router.ExecutionReportSingleChain{}
+	executeReport := ccip_offramp.ExecutionReportSingleChain{}
 	err := executeReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)

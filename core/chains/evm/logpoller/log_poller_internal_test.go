@@ -229,7 +229,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil)
 	ec.On("ConfiguredChainID").Return(chainID, nil)
 
-	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalizedHead, nil)
 
 	ctx := testutils.Context(t)
@@ -336,7 +336,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		KeepFinalizedBlocksDepth: 20,
 		BackupPollerBlockDelay:   0,
 	}
-	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 
 	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
 		h := head.Load()
@@ -578,7 +578,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 	}
 
 	t.Run("headTracker returns an error", func(t *testing.T) {
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		const expectedError = "finalized block is not available yet"
 		headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, fmt.Errorf(expectedError))
 
@@ -587,7 +587,7 @@ func Test_latestBlockAndFinalityDepth(t *testing.T) {
 		require.ErrorContains(t, err, expectedError)
 	})
 	t.Run("headTracker returns valid chain", func(t *testing.T) {
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		finalizedBlock := &evmtypes.Head{Number: 2}
 		finalizedBlock.IsFinalized.Store(true)
 		head := &evmtypes.Head{Number: 10}
@@ -689,7 +689,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 	t.Run("Finalized DB block is not present in RPC's chain", func(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 		orm := NewORM(testutils.NewRandomEVMChainID(), db, lggr)
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).RunAndReturn(func(ctx context.Context) (*evmtypes.Head, *evmtypes.Head, error) {
@@ -710,7 +710,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 	t.Run("RPCs contradict each other and return different finalized blocks", func(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 		orm := NewORM(testutils.NewRandomEVMChainID(), db, lggr)
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
@@ -730,7 +730,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 	t.Run("Log's hash does not match block's", func(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 		orm := NewORM(testutils.NewRandomEVMChainID(), db, lggr)
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()
@@ -748,7 +748,7 @@ func Test_PollAndSaveLogs_BackfillFinalityViolation(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zapcore.ErrorLevel)
 		chainID := testutils.NewRandomEVMChainID()
 		orm := NewORM(chainID, db, lggr)
-		headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+		headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 		finalized := newHead(5)
 		latest := newHead(16)
 		headTracker.EXPECT().LatestAndFinalizedBlock(mock.Anything).Return(latest, finalized, nil).Once()

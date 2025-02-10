@@ -6,12 +6,11 @@ set -xe
 before_hook() {
   local -r lib_path=$PWD/tmp
 
-  mkdir -p "$lib_path/libs"
-  # Copy over all platform versions of the wasmvm library
-  cp -f "$(go list -json -m github.com/CosmWasm/wasmvm | jq -r '.Dir')"/internal/api/libwasmvm.* "$lib_path/libs"
-
   install_local_plugins
   install_remote_plugins
+  mkdir -p "$lib_path/libs"
+  # Copy over all platform versions of the wasmvm library
+  cp -f "$(go env GOMODCACHE)"/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.* "$lib_path/libs"
   mkdir -p "$lib_path/plugins"
   build_standard_capabilities
 
