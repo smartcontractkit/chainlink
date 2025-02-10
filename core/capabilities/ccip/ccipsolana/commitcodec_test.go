@@ -26,7 +26,7 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 	}
 
 	return cciptypes.CommitPluginReport{
-		MerkleRoots: []cciptypes.MerkleRootChain{
+		UnblessedMerkleRoots: []cciptypes.MerkleRootChain{
 			{
 				OnRampAddress: cciptypes.UnknownAddress(pubkey.PublicKey().String()),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
@@ -76,7 +76,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		{
 			name: "empty merkle root",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.MerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+				report.UnblessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
 				return report
 			},
 		},
@@ -207,7 +207,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		commitCodec := NewCommitPluginCodecV1()
 		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
-		mr := decode.MerkleRoots[0]
+		mr := decode.UnblessedMerkleRoots[0]
 
 		// check decoded ocr report merkle root matches with on-chain report
 		require.Equal(t, strconv.FormatUint(minSeqNr, 10), mr.SeqNumsRange.Start().String())
@@ -237,7 +237,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		err = decodedReport.UnmarshalWithDecoder(decoder)
 		require.NoError(t, err)
 
-		reportMerkleRoot := rep.MerkleRoots[0]
+		reportMerkleRoot := rep.UnblessedMerkleRoots[0]
 		require.Equal(t, reportMerkleRoot.MerkleRoot, cciptypes.Bytes32(decodedReport.MerkleRoot.MerkleRoot))
 
 		tu := rep.PriceUpdates.TokenPriceUpdates[0]

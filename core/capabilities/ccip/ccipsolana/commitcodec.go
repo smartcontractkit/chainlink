@@ -25,16 +25,17 @@ func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
 func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := agbinary.NewBorshEncoder(&buf)
-	if len(report.MerkleRoots) != 1 {
-		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.MerkleRoots))
+	// Solana doesn't have blessed merkle root at the moment
+	if len(report.UnblessedMerkleRoots) != 1 {
+		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.UnblessedMerkleRoots))
 	}
 
 	mr := ccip_router.MerkleRoot{
-		SourceChainSelector: uint64(report.MerkleRoots[0].ChainSel),
-		OnRampAddress:       report.MerkleRoots[0].OnRampAddress,
-		MinSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.Start()),
-		MaxSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.End()),
-		MerkleRoot:          report.MerkleRoots[0].MerkleRoot,
+		SourceChainSelector: uint64(report.UnblessedMerkleRoots[0].ChainSel),
+		OnRampAddress:       report.UnblessedMerkleRoots[0].OnRampAddress,
+		MinSeqNr:            uint64(report.UnblessedMerkleRoots[0].SeqNumsRange.Start()),
+		MaxSeqNr:            uint64(report.UnblessedMerkleRoots[0].SeqNumsRange.End()),
+		MerkleRoot:          report.UnblessedMerkleRoots[0].MerkleRoot,
 	}
 
 	tpu := make([]ccip_router.TokenPriceUpdate, 0, len(report.PriceUpdates.TokenPriceUpdates))
@@ -117,7 +118,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	}
 
 	return cciptypes.CommitPluginReport{
-		MerkleRoots: merkleRoots,
+		UnblessedMerkleRoots: merkleRoots,
 		PriceUpdates: cciptypes.PriceUpdates{
 			TokenPriceUpdates: tokenPriceUpdates,
 			GasPriceUpdates:   gasPriceUpdates,
