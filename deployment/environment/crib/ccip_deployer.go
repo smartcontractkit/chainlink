@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -27,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
+
+const LINKTokenSymbol = "LINK"
 
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
@@ -103,7 +106,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
 	fmt.Println("setting up chains...")
-	*e, err = setupChains(e, homeChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
@@ -158,7 +161,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 
 	// Setup because we only need to deploy the contracts and distribute job specs
 	fmt.Println("setting up chains...")
-	*e, err = setupChains(e, homeChainSel)
+	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
 	}
@@ -256,7 +259,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	}, nil
 }
 
-func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
+func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
@@ -265,6 +268,7 @@ func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Env
 	}
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
+
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
@@ -283,7 +287,7 @@ func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Env
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
-	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+	env, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
 			Config: changeset.UpdateChainConfigConfig{
@@ -319,6 +323,37 @@ func setupChains(e *deployment.Environment, homeChainSel uint64) (deployment.Env
 			Config:    struct{}{},
 		},
 	})
+	if err != nil {
+		return *e, fmt.Errorf("failed to apply changesets: %w", err)
+	}
+	lggr.Infow("setup Link pools")
+	return setupLinkPools(&env)
+}
+
+func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
+	state, err := changeset.LoadOnchainState(*e)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainSelectors := e.AllChainSelectors()
+	poolInput := make(map[uint64]changeset.DeployTokenPoolInput)
+	for _, chain := range chainSelectors {
+		poolInput[chain] = changeset.DeployTokenPoolInput{
+			Type:               changeset.BurnMintTokenPool,
+			LocalTokenDecimals: 18,
+			AllowList:          []common.Address{},
+			TokenAddress:       state.Chains[chain].LinkToken.Address(),
+		}
+	}
+	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
+			Config: changeset.DeployTokenPoolContractsConfig{
+				TokenSymbol: LINKTokenSymbol,
+				NewPools:    poolInput,
+			},
+		},
+	})
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
@@ -327,6 +362,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 	updateOffRampSources := make(map[uint64]map[uint64]changeset.OffRampSourceUpdate)
 	updateRouterChanges := make(map[uint64]changeset.RouterUpdates)
+	poolUpdates := make(map[uint64]changeset.TokenPoolConfig)
 	for src := range e.Chains {
 		onRampUpdatesByChain[src] = make(map[uint64]changeset.OnRampDestinationUpdate)
 		pricesByChain[src] = changeset.FeeQuoterPriceUpdatePerSource{
@@ -342,6 +378,8 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			OffRampUpdates: make(map[uint64]bool),
 			OnRampUpdates:  make(map[uint64]bool),
 		}
+		rateLimitPerChain := make(changeset.RateLimiterPerChain)
+
 		for dst := range e.Chains {
 			if src != dst {
 				onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
@@ -357,10 +395,36 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 
 				updateRouterChanges[src].OffRampUpdates[dst] = true
 				updateRouterChanges[src].OnRampUpdates[dst] = true
+				rateLimitPerChain[dst] = changeset.RateLimiterConfig{
+					Inbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+					Outbound: token_pool.RateLimiterConfig{
+						IsEnabled: false,
+						Capacity:  big.NewInt(0),
+						Rate:      big.NewInt(0),
+					},
+				}
 			}
 		}
+
+		poolUpdates[src] = changeset.TokenPoolConfig{
+			Type:         changeset.BurnMintTokenPool,
+			Version:      deployment.Version1_5_1,
+			ChainUpdates: rateLimitPerChain,
+		}
 	}
+
 	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+			Config: changeset.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: LINKTokenSymbol,
+				PoolUpdates: poolUpdates,
+			},
+		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
 			Config: changeset.UpdateOnRampDestsConfig{
