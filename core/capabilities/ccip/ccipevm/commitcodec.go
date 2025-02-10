@@ -20,7 +20,7 @@ var (
 
 // CommitPluginCodecV1 is a codec for encoding and decoding commit plugin reports.
 // Compatible with:
-// - "OffRamp 1.6.0-dev"
+// - "OffRamp 1.6.0"
 type CommitPluginCodecV1 struct{}
 
 func NewCommitPluginCodecV1() *CommitPluginCodecV1 {
