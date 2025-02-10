@@ -1799,7 +1799,7 @@ func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *Workflow
 	return fakeFinalUrl
 }
 
-func configurePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
+func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
 	if in.DataSource.Fake != nil {
 		return NewFakePriceHelper(t, testLogger, in)
 	}
@@ -1807,35 +1807,34 @@ func configurePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowT
 	return NewLivePriceHelper(t, testLogger, in)
 }
 
-// PriceHelper abstracts away the logic of checking whether the feed has been correctly updated
+// PriceProvider abstracts away the logic of checking whether the feed has been correctly updated
 // and it also returns port and URL of the data source. This is so, because when using a mocked
 // data source we need start a separate service and whitelist its port and IP with the gateway job.
 // Also, since it's a mocked data source we can now check whether the feed has been correctly updated
 // instead of only checking whether it has some price that's != 0.
-type PriceHelper interface {
+type PriceProvider interface {
 	URL() string
-	Port() int
 	NextPrice(price *big.Int, elapsed time.Duration) bool
 	CheckPrices()
 }
 
-// LivePriceHelper is a PriceHelper implementation that uses a live feed to get the price, typically http://api.real-time-reserves.verinumus.io
-type LivePriceHelper struct {
+// LivePriceProvider is a PriceProvider implementation that uses a live feed to get the price, typically http://api.real-time-reserves.verinumus.io
+type LivePriceProvider struct {
 	t            *testing.T
 	testLogger   zerolog.Logger
 	url          string
 	actualPrices []*big.Int
 }
 
-func NewLivePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
-	return &LivePriceHelper{
+func NewLivePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	return &LivePriceProvider{
 		testLogger: testLogger,
 		url:        in.DataSource.URL,
 		t:          t,
 	}
 }
 
-func (l *LivePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool {
+func (l *LivePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
 		return true
@@ -1848,24 +1847,20 @@ func (l *LivePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool 
 	return false
 }
 
-func (l *LivePriceHelper) URL() string {
+func (l *LivePriceProvider) URL() string {
 	return l.url
 }
 
-func (l *LivePriceHelper) Port() int {
-	return 0
-}
-
-func (l *LivePriceHelper) CheckPrices() {
+func (l *LivePriceProvider) CheckPrices() {
 	// we don't have a way to check the price in the live feed, so we always assume it's correct
 	// as long as it's != 0. And we only wait for the first price to be set.
 	require.NotEmpty(l.t, l.actualPrices, "no prices found in the feed")
 	require.NotEqual(l.t, l.actualPrices[0], big.NewInt(0), "price found in the feed is 0")
 }
 
-// FakePriceHelper is a PriceHelper implementation that uses a mocked feed to get the price
+// FakePriceProvider is a PriceProvider implementation that uses a mocked feed to get the price
 // It returns a configured price sequence and makes sure that the feed has been correctly updated
-type FakePriceHelper struct {
+type FakePriceProvider struct {
 	t              *testing.T
 	testLogger     zerolog.Logger
 	priceIndex     *int
@@ -1875,7 +1870,7 @@ type FakePriceHelper struct {
 	actualPrices   []*big.Int
 }
 
-func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceHelper {
+func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
 	priceIndex := ptr.Ptr(0)
 	expectedPrices := make([]*big.Int, len(in.DataSource.Fake.Prices))
 	for i, p := range in.DataSource.Fake.Prices {
@@ -1884,7 +1879,7 @@ func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTes
 		expectedPrices[i] = float64ToBigInt(p)
 	}
 
-	return &FakePriceHelper{
+	return &FakePriceProvider{
 		t:              t,
 		testLogger:     testLogger,
 		expectedPrices: expectedPrices,
@@ -1894,7 +1889,7 @@ func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTes
 	}
 }
 
-func (f *FakePriceHelper) priceAlreadyFound(price *big.Int) bool {
+func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
 	for _, p := range f.actualPrices {
 		if p.Cmp(price) == 0 {
 			return true
@@ -1904,7 +1899,7 @@ func (f *FakePriceHelper) priceAlreadyFound(price *big.Int) bool {
 	return false
 }
 
-func (f *FakePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool {
+func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
 	// if price is nil or 0 it means that the feed hasn't been updated yet
 	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
 		return true
@@ -1931,17 +1926,13 @@ func (f *FakePriceHelper) NextPrice(price *big.Int, elapsed time.Duration) bool 
 	return true
 }
 
-func (f *FakePriceHelper) CheckPrices() {
+func (f *FakePriceProvider) CheckPrices() {
 	require.EqualValues(f.t, f.expectedPrices, f.actualPrices, "prices found in the feed do not match prices set in the mock")
 	f.testLogger.Info().Msgf("All %d mocked prices were found in the feed", len(f.expectedPrices))
 }
 
-func (f *FakePriceHelper) URL() string {
+func (f *FakePriceProvider) URL() string {
 	return f.url
-}
-
-func (f *FakePriceHelper) Port() int {
-	return f.port
 }
 
 func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, nodeOutput *ns.Output) ([]string, []int) {
@@ -2019,9 +2010,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 		Build()
 	require.NoError(t, err, "failed to create seth client")
 
-	// Get either a no-op price helper (for live endpoint)
-	// or a fake price helper (for mock endpoint)
-	ph := configurePriceHelper(t, testLogger, in)
+	// Get either a no-op price provider (for live endpoint)
+	// or a fake price provider (for mock endpoint)
+	priceProvider := setupPriceProvider(t, testLogger, in)
 
 	// Start job distributor
 	jdOutput := startJobDistributor(t, in)
@@ -2045,7 +2036,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, ph.URL())
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, priceProvider.URL())
 
 	// Create OCR3 and capability jobs for each node JD
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
@@ -2102,9 +2093,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if !ph.NextPrice(price, elapsed) {
+			if !priceProvider.NextPrice(price, elapsed) {
 				// check if all expected prices were found and finish the test
-				ph.CheckPrices()
+				priceProvider.CheckPrices()
 				return
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
