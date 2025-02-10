@@ -14,8 +14,7 @@ import (
 	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
 
-// TODO: Replace with call for offramp once on-chain changes are merged
-var ccipOfframpIDL string
+var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
