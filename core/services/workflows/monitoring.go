@@ -25,6 +25,8 @@ type engineMetrics struct {
 	workflowUnregisteredCounter              metric.Int64Counter
 	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
 	workflowExecutionRateLimitPerUserCounter metric.Int64Counter
+	workflowLimitGlobalCounter               metric.Int64Counter
+	workflowLimitPerOwnerCounter             metric.Int64Counter
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
@@ -47,6 +49,16 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 	em.workflowExecutionRateLimitPerUserCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_ratelimit_peruser")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution rate limit per user counter: %w", err)
+	}
+
+	em.workflowLimitGlobalCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_global")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution limit global counter: %w", err)
+	}
+
+	em.workflowLimitPerOwnerCounter, err = beholder.GetMeter().Int64Counter("platform_engine_limit_perowner")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution limit per owner counter: %w", err)
 	}
 
 	em.registerTriggerFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_registertrigger_failures")
@@ -199,6 +211,16 @@ func (c workflowsMetricLabeler) incrementWorkflowExecutionRateLimitGlobalCounter
 func (c workflowsMetricLabeler) incrementWorkflowExecutionRateLimitPerUserCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowExecutionRateLimitPerUserCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowLimitGlobalCounter(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowLimitGlobalCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowLimitPerOwnerCounter(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowLimitPerOwnerCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementRegisterTriggerFailureCounter(ctx context.Context) {

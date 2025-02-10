@@ -622,10 +622,8 @@ func TestEngine_RateLimit(t *testing.T) {
 			t.FailNow()
 		}
 	})
-}
 
-func TestEngine_WorkflowLimiter(t *testing.T) {
-	t.Run("global limit", func(t *testing.T) {
+	t.Run("global workflow limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -656,29 +654,31 @@ func TestEngine_WorkflowLimiter(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// we allow one owner, so the second one should be rate limited
-		workflowLimiter.Allow("some-previous-owner")
-
 		setWorkflowLimiter := func(c *Config) {
 			c.WorkflowLimiter = workflowLimiter
 		}
 
-		sdkSpec, err := (&job.WorkflowSpec{
-			Workflow: hardcodedWorkflow,
-			SpecType: job.YamlSpec,
-		}).SDKSpec(testutils.Context(t))
-		require.NoError(t, err)
-
-		_, _, err = newTestEngine(
+		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
-			sdkSpec,
+			hardcodedWorkflow,
 			setWorkflowLimiter,
 		)
-		require.ErrorContains(t, err, "global engine count limit reached")
+
+		// we allow one owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimiter.Allow("some-previous-owner")
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+		servicetest.Run(t, eng)
+
+		select {
+		case <-testHooks.rateLimited:
+		case <-ctx.Done():
+			t.FailNow()
+		}
 	})
 
-	t.Run("global limit", func(t *testing.T) {
+	t.Run("per owner workflow limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -709,26 +709,28 @@ func TestEngine_WorkflowLimiter(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// we allow one workflow for this particular owner, so the second one should be rate limited
-		workflowLimiter.Allow(testWorkflowOwner)
-
 		setWorkflowLimiter := func(c *Config) {
 			c.WorkflowLimiter = workflowLimiter
 		}
 
-		sdkSpec, err := (&job.WorkflowSpec{
-			Workflow: hardcodedWorkflow,
-			SpecType: job.YamlSpec,
-		}).SDKSpec(testutils.Context(t))
-		require.NoError(t, err)
-
-		_, _, err = newTestEngine(
+		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
-			sdkSpec,
+			hardcodedWorkflow,
 			setWorkflowLimiter,
 		)
-		require.ErrorContains(t, err, "per owner engine count limit reached")
+
+		// we allow one workflow for this particular owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimiter.Allow(testWorkflowOwner)
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+		servicetest.Run(t, eng)
+
+		select {
+		case <-testHooks.rateLimited:
+		case <-ctx.Done():
+			t.FailNow()
+		}
 	})
 }
 

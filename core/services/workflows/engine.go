@@ -776,6 +776,23 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
+			// validate if adding another workflow would exceed either the global or per owner engine count limit
+			ownerAllow, globalAllow := e.workflowLimiter.Allow(e.workflow.owner)
+			if !globalAllow {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global workflow count limit reached")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global workflow count limit reached", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
+				continue
+			}
+			if !ownerAllow {
+				e.onRateLimit(executionID)
+				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: per owner workflow count limit reached")
+				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: per owner workflow count limit reached", e.logger)
+				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
+				continue
+			}
+
 			cma := e.cma.With(platform.KeyWorkflowExecutionID, executionID)
 			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
 			if err != nil {
@@ -1352,15 +1369,6 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	// - that the `ref` for any triggers is empty -- and filled in with `trigger`
 	// - that the resulting graph is strongly connected (i.e. no disjointed subgraphs exist)
 	// - etc.
-
-	// validate if adding another engine would exceed either the global or per owner count limit
-	ownerAllow, globalAllow := cfg.WorkflowLimiter.Allow(cfg.WorkflowOwner)
-	if !globalAllow {
-		return nil, errors.New("global engine count limit reached")
-	}
-	if !ownerAllow {
-		return nil, errors.New("per owner engine count limit reached")
-	}
 
 	// spin up monitoring resources
 	em, err := initMonitoringResources()
