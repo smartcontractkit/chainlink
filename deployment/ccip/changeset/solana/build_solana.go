@@ -158,7 +158,11 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) (deployment
 				contractType = changeset.Router
 			case "token_pool":
 				contractType = changeset.TokenPool
-			case "ccip_receiver":
+			case "fee_quoter":
+				contractType = changeset.FeeQuoter
+			case "ccip_offramp":
+				contractType = changeset.OffRamp
+			case "test_ccip_receiver":
 				contractType = changeset.Receiver
 			default:
 				e.Logger.Warnf("Unknown contract type: %s", name)
