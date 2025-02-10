@@ -104,7 +104,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "BillingTokenConfig",
-				PublicKey: getAddressConstant(offrampProgramAddress),
+				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("fee_billing_token_config")},
 					{Dynamic: chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}},
@@ -115,9 +115,9 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "ChainConfigGasPrice",
-				PublicKey: getAddressConstant(offrampProgramAddress),
+				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("dest_chain_state")},
+					{Static: []byte("dest_chain")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
 				},
 				IsSigner:   false,
