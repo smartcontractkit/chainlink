@@ -414,13 +414,6 @@ func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
 	return b
 }
 
-func mustEncodeAddressAsBytes(t *testing.T, addr []byte) []byte {
-	t.Helper()
-	enc, err := abiEncodeAddressBytes(addr)
-	require.NoError(t, err)
-	return enc
-}
-
 func mustEncodeAddress(t *testing.T, addr common.Address) []byte {
 	t.Helper()
 	enc, err := abiEncodeAddress(addr)

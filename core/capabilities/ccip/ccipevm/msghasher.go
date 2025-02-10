@@ -222,10 +222,6 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
 }
 
-func abiEncodeAddressBytes(data []byte) ([]byte, error) {
-	return utils.ABIEncode(`[{ "type": "bytes" }]`, data)
-}
-
 // abiEncodeAddress encodes the given address as a solidity address.
 // TODO: this is potentially incorrect for nonEVM sources.
 // we need to revisit.
