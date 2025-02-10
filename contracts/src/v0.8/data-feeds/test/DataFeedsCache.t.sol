@@ -8,237 +8,237 @@ import {BundleAggregatorProxy} from "../BundleAggregatorProxy.sol";
 
 import {DataFeedsCache} from "../DataFeedsCache.sol";
 import {IDataFeedsCache} from "../interfaces/IDataFeedsCache.sol";
-import {IDecimalAggregator} from "../interfaces/IDecimalAggregator.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 
+// solhint-disable-next-line max-states-count
 contract DataFeedsCacheTest is BaseTest {
-  BundleAggregatorProxy internal dataFeedsAggregatorProxy;
-  DataFeedsCacheHarness internal dataFeedsCache;
+  BundleAggregatorProxy internal s_dataFeedsAggregatorProxy;
+  DataFeedsCacheHarness internal s_dataFeedsCache;
 
   address internal constant ILLEGAL_CALLER = address(11111); // address used as incorrect caller in tests
   address internal constant REPORT_SENDER = address(12222); // mocks keystone forwarder address
 
   ERC20Mock internal s_link = new ERC20Mock("LINK", "LINK", OWNER, 0);
 
-  bytes32 internal constant workflowId = hex"6d795f6964000000000000000000000000000000000000000000000000000000";
-  bytes10 internal constant workflowName = bytes10("abc");
-  address internal constant workflowOwner = address(10004);
-  bytes2 internal constant reportId = hex"0001";
-  string[] internal descriptions = ["description"];
+  bytes32 internal constant WORKFLOWID = hex"6d795f6964000000000000000000000000000000000000000000000000000000";
+  bytes10 internal constant WORKFLOWNAME = bytes10("abc");
+  address internal constant WORKFLOWOWNER = address(10004);
+  bytes2 internal constant REPORTID = hex"0001";
+  string[] internal s_descriptions = ["description"];
 
-  uint8[][] internal decimals1By1 = new uint8[][](1);
-  uint8[][] internal decimals2By1 = new uint8[][](2);
-  uint8[][] internal decimals2By2 = new uint8[][](2);
+  uint8[][] internal s_decimals1By1 = new uint8[][](1);
+  uint8[][] internal s_decimals2By1 = new uint8[][](2);
+  uint8[][] internal s_decimals2By2 = new uint8[][](2);
 
-  bytes internal constant METADATA = abi.encodePacked(workflowId, workflowName, workflowOwner, reportId);
+  bytes internal constant METADATA = abi.encodePacked(WORKFLOWID, WORKFLOWNAME, WORKFLOWOWNER, REPORTID);
 
-  address[] internal allowedSendersList = [REPORT_SENDER, REPORT_SENDER];
-  address[] internal allowedWorkflowOwnersList = [address(10004), address(10005)];
-  bytes10[] internal allowedWorkflowNamesList = [bytes10("abc"), bytes10("xyz")];
+  address[] internal s_allowedSendersList = [REPORT_SENDER, REPORT_SENDER];
+  address[] internal s_allowedWorkflowOwnersList = [address(10004), address(10005)];
+  bytes10[] internal s_allowedWorkflowNamesList = [bytes10("abc"), bytes10("xyz")];
 
-  address[] internal singleProxyList = new address[](1);
-  address[] internal proxyList = new address[](5);
-  address[] internal newSingleProxyList = new address[](1);
-  address[] internal newProxyList = new address[](5);
+  address[] internal s_singleProxyList = new address[](1);
+  address[] internal s_proxyList = new address[](5);
+  address[] internal s_newSingleProxyList = new address[](1);
+  address[] internal s_newProxyList = new address[](5);
 
-  bytes16[] internal singleValueId = new bytes16[](1);
-  bytes16[] internal batchValueIds = new bytes16[](5);
+  bytes16[] internal s_singleValueId = new bytes16[](1);
+  bytes16[] internal s_batchValueIds = new bytes16[](5);
 
-  DataFeedsCache.WorkflowMetadata internal workflowMetadata1 = DataFeedsCache.WorkflowMetadata({
-    allowedSender: allowedSendersList[0],
-    allowedWorkflowOwner: allowedWorkflowOwnersList[0],
-    allowedWorkflowName: allowedWorkflowNamesList[0]
+  DataFeedsCache.WorkflowMetadata internal s_workflowMetadata1 = DataFeedsCache.WorkflowMetadata({
+    allowedSender: s_allowedSendersList[0],
+    allowedWorkflowOwner: s_allowedWorkflowOwnersList[0],
+    allowedWorkflowName: s_allowedWorkflowNamesList[0]
   });
 
-  DataFeedsCache.WorkflowMetadata internal workflowMetadata2 = DataFeedsCache.WorkflowMetadata({
-    allowedSender: allowedSendersList[1],
-    allowedWorkflowOwner: allowedWorkflowOwnersList[1],
-    allowedWorkflowName: allowedWorkflowNamesList[1]
+  DataFeedsCache.WorkflowMetadata internal s_workflowMetadata2 = DataFeedsCache.WorkflowMetadata({
+    allowedSender: s_allowedSendersList[1],
+    allowedWorkflowOwner: s_allowedWorkflowOwnersList[1],
+    allowedWorkflowName: s_allowedWorkflowNamesList[1]
   });
 
-  DataFeedsCache.WorkflowMetadata[] internal workflowMetadata;
+  DataFeedsCache.WorkflowMetadata[] internal s_workflowMetadata;
 
-  bytes internal emptyDecimalReport;
-  bytes internal decimalReportlength1;
-  bytes internal decimalReportlength2;
-  bytes internal emptyBundleReport;
-  bytes internal bundleReportlength1;
-  bytes internal bundleReportlength2;
-  bytes internal staleReport;
-  bytes internal staleBundleReport;
-  bytes32 internal constant dataId1 = hex"010e12d1e0000032000000000000000000000000000000000000000000000000";
-  bytes32 internal constant dataId2 = hex"01b476d70d000232000000000000000000000000000000000000000000000000";
-  bytes32 internal constant dataId3 = hex"0169bd6041000103000000000000000000000000000000000000000000000000";
-  bytes32 internal constant dataId4 = hex"010e12d1e0000028000000000000000000000000000000000000000000000000";
-  bytes32 internal constant dataId5 = hex"010e12d1e0000032000000000000000000000000000000000000000000000000";
+  bytes internal s_emptyDecimalReport;
+  bytes internal s_decimalReportlength1;
+  bytes internal s_decimalReportlength2;
+  bytes internal s_emptyBundleReport;
+  bytes internal s_bundleReportlength1;
+  bytes internal s_bundleReportlength2;
+  bytes internal s_staleReport;
+  bytes internal s_staleBundleReport;
+  bytes32 internal constant DATAID1 = hex"010e12d1e0000032000000000000000000000000000000000000000000000000";
+  bytes32 internal constant DATAID2 = hex"01b476d70d000232000000000000000000000000000000000000000000000000";
+  bytes32 internal constant DATAID3 = hex"0169bd6041000103000000000000000000000000000000000000000000000000";
+  bytes32 internal constant DATAID4 = hex"010e12d1e0000028000000000000000000000000000000000000000000000000";
+  bytes32 internal constant DATAID5 = hex"010e12d1e0000032000000000000000000000000000000000000000000000000";
   bytes16 internal constant DATA_ID_0 = bytes16(keccak256("12345"));
   bytes16 internal constant DATA_ID_1 = bytes16(keccak256("23456"));
   bytes16 internal constant DATA_ID_2 = bytes16(keccak256("34567"));
   bytes16 internal constant DATA_ID_3 = bytes16(keccak256("45678"));
   bytes16 internal constant DATA_ID_4 = bytes16(keccak256("56789"));
   bytes16 internal constant DATA_ID_5 = bytes16(keccak256("67890"));
-  uint256 internal constant price1 = 123456;
-  uint256 internal constant price2 = 456789;
-  uint256 internal constant price3 = 789456;
-  uint256 internal constant price4 = 890123;
-  uint256 internal constant price5 = 654321;
-  uint256 internal constant price6 = 987654;
-  uint32 internal constant timestamp1 = 100;
-  uint32 internal constant timestamp2 = 200;
+  uint256 internal constant PRICE1 = 123456;
+  uint256 internal constant PRICE2 = 456789;
+  uint256 internal constant PRICE3 = 789456;
+  uint256 internal constant PRICE4 = 890123;
+  uint256 internal constant PRICE5 = 654321;
+  uint256 internal constant PRICE6 = 987654;
+  uint32 internal constant TIMESTAMP1 = 100;
+  uint32 internal constant TIMESTAMP2 = 200;
 
   function setUp() public override {
     super.setUp();
-    dataFeedsCache = new DataFeedsCacheHarness();
-    dataFeedsCache.setFeedAdmin(OWNER, true);
-    dataFeedsAggregatorProxy = new BundleAggregatorProxy(address(dataFeedsCache), OWNER);
+    s_dataFeedsCache = new DataFeedsCacheHarness();
+    s_dataFeedsCache.setFeedAdmin(OWNER, true);
+    s_dataFeedsAggregatorProxy = new BundleAggregatorProxy(address(s_dataFeedsCache), OWNER);
 
     // reports should be encoded as calldata, which has offset and length
-    emptyDecimalReport = abi.encodePacked(
+    s_emptyDecimalReport = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // Offset
       hex"0000000000000000000000000000000000000000000000000000000000000000" // Length
     );
 
     // reports should be encoded as calldata, which has offset and length
-    decimalReportlength1 = abi.encodePacked(
+    s_decimalReportlength1 = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // Offset
       hex"0000000000000000000000000000000000000000000000000000000000000001", // Length
-      dataId1,
-      abi.encode(timestamp1),
-      abi.encode(price1)
+      DATAID1,
+      abi.encode(TIMESTAMP1),
+      abi.encode(PRICE1)
     );
 
     // reports should be encoded as calldata, which has offset and length
-    decimalReportlength2 = abi.encodePacked(
+    s_decimalReportlength2 = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // Offset
       hex"0000000000000000000000000000000000000000000000000000000000000002", // Length
-      dataId1,
-      abi.encode(timestamp1),
-      abi.encode(price3),
-      dataId2,
-      abi.encode(timestamp2),
-      abi.encode(price4)
+      DATAID1,
+      abi.encode(TIMESTAMP1),
+      abi.encode(PRICE3),
+      DATAID2,
+      abi.encode(TIMESTAMP2),
+      abi.encode(PRICE4)
     );
 
-    staleReport = abi.encodePacked(
+    s_staleReport = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // Offset
       hex"0000000000000000000000000000000000000000000000000000000000000002", // Length
-      dataId1,
-      abi.encode(timestamp1 - 50), // report 1 for dataId1 is stale in this report
-      abi.encode(price1),
-      dataId2,
-      abi.encode(timestamp2 + 50),
-      abi.encode(price2)
+      DATAID1,
+      abi.encode(TIMESTAMP1 - 50), // report 1 for DATAID1 is stale in this report
+      abi.encode(PRICE1),
+      DATAID2,
+      abi.encode(TIMESTAMP2 + 50),
+      abi.encode(PRICE2)
     );
 
-    emptyBundleReport = abi.encodePacked(
+    s_emptyBundleReport = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // offset
       hex"0000000000000000000000000000000000000000000000000000000000000000", // length
       hex"0000000000000000000000000000000000000000000000000000000000000000" // offset of ReportOne
     );
 
-    bundleReportlength1 = abi.encodePacked(
+    s_bundleReportlength1 = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // offset
       hex"0000000000000000000000000000000000000000000000000000000000000001", // length
       hex"0000000000000000000000000000000000000000000000000000000000000020", // offset of ReportOne
-      dataId1, // ReportOne FeedID
-      abi.encode(timestamp1),
+      DATAID1, // ReportOne FeedID
+      abi.encode(TIMESTAMP1),
       hex"0000000000000000000000000000000000000000000000000000000000000060", // offset of ReportOne Bundle
       hex"0000000000000000000000000000000000000000000000000000000000000040", // length of ReportOne Bundle
-      abi.encode(price1),
-      abi.encode(price2)
+      abi.encode(PRICE1),
+      abi.encode(PRICE2)
     );
 
-    bundleReportlength2 = abi.encodePacked(
+    s_bundleReportlength2 = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // offset
       hex"0000000000000000000000000000000000000000000000000000000000000002", // length
       hex"0000000000000000000000000000000000000000000000000000000000000040", // offset of ReportOne
       hex"0000000000000000000000000000000000000000000000000000000000000100", // offset of ReportTwo
-      dataId1, // ReportOne FeedID
-      abi.encode(timestamp1),
+      DATAID1, // ReportOne FeedID
+      abi.encode(TIMESTAMP1),
       hex"0000000000000000000000000000000000000000000000000000000000000060", // offset of ReportOne Bundle
       hex"0000000000000000000000000000000000000000000000000000000000000040", // length of ReportOne Bundle
-      abi.encode(price3),
-      abi.encode(price4),
-      dataId2, // ReportTwo FeedID
-      abi.encode(timestamp2),
+      abi.encode(PRICE3),
+      abi.encode(PRICE4),
+      DATAID2, // ReportTwo FeedID
+      abi.encode(TIMESTAMP2),
       hex"0000000000000000000000000000000000000000000000000000000000000060", // offset of ReportTwo Bundle
       hex"0000000000000000000000000000000000000000000000000000000000000040", // length of ReportTwo Bundle
-      abi.encode(price5),
-      abi.encode(price6)
+      abi.encode(PRICE5),
+      abi.encode(PRICE6)
     );
 
-    staleBundleReport = abi.encodePacked(
+    s_staleBundleReport = abi.encodePacked(
       hex"0000000000000000000000000000000000000000000000000000000000000020", // offset
       hex"0000000000000000000000000000000000000000000000000000000000000002", // length
       hex"0000000000000000000000000000000000000000000000000000000000000040", // offset of ReportOne
       hex"0000000000000000000000000000000000000000000000000000000000000100", // offset of ReportTwo
-      dataId1, // ReportOne FeedID
-      abi.encode(timestamp1 - 50), // report is stale
+      DATAID1, // ReportOne FeedID
+      abi.encode(TIMESTAMP1 - 50), // report is stale
       hex"0000000000000000000000000000000000000000000000000000000000000060", // offset of ReportOne Bundle
       hex"0000000000000000000000000000000000000000000000000000000000000040", // length of ReportOne Bundle
-      abi.encode(price1),
-      abi.encode(price2),
-      dataId2, // ReportTwo FeedID
-      abi.encode(timestamp2 + 50),
+      abi.encode(PRICE1),
+      abi.encode(PRICE2),
+      DATAID2, // ReportTwo FeedID
+      abi.encode(TIMESTAMP2 + 50),
       hex"0000000000000000000000000000000000000000000000000000000000000060", // offset of ReportTwo Bundle
       hex"0000000000000000000000000000000000000000000000000000000000000040", // length of ReportTwo Bundle
-      abi.encode(price3),
-      abi.encode(price4)
+      abi.encode(PRICE3),
+      abi.encode(PRICE4)
     );
 
-    workflowMetadata.push(workflowMetadata1);
-    workflowMetadata.push(workflowMetadata2);
+    s_workflowMetadata.push(s_workflowMetadata1);
+    s_workflowMetadata.push(s_workflowMetadata2);
 
-    singleProxyList[0] = address(10002);
+    s_singleProxyList[0] = address(10002);
 
-    proxyList[0] = address(dataFeedsAggregatorProxy);
-    proxyList[1] = address(10002);
-    proxyList[2] = address(10004);
-    proxyList[3] = address(10005);
-    proxyList[4] = address(10006);
+    s_proxyList[0] = address(s_dataFeedsAggregatorProxy);
+    s_proxyList[1] = address(10002);
+    s_proxyList[2] = address(10004);
+    s_proxyList[3] = address(10005);
+    s_proxyList[4] = address(10006);
 
-    newSingleProxyList[0] = address(10007);
+    s_newSingleProxyList[0] = address(10007);
 
-    newProxyList[0] = address(10002);
-    newProxyList[1] = address(10003);
-    newProxyList[2] = address(10004);
-    newProxyList[3] = address(10005);
-    newProxyList[4] = address(10006);
+    s_newProxyList[0] = address(10002);
+    s_newProxyList[1] = address(10003);
+    s_newProxyList[2] = address(10004);
+    s_newProxyList[3] = address(10005);
+    s_newProxyList[4] = address(10006);
 
-    singleValueId = new bytes16[](1);
-    singleValueId[0] = bytes16(dataId1);
+    s_singleValueId = new bytes16[](1);
+    s_singleValueId[0] = bytes16(DATAID1);
 
-    batchValueIds = new bytes16[](5);
-    batchValueIds[0] = bytes16(dataId1);
-    batchValueIds[1] = bytes16(dataId2);
-    batchValueIds[2] = bytes16(dataId3);
-    batchValueIds[3] = bytes16(dataId4);
-    batchValueIds[4] = bytes16(dataId5);
+    s_batchValueIds = new bytes16[](5);
+    s_batchValueIds[0] = bytes16(DATAID1);
+    s_batchValueIds[1] = bytes16(DATAID2);
+    s_batchValueIds[2] = bytes16(DATAID3);
+    s_batchValueIds[3] = bytes16(DATAID4);
+    s_batchValueIds[4] = bytes16(DATAID5);
 
-    decimals1By1[0] = new uint8[](1);
-    decimals1By1[0][0] = 18;
+    s_decimals1By1[0] = new uint8[](1);
+    s_decimals1By1[0][0] = 18;
 
-    decimals2By1[0] = new uint8[](1);
-    decimals2By1[0][0] = 18;
-    decimals2By1[1] = new uint8[](1);
-    decimals2By1[1][0] = 8;
+    s_decimals2By1[0] = new uint8[](1);
+    s_decimals2By1[0][0] = 18;
+    s_decimals2By1[1] = new uint8[](1);
+    s_decimals2By1[1][0] = 8;
 
-    decimals2By2[0] = new uint8[](2);
-    decimals2By2[0][0] = 6;
-    decimals2By2[0][1] = 12;
-    decimals2By2[1] = new uint8[](2);
-    decimals2By2[1][0] = 18;
-    decimals2By2[1][0] = 8;
+    s_decimals2By2[0] = new uint8[](2);
+    s_decimals2By2[0][0] = 6;
+    s_decimals2By2[0][1] = 12;
+    s_decimals2By2[1] = new uint8[](2);
+    s_decimals2By2[1][0] = 18;
+    s_decimals2By2[1][0] = 8;
 
     vm.startPrank(OWNER);
-    dataFeedsCache.setFeedAdmin(OWNER, true);
+    s_dataFeedsCache.setFeedAdmin(OWNER, true);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, batchValueIds);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, s_batchValueIds);
   }
 
   function test_updateDataIdMappingsForProxiesRevertInvalidLengths() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](2);
     dataIdList[0] = bytes16(keccak256("12345"));
@@ -246,12 +246,12 @@ contract DataFeedsCacheTest is BaseTest {
 
     vm.expectRevert(DataFeedsCache.ArrayLengthMismatch.selector);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
   }
 
   function test_updateDataIdMappingsForProxiesRevertUnauthorizedOwner() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](1);
     dataIdList[0] = bytes16(keccak256("12345"));
@@ -263,79 +263,79 @@ contract DataFeedsCacheTest is BaseTest {
         DataFeedsCache.UnauthorizedCaller.selector, address(0x0000000000000000000000000000000000002B67)
       )
     );
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
   }
 
   function test_updateDataIdMappingsForProxiesSuccess() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](1);
     dataIdList[0] = bytes16(keccak256("12345"));
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdUpdated(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
   }
 
   function test_updateDataIdMappingsForProxies_and_call_decimals() public {
     uint8 decimals = 8;
 
-    vm.startPrank(proxyList[3]);
-    uint8 decimalsAns = dataFeedsCache.decimals();
+    vm.startPrank(s_proxyList[3]);
+    uint8 decimalsAns = s_dataFeedsCache.decimals();
 
     assertEq(decimalsAns, decimals);
 
     decimals = 18;
 
-    vm.startPrank(proxyList[4]);
-    decimalsAns = dataFeedsCache.decimals();
+    vm.startPrank(s_proxyList[4]);
+    decimalsAns = s_dataFeedsCache.decimals();
 
     assertEq(decimalsAns, decimals);
 
-    address[] memory newProxyList = new address[](2);
-    newProxyList[0] = proxyList[3];
-    newProxyList[1] = proxyList[4];
+    address[] memory s_newProxyList = new address[](2);
+    s_newProxyList[0] = s_proxyList[3];
+    s_newProxyList[1] = s_proxyList[4];
 
     bytes16[] memory newDataIdList = new bytes16[](2);
-    newDataIdList[0] = batchValueIds[4];
-    newDataIdList[1] = batchValueIds[3];
+    newDataIdList[0] = s_batchValueIds[4];
+    newDataIdList[1] = s_batchValueIds[3];
 
     vm.startPrank(OWNER);
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdUpdated(newProxyList[0], newDataIdList[0]);
-    emit DataFeedsCache.ProxyDataIdUpdated(newProxyList[1], newDataIdList[1]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_newProxyList[0], newDataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_newProxyList[1], newDataIdList[1]);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(newProxyList, newDataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_newProxyList, newDataIdList);
 
     decimals = 18;
 
-    vm.startPrank(proxyList[3]);
-    decimalsAns = dataFeedsCache.decimals();
+    vm.startPrank(s_proxyList[3]);
+    decimalsAns = s_dataFeedsCache.decimals();
 
     assertEq(decimalsAns, decimals);
 
     decimals = 8;
 
-    vm.startPrank(proxyList[4]);
-    decimalsAns = dataFeedsCache.decimals();
+    vm.startPrank(s_proxyList[4]);
+    decimalsAns = s_dataFeedsCache.decimals();
 
     assertEq(decimalsAns, decimals);
   }
 
   function test_updateDataIdMappingsForProxies_and_RevertOnWrongCaller() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](1);
     dataIdList[0] = bytes16(keccak256("12345"));
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdUpdated(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
 
     uint8[] memory decimalsArr = new uint8[](1);
     decimalsArr[0] = 8;
@@ -343,56 +343,56 @@ contract DataFeedsCacheTest is BaseTest {
     vm.startPrank(ILLEGAL_CALLER);
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.NoMappingForSender.selector, ILLEGAL_CALLER));
 
-    dataFeedsCache.decimals();
+    s_dataFeedsCache.decimals();
   }
 
   function test_removeDataIdMappingsForProxiesSuccess() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](1);
     dataIdList[0] = bytes16(keccak256("12345"));
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdUpdated(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdRemoved(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdRemoved(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.removeDataIdMappingsForProxies(proxyList);
+    s_dataFeedsCache.removeDataIdMappingsForProxies(s_proxyList);
   }
 
   function test_removeDataIdMappingsForProxiesSuccess_and_call_decimals() public {
-    address[] memory proxyList = new address[](1);
-    proxyList[0] = address(10002);
+    address[] memory s_proxyList = new address[](1);
+    s_proxyList[0] = address(10002);
 
     bytes16[] memory dataIdList = new bytes16[](1);
     dataIdList[0] = bytes16(keccak256("12345"));
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdUpdated(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdUpdated(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.updateDataIdMappingsForProxies(proxyList, dataIdList);
+    s_dataFeedsCache.updateDataIdMappingsForProxies(s_proxyList, dataIdList);
 
     vm.expectEmit();
-    emit DataFeedsCache.ProxyDataIdRemoved(proxyList[0], dataIdList[0]);
+    emit DataFeedsCache.ProxyDataIdRemoved(s_proxyList[0], dataIdList[0]);
 
-    dataFeedsCache.removeDataIdMappingsForProxies(proxyList);
+    s_dataFeedsCache.removeDataIdMappingsForProxies(s_proxyList);
 
     uint8[] memory decimalsArr = new uint8[](1);
     decimalsArr[0] = 8;
 
-    vm.startPrank(proxyList[0]);
+    vm.startPrank(s_proxyList[0]);
 
-    vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.NoMappingForSender.selector, proxyList[0]));
+    vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.NoMappingForSender.selector, s_proxyList[0]));
 
-    dataFeedsCache.decimals();
+    s_dataFeedsCache.decimals();
   }
 
   function test_supportsInterface() public view {
-    assertEq(dataFeedsCache.supportsInterface(type(IDataFeedsCache).interfaceId), true);
+    assertEq(s_dataFeedsCache.supportsInterface(type(IDataFeedsCache).interfaceId), true);
   }
 
   function test_setFeedConfigsRevertEmptyConfig() public {
@@ -400,10 +400,10 @@ contract DataFeedsCacheTest is BaseTest {
     bytes16[] memory dataIds = new bytes16[](0);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.EmptyConfig.selector));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.EmptyConfig.selector));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, s_workflowMetadata);
 
     // empty workflows
     dataIds = new bytes16[](1);
@@ -411,10 +411,10 @@ contract DataFeedsCacheTest is BaseTest {
     DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata;
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.EmptyConfig.selector));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, _workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, _workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.EmptyConfig.selector));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, _workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, _workflowMetadata);
   }
 
   function test_setFeedConfigsRevertZeroDataId() public {
@@ -422,10 +422,10 @@ contract DataFeedsCacheTest is BaseTest {
     dataIds[0] = bytes16(0);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidDataId.selector));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidDataId.selector));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, s_workflowMetadata);
   }
 
   function test_setFeedConfigsRevertInvalidConfigsLengthDescriptions() public {
@@ -435,10 +435,10 @@ contract DataFeedsCacheTest is BaseTest {
     dataIds[1] = bytes16("2");
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.ArrayLengthMismatch.selector));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.ArrayLengthMismatch.selector));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals2By1, s_workflowMetadata);
   }
 
   function test_setBundleFeedConfigsRevertInvalidConfigsLengthDecimals() public {
@@ -450,7 +450,7 @@ contract DataFeedsCacheTest is BaseTest {
     string[] memory _descriptions = new string[](2);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.ArrayLengthMismatch.selector));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals1By1, s_workflowMetadata);
   }
 
   function test_setFeedConfigsRevertUnauthorizedFeedAdmin() public {
@@ -459,10 +459,10 @@ contract DataFeedsCacheTest is BaseTest {
     vm.startPrank(address(123));
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.UnauthorizedCaller.selector, address(123)));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.UnauthorizedCaller.selector, address(123)));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, s_workflowMetadata);
   }
 
   function test_setFeedConfigsRevertInvalidWorkflowMetadata() public {
@@ -472,46 +472,46 @@ contract DataFeedsCacheTest is BaseTest {
     // 0 address sender
     DataFeedsCache.WorkflowMetadata memory wfWithInvalidSender = DataFeedsCache.WorkflowMetadata({
       allowedSender: address(0),
-      allowedWorkflowOwner: allowedWorkflowOwnersList[0],
-      allowedWorkflowName: allowedWorkflowNamesList[0]
+      allowedWorkflowOwner: s_allowedWorkflowOwnersList[0],
+      allowedWorkflowName: s_allowedWorkflowNamesList[0]
     });
 
     DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = new DataFeedsCache.WorkflowMetadata[](1);
     _workflowMetadata[0] = wfWithInvalidSender;
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidAddress.selector, address(0)));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, _workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, _workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidAddress.selector, address(0)));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, _workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, _workflowMetadata);
 
     // 0 address owner
     DataFeedsCache.WorkflowMetadata memory wfWithInvalidOwner = DataFeedsCache.WorkflowMetadata({
-      allowedSender: allowedSendersList[0],
+      allowedSender: s_allowedSendersList[0],
       allowedWorkflowOwner: address(0),
-      allowedWorkflowName: allowedWorkflowNamesList[0]
+      allowedWorkflowName: s_allowedWorkflowNamesList[0]
     });
     _workflowMetadata[0] = wfWithInvalidOwner;
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidAddress.selector, address(0)));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, _workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, _workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidAddress.selector, address(0)));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, _workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, _workflowMetadata);
 
     // 0 address name
     DataFeedsCache.WorkflowMetadata memory wfWithInvalidName = DataFeedsCache.WorkflowMetadata({
-      allowedSender: allowedSendersList[0],
-      allowedWorkflowOwner: allowedWorkflowOwnersList[0],
+      allowedSender: s_allowedSendersList[0],
+      allowedWorkflowOwner: s_allowedWorkflowOwnersList[0],
       allowedWorkflowName: bytes10(0)
     });
     _workflowMetadata[0] = wfWithInvalidName;
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidWorkflowName.selector, address(0)));
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, _workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, _workflowMetadata);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidWorkflowName.selector, address(0)));
-    dataFeedsCache.setBundleFeedConfigs(dataIds, descriptions, decimals1By1, _workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, s_descriptions, s_decimals1By1, _workflowMetadata);
   }
 
   function test_setFeedConfigsSuccess() public {
@@ -522,11 +522,11 @@ contract DataFeedsCacheTest is BaseTest {
     emit DataFeedsCache.DecimalFeedConfigSet({
       dataId: dataIds[0],
       decimals: 0,
-      description: descriptions[0],
-      workflowMetadata: workflowMetadata
+      description: s_descriptions[0],
+      workflowMetadata: s_workflowMetadata
     });
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
   }
 
   function test_setDecimalFeedConfigs_setAgainWithClear() public {
@@ -535,52 +535,52 @@ contract DataFeedsCacheTest is BaseTest {
     dataIds[1] = bytes16("2");
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
     DataFeedsCache.WorkflowMetadata[] memory _workflowMetadataNew = new DataFeedsCache.WorkflowMetadata[](3);
-    _workflowMetadataNew[0] = workflowMetadata[1];
-    _workflowMetadataNew[1] = workflowMetadata[0];
-    _workflowMetadataNew[2] = workflowMetadata[1];
+    _workflowMetadataNew[0] = s_workflowMetadata[1];
+    _workflowMetadataNew[1] = s_workflowMetadata[0];
+    _workflowMetadataNew[2] = s_workflowMetadata[1];
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalFeedConfigSet({
       dataId: dataIds[0],
       decimals: 0,
       description: _descriptions[0],
-      workflowMetadata: workflowMetadata
+      workflowMetadata: s_workflowMetadata
     });
     vm.expectEmit();
     emit DataFeedsCache.DecimalFeedConfigSet({
       dataId: dataIds[1],
       decimals: 0,
       description: _descriptions[1],
-      workflowMetadata: workflowMetadata
+      workflowMetadata: s_workflowMetadata
     });
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
-    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
-
-    assertEq(_workflowMetadata.length, 2);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, workflowMetadata[0].allowedWorkflowName);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, workflowMetadata[0].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[0].allowedSender, workflowMetadata[0].allowedSender);
-
-    assertEq(_workflowMetadata[1].allowedWorkflowName, workflowMetadata[1].allowedWorkflowName);
-    assertEq(_workflowMetadata[1].allowedWorkflowOwner, workflowMetadata[1].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[1].allowedSender, workflowMetadata[1].allowedSender);
-
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
 
     assertEq(_workflowMetadata.length, 2);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, workflowMetadata[0].allowedWorkflowName);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, workflowMetadata[0].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[0].allowedSender, workflowMetadata[0].allowedSender);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_workflowMetadata[0].allowedWorkflowName);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_workflowMetadata[0].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[0].allowedSender, s_workflowMetadata[0].allowedSender);
 
-    assertEq(_workflowMetadata[1].allowedWorkflowName, workflowMetadata[1].allowedWorkflowName);
-    assertEq(_workflowMetadata[1].allowedWorkflowOwner, workflowMetadata[1].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[1].allowedSender, workflowMetadata[1].allowedSender);
+    assertEq(_workflowMetadata[1].allowedWorkflowName, s_workflowMetadata[1].allowedWorkflowName);
+    assertEq(_workflowMetadata[1].allowedWorkflowOwner, s_workflowMetadata[1].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[1].allowedSender, s_workflowMetadata[1].allowedSender);
+
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+
+    assertEq(_workflowMetadata.length, 2);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_workflowMetadata[0].allowedWorkflowName);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_workflowMetadata[0].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[0].allowedSender, s_workflowMetadata[0].allowedSender);
+
+    assertEq(_workflowMetadata[1].allowedWorkflowName, s_workflowMetadata[1].allowedWorkflowName);
+    assertEq(_workflowMetadata[1].allowedWorkflowOwner, s_workflowMetadata[1].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[1].allowedSender, s_workflowMetadata[1].allowedSender);
 
     vm.expectEmit();
     emit DataFeedsCache.FeedConfigRemoved({dataId: dataIds[0]});
@@ -601,9 +601,9 @@ contract DataFeedsCacheTest is BaseTest {
       workflowMetadata: _workflowMetadataNew
     });
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, _workflowMetadataNew);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, _workflowMetadataNew);
 
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
 
     assertEq(_workflowMetadata.length, 3);
     assertEq(_workflowMetadataNew[0].allowedWorkflowName, _workflowMetadata[0].allowedWorkflowName);
@@ -618,7 +618,7 @@ contract DataFeedsCacheTest is BaseTest {
     assertEq(_workflowMetadataNew[2].allowedWorkflowOwner, _workflowMetadata[2].allowedWorkflowOwner);
     assertEq(_workflowMetadataNew[2].allowedSender, _workflowMetadata[2].allowedSender);
 
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
 
     assertEq(_workflowMetadata.length, 3);
     assertEq(_workflowMetadataNew[0].allowedWorkflowName, _workflowMetadata[0].allowedWorkflowName);
@@ -640,69 +640,69 @@ contract DataFeedsCacheTest is BaseTest {
     dataIds[1] = bytes16("2");
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
     DataFeedsCache.WorkflowMetadata[] memory _workflowMetadataNew = new DataFeedsCache.WorkflowMetadata[](3);
-    _workflowMetadataNew[0] = workflowMetadata[1];
-    _workflowMetadataNew[1] = workflowMetadata[0];
-    _workflowMetadataNew[2] = workflowMetadata[1];
+    _workflowMetadataNew[0] = s_workflowMetadata[1];
+    _workflowMetadataNew[1] = s_workflowMetadata[0];
+    _workflowMetadataNew[2] = s_workflowMetadata[1];
 
     vm.expectEmit();
     emit DataFeedsCache.BundleFeedConfigSet({
       dataId: dataIds[0],
-      decimals: decimals2By1[0],
+      decimals: s_decimals2By1[0],
       description: _descriptions[0],
-      workflowMetadata: workflowMetadata
+      workflowMetadata: s_workflowMetadata
     });
     vm.expectEmit();
     emit DataFeedsCache.BundleFeedConfigSet({
       dataId: dataIds[1],
-      decimals: decimals2By1[1],
+      decimals: s_decimals2By1[1],
       description: _descriptions[1],
-      workflowMetadata: workflowMetadata
+      workflowMetadata: s_workflowMetadata
     });
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By1, s_workflowMetadata);
 
-    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
-
-    assertEq(_workflowMetadata.length, 2);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, workflowMetadata[0].allowedWorkflowName);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, workflowMetadata[0].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[0].allowedSender, workflowMetadata[0].allowedSender);
-
-    assertEq(_workflowMetadata[1].allowedWorkflowName, workflowMetadata[1].allowedWorkflowName);
-    assertEq(_workflowMetadata[1].allowedWorkflowOwner, workflowMetadata[1].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[1].allowedSender, workflowMetadata[1].allowedSender);
-
-    uint8[] memory decimalsArr = dataFeedsCache.getBundleDecimals(dataIds[0]);
-
-    assertEq(decimalsArr.length, decimals2By1[0].length);
-    assertEq(decimalsArr[0], decimals2By1[0][0]);
-
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
 
     assertEq(_workflowMetadata.length, 2);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, workflowMetadata[0].allowedWorkflowName);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, workflowMetadata[0].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[0].allowedSender, workflowMetadata[0].allowedSender);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_workflowMetadata[0].allowedWorkflowName);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_workflowMetadata[0].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[0].allowedSender, s_workflowMetadata[0].allowedSender);
 
-    assertEq(_workflowMetadata[1].allowedWorkflowName, workflowMetadata[1].allowedWorkflowName);
-    assertEq(_workflowMetadata[1].allowedWorkflowOwner, workflowMetadata[1].allowedWorkflowOwner);
-    assertEq(_workflowMetadata[1].allowedSender, workflowMetadata[1].allowedSender);
+    assertEq(_workflowMetadata[1].allowedWorkflowName, s_workflowMetadata[1].allowedWorkflowName);
+    assertEq(_workflowMetadata[1].allowedWorkflowOwner, s_workflowMetadata[1].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[1].allowedSender, s_workflowMetadata[1].allowedSender);
 
-    decimalsArr = dataFeedsCache.getBundleDecimals(dataIds[1]);
+    uint8[] memory decimalsArr = s_dataFeedsCache.getBundleDecimals(dataIds[0]);
 
-    assertEq(decimalsArr.length, decimals2By1[1].length);
-    assertEq(decimalsArr[0], decimals2By1[1][0]);
+    assertEq(decimalsArr.length, s_decimals2By1[0].length);
+    assertEq(decimalsArr[0], s_decimals2By1[0][0]);
+
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+
+    assertEq(_workflowMetadata.length, 2);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_workflowMetadata[0].allowedWorkflowName);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_workflowMetadata[0].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[0].allowedSender, s_workflowMetadata[0].allowedSender);
+
+    assertEq(_workflowMetadata[1].allowedWorkflowName, s_workflowMetadata[1].allowedWorkflowName);
+    assertEq(_workflowMetadata[1].allowedWorkflowOwner, s_workflowMetadata[1].allowedWorkflowOwner);
+    assertEq(_workflowMetadata[1].allowedSender, s_workflowMetadata[1].allowedSender);
+
+    decimalsArr = s_dataFeedsCache.getBundleDecimals(dataIds[1]);
+
+    assertEq(decimalsArr.length, s_decimals2By1[1].length);
+    assertEq(decimalsArr[0], s_decimals2By1[1][0]);
 
     vm.expectEmit();
     emit DataFeedsCache.FeedConfigRemoved({dataId: dataIds[0]});
     vm.expectEmit();
     emit DataFeedsCache.BundleFeedConfigSet({
       dataId: dataIds[0],
-      decimals: decimals2By2[0],
+      decimals: s_decimals2By2[0],
       description: _descriptions[0],
       workflowMetadata: _workflowMetadataNew
     });
@@ -711,35 +711,14 @@ contract DataFeedsCacheTest is BaseTest {
     vm.expectEmit();
     emit DataFeedsCache.BundleFeedConfigSet({
       dataId: dataIds[1],
-      decimals: decimals2By2[1],
+      decimals: s_decimals2By2[1],
       description: _descriptions[1],
       workflowMetadata: _workflowMetadataNew
     });
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By2, _workflowMetadataNew);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By2, _workflowMetadataNew);
 
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
-
-    assertEq(_workflowMetadata.length, 3);
-    assertEq(_workflowMetadataNew[0].allowedWorkflowName, _workflowMetadata[0].allowedWorkflowName);
-    assertEq(_workflowMetadataNew[0].allowedWorkflowOwner, _workflowMetadata[0].allowedWorkflowOwner);
-    assertEq(_workflowMetadataNew[0].allowedSender, _workflowMetadata[0].allowedSender);
-
-    assertEq(_workflowMetadataNew[1].allowedWorkflowName, _workflowMetadata[1].allowedWorkflowName);
-    assertEq(_workflowMetadataNew[1].allowedWorkflowOwner, _workflowMetadata[1].allowedWorkflowOwner);
-    assertEq(_workflowMetadataNew[1].allowedSender, _workflowMetadata[1].allowedSender);
-
-    assertEq(_workflowMetadataNew[2].allowedWorkflowName, _workflowMetadata[2].allowedWorkflowName);
-    assertEq(_workflowMetadataNew[2].allowedWorkflowOwner, _workflowMetadata[2].allowedWorkflowOwner);
-    assertEq(_workflowMetadataNew[2].allowedSender, _workflowMetadata[2].allowedSender);
-
-    decimalsArr = dataFeedsCache.getBundleDecimals(dataIds[0]);
-
-    assertEq(decimalsArr.length, decimals2By2[0].length);
-    assertEq(decimalsArr[0], decimals2By2[0][0]);
-    assertEq(decimalsArr[1], decimals2By2[0][1]);
-
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
 
     assertEq(_workflowMetadata.length, 3);
     assertEq(_workflowMetadataNew[0].allowedWorkflowName, _workflowMetadata[0].allowedWorkflowName);
@@ -754,54 +733,75 @@ contract DataFeedsCacheTest is BaseTest {
     assertEq(_workflowMetadataNew[2].allowedWorkflowOwner, _workflowMetadata[2].allowedWorkflowOwner);
     assertEq(_workflowMetadataNew[2].allowedSender, _workflowMetadata[2].allowedSender);
 
-    decimalsArr = dataFeedsCache.getBundleDecimals(dataIds[1]);
+    decimalsArr = s_dataFeedsCache.getBundleDecimals(dataIds[0]);
 
-    assertEq(decimalsArr.length, decimals2By2[1].length);
-    assertEq(decimalsArr[0], decimals2By2[1][0]);
-    assertEq(decimalsArr[1], decimals2By2[1][1]);
+    assertEq(decimalsArr.length, s_decimals2By2[0].length);
+    assertEq(decimalsArr[0], s_decimals2By2[0][0]);
+    assertEq(decimalsArr[1], s_decimals2By2[0][1]);
+
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[1], 0, 0);
+
+    assertEq(_workflowMetadata.length, 3);
+    assertEq(_workflowMetadataNew[0].allowedWorkflowName, _workflowMetadata[0].allowedWorkflowName);
+    assertEq(_workflowMetadataNew[0].allowedWorkflowOwner, _workflowMetadata[0].allowedWorkflowOwner);
+    assertEq(_workflowMetadataNew[0].allowedSender, _workflowMetadata[0].allowedSender);
+
+    assertEq(_workflowMetadataNew[1].allowedWorkflowName, _workflowMetadata[1].allowedWorkflowName);
+    assertEq(_workflowMetadataNew[1].allowedWorkflowOwner, _workflowMetadata[1].allowedWorkflowOwner);
+    assertEq(_workflowMetadataNew[1].allowedSender, _workflowMetadata[1].allowedSender);
+
+    assertEq(_workflowMetadataNew[2].allowedWorkflowName, _workflowMetadata[2].allowedWorkflowName);
+    assertEq(_workflowMetadataNew[2].allowedWorkflowOwner, _workflowMetadata[2].allowedWorkflowOwner);
+    assertEq(_workflowMetadataNew[2].allowedSender, _workflowMetadata[2].allowedSender);
+
+    decimalsArr = s_dataFeedsCache.getBundleDecimals(dataIds[1]);
+
+    assertEq(decimalsArr.length, s_decimals2By2[1].length);
+    assertEq(decimalsArr[0], s_decimals2By2[1][0]);
+    assertEq(decimalsArr[1], s_decimals2By2[1][1]);
   }
 
   function test_description() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
-    vm.startPrank(address(dataFeedsAggregatorProxy));
-    string memory description = dataFeedsCache.description();
+    vm.startPrank(address(s_dataFeedsAggregatorProxy));
+    string memory description = s_dataFeedsCache.description();
 
-    assertEq(descriptions[0], description);
+    assertEq(s_descriptions[0], description);
   }
 
   function test_decimals() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
-    vm.startPrank(address(dataFeedsAggregatorProxy));
-    uint8 decimals = dataFeedsCache.decimals();
+    vm.startPrank(address(s_dataFeedsAggregatorProxy));
+    uint8 decimals = s_dataFeedsCache.decimals();
     assertEq(18, decimals);
   }
 
   function test_bundleDecimals() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
     uint8[][] memory _decimals = new uint8[][](1);
     _decimals[0] = new uint8[](2);
     _decimals[0][0] = 18;
     _decimals[0][1] = 8;
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, _decimals, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, _decimals, s_workflowMetadata);
 
-    vm.startPrank(address(dataFeedsAggregatorProxy));
-    uint8[] memory decimals = dataFeedsCache.bundleDecimals();
+    vm.startPrank(address(s_dataFeedsAggregatorProxy));
+    uint8[] memory decimals = s_dataFeedsCache.bundleDecimals();
     assertEq(decimals.length, 2);
     assertEq(decimals[0], 18);
     assertEq(decimals[1], 8);
@@ -809,80 +809,80 @@ contract DataFeedsCacheTest is BaseTest {
 
   function test_getFeedMetadataRevertFeedNotConfigured() public {
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.FeedNotConfigured.selector, bytes16(0)));
-    dataFeedsCache.getFeedMetadata(bytes16(0), 0, 1);
+    s_dataFeedsCache.getFeedMetadata(bytes16(0), 0, 1);
   }
 
   function test_getFeedMetadata() public {
     bytes16[] memory dataIds = new bytes16[](1);
     dataIds[0] = bytes16("1");
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     // limit less than the number of elements
     // first slice
-    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 1);
+    DataFeedsCache.WorkflowMetadata[] memory _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 1);
 
     assertEq(_workflowMetadata.length, 1);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, allowedWorkflowNamesList[0]);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, allowedWorkflowOwnersList[0]);
-    assertEq(_workflowMetadata[0].allowedSender, allowedSendersList[0]);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_allowedWorkflowNamesList[0]);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_allowedWorkflowOwnersList[0]);
+    assertEq(_workflowMetadata[0].allowedSender, s_allowedSendersList[0]);
 
     // second slice
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 1, 1);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 1, 1);
 
     assertEq(_workflowMetadata.length, 1);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, allowedWorkflowNamesList[1]);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, allowedWorkflowOwnersList[1]);
-    assertEq(_workflowMetadata[0].allowedSender, allowedSendersList[1]);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_allowedWorkflowNamesList[1]);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_allowedWorkflowOwnersList[1]);
+    assertEq(_workflowMetadata[0].allowedSender, s_allowedSendersList[1]);
 
     // returns the full array if the maxCount is equal to the number of elements
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, workflowMetadata.length);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, s_workflowMetadata.length);
     assertEq(_workflowMetadata.length, 2);
 
     // returns the full array if the number of elements is less than the maxCount
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 100);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 100);
 
     assertEq(_workflowMetadata.length, 2);
-    assertEq(_workflowMetadata[0].allowedWorkflowName, allowedWorkflowNamesList[0]);
-    assertEq(_workflowMetadata[0].allowedWorkflowOwner, allowedWorkflowOwnersList[0]);
-    assertEq(_workflowMetadata[0].allowedSender, allowedSendersList[0]);
+    assertEq(_workflowMetadata[0].allowedWorkflowName, s_allowedWorkflowNamesList[0]);
+    assertEq(_workflowMetadata[0].allowedWorkflowOwner, s_allowedWorkflowOwnersList[0]);
+    assertEq(_workflowMetadata[0].allowedSender, s_allowedSendersList[0]);
 
-    assertEq(_workflowMetadata[1].allowedWorkflowName, allowedWorkflowNamesList[1]);
-    assertEq(_workflowMetadata[1].allowedWorkflowOwner, allowedWorkflowOwnersList[1]);
-    assertEq(_workflowMetadata[1].allowedSender, allowedSendersList[1]);
+    assertEq(_workflowMetadata[1].allowedWorkflowName, s_allowedWorkflowNamesList[1]);
+    assertEq(_workflowMetadata[1].allowedWorkflowOwner, s_allowedWorkflowOwnersList[1]);
+    assertEq(_workflowMetadata[1].allowedSender, s_allowedSendersList[1]);
 
     // returns the full array if maxCount is 0
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 0);
     assertEq(_workflowMetadata.length, 2);
 
     // returns empty array if the cursor is out of bounds
-    _workflowMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 2, 1);
+    _workflowMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 2, 1);
     assertEq(_workflowMetadata.length, 0);
   }
 
   function test_getWorkflowMetaData() public view {
-    (address _workflowOwner, bytes10 _workflowName) = dataFeedsCache.getWorkflowMetaData(METADATA);
+    (address _workflowOwner, bytes10 _workflowName) = s_dataFeedsCache.getWorkflowMetaData(METADATA);
 
-    assertEq(_workflowName, workflowName);
-    assertEq(_workflowOwner, workflowOwner);
+    assertEq(_workflowName, WORKFLOWNAME);
+    assertEq(_workflowOwner, WORKFLOWOWNER);
   }
 
   function test_getDataType() public view {
-    bytes1 dataType = dataFeedsCache.getDataType(bytes16(dataId1), 7);
+    bytes1 dataType = s_dataFeedsCache.getDataType(bytes16(DATAID1), 7);
     assertEq(dataType, hex"32");
   }
 
   function testFuzzy_getDataType(bytes16 id, uint256 index) public view {
     vm.assume(index < 16);
     bytes1 expected = bytes1(uint8(id[index]));
-    bytes1 result = dataFeedsCache.getDataType(id, index);
+    bytes1 result = s_dataFeedsCache.getDataType(id, index);
     assertEq(result, expected);
   }
 
   function testFuzzy_getDataTypeRevertOutOfBound(bytes16 id, uint256 index) public {
     vm.assume(index >= 16);
     vm.expectRevert();
-    dataFeedsCache.getDataType(id, index);
+    s_dataFeedsCache.getDataType(id, index);
   }
 
   function testFuzz_createReportHash(
@@ -891,7 +891,7 @@ contract DataFeedsCacheTest is BaseTest {
     address fuzzedWorkflowOwner,
     bytes10 fuzzedWorkflowName
   ) public view {
-    bytes32 reportHash = dataFeedsCache.createReportHash(dataId, sender, fuzzedWorkflowOwner, fuzzedWorkflowName);
+    bytes32 reportHash = s_dataFeedsCache.createReportHash(dataId, sender, fuzzedWorkflowOwner, fuzzedWorkflowName);
     bytes32 expectedReportHash = keccak256(abi.encode(dataId, sender, fuzzedWorkflowOwner, fuzzedWorkflowName));
     assertEq(reportHash, expectedReportHash);
   }
@@ -899,7 +899,7 @@ contract DataFeedsCacheTest is BaseTest {
   function test_setFeedAdminRevertZeroAddress() public {
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InvalidAddress.selector, address(0)));
 
-    dataFeedsCache.setFeedAdmin(address(0), true);
+    s_dataFeedsCache.setFeedAdmin(address(0), true);
   }
 
   function testFuzz_setFeedAdminSuccess(
@@ -910,19 +910,19 @@ contract DataFeedsCacheTest is BaseTest {
     vm.expectEmit();
     emit DataFeedsCache.FeedAdminSet(feedAdmin, true);
 
-    dataFeedsCache.setFeedAdmin(feedAdmin, true);
+    s_dataFeedsCache.setFeedAdmin(feedAdmin, true);
   }
 
   function test_isFeedAdmin() public view {
-    assertEq(dataFeedsCache.isFeedAdmin(OWNER), true);
-    assertEq(dataFeedsCache.isFeedAdmin(address(10002)), false);
+    assertEq(s_dataFeedsCache.isFeedAdmin(OWNER), true);
+    assertEq(s_dataFeedsCache.isFeedAdmin(address(10002)), false);
   }
 
   function test_removeFeedAdminSuccess() public {
-    dataFeedsCache.setFeedAdmin(address(10003), true);
+    s_dataFeedsCache.setFeedAdmin(address(10003), true);
     vm.expectEmit();
     emit DataFeedsCache.FeedAdminSet(address(10003), false);
-    dataFeedsCache.setFeedAdmin(address(10003), false);
+    s_dataFeedsCache.setFeedAdmin(address(10003), false);
   }
 
   function testFuzz_checkFeedPermissionFalse(
@@ -936,7 +936,7 @@ contract DataFeedsCacheTest is BaseTest {
       allowedWorkflowOwner: fuzzedWorkflowOwner,
       allowedWorkflowName: fuzzedWorkflowName
     });
-    bool hasPermission = dataFeedsCache.checkFeedPermission(dataId, wfm);
+    bool hasPermission = s_dataFeedsCache.checkFeedPermission(dataId, wfm);
     assertEq(hasPermission, false);
   }
 
@@ -963,9 +963,9 @@ contract DataFeedsCacheTest is BaseTest {
     bytes16[] memory dataIds = new bytes16[](1);
     dataIds[0] = dataId;
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, _workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, _workflowMetadata);
 
-    bool hasPermission = dataFeedsCache.checkFeedPermission(dataId, _workflowMetadata[0]);
+    bool hasPermission = s_dataFeedsCache.checkFeedPermission(dataId, _workflowMetadata[0]);
     assertEq(hasPermission, true);
   }
 
@@ -975,319 +975,319 @@ contract DataFeedsCacheTest is BaseTest {
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       sender: ILLEGAL_CALLER,
-      workflowOwner: workflowOwner,
-      workflowName: workflowName
+      workflowOwner: WORKFLOWOWNER,
+      workflowName: WORKFLOWNAME
     });
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       sender: ILLEGAL_CALLER,
-      workflowOwner: workflowOwner,
-      workflowName: workflowName
+      workflowOwner: WORKFLOWOWNER,
+      workflowName: WORKFLOWNAME
     });
 
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
 
     // Data id not configured
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16("1"); // onReport will send report for dataId1 and dataId2.
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16("1"); // onReport will send report for DATAID1 and DATAID2.
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
     vm.stopPrank();
     vm.startPrank(OWNER);
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalReportUpdated({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       roundId: 1,
-      timestamp: timestamp1,
-      answer: uint224(price3)
+      timestamp: TIMESTAMP1,
+      answer: uint224(PRICE3)
     });
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       sender: REPORT_SENDER,
-      workflowOwner: workflowOwner,
-      workflowName: workflowName
+      workflowOwner: WORKFLOWOWNER,
+      workflowName: WORKFLOWNAME
     });
 
     vm.stopPrank();
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
 
     vm.expectEmit();
     emit DataFeedsCache.BundleReportUpdated({
-      dataId: bytes16(dataId1),
-      timestamp: timestamp1,
-      bundle: abi.encodePacked(abi.encode(price3), abi.encode(price4))
+      dataId: bytes16(DATAID1),
+      timestamp: TIMESTAMP1,
+      bundle: abi.encodePacked(abi.encode(PRICE3), abi.encode(PRICE4))
     });
 
     // missing data id for bundle report
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       sender: REPORT_SENDER,
-      workflowOwner: workflowOwner,
-      workflowName: workflowName
+      workflowOwner: WORKFLOWOWNER,
+      workflowName: WORKFLOWNAME
     });
 
-    dataFeedsCache.onReport(METADATA, bundleReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength2);
   }
 
   function test_onReportStaleDecimalReport() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
 
     vm.expectEmit();
     emit DataFeedsCache.StaleDecimalReport({
-      dataId: bytes16(dataId1),
-      reportTimestamp: timestamp1 - 50,
-      latestTimestamp: timestamp1
+      dataId: bytes16(DATAID1),
+      reportTimestamp: TIMESTAMP1 - 50,
+      latestTimestamp: TIMESTAMP1
     });
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalReportUpdated({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       roundId: 2,
-      timestamp: timestamp2 + 50,
-      answer: uint224(price2)
+      timestamp: TIMESTAMP2 + 50,
+      answer: uint224(PRICE2)
     });
 
-    dataFeedsCache.onReport(METADATA, staleReport);
+    s_dataFeedsCache.onReport(METADATA, s_staleReport);
   }
 
   function test_onReportStaleBundleReport() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, bundleReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength2);
 
     vm.expectEmit();
     emit DataFeedsCache.StaleBundleReport({
-      dataId: bytes16(dataId1),
-      reportTimestamp: timestamp1 - 50,
-      latestTimestamp: timestamp1
+      dataId: bytes16(DATAID1),
+      reportTimestamp: TIMESTAMP1 - 50,
+      latestTimestamp: TIMESTAMP1
     });
 
     vm.expectEmit();
     emit DataFeedsCache.BundleReportUpdated({
-      dataId: bytes16(dataId2),
-      timestamp: timestamp2 + 50,
-      bundle: abi.encodePacked(abi.encode(price3), abi.encode(price4))
+      dataId: bytes16(DATAID2),
+      timestamp: TIMESTAMP2 + 50,
+      bundle: abi.encodePacked(abi.encode(PRICE3), abi.encode(PRICE4))
     });
 
-    dataFeedsCache.onReport(METADATA, staleBundleReport);
+    s_dataFeedsCache.onReport(METADATA, s_staleBundleReport);
   }
 
   function test_onReportRevertInvalidWorkflowName() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     // workflowName in report is 'abc'
     bytes10 invalidWorkflowName = bytes10("xyz");
-    bytes memory thisMetadata = abi.encodePacked(workflowId, invalidWorkflowName, workflowOwner, reportId);
+    bytes memory thisMetadata = abi.encodePacked(WORKFLOWID, invalidWorkflowName, WORKFLOWOWNER, REPORTID);
 
     vm.startPrank(REPORT_SENDER);
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       sender: REPORT_SENDER,
-      workflowOwner: workflowOwner,
+      workflowOwner: WORKFLOWOWNER,
       workflowName: invalidWorkflowName
     });
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       sender: REPORT_SENDER,
-      workflowOwner: workflowOwner,
+      workflowOwner: WORKFLOWOWNER,
       workflowName: invalidWorkflowName
     });
 
-    dataFeedsCache.onReport(thisMetadata, decimalReportlength2);
+    s_dataFeedsCache.onReport(thisMetadata, s_decimalReportlength2);
   }
 
   function test_onReportRevertInvalidWorkflowOwner() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
     // workFlowOwner in report is address(10004);
     address invalidWorkflowOwner = address(10005);
-    bytes memory thisMetadata = abi.encodePacked(workflowId, workflowName, invalidWorkflowOwner, reportId);
+    bytes memory thisMetadata = abi.encodePacked(WORKFLOWID, WORKFLOWNAME, invalidWorkflowOwner, REPORTID);
 
     vm.startPrank(REPORT_SENDER);
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       sender: REPORT_SENDER,
       workflowOwner: invalidWorkflowOwner,
-      workflowName: workflowName
+      workflowName: WORKFLOWNAME
     });
 
     vm.expectEmit();
     emit DataFeedsCache.InvalidUpdatePermission({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       sender: REPORT_SENDER,
       workflowOwner: invalidWorkflowOwner,
-      workflowName: workflowName
+      workflowName: WORKFLOWNAME
     });
 
-    dataFeedsCache.onReport(thisMetadata, decimalReportlength2);
+    s_dataFeedsCache.onReport(thisMetadata, s_decimalReportlength2);
   }
 
   function test_onReportSuccess_EmptyReport() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
     vm.expectRevert();
-    dataFeedsCache.onReport(METADATA, "");
+    s_dataFeedsCache.onReport(METADATA, "");
 
-    assertEq(dataFeedsCache.getLatestAnswer(dataIds[0]), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(dataIds[0]), int256(0));
   }
 
   function test_onReportSuccess_EmptyDecimalReport() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
-    dataFeedsCache.onReport(METADATA, emptyDecimalReport);
+    s_dataFeedsCache.onReport(METADATA, s_emptyDecimalReport);
 
-    assertEq(dataFeedsCache.getLatestAnswer(bytes16(dataId1)), int256(0));
-    assertEq(dataFeedsCache.getLatestAnswer(bytes16(dataId2)), int256(0));
-    assertEq(dataFeedsCache.getLatestAnswer(bytes16(dataId3)), int256(0));
-    assertEq(dataFeedsCache.getLatestAnswer(bytes16(dataId4)), int256(0));
-    assertEq(dataFeedsCache.getLatestAnswer(bytes16(dataId5)), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(bytes16(DATAID1)), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(bytes16(DATAID2)), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(bytes16(DATAID3)), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(bytes16(DATAID4)), int256(0));
+    assertEq(s_dataFeedsCache.getLatestAnswer(bytes16(DATAID5)), int256(0));
   }
 
   function test_onReportSuccess_DecimalReportLength1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalReportUpdated({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       roundId: 1,
-      timestamp: timestamp1,
-      answer: uint224(price1)
+      timestamp: TIMESTAMP1,
+      answer: uint224(PRICE1)
     });
 
-    dataFeedsCache.onReport(METADATA, decimalReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength1);
 
-    assertEq(dataFeedsCache.getLatestAnswer(dataIds[0]), int256(price1));
+    assertEq(s_dataFeedsCache.getLatestAnswer(dataIds[0]), int256(PRICE1));
   }
 
   function test_onReportSuccess_DecimalReportLength2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
 
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalReportUpdated({
-      dataId: bytes16(dataId1),
+      dataId: bytes16(DATAID1),
       roundId: 1,
-      timestamp: timestamp1,
-      answer: uint224(price3)
+      timestamp: TIMESTAMP1,
+      answer: uint224(PRICE3)
     });
 
     vm.expectEmit();
     emit DataFeedsCache.DecimalReportUpdated({
-      dataId: bytes16(dataId2),
+      dataId: bytes16(DATAID2),
       roundId: 1,
-      timestamp: timestamp2,
-      answer: uint224(price4)
+      timestamp: TIMESTAMP2,
+      answer: uint224(PRICE4)
     });
 
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
   }
 
   function test_onReportSuccess_EmptyBundleReport() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
-    dataFeedsCache.onReport(METADATA, emptyBundleReport);
+    s_dataFeedsCache.onReport(METADATA, s_emptyBundleReport);
 
-    assertEq(dataFeedsCache.getLatestBundle(bytes16(dataId1)), "");
-    assertEq(dataFeedsCache.getLatestBundle(bytes16(dataId2)), "");
-    assertEq(dataFeedsCache.getLatestBundle(bytes16(dataId3)), "");
-    assertEq(dataFeedsCache.getLatestBundle(bytes16(dataId4)), "");
-    assertEq(dataFeedsCache.getLatestBundle(bytes16(dataId5)), "");
+    assertEq(s_dataFeedsCache.getLatestBundle(bytes16(DATAID1)), "");
+    assertEq(s_dataFeedsCache.getLatestBundle(bytes16(DATAID2)), "");
+    assertEq(s_dataFeedsCache.getLatestBundle(bytes16(DATAID3)), "");
+    assertEq(s_dataFeedsCache.getLatestBundle(bytes16(DATAID4)), "");
+    assertEq(s_dataFeedsCache.getLatestBundle(bytes16(DATAID5)), "");
   }
 
   function test_onReportSuccess_BundleReportLength1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals1By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
@@ -1295,20 +1295,20 @@ contract DataFeedsCacheTest is BaseTest {
       hex"000000000000000000000000000000000000000000000000000000000001e240000000000000000000000000000000000000000000000000000000000006f855";
 
     vm.expectEmit();
-    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(dataId1), timestamp: timestamp1, bundle: expectedBundle});
+    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(DATAID1), timestamp: TIMESTAMP1, bundle: expectedBundle});
 
-    dataFeedsCache.onReport(METADATA, bundleReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength1);
   }
 
   function test_onReportSuccess_BundleReportLength2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
 
@@ -1319,344 +1319,345 @@ contract DataFeedsCacheTest is BaseTest {
       hex"000000000000000000000000000000000000000000000000000000000009fbf100000000000000000000000000000000000000000000000000000000000f1206";
 
     vm.expectEmit();
-    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(dataId1), timestamp: timestamp1, bundle: expectedBundle1});
+    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(DATAID1), timestamp: TIMESTAMP1, bundle: expectedBundle1});
 
     vm.expectEmit();
-    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(dataId2), timestamp: timestamp2, bundle: expectedBundle2});
+    emit DataFeedsCache.BundleReportUpdated({dataId: bytes16(DATAID2), timestamp: TIMESTAMP2, bundle: expectedBundle2});
 
-    dataFeedsCache.onReport(METADATA, bundleReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength2);
   }
 
   function test_latestAnswer1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength1);
 
-    vm.startPrank(proxyList[0]);
-    int256 value = dataFeedsCache.latestAnswer();
-    assertEq(value, int256(price1));
+    vm.startPrank(s_proxyList[0]);
+    int256 value = s_dataFeedsCache.latestAnswer();
+    assertEq(value, int256(PRICE1));
   }
 
   function test_latestAnswer2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
 
-    vm.startPrank(proxyList[0]);
-    int256 value = dataFeedsCache.latestAnswer();
-    assertEq(value, int256(price3));
+    vm.startPrank(s_proxyList[0]);
+    int256 value = s_dataFeedsCache.latestAnswer();
+    assertEq(value, int256(PRICE3));
 
-    vm.startPrank(proxyList[1]);
-    value = dataFeedsCache.latestAnswer();
-    assertEq(value, int256(price4));
+    vm.startPrank(s_proxyList[1]);
+    value = s_dataFeedsCache.latestAnswer();
+    assertEq(value, int256(PRICE4));
   }
 
   function test_getLatestAnswer1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength1);
     vm.stopPrank();
 
-    int256 value = dataFeedsCache.getLatestAnswer(dataIds[0]);
-    assertEq(value, int256(price1));
+    int256 value = s_dataFeedsCache.getLatestAnswer(dataIds[0]);
+    assertEq(value, int256(PRICE1));
   }
 
   function test_getLatestAnswer2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength2);
     vm.stopPrank();
 
-    int256 value = dataFeedsCache.getLatestAnswer(dataIds[0]);
-    assertEq(value, int256(price3));
+    int256 value = s_dataFeedsCache.getLatestAnswer(dataIds[0]);
+    assertEq(value, int256(PRICE3));
 
-    value = dataFeedsCache.getLatestAnswer(dataIds[1]);
-    assertEq(value, int256(price4));
+    value = s_dataFeedsCache.getLatestAnswer(dataIds[1]);
+    assertEq(value, int256(PRICE4));
   }
 
   function test_latestBundle1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals1By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, bundleReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength1);
 
-    vm.startPrank(proxyList[0]);
-    uint256 roundId = dataFeedsCache.latestRound();
+    vm.startPrank(s_proxyList[0]);
+    uint256 roundId = s_dataFeedsCache.latestRound();
+    assertEq(roundId, 0);
 
-    bytes memory bundle = dataFeedsCache.latestBundle();
-    uint256 timestamp = dataFeedsCache.latestBundleTimestamp();
-    uint8[] memory decimals = dataFeedsCache.bundleDecimals();
-    assertEq(bundle, abi.encode(price1, price2));
+    bytes memory bundle = s_dataFeedsCache.latestBundle();
+    uint256 timestamp = s_dataFeedsCache.latestBundleTimestamp();
+    uint8[] memory decimals = s_dataFeedsCache.bundleDecimals();
+    assertEq(bundle, abi.encode(PRICE1, PRICE2));
     (uint256 firstBundleP1, uint256 firstBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(firstBundleP1, price1);
-    assertEq(firstBundleP2, price2);
-    assertEq(timestamp, timestamp1);
-    assertEq(decimals.length, decimals1By1[0].length);
-    assertEq(decimals[0], decimals1By1[0][0]);
+    assertEq(firstBundleP1, PRICE1);
+    assertEq(firstBundleP2, PRICE2);
+    assertEq(timestamp, TIMESTAMP1);
+    assertEq(decimals.length, s_decimals1By1[0].length);
+    assertEq(decimals[0], s_decimals1By1[0][0]);
   }
 
   function test_latestBundle2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, bundleReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength2);
 
-    vm.startPrank(proxyList[0]);
-    uint256 roundId = dataFeedsCache.latestRound();
+    vm.startPrank(s_proxyList[0]);
+    uint256 roundId = s_dataFeedsCache.latestRound();
 
-    bytes memory bundle = dataFeedsCache.latestBundle();
-    uint256 timestamp = dataFeedsCache.latestBundleTimestamp();
-    uint8[] memory decimals = dataFeedsCache.bundleDecimals();
-    assertEq(bundle, abi.encode(price3, price4));
+    bytes memory bundle = s_dataFeedsCache.latestBundle();
+    uint256 timestamp = s_dataFeedsCache.latestBundleTimestamp();
+    uint8[] memory decimals = s_dataFeedsCache.bundleDecimals();
+    assertEq(bundle, abi.encode(PRICE3, PRICE4));
     (uint256 firstBundleP1, uint256 firstBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(firstBundleP1, price3);
-    assertEq(firstBundleP2, price4);
-    assertEq(timestamp, timestamp1);
-    assertEq(decimals.length, decimals2By1[0].length);
-    assertEq(decimals[0], decimals2By1[0][0]);
+    assertEq(firstBundleP1, PRICE3);
+    assertEq(firstBundleP2, PRICE4);
+    assertEq(timestamp, TIMESTAMP1);
+    assertEq(decimals.length, s_decimals2By1[0].length);
+    assertEq(decimals[0], s_decimals2By1[0][0]);
 
-    vm.startPrank(proxyList[1]);
-    roundId = dataFeedsCache.latestRound();
+    vm.startPrank(s_proxyList[1]);
+    roundId = s_dataFeedsCache.latestRound();
 
-    bundle = dataFeedsCache.latestBundle();
-    timestamp = dataFeedsCache.latestBundleTimestamp();
-    decimals = dataFeedsCache.bundleDecimals();
-    assertEq(bundle, abi.encode(price5, price6));
+    bundle = s_dataFeedsCache.latestBundle();
+    timestamp = s_dataFeedsCache.latestBundleTimestamp();
+    decimals = s_dataFeedsCache.bundleDecimals();
+    assertEq(bundle, abi.encode(PRICE5, PRICE6));
     (uint256 secondBundleP1, uint256 secondBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(secondBundleP1, price5);
-    assertEq(secondBundleP2, price6);
-    assertEq(timestamp, timestamp2);
-    assertEq(decimals.length, decimals2By1[1].length);
-    assertEq(decimals[0], decimals2By1[1][0]);
+    assertEq(secondBundleP1, PRICE5);
+    assertEq(secondBundleP2, PRICE6);
+    assertEq(timestamp, TIMESTAMP2);
+    assertEq(decimals.length, s_decimals2By1[1].length);
+    assertEq(decimals[0], s_decimals2By1[1][0]);
   }
 
   function test_getLatestBundle1() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals1By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals1By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, bundleReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength1);
     vm.stopPrank();
 
-    bytes memory bundle = dataFeedsCache.getLatestBundle(dataIds[0]);
-    uint256 timestamp = dataFeedsCache.getLatestBundleTimestamp(dataIds[0]);
-    uint8[] memory decimals = dataFeedsCache.getBundleDecimals(dataIds[0]);
-    assertEq(bundle, abi.encode(price1, price2));
+    bytes memory bundle = s_dataFeedsCache.getLatestBundle(dataIds[0]);
+    uint256 timestamp = s_dataFeedsCache.getLatestBundleTimestamp(dataIds[0]);
+    uint8[] memory decimals = s_dataFeedsCache.getBundleDecimals(dataIds[0]);
+    assertEq(bundle, abi.encode(PRICE1, PRICE2));
     (uint256 firstBundleP1, uint256 firstBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(firstBundleP1, price1);
-    assertEq(firstBundleP2, price2);
-    assertEq(timestamp, timestamp1);
-    assertEq(decimals.length, decimals1By1[0].length);
-    assertEq(decimals[0], decimals1By1[0][0]);
+    assertEq(firstBundleP1, PRICE1);
+    assertEq(firstBundleP2, PRICE2);
+    assertEq(timestamp, TIMESTAMP1);
+    assertEq(decimals.length, s_decimals1By1[0].length);
+    assertEq(decimals[0], s_decimals1By1[0][0]);
   }
 
   function test_getLatestBundle2() public {
     bytes16[] memory dataIds = new bytes16[](2);
-    dataIds[0] = bytes16(dataId1);
-    dataIds[1] = bytes16(dataId2);
+    dataIds[0] = bytes16(DATAID1);
+    dataIds[1] = bytes16(DATAID2);
     string[] memory _descriptions = new string[](2);
-    _descriptions[0] = descriptions[0];
-    _descriptions[1] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
+    _descriptions[1] = s_descriptions[0];
 
-    dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, decimals2By1, workflowMetadata);
+    s_dataFeedsCache.setBundleFeedConfigs(dataIds, _descriptions, s_decimals2By1, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, bundleReportlength2);
+    s_dataFeedsCache.onReport(METADATA, s_bundleReportlength2);
     vm.stopPrank();
 
-    bytes memory bundle = dataFeedsCache.getLatestBundle(dataIds[0]);
-    uint256 timestamp = dataFeedsCache.getLatestBundleTimestamp(dataIds[0]);
-    uint8[] memory decimals = dataFeedsCache.getBundleDecimals(dataIds[0]);
-    assertEq(bundle, abi.encode(price3, price4));
+    bytes memory bundle = s_dataFeedsCache.getLatestBundle(dataIds[0]);
+    uint256 timestamp = s_dataFeedsCache.getLatestBundleTimestamp(dataIds[0]);
+    uint8[] memory decimals = s_dataFeedsCache.getBundleDecimals(dataIds[0]);
+    assertEq(bundle, abi.encode(PRICE3, PRICE4));
     (uint256 firstBundleP1, uint256 firstBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(firstBundleP1, price3);
-    assertEq(firstBundleP2, price4);
-    assertEq(timestamp, timestamp1);
-    assertEq(decimals.length, decimals2By1[0].length);
-    assertEq(decimals[0], decimals2By1[0][0]);
+    assertEq(firstBundleP1, PRICE3);
+    assertEq(firstBundleP2, PRICE4);
+    assertEq(timestamp, TIMESTAMP1);
+    assertEq(decimals.length, s_decimals2By1[0].length);
+    assertEq(decimals[0], s_decimals2By1[0][0]);
 
-    bundle = dataFeedsCache.getLatestBundle(dataIds[1]);
-    timestamp = dataFeedsCache.getLatestBundleTimestamp(dataIds[1]);
-    decimals = dataFeedsCache.getBundleDecimals(dataIds[1]);
-    assertEq(bundle, abi.encode(price5, price6));
+    bundle = s_dataFeedsCache.getLatestBundle(dataIds[1]);
+    timestamp = s_dataFeedsCache.getLatestBundleTimestamp(dataIds[1]);
+    decimals = s_dataFeedsCache.getBundleDecimals(dataIds[1]);
+    assertEq(bundle, abi.encode(PRICE5, PRICE6));
     (uint256 secondBundleP1, uint256 secondBundleP2) = abi.decode(bundle, (uint256, uint256));
-    assertEq(secondBundleP1, price5);
-    assertEq(secondBundleP2, price6);
-    assertEq(timestamp, timestamp2);
-    assertEq(decimals.length, decimals2By1[1].length);
-    assertEq(decimals[0], decimals2By1[1][0]);
+    assertEq(secondBundleP1, PRICE5);
+    assertEq(secondBundleP2, PRICE6);
+    assertEq(timestamp, TIMESTAMP2);
+    assertEq(decimals.length, s_decimals2By1[1].length);
+    assertEq(decimals[0], s_decimals2By1[1][0]);
   }
 
   function test_removeFeedsRevertInvalidSender() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     vm.startPrank(address(1002));
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.UnauthorizedCaller.selector, address(1002)));
-    dataFeedsCache.removeFeedConfigs(dataIds);
+    s_dataFeedsCache.removeFeedConfigs(dataIds);
   }
 
   function test_removeFeedsRevertNotConfiguredFeed() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
-    dataFeedsCache.setFeedAdmin(OWNER, true);
+    s_dataFeedsCache.setFeedAdmin(OWNER, true);
 
     vm.stopPrank();
     vm.startPrank(OWNER);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.FeedNotConfigured.selector, dataIds[0]));
-    dataFeedsCache.removeFeedConfigs(dataIds);
+    s_dataFeedsCache.removeFeedConfigs(dataIds);
   }
 
   function test_removeFeedsSuccess() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
 
     DataFeedsCache.WorkflowMetadata[] memory wfMetadata;
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, s_descriptions, s_workflowMetadata);
 
-    wfMetadata = dataFeedsCache.getFeedMetadata(dataIds[0], 0, 2);
+    wfMetadata = s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 2);
     assertEq(wfMetadata.length, 2);
-    bool hasPermission = dataFeedsCache.checkFeedPermission(dataIds[0], wfMetadata[0]);
+    bool hasPermission = s_dataFeedsCache.checkFeedPermission(dataIds[0], wfMetadata[0]);
     assertEq(hasPermission, true);
 
-    dataFeedsCache.setFeedAdmin(OWNER, true);
+    s_dataFeedsCache.setFeedAdmin(OWNER, true);
 
     vm.stopPrank();
     vm.startPrank(OWNER);
 
     vm.expectEmit();
     emit DataFeedsCache.FeedConfigRemoved(dataIds[0]);
-    dataFeedsCache.removeFeedConfigs(dataIds);
+    s_dataFeedsCache.removeFeedConfigs(dataIds);
 
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.FeedNotConfigured.selector, dataIds[0]));
-    dataFeedsCache.getFeedMetadata(dataIds[0], 0, 2);
-    hasPermission = dataFeedsCache.checkFeedPermission(dataIds[0], wfMetadata[0]);
+    s_dataFeedsCache.getFeedMetadata(dataIds[0], 0, 2);
+    hasPermission = s_dataFeedsCache.checkFeedPermission(dataIds[0], wfMetadata[0]);
     assertEq(hasPermission, false);
   }
 
   function test_getDataIdForProxy() public view {
-    bytes16 dataId = dataFeedsCache.getDataIdForProxy(proxyList[0]);
-    assertEq(dataId, bytes16(dataId1));
+    bytes16 dataId = s_dataFeedsCache.getDataIdForProxy(s_proxyList[0]);
+    assertEq(dataId, bytes16(DATAID1));
   }
 
   function test_recoverTokensRevertUnauthorized() public {
     vm.startPrank(ILLEGAL_CALLER);
 
     vm.expectRevert("Only callable by owner");
-    dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10008), 1 ether);
+    s_dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10008), 1 ether);
   }
 
   function test_recoverTokensERC20RevertNoBalance() public {
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InsufficientBalance.selector, 0, 1));
-    dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10007), 1);
+    s_dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10007), 1);
   }
 
   function testFuzzy_recoverTokensERC20Success(
     uint256 amount
   ) public {
     vm.assume(amount > 0);
-    s_link.mint(address(dataFeedsCache), amount);
+    s_link.mint(address(s_dataFeedsCache), amount);
 
     vm.expectEmit();
     emit DataFeedsCache.TokenRecovered(address(s_link), address(10008), amount);
-    dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10008), amount);
+    s_dataFeedsCache.recoverTokens(IERC20(address(s_link)), address(10008), amount);
     assertEq(s_link.balanceOf(address(10008)), amount);
-    assertEq(s_link.balanceOf(address(dataFeedsCache)), 0);
+    assertEq(s_link.balanceOf(address(s_dataFeedsCache)), 0);
   }
 
   function test_recoverTokensNativeRevertNoBalance() public {
     vm.expectRevert(abi.encodeWithSelector(DataFeedsCache.InsufficientBalance.selector, 0, 1 ether));
-    dataFeedsCache.recoverTokens(IERC20(address(0)), address(10007), 1 ether);
+    s_dataFeedsCache.recoverTokens(IERC20(address(0)), address(10007), 1 ether);
   }
 
   function testFuzzy_recoverTokensNativeSuccess(
     uint256 amount
   ) public {
     vm.assume(amount > 0);
-    vm.deal(address(dataFeedsCache), amount);
-    assertEq(address(dataFeedsCache).balance, amount);
+    vm.deal(address(s_dataFeedsCache), amount);
+    assertEq(address(s_dataFeedsCache).balance, amount);
 
     vm.expectEmit();
     emit DataFeedsCache.TokenRecovered(address(0), address(10007), amount);
-    dataFeedsCache.recoverTokens(IERC20(address(0)), address(10007), amount);
-    assertEq(address(dataFeedsCache).balance, 0);
+    s_dataFeedsCache.recoverTokens(IERC20(address(0)), address(10007), amount);
+    assertEq(address(s_dataFeedsCache).balance, 0);
     assertEq(address(10007).balance, amount);
   }
 
   function test_getLatestByFeedId() public {
     bytes16[] memory dataIds = new bytes16[](1);
-    dataIds[0] = bytes16(dataId1);
+    dataIds[0] = bytes16(DATAID1);
     string[] memory _descriptions = new string[](1);
-    _descriptions[0] = descriptions[0];
+    _descriptions[0] = s_descriptions[0];
 
-    dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, workflowMetadata);
+    s_dataFeedsCache.setDecimalFeedConfigs(dataIds, _descriptions, s_workflowMetadata);
 
     vm.startPrank(REPORT_SENDER);
-    dataFeedsCache.onReport(METADATA, decimalReportlength1);
+    s_dataFeedsCache.onReport(METADATA, s_decimalReportlength1);
 
-    uint256 timestamp = dataFeedsCache.getLatestTimestamp(dataIds[0]);
-    assertEq(timestamp, timestamp1);
+    uint256 timestamp = s_dataFeedsCache.getLatestTimestamp(dataIds[0]);
+    assertEq(timestamp, TIMESTAMP1);
 
-    (uint80 roundId, int256 answer, uint256 timestamp2, uint256 timestamp3, uint80 roundId2) =
-      dataFeedsCache.getLatestRoundData(dataIds[0]);
+    (uint80 roundId, int256 answer, uint256 TIMESTAMP2, uint256 timestamp3, uint80 roundId2) =
+      s_dataFeedsCache.getLatestRoundData(dataIds[0]);
     assertEq(roundId, 1);
     assertEq(roundId2, 1);
-    assertEq(answer, int256(price1));
-    assertEq(timestamp, timestamp2);
+    assertEq(answer, int256(PRICE1));
+    assertEq(timestamp, TIMESTAMP2);
     assertEq(timestamp, timestamp3);
 
-    uint8 decimals = dataFeedsCache.getDecimals(dataIds[0]);
+    uint8 decimals = s_dataFeedsCache.getDecimals(dataIds[0]);
     assertEq(decimals, 18);
 
-    string memory description = dataFeedsCache.getDescription(dataIds[0]);
-    assertEq(description, descriptions[0]);
+    string memory description = s_dataFeedsCache.getDescription(dataIds[0]);
+    assertEq(description, s_descriptions[0]);
   }
 }
 
