@@ -47,7 +47,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			getReferenceAddressesConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
 				Name:      "SourceChainState",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
@@ -57,7 +57,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "CommitReport",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
@@ -94,7 +94,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "GlobalState",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("state")},
 				},
@@ -104,7 +104,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "BillingTokenConfig",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("fee_billing_token_config")},
 					{Dynamic: chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}},
@@ -115,7 +115,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 			},
 			chainwriter.PDALookups{
 				Name:      "ChainConfigGasPrice",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("dest_chain_state")},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
@@ -148,7 +148,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					Name: "PoolLookupTable",
 					Accounts: chainwriter.PDALookups{
 						Name:      "TokenAdminRegistry",
-						PublicKey: offrampAddressConstant(offrampProgramAddress),
+						PublicKey: getAddressConstant(offrampProgramAddress),
 						Seeds: []chainwriter.Seed{
 							{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 						},
@@ -170,7 +170,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			getReferenceAddressesConfig(offrampProgramAddress),
 			chainwriter.PDALookups{
 				Name:      "SourceChainState",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
 					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
@@ -180,7 +180,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			},
 			chainwriter.PDALookups{
 				Name:      "CommitReport",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
 					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
@@ -192,26 +192,21 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 				IsSigner:   false,
 				IsWritable: true,
 			},
-			chainwriter.AccountConstant{
-				Name:       "Offramp",
-				Address:    offrampProgramAddress,
-				IsSigner:   false,
-				IsWritable: false,
-			},
+			getAddressConstant(offrampProgramAddress),
 			chainwriter.PDALookups{
 				Name:      "AllowedOfframp",
 				PublicKey: getRouterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("allowed_offramp")},
 					{Dynamic: chainwriter.AccountLookup{Location: sourceChainSelectorPath}},
-					{Dynamic: offrampAddressConstant(offrampProgramAddress)},
+					{Dynamic: getAddressConstant(offrampProgramAddress)},
 				},
 				IsSigner:   false,
 				IsWritable: false,
 			},
 			chainwriter.PDALookups{
 				Name:      "ExternalExecutionConfig",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_execution_config")},
 				},
@@ -223,7 +218,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			getSysVarInstructionConstant(),
 			chainwriter.PDALookups{
 				Name:      "ExternalTokenPoolsSigner",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_token_pools_signer")},
 				},
@@ -257,7 +252,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			},
 			chainwriter.PDALookups{
 				Name:      "PerChainTokenConfig",
-				PublicKey: offrampAddressConstant(offrampProgramAddress),
+				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("ccip_tokenpool_billing")},
 					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
@@ -346,16 +341,18 @@ func getOfframpAccountConfig(offrampProgramAddress string) chainwriter.PDALookup
 	}
 }
 
-func offrampAddressConstant(offrampProgramAddress string) chainwriter.AccountConstant {
+func getAddressConstant(address string) chainwriter.AccountConstant {
 	return chainwriter.AccountConstant{
-		Address: offrampProgramAddress,
+		Address: address,
+		IsSigner: false,
+		IsWritable: false,
 	}
 }
 
 func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
 		Name:      "FeeQuoter",
-		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
 		},
@@ -373,7 +370,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
 		Name:      "Router",
-		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
 		},
@@ -391,7 +388,7 @@ func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 func getReferenceAddressesConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
 		Name:      "ReferenceAddresses",
-		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
 		},
@@ -403,7 +400,7 @@ func getReferenceAddressesConfig(offrampProgramAddress string) chainwriter.PDALo
 func getFeeBillingSignerConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
 		Name:      "FeeBillingSigner",
-		PublicKey: offrampAddressConstant(offrampProgramAddress),
+		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("fee_billing_signer")},
 		},
@@ -417,7 +414,7 @@ func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter
 		Name: "CommonAddressLookupTable",
 		Accounts: chainwriter.PDALookups{
 			Name:      "OfframpLookupTable",
-			PublicKey: offrampAddressConstant(offrampProgramAddress),
+			PublicKey: getAddressConstant(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("reference_addresses")},
 			},
