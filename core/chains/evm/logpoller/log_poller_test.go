@@ -1544,7 +1544,7 @@ func TestTooManyLogResults(t *testing.T) {
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
@@ -1577,6 +1577,9 @@ func TestTooManyLogResults(t *testing.T) {
 			}
 			from := fq.FromBlock.Uint64()
 			to := fq.ToBlock.Uint64()
+			if to-from >= 8 {
+				return []types.Log{}, context.DeadlineExceeded // simulate RPC client timeout as a "too many results" scenario
+			}
 			if to-from >= 4 {
 				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
 			}

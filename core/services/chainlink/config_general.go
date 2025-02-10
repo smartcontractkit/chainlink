@@ -13,11 +13,8 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -201,7 +198,7 @@ func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
+func (g *generalConfig) CosmosConfigs() RawConfigs {
 	return g.c.Cosmos
 }
 
@@ -209,7 +206,7 @@ func (g *generalConfig) SolanaConfigs() solcfg.TOMLConfigs {
 	return g.c.Solana
 }
 
-func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
+func (g *generalConfig) StarknetConfigs() RawConfigs {
 	return g.c.Starknet
 }
 

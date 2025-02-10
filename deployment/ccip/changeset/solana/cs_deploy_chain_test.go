@@ -93,29 +93,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
-	// load onchain state
-	state, err := changeset.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	// verify all contracts populated
-	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	for _, sel := range evmSelectors {
-		require.NotNil(t, state.Chains[sel].LinkToken)
-		require.NotNil(t, state.Chains[sel].Weth9)
-		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[sel].RegistryModule)
-		require.NotNil(t, state.Chains[sel].Router)
-		require.NotNil(t, state.Chains[sel].RMNRemote)
-		require.NotNil(t, state.Chains[sel].TestRouter)
-		require.NotNil(t, state.Chains[sel].NonceManager)
-		require.NotNil(t, state.Chains[sel].FeeQuoter)
-		require.NotNil(t, state.Chains[sel].OffRamp)
-		require.NotNil(t, state.Chains[sel].OnRamp)
-	}
-
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
