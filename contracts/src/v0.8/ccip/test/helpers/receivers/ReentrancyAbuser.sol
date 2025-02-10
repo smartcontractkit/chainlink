@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {CCIPReceiver} from "../../../applications/CCIPReceiver.sol";
+import {CCIPReceiver} from "../../../applications/external/CCIPReceiver.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {Internal} from "../../../libraries/Internal.sol";
 import {OffRamp} from "../../../offRamp/OffRamp.sol";
@@ -27,7 +27,7 @@ contract ReentrancyAbuser is CCIPReceiver {
 
   function _ccipReceive(
     Client.Any2EVMMessage memory
-  ) internal override {
+  ) internal {
     // Use original message gas limits in manual execution
     OffRamp.GasLimitOverride[][] memory gasOverrides = _getGasLimitsFromMessages(s_payload.messages);
 

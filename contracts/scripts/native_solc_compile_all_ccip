@@ -56,8 +56,6 @@ function getOptimizations() {
 compileContract offRamp/OffRamp
 compileContract FeeQuoter
 compileContract onRamp/OnRamp
-compileContract applications/PingPongDemo
-compileContract applications/EtherSenderReceiver
 compileContract MultiAggregateRateLimiter
 compileContract Router
 compileContract tokenAdminRegistry/TokenAdminRegistry
@@ -67,6 +65,13 @@ compileContract NonceManager
 compileContract rmn/RMNRemote
 compileContract rmn/RMNHome
 compileContract rmn/RMNProxy
+
+# Applications
+compileContract applications/external/CCIPReceiver
+compileContract applications/external/CCIPClient
+compileContract applications/external/CCIPSender
+compileContract applications/internal/PingPongDemo
+compileContract applications/internal/EtherSenderReceiver
 
 # Pools
 compileContract pools/LockReleaseTokenPool
