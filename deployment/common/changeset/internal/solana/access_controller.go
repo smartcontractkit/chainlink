@@ -71,13 +71,6 @@ func initAccessController(
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String(), "programID", programID)
 
-	// FIXME: should we always redeploy or skip?
-	// pid, acc, err := chainState.GetStateFromType(contractType)
-	// if err == nil && !pid.IsZero() && pid == programID && !solana.PublicKey(acc).IsZero() {
-	// 	log.Infow("access controller already initialized", "account", acc)
-	// 	return nil
-	// }
-
 	account, err := solana.NewRandomPrivateKey() // FIXME: what should we do with the account private key?
 	if err != nil {
 		return fmt.Errorf("failed to generate new random private key for access controller account: %w", err)
@@ -103,12 +96,12 @@ func initAccessController(
 	return nil
 }
 
+// discriminator + owner + proposed owner + access_list (64 max addresses + length)
 const accessControllerAccountSize = uint64(8 + 32 + 32 + ((32 * 64) + 8))
 
 func initializeAccessController(
 	e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey, account solana.PrivateKey,
 ) error {
-	// discriminator + owner + proposed owner + access_list (64 max addresses + length)
 	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(),
 		accessControllerAccountSize, rpc.CommitmentConfirmed)
 	if err != nil {
@@ -152,6 +145,11 @@ func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain deployment.
 	err := addAccess(chain, chainState, timelockBindings.Proposer_Role, proposerPDA)
 	if err != nil {
 		return fmt.Errorf("failed to add access for proposer role: %w", err)
+	}
+
+	err = addAccess(chain, chainState, timelockBindings.Executor_Role, chain.DeployerKey.PublicKey())
+	if err != nil {
+		return fmt.Errorf("failed to add access for executor role: %w", err)
 	}
 
 	err = addAccess(chain, chainState, timelockBindings.Canceller_Role, cancellerPDA, proposerPDA, bypasserPDA)

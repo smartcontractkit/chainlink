@@ -83,8 +83,19 @@ func DeployMCMSWithTimelockProgramsSolana(
 		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
 	}
 
-	// TODO: how do we handle the absence of the callProxy? there's no "executor" configured at the moment
-	// TODO: how do we handle the absence of EVM's "grantRole"? the Timelock is not setup as the MCM admin
+	err = transferOwnership(chainState, chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
+	}
 
 	return chainState, nil
+}
+
+func transferOwnership(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
+	err := transferOwnershipTimelock(chain, chainState.TimelockProgram, chainState.TimelockSeed)
+	if err != nil {
+		return fmt.Errorf("failed to transfer ownership of timelock: %w", err)
+	}
+
+	return nil
 }
