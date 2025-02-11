@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -56,8 +57,6 @@ func TestTokenTransfer(t *testing.T) {
 		"OWNER_TOKEN",
 	)
 	require.NoError(t, err)
-	t.Logf("srcToken: %+v", srcToken)
-	t.Logf("destToken: %+v", destToken)
 
 	// Deploy Self Serve tokens and pool
 	selfServeSrcToken, _, selfServeDestToken, _, err := testhelpers.DeployTransferableToken(
@@ -220,44 +219,3 @@ func TestTokenTransfer(t *testing.T) {
 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
 }
-
-// func TestTokenTransfer_Solana(t *testing.T) {
-// 	lggr := logger.TestLogger(t)
-// 	// ctx := tests.Context(t)
-
-// 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
-// 		testhelpers.WithNumOfUsersPerChain(3),
-// 		testhelpers.WithSolChains(1))
-
-// 	e := tenv.Env
-// 	state, err := changeset.LoadOnchainState(e)
-// 	require.NoError(t, err)
-// 	require.GreaterOrEqual(t, len(e.Chains), 2)
-
-// 	allChainSelectors := maps.Keys(e.Chains)
-// 	allSolChainSelectors := maps.Keys(e.SolChains)
-// 	sourceChain, destChain := allChainSelectors[0], allSolChainSelectors[0]
-// 	ownerSourceChain := e.Chains[sourceChain].DeployerKey
-// 	// ownerDestChain := e.SolChains[destChain].DeployerKey
-
-// 	require.GreaterOrEqual(t, len(tenv.Users[sourceChain]), 2)
-
-// 	// oneE18 := new(big.Int).SetUint64(1e18)
-
-// 	// Deploy tokens and pool by CCIP Owner
-// 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-// 		t,
-// 		lggr,
-// 		e,
-// 		sourceChain,
-// 		destChain,
-// 		ownerSourceChain,
-// 		e.ExistingAddresses,
-// 		"OWNER_TOKEN",
-// 	)
-// 	fmt.Println("srcToken", srcToken)
-// 	fmt.Println("destToken", destToken)
-// 	require.NoError(t, err)
-
-// 	testhelpers.AddLanesForAll(t, &tenv, state)
-// }
