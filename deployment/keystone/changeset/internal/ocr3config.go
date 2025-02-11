@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -236,7 +236,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		})
 	}
 
-	cfgBytes, err := proto.Marshal(&types2.ReportingPluginConfig{
+	cfgBytes, err := proto.Marshal(&capocr3types.ReportingPluginConfig{
 		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
 		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
 		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
