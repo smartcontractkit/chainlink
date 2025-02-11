@@ -20,11 +20,11 @@ var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
-	sourceChainSelectorPath = "Info.AbstractReports.Messages.Header.SourceChainSelector"
-	destChainSelectorPath   = "Info.AbstractReports.Messages.Header.DestChainSelector"
-	destTokenAddress        = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
+	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
+	destChainSelectorPath         = "Info.AbstractReports.Messages.Header.DestChainSelector"
+	destTokenAddress              = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
 	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
-	merkleRoot              = "Info.MerkleRoots.MerkleRoot"
+	merkleRoot                    = "Info.MerkleRoots.MerkleRoot"
 )
 
 func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, destChainSelector uint64) chainwriter.MethodConfig {
