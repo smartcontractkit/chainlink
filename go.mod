@@ -78,7 +78,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250207152018-27a940edbb09
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250211150519-b2a6a3dfe086
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250206215114-fb6c3c35e8e3
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
@@ -127,7 +127,10 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
-require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
+require (
+	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
+)
 
 require (
 	cosmossdk.io/errors v1.0.1 // indirect
