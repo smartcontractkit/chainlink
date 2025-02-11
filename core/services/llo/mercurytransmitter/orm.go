@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/lib/pq"
 
@@ -20,7 +21,7 @@ type ORM interface {
 	DonID() uint32
 	Insert(ctx context.Context, transmissions []*Transmission) error
 	Delete(ctx context.Context, hashes [][32]byte) error
-	Get(ctx context.Context, serverURL string, limit int) ([]*Transmission, error)
+	Get(ctx context.Context, serverURL string, limit int, maxAge time.Duration) ([]*Transmission, error)
 	Prune(ctx context.Context, serverURL string, maxSize, batchSize int) (int64, error)
 }
 
@@ -116,16 +117,24 @@ func (o *orm) Delete(ctx context.Context, hashes [][32]byte) error {
 }
 
 // Get returns all transmissions in chronologically descending order
-func (o *orm) Get(ctx context.Context, serverURL string, limit int) ([]*Transmission, error) {
+// NOTE: passing maxAge=0 disables any age filter
+func (o *orm) Get(ctx context.Context, serverURL string, limit int, maxAge time.Duration) ([]*Transmission, error) {
 	// The priority queue uses seqnr to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
-	rows, err := o.ds.QueryContext(ctx, `
+	maxAgeClause := ""
+	params := []interface{}{o.donID, serverURL, limit}
+	if maxAge > 0 {
+		maxAgeClause = "\nAND inserted_at >= NOW() - ($4 * INTERVAL '1 MICROSECOND')"
+		params = append(params, maxAge.Microseconds())
+	}
+	q := fmt.Sprintf(`
 		SELECT config_digest, seq_nr, report, lifecycle_stage, report_format, signatures, signers
 		FROM llo_mercury_transmit_queue
-		WHERE don_id = $1 AND server_url = $2
+		WHERE don_id = $1 AND server_url = $2%s
 		ORDER BY seq_nr DESC, inserted_at DESC
 		LIMIT $3
-	`, o.donID, serverURL, limit)
+		`, maxAgeClause)
+	rows, err := o.ds.QueryContext(ctx, q, params...)
 	if err != nil {
 		return nil, fmt.Errorf("llo orm: failed to get transmissions: %w", err)
 	}

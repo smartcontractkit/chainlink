@@ -15,6 +15,7 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -70,12 +71,12 @@ func SignProposal(t *testing.T, env deployment.Environment, proposal *timelock.M
 
 // Deprecated: Use ExecuteMCMSTimelockProposalV2 instead.
 func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Executor,
-	timelockContracts *TimelockExecutionContracts, sel uint64) {
+	timelockContracts *TimelockExecutionContracts, sel uint64) error {
 	t.Log("Executing proposal on chain", sel)
 	// Set the root.
 	tx, err2 := executor.SetRootOnChain(env.Chains[sel].Client, env.Chains[sel].DeployerKey, mcms.ChainIdentifier(sel))
 	if err2 != nil {
-		require.NoError(t, deployment.MaybeDataErr(err2))
+		require.NoError(t, deployment.MaybeDataErr(err2), "failed to set root")
 	}
 
 	_, err2 = env.Chains[sel].Confirm(tx)
@@ -85,7 +86,8 @@ func ExecuteProposal(t *testing.T, env deployment.Environment, executor *mcms.Ex
 		TimelockContracts: timelockContracts,
 		ChainSelector:     sel,
 	}
-	require.NoError(t, RunTimelockExecutor(env, cfg))
+	// return the error so devs can ensure expected reversions
+	return RunTimelockExecutor(env, cfg)
 }
 
 // SignMCMSTimelockProposal - Signs an MCMS timelock proposal.
@@ -93,15 +95,24 @@ func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal
 	converters := make(map[types.ChainSelector]sdk.TimelockConverter)
 	inspectorsMap := make(map[types.ChainSelector]sdk.Inspector)
 	for _, chain := range env.Chains {
-		chainselc, exists := chainsel.ChainBySelector(chain.Selector)
+		_, exists := chainsel.ChainBySelector(chain.Selector)
 		require.True(t, exists)
-		chainSel := types.ChainSelector(chainselc.Selector)
+		chainSel := types.ChainSelector(chain.Selector)
 		converters[chainSel] = &evm.TimelockConverter{}
 		inspectorsMap[chainSel] = evm.NewInspector(chain.Client)
 	}
 
+	for _, chain := range env.SolChains {
+		_, exists := chainsel.SolanaChainBySelector(chain.Selector)
+		require.True(t, exists)
+		chainSel := types.ChainSelector(chain.Selector)
+		converters[chainSel] = &solana.TimelockConverter{}
+		inspectorsMap[chainSel] = solana.NewInspector(chain.Client)
+	}
+
 	p, _, err := proposal.Convert(env.GetContext(), converters)
 	require.NoError(t, err)
+
 	p.UseSimulatedBackend(true)
 
 	signable, err := mcmslib.NewSignable(&p, inspectorsMap)
@@ -133,7 +144,16 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 		inspectorsMap[chainSel] = evm.NewInspector(chain.Client)
 	}
 
+	for _, chain := range env.SolChains {
+		_, exists := chainsel.SolanaChainBySelector(chain.Selector)
+		require.True(t, exists)
+		chainSel := types.ChainSelector(chain.Selector)
+		converters[chainSel] = &solana.TimelockConverter{}
+		inspectorsMap[chainSel] = solana.NewInspector(chain.Client)
+	}
+
 	proposal.UseSimulatedBackend(true)
+
 	signable, err := mcmslib.NewSignable(proposal, inspectorsMap)
 	require.NoError(t, err)
 
@@ -155,33 +175,52 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal, sel uint64) {
 	t.Log("Executing proposal on chain", sel)
 
+	executorsMap := map[types.ChainSelector]sdk.Executor{}
 	encoders, err := proposal.GetEncoders()
 	require.NoError(t, err)
 
-	selector := types.ChainSelector(sel)
-	encoder := encoders[selector].(*evm.Encoder)
-	evmExecutor := evm.NewExecutor(encoder, env.Chains[sel].Client, env.Chains[sel].DeployerKey)
-	executorsMap := map[types.ChainSelector]sdk.Executor{
-		selector: evmExecutor,
+	family, err := chainsel.GetSelectorFamily(sel)
+	require.NoError(t, err)
+
+	chainSel := types.ChainSelector(sel)
+
+	switch family {
+	case chainsel.FamilyEVM:
+		encoder := encoders[chainSel].(*evm.Encoder)
+		chain := env.Chains[sel]
+		executorsMap[chainSel] = evm.NewExecutor(encoder, chain.Client, chain.DeployerKey)
+	case chainsel.FamilySolana:
+		encoder := encoders[chainSel].(*solana.Encoder)
+		chain := env.SolChains[sel]
+		executorsMap[chainSel] = solana.NewExecutor(encoder, chain.Client, *chain.DeployerKey)
+	default:
+		require.FailNow(t, "unsupported chain family")
 	}
+
 	executable, err := mcmslib.NewExecutable(proposal, executorsMap)
 	require.NoError(t, err)
 
-	chain := env.Chains[sel]
-	root, err := executable.SetRoot(env.GetContext(), selector)
+	root, err := executable.SetRoot(env.GetContext(), chainSel)
 	require.NoError(t, deployment.MaybeDataErr(err))
 
-	evmTransaction := root.RawTransaction.(*gethtypes.Transaction)
-	_, err = chain.Confirm(evmTransaction)
-	require.NoError(t, err)
+	// no need to confirm transaction on solana as the MCMS sdk confirms it internally
+	if family == chainsel.FamilyEVM {
+		chain := env.Chains[sel]
+		evmTransaction := root.RawTransaction.(*gethtypes.Transaction)
+		_, err = chain.Confirm(evmTransaction)
+		require.NoError(t, err)
+	}
 
 	for i := range proposal.Operations {
 		result, err := executable.Execute(env.GetContext(), i)
 		require.NoError(t, err)
 
-		evmTransaction = result.RawTransaction.(*gethtypes.Transaction)
-		_, err = chain.Confirm(evmTransaction)
-		require.NoError(t, err)
+		if family == chainsel.FamilyEVM {
+			chain := env.Chains[sel]
+			evmTransaction := result.RawTransaction.(*gethtypes.Transaction)
+			_, err = chain.Confirm(evmTransaction)
+			require.NoError(t, err)
+		}
 	}
 }
 
@@ -191,12 +230,21 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 	t.Log("Executing timelock proposal on chain", sel)
 
 	tExecutors := map[types.ChainSelector]sdk.TimelockExecutor{}
-	chain := env.Chains[sel]
+	family, err := chainsel.GetSelectorFamily(sel)
+	require.NoError(t, err)
 
-	chainSel := types.ChainSelector(sel)
-	tExecutors[chainSel] = evm.NewTimelockExecutor(
-		env.Chains[sel].Client,
-		env.Chains[sel].DeployerKey)
+	switch family {
+	case chainsel.FamilyEVM:
+		tExecutors[types.ChainSelector(sel)] = evm.NewTimelockExecutor(
+			env.Chains[sel].Client,
+			env.Chains[sel].DeployerKey)
+	case chainsel.FamilySolana:
+		tExecutors[types.ChainSelector(sel)] = solana.NewTimelockExecutor(
+			env.SolChains[sel].Client,
+			*env.SolChains[sel].DeployerKey)
+	default:
+		require.FailNow(t, "unsupported chain family")
+	}
 
 	timelockExecutable, err := mcmslib.NewTimelockExecutable(timelockProposal, tExecutors)
 	require.NoError(t, err)
@@ -208,9 +256,14 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 	for i := range timelockProposal.Operations {
 		tx, err = timelockExecutable.Execute(env.GetContext(), i, opts...)
 		require.NoError(t, err)
-		evmTransaction := tx.RawTransaction.(*gethtypes.Transaction)
-		_, err = chain.Confirm(evmTransaction)
-		require.NoError(t, err)
+
+		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
+		if family == chainsel.FamilyEVM {
+			chain := env.Chains[sel]
+			evmTransaction := tx.RawTransaction.(*gethtypes.Transaction)
+			_, err = chain.Confirm(evmTransaction)
+			require.NoError(t, err)
+		}
 	}
 }
 

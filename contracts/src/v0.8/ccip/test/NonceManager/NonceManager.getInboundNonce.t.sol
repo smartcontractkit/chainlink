@@ -33,19 +33,22 @@ contract NonceManager_getInboundNonce is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       isEnabled: true,
-      onRamp: ON_RAMP_ADDRESS_1
+      onRamp: ON_RAMP_ADDRESS_1,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       isEnabled: true,
-      onRamp: ON_RAMP_ADDRESS_2
+      onRamp: ON_RAMP_ADDRESS_2,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[2] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       isEnabled: true,
-      onRamp: ON_RAMP_ADDRESS_3
+      onRamp: ON_RAMP_ADDRESS_3,
+      isRMNVerificationDisabled: false
     });
 
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);

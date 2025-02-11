@@ -24,7 +24,6 @@ jobs:
     outputs:
       affected-modules: ${{ steps.resolved-modules.outputs.module_names }}
       deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
-      scripts-changes: ${{ steps.match-some.outputs.scripts == 'true' }}
       should-run-ci-core: >-
         ${{
           steps.match-some.outputs.core-ci == 'true' ||
@@ -36,12 +35,6 @@ jobs:
         ${{
           steps.match-some.outputs.golang-ci == 'true' ||
           steps.match-every.outputs.non-ignored == 'true'
-        }}
-      should-run-scripts-test: >-
-        ${{
-          steps.match-some.outputs.scripts == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
         }}
     runs-on: ubuntu-latest
     steps:
@@ -56,7 +49,6 @@ jobs:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
           # deployment - any changes to files in the `deployments/`
-          # scripts - any changes to files in the `core/scripts/`
           # core-ci - any changes that could affect this workflow definition
           # golang-ci - any changes that could affect the linting result
           filters: |
@@ -69,8 +61,6 @@ jobs:
               - '.golangci.yml'
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-            scripts:
-              - 'core/scripts/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-every
         with:
@@ -347,7 +337,7 @@ jobs:
     name: test-scripts
     needs: [filter]
     runs-on: ubuntu-latest
-    if: ${{  needs.filter.outputs.should-run-scripts-test == 'true' }}
+    if: ${{  needs.filter.outputs.should-run-ci-core == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4.2.1

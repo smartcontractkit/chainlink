@@ -513,6 +513,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		MercuryPool:                mercuryPool,
 		NewOracleFactoryFn:         newOracleFactoryFn,
 		RetirementReportCache:      retirementReportCache,
+		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})
 
 	require.NoError(t, err)

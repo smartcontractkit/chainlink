@@ -464,7 +464,7 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	case chain_selectors.FamilyEVM:
 		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
-		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+		offRampAddress = s.SolChains[chainSelector].OffRamp.Bytes()
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}

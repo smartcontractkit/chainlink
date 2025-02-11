@@ -722,8 +722,9 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 				updates[dest] = make(map[uint64]ccipcs.OffRampSourceUpdate)
 			}
 			updates[dest][source] = ccipcs.OffRampSourceUpdate{
-				IsEnabled:  true,
-				TestRouter: testRouterEnabled,
+				IsEnabled:                 true,
+				TestRouter:                testRouterEnabled,
+				IsRMNVerificationDisabled: true,
 			}
 		}
 	}
