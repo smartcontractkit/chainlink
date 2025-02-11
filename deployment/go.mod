@@ -31,10 +31,11 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-salt-fix
 	github.com/smartcontractkit/chain-selectors v1.0.40
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250205112004-de941c0fb84e
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250128193522-bdbfcc588847
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250211150519-b2a6a3dfe086
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250210201649-d9b9b053905e
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250211175547-dd6258ec090b
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250130175645-f9ffc7ee5eab
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250205171936-649f95193678
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250207060333-005a15b407b0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.4.7
