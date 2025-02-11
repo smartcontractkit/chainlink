@@ -47,6 +47,7 @@ type SetupTestRegistryResponse struct {
 	Chain                deployment.Chain
 	RegistrySelector     uint64
 	CapabilityCache      *CapabilityCache
+	Nops                 []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
 }
 
 // SetupTestRegistry deploys a capabilities registry to the given chain
@@ -82,6 +83,7 @@ func SetupTestRegistry(t *testing.T, lggr logger.Logger, req *SetupTestRegistryR
 		Chain:                chain,
 		RegistrySelector:     chain.Selector,
 		CapabilityCache:      capCache,
+		Nops:                 addNopsResp.Nops,
 	}
 }
 
@@ -153,7 +155,7 @@ func MustAddCapabilities(
 	registry *capabilities_registry.CapabilitiesRegistry,
 ) ([]internal.RegisteredCapability, *CapabilityCache) {
 	t.Helper()
-	cache := NewCapabiltyCache(t)
+	cache := NewCapabiltyCache(t, registry)
 	var capabilities []capabilities_registry.CapabilitiesRegistryCapability
 	for _, caps := range in {
 		capabilities = append(capabilities, caps...)
@@ -161,8 +163,8 @@ func MustAddCapabilities(
 
 	registeredCapabilities := cache.AddCapabilities(lggr, chain, registry, capabilities)
 	expectedDeduped := make(map[capabilities_registry.CapabilitiesRegistryCapability]struct{})
-	for _, cap := range capabilities {
-		expectedDeduped[cap] = struct{}{}
+	for _, c := range capabilities {
+		expectedDeduped[c] = struct{}{}
 	}
 	require.Len(t, registeredCapabilities, len(expectedDeduped))
 	return registeredCapabilities, cache
@@ -184,11 +186,11 @@ func GetRegisteredCapabilities(
 	}
 
 	registeredCapabilities := make([]internal.RegisteredCapability, 0)
-	for _, cap := range capabilities {
-		id, exists := cache.Get(cap)
-		require.True(t, exists, "capability not found in cache %v", cap)
+	for _, c := range capabilities {
+		id, exists := cache.Get(c)
+		require.True(t, exists, "capability not found in cache %v", c)
 		registeredCapabilities = append(registeredCapabilities, internal.RegisteredCapability{
-			CapabilitiesRegistryCapability: cap,
+			CapabilitiesRegistryCapability: c,
 			ID:                             id,
 		})
 	}
@@ -314,14 +316,27 @@ type CapabilityCache struct {
 	nameToId map[string][32]byte
 }
 
-func NewCapabiltyCache(t *testing.T) *CapabilityCache {
-	return &CapabilityCache{
+func NewCapabiltyCache(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry) *CapabilityCache {
+	cache := &CapabilityCache{
 		t:        t,
 		nameToId: make(map[string][32]byte),
 	}
+	caps, err := registry.GetCapabilities(nil)
+	require.NoError(t, err)
+	for _, capb := range caps {
+		c := capabilities_registry.CapabilitiesRegistryCapability{
+			LabelledName:   capb.LabelledName,
+			Version:        capb.Version,
+			CapabilityType: capb.CapabilityType,
+		}
+		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, c.LabelledName, c.Version)
+		require.NoError(t, err)
+		cache.nameToId[internal.CapabilityID(c)] = id
+	}
+	return cache
 }
-func (cc *CapabilityCache) Get(cap capabilities_registry.CapabilitiesRegistryCapability) ([32]byte, bool) {
-	id, exists := cc.nameToId[internal.CapabilityID(cap)]
+func (cc *CapabilityCache) Get(c capabilities_registry.CapabilitiesRegistryCapability) ([32]byte, bool) {
+	id, exists := cc.nameToId[internal.CapabilityID(c)]
 	return id, exists
 }
 
@@ -407,9 +422,9 @@ func mustCapabilityIds(t *testing.T, registry *capabilities_registry.Capabilitie
 	return out
 }
 
-func MustCapabilityId(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, cap capabilities_registry.CapabilitiesRegistryCapability) [32]byte {
+func MustCapabilityID(t *testing.T, registry *capabilities_registry.CapabilitiesRegistry, c capabilities_registry.CapabilitiesRegistryCapability) [32]byte {
 	t.Helper()
-	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)
+	id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, c.LabelledName, c.Version)
 	require.NoError(t, err)
 	return id
 }

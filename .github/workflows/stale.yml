@@ -13,6 +13,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     permissions:
+      contents: write # only for delete-branch option
       issues: write
       pull-requests: write
 
@@ -23,5 +24,6 @@ jobs:
           exempt-all-pr-assignees: true
           stale-pr-message: "This PR is stale because it has been open 60 days with no activity. Remove stale label or comment or this will be closed in 7 days."
           days-before-issue-stale: -1 # disables marking issues as stale automatically. Issues can still be marked as stale manually, in which the closure policy applies.
+          delete-branch: true
           # Comma separated list of labels that exempt issues from being considered stale.
           exempt-pr-labels: "stale-exempt"

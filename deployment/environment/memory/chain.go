@@ -29,9 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 type EVMChain struct {
@@ -196,19 +196,19 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		port := freeport.GetOne(t)
 
 		programIds := map[string]string{
-			"ccip_router":   solTestConfig.CcipRouterProgram.String(),
-			"token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
-			"ccip_receiver": solTestConfig.CcipLogicReceiver.String(),
+			"ccip_router":        solTestConfig.CcipRouterProgram.String(),
+			"test_token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
+			"fee_quoter":         solTestConfig.FeeQuoterProgram.String(),
+			"test_ccip_receiver": solTestConfig.CcipLogicReceiver.String(),
+			"ccip_offramp":       solTestConfig.CcipOfframpProgram.String(),
 		}
 
 		bcInput := &blockchain.Input{
-			Type:         "solana",
-			ChainID:      strconv.FormatUint(chainID, 10),
-			PublicKey:    adminKey.PublicKey().String(),
-			Port:         strconv.Itoa(port),
-			ContractsDir: ProgramsPath,
-			// TODO: this should be solTestConfig.CCIPRouterProgram
-			// TODO: make this a function
+			Type:           "solana",
+			ChainID:        strconv.FormatUint(chainID, 10),
+			PublicKey:      adminKey.PublicKey().String(),
+			Port:           strconv.Itoa(port),
+			ContractsDir:   ProgramsPath,
 			SolanaPrograms: programIds,
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)

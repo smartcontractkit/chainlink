@@ -14,8 +14,11 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -157,6 +160,7 @@ func addTxsToProposalBatch(setConfigTxsChain setConfigTxs, chainSelector uint64,
 }
 
 // SetConfigMCMS sets the configuration of the MCMS contract on the chain identified by the chainSelector.
+// Deprecated: Use SetConfigMCMSV2 instead.
 func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
@@ -205,4 +209,76 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 	}
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+// SetConfigMCMSV2 is a reimplementation of SetConfigMCMS that uses the new MCMS library.
+func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
+	selectors := []uint64{}
+	lggr := e.Logger
+	ctx := e.GetContext()
+	for chainSelector := range cfg.ConfigsPerChain {
+		selectors = append(selectors, chainSelector)
+	}
+	useMCMS := cfg.ProposalConfig != nil
+	err := cfg.Validate(e, selectors)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	var batches []mcmstypes.BatchOperation
+	timelockAddressesPerChain := map[uint64]string{}
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	proposerMcmsPerChain := map[uint64]string{}
+
+	mcmsStatePerChain, err := MaybeLoadMCMSWithTimelockState(e, selectors)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	for chainSelector, c := range cfg.ConfigsPerChain {
+		chain := e.Chains[chainSelector]
+		state := mcmsStatePerChain[chainSelector]
+		timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
+		proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
+		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
+		setConfigTxsChain, err := setConfigPerRole(ctx, lggr, chain, c, state, useMCMS)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if useMCMS {
+			batch := addTxsToProposalBatchV2(setConfigTxsChain, chainSelector, *state)
+			batches = append(batches, batch)
+		}
+	}
+
+	if useMCMS {
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(e.GetContext(), timelockAddressesPerChain,
+			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", cfg.ProposalConfig.MinDelay)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
+		}
+		lggr.Infow("SetConfigMCMS proposal created", "proposal", proposal)
+		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state MCMSWithTimelockState) mcmstypes.BatchOperation {
+	result := mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(chainSelector),
+		Transactions:  []mcmstypes.Transaction{},
+	}
+
+	result.Transactions = append(result.Transactions,
+		evm.NewTransaction(state.ProposerMcm.Address(),
+			setConfigTxsChain.proposerTx.Data(), big.NewInt(0), string(commontypes.ProposerManyChainMultisig), nil))
+
+	result.Transactions = append(result.Transactions, evm.NewTransaction(state.CancellerMcm.Address(),
+		setConfigTxsChain.cancellerTx.Data(), big.NewInt(0), string(commontypes.CancellerManyChainMultisig), nil))
+
+	result.Transactions = append(result.Transactions,
+		evm.NewTransaction(state.BypasserMcm.Address(),
+			setConfigTxsChain.bypasserTx.Data(), big.NewInt(0), string(commontypes.BypasserManyChainMultisig), nil))
+	return result
 }
