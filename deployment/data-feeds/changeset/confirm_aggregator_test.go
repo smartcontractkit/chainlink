@@ -1,8 +1,9 @@
 package changeset_test
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"go.uber.org/zap/zapcore"
 
@@ -30,7 +31,7 @@ func TestConfirmAggregator(t *testing.T) {
 	proxy, _ := changeset.DeployAggregatorProxy(env.Chains[chainSelector], cache.Address, common.HexToAddress("0x"), []string{})
 
 	tx, _ := proxy.Contract.ProposeAggregator(env.Chains[chainSelector].DeployerKey, common.HexToAddress("0x123"))
-	env.Chains[chainSelector].Confirm(tx)
+	_, err := env.Chains[chainSelector].Confirm(tx)
 
 	resp, err := changeset.ConfirmAggregatorChangeset(env, types.ProposeConfirmAggregatorConfig{
 		ChainSelector: chainSelector,
@@ -40,5 +41,4 @@ func TestConfirmAggregator(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }

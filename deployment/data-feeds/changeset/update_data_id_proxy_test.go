@@ -1,11 +1,12 @@
 package changeset_test
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
-	"strings"
-	"testing"
 
 	"go.uber.org/zap/zapcore"
 
@@ -46,7 +47,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	}
 	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
 
-	changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
+	_, err := changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
 		ChainSelector: chainSelector,
 		CacheAddress:  common.HexToAddress(cacheAddress),
 		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
@@ -54,13 +55,13 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	})
 	// End of pre-requisite contracts
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 
-	resp, err := changeset.UpdateDataIdProxyChangeset(env, types.UpdateDataIdProxyConfig{
+	resp, err := changeset.UpdateDataIDProxyChangeset(env, types.UpdateDataIDProxyConfig{
 		ChainSelector: chainSelector,
 		CacheAddress:  common.HexToAddress(cacheAddress),
 		Proxies:       []common.Address{common.HexToAddress("0x11")},
-		DataIds:       [][16]byte{dataid},
+		DataIDs:       [][16]byte{dataID},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)

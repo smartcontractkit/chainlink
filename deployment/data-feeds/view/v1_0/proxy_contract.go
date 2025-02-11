@@ -1,7 +1,9 @@
 package v1_0
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 )
@@ -10,14 +12,14 @@ type ProxyView struct {
 	TypeAndVersion string         `json:"typeAndVersion,omitempty"`
 	Address        common.Address `json:"address,omitempty"`
 	Owner          common.Address `json:"owner,omitempty"`
-	Description    string         `json:description,omitempty`
+	Description    string         `json:"description,omitempty"`
 	Aggregator     common.Address `json:"aggregator,omitempty"`
 }
 
 // GenerateAggregatorProxyView generates a ProxyView from a AggregatorProxy contract.
 func GenerateAggregatorProxyView(proxy *proxy.AggregatorProxy) (ProxyView, error) {
 	if proxy == nil {
-		return ProxyView{}, fmt.Errorf("cannot generate view for nil AggregatorProxy")
+		return ProxyView{}, errors.New("cannot generate view for nil AggregatorProxy")
 	}
 
 	description, err := proxy.Description(nil)
@@ -33,7 +35,6 @@ func GenerateAggregatorProxyView(proxy *proxy.AggregatorProxy) (ProxyView, error
 	aggregator, err := proxy.Aggregator(nil)
 	if err != nil {
 		return ProxyView{}, fmt.Errorf("failed to get aggregator for AggregatorProxy: %w", err)
-
 	}
 
 	return ProxyView{

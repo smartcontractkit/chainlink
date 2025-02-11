@@ -2,12 +2,13 @@ package changeset_test
 
 import (
 	"embed"
+	"strings"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"strings"
-	"testing"
 
 	"go.uber.org/zap/zapcore"
 
@@ -51,7 +52,7 @@ func TestMigrateFeeds(t *testing.T) {
 	}
 	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
 
-	changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
+	_, err := changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
 		ChainSelector: chainSelector,
 		CacheAddress:  common.HexToAddress(cacheAddress),
 		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
@@ -74,5 +75,4 @@ func TestMigrateFeeds(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }

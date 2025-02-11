@@ -3,6 +3,8 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -10,51 +12,35 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"math/big"
 )
 
-var _ deployment.ChangeSet[types.UpdateDataIdProxyConfig] = UpdateDataIdProxyChangeset
+var _ deployment.ChangeSet[types.UpdateDataIDProxyConfig] = UpdateDataIDProxyChangeset
 
-func UpdateDataIdProxyChangeset(env deployment.Environment, c types.UpdateDataIdProxyConfig) (deployment.ChangesetOutput, error) {
-	if len(c.DataIds) != len(c.Proxies) {
+func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataIDProxyConfig) (deployment.ChangesetOutput, error) {
+	if len(c.DataIDs) != len(c.Proxies) {
 		return deployment.ChangesetOutput{}, errors.New("dataIds and proxies length mismatch")
 	}
-	state, err := LoadOnchainState(env)
+	err := ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load on chain state %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate cache for chain %w", err)
 	}
-	chain, ok := env.Chains[c.ChainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
-	}
-	chainState, ok := state.Chains[c.ChainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("chain not found in on chain state")
-	}
-	if chainState.DataFeedsCache == nil {
-		return deployment.ChangesetOutput{}, errors.New("DataFeedsCache not found in on chain state")
-	}
-	contract, ok := chainState.DataFeedsCache[c.CacheAddress]
-	if !ok {
-		return deployment.ChangesetOutput{}, errors.New("contract not found in on chain state")
-	}
+
+	state, _ := LoadOnchainState(env)
+	chain, _ := env.Chains[c.ChainSelector]
+	chainState, _ := state.Chains[c.ChainSelector]
+	contract, _ := chainState.DataFeedsCache[c.CacheAddress]
 
 	txOpt := chain.DeployerKey
 	if c.UseMCMS {
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.Proxies, c.DataIds)
+	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.Proxies, c.DataIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
 
-	if !c.UseMCMS {
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
-		}
-	} else {
+	if c.UseMCMS {
 		ops := &timelock.BatchChainOperation{
 			ChainIdentifier: mcms.ChainIdentifier(c.ChainSelector),
 			Batch: []mcms.Operation{
@@ -84,6 +70,10 @@ func UpdateDataIdProxyChangeset(env deployment.Environment, c types.UpdateDataId
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	return deployment.ChangesetOutput{}, nil

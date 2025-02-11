@@ -25,7 +25,7 @@ func LoadJSON[T any](pth string, fs fs.ReadFileFS) (T, error) {
 func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	decodedBytes, err := hex.DecodeString(hexStr)
 	if err != nil {
-		return [16]byte{}, fmt.Errorf("failed to decode hex string: %v", err)
+		return [16]byte{}, fmt.Errorf("failed to decode hex string: %w", err)
 	}
 
 	var result [16]byte
@@ -39,7 +39,7 @@ func HashedWorkflowName(name string) [10]byte {
 	hash := sha256.Sum256([]byte(name))
 
 	// Encode as hex to ensure UTF8
-	var hashBytes []byte = hash[:]
+	var hashBytes = hash[:]
 	resultHex := hex.EncodeToString(hashBytes)
 
 	// Truncate to 10 bytes

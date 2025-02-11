@@ -2,6 +2,7 @@ package types
 
 import (
 	"embed"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
@@ -58,17 +59,17 @@ type ProposeConfirmAggregatorConfig struct {
 type SetFeedDecimalConfig struct {
 	ChainSelector    uint64
 	CacheAddress     common.Address
-	DataIds          [][16]byte // without the 0x prefix
+	DataIDs          [][16]byte // without the 0x prefix
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	UseMCMS          bool
 }
 
-type UpdateDataIdProxyConfig struct {
+type UpdateDataIDProxyConfig struct {
 	ChainSelector uint64
 	CacheAddress  common.Address
 	Proxies       []common.Address
-	DataIds       [][16]byte
+	DataIDs       [][16]byte
 	UseMCMS       bool
 }
 

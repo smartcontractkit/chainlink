@@ -1,9 +1,10 @@
 package changeset
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"testing"
 
 	"go.uber.org/zap/zapcore"
 
