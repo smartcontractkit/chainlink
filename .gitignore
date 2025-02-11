@@ -31,7 +31,6 @@ tools/clroot/db.sqlite3-wal
 .vscode/
 *.iml
 debug.env
-*.txt
 operator_ui/install
 .devenv
 

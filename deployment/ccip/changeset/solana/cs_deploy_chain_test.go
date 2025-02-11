@@ -30,21 +30,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
-	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
-	selectors = append(selectors, evmSelectors...)
-	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
-	}
-	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -71,7 +62,11 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    selectors,
+			Config:    e.AllChainSelectors(),
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    e.AllChainSelectorsSolana(),
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
@@ -96,6 +91,18 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Config: changeset.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector: homeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					solChainSelectors[0]: changeset.ChainContractParams{
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
 			},
 		},
 	})

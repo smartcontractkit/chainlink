@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
@@ -88,6 +89,12 @@ func setupGetCommitGTETimestampTest(ctx context.Context, t testing.TB, finalityD
 					Name:    consts.ContractNameOnRamp,
 				},
 			},
+			chainS2: {
+				{
+					Address: onRampAddress.Hex(),
+					Name:    consts.ContractNameOnRamp,
+				},
+			},
 		},
 		BindTester:         true,
 		ContractNameToBind: consts.ContractNameOffRamp,
@@ -153,12 +160,21 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 					},
 				},
 			},
-			MerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+			BlessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
 				{
 					SourceChainSelector: uint64(chainS1),
 					MinSeqNr:            10,
 					MaxSeqNr:            20,
 					MerkleRoot:          [32]byte{i + 1},
+					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
+				},
+			},
+			UnblessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+				{
+					SourceChainSelector: uint64(chainS2),
+					MinSeqNr:            20,
+					MaxSeqNr:            30,
+					MerkleRoot:          [32]byte{i + 2},
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},
@@ -312,7 +328,6 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	}, offramp.OffRampDynamicConfig{
 		FeeQuoter:                               utils.RandomAddress(),
 		PermissionLessExecutionThresholdSeconds: 1,
-		IsRMNVerificationDisabled:               true,
 		MessageInterceptor:                      utils.RandomAddress(),
 	}, []offramp.OffRampSourceChainConfigArgs{})
 	require.NoError(t, err)
@@ -426,38 +441,117 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 
 	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
 
+	iter, err := s.contract.FilterCommitReportAccepted(&bind.FilterOpts{
+		Start: 0,
+	})
+	require.NoError(t, err)
+	var onchainEvents []*ccip_reader_tester.CCIPReaderTesterCommitReportAccepted
+	for iter.Next() {
+		onchainEvents = append(onchainEvents, iter.Event)
+	}
+	require.Len(t, onchainEvents, numReports)
+	sort.Slice(onchainEvents, func(i, j int) bool {
+		return onchainEvents[i].Raw.BlockNumber < onchainEvents[j].Raw.BlockNumber
+	})
+
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var reports []plugintypes.CommitPluginReportWithMeta
-	var err error
+	var ccipReaderReports []plugintypes.CommitPluginReportWithMeta
 	require.Eventually(t, func() bool {
-		reports, err = s.reader.CommitReportsGTETimestamp(
+		var err2 error
+		ccipReaderReports, err2 = s.reader.CommitReportsGTETimestamp(
 			ctx,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
 			10,
 		)
-		require.NoError(t, err)
-		return len(reports) == numReports-1
+		require.NoError(t, err2)
+		return len(ccipReaderReports) == numReports-1
 	}, 30*time.Second, 50*time.Millisecond)
 
-	assert.Len(t, reports, numReports-1)
-	assert.Len(t, reports[0].Report.MerkleRoots, 1)
-	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
-	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
-	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
-	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
-	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
-		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
-	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
-	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
-	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
-	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
+	// trim the first report to simulate the timestamp filter above.
+	onchainEvents = onchainEvents[1:]
+	require.Len(t, onchainEvents, numReports-1)
+
+	require.Len(t, ccipReaderReports, numReports-1)
+	for i := range onchainEvents {
+		// check blessed roots are deserialized correctly
+		requireEqualRoots(t, onchainEvents[i].BlessedMerkleRoots, ccipReaderReports[i].Report.BlessedMerkleRoots)
+
+		// check unblessed roots are deserialized correctly
+		requireEqualRoots(t, onchainEvents[i].UnblessedMerkleRoots, ccipReaderReports[i].Report.UnblessedMerkleRoots)
+
+		// check price updates are deserialized correctly
+		requireEqualPriceUpdates(t, onchainEvents[i].PriceUpdates, ccipReaderReports[i].Report.PriceUpdates)
+	}
 }
 
+func requireEqualPriceUpdates(
+	t *testing.T,
+	onchainPriceUpdates ccip_reader_tester.InternalPriceUpdates,
+	ccipReaderPriceUpdates cciptypes.PriceUpdates,
+) {
+	// token price update equality
+	require.Equal(t, len(onchainPriceUpdates.TokenPriceUpdates), len(ccipReaderPriceUpdates.TokenPriceUpdates))
+	for i := range onchainPriceUpdates.TokenPriceUpdates {
+		require.Equal(t,
+			onchainPriceUpdates.TokenPriceUpdates[i].SourceToken.Bytes(),
+			hexutil.MustDecode(string(ccipReaderPriceUpdates.TokenPriceUpdates[i].TokenID)))
+		require.Equal(t,
+			onchainPriceUpdates.TokenPriceUpdates[i].UsdPerToken,
+			ccipReaderPriceUpdates.TokenPriceUpdates[i].Price.Int)
+	}
+
+	// gas price update equality
+	require.Equal(t, len(onchainPriceUpdates.GasPriceUpdates), len(ccipReaderPriceUpdates.GasPriceUpdates))
+	for i := range onchainPriceUpdates.GasPriceUpdates {
+		require.Equal(t,
+			onchainPriceUpdates.GasPriceUpdates[i].DestChainSelector,
+			uint64(ccipReaderPriceUpdates.GasPriceUpdates[i].ChainSel))
+		require.Equal(t,
+			onchainPriceUpdates.GasPriceUpdates[i].UsdPerUnitGas,
+			ccipReaderPriceUpdates.GasPriceUpdates[i].GasPrice.Int)
+	}
+}
+
+func requireEqualRoots(
+	t *testing.T,
+	onchainRoots []ccip_reader_tester.InternalMerkleRoot,
+	ccipReaderRoots []cciptypes.MerkleRootChain,
+) {
+	require.Equal(t, len(onchainRoots), len(ccipReaderRoots))
+	for i := 0; i < len(onchainRoots); i++ {
+		require.Equal(t,
+			onchainRoots[i].SourceChainSelector,
+			uint64(ccipReaderRoots[i].ChainSel),
+		)
+
+		// onchain emits the padded address but ccip reader currently sets the unpadded address
+		// TODO: fix this!
+		require.Equal(t,
+			onchainRoots[i].OnRampAddress,
+			common.LeftPadBytes([]byte(ccipReaderRoots[i].OnRampAddress), 32),
+		)
+		require.Equal(t,
+			onchainRoots[i].MinSeqNr,
+			uint64(ccipReaderRoots[i].SeqNumsRange.Start()),
+		)
+		require.Equal(t,
+			onchainRoots[i].MaxSeqNr,
+			uint64(ccipReaderRoots[i].SeqNumsRange.End()),
+		)
+		require.Equal(t,
+			onchainRoots[i].MerkleRoot,
+			[32]byte(ccipReaderRoots[i].MerkleRoot),
+		)
+	}
+}
+
+// NOTE: this test should eventually be removed when CommitReportsGTETimestamp fetches
+// unconfirmed CommitReportAccepted events.
 func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
@@ -469,23 +563,36 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 
 	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
 
+	iter, err := s.contract.FilterCommitReportAccepted(&bind.FilterOpts{
+		Start: 0,
+	})
+	require.NoError(t, err)
+	var onchainEvents []*ccip_reader_tester.CCIPReaderTesterCommitReportAccepted
+	for iter.Next() {
+		onchainEvents = append(onchainEvents, iter.Event)
+	}
+	require.Len(t, onchainEvents, numReports)
+	sort.Slice(onchainEvents, func(i, j int) bool {
+		return onchainEvents[i].Raw.BlockNumber < onchainEvents[j].Raw.BlockNumber
+	})
+
 	// Need to replay as sometimes the logs are not picked up by the log poller (?)
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var reports []plugintypes.CommitPluginReportWithMeta
-	var err error
+	var ccipReaderReports []plugintypes.CommitPluginReportWithMeta
 	// Will not return any reports as the finality depth is not reached.
 	require.Never(t, func() bool {
-		reports, err = s.reader.CommitReportsGTETimestamp(
+		var err2 error
+		ccipReaderReports, err2 = s.reader.CommitReportsGTETimestamp(
 			ctx,
 			// Skips first report
 			//nolint:gosec // this won't overflow
 			time.Unix(int64(firstReportTs)+1, 0),
 			10,
 		)
-		require.NoError(t, err)
-		return len(reports) == numReports-1
+		require.NoError(t, err2)
+		return len(ccipReaderReports) == numReports-1
 	}, 20*time.Second, 50*time.Millisecond)
 
 	// Commit finality depth number of blocks.
@@ -494,7 +601,7 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 	}
 
 	require.Eventually(t, func() bool {
-		reports, err = s.reader.CommitReportsGTETimestamp(
+		ccipReaderReports, err = s.reader.CommitReportsGTETimestamp(
 			ctx,
 			// Skips first report
 			//nolint:gosec // this won't overflow
@@ -502,21 +609,25 @@ func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
 			10,
 		)
 		require.NoError(t, err)
-		return len(reports) == numReports-1
+		return len(ccipReaderReports) == numReports-1
 	}, 30*time.Second, 50*time.Millisecond)
 
-	assert.Len(t, reports, numReports-1)
-	assert.Len(t, reports[0].Report.MerkleRoots, 1)
-	assert.Equal(t, chainS1, reports[0].Report.MerkleRoots[0].ChainSel)
-	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.MerkleRoots[0].OnRampAddress))
-	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.MerkleRoots[0].SeqNumsRange.Start())
-	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.MerkleRoots[0].SeqNumsRange.End())
-	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
-		reports[0].Report.MerkleRoots[0].MerkleRoot.String())
-	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
-	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
-	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
-	assert.Equal(t, uint64(90), reports[0].Report.PriceUpdates.GasPriceUpdates[0].GasPrice.Uint64())
+	require.Len(t, ccipReaderReports, numReports-1)
+	// trim the first report to simulate the finality filter above.
+	onchainEvents = onchainEvents[1:]
+	require.Len(t, onchainEvents, numReports-1)
+
+	require.Len(t, ccipReaderReports, numReports-1)
+	for i := range onchainEvents {
+		// check blessed roots are deserialized correctly
+		requireEqualRoots(t, onchainEvents[i].BlessedMerkleRoots, ccipReaderReports[i].Report.BlessedMerkleRoots)
+
+		// check unblessed roots are deserialized correctly
+		requireEqualRoots(t, onchainEvents[i].UnblessedMerkleRoots, ccipReaderReports[i].Report.UnblessedMerkleRoots)
+
+		// check price updates are deserialized correctly
+		requireEqualPriceUpdates(t, onchainEvents[i].PriceUpdates, ccipReaderReports[i].Report.PriceUpdates)
+	}
 }
 
 func TestCCIPReader_ExecutedMessages(t *testing.T) {

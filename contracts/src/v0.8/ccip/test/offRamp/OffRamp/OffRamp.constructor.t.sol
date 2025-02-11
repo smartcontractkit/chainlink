@@ -25,27 +25,31 @@ contract OffRamp_constructor is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1 + 1,
       onRamp: ON_RAMP_ADDRESS_2,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     OffRamp.SourceChainConfig memory expectedSourceChainConfig1 = OffRamp.SourceChainConfig({
       router: s_destRouter,
       isEnabled: true,
       minSeqNr: 1,
-      onRamp: sourceChainConfigs[0].onRamp
+      onRamp: sourceChainConfigs[0].onRamp,
+      isRMNVerificationDisabled: false
     });
 
     OffRamp.SourceChainConfig memory expectedSourceChainConfig2 = OffRamp.SourceChainConfig({
       router: s_destRouter,
       isEnabled: true,
       minSeqNr: 1,
-      onRamp: sourceChainConfigs[1].onRamp
+      onRamp: sourceChainConfigs[1].onRamp,
+      isRMNVerificationDisabled: false
     });
 
     uint64[] memory expectedSourceChainSelectors = new uint64[](2);
@@ -135,7 +139,8 @@ contract OffRamp_constructor is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: new bytes(0),
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);
@@ -162,7 +167,8 @@ contract OffRamp_constructor is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: 0,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     vm.expectRevert(OffRamp.ZeroChainSelectorNotAllowed.selector);
