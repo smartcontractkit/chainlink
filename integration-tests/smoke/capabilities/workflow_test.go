@@ -93,11 +93,11 @@ type CompiledConfig struct {
 }
 
 type WorkflowTestConfig struct {
-	BlockchainA    *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	NodeSet        *ns.Input         `toml:"nodeset" validate:"required"`
-	WorkflowConfig *WorkflowConfig   `toml:"workflow_config" validate:"required"`
-	JD             *jd.Input         `toml:"jd" validate:"required"`
-	DataSource     *DataSourceConfig `toml:"data_source_config"`
+	BlockchainA    *blockchain.Input    `toml:"blockchain_a" validate:"required"`
+	NodeSet        *ns.Input            `toml:"nodeset" validate:"required"`
+	WorkflowConfig *WorkflowConfig      `toml:"workflow_config" validate:"required"`
+	JD             *jd.Input            `toml:"jd" validate:"required"`
+	PriceProvider  *PriceProviderConfig `toml:"price_provider"`
 }
 
 type FakeConfig struct {
@@ -105,7 +105,7 @@ type FakeConfig struct {
 	Prices []float64 `toml:"prices"`
 }
 
-type DataSourceConfig struct {
+type PriceProviderConfig struct {
 	Fake   *FakeConfig `toml:"fake"`
 	FeedID string      `toml:"feed_id" validate:"required"`
 	URL    string      `toml:"url"`
@@ -442,12 +442,12 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 		}
 	}
 
-	if in.DataSource.Fake == nil {
-		require.NotEmpty(t, in.DataSource.URL, "URL must be set in the data source config, if fake provider is not used")
+	if in.PriceProvider.Fake == nil {
+		require.NotEmpty(t, in.PriceProvider.URL, "URL must be set in the price provider config, if fake provider is not used")
 	}
 
 	// make sure the feed id is in the correct format
-	in.DataSource.FeedID = strings.TrimPrefix(in.DataSource.FeedID, "0x")
+	in.PriceProvider.FeedID = strings.TrimPrefix(in.PriceProvider.FeedID, "0x")
 }
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
@@ -872,7 +872,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 
 	// compile and upload the workflow, if we are not using an existing one
 	if in.WorkflowConfig.ShouldCompileNewWorkflow {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.DataSource.FeedID, dataURL, settingsFile)
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.PriceProvider.FeedID, dataURL, settingsFile)
 	} else {
 		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
 		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
@@ -904,10 +904,10 @@ func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns
 	return nodeset
 }
 
+// In order to whitelist host IP in the gateway, we need to resolve the host.docker.internal to the host IP,
+// and since CL image doesn't have dig or nslookup, we need to use curl.
 func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) (string, error) {
 	containerName := nsOutput.CLNodes[0].Node.ContainerName
-	// this is the only tool that's installed on the CL image that can resolve host.docker.internal, well, kind of
-	// but it would be way better to use dig or nslookup
 	cmd := []string{"curl", "-v", "http://host.docker.internal"}
 	output, err := framework.ExecContainer(containerName, cmd)
 	if err != nil {
@@ -1211,8 +1211,10 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 				allowedPorts += fmt.Sprintf("%d, ", port)
 			}
 
+			// when we pass custom allowed IPs, defaults are not used and we need to
+			// pass HTTP and HTTPS explicitly
 			gatewayJobSpec += fmt.Sprintf(`
-				AllowedPorts = [90, 443, %s]
+				AllowedPorts = [80, 443, %s]
 				`,
 				allowedPorts,
 			)
@@ -1764,15 +1766,15 @@ func float64ToBigInt(f float64) *big.Int {
 }
 
 func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, priceIndex *int) string {
-	_, err := fake.NewFakeDataProvider(in.DataSource.Fake.Input)
+	_, err := fake.NewFakeDataProvider(in.PriceProvider.Fake.Input)
 	require.NoError(t, err)
 	fakeApiPath := "/fake/api/price"
-	fakeFinalUrl := fmt.Sprintf("%s:%d%s", framework.HostDockerInternal(), in.DataSource.Fake.Port, fakeApiPath)
+	fakeFinalUrl := fmt.Sprintf("%s:%d%s", framework.HostDockerInternal(), in.PriceProvider.Fake.Port, fakeApiPath)
 
 	getPriceResponseFn := func() map[string]interface{} {
 		response := map[string]interface{}{
 			"accountName": "TrueUSD",
-			"totalTrust":  in.DataSource.Fake.Prices[*priceIndex],
+			"totalTrust":  in.PriceProvider.Fake.Prices[*priceIndex],
 			"ripcord":     false,
 			"updatedAt":   time.Now().Format(time.RFC3339),
 		}
@@ -1797,17 +1799,17 @@ func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *Workflow
 }
 
 func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
-	if in.DataSource.Fake != nil {
-		return NewFakePriceHelper(t, testLogger, in)
+	if in.PriceProvider.Fake != nil {
+		return NewFakePriceProvider(t, testLogger, in)
 	}
 
-	return NewLivePriceHelper(t, testLogger, in)
+	return NewLivePriceProvider(t, testLogger, in)
 }
 
 // PriceProvider abstracts away the logic of checking whether the feed has been correctly updated
-// and it also returns port and URL of the data source. This is so, because when using a mocked
-// data source we need start a separate service and whitelist its port and IP with the gateway job.
-// Also, since it's a mocked data source we can now check whether the feed has been correctly updated
+// and it also returns port and URL of the price provider. This is so, because when using a mocked
+// price provider we need start a separate service and whitelist its port and IP with the gateway job.
+// Also, since it's a mocked price provider we can now check whether the feed has been correctly updated
 // instead of only checking whether it has some price that's != 0.
 type PriceProvider interface {
 	URL() string
@@ -1823,10 +1825,10 @@ type LivePriceProvider struct {
 	actualPrices []*big.Int
 }
 
-func NewLivePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+func NewLivePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
 	return &LivePriceProvider{
 		testLogger: testLogger,
-		url:        in.DataSource.URL,
+		url:        in.PriceProvider.URL,
 		t:          t,
 	}
 }
@@ -1862,15 +1864,14 @@ type FakePriceProvider struct {
 	testLogger     zerolog.Logger
 	priceIndex     *int
 	url            string
-	port           int
 	expectedPrices []*big.Int
 	actualPrices   []*big.Int
 }
 
-func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+func NewFakePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
 	priceIndex := ptr.Ptr(0)
-	expectedPrices := make([]*big.Int, len(in.DataSource.Fake.Prices))
-	for i, p := range in.DataSource.Fake.Prices {
+	expectedPrices := make([]*big.Int, len(in.PriceProvider.Fake.Prices))
+	for i, p := range in.PriceProvider.Fake.Prices {
 		// convert float64 to big.Int by multiplying by 100
 		// just like the PoR workflow does
 		expectedPrices[i] = float64ToBigInt(p)
@@ -1882,7 +1883,6 @@ func NewFakePriceHelper(t *testing.T, testLogger zerolog.Logger, in *WorkflowTes
 		expectedPrices: expectedPrices,
 		priceIndex:     priceIndex,
 		url:            setupFakeDataProvider(t, testLogger, in, priceIndex),
-		port:           in.DataSource.Fake.Port,
 	}
 }
 
@@ -1911,7 +1911,7 @@ func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) boo
 			return false
 		} else {
 			require.Less(f.t, len(f.actualPrices), len(f.expectedPrices), "more prices found than expected")
-			f.testLogger.Info().Msgf("Changing data source price to %f", f.expectedPrices[len(f.actualPrices)])
+			f.testLogger.Info().Msgf("Changing price provider price to %f", f.expectedPrices[len(f.actualPrices)])
 			*f.priceIndex = len(f.actualPrices)
 
 			// set new price and continue checking
@@ -1934,7 +1934,7 @@ func (f *FakePriceProvider) URL() string {
 
 func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, nodeOutput *ns.Output) ([]string, []int) {
 	// no need to allow anything, if we are using live feed
-	if in.DataSource.Fake == nil {
+	if in.PriceProvider.Fake == nil {
 		return nil, nil
 	}
 
@@ -1950,16 +1950,18 @@ func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *Workfl
 		hostIp, err = resolveHostDockerInternaIp(testLogger, nodeOutput)
 		require.NoError(t, err, "failed to resolve host.docker.internal IP")
 	case "linux":
+		// for linux framework already returns an IP, so we don't need to resolve it,
+		// but we need to remove the http:// prefix
 		hostIp = strings.ReplaceAll(framework.HostDockerInternal(), "http://", "")
 	default:
 		err = fmt.Errorf("unsupported OS: %s", system)
 	}
 	require.NoError(t, err, "failed to resolve host.docker.internal IP")
 
-	testLogger.Info().Msgf("Will allow IP %s and port %d for the fake data provider", hostIp, in.DataSource.Fake.Port)
+	testLogger.Info().Msgf("Will allow IP %s and port %d for the fake data provider", hostIp, in.PriceProvider.Fake.Port)
 
 	// we also need to explicitly allow Gist's IP
-	return []string{hostIp, GistIP}, []int{in.DataSource.Fake.Port}
+	return []string{hostIp, GistIP}, []int{in.PriceProvider.Fake.Port}
 }
 
 /*
@@ -2046,7 +2048,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.DataSource.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
+			logTestInfo(testLogger, in.PriceProvider.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
 		}
 	})
 
@@ -2075,7 +2077,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
-	feedBytes := common.HexToHash(in.DataSource.FeedID)
+	feedBytes := common.HexToHash(in.PriceProvider.FeedID)
 
 	for {
 		select {

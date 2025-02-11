@@ -6,13 +6,13 @@
 [jd]
   image = "replace-me"
 
-[data_source_config]
+[price_provider]
   # without 0x prefix!
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
   # used only if [data_source_config.fake] is not present
   # url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
 
-  [data_source_config.fake]
+  [price_provider.fake]
     port = 8171
     # use only 1 price, so that test doesn't run too long in the CI
     prices = [182.9]
