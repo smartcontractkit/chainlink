@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -172,28 +172,28 @@ func Test_DecodingCommitReport(t *testing.T) {
 		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
 		merkleRoot := utils.RandomBytes32()
 
-		tpu := []ccip_router.TokenPriceUpdate{
+		tpu := []ccip_offramp.TokenPriceUpdate{
 			{
 				SourceToken: tokenSource,
 				UsdPerToken: [28]uint8(tokenPrice),
 			},
 		}
 
-		gpu := []ccip_router.GasPriceUpdate{
+		gpu := []ccip_offramp.GasPriceUpdate{
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 		}
 
-		onChainReport := ccip_router.CommitInput{
-			MerkleRoot: ccip_router.MerkleRoot{
+		onChainReport := ccip_offramp.CommitInput{
+			MerkleRoot: ccip_offramp.MerkleRoot{
 				SourceChainSelector: uint64(chainSel),
 				OnRampAddress:       onRampAddr.PublicKey().Bytes(),
 				MinSeqNr:            minSeqNr,
 				MaxSeqNr:            maxSeqNr,
 				MerkleRoot:          merkleRoot,
 			},
-			PriceUpdates: ccip_router.PriceUpdates{
+			PriceUpdates: ccip_offramp.PriceUpdates{
 				TokenPriceUpdates: tpu,
 				GasPriceUpdates:   gpu,
 			},
@@ -233,7 +233,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(decode)
-		decodedReport := ccip_router.CommitInput{}
+		decodedReport := ccip_offramp.CommitInput{}
 		err = decodedReport.UnmarshalWithDecoder(decoder)
 		require.NoError(t, err)
 

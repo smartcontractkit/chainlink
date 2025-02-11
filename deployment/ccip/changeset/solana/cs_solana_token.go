@@ -16,6 +16,8 @@ var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
 var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
 var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
 
+// TODO: add option to set token mint authority by taking in its public key
+// might need to take authority private key if it needs to sign that
 type DeploySolanaTokenConfig struct {
 	ChainSelector    uint64
 	TokenProgramName string
@@ -27,13 +29,15 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	if err != nil {
 		return nil, nil, err
 	}
+	// token mint authority
+	// can accept a private key in config and pass in pub key here and private key as signer
 	tokenAdminPubKey := chain.DeployerKey.PublicKey()
-	mint, _ := solana.NewRandomPrivateKey()
-	mintPublicKey := mint.PublicKey() // this is the token address
+	mintPrivKey, _ := solana.NewRandomPrivateKey()
+	mint := mintPrivKey.PublicKey() // this is the token address
 	instructions, err := solTokenUtil.CreateToken(
 		context.Background(),
 		tokenprogramID,
-		mintPublicKey,
+		mint,
 		tokenAdminPubKey,
 		cfg.TokenDecimals,
 		chain.Client,
@@ -42,7 +46,7 @@ func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig)
 	if err != nil {
 		return nil, nil, err
 	}
-	return instructions, mint, nil
+	return instructions, mintPrivKey, nil
 }
 
 func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (deployment.ChangesetOutput, error) {
@@ -50,12 +54,13 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	instructions, mint, err := NewTokenInstruction(chain, cfg)
+	instructions, mintPrivKey, err := NewTokenInstruction(chain, cfg)
+	mint := mintPrivKey.PublicKey()
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-
-	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mint))
+	// TODO:does the mint need to be added as a signer here ?
+	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mintPrivKey))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
@@ -63,13 +68,13 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 
 	newAddresses := deployment.NewMemoryAddressBook()
 	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
-	err = newAddresses.Save(cfg.ChainSelector, mint.PublicKey().String(), tv)
+	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
-	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.PublicKey().String(), "chain", chain.String())
+	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.String(), "chain", chain.String())
 
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
@@ -106,6 +111,7 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 			return deployment.ChangesetOutput{}, err
 		}
 		instructions = append(instructions, mintToI)
+		e.Logger.Infow("Minting", "amount", amount, "to", toAddress, "for token", tokenAddress.String())
 	}
 	// confirm instructions
 	err = chain.Confirm(instructions)
@@ -113,6 +119,7 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 		e.Logger.Errorw("Failed to confirm instructions for token minting", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
+	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String())
 	return deployment.ChangesetOutput{}, nil
 }
 
@@ -152,6 +159,7 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 		e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
+	e.Logger.Infow("Created ATAs on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "numATAs", len(cfg.ATAList))
 
 	return deployment.ChangesetOutput{}, nil
 }

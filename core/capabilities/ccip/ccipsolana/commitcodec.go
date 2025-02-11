@@ -9,7 +9,7 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -29,7 +29,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(report.MerkleRoots))
 	}
 
-	mr := ccip_router.MerkleRoot{
+	mr := ccip_offramp.MerkleRoot{
 		SourceChainSelector: uint64(report.MerkleRoots[0].ChainSel),
 		OnRampAddress:       report.MerkleRoots[0].OnRampAddress,
 		MinSeqNr:            uint64(report.MerkleRoots[0].SeqNumsRange.Start()),
@@ -37,7 +37,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		MerkleRoot:          report.MerkleRoots[0].MerkleRoot,
 	}
 
-	tpu := make([]ccip_router.TokenPriceUpdate, 0, len(report.PriceUpdates.TokenPriceUpdates))
+	tpu := make([]ccip_offramp.TokenPriceUpdate, 0, len(report.PriceUpdates.TokenPriceUpdates))
 	for _, update := range report.PriceUpdates.TokenPriceUpdates {
 		token, err := solana.PublicKeyFromBase58(string(update.TokenID))
 		if err != nil {
@@ -46,27 +46,27 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		if update.Price.IsEmpty() {
 			return nil, fmt.Errorf("empty price for token: %s", update.TokenID)
 		}
-		tpu = append(tpu, ccip_router.TokenPriceUpdate{
+		tpu = append(tpu, ccip_offramp.TokenPriceUpdate{
 			SourceToken: token,
 			UsdPerToken: [28]uint8(encodeBigIntToFixedLengthLE(update.Price.Int, 28)),
 		})
 	}
 
-	gpu := make([]ccip_router.GasPriceUpdate, 0, len(report.PriceUpdates.GasPriceUpdates))
+	gpu := make([]ccip_offramp.GasPriceUpdate, 0, len(report.PriceUpdates.GasPriceUpdates))
 	for _, update := range report.PriceUpdates.GasPriceUpdates {
 		if update.GasPrice.IsEmpty() {
 			return nil, fmt.Errorf("empty gas price for chain: %d", update.ChainSel)
 		}
 
-		gpu = append(gpu, ccip_router.GasPriceUpdate{
+		gpu = append(gpu, ccip_offramp.GasPriceUpdate{
 			DestChainSelector: uint64(update.ChainSel),
 			UsdPerUnitGas:     [28]uint8(encodeBigIntToFixedLengthLE(update.GasPrice.Int, 28)),
 		})
 	}
 
-	commit := ccip_router.CommitInput{
+	commit := ccip_offramp.CommitInput{
 		MerkleRoot: mr,
-		PriceUpdates: ccip_router.PriceUpdates{
+		PriceUpdates: ccip_offramp.PriceUpdates{
 			TokenPriceUpdates: tpu,
 			GasPriceUpdates:   gpu,
 		},
@@ -82,7 +82,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
 	decoder := agbinary.NewBorshDecoder(bytes)
-	commitReport := ccip_router.CommitInput{}
+	commitReport := ccip_offramp.CommitInput{}
 	err := commitReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return cciptypes.CommitPluginReport{}, err

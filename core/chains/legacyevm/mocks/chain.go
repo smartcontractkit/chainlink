@@ -16,7 +16,7 @@ import (
 
 	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
 
-	headtracker "github.com/smartcontractkit/chainlink-framework/chains/headtracker"
+	heads "github.com/smartcontractkit/chainlink-framework/chains/heads"
 
 	log "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 
@@ -336,19 +336,19 @@ func (_c *Chain_GetChainStatus_Call) RunAndReturn(run func(context.Context) (typ
 }
 
 // HeadBroadcaster provides a mock function with no fields
-func (_m *Chain) HeadBroadcaster() headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadBroadcaster() heads.Broadcaster[*evmtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadBroadcaster")
 	}
 
-	var r0 headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]); ok {
+	var r0 heads.Broadcaster[*evmtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() heads.Broadcaster[*evmtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(heads.Broadcaster[*evmtypes.Head, common.Hash])
 		}
 	}
 
@@ -372,30 +372,30 @@ func (_c *Chain_HeadBroadcaster_Call) Run(run func()) *Chain_HeadBroadcaster_Cal
 	return _c
 }
 
-func (_c *Chain_HeadBroadcaster_Call) Return(_a0 headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
+func (_c *Chain_HeadBroadcaster_Call) Return(_a0 heads.Broadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Chain_HeadBroadcaster_Call) RunAndReturn(run func() headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
+func (_c *Chain_HeadBroadcaster_Call) RunAndReturn(run func() heads.Broadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // HeadTracker provides a mock function with no fields
-func (_m *Chain) HeadTracker() headtracker.HeadTracker[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadTracker() heads.Tracker[*evmtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadTracker")
 	}
 
-	var r0 headtracker.HeadTracker[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() headtracker.HeadTracker[*evmtypes.Head, common.Hash]); ok {
+	var r0 heads.Tracker[*evmtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() heads.Tracker[*evmtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(headtracker.HeadTracker[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(heads.Tracker[*evmtypes.Head, common.Hash])
 		}
 	}
 
@@ -419,12 +419,12 @@ func (_c *Chain_HeadTracker_Call) Run(run func()) *Chain_HeadTracker_Call {
 	return _c
 }
 
-func (_c *Chain_HeadTracker_Call) Return(_a0 headtracker.HeadTracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
+func (_c *Chain_HeadTracker_Call) Return(_a0 heads.Tracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Chain_HeadTracker_Call) RunAndReturn(run func() headtracker.HeadTracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
+func (_c *Chain_HeadTracker_Call) RunAndReturn(run func() heads.Tracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
 	_c.Call.Return(run)
 	return _c
 }

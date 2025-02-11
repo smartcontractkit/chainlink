@@ -10,7 +10,7 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -54,7 +54,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				}
 			}
 
-			extraArgs := ccip_router.Any2SVMRampExtraArgs{
+			extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
 			}
@@ -189,22 +189,22 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		destGasAmount := uint32(10)
 		tokenAmount := big.NewInt(rand.Int63())
 		tokenReceiver := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
-		extraArgs := ccip_router.Any2SVMRampExtraArgs{
+		extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 			ComputeUnits:     1000,
 			IsWritableBitmap: 2,
 		}
 
-		onChainReport := ccip_router.ExecutionReportSingleChain{
+		onChainReport := ccip_offramp.ExecutionReportSingleChain{
 			SourceChainSelector: uint64(chainSel),
-			Message: ccip_router.Any2SVMRampMessage{
-				Header: ccip_router.RampMessageHeader{
+			Message: ccip_offramp.Any2SVMRampMessage{
+				Header: ccip_offramp.RampMessageHeader{
 					SourceChainSelector: uint64(chainSel),
 				},
 				TokenReceiver: tokenReceiver,
 				ExtraArgs:     extraArgs,
-				TokenAmounts: []ccip_router.Any2SVMTokenTransfer{
+				TokenAmounts: []ccip_offramp.Any2SVMTokenTransfer{
 					{
-						Amount:        ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount, 32))},
+						Amount:        ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount, 32))},
 						DestGasAmount: destGasAmount,
 					},
 				},
@@ -243,7 +243,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(encodedReport)
-		executeReport := ccip_router.ExecutionReportSingleChain{}
+		executeReport := ccip_offramp.ExecutionReportSingleChain{}
 		err = executeReport.UnmarshalWithDecoder(decoder)
 		require.NoError(t, err)
 

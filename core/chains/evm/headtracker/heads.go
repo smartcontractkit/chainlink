@@ -26,7 +26,7 @@ type Heads interface {
 	MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool
 }
 
-type heads struct {
+type headSet struct {
 	highest       *evmtypes.Head
 	headsAsc      *headsHeap
 	headsByHash   map[common.Hash]*evmtypes.Head
@@ -35,21 +35,21 @@ type heads struct {
 }
 
 func NewHeads() Heads {
-	return &heads{
+	return &headSet{
 		headsAsc:      &headsHeap{},
 		headsByHash:   make(map[common.Hash]*evmtypes.Head),
 		headsByParent: map[common.Hash]map[common.Hash]*evmtypes.Head{},
 	}
 }
 
-func (h *heads) LatestHead() *evmtypes.Head {
+func (h *headSet) LatestHead() *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	return h.highest
 }
 
-func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
+func (h *headSet) HeadByHash(hash common.Hash) *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -60,7 +60,7 @@ func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 	return h.headsByHash[hash]
 }
 
-func (h *heads) Count() int {
+func (h *headSet) Count() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -69,7 +69,7 @@ func (h *heads) Count() int {
 
 // MarkFinalized - marks block with hash equal to finalized and all it's direct ancestors as finalized.
 // Trims old blocks whose height is smaller than minBlockToKeep
-func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool {
+func (h *headSet) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -111,7 +111,7 @@ func markFinalized(head *evmtypes.Head) {
 	}
 }
 
-func (h *heads) ensureNoCycles(newHead *evmtypes.Head) error {
+func (h *headSet) ensureNoCycles(newHead *evmtypes.Head) error {
 	if newHead.ParentHash == newHead.Hash {
 		return fmt.Errorf("cycle detected: newHeads reference itself newHead(%s)", newHead.String())
 	}
@@ -130,7 +130,7 @@ func (h *heads) ensureNoCycles(newHead *evmtypes.Head) error {
 	return nil
 }
 
-func (h *heads) AddHeads(newHeads ...*evmtypes.Head) error {
+func (h *headSet) AddHeads(newHeads ...*evmtypes.Head) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
