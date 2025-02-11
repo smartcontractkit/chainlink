@@ -51,7 +51,7 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
-	solTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -866,7 +866,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector:    solChainSel,
 				TokenPubKey:      solTokenAddress.String(),
 				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         "BurnAndMint",
+				PoolType:         solTestTokenPool.BurnAndMint_PoolType,
 				Authority:        solDeployerKey.String(),
 			},
 		},
@@ -890,24 +890,24 @@ func DeployTransferableTokenSolana(
 				SolChainSelector:    solChainSel,
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
-				RemoteConfig: solTokenPool.RemoteConfig{
+				RemoteConfig: solTestTokenPool.RemoteConfig{
 					// this can be potentially read from the state if we are given the token symbol
-					PoolAddresses: []solTokenPool.RemoteAddress{
+					PoolAddresses: []solTestTokenPool.RemoteAddress{
 						{
 							Address: evmPool.Address().Bytes(),
 						},
 					},
-					TokenAddress: solTokenPool.RemoteAddress{
+					TokenAddress: solTestTokenPool.RemoteAddress{
 						Address: evmToken.Address().Bytes(),
 					},
 					Decimals: 9,
 				},
-				InboundRateLimit: solTokenPool.RateLimitConfig{
+				InboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000),
 					Rate:     1,
 				},
-				OutboundRateLimit: solTokenPool.RateLimitConfig{
+				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000),
 					Rate:     1,
@@ -1588,6 +1588,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		solTestReceiver.SetProgramID(chainState.Receiver)
 		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+			chainState.Router,
 			FindReceiverTargetAccount(chainState.Receiver),
 			externalExecutionConfigPDA,
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
