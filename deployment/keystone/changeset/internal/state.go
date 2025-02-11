@@ -64,6 +64,13 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 		}
 		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
 	}
+	if cs.WorkflowRegistry != nil {
+		wrView, err := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+		if err != nil {
+			return view.KeystoneChainView{}, err
+		}
+		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+	}
 	return out, nil
 }
 
