@@ -99,12 +99,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     // Since remoteConfig.isSiloed is used more than once, caching in memory saves gas instead of multiple SLOADs.
     bool chainIsSiloed = remoteConfig.isSiloed;
 
-    // Prevent A silent underflow by explicitly ensuring that enough funds are available to release
+    // Additional security check to prevent underflow by explicitly ensuring that enough funds are available to release
     uint256 availableLiquidity = chainIsSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
     if (localAmount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, localAmount);
 
-    // Tracking balances independently by chain is a security measure to prevent liquidity for one chain from being
-    // released by another chain.
+    // Deduct the amount from the correct silo balance, or the unsiloed balance.
     if (chainIsSiloed) {
       remoteConfig.tokenBalance -= localAmount;
     } else {
@@ -126,6 +125,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   function getAvailableTokens(
     uint64 remoteChainSelector
   ) external view returns (uint256 lockedTokens) {
+    if (!isSupportedChain(remoteChainSelector)) revert InvalidChainSelector(remoteChainSelector);
+
     if (s_chainConfigs[remoteChainSelector].isSiloed) {
       return s_chainConfigs[remoteChainSelector].tokenBalance;
     }
@@ -174,9 +175,14 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
     for (uint256 i = 0; i < adds.length; ++i) {
       // Since the zero chain selector is used to designate unsiloed chains, it should never be used for siloed chains.
-      if (adds[i].remoteChainSelector == 0 || s_chainConfigs[adds[i].remoteChainSelector].isSiloed) {
+      if (
+        adds[i].remoteChainSelector == 0 || s_chainConfigs[adds[i].remoteChainSelector].isSiloed
+          || !isSupportedChain(adds[i].remoteChainSelector)
+      ) {
         revert InvalidChainSelector(adds[i].remoteChainSelector);
       }
+
+      if (adds[i].rebalancer == address(0)) revert ZeroAddressNotAllowed();
 
       s_chainConfigs[adds[i].remoteChainSelector] =
         SiloConfig({tokenBalance: 0, rebalancer: adds[i].rebalancer, isSiloed: true});
@@ -188,7 +194,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @notice Gets the rebalancer able to provide liquidity for a remote chain selector
   /// @param remoteChainSelector The CCIP specific selector for the remote chain being interacted with.
   /// @return The current liquidity manager for the given siloed chain, or the unsiloed rebalancer if the chain is not siloed.
-  function getSiloRebalancer(
+  function getChainRebalancer(
     uint64 remoteChainSelector
   ) public view returns (address) {
     SiloConfig storage remoteConfig = s_chainConfigs[remoteChainSelector];
@@ -213,6 +219,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     SiloConfig storage remoteConfig = s_chainConfigs[remoteChainSelector];
 
     if (!remoteConfig.isSiloed) revert ChainNotSiloed(remoteChainSelector);
+    if (newRebalancer == address(0)) revert ZeroAddressNotAllowed();
 
     address oldRebalancer = remoteConfig.rebalancer;
 
@@ -227,6 +234,8 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   function setRebalancer(
     address newRebalancer
   ) external onlyOwner {
+    if (newRebalancer == address(0)) revert ZeroAddressNotAllowed();
+
     address oldRebalancer = s_rebalancer;
 
     s_rebalancer = newRebalancer;
@@ -244,7 +253,10 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// @param amount The amount of liquidity to provide.
   /// @dev Only the rebalancer for the chain can add liquidity
   function provideSiloedLiquidity(uint64 remoteChainSelector, uint256 amount) external {
-    if (remoteChainSelector == 0) revert InvalidChainSelector(0);
+    if (!s_chainConfigs[remoteChainSelector].isSiloed || remoteChainSelector == 0) {
+      revert ChainNotSiloed(remoteChainSelector);
+    }
+
     _provideLiquidity(remoteChainSelector, amount);
   }
 
@@ -260,7 +272,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
 
   function _provideLiquidity(uint64 remoteChainSelector, uint256 amount) internal {
     if (amount == 0) revert LiquidityAmountCannotBeZero();
-    if (msg.sender != getSiloRebalancer(remoteChainSelector)) revert Unauthorized(msg.sender);
+    if (msg.sender != getChainRebalancer(remoteChainSelector)) revert Unauthorized(msg.sender);
 
     // Storage is used instead of memory to save gas, as the state may need to be updated if the chain is siloed.
     SiloConfig storage remoteConfig = s_chainConfigs[remoteChainSelector];
@@ -295,21 +307,25 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   /// which can be considered the liquidity for all non-siloed chains sharing liquidity.
   /// @param amount The amount of liquidity to remove.
   function withdrawSiloedLiquidity(uint64 remoteChainSelector, uint256 amount) external {
+    if (!s_chainConfigs[remoteChainSelector].isSiloed || remoteChainSelector == 0) {
+      revert ChainNotSiloed(remoteChainSelector);
+    }
+
     _withdrawLiquidity(remoteChainSelector, amount);
   }
 
   function _withdrawLiquidity(uint64 remoteChainSelector, uint256 amount) internal {
     if (amount == 0) revert LiquidityAmountCannotBeZero();
-    if (msg.sender != getSiloRebalancer(remoteChainSelector)) revert Unauthorized(msg.sender);
+    if (msg.sender != getChainRebalancer(remoteChainSelector)) revert Unauthorized(msg.sender);
 
     // Save gas by using storage as multiple values may need to be read/written.
     SiloConfig storage remoteConfig = s_chainConfigs[remoteChainSelector];
 
-    // Prevent A silent underflow by explicitly ensuring that enough funds are available to withdraw
+    // Additional security check to prevent underflow by explicitly ensuring that enough funds are available to release
     uint256 availableLiquidity = remoteConfig.isSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
     if (amount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, amount);
 
-    // If funds are siloed by chain, prevent more than has been locked from being removed from the token pool.
+    // Deduct the amount from the correct silo balance, or the unsiloed balance.
     if (remoteConfig.isSiloed) {
       remoteConfig.tokenBalance -= amount;
     } else {

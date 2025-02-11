@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -18,7 +19,7 @@ import (
 
 var (
 	// bytes32 internal constant LEAF_DOMAIN_SEPARATOR = 0x0000000000000000000000000000000000000000000000000000000000000000;
-	leafDomainSeparator = [32]byte{}
+	LEAF_DOMAIN_SEPARATOR = [32]byte{}
 
 	// bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
 	ANY_2_EVM_MESSAGE_HASH = utils.Keccak256Fixed([]byte("Any2EVMMessageHashV1"))
@@ -73,8 +74,15 @@ func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
       )
     );
 */
-func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
-	h.lggr.Debugw("hashing message", "msg", msg)
+func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	lggr := logutil.WithContextValues(ctx, h.lggr)
+	lggr = logger.With(
+		lggr,
+		"msgID", msg.Header.MessageID.String(),
+		"ANY_2_EVM_MESSAGE_HASH", hexutil.Encode(ANY_2_EVM_MESSAGE_HASH[:]),
+		"onrampAddress", msg.Header.OnRamp,
+	)
+	lggr.Debugw("hashing message", "msg", msg)
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
@@ -83,21 +91,47 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
 		}
 
+		lggr.Debugw("decoded dest gas amount",
+			"destGasAmount", destGasAmount)
+
+		// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+		// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+		// its unclear as of writing how we will handle non-EVM chains and their addresses.
+		// e.g, will we encode them as bytes or bytes32?
+		sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
+		}
+
+		lggr.Debugw("abi encoded source pool address as solidity address",
+			"sourcePoolAddressABIEncodedAsAddress", hexutil.Encode(sourcePoolAddressABIEncodedAsAddress))
+
+		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
+		}
+
+		lggr.Debugw("abi decoded dest token address",
+			"destTokenAddress", destTokenAddress)
+
 		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
-			SourcePoolAddress: rta.SourcePoolAddress,
-			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
+			SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
+			DestTokenAddress:  destTokenAddress,
+			DestGasAmount:     destGasAmount,
 			ExtraData:         rta.ExtraData,
 			Amount:            rta.Amount.Int,
-			DestGasAmount:     destGasAmount,
 		})
 	}
 
-	encodedRampTokenAmounts, err := h.abiEncode("encodeAny2EVMTokenAmountsHashPreimage", rampTokenAmounts)
+	encodedRampTokenAmounts, err := h.abiEncode(
+		"encodeAny2EVMTokenAmountsHashPreimage",
+		rampTokenAmounts,
+	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
 
-	h.lggr.Debugw("abi encoded ramp token amounts",
+	lggr.Debugw("token amounts preimage",
 		"encodedRampTokenAmounts", hexutil.Encode(encodedRampTokenAmounts))
 
 	metaDataHashInput, err := h.abiEncode(
@@ -113,8 +147,8 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
 	}
 
-	h.lggr.Debugw("abi encoded metadata hash input",
-		"metaDataHashInput", cciptypes.Bytes32(utils.Keccak256Fixed(metaDataHashInput)).String())
+	lggr.Debugw("metadata hash preimage",
+		"metaDataHashInput", hexutil.Encode(metaDataHashInput))
 
 	// Need to decode the extra args to get the gas limit.
 	// TODO: we assume that extra args is always abi-encoded for now, but we need
@@ -124,6 +158,8 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
 	}
+
+	lggr.Debugw("decoded msg gas limit", "gasLimit", gasLimit)
 
 	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
@@ -137,9 +173,12 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode fixed size values: %w", err)
 	}
 
-	packedValues, err := h.abiEncode(
+	lggr.Debugw("fixed size fields has preimage",
+		"fixedSizeFieldsEncoded", hexutil.Encode(fixedSizeFieldsEncoded))
+
+	hashPreimage, err := h.abiEncode(
 		"encodeFinalHashPreimage",
-		leafDomainSeparator,
+		LEAF_DOMAIN_SEPARATOR,
 		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
 		utils.Keccak256Fixed(common.LeftPadBytes(msg.Sender, 32)), // todo: this is not chain-agnostic
@@ -150,14 +189,14 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("abi encode packed values: %w", err)
 	}
 
-	res := utils.Keccak256Fixed(packedValues)
+	msgHash := utils.Keccak256Fixed(hashPreimage)
 
-	h.lggr.Debugw("abi encoded msg hash",
-		"abiEncodedMsg", hexutil.Encode(packedValues),
-		"result", hexutil.Encode(res[:]),
+	lggr.Debugw("final hash preimage and message hash result",
+		"hashPreimage", hexutil.Encode(hashPreimage),
+		"msgHash", hexutil.Encode(msgHash[:]),
 	)
 
-	return res, nil
+	return msgHash, nil
 }
 
 func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {
@@ -181,6 +220,26 @@ func abiDecodeUint32(data []byte) (uint32, error) {
 
 func abiEncodeUint32(data uint32) ([]byte, error) {
 	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
+// abiEncodeAddress encodes the given address as a solidity address.
+// TODO: this is potentially incorrect for nonEVM sources.
+// we need to revisit.
+// e.g on Solana, we would be abi.encode()ing bytes or bytes32.
+// encoding 20 bytes as a solidity bytes is not the same as encoding a 20 byte address
+// or a bytes32.
+func abiEncodeAddress(data common.Address) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "address" }]`, data)
+}
+
+func abiDecodeAddress(data []byte) (common.Address, error) {
+	raw, err := utils.ABIDecode(`[{ "type": "address" }]`, data)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("abi decode address: %w", err)
+	}
+
+	val := *abi.ConvertType(raw[0], new(common.Address)).(*common.Address)
+	return val, nil
 }
 
 // Interface compliance check
