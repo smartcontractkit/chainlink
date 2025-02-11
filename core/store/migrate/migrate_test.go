@@ -15,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type OffchainReporting2OracleSpec100 struct {

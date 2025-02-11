@@ -5,7 +5,7 @@ package headreporter
 import (
 	context "context"
 
-	types "github.com/smartcontractkit/chainlink/v2/evm/types"
+	types "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	mock "github.com/stretchr/testify/mock"
 )
 

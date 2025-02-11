@@ -11,7 +11,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 )
 
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,

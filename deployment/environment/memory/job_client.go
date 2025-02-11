@@ -85,40 +85,6 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	include := func(node *nodev1.Node) bool {
-		if in.Filter == nil {
-			return true
-		}
-		if len(in.Filter.Ids) > 0 {
-			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
-				return node.Id == id
-			})
-			if idx < 0 {
-				return false
-			}
-		}
-		for _, selector := range in.Filter.Selectors {
-			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == selector.Key
-			})
-			if idx < 0 {
-				return false
-			}
-			label := node.Labels[idx]
-
-			switch selector.Op {
-			case ptypes.SelectorOp_IN:
-				values := strings.Split(*selector.Value, ",")
-				found := slices.Contains(values, *label.Value)
-				if !found {
-					return false
-				}
-			default:
-				panic("unimplemented selector")
-			}
-		}
-		return true
-	}
 	var nodes []*nodev1.Node
 	for id, n := range j.Nodes {
 		node := &nodev1.Node{
@@ -133,7 +99,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 				},
 			},
 		}
-		if include(node) {
+		if ApplyNodeFilter(in.Filter, node) {
 			nodes = append(nodes, node)
 		}
 	}
@@ -370,4 +336,45 @@ func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
 	return &JobClient{nodesByPeerID}
+}
+
+func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
+	if filter == nil {
+		return true
+	}
+	if len(filter.Ids) > 0 {
+		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
+			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	for _, selector := range filter.Selectors {
+		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+			return label.Key == selector.Key
+		})
+		if idx < 0 {
+			return false
+		}
+		label := node.Labels[idx]
+
+		switch selector.Op {
+		case ptypes.SelectorOp_IN:
+			values := strings.Split(*selector.Value, ",")
+			found := slices.Contains(values, *label.Value)
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_EQ:
+			if *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_EXIST:
+			// do nothing
+		default:
+			panic("unimplemented selector")
+		}
+	}
+	return true
 }

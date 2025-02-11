@@ -478,33 +478,6 @@ Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
 
-[[Cosmos]]
-ChainID = 'Malaga-420'
-Enabled = true
-Bech32Prefix = 'wasm'
-BlockRate = '1m0s'
-BlocksUntilTxTimeout = 12
-ConfirmPollPeriod = '1s'
-FallbackGasPrice = '0.001'
-GasToken = 'ucosm'
-GasLimitMultiplier = '1.2'
-MaxMsgsPerBatch = 17
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxMsgTimeout = '1s'
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
-[[Cosmos.Nodes]]
-Name = 'foo'
-TendermintURL = 'http://foo.url'
-
-[[Cosmos.Nodes]]
-Name = 'bar'
-TendermintURL = 'http://bar.web'
-
 [[Solana]]
 ChainID = 'mainnet'
 Enabled = false
@@ -562,18 +535,3 @@ SendOnly = true
 Name = 'bar'
 URL = 'http://solana.bar'
 SendOnly = true
-
-[[Starknet]]
-ChainID = 'foobar'
-FeederURL = 'http://feeder.url'
-Enabled = true
-OCR2CachePollPeriod = '6h0m0s'
-OCR2CacheTTL = '3m0s'
-RequestTimeout = '1m3s'
-TxTimeout = '13s'
-ConfirmationPoll = '42s'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-APIKey = 'key'

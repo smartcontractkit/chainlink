@@ -8,7 +8,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 var (

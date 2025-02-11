@@ -12,6 +12,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
@@ -114,8 +115,8 @@ func subscribeDeferredCommitEvents(
 			errChan <- subErr
 			return
 		case report := <-sink:
-			if len(report.MerkleRoots) > 0 {
-				for _, mr := range report.MerkleRoots {
+			if len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots) > 0 {
+				for _, mr := range append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...) {
 					lggr.Infow("Received commit report ",
 						"sourceChain", mr.SourceChainSelector,
 						"offRamp", offRamp.Address().String(),

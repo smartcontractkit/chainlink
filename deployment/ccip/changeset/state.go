@@ -8,11 +8,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry_1_2_0"
@@ -45,9 +45,9 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
@@ -468,7 +468,7 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	case chain_selectors.FamilyEVM:
 		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
-		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+		offRampAddress = s.SolChains[chainSelector].OffRamp.Bytes()
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -540,13 +540,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.CapabilityRegistry = cr
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
 			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OnRamp = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -558,13 +558,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.RMNProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
-		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
 			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -576,7 +576,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.Weth9 = weth9
-		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
 			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -606,7 +606,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.TestRouter = r
-		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
 			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -638,7 +638,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.MockUSDCTokenMessenger = utm
-		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err

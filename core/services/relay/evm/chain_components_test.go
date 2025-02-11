@@ -30,6 +30,9 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	clevmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -43,9 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	clevmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
@@ -219,7 +219,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 func TestChainReader_HealthReport(t *testing.T) {
 	lp := lpMocks.NewLogPoller(t)
 	lp.EXPECT().HealthReport().Return(map[string]error{"lp_name": clcommontypes.ErrFinalityViolated}).Once()
-	ht := htMocks.NewHeadTracker[*clevmtypes.Head, common.Hash](t)
+	ht := htMocks.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
 	cr, err := evm.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, types.ChainReaderConfig{Contracts: nil})

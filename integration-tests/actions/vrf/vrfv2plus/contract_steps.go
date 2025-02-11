@@ -22,7 +22,7 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plusconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
 
 func DeployVRFV2_5Contracts(

@@ -811,7 +811,7 @@ func (e *CCIPContractsDeployer) DeployReceiverDapp(revert bool) (
 	return &ReceiverDapp{
 		client:     e.evmClient,
 		logger:     e.logger,
-		instance:   instance.(*maybe_revert_message_receiver.MaybeRevertMessageReceiver),
+		Instance:   instance.(*maybe_revert_message_receiver.MaybeRevertMessageReceiver),
 		EthAddress: *address,
 	}, err
 }
@@ -830,7 +830,7 @@ func (e *CCIPContractsDeployer) NewReceiverDapp(addr common.Address) (
 	return &ReceiverDapp{
 		client:     e.evmClient,
 		logger:     e.logger,
-		instance:   ins,
+		Instance:   ins,
 		EthAddress: addr,
 	}, err
 }

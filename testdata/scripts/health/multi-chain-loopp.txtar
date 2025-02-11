@@ -1,6 +1,4 @@
-env CL_COSMOS_CMD=chainlink-cosmos
 env CL_SOLANA_CMD=chainlink-solana
-env CL_STARKNET_CMD=chainlink-starknet
 
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'

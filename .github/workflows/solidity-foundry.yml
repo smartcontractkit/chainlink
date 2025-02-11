@@ -38,7 +38,9 @@ jobs:
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "vrf", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": false, "run-forge-fmt": false }},
-            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 96.0, "run-gas-snapshot": true, "run-forge-fmt": true }}
+            { "name": "workflow", "setup": { "run-coverage": true, "extra-coverage-params": "--ir-minimum", "min-coverage": 96.0, "run-gas-snapshot": true, "run-forge-fmt": true }},
+            { "name": "data-feeds", "setup": { "run-coverage": true, "min-coverage": 98.5, "run-gas-snapshot": true, "extra-coverage-params": "--no-match-coverage='WIP*'", "run-forge-fmt": false }}
+
           ]
           EOF
 
@@ -110,6 +112,8 @@ jobs:
               - 'contracts/src/v0.8/vendor/**/*.sol'
             workflow:
               - 'contracts/src/v0.8/workflow/**/*.sol'
+            data-feeds:
+              - 'contracts/src/v0.8/data-feeds/**/*.sol'
 
       - name: Detect non-test changes
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2

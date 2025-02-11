@@ -196,7 +196,7 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       E2E_JD_VERSION: 0.6.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
-      IS_CI: "true"
+      CI: "true"
       CTF_CONFIGS: "environment-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"

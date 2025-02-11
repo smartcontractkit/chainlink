@@ -37,6 +37,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -58,10 +62,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/verifier"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (
@@ -1065,14 +1065,14 @@ func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
 	// nReports: the number of reports to expect per node
 
 	// LESS STRESSFUL
-	// const nChannels = 200
-	// const maxQueueSize = 10
-	// const nReports = 1_000
+	const nChannels = 200
+	const maxQueueSize = 10
+	const nReports = 1_000
 
 	// MORE STRESSFUL
-	const nChannels = 2000
-	const maxQueueSize = 4_000
-	const nReports = 10_000
+	// const nChannels = 2000
+	// const maxQueueSize = 4_000
+	// const nReports = 10_000
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)

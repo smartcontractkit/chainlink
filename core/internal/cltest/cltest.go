@@ -46,7 +46,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -91,12 +97,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
@@ -413,7 +413,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	require.NoError(t, keyStore.Unlock(ctx, Password))
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewTestLoopRegistry(lggr)
+	loopRegistry := plugins.NewLoopRegistry(lggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), nil, "")
 
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
@@ -464,12 +464,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmOpts)}
 
 	if cfg.CosmosEnabled() {
-		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:    keyStore.Cosmos(),
-			TOMLConfigs: cfg.CosmosConfigs(),
-			DS:          ds,
-		}
-		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
+		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
@@ -480,25 +475,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
-		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:    keyStore.StarkNet(),
-			TOMLConfigs: cfg.StarknetConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
+		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
 	}
 	if cfg.AptosEnabled() {
-		aptosCfg := chainlink.AptosFactoryConfig{
-			Keystore:    keyStore.Aptos(),
-			TOMLConfigs: cfg.AptosConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
+		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
 	}
 	if cfg.TronEnabled() {
-		tronCfg := chainlink.TronFactoryConfig{
-			Keystore:    keyStore.Tron(),
-			TOMLConfigs: cfg.TronConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, tronCfg))
+		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
 	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -527,6 +510,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		FetcherFunc:                syncerFetcherFunc,
 		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
+		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})
 
 	require.NoError(t, err)
@@ -1332,7 +1316,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *commonmocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clienttest.Client, sub *clienttest.Subscription) {
 	t.Helper()
 
 	// Start

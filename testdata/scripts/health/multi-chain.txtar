@@ -38,13 +38,6 @@ fj293fbBnlQ!f9vNs
 [Webserver]
 HTTPPort = $PORT
 
-[[Cosmos]]
-ChainID = 'Foo'
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://tender.mint'
-
 [[EVM]]
 ChainID = '1'
 
@@ -60,17 +53,7 @@ ChainID = 'Bar'
 Name = 'primary'
 URL = 'http://solana.web'
 
-[[Starknet]]
-ChainID = 'Baz'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-
 -- out.txt --
-ok Cosmos.Foo.Chain
-ok Cosmos.Foo.Relayer
-ok Cosmos.Foo.Txm
 ok EVM.1
 ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
@@ -100,9 +83,6 @@ ok Solana.Bar.Chain
 ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
-ok StarkNet.Baz.Chain
-ok StarkNet.Baz.Chain.Txm
-ok StarkNet.Baz.Relayer
 ok TelemetryManager
 ok WorkflowDBStore
 
@@ -113,33 +93,6 @@ ok WorkflowDBStore
 -- out.json --
 {
   "data": [
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.Chain",
-      "attributes": {
-        "name": "Cosmos.Foo.Chain",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.Relayer",
-      "attributes": {
-        "name": "Cosmos.Foo.Relayer",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Cosmos.Foo.Txm",
-      "attributes": {
-        "name": "Cosmos.Foo.Txm",
-        "status": "passing",
-        "output": ""
-      }
-    },
     {
       "type": "checks",
       "id": "EVM.1",
@@ -388,33 +341,6 @@ ok WorkflowDBStore
       "id": "Solana.Bar.Relayer",
       "attributes": {
         "name": "Solana.Bar.Relayer",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "StarkNet.Baz.Chain",
-      "attributes": {
-        "name": "StarkNet.Baz.Chain",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "StarkNet.Baz.Chain.Txm",
-      "attributes": {
-        "name": "StarkNet.Baz.Chain.Txm",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "StarkNet.Baz.Relayer",
-      "attributes": {
-        "name": "StarkNet.Baz.Relayer",
         "status": "passing",
         "output": ""
       }
