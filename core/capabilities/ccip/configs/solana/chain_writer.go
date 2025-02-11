@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
+	ccipconsts "github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/codec"
 )
@@ -21,11 +23,12 @@ const (
 	sourceChainSelectorPath = "Info.AbstractReports.Messages.Header.SourceChainSelector"
 	destChainSelectorPath   = "Info.AbstractReports.Messages.Header.DestChainSelector"
 	destTokenAddress        = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
-	merkleRootChainSelector = "Info.MerkleRoots.ChainSel"
+	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
 	merkleRoot              = "Info.MerkleRoots.MerkleRoot"
 )
 
-func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) chainwriter.MethodConfig {
+func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, destChainSelector uint64) chainwriter.MethodConfig {
+	destChainSelectorBytes := binary.LittleEndian.AppendUint64([]byte{}, destChainSelector)
 	return chainwriter.MethodConfig{
 		FromAddress: fromAddress,
 		InputModifications: []codec.ModifierConfig{
@@ -50,7 +53,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRootSourceChainSelector}},
 				},
 				IsSigner:   false,
 				IsWritable: true,
@@ -60,7 +63,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				PublicKey: getAddressConstant(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
+					{Dynamic: chainwriter.AccountLookup{Location: merkleRootSourceChainSelector}},
 					{Dynamic: chainwriter.AccountLookup{Location: merkleRoot}},
 				},
 				IsSigner:   false,
@@ -118,7 +121,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string) cha
 				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("dest_chain")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
+					{Static: destChainSelectorBytes},
 				},
 				IsSigner:   false,
 				IsWritable: false,
@@ -287,7 +290,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 	}
 }
 
-func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string) (chainwriter.ChainWriterConfig, error) {
+func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string, destChainSelector uint64) (chainwriter.ChainWriterConfig, error) {
 	// check fromAddress
 	pk, err := solana.PublicKeyFromBase58(fromAddress)
 	if err != nil {
@@ -310,15 +313,15 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	}
 	solConfig := chainwriter.ChainWriterConfig{
 		Programs: map[string]chainwriter.ProgramConfig{
-			"ccip-offramp": {
+			ccipconsts.ContractNameOffRamp: {
 				Methods: map[string]chainwriter.MethodConfig{
-					"execute": getExecuteMethodConfig(fromAddress, offrampProgramAddress),
-					"commit":  getCommitMethodConfig(fromAddress, offrampProgramAddress),
+					ccipconsts.MethodExecute: getExecuteMethodConfig(fromAddress, offrampProgramAddress),
+					ccipconsts.MethodCommit:  getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector),
 				},
 				IDL: ccipOfframpIDL,
 			},
 			// Required for the CCIP args transform configured for the execute method which relies on the TokenAdminRegistry stored in the router
-			"ccip-router": {
+			ccipconsts.ContractNameRouter: {
 				IDL: ccipRouterIDL,
 			},
 		},
@@ -351,7 +354,7 @@ func getAddressConstant(address string) chainwriter.AccountConstant {
 
 func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
-		Name:      "FeeQuoter",
+		Name:      ccipconsts.ContractNameFeeQuoter,
 		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
@@ -369,7 +372,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 
 func getRouterConfig(offrampProgramAddress string) chainwriter.PDALookups {
 	return chainwriter.PDALookups{
-		Name:      "Router",
+		Name:      ccipconsts.ContractNameRouter,
 		PublicKey: getAddressConstant(offrampProgramAddress),
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("reference_addresses")},
@@ -409,6 +412,8 @@ func getFeeBillingSignerConfig(offrampProgramAddress string) chainwriter.PDALook
 	}
 }
 
+// getCommonAddressLookupTableConfig returns the lookup table config that fetches the lookup table address from a PDA on-chain
+// The offramp contract contains a PDA with a ReferenceAddresses struct that stores the lookup table address in the OfframpLookupTable field
 func getCommonAddressLookupTableConfig(offrampProgramAddress string) chainwriter.DerivedLookupTable {
 	return chainwriter.DerivedLookupTable{
 		Name: "CommonAddressLookupTable",
