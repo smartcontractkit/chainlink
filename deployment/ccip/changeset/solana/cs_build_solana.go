@@ -58,11 +58,10 @@ func cloneRepo(revision string) error {
 // Replace keys in Rust files
 func replaceKeys() error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
-	fmt.Println("Updating keys with anchor... ", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
 		fmt.Println(output)
-		return fmt.Errorf("anchor key replacement failed: %w", err)
+		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
 	}
 	return nil
 }
@@ -70,8 +69,7 @@ func replaceKeys() error {
 func copyFile(srcFile string, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
-		fmt.Println(output)
-		return fmt.Errorf("failed to copy file: %w", err)
+		return fmt.Errorf("failed to copy file: %s %w", output, err)
 	}
 	return nil
 }
@@ -79,11 +77,9 @@ func copyFile(srcFile string, destDir string) error {
 // Build the project with Anchor
 func buildProject() error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
-	fmt.Println("Building project with Anchor... ", solanaDir)
 	output, err := runCommand("make", []string{"docker-build-contracts"}, solanaDir)
 	if err != nil {
-		fmt.Println(output)
-		return fmt.Errorf("anchor build failed: %w", err)
+		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
 	return nil
 }
@@ -113,7 +109,7 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %v", err)
 	}
 
-	// Upgrades don't need to generate keys
+	// Upgrades don't need to generate keys, we upgrade the program in place
 	if !config.IsUpgrade {
 		if err := replaceKeys(); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %v", err)
@@ -132,7 +128,7 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	}
 
 	for _, file := range files {
-		filePath := filepath.Join(deployDir, file.Name())
+		filePath := filepath.Join(deployFilePath, file.Name())
 		err := copyFile(filePath, config.DestinationDir)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to copy file: %w", err)
