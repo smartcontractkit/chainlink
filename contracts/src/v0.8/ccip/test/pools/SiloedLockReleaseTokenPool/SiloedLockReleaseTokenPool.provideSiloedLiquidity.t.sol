@@ -53,8 +53,8 @@ contract SiloedLockReleaseTokenPool_provideSiloedLiquidity is SiloedLockReleaseT
     s_siloedLockReleaseTokenPool.provideSiloedLiquidity(SILOED_CHAIN_SELECTOR, 0);
   }
 
-  function test_provideSiloedLiquidity_RevertWhen_InvalidChainSelector_Zero() public {
-    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidChainSelector.selector, 0));
+  function test_provideSiloedLiquidity_RevertWhen_ChainNotSiloed_Zero() public {
+    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.ChainNotSiloed.selector, 0));
 
     s_siloedLockReleaseTokenPool.provideSiloedLiquidity(0, 1);
   }
