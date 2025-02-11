@@ -1374,8 +1374,8 @@ github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a/go.mod h1:tHem58EihQh63kR2LlAOKDAs9Vbghf1dJKZRGy6LG8g=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb h1:LWijSyJ2lhppkFLN19EGsLHZXQ5wen2DEk1cyR0tV+o=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb/go.mod h1:4JqpgFy01LaqG1yM2iFTzwX3ZgcAvW9WdstBZQgPHzU=
-github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406 h1:aOEqsgoTmdpTW7i1uIxtXNvVCpUDOEViTxpcPNaAe98=
-github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406/go.mod h1:sCZR6tZ7O72RmDNC44VsfFToHr/JA/Td99S//wsDHn4=
+github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211163724-89a32c016ce4 h1:CKZiyp/5U9Y+PCBknwy1KmiqZwn6T3coJXGSHmEDgRc=
+github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211163724-89a32c016ce4/go.mod h1:UAWEMU4mLuxvr86sN8XFMtFRjkuYQnr+d6iGIbNC36s=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0 h1:0ewLMbAz3rZrovdRUCgd028yOXX8KigB4FndAUdI2kM=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 h1:ZBat8EBvE2LpSQR9U1gEbRV6PfAkiFdINmQ8nVnXIAQ=
