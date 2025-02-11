@@ -3,12 +3,8 @@
 package mocks
 
 import (
-	chainlinkconfig "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
-
-	cosmosconfig "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -16,7 +12,7 @@ import (
 
 	time "time"
 
-	toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 
 	uuid "github.com/google/uuid"
 
@@ -372,19 +368,19 @@ func (_c *GeneralConfig_ConfigTOML_Call) RunAndReturn(run func() (string, string
 }
 
 // CosmosConfigs provides a mock function with no fields
-func (_m *GeneralConfig) CosmosConfigs() cosmosconfig.TOMLConfigs {
+func (_m *GeneralConfig) CosmosConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for CosmosConfigs")
 	}
 
-	var r0 cosmosconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() cosmosconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(cosmosconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -408,12 +404,12 @@ func (_c *GeneralConfig_CosmosConfigs_Call) Run(run func()) *GeneralConfig_Cosmo
 	return _c
 }
 
-func (_c *GeneralConfig_CosmosConfigs_Call) Return(_a0 cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+func (_c *GeneralConfig_CosmosConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_CosmosConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_CosmosConfigs_Call) RunAndReturn(run func() cosmosconfig.TOMLConfigs) *GeneralConfig_CosmosConfigs_Call {
+func (_c *GeneralConfig_CosmosConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_CosmosConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -598,51 +594,6 @@ func (_c *GeneralConfig_EVMEnabled_Call) Return(_a0 bool) *GeneralConfig_EVMEnab
 }
 
 func (_c *GeneralConfig_EVMEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_EVMEnabled_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// EVMRPCEnabled provides a mock function with no fields
-func (_m *GeneralConfig) EVMRPCEnabled() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for EVMRPCEnabled")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GeneralConfig_EVMRPCEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'EVMRPCEnabled'
-type GeneralConfig_EVMRPCEnabled_Call struct {
-	*mock.Call
-}
-
-// EVMRPCEnabled is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) EVMRPCEnabled() *GeneralConfig_EVMRPCEnabled_Call {
-	return &GeneralConfig_EVMRPCEnabled_Call{Call: _e.mock.On("EVMRPCEnabled")}
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) Run(run func()) *GeneralConfig_EVMRPCEnabled_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) Return(_a0 bool) *GeneralConfig_EVMRPCEnabled_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_EVMRPCEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_EVMRPCEnabled_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1725,19 +1676,19 @@ func (_c *GeneralConfig_StarkNetEnabled_Call) RunAndReturn(run func() bool) *Gen
 }
 
 // StarknetConfigs provides a mock function with no fields
-func (_m *GeneralConfig) StarknetConfigs() chainlinkconfig.TOMLConfigs {
+func (_m *GeneralConfig) StarknetConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for StarknetConfigs")
 	}
 
-	var r0 chainlinkconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() chainlinkconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chainlinkconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -1761,12 +1712,12 @@ func (_c *GeneralConfig_StarknetConfigs_Call) Run(run func()) *GeneralConfig_Sta
 	return _c
 }
 
-func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+func (_c *GeneralConfig_StarknetConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlinkconfig.TOMLConfigs) *GeneralConfig_StarknetConfigs_Call {
+func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_StarknetConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }

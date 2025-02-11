@@ -10,27 +10,26 @@ import (
 	"testing"
 	"time"
 
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/robfig/cron/v3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/robfig/cron/v3"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // MockSubscription a mock subscription
@@ -400,7 +399,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg toml.HasEVMConfigs) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -412,7 +411,7 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	return NewLegacyChainsWithChain(ch, cfg)
 }
 
-func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg toml.HasEVMConfigs, txm txmgr.TxManager) legacyevm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -424,7 +423,7 @@ func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.
 	return NewLegacyChainsWithChain(ch, cfg)
 }
 
-func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg legacyevm.AppConfig) legacyevm.LegacyChainContainer {
+func NewLegacyChainsWithChain(ch legacyevm.Chain, cfg toml.HasEVMConfigs) legacyevm.LegacyChainContainer {
 	m := map[string]legacyevm.Chain{ch.ID().String(): ch}
 	return legacyevm.NewLegacyChains(m, cfg.EVMConfigs())
 }

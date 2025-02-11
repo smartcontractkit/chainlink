@@ -5,17 +5,16 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
@@ -104,7 +103,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	client := evmClientMocks.NewClient(t)
+	client := clienttest.NewClient(t)
 	ctx := testutils.Context(t)
 
 	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)

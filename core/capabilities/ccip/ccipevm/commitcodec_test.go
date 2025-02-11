@@ -10,13 +10,34 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var randomCommitReport = func() cciptypes.CommitPluginReport {
 	return cciptypes.CommitPluginReport{
-		MerkleRoots: []cciptypes.MerkleRootChain{
+		BlessedMerkleRoots: []cciptypes.MerkleRootChain{
+			{
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
+				SeqNumsRange: cciptypes.NewSeqNumRange(
+					cciptypes.SeqNum(rand.Uint64()),
+					cciptypes.SeqNum(rand.Uint64()),
+				),
+				MerkleRoot: utils.RandomBytes32(),
+			},
+			{
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
+				SeqNumsRange: cciptypes.NewSeqNumRange(
+					cciptypes.SeqNum(rand.Uint64()),
+					cciptypes.SeqNum(rand.Uint64()),
+				),
+				MerkleRoot: utils.RandomBytes32(),
+			},
+		},
+		UnblessedMerkleRoots: []cciptypes.MerkleRootChain{
 			{
 				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
@@ -79,7 +100,8 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		{
 			name: "empty merkle root",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.MerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+				report.BlessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+				report.UnblessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
 				return report
 			},
 		},

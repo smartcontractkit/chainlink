@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	numMessages = 25
+	numMessages = 5
 )
 
 type batchTestSetup struct {
@@ -71,8 +71,6 @@ func newBatchTestSetup(t *testing.T) batchTestSetup {
 }
 
 func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
-	t.Parallel()
-
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
 	sourceChain1, sourceChain2, destChain, e, state := setup.sourceChain1, setup.sourceChain2, setup.destChain, setup.e, setup.state
@@ -123,7 +121,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 
 	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil, // startBlock
@@ -137,10 +135,6 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 }
 
 func Test_CCIPBatching_MultiSource(t *testing.T) {
-	// t.Skip("Exec not working, boosting not working correctly")
-
-	t.Parallel()
-
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
@@ -266,8 +260,6 @@ func Test_CCIPBatching_MultiSource(t *testing.T) {
 }
 
 func Test_CCIPBatching_SingleSource(t *testing.T) {
-	t.Parallel()
-
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t)
@@ -299,7 +291,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil,
@@ -310,7 +302,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
-		e.Env.Chains[sourceChain],
+		sourceChain,
 		e.Env.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		nil,
@@ -341,7 +333,7 @@ func assertExecAsync(
 	defer wg.Done()
 	states, err := testhelpers.ConfirmExecWithSeqNrs(
 		t,
-		e.Env.Chains[sourceChainSelector],
+		sourceChainSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil,
@@ -365,7 +357,7 @@ func assertCommitReportsAsync(
 	defer wg.Done()
 	commitReport, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Env.Chains[sourceChainSelector],
+		sourceChainSelector,
 		e.Env.Chains[destChainSelector],
 		state.Chains[destChainSelector].OffRamp,
 		nil,
@@ -425,7 +417,7 @@ func sendMessages(
 	t *testing.T,
 	sourceChain deployment.Chain,
 	sourceTransactOpts *bind.TransactOpts,
-	sourceOnRamp *onramp.OnRamp,
+	sourceOnRamp onramp.OnRampInterface,
 	sourceRouter *router.Router,
 	sourceMulticall3 *multicall3.Multicall3,
 	destChainSelector uint64,

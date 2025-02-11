@@ -23,18 +23,17 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 type LogPoller interface {
@@ -893,8 +892,6 @@ func (lp *logPoller) blocksFromFinalizedLogs(ctx context.Context, logs []types.L
 
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
-// Retries until ctx cancelled. Will return an error if cancelled
-// or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 	batchSize := lp.backfillBatchSize
 	for from := start; from <= end; from += batchSize {

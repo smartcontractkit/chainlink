@@ -30,7 +30,7 @@ func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error
 		return DonConfiguration{}, fmt.Errorf("invalid configuration, number of nodes must be at least 3*F+1")
 	}
 
-	keyBundles, peerIDs, err := getKeyBundlesAndPeerIDs(don.NumNodes)
+	keyBundles, peerIDs, err := getKeyBundlesAndPeerIDs(don.Name, don.NumNodes)
 	if err != nil {
 		return DonConfiguration{}, fmt.Errorf("failed to get key bundles and peer IDs: %w", err)
 	}

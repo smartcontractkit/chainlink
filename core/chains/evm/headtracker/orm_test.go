@@ -9,15 +9,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 func TestORM_IdempotentInsertHead(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	// Returns nil when inserting first head
@@ -41,7 +40,7 @@ func TestORM_IdempotentInsertHead(t *testing.T) {
 func TestORM_TrimOldHeads(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	for i := 0; i < 10; i++ {
@@ -68,7 +67,7 @@ func TestORM_TrimOldHeads(t *testing.T) {
 func TestORM_HeadByHash(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	var hash common.Hash
@@ -89,7 +88,7 @@ func TestORM_HeadByHash(t *testing.T) {
 func TestORM_HeadByHash_NotFound(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	hash := testutils.Head(123).Hash
@@ -102,7 +101,7 @@ func TestORM_HeadByHash_NotFound(t *testing.T) {
 func TestORM_LatestHeads_NoRows(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := testutils.NewSqlxDB(t)
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	heads, err := orm.LatestHeads(tests.Context(t), 100)

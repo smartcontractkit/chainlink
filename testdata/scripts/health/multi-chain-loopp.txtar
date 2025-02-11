@@ -1,5 +1,4 @@
 env CL_SOLANA_CMD=chainlink-solana
-env CL_STARKNET_CMD=chainlink-starknet
 
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
@@ -26,6 +25,7 @@ cp stdout compact.json
 exec jq . compact.json
 cmp stdout out-unhealthy.json
 
+-- go:build.integration --
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --
@@ -71,9 +71,12 @@ Name = 'primary'
 URL = 'http://stark.node'
 
 -- out.txt --
-ok Cosmos.Foo.Chain
-ok Cosmos.Foo.Relayer
-ok Cosmos.Foo.Txm
+ok Cosmos.Foo.RelayerService
+ok Cosmos.Foo.RelayerService.PluginRelayerClient
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer
+ok Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm
 ok EVM.1
 ok EVM.1.BalanceMonitor
 ok EVM.1.HeadBroadcaster
@@ -91,6 +94,7 @@ ok EVM.1.Txm.WrappedEvmEstimator
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
+ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
@@ -123,27 +127,54 @@ ok WorkflowDBStore
   "data": [
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Chain",
+      "id": "Cosmos.Foo.RelayerService",
       "attributes": {
-        "name": "Cosmos.Foo.Chain",
+        "name": "Cosmos.Foo.RelayerService",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Relayer",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient",
       "attributes": {
-        "name": "Cosmos.Foo.Relayer",
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Cosmos.Foo.Txm",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
       "attributes": {
-        "name": "Cosmos.Foo.Txm",
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
+      "attributes": {
+        "name": "Cosmos.Foo.RelayerService.PluginRelayerClient.PluginCosmos.Txm",
         "status": "passing",
         "output": ""
       }
@@ -288,6 +319,15 @@ ok WorkflowDBStore
       "id": "JobSpawner",
       "attributes": {
         "name": "JobSpawner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "LLOTransmissionReaper",
+      "attributes": {
+        "name": "LLOTransmissionReaper",
         "status": "passing",
         "output": ""
       }

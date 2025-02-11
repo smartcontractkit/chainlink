@@ -9,19 +9,10 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-
+	"github.com/avast/retry-go/v4"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
@@ -32,8 +23,12 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,7 +37,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -51,6 +49,10 @@ import (
 type RelayGetter interface {
 	Get(types.RelayID) (loop.Relayer, error)
 	GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error)
+}
+
+type Keystore[K keystore.Key] interface {
+	GetAll() ([]K, error)
 }
 
 type Delegate struct {
@@ -158,19 +160,35 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	// since all queries are scoped by config digest.
 	ocrDB := ocr2.NewDB(d.ds, spec.ID, 0, d.lggr)
 
-	homeChainContractReader, ccipConfigBinding, err := d.getHomeChainContractReader(
-		ctx,
-		homeChainRelayer,
-		spec.CCIPSpec.CapabilityLabelledName,
-		spec.CCIPSpec.CapabilityVersion)
+	var (
+		homeChainContractReader types.ContractReader
+		ccipConfigBinding       types.BoundContract
+	)
+	err = retry.Do(func() error {
+		var err2 error
+		homeChainContractReader, ccipConfigBinding, err2 = d.getHomeChainContractReader(
+			ctx,
+			homeChainRelayer,
+			spec.CCIPSpec.CapabilityLabelledName,
+			spec.CCIPSpec.CapabilityVersion)
+		return err2
+	},
+		retry.Attempts(0), // retry forever
+		retry.Delay(10*time.Second),
+		retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(attempt uint, err error) {
+			d.lggr.Warnw("failed to get home chain contract reader, retrying", "attempt", attempt, "err", err)
+		}),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home chain contract reader: %w", err)
+		// shouldn't happen since the above should retry forever.
+		return nil, fmt.Errorf("failed to get home chain contract reader, fatal error: %w", err)
 	}
 
 	hcr := ccipreaderpkg.NewObservedHomeChainReader(
 		homeChainContractReader,
 		d.lggr.Named("HomeChainReader"),
-		15*time.Second,
+		ccipreaderpkg.HomeChainPollingInterval,
 		ccipConfigBinding,
 		d.capabilityConfig.ExternalRegistry().ChainID(),
 	)
@@ -251,10 +269,6 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
 func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2key.KeyBundle, error) {
 	ocrKeys := make(map[string]ocr2key.KeyBundle)
 	for networkType, bundleIDRaw := range ocrKeyBundleIDs {
-		if networkType != relay.NetworkEVM {
-			return nil, fmt.Errorf("unsupported chain type: %s", networkType)
-		}
-
 		bundleID, ok := bundleIDRaw.(string)
 		if !ok {
 			return nil, fmt.Errorf("OCRKeyBundleIDs must be a map of chain types to OCR key bundle IDs, got: %T", bundleIDRaw)
@@ -270,6 +284,21 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 	return ocrKeys, nil
 }
 
+func getKeys[K keystore.Key](ks Keystore[K]) ([]string, error) {
+	result := make([]string, 0)
+
+	keys, err := ks.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("error getting all keys: %w", err)
+	}
+
+	for _, key := range keys {
+		result = append(result, key.ID())
+	}
+
+	return result, nil
+}
+
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
@@ -278,19 +307,42 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
 		}
 
-		ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+		var keys []string
+		var err error
+		switch relayID.Network {
+		case relay.NetworkEVM:
+			keys, err = d.getEVMKeys(ctx, chainID)
+		case relay.NetworkSolana:
+			keys, err = getKeys(d.keystore.Solana())
+		case relay.NetworkAptos:
+			keys, err = getKeys(d.keystore.Aptos())
+		case relay.NetworkCosmos:
+			keys, err = getKeys(d.keystore.Cosmos())
+		case relay.NetworkStarkNet:
+			keys, err = getKeys(d.keystore.StarkNet())
+		default:
+			return nil, fmt.Errorf("unsupported network: %s", relayID.Network)
 		}
 
-		transmitterKeys[relayID] = func() (r []string) {
-			for _, key := range ethKeys {
-				r = append(r, key.Hex())
-			}
-			return
-		}()
+		if err != nil {
+			return nil, err
+		}
+		transmitterKeys[relayID] = keys
 	}
 	return transmitterKeys, nil
+}
+
+func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, error) {
+	result := make([]string, 0)
+	ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
+	if err != nil {
+		return result, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+	}
+
+	for _, key := range ethKeys {
+		result = append(result, key.Hex())
+	}
+	return result, nil
 }
 
 func (d *Delegate) getHomeChainContractReader(

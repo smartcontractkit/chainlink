@@ -3,14 +3,13 @@ package common_test
 import (
 	"testing"
 
-	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )

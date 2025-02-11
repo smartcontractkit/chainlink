@@ -78,6 +78,13 @@ let config = {
           evmVersion: 'paris',
         },
       },
+      {
+        version: '0.8.26',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
@@ -132,7 +139,7 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
-      'src/v0.8/workflow/dev/WorkflowRegistry.sol': {
+      'src/v0.8/workflow/WorkflowRegistry.sol': {
         version: '0.8.24',
         settings: {
           optimizer: {

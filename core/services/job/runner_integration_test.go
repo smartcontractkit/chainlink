@@ -28,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -83,7 +83,15 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, pipelineORM.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, pipelineORM.Close()) })
 	btORM := bridges.NewORM(db)
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		DB:             db,
+		Client:         ethClient,
+		ChainConfigs:   config.EVMConfigs(),
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		KeyStore:       ethKeyStore,
+	})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
@@ -559,7 +567,15 @@ answer1      [type=median index=0];
 				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
 			})
 
-			legacyChains2 := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+			legacyChains2 := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+				DB:             db,
+				Client:         ethClient,
+				ChainConfigs:   config.EVMConfigs(),
+				DatabaseConfig: config.Database(),
+				FeatureConfig:  config.Feature(),
+				ListenerConfig: config.Database().Listener(),
+				KeyStore:       ethKeyStore,
+			})
 
 			kb, err := keyStore.OCR().Create(ctx)
 			require.NoError(t, err)

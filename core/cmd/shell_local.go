@@ -23,6 +23,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+	"github.com/jmoiron/sqlx"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -31,18 +32,15 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jmoiron/sqlx"
-
+	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -366,6 +364,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if err := ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
+		lggr.Debug("Closed DB")
 		if err := s.CloseLogger(); err != nil {
 			log.Printf("Failed to close Logger: %v", err)
 		}

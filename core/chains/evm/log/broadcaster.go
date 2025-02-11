@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
@@ -46,7 +46,7 @@ type (
 	Broadcaster interface {
 		utils.DependentAwaiter
 		services.Service
-		httypes.HeadTrackable
+		heads.Trackable[*evmtypes.Head, common.Hash]
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
 		// set to true, the broadcaster will broadcast logs that were already marked consumed

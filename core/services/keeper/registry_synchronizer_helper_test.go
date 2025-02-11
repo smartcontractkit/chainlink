@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -31,19 +31,28 @@ const syncUpkeepQueueSize = 10
 func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*evmclimocks.Client,
+	*clienttest.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		DB:             db,
+		Client:         ethClient,
+		LogBroadcaster: lbMock,
+		ChainConfigs:   cfg.EVMConfigs(),
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		KeyStore:       keyStore.Eth(),
+	})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 

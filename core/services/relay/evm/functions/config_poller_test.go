@@ -20,16 +20,16 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -79,7 +79,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	defer db.Close()
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	defer ethClient.Close()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr)
 	lpOpts := logpoller.Opts{

@@ -15,9 +15,9 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -503,6 +503,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 						PluginType:                        types.Median,
 						PluginConfig:                      pluginConfig,
+						AllowNoBootstrappers:              true,
 					},
 				}, nil)
 			},
@@ -527,6 +528,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									transmitterID
 									pluginType
 									pluginConfig
+									allowNoBootstrappers
 								}
 							}
 						}
@@ -560,7 +562,8 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"pluginType": "median",
 							"pluginConfig": {
 								"juelsPerFeeCoinSource": 100000000
-							}
+							},
+							"allowNoBootstrappers": true
 						}
 					}
 				}

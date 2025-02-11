@@ -8,7 +8,8 @@ import (
 	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )

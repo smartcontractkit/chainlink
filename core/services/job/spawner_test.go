@@ -18,12 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
-
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -37,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -99,7 +98,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}).
 		Return(nil).Maybe()
 
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		DB:             db,
+		Client:         ethClient,
+		ChainConfigs:   config.EVMConfigs(),
+		DatabaseConfig: config.Database(),
+		FeatureConfig:  config.Feature(),
+		ListenerConfig: config.Database().Listener(),
+		KeyStore:       ethKeyStore,
+	})
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
@@ -277,11 +284,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		})
 		lp := &mocklp.LogPoller{}
 		testopts := evmtest.TestChainOpts{
-			DB:            db,
-			Client:        ethClient,
-			GeneralConfig: config,
-			LogPoller:     lp,
-			KeyStore:      ethKeyStore,
+			DB:             db,
+			Client:         ethClient,
+			ChainConfigs:   config.EVMConfigs(),
+			DatabaseConfig: config.Database(),
+			FeatureConfig:  config.Feature(),
+			ListenerConfig: config.Database().Listener(),
+			LogPoller:      lp,
+			KeyStore:       ethKeyStore,
 		}
 
 		lggr := logger.TestLogger(t)

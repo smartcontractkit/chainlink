@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
@@ -22,6 +23,7 @@ type Delegate struct {
 	secretsFetcher secretsFetcher
 	logger         logger.Logger
 	store          store.Store
+	ratelimiter    *ratelimiter.RateLimiter
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -60,16 +62,19 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:           d.logger,
-		Workflow:       sdkSpec,
-		WorkflowID:     spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:   spec.WorkflowSpec.WorkflowName,
+		Lggr:          d.logger,
+		Workflow:      sdkSpec,
+		WorkflowID:    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName: defaultName{
+			name: spec.WorkflowSpec.WorkflowName,
+		},
 		Registry:       d.registry,
 		Store:          d.store,
 		Config:         config,
 		Binary:         binary,
 		SecretsFetcher: d.secretsFetcher,
+		RateLimiter:    d.ratelimiter,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -93,8 +98,15 @@ func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
+	ratelimiter *ratelimiter.RateLimiter,
 ) *Delegate {
-	return &Delegate{logger: logger, registry: registry, secretsFetcher: newNoopSecretsFetcher(), store: store}
+	return &Delegate{
+		logger:         logger,
+		registry:       registry,
+		secretsFetcher: newNoopSecretsFetcher(),
+		store:          store,
+		ratelimiter:    ratelimiter,
+	}
 }
 
 func ValidatedWorkflowJobSpec(ctx context.Context, tomlString string) (job.Job, error) {

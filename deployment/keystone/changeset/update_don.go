@@ -108,10 +108,10 @@ func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*interna
 	contractSet := resp.ContractSets[r.RegistryChainSel]
 
 	return &internal.UpdateDonRequest{
-		Chain:             env.Chains[r.RegistryChainSel],
-		ContractSet:       &contractSet,
-		P2PIDs:            r.P2PIDs,
-		CapabilityConfigs: r.CapabilityConfigs,
-		UseMCMS:           r.UseMCMS(),
+		Chain:                env.Chains[r.RegistryChainSel],
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		P2PIDs:               r.P2PIDs,
+		CapabilityConfigs:    r.CapabilityConfigs,
+		UseMCMS:              r.UseMCMS(),
 	}, nil
 }

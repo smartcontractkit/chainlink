@@ -11,7 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
-	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -578,8 +578,15 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
-				TxManager: txManager, KeyStore: keyStore})
+			legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+				DB:             db,
+				ChainConfigs:   cfg.EVMConfigs(),
+				DatabaseConfig: cfg.Database(),
+				FeatureConfig:  cfg.Feature(),
+				ListenerConfig: cfg.Database().Listener(),
+				TxManager:      txManager,
+				KeyStore:       keyStore,
+			})
 
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)

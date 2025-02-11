@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -53,8 +53,8 @@ func (*mockTransmitter) FromAddress(ctx context.Context) gethcommon.Address { re
 func TestContractTransmitter(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-	c := evmclimocks.NewClient(t)
+	lggr := logger.Test(t)
+	c := clienttest.NewClient(t)
 	lp := lpmocks.NewLogPoller(t)
 	ctx := testutils.Context(t)
 	ks := mocks.NewEth(t)
@@ -171,11 +171,11 @@ func createContractTransmitter(ctx context.Context, t *testing.T, transmitter Tr
 	contractTransmitter, err := NewOCRContractTransmitter(
 		ctx,
 		gethcommon.Address{},
-		evmclimocks.NewClient(t),
+		clienttest.NewClient(t),
 		contractABI,
 		transmitter,
 		lp,
-		logger.TestLogger(t),
+		logger.Test(t),
 		ethKeyStore,
 		ops...,
 	)

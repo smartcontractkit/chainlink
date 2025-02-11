@@ -16,17 +16,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	types3 "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	gasMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	gasMocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -201,7 +199,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				poller: tc.poller,
 			}
 			if tc.makeEthCall {
-				client := new(evmClientMocks.Client)
+				client := new(clienttest.Client)
 				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, fmt.Errorf("error"))
 				e.client = client
 			}
@@ -255,7 +253,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		state       encoding.PipelineExecutionState
 		retryable   bool
 		ethCallErr  error
-		receipt     *types.Receipt
+		receipt     *evmtypes.Receipt
 	}{
 		{
 			name:     "log block number invalid",
@@ -285,7 +283,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			blocks: map[int64]string{
 				500: "0xb2173b4b75f23f56b7b2b6b2cc5fa9ed1079b9d1655b12b40fdb4dbf59006419",
 			},
-			receipt: &types.Receipt{Status: 0},
+			receipt: &evmtypes.Receipt{Status: 0},
 		},
 		{
 			name:     "eth client returns a matching block but different hash",
@@ -301,7 +299,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
 			},
 			makeEthCall: true,
-			receipt: &types.Receipt{
+			receipt: &evmtypes.Receipt{
 				Status:      1,
 				BlockNumber: big.NewInt(550),
 				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
@@ -321,7 +319,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
 			},
 			makeEthCall: true,
-			receipt: &types.Receipt{
+			receipt: &evmtypes.Receipt{
 				Status:      1,
 				BlockNumber: big.NewInt(550),
 				BlockHash:   common.HexToHash("0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71"),
@@ -355,11 +353,11 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			}
 
 			if tc.makeEthCall {
-				client := new(evmClientMocks.Client)
+				client := new(clienttest.Client)
 				client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.BytesToHash(tc.payload.Trigger.LogTriggerExtension.TxHash[:])).
 					Return(tc.ethCallErr).Run(func(args mock.Arguments) {
 					if tc.receipt != nil {
-						res := args.Get(1).(*types.Receipt)
+						res := args.Get(1).(*evmtypes.Receipt)
 						res.Status = tc.receipt.Status
 						res.TxHash = tc.receipt.TxHash
 						res.BlockNumber = tc.receipt.BlockNumber
@@ -379,9 +377,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 func TestRegistry_CheckUpkeeps(t *testing.T) {
 	lggr := logger.Test(t)
-	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -408,7 +406,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		results       []ocr2keepers.CheckResult
 		err           error
 		ethCalls      map[string]bool
-		receipts      map[string]*types.Receipt
+		receipts      map[string]*evmtypes.Receipt
 		poller        logpoller.LogPoller
 		ethCallErrors map[string]error
 	}{
@@ -484,7 +482,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			ethCalls: map[string]bool{
 				uid1.String(): true,
 			},
-			receipts: map[string]*types.Receipt{},
+			receipts: map[string]*evmtypes.Receipt{},
 			poller: &mockLogPoller{
 				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
 					return []logpoller.LogPollerBlock{
@@ -512,7 +510,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				bs:     bs,
 				poller: tc.poller,
 			}
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
 				if tc.ethCalls[uid] {
@@ -520,7 +518,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
 						receipt := tc.receipts[uid]
 						if receipt != nil {
-							res := args.Get(1).(*types.Receipt)
+							res := args.Get(1).(*evmtypes.Receipt)
 							res.Status = receipt.Status
 							res.TxHash = receipt.TxHash
 							res.BlockNumber = receipt.BlockNumber
@@ -539,9 +537,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 }
 
 func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
-	uid0 := core.GenUpkeepID(types3.UpkeepType(0), "p0")
-	uid1 := core.GenUpkeepID(types3.UpkeepType(1), "p1")
-	uid2 := core.GenUpkeepID(types3.UpkeepType(1), "p2")
+	uid0 := core.GenUpkeepID(autotypes.UpkeepType(0), "p0")
+	uid1 := core.GenUpkeepID(autotypes.UpkeepType(1), "p1")
+	uid2 := core.GenUpkeepID(autotypes.UpkeepType(1), "p2")
 
 	extension1 := &ocr2keepers.LogTriggerExtension{
 		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
@@ -640,7 +638,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			e := setupEVMRegistry(t)
-			client := new(evmClientMocks.Client)
+			client := new(clienttest.Client)
 			client.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 				return len(b) == 2 && b[0].Method == "eth_call" && b[1].Method == "eth_call"
 			})).Return(nil).
@@ -677,7 +675,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	var logPoller logpoller.LogPoller
 	mockReg := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)
-	client := evmClientMocks.NewClient(t)
+	client := clienttest.NewClient(t)
 	ge := gasMocks.NewEvmFeeEstimator(t)
 
 	r := &EvmRegistry{
@@ -693,7 +691,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
-			cred: &types2.MercuryCredentials{
+			cred: &commontypes.MercuryCredentials{
 				LegacyURL: "https://google.old.com",
 				URL:       "https://google.com",
 				Username:  "FakeClientID",

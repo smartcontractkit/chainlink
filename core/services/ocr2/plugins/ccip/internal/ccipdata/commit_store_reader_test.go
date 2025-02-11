@@ -17,15 +17,15 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
-	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	rollupMocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_helper_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
@@ -376,7 +376,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 			ctx := tests.Context(t)
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
 			require.NoError(t, err)
-			c := evmclientmocks.NewClient(t)
+			c := clienttest.NewClient(t)
 			c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(b, nil)
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)

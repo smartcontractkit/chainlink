@@ -13,13 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -60,7 +59,7 @@ var upkeepConfig1_2 = registry1_2.GetUpkeep{
 
 func mockRegistry1_2(
 	t *testing.T,
-	ethMock *evmclimocks.Client,
+	ethMock *clienttest.Client,
 	contractAddress common.Address,
 	config registry1_2.Config,
 	activeUpkeepIDs []*big.Int,
@@ -95,7 +94,7 @@ func mockRegistry1_2(
 func Test_LogListenerOpts1_2(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 
 	contractAddress := j.KeeperSpec.ContractAddress.Address()

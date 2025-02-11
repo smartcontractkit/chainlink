@@ -1,0 +1,8 @@
+# CTFv2 cached environment, no point in committing this
+*-cache.toml
+# compiled cron capability, it should be downloaded by the test
+amd64_cron
+# workflow registration artifact, it's created anew every time the workflow is registered
+abcdefgasd.yaml
+# chainlink cli binary, it should be downloaded by the test
+cre_v*

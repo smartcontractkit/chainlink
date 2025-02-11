@@ -91,10 +91,10 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function processChainFamilySelector(
     uint64 chainFamilySelector,
-    bool isMessageWithTokenTransfer,
+    bytes calldata messageReceiver,
     bytes calldata extraArgs
-  ) external view returns (bytes memory, bool) {
-    return _processChainFamilySelector(chainFamilySelector, isMessageWithTokenTransfer, extraArgs);
+  ) external view returns (bytes memory, bool, bytes memory) {
+    return _processChainFamilySelector(chainFamilySelector, messageReceiver, extraArgs);
   }
 
   function validateDestFamilyAddress(
@@ -111,12 +111,5 @@ contract FeeQuoterHelper is FeeQuoter {
     uint256 feedValue
   ) external pure returns (uint224) {
     return _calculateRebasedValue(dataFeedDecimal, tokenDecimal, feedValue);
-  }
-
-  function resolveGasLimitForDestination(
-    bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
-  ) external pure returns (uint256 gasLimit) {
-    return _resolveGasLimitForDestination(extraArgs, destChainConfig);
   }
 }

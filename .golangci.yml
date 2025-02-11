@@ -175,3 +175,5 @@ issues:
       text: "^G404:"
       linters:
         - gosec
+  exclude-files:
+    - evm/ # need to move files here for evm extraction that have outstanding issues

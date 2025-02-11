@@ -7,9 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
@@ -23,9 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -52,7 +53,6 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		JobSpecs:    nil,
 	}, nil
 }
 

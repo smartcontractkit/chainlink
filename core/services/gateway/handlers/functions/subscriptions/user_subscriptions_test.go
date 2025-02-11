@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 

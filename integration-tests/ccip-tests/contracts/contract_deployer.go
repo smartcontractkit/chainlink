@@ -48,12 +48,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/type_and_version"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
@@ -809,7 +809,7 @@ func (e *CCIPContractsDeployer) DeployReceiverDapp(revert bool) (
 	return &ReceiverDapp{
 		client:     e.evmClient,
 		logger:     e.logger,
-		instance:   instance.(*maybe_revert_message_receiver.MaybeRevertMessageReceiver),
+		Instance:   instance.(*maybe_revert_message_receiver.MaybeRevertMessageReceiver),
 		EthAddress: *address,
 	}, err
 }
@@ -828,7 +828,7 @@ func (e *CCIPContractsDeployer) NewReceiverDapp(addr common.Address) (
 	return &ReceiverDapp{
 		client:     e.evmClient,
 		logger:     e.logger,
-		instance:   ins,
+		Instance:   ins,
 		EthAddress: addr,
 	}, err
 }

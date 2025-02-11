@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -211,7 +211,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	// All messages are committed, even these which are going to be reverted during the exec
 	_, err = testhelpers.ConfirmCommitWithExpectedSeqNumRange(
 		t,
-		e.Chains[sourceChain],
+		sourceChain,
 		e.Chains[destChain],
 		state.Chains[destChain].OffRamp,
 		startBlocks[destChain],

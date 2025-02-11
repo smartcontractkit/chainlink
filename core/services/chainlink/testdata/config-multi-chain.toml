@@ -70,22 +70,6 @@ Mode = 'FixedPrice'
 Name = 'bar'
 WSURL = 'wss://web.socket/test/bar'
 
-[[Cosmos]]
-ChainID = 'Ibiza-808'
-MaxMsgsPerBatch = 13
-
-[[Cosmos.Nodes]]
-Name = 'primary'
-TendermintURL = 'http://columbus.cosmos.com'
-
-[[Cosmos]]
-ChainID = 'Malaga-420'
-BlocksUntilTxTimeout = 20
-
-[[Cosmos.Nodes]]
-Name = 'secondary'
-TendermintURL = 'http://bombay.cosmos.com'
-
 [[Solana]]
 ChainID = 'mainnet'
 MaxRetries = 12
@@ -98,6 +82,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
@@ -124,6 +109,7 @@ SelectionMode = 'HighestHead'
 SyncThreshold = 5
 NodeIsSyncingEnabled = false
 LeaseDuration = '1m0s'
+NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
@@ -137,13 +123,3 @@ FinalizedBlockOffset = 0
 Name = 'secondary'
 URL = 'http://testnet.solana.com'
 SendOnly = false
-
-[[Starknet]]
-ChainID = 'foobar'
-FeederURL = 'http://feeder.url'
-ConfirmationPoll = '1h0m0s'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-APIKey = 'key'

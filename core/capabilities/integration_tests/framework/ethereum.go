@@ -13,8 +13,9 @@ import (
 	gethlog "github.com/ethereum/go-ethereum/log"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )

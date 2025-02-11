@@ -1,0 +1,73 @@
+name: Solana build contracts
+description: Build Solana contracts
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout chainlink-ccip
+      uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      with:
+        repository: smartcontractkit/chainlink-ccip
+        path: chainlink-ccip
+        fetch-depth: 0
+    - name: Checkout branch based on CCIP Revision
+      id: get_checkout_ccip_chains_solana_revision
+      shell: bash
+      run: |
+        # get the short revision of the chainlink-ccip solana contracts dependency from the go.mod file
+        short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | cut -d'-' -f3)
+
+        # since the github action checkout action doesn't support short revisions, we have to do it manually
+        cd chainlink-ccip
+        git checkout $short_revision
+
+        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
+    - name: Get Anchor Version
+      id: get_anchor_version
+      shell: bash
+      run: |
+        cd chainlink-ccip/chains/solana
+        anchor=$(make anchor_version)
+        echo "ANCHOR_VERSION=${anchor}" >> $GITHUB_ENV
+    - name: cache docker build image
+      id: cache-image
+      uses: actions/cache@v4 # v4.0.2
+      with:
+        lookup-only: true
+        path: chains/solana/contracts/docker-build.tar
+        key: ${{ runner.os }}-solana-build-${{ env.ANCHOR_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
+    - name: Cache cargo target dir
+      id: cache-target
+      uses: actions/cache@v4 # v4.0.2
+      with:
+        lookup-only: true
+        path: chains/solana/contracts/target
+        key: ${{ runner.os }}-solana-contract-artifacts-${{ hashFiles('**/Cargo.lock') }}
+    - name: build & save image
+      if: steps.cache-image.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd chainlink-ccip/chains/solana/contracts
+        docker buildx build . -t ccip-solana:build --build-arg ANCHOR_CLI=${{ env.ANCHOR_VERSION }}
+        docker save -o docker-build.tar ccip-solana
+    - name: build & save contract compilation artifacts
+      if: steps.cache-target.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd chainlink-ccip/chains/solana
+        docker run -v "$(pwd)/contracts":/solana/contracts ccip-solana:build bash -c "\
+          set -eoux pipefail &&\
+          RUSTUP_HOME=\"/root/.rustup\" &&\
+          FORCE_COLOR=1 &&\
+          cd /solana/contracts &&\
+          anchor build &&\
+          chmod -R 755 ./target"
+    - name: move built contracts to test folder
+      shell: bash
+      run: |
+        # copy the built contracts so they can be used in the chainlink tests
+        mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+
+        # save the revision of the built chainlink-ccip solana contracts
+        echo ${{ env.CHAINLINK_CCIP_COMMIT_SHORT }} > /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts/.solana_contracts_rev

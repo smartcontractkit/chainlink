@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

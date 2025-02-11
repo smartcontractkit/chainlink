@@ -1,0 +1,131 @@
+
+[blockchain_a]
+  type = "anvil"
+  docker_cmd_params = ["-b", "5"]
+
+[jd]
+  image = "replace-me"
+
+[price_provider]
+  # without 0x prefix!
+  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+  # used only if [data_source_config.fake] is not present
+  # url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
+
+  [price_provider.fake]
+    port = 8171
+    # use only 1 price, so that test doesn't run too long in the CI
+    prices = [182.9]
+
+[workflow_config]
+	don_id = 1
+	workflow_name = "abcdefgasd"
+
+  use_cre_cli = true
+  should_compile_new_workflow = false
+
+  [workflow_config.dependencies]
+  capabilities_version = "v1.0.0-alpha"
+  cre_cli_version = "v0.0.2"
+
+  [workflow_config.compiled_config]
+    binary_url = "https://gist.githubusercontent.com/Tofel/e5aef5a3e926a127f38174a6755382c5/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    # if fake is enabled AND we do not compile a new workflow, this config needs to use URL pointing to IP, on which Docker host is available in Linux systems
+    # since that's the OS of our CI runners.
+    config_url = "https://gist.githubusercontent.com/Tofel/49308be74a7cc95bb50e4ab4f35fb49a/raw/aa893cc3412d66df214e1ad0af3d8b3533f796c2/config.json3083467369"
+
+[nodeset]
+  nodes = 5
+  override_mode = "each"
+
+[nodeset.db]
+  image = "postgres:15.6"
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodeset.node_specs]]
+
+    [nodeset.node_specs.node]
+      capabilities = ["./amd64_cron"]
+      image = "replace-me0"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """

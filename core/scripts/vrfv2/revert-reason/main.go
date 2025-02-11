@@ -8,7 +8,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 )
 
 func panicErr(err error) {
@@ -21,7 +21,7 @@ func main() {
 	ec, err := ethclient.Dial("TODO")
 	panicErr(err)
 	txHash := "0xedeeecf6bd763ecc82b5dff31e073af9cc4cf8a4b47708df526ba61cf0201d25" // non-custom on goerli
-	//txHash := "0x6ec8a69657600786f0b31726f36287e80196029e60f8365528d4d540a6f70763" // custom error on mainnet
+	// txHash := "0x6ec8a69657600786f0b31726f36287e80196029e60f8365528d4d540a6f70763" // custom error on mainnet
 	tx, _, err := ec.TransactionByHash(context.Background(), gethCommon.HexToHash(txHash))
 	panicErr(err)
 	re, err := ec.TransactionReceipt(context.Background(), gethCommon.HexToHash(txHash))

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	chainmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read"
@@ -87,7 +87,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchSizes := make([]int, 0)
-			ec := chainmocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 				evmCalls := args.Get(1).([]rpc.BatchElem)
 				batchSizes = append(batchSizes, len(evmCalls))
@@ -98,7 +98,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 				calls[i] = read.Call{}
 			}
 
-			bc := read.NewDynamicLimitedBatchCaller(logger.TestLogger(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
+			bc := read.NewDynamicLimitedBatchCaller(logger.Test(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
 			_, _ = bc.BatchCall(testutils.Context(t), 123, calls)
 			assert.Equal(t, tc.expectedBatchSizesOnEachRetry, batchSizes)
 		})
@@ -131,7 +131,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			ec := chainmocks.NewClient(t)
+			ec := clienttest.NewClient(t)
 			calls := make(read.BatchCall, tc.numCalls)
 			for j := range calls {
 				contractName := fmt.Sprintf("testCase_%d", i)
@@ -162,7 +162,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 			testCodec, err := codec.NewCodec(codecConfig)
 			require.NoError(t, err)
-			bc := read.NewDynamicLimitedBatchCaller(logger.TestLogger(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+			bc := read.NewDynamicLimitedBatchCaller(logger.Test(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
 
 			// make the call and make sure the results are there
 			results, err := bc.BatchCall(ctx, 0, calls)

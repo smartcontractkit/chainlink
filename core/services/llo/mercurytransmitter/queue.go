@@ -2,6 +2,7 @@ package mercurytransmitter
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -60,7 +61,7 @@ type TransmitQueue interface {
 
 	BlockingPop() (t *Transmission)
 	Push(t *Transmission) (ok bool)
-	Init(ts []*Transmission)
+	Init(ts []*Transmission) error
 	IsEmpty() bool
 }
 
@@ -82,10 +83,15 @@ func NewTransmitQueue(lggr logger.Logger, serverURL string, maxlen int, asyncDel
 	}
 }
 
-func (tq *transmitQueue) Init(ts []*Transmission) {
+func (tq *transmitQueue) Init(ts []*Transmission) error {
+	if len(ts) > tq.maxlen {
+		return fmt.Errorf("transmit queue is too small to hold %d transmissions", len(ts))
+	}
+	tq.lggr.Debugw("Initializing transmission queue", "nTransmissions", len(ts), "maxlen", tq.maxlen)
 	pq := priorityQueue(ts)
 	heap.Init(&pq) // ensure the heap is ordered
 	tq.pq = &pq
+	return nil
 }
 
 func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
@@ -96,12 +102,17 @@ func (tq *transmitQueue) Push(t *Transmission) (ok bool) {
 		return false
 	}
 
-	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
-		// evict oldest entry to make room
-		removed := heap.PopMax(tq.pq)
-		tq.lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
-		if removed, ok := removed.(*Transmission); ok {
-			tq.asyncDeleter.AsyncDelete(removed.Hash())
+	if tq.maxlen != 0 {
+		for tq.pq.Len() >= tq.maxlen {
+			// evict oldest entries to make room
+			removed := heap.PopMax(tq.pq)
+			lggr := tq.lggr
+			if removed, ok := removed.(*Transmission); ok {
+				hash := removed.Hash()
+				lggr = lggr.With("transmissionHash", hex.EncodeToString(hash[:]))
+				tq.asyncDeleter.AsyncDelete(hash)
+			}
+			lggr.Criticalw(fmt.Sprintf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen), "transmission", removed)
 		}
 	}
 
