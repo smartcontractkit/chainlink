@@ -343,8 +343,8 @@ func getOfframpAccountConfig(offrampProgramAddress string) chainwriter.PDALookup
 
 func getAddressConstant(address string) chainwriter.AccountConstant {
 	return chainwriter.AccountConstant{
-		Address: address,
-		IsSigner: false,
+		Address:    address,
+		IsSigner:   false,
 		IsWritable: false,
 	}
 }
