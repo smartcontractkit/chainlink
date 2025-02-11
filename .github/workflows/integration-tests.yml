@@ -3,11 +3,11 @@
 name: Integration Tests
 run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
-  merge_group:
-  pull_request:
-  push:
-    tags:
-      - "*"
+  # merge_group:
+  # pull_request:
+  # push:
+  #   tags:
+  #     - "*"
   workflow_dispatch:
     inputs:
       cl_ref:
