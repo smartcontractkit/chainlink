@@ -16,7 +16,7 @@ func TestSetupTestEnv(t *testing.T) {
 
 	t.Run("test env with in memory nodes", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {
-			te := SetupTestEnv(t, TestConfig{
+			te := SetupContractTestEnv(t, TestConfig{
 				WFDonConfig:     DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: DonConfig{Name: "writerDon", N: 4},

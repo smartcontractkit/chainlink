@@ -29,7 +29,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -75,7 +75,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},

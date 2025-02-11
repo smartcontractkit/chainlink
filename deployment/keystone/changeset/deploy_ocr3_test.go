@@ -57,7 +57,7 @@ func TestConfigureOCR3(t *testing.T) {
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -85,7 +85,7 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("success multiple OCR3 contracts", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -150,7 +150,7 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("fails multiple OCR3 contracts but unspecified address", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -190,7 +190,7 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("fails multiple OCR3 contracts but address not found", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -232,7 +232,7 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.TestConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},

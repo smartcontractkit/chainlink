@@ -417,17 +417,17 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 
 func SetupContractTestEnv(t *testing.T, c TestConfig) TestEnv {
 	c.useInMemoryNodes = false
-	return SetupTestEnv(t, c)
+	return setupTestEnv(t, c)
 }
 
 func SetupDevTestEnv(t *testing.T, c TestConfig) TestEnv {
 	c.useInMemoryNodes = true
-	return SetupTestEnv(t, c)
+	return setupTestEnv(t, c)
 }
 
-// SetupTestEnv sets up a keystone test environment with the given configuration
+// SetupContractTestEnv sets up a keystone test environment with the given configuration
 // TODO: make more configurable; eg many tests don't need all the nodes (like when testing a registry change)
-func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
+func setupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, c.Validate())
 	lggr := logger.Test(t)
 
