@@ -327,7 +327,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     uint256 availableLiquidity = remoteConfig.isSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
     if (amount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, amount);
 
-    // Remove funds from the appropriate accounting silo.
+    // Deduct the amount from the correct silo balance, or the unsiloed balance.
     if (remoteConfig.isSiloed) {
       remoteConfig.tokenBalance -= amount;
     } else {
