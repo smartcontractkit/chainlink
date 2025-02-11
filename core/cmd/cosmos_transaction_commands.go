@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -67,31 +67,25 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("four arguments expected: token, amount, fromAddress and toAddress"))
 	}
 
-	err = sdk.ValidateDenom(c.Args().Get(0))
-	if err != nil {
-		return s.errorOut(fmt.Errorf("invalid native token: %w", err))
+	token := c.Args().Get(0)
+	if token == "" {
+		return s.errorOut(errors.New("missing token"))
 	}
 
-	amount, err := sdk.NewDecFromStr(c.Args().Get(1))
-	if err != nil {
-		return s.errorOut(multierr.Combine(
-			fmt.Errorf("invalid coin: %w", err)))
+	unparsedAmount := c.Args().Get(1)
+	amount, ok := new(big.Int).SetString(unparsedAmount, 10)
+	if !ok {
+		return s.errorOut(fmt.Errorf("invalid int: %s", unparsedAmount))
 	}
 
 	unparsedFromAddress := c.Args().Get(2)
-	fromAddress, err := sdk.AccAddressFromBech32(unparsedFromAddress)
-	if err != nil {
-		return s.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal source address %v",
-				unparsedFromAddress), err))
+	if unparsedFromAddress == "" {
+		return s.errorOut(errors.New("missing from address"))
 	}
 
 	unparsedDestinationAddress := c.Args().Get(3)
-	destinationAddress, err := sdk.AccAddressFromBech32(unparsedDestinationAddress)
-	if err != nil {
-		return s.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
+	if unparsedDestinationAddress == "" {
+		return s.errorOut(errors.New("missing destination address"))
 	}
 
 	chainID := c.String("id")
@@ -100,11 +94,11 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 	}
 
 	request := cosmos.SendRequest{
-		DestinationAddress: destinationAddress,
-		FromAddress:        fromAddress,
+		DestinationAddress: unparsedDestinationAddress,
+		FromAddress:        unparsedFromAddress,
 		Amount:             amount,
 		CosmosChainID:      chainID,
-		Token:              c.Args().Get(0),
+		Token:              token,
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 

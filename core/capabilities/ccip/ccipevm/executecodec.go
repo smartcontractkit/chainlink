@@ -63,8 +63,17 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("decode dest gas amount: %w", err)
 				}
 
+				// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+				// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+				// its unclear as of writing how we will handle non-EVM chains and their addresses.
+				// e.g, will we encode them as bytes or bytes32?
+				sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(tokenAmount.SourcePoolAddress))
+				if err != nil {
+					return nil, fmt.Errorf("abi encode source pool address: %w", err)
+				}
+
 				tokenAmounts = append(tokenAmounts, offramp.InternalAny2EVMTokenTransfer{
-					SourcePoolAddress: tokenAmount.SourcePoolAddress,
+					SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
 					DestTokenAddress:  common.BytesToAddress(tokenAmount.DestTokenAddress),
 					ExtraData:         tokenAmount.ExtraData,
 					Amount:            tokenAmount.Amount.Int,
@@ -144,7 +153,11 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 					return cciptypes.ExecutePluginReport{}, fmt.Errorf("abi encode dest gas amount: %w", err)
 				}
 				tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
-					SourcePoolAddress: tokenAmount.SourcePoolAddress,
+					// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+					// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+					// its unclear as of writing how we will handle non-EVM chains and their addresses.
+					// e.g, will we encode them as bytes or bytes32?
+					SourcePoolAddress: common.BytesToAddress(tokenAmount.SourcePoolAddress).Bytes(),
 					// TODO: should this be abi-encoded?
 					DestTokenAddress: tokenAmount.DestTokenAddress.Bytes(),
 					ExtraData:        tokenAmount.ExtraData,

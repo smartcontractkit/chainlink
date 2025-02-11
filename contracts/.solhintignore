@@ -28,6 +28,7 @@
 # Ignore tests / test helpers (for now)
 ./src/v0.8/automation/mocks
 ./src/v0.8/automation/testhelpers
+./src/v0.8/data-feeds/test/helpers
 
 # Ignore Functions v1.0.0 code that was frozen after audit
 ./src/v0.8/functions/v1_0_0
