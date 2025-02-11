@@ -724,32 +724,31 @@ type CREServices struct {
 	srvs []services.ServiceCtx
 }
 
-// func newCREServices(cfg config.Capabilities, keyStore creKeystore, globalLogger logger.Logger, opts CREOpts, relayerChainInterops *CoreRelayerChainInteroperators) ([]services.ServiceCtx, error) {
-func newCREServices(xxx creServiceConfig) (*CREServices, error) {
+func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	var (
-		cfg                  = xxx.capabilityCfg
-		globalLogger         = xxx.logger
-		keyStore             = xxx.keystore
-		relayerChainInterops = xxx.relayerChainInterops
-		opts                 = xxx.CREOpts
-		ds                   = xxx.DS
+		capCfg               = cscfg.capabilityCfg
+		globalLogger         = cscfg.logger
+		keyStore             = cscfg.keystore
+		relayerChainInterops = cscfg.relayerChainInterops
+		opts                 = cscfg.CREOpts
+		ds                   = cscfg.DS
 	)
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
-		GlobalBurst:    cfg.RateLimit().GlobalBurst(),
-		PerSenderRPS:   cfg.RateLimit().PerSenderRPS(),
-		PerSenderBurst: cfg.RateLimit().PerSenderBurst(),
+		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
+		GlobalBurst:    capCfg.RateLimit().GlobalBurst(),
+		PerSenderRPS:   capCfg.RateLimit().PerSenderRPS(),
+		PerSenderBurst: capCfg.RateLimit().PerSenderBurst(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
-	if cfg.GatewayConnector().DonID() != "" {
-		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", cfg.GatewayConnector().DonID())
+	if capCfg.GatewayConnector().DonID() != "" {
+		globalLogger.Debugw("Creating GatewayConnector wrapper", "donID", capCfg.GatewayConnector().DonID())
 		gatewayConnectorWrapper = gatewayconnector.NewGatewayConnectorServiceWrapper(
-			cfg.GatewayConnector(),
+			capCfg.GatewayConnector(),
 			keyStore.Eth(),
 			clockwork.NewRealClock(),
 			globalLogger)
@@ -757,13 +756,13 @@ func newCREServices(xxx creServiceConfig) (*CREServices, error) {
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
-	if cfg.Peering().Enabled() {
+	if capCfg.Peering().Enabled() {
 		var dispatcher remotetypes.Dispatcher
 		if opts.CapabilitiesDispatcher == nil {
-			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Peering(), ds, globalLogger)
+			externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), capCfg.Peering(), ds, globalLogger)
 			signer := externalPeer
 			externalPeerWrapper = externalPeer
-			remoteDispatcher, err := remote.NewDispatcher(cfg.Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+			remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
 			if err != nil {
 				return nil, fmt.Errorf("could not create dispatcher: %w", err)
 			}
@@ -775,9 +774,9 @@ func newCREServices(xxx creServiceConfig) (*CREServices, error) {
 
 		srvcs = append(srvcs, externalPeerWrapper, dispatcher)
 
-		if cfg.ExternalRegistry().Address() != "" {
-			rid := cfg.ExternalRegistry().RelayID()
-			registryAddress := cfg.ExternalRegistry().Address()
+		if capCfg.ExternalRegistry().Address() != "" {
+			rid := capCfg.ExternalRegistry().RelayID()
+			registryAddress := capCfg.ExternalRegistry().Address()
 			relayer, err := relayerChainInterops.Get(rid)
 			if err != nil {
 				return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
@@ -813,7 +812,7 @@ func newCREServices(xxx creServiceConfig) (*CREServices, error) {
 
 			srvcs = append(srvcs, wfLauncher, registrySyncer)
 
-			if cfg.WorkflowRegistry().Address() != "" {
+			if capCfg.WorkflowRegistry().Address() != "" {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
 				var fetcherFunc syncer.FetcherFunc
 				if opts.FetcherFunc == nil {
@@ -852,15 +851,15 @@ func newCREServices(xxx creServiceConfig) (*CREServices, error) {
 					workflowRateLimiter,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
-							MaxBinarySize:  uint64(cfg.WorkflowRegistry().MaxBinarySize()),
-							MaxSecretsSize: uint64(cfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
-							MaxConfigSize:  uint64(cfg.WorkflowRegistry().MaxConfigSize()),
+							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
+							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
+							MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 						},
 					),
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
-				wfRegRid := cfg.WorkflowRegistry().RelayID()
+				wfRegRid := capCfg.WorkflowRegistry().RelayID()
 				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
 				if err != nil {
 					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
@@ -870,7 +869,7 @@ func newCREServices(xxx creServiceConfig) (*CREServices, error) {
 					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
-					cfg.WorkflowRegistry().Address(),
+					capCfg.WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{
 						QueryCount: 100,
 					},
