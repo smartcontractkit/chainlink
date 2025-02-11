@@ -260,7 +260,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			expectedErr:    "",
 		},
 		{
-			typeAndVersion: "PriceRegistry 1.6.0-dev",
+			typeAndVersion: "PriceRegistry 1.6.0",
 			expectedErr:    "",
 		},
 		{

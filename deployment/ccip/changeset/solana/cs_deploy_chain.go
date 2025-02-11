@@ -136,14 +136,12 @@ func initializeFeeQuoter(
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
-	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 
 	instruction, err := solFeeQuoter.NewInitializeInstruction(
 		linkTokenAddress,
 		deployment.SolDefaultMaxFeeJuelsPerMsg,
 		ccipRouterProgram,
-		offRampBillingSignerPDA,
 		feeQuoterConfigPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -151,10 +149,21 @@ func initializeFeeQuoter(
 		programData.Address,
 	).ValidateAndBuild()
 
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+
+	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+		offRampBillingSignerPDA,
+		fqAllowedPriceUpdaterOfframpPDA,
+		feeQuoterConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
@@ -360,7 +369,7 @@ func deployChainContractsSolana(
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
-		programID, err := chain.DeployProgram(e.Logger, "token_pool")
+		programID, err := chain.DeployProgram(e.Logger, "test_token_pool")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}

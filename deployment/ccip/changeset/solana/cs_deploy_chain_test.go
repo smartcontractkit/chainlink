@@ -18,7 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestDeployChainContractsChangeset(t *testing.T) {
+func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -92,7 +92,7 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			Config: changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
-					solChainSelectors[0]: changeset.ChainContractParams{
+					solChainSelectors[0]: {
 						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 						OffRampParams:   changeset.DefaultOffRampParams(),
 					},

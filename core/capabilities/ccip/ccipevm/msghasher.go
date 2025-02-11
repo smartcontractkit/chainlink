@@ -38,7 +38,7 @@ var (
 
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
-// - "OnRamp 1.6.0-dev"
+// - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
 	lggr logger.Logger
 }
