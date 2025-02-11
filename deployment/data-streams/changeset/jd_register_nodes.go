@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -73,10 +74,10 @@ func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (depl
 
 func (cfg RegisterNodesInput) Validate() error {
 	if cfg.EnvLabel == "" {
-		return fmt.Errorf("EnvLabel must not be empty")
+		return errors.New("EnvLabel must not be empty")
 	}
 	if cfg.ProductName == "" {
-		return fmt.Errorf("ProductName must not be empty")
+		return errors.New("ProductName must not be empty")
 	}
 
 	for donName, don := range cfg.DONs {

@@ -5,10 +5,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestRegisterNodesWithJD(t *testing.T) {
@@ -22,7 +23,7 @@ func TestRegisterNodesWithJD(t *testing.T) {
 
 	require.True(t, ok, "expected Offchain to be of type *memory.JobClient")
 	require.Lenf(t, jobClient.Nodes, 1, "expected exactly 1 node")
-	require.Lenf(t, jobClient.RegisteredNodes, 0, "no registered nodes expected")
+	require.Emptyf(t, jobClient.RegisteredNodes, "no registered nodes expected")
 
 	csaKey := jobClient.Nodes[nodeP2pKey].Keys.CSA.PublicKeyString()
 
