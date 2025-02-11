@@ -82,36 +82,7 @@ func NewMemoryChains(t *testing.T, numChains int, numUsers int) (map[uint64]depl
 
 func NewMemoryChainsSol(t *testing.T, numChains int) map[uint64]deployment.SolChain {
 	mchains := GenerateChainsSol(t, numChains)
-
-	chains := make(map[uint64]deployment.SolChain)
-
-	for cid, chainConfig := range mchains {
-		chains[cid] = deployment.SolChain{
-			Selector:     cid,
-			Client:       chainConfig.Client,
-			DeployerKey:  &chainConfig.DeployerKey,
-			URL:          chainConfig.URL,
-			WSURL:        chainConfig.WSURL,
-			KeypairPath:  chainConfig.KeypairPath,
-			ProgramsPath: ProgramsPath,
-			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
-				_, err := solCommonUtil.SendAndConfirm(
-					context.Background(),
-					chainConfig.Client,
-					instructions,
-					chainConfig.DeployerKey,
-					solRpc.CommitmentConfirmed,
-					opts...,
-				)
-				if err != nil {
-					return err
-				}
-				return nil
-			},
-		}
-	}
-
-	return chains
+	return generateMemoryChainSol(mchains)
 }
 
 func NewMemoryChainsWithChainIDs(t *testing.T, chainIDs []uint64, numUsers int) (map[uint64]deployment.Chain, map[uint64][]*bind.TransactOpts) {
@@ -161,6 +132,29 @@ func generateMemoryChain(t *testing.T, inputs map[uint64]EVMChain) map[uint64]de
 				}
 			},
 			Users: chain.Users,
+		}
+	}
+	return chains
+}
+
+func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment.SolChain {
+	chains := make(map[uint64]deployment.SolChain)
+	for cid, chain := range inputs {
+		chain := chain
+		chains[cid] = deployment.SolChain{
+			Selector:     cid,
+			Client:       chain.Client,
+			DeployerKey:  &chain.DeployerKey,
+			URL:          chain.URL,
+			WSURL:        chain.WSURL,
+			KeypairPath:  chain.KeypairPath,
+			ProgramsPath: ProgramsPath,
+			Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
+				_, err := solCommonUtil.SendAndConfirm(
+					context.Background(), chain.Client, instructions, chain.DeployerKey, solRpc.CommitmentConfirmed, opts...,
+				)
+				return err
+			},
 		}
 	}
 	return chains
