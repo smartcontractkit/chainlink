@@ -139,6 +139,7 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 			}
 			state.CancellerMcm = mcms
 		case tvStr.Type == multichain.Type && tvStr.Version.String() == multichain.Version.String():
+			// the same contract can have different roles so we use the labels to determine which role it is
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
