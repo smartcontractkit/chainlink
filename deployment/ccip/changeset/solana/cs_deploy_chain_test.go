@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -43,7 +44,6 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
-	solanaBuildConfig := make(map[uint64]changeset.BuildSolanaConfig)
 	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
@@ -84,10 +84,11 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			},
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.BuildSolanaChangeset),
-			Config: changeset.BuildSolanaConfig{
-				ChainSelector: solChainSelectors[0],
-				GitCommitSha:  "1b2ee24da54b",
+			Changeset: commonchangeset.WrapChangeSet(solana.BuildSolanaChangeset),
+			Config: solana.BuildSolanaConfig{
+				ChainSelector:  solChainSelectors[0],
+				GitCommitSha:   "fb6c3c35e8e3",
+				DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
 			},
 		},
 		{
