@@ -67,7 +67,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   error InvalidOnRampUpdate(uint64 sourceChainSelector);
   error RootBlessingMismatch(uint64 sourceChainSelector, bytes32 merkleRoot, bool isBlessed);
 
-  /// @dev Atlas depends on this event, if changing, please notify Atlas.
+  /// @dev Atlas depends on various events, if changing, please notify Atlas.
   event StaticConfigSet(StaticConfig staticConfig);
   event DynamicConfigSet(DynamicConfig dynamicConfig);
   event ExecutionStateChanged(
