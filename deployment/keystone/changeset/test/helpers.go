@@ -292,8 +292,10 @@ type TestConfig struct {
 	WriterDonConfig
 	NumChains int
 
-	contractOnly bool
-	UseMCMS      bool
+	UseMCMS bool
+	// if true, use in-memory nodes for testing
+	// if false, view only nodes will be used
+	useInMemoryNodes bool
 }
 
 func (c TestConfig) Validate() error {
@@ -413,8 +415,13 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	return registryChainSel, env
 }
 
-func SetupContractOnlyTestEnv(t *testing.T, c TestConfig) TestEnv {
-	c.contractOnly = true
+func SetupContractTestEnv(t *testing.T, c TestConfig) TestEnv {
+	c.useInMemoryNodes = false
+	return SetupTestEnv(t, c)
+}
+
+func SetupDevTestEnv(t *testing.T, c TestConfig) TestEnv {
+	c.useInMemoryNodes = true
 	return SetupTestEnv(t, c)
 }
 
@@ -430,10 +437,10 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		dons TestDons
 		env  deployment.Environment
 	)
-	if c.contractOnly {
-		dons, env = setupViewOnlyNodeTest(t, registryChainSel, envWithContracts.Chains, c)
-	} else {
+	if c.useInMemoryNodes {
 		dons, env = setupMemoryNodeTest(t, registryChainSel, envWithContracts.Chains, c)
+	} else {
+		dons, env = setupViewOnlyNodeTest(t, registryChainSel, envWithContracts.Chains, c)
 	}
 	err := env.ExistingAddresses.Merge(envWithContracts.ExistingAddresses)
 	require.NoError(t, err)

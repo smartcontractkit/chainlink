@@ -40,7 +40,7 @@ func TestSetupTestEnv(t *testing.T) {
 
 	t.Run("test env with view only, non functional node stubs", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {
-			te := SetupContractOnlyTestEnv(t, TestConfig{
+			te := SetupContractTestEnv(t, TestConfig{
 				WFDonConfig:     DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: DonConfig{Name: "writerDon", N: 4},
