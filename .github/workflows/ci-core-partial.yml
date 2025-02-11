@@ -1,14 +1,16 @@
 name: Experimental Test Optimization
 
+# Disable
 on:
-  push:
-    branches:
-      - develop
-      # - "release/*"
-  # merge_group:
-  pull_request:
-  schedule:
-    - cron: "0 1 * * *"
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - develop
+  #     # - "release/*"
+  # # merge_group:
+  # pull_request:
+  # schedule:
+  #   - cron: "0 1 * * *"
 
 env:
   # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
@@ -140,7 +142,7 @@ jobs:
     if: ${{ needs.filter.outputs.should-collect-coverage == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repo 
+      - name: Checkout the repo
         uses: actions/checkout@v4.2.1
         with:
           persist-credentials: false

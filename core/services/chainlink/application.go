@@ -30,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -80,8 +82,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -407,10 +407,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
+				wfRegRid := cfg.Capabilities().WorkflowRegistry().RelayID()
+				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
+				if err != nil {
+					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
+				}
 				wfSyncer := syncer.NewWorkflowRegistry(
 					lggr,
 					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
-						return relayer.NewContractReader(ctx, bytes)
+						return wfRegRelayer.NewContractReader(ctx, bytes)
 					},
 					cfg.Capabilities().WorkflowRegistry().Address(),
 					syncer.WorkflowEventPollerConfig{

@@ -92,7 +92,7 @@ runs:
         if [[ "${GIT_TAG_TYPE}" = "ccip" ]]; then
           SHARED_BUILD_ARGS=$(cat << EOF
         COMMIT_SHA=${GIT_COMMIT_SHA}
-        CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        CL_CHAIN_DEFAULTS=/ccip-config
         EOF
         )
         else

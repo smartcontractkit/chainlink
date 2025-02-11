@@ -28,7 +28,7 @@ AllowOrigins = '*'
 
 [[Aptos]]
 ChainID = '1'
-Enabled = true
+Enabled = false
 
 [Aptos.Workflow]
 ForwarderAddress = "address"
@@ -115,7 +115,7 @@ ListenAddresses = ['0.0.0.0:6691']
 
 [[Aptos]]
 ChainID = '1'
-Enabled = true
+Enabled = false
 
 [[Aptos.Nodes]]
 Name = 'a'
@@ -457,7 +457,7 @@ EmitterExportTimeout = '1s'
 
 [[Aptos]]
 ChainID = '1'
-Enabled = true
+Enabled = false
 
 [[Aptos.Nodes]]
 Name = 'a'

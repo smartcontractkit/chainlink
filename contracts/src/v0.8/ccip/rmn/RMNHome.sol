@@ -107,7 +107,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
     DynamicConfig dynamicConfig;
   }
 
-  string public constant override typeAndVersion = "RMNHome 1.6.0-dev";
+  string public constant override typeAndVersion = "RMNHome 1.6.0";
 
   /// @notice Used for encoding the config digest prefix, unique per Home contract implementation.
   uint256 private constant PREFIX = 0x000b << (256 - 16); // 0x000b00..00.

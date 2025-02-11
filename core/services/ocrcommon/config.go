@@ -4,7 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 )
 
 type Config interface {

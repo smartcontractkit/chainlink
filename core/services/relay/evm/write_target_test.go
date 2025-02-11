@@ -17,6 +17,9 @@ import (
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
@@ -34,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	relayevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -117,7 +117,7 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
 
-	ht := mocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	ht := mocks.NewTracker[*evmtypes.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
