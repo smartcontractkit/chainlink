@@ -2,6 +2,7 @@
 package changeset_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
@@ -142,33 +144,34 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	// --- assert ---
 	require.Len(t, evmState, 2)
 	require.Len(t, solanaState, 1)
+	ctx := updatedEnv.GetContext()
 
 	// evm chain 0
 	evmState0 := evmState[evmSelectors[0]]
 	evmInspector := mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[0]].Client)
 	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
 
-	config, err := evmInspector.GetConfig(updatedEnv.GetContext(), evmState0.ProposerMcm.Address().Hex())
+	config, err := evmInspector.GetConfig(ctx, evmState0.ProposerMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[0]].Proposer))
 
-	config, err = evmInspector.GetConfig(updatedEnv.GetContext(), evmState0.CancellerMcm.Address().Hex())
+	config, err = evmInspector.GetConfig(ctx, evmState0.CancellerMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[0]].Canceller))
 
-	config, err = evmInspector.GetConfig(updatedEnv.GetContext(), evmState0.BypasserMcm.Address().Hex())
+	config, err = evmInspector.GetConfig(ctx, evmState0.BypasserMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[0]].Bypasser))
 
-	proposers, err := evmTimelockInspector.GetProposers(updatedEnv.GetContext(), evmState0.Timelock.Address().Hex())
+	proposers, err := evmTimelockInspector.GetProposers(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, proposers, []string{evmState0.ProposerMcm.Address().Hex()})
 
-	executors, err := evmTimelockInspector.GetExecutors(updatedEnv.GetContext(), evmState0.Timelock.Address().Hex())
+	executors, err := evmTimelockInspector.GetExecutors(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, executors, []string{evmState0.CallProxy.Address().Hex()})
 
-	cancellers, err := evmTimelockInspector.GetCancellers(updatedEnv.GetContext(), evmState0.Timelock.Address().Hex())
+	cancellers, err := evmTimelockInspector.GetCancellers(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.ElementsMatch(t, cancellers, []string{
 		evmState0.CancellerMcm.Address().Hex(),
@@ -176,7 +179,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 		evmState0.BypasserMcm.Address().Hex(),
 	})
 
-	bypassers, err := evmTimelockInspector.GetBypassers(updatedEnv.GetContext(), evmState0.Timelock.Address().Hex())
+	bypassers, err := evmTimelockInspector.GetBypassers(ctx, evmState0.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, bypassers, []string{evmState0.BypasserMcm.Address().Hex()})
 
@@ -185,27 +188,27 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	evmInspector = mcmsevmsdk.NewInspector(updatedEnv.Chains[evmSelectors[1]].Client)
 	evmTimelockInspector = mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[1]].Client)
 
-	config, err = evmInspector.GetConfig(updatedEnv.GetContext(), evmState1.ProposerMcm.Address().Hex())
+	config, err = evmInspector.GetConfig(ctx, evmState1.ProposerMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[1]].Proposer))
 
-	config, err = evmInspector.GetConfig(updatedEnv.GetContext(), evmState1.CancellerMcm.Address().Hex())
+	config, err = evmInspector.GetConfig(ctx, evmState1.CancellerMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[1]].Canceller))
 
-	config, err = evmInspector.GetConfig(updatedEnv.GetContext(), evmState1.BypasserMcm.Address().Hex())
+	config, err = evmInspector.GetConfig(ctx, evmState1.BypasserMcm.Address().Hex())
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[evmSelectors[1]].Bypasser))
 
-	proposers, err = evmTimelockInspector.GetProposers(updatedEnv.GetContext(), evmState1.Timelock.Address().Hex())
+	proposers, err = evmTimelockInspector.GetProposers(ctx, evmState1.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, proposers, []string{evmState1.ProposerMcm.Address().Hex()})
 
-	executors, err = evmTimelockInspector.GetExecutors(updatedEnv.GetContext(), evmState1.Timelock.Address().Hex())
+	executors, err = evmTimelockInspector.GetExecutors(ctx, evmState1.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, executors, []string{evmState1.CallProxy.Address().Hex()})
 
-	cancellers, err = evmTimelockInspector.GetCancellers(updatedEnv.GetContext(), evmState1.Timelock.Address().Hex())
+	cancellers, err = evmTimelockInspector.GetCancellers(ctx, evmState1.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.ElementsMatch(t, cancellers, []string{
 		evmState1.CancellerMcm.Address().Hex(),
@@ -213,56 +216,66 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 		evmState1.BypasserMcm.Address().Hex(),
 	})
 
-	bypassers, err = evmTimelockInspector.GetBypassers(updatedEnv.GetContext(), evmState1.Timelock.Address().Hex())
+	bypassers, err = evmTimelockInspector.GetBypassers(ctx, evmState1.Timelock.Address().Hex())
 	require.NoError(t, err)
 	require.Equal(t, bypassers, []string{evmState1.BypasserMcm.Address().Hex()})
 
 	// solana chain 0
 	solanaState0 := solanaState[solanaSelectors[0]]
-	solanaInspector := mcmssolanasdk.NewInspector(updatedEnv.SolChains[solanaSelectors[0]].Client)
-	solanaTimelockInspector := mcmssolanasdk.NewTimelockInspector(updatedEnv.SolChains[solanaSelectors[0]].Client)
+	solanaChain0 := updatedEnv.SolChains[solanaSelectors[0]]
+	solanaInspector := mcmssolanasdk.NewInspector(solanaChain0.Client)
+	solanaTimelockInspector := mcmssolanasdk.NewTimelockInspector(solanaChain0.Client)
 
 	addr := mcmssolanasdk.ContractAddress(solanaState0.McmProgram, mcmssolanasdk.PDASeed(solanaState0.ProposerMcmSeed))
-	config, err = solanaInspector.GetConfig(updatedEnv.GetContext(), addr)
+	config, err = solanaInspector.GetConfig(ctx, addr)
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[solanaSelectors[0]].Proposer))
 
 	addr = mcmssolanasdk.ContractAddress(solanaState0.McmProgram, mcmssolanasdk.PDASeed(solanaState0.CancellerMcmSeed))
-	config, err = solanaInspector.GetConfig(updatedEnv.GetContext(), addr)
+	config, err = solanaInspector.GetConfig(ctx, addr)
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[solanaSelectors[0]].Canceller))
 
 	addr = mcmssolanasdk.ContractAddress(solanaState0.McmProgram, mcmssolanasdk.PDASeed(solanaState0.BypasserMcmSeed))
-	config, err = solanaInspector.GetConfig(updatedEnv.GetContext(), addr)
+	config, err = solanaInspector.GetConfig(ctx, addr)
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(*config, changesetConfig[solanaSelectors[0]].Bypasser))
 
 	addr = mcmssolanasdk.ContractAddress(solanaState0.TimelockProgram, mcmssolanasdk.PDASeed(solanaState0.TimelockSeed))
-	proposers, err = solanaTimelockInspector.GetProposers(updatedEnv.GetContext(), addr)
+	proposers, err = solanaTimelockInspector.GetProposers(ctx, addr)
 	require.NoError(t, err)
-	require.Equal(t, proposers, []string{signerPDA(solanaState0.McmProgram, solanaState0.ProposerMcmSeed)})
+	require.Equal(t, proposers, []string{mcmSignerPDA(solanaState0.McmProgram, solanaState0.ProposerMcmSeed)})
 
-	executors, err = solanaTimelockInspector.GetExecutors(updatedEnv.GetContext(), addr)
+	executors, err = solanaTimelockInspector.GetExecutors(ctx, addr)
 	require.NoError(t, err)
-	require.Equal(t, executors, []string{}) // FIXME: who should be executor?
+	require.Equal(t, executors, []string{solanaChain0.DeployerKey.PublicKey().String()})
 
-	cancellers, err = solanaTimelockInspector.GetCancellers(updatedEnv.GetContext(), addr)
+	cancellers, err = solanaTimelockInspector.GetCancellers(ctx, addr)
 	require.NoError(t, err)
 	require.ElementsMatch(t, cancellers, []string{
-		signerPDA(solanaState0.McmProgram, solanaState0.CancellerMcmSeed),
-		signerPDA(solanaState0.McmProgram, solanaState0.ProposerMcmSeed),
-		signerPDA(solanaState0.McmProgram, solanaState0.BypasserMcmSeed),
+		mcmSignerPDA(solanaState0.McmProgram, solanaState0.CancellerMcmSeed),
+		mcmSignerPDA(solanaState0.McmProgram, solanaState0.ProposerMcmSeed),
+		mcmSignerPDA(solanaState0.McmProgram, solanaState0.BypasserMcmSeed),
 	})
 
-	bypassers, err = solanaTimelockInspector.GetBypassers(updatedEnv.GetContext(), addr)
+	bypassers, err = solanaTimelockInspector.GetBypassers(ctx, addr)
 	require.NoError(t, err)
-	require.Equal(t, bypassers, []string{signerPDA(solanaState0.McmProgram, solanaState0.BypasserMcmSeed)})
+	require.Equal(t, bypassers, []string{mcmSignerPDA(solanaState0.McmProgram, solanaState0.BypasserMcmSeed)})
+
+	timelockConfig := solanaTimelockConfig(ctx, t, solanaChain0, solanaState0.TimelockProgram, solanaState0.TimelockSeed)
+	require.NoError(t, err)
+	require.Equal(t, timelockConfig.ProposedOwner.String(),
+		timelockSignerPDA(solanaState0.TimelockProgram, solanaState0.TimelockSeed))
 }
 
 // ----- helpers -----
 
-func signerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
+func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
 	return solanainternal.GetMCMSignerPDA(programID, seed).String()
+}
+
+func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
+	return solanainternal.GetTimelockSignerPDA(programID, seed).String()
 }
 
 func setPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
@@ -277,4 +290,16 @@ func setPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selec
 	typeAndVersion = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
 	require.NoError(t, err)
+}
+
+func solanaTimelockConfig(
+	ctx context.Context, t *testing.T, chain deployment.SolChain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+) timelockBindings.Config {
+	t.Helper()
+
+	var data timelockBindings.Config
+	err := chain.GetAccountDataBorshInto(ctx, solanainternal.GetTimelockConfigPDA(programID, seed), &data)
+	require.NoError(t, err)
+
+	return data
 }

@@ -70,13 +70,6 @@ func initTimelock(
 	typeAndVersion := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
-	// FIXME: should we always redeploy or skip?
-	// pid, seed, err := chainState.GetStateFromType(commontypes.RBACTimelock)
-	// if err == nil && !pid.IsZero() && pid == programID && seed == state.PDASeed{} {
-	// 	log.Infow("timelock already initialized", "seed", seed)
-	// 	return nil
-	// }
-
 	seed := randomSeed()
 	log.Infow("generated Timelock seed", "seed", string(seed[:]))
 
@@ -152,6 +145,26 @@ func initializeTimelock(
 	err = chain.Confirm([]solana.Instruction{instruction})
 	if err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+
+	return nil
+}
+
+func transferOwnershipTimelock(chain deployment.SolChain, programID solana.PublicKey, seed state.PDASeed) error {
+	// transfer timelock ownership to itself
+	timelockConfigPDA := GetTimelockConfigPDA(programID, seed)
+	timelockSignerPDA := GetTimelockSignerPDA(programID, seed)
+
+	instructionBuilder := timelockBindings.NewTransferOwnershipInstruction([32]uint8(seed),
+		timelockSignerPDA, timelockConfigPDA, chain.DeployerKey.PublicKey())
+	instruction, err := instructionBuilder.ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build TransferOwnership instruction: %w", err)
+	}
+
+	err = chain.Confirm([]solana.Instruction{instruction})
+	if err != nil {
+		return fmt.Errorf("failed to confirm TransferOwnership instruction: %w", err)
 	}
 
 	return nil

@@ -72,13 +72,6 @@ func initMCM(
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
-	// FIXME: should we always redeploy or skip?
-	// pid, seed, err := chainState.GetStateFromType(contractType)
-	// if err == nil && !pid.IsZero() && pid == programID && seed == state.PDASeed{} {
-	// 	log.Infow("mcm already initialized", "seed", seed)
-	// 	return nil
-	// }
-
 	seed := randomSeed()
 	log.Infow("generated MCM seed", "seed", string(seed[:]))
 
