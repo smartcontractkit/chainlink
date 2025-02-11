@@ -289,7 +289,6 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameOnRamp}},
 		Namespaces: map[string]config.ChainContractReader{
-			// TODO is this Router?
 			consts.ContractNameOnRamp: {
 				IDL: routerIDL,
 				Reads: map[string]config.ReadDefinition{
@@ -320,8 +319,8 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"SequenceNumber": "ExpectedNextSequenceNumber"},
 							},
+							// we can't dynamically attach address here, but when this
 							&codec.HardCodeModifierConfig{
-								// TODO how to get Router Address from OnRamp? The offchain code expects it as a result. Hard code it from an already bound Router?
 								OnChainValues: map[string]any{"Router": solana.PublicKey{}},
 							},
 						},
@@ -345,24 +344,21 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							},
 						},
 					},
-					// TODO this is a no-op right now, figure out what to do with it
 					consts.MethodNameOnRampGetDynamicConfig: {
 						ChainSpecificName: "Config",
 						ReadType:          config.Account,
 						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("config")},
-						OutputModifications: codec.ModifiersConfig{&codec.HardCodeModifierConfig{
-							OnChainValues: map[string]any{
-								// doesn't exis on Solana
-								"ReentrancyGuardEntered": solana.PublicKey{},
-								// TODO what to do with these addresses?
-								// TODO which FeeQuoter is this, what happens if its empty?
-								"FeeQuoter": solana.PublicKey{},
-								// TODO what do these correspond to on Solana?
-								"MessageInterceptor": solana.PublicKey{},
-								"FeeAggregator":      solana.PublicKey{},
-								"AllowListAdmin":     solana.PublicKey{},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{
+								Fields: map[string]string{"Owner": "AllowListAdmin"},
 							},
-						}},
+							&codec.HardCodeModifierConfig{
+								OnChainValues: map[string]any{
+									// don't exist on Solana, just leave empty
+									"ReentrancyGuardEntered": solana.PublicKey{},
+									"MessageInterceptor":     solana.PublicKey{},
+								},
+							}},
 					},
 				},
 			},
@@ -383,13 +379,13 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 								},
 							},
 							&codec.HardCodeModifierConfig{
-								// TODO This todo is from onchain
+								//  comment from onchain
 								// The following field is unused until the day we integrate with feeds to fetch fresh values
 								OnChainValues: map[string]any{"StalenessThreshold": 0},
 							},
 						},
 					},
-					// TODO this one is hacky, NONEVM-1320
+					// TODO this one is hacky, but should work NONEVM-1320
 					consts.MethodNameFeeQuoterGetTokenPrices: {
 						ChainSpecificName: "BillingTokenConfigWrapper",
 						PDADefinition: solanacodec.PDATypeDef{
@@ -424,12 +420,11 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{{
 								Name: "Tokens",
-								// TODO uncomment when 1053 is merged
-								//Type: solanacodec.IdlType{
-								//AsIdlTypeVec: &solanacodec.IdlTypeVec{
-								//	Vec: codec.IdlType{AsString: codec.IdlTypePublicKey},
-								//	},
-								//},
+								Type: solanacodec.IdlType{
+									AsIdlTypeVec: &solanacodec.IdlTypeVec{
+										Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
+									},
+								},
 							}}},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
