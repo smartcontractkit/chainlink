@@ -1422,6 +1422,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		MaxBatchSize:                      1000,
 		OutcomePruningThreshold:           3600,
 		UniqueReports:                     true,
+		RequestTimeout:                    30 * time.Second,
 	}
 
 	cfg := keystone_changeset.InitialContractsCfg{

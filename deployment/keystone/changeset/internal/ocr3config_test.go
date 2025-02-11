@@ -62,6 +62,7 @@ var ocr3Cfg = `
   "MaxBatchSize": 1000,
   "OutcomePruningThreshold": 3600,
   "UniqueReports": true,
+  "RequestTimeout": 30s,
   "DeltaProgressMillis": 5000,
   "DeltaResendMillis": 5000,
   "DeltaInitialMillis": 5000,

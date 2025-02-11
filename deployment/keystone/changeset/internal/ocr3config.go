@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -43,6 +44,7 @@ type OracleConfig struct {
 	MaxBatchSize              uint32
 	OutcomePruningThreshold   uint64
 	UniqueReports             bool
+	RequestTimeout            time.Duration
 
 	DeltaProgressMillis               uint32
 	DeltaResendMillis                 uint32
@@ -244,6 +246,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		MaxReportCount:            cfg.MaxReportCount,
 		MaxBatchSize:              cfg.MaxBatchSize,
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
+		RequestTimeout:            durationpb.New(cfg.RequestTimeout),
 	})
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
