@@ -105,6 +105,7 @@ type Environment struct {
 	Offchain          OffchainClient
 	GetContext        func() context.Context
 	OCRSecrets        OCRSecrets
+	state             StateManager
 }
 
 func NewEnvironment(

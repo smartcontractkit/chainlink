@@ -9,8 +9,17 @@ import (
 )
 
 var _ deployment.ViewState = ViewCCIP
+var _ deployment.StateRenderer[ccipview.CCIPView] = RenderCCIPState
 
+// ViewCCIP is a legacy renderer
+//
+// deprecated: use RenderCCIPState instead.
 func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
+	return RenderCCIPState(e)
+}
+
+// RenderCCIPState returns a
+func RenderCCIPState(e deployment.Environment) (*ccipview.CCIPView, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return nil, err
@@ -23,7 +32,7 @@ func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ccipview.CCIPView{
+	return &ccipview.CCIPView{
 		Chains: chainView,
 		Nops:   nopsView,
 	}, nil

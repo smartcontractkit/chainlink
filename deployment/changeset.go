@@ -44,6 +44,25 @@ type ChangesetOutput struct {
 	AddressBook           AddressBook
 }
 
+// StateRepresentation is a type which represents a given piece of business domain state, e.g. CCIPView. A
+// A StateRepresentation can render into Json (conforms to `json.Marshaler`), and may have other representations in
+// the future, such as a protobuf representation.
+//
+// StateRepresentation is used in storing and transmitting domain state through artifacts (local or transmitted).
+// In the chainlink/deployment module, it is only used in tests. ChangeSet execution functions have access to state
+// representations via GetState(env, StateKey[SomeStateStruct]{}) calls.
+type StateRepresentation interface {
+	json.Marshaler
+}
+
 // ViewState produces a product specific JSON representation of
 // the on and offchain state of the environment.
+//
+// deprecated: use StateRenderer
 type ViewState func(e Environment) (json.Marshaler, error)
+
+// StateRenderer is a function which transforms elements of the environment into a StateRepresentation, so that the
+// business domain state may be transmitted or persisted. Every domain should have a state representation, and a
+// function to transform environmental elements (such as the address book, and any other artifacts) into a coherent
+
+type StateRenderer[S StateRepresentation] func(e Environment) (*S, error)
