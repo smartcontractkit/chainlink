@@ -618,10 +618,21 @@ func initializeFeeQuoter(
 		programData.Address,
 	).ValidateAndBuild()
 
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+
+	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+		offRampBillingSignerPDA,
+		fqAllowedPriceUpdaterOfframpPDA,
+		feeQuoterConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
