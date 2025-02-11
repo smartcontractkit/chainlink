@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@103764eb5a9f02e0f3dc677f0d9da2e6796a978c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@76e3b96cab242e7fc4be2a296b4232335e245a67 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -334,7 +334,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@103764eb5a9f02e0f3dc677f0d9da2e6796a978c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@76e3b96cab242e7fc4be2a296b4232335e245a67 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -348,9 +348,9 @@ jobs:
           # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
           EXIT_CODE=$?
           echo "$EXIT_CODE" > status_${GITHUB_JOB}.txt
-          if [ $EXIT_CODE -e 1 ]; then
+          if [ $EXIT_CODE -eq 1 ]; then
             echo "Found flaky tests"
-          elif [ $EXIT_CODE -e 2 ]; then
+          elif [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while running tests"
             echo "flakeguard_error=true" >> $GITHUB_OUTPUT
           fi
@@ -411,7 +411,7 @@ jobs:
             
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@103764eb5a9f02e0f3dc677f0d9da2e6796a978c # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@76e3b96cab242e7fc4be2a296b4232335e245a67 # flakguard@0.1.0
                 
       - name: Aggregate Flakeguard Results
         id: results
@@ -446,7 +446,7 @@ jobs:
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             --splunk-event "${{ github.event_name }}"
           EXIT_CODE=$?
-          if [ $EXIT_CODE -e 2 ]; then
+          if [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while aggregating results"
             echo "ERROR: Flakeguard encountered an error while aggregating results" >> $GITHUB_STEP_SUMMARY
             exit $EXIT_CODE
@@ -529,7 +529,7 @@ jobs:
               --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"          
           fi
           EXIT_CODE=$?
-          if [ $EXIT_CODE -e 2 ]; then
+          if [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while generating reports"
             echo "ERROR: Flakeguard encountered an error while generating reports" >> $GITHUB_STEP_SUMMARY
             exit $EXIT_CODE
