@@ -35,7 +35,7 @@ concurrency:
 
 env:
   # for run-test variables and environment
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   TEST_SUITE: smoke
   TEST_ARGS: -test.timeout 12m
@@ -168,7 +168,7 @@ jobs:
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          git_commit_sha: ${{ inputs.evm-ref || github.sha }}
+          git_commit_sha: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
@@ -183,11 +183,10 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.keystone_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@668a588b1865068140c888c253b72ba8809eb030
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e600c1954dacd5f4a2c24d49b81ab73cc9d75763
     with:
       workflow_name: Run Core Workflow Engine Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR Workflow Engine E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -227,11 +226,10 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e600c1954dacd5f4a2c24d49b81ab73cc9d75763
     with:
       workflow_name: Run Core E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -269,11 +267,10 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e600c1954dacd5f4a2c24d49b81ab73cc9d75763
     with:
       workflow_name: Run Core E2E Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue E2E Core Tests
       upload_cl_node_coverage_artifact: true
@@ -315,11 +312,10 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'pull_request' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e600c1954dacd5f4a2c24d49b81ab73cc9d75763
     with:
       workflow_name: Run CCIP E2E Tests For PR
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: PR E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
@@ -358,11 +354,10 @@ jobs:
       contents: read
     needs: [build-chainlink, changes]
     if: github.event_name == 'merge_group' && (needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f5baaf5e95d718546820cc5fecb42b6df410343d
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e600c1954dacd5f4a2c24d49b81ab73cc9d75763
     with:
       workflow_name: Run CCIP E2E Tests For Merge Queue
-      chainlink_version: ${{ inputs.evm-ref || github.sha }}
-      chainlink_upgrade_version: ${{ github.sha }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: Merge Queue E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
@@ -395,13 +390,13 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [run-core-e2e-tests-for-pr, run-core-e2e-keystone-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-e2e-keystone-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     steps:
       - name: Check Core test results
         id: check_core_results
         run: |
           results='${{ needs.run-core-e2e-tests-for-pr.outputs.test_results }}'
-          echo "Core test results:"
+          echo "Core e2e test results:"
           echo "$results" | jq .
 
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
@@ -411,7 +406,7 @@ jobs:
         id: check_core_keystone_results
         run: |
           results='${{ needs.run-core-e2e-keystone-tests-for-pr.outputs.test_results }}'
-          echo "Core test results:"
+          echo "Keystone e2e test results:"
           echo "$results" | jq .
 
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
@@ -445,6 +440,10 @@ jobs:
         if: always() && needs.run-core-e2e-tests-for-merge-queue.result == 'failure'
         run: exit 1
 
+      - name: Fail the job if Chainlink image wasn't built
+        if: always() && needs.build-chainlink.result == 'failure'
+        run: exit 1
+
   cleanup:
     name: Clean up integration environment deployments
     if: always()
@@ -457,7 +456,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
+          ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
@@ -675,7 +674,7 @@ jobs:
         get_solana_sha,
       ]
     env:
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
@@ -727,7 +726,7 @@ jobs:
       - name: Generate config overrides
         env:
           GH_INPUTS_EVM_REF: ${{ inputs.evm-ref }}
-          GH_SHA: ${{ github.sha }}
+          GH_SHA: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
@@ -749,7 +748,7 @@ jobs:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.evm-ref || github.sha }}
+          cl_image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           publish_check_name: Solana Smoke Test Results
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
