@@ -103,6 +103,7 @@ type BuildSolanaConfig struct {
 	ChainSelector  uint64
 	GitCommitSha   string
 	DestinationDir string
+	IsUpgrade      bool
 }
 
 func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
@@ -119,19 +120,21 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	}
 
 	// Step 1: Clone the repository
-	// if err := cloneRepo(config.GitCommitSha); err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %v", err)
-	// }
-
-	// Step 2: Generate keys using Anchor
-	err = generateKeys()
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error generating keys: %v", err)
+	if err := cloneRepo(config.GitCommitSha); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %v", err)
 	}
 
-	// Step 3: Replace keys in Rust files
-	if err := replaceKeys(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %v", err)
+	// Upgrades don't need to generate keys
+	if !config.IsUpgrade {
+		// Step 2: Generate keys using Anchor
+		if err := generateKeys(); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error generating keys: %v", err)
+		}
+
+		// Step 3: Replace keys in Rust files
+		if err := replaceKeys(); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %v", err)
+		}
 	}
 
 	// Step 4: Build the project with Anchor
