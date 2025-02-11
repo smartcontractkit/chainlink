@@ -2,6 +2,8 @@ package ccip
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"math/big"
 	"sync"
 	"testing"
@@ -10,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -50,6 +51,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithCancel(tests.Context(t))
+	//defer cancel() // Ensure cancel is called at the end of the test
 
 	// get user defined configurations
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
@@ -84,6 +86,10 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	go mm.Start(ctx)
 	defer mm.Stop()
 
+	//defer func() {
+	//	cancel()  // Ensure all goroutines get canceled
+	//	mm.Stop() // Ensure metrics manager stops logging
+	//}()
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
@@ -98,19 +104,30 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		messageKeys := make(map[uint64]*bind.TransactOpts)
 		srcTokens := make(map[uint64]*burn_mint_erc677.BurnMintERC677)
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
-		for _, sel := range other {
-			messageKeys[sel] = transmitKeys[sel][ind]
-			srcToken, _ := setupTokens(
+		//var wg sync.WaitGroup
+		for _, src := range other {
+			messageKeys[src] = transmitKeys[src][ind]
+			//srcToken, _ := setupTokens2(
+			//	t,
+			//	state,
+			//	*env,
+			//	src,
+			//	cs,
+			//	deployment.E18Mult(10_000),
+			//	deployment.E18Mult(10_000),
+			//	messageKeys[src],
+			//)
+			//srcTokens[src] = srcToken
+			prepareAccountToSendLink(
 				t,
 				state,
 				*env,
-				sel,
+				src,
 				cs,
 				deployment.E18Mult(10_000),
 				deployment.E18Mult(10_000),
-				messageKeys[sel],
+				messageKeys[src],
 			)
-			srcTokens[sel] = srcToken
 		}
 
 		gunMap[cs], err = NewDestinationGun(
@@ -216,6 +233,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		testTimer := time.NewTimer(timeout)
 		go func() {
 			<-testTimer.C
+			mm.Stop()
 			cancel()
 		}()
 	}
@@ -224,8 +242,173 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	lggr.Infow("closed event subscribers")
 }
 
+//func prepareDestChainLink(
+//	t *testing.T,
+//	state ccipchangeset.CCIPOnChainState,
+//	e deployment.Environment,
+//	src, dest uint64,
+//	transferTokenMintAmount,
+//	feeTokenMintAmount *big.Int,
+//	srcAccount *bind.TransactOpts) {
+//	dstLink, err := burn_mint_erc677.NewBurnMintERC677(state.Chains[dest].LinkToken.Address(), e.Chains[dest].Client)
+//	require.NoError(t, err)
+//	dstDeployer := e.Chains[dest].DeployerKey
+//
+//}
+
+func prepareAccountToSendLink(
+	t *testing.T,
+	state ccipchangeset.CCIPOnChainState,
+	e deployment.Environment,
+	src, dest uint64,
+	transferTokenMintAmount,
+	feeTokenMintAmount *big.Int,
+	srcAccount *bind.TransactOpts) {
+
+	lggr := logger.Test(t)
+
+	lggr.Infow("Setting up tokens", "src", src, "dest", dest)
+	srcLink, err := burn_mint_erc677.NewBurnMintERC677(state.Chains[src].LinkToken.Address(), e.Chains[src].Client)
+	require.NoError(t, err)
+	dstLink, err := burn_mint_erc677.NewBurnMintERC677(state.Chains[dest].LinkToken.Address(), e.Chains[dest].Client)
+	require.NoError(t, err)
+	srcDeployer := e.Chains[src].DeployerKey
+	dstDeployer := e.Chains[dest].DeployerKey
+
+	lggr.Infow("Granting mint and burn roles")
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	lggr.Infow("Minting transfer amounts")
+	//--------------------------------------------------------------------------------------------
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcAccount.From,
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	//--------------------------------------------------------------------------------------------
+	// Mint a destination token
+	tx, err = dstLink.Mint(
+		dstDeployer,
+		dstDeployer.From,
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	//--------------------------------------------------------------------------------------------
+
+	lggr.Infow("Approving routers")
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	tx, err = dstLink.Approve(dstDeployer, state.Chains[dest].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+}
+
 // setupTokens deploys transferable tokens on the source and dest, mints tokens for the source and dest, and
 // approves the router to spend the tokens
+func setupTokens2(
+	t *testing.T,
+	state ccipchangeset.CCIPOnChainState,
+	e deployment.Environment,
+	src, dest uint64,
+	transferTokenMintAmount,
+	feeTokenMintAmount *big.Int,
+	srcAccount *bind.TransactOpts,
+) (srcLink *burn_mint_erc677.BurnMintERC677,
+	dstLink *burn_mint_erc677.BurnMintERC677) {
+	lggr := logger.Test(t)
+
+	lggr.Infow("Setting up tokens", "src", src, "dest", dest)
+	srcLink, err := burn_mint_erc677.NewBurnMintERC677(state.Chains[src].LinkToken.Address(), e.Chains[src].Client)
+	require.NoError(t, err)
+	dstLink, err = burn_mint_erc677.NewBurnMintERC677(state.Chains[dest].LinkToken.Address(), e.Chains[dest].Client)
+	require.NoError(t, err)
+	srcDeployer := e.Chains[src].DeployerKey
+	dstDeployer := e.Chains[dest].DeployerKey
+
+	lggr.Infow("Granting mint and burn roles")
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	tx, err = dstLink.GrantMintAndBurnRoles(dstDeployer, dstDeployer.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	srcLinkPool := state.Chains[src].BurnMintTokenPools["LINK"][deployment.Version1_5_1]
+	dstLinkPool := state.Chains[dest].BurnMintTokenPools["LINK"][deployment.Version1_5_1]
+
+	err = attachTokenToTheRegistry(e.Chains[src], state.Chains[src], srcDeployer, srcLink.Address(), srcLinkPool.Address())
+	require.NoError(t, err)
+	err = attachTokenToTheRegistry(e.Chains[dest], state.Chains[dest], dstDeployer, dstLink.Address(), dstLinkPool.Address())
+	require.NoError(t, err)
+
+	tx, err = srcLink.GrantMintAndBurnRoles(srcDeployer, srcLinkPool.Address())
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	tx, err = dstLink.GrantMintAndBurnRoles(dstDeployer, dstLinkPool.Address())
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	lggr.Infow("Minting transfer amounts")
+	//--------------------------------------------------------------------------------------------
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcAccount.From,
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+	tx, err = srcLink.Mint(
+		srcAccount,
+		srcLinkPool.Address(),
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+	//--------------------------------------------------------------------------------------------
+	// Mint a destination token
+	tx, err = dstLink.Mint(
+		dstDeployer,
+		dstDeployer.From,
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+	tx, err = dstLink.Mint(
+		dstDeployer,
+		dstLinkPool.Address(),
+		new(big.Int).Add(transferTokenMintAmount, feeTokenMintAmount),
+	)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+	//--------------------------------------------------------------------------------------------
+
+	lggr.Infow("Approving routers")
+	// Approve the router to spend the tokens and confirm the tx's
+	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
+	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
+
+	tx, err = dstLink.Approve(dstDeployer, state.Chains[dest].Router.Address(), math.MaxBig256)
+	_, err = deployment.ConfirmIfNoError(e.Chains[dest], tx, err)
+	require.NoError(t, err)
+
+	return srcLink, dstLink
+}
+
 func setupTokens(
 	t *testing.T,
 	state ccipchangeset.CCIPOnChainState,
@@ -311,4 +494,49 @@ func E18Mult(amount uint64) *big.Int {
 
 func UBigInt(i uint64) *big.Int {
 	return new(big.Int).SetUint64(i)
+}
+
+func attachTokenToTheRegistry(
+	chain deployment.Chain,
+	state ccipchangeset.CCIPChainState,
+	owner *bind.TransactOpts,
+	token common.Address,
+	tokenPool common.Address,
+) error {
+	pool, err := state.TokenAdminRegistry.GetPool(nil, token)
+	if err != nil {
+		return err
+	}
+	// Pool is already registered, don't reattach it, because it would cause revert
+	if pool != (common.Address{}) {
+		return nil
+	}
+
+	tx, err := state.RegistryModule.RegisterAdminViaOwner(owner, token)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = state.TokenAdminRegistry.AcceptAdminRole(owner, token)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	tx, err = state.TokenAdminRegistry.SetPool(owner, token, tokenPool)
+	if err != nil {
+		return err
+	}
+	_, err = chain.Confirm(tx)
+	if err != nil {
+		return err
+	}
+	return nil
 }

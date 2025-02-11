@@ -337,12 +337,20 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	}
 	chainSelectors := e.AllChainSelectors()
 	poolInput := make(map[uint64]changeset.DeployTokenPoolInput)
+	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
 	for _, chain := range chainSelectors {
 		poolInput[chain] = changeset.DeployTokenPoolInput{
 			Type:               changeset.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
 			AllowList:          []common.Address{},
 			TokenAddress:       state.Chains[chain].LinkToken.Address(),
+		}
+		pools[chain] = map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+			LINKTokenSymbol: {
+				Type:          changeset.BurnMintTokenPool,
+				Version:       deployment.Version1_5_1,
+				ExternalAdmin: e.Chains[chain].DeployerKey.From,
+			},
 		}
 	}
 	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
@@ -351,6 +359,24 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			Config: changeset.DeployTokenPoolContractsConfig{
 				TokenSymbol: LINKTokenSymbol,
 				NewPools:    poolInput,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.ProposeAdminRoleChangeset),
+			Config: changeset.TokenAdminRegistryChangesetConfig{
+				Pools: pools,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAdminRoleChangeset),
+			Config: changeset.TokenAdminRegistryChangesetConfig{
+				Pools: pools,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
+			Config: changeset.TokenAdminRegistryChangesetConfig{
+				Pools: pools,
 			},
 		},
 	})

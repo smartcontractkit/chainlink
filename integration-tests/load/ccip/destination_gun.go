@@ -146,7 +146,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		acc.Value = fee
+		acc.Value = big.NewInt(0).Mul(big.NewInt(7), fee)
 		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
@@ -256,7 +256,8 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			Receiver: rcv,
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  m.transferableTokens[src].Address(),
+					//Token: m.transferableTokens[src].Address(),
+					Token:  m.state.Chains[src].LinkToken.Address(),
 					Amount: big.NewInt(1),
 				},
 			},
@@ -269,7 +270,8 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			Data:     common.Hex2Bytes("message with token"),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  m.transferableTokens[src].Address(),
+					//Token: m.transferableTokens[src].Address(),
+					Token:  m.state.Chains[src].LinkToken.Address(),
 					Amount: big.NewInt(1),
 				},
 			},

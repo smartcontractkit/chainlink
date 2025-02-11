@@ -243,6 +243,7 @@ ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
 # MessageTypeWeights corresponds with [data only, token only, message with token]
+#MessageTypeWeights = [100,0,0]
 MessageTypeWeights = [10,45,45]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "10s"
