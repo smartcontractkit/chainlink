@@ -383,7 +383,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	testhelpers.ConfirmCommitForAllWithExpectedSeqNums(t, e.Env, state, expectedSeqNums, startBlocks)
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 	// this seems to be flakey, also might be incorrect?
-	// require.Equal(t, lastNonce+1, firstNonce, "sender nonce in 1.6 OnRamp event is not plus one to sender nonce in 1.5 OnRamp")
+	require.Equal(t, lastNonce+1, firstNonce, "sender nonce in 1.6 OnRamp event is not plus one to sender nonce in 1.5 OnRamp")
 }
 
 // SendMessages sends messages from src to dest until done is closed
