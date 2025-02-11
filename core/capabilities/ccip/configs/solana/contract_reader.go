@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/gagliardetto/solana-go"
+
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -69,10 +71,10 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							&codec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
 									"GasForCallExactCheck": 0,
-									"RmnRemote":            []byte{},
+									"RmnRemote":            solana.PublicKey{},
 									// TODO what to do with these two? Do they share address with router?
-									"TokenAdminRegistry": []byte{},
-									"NonceManager":       []byte{},
+									"TokenAdminRegistry": solana.PublicKey{},
+									"NonceManager":       solana.PublicKey{},
 								},
 							},
 						},
@@ -90,8 +92,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							&codec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
 									"IsRMNVerificationDisabled": false,
-									// TODO what to do with this address? Is it same as Router?
-									"MessageInterceptor": []byte{},
+									"MessageInterceptor":        solana.PublicKey{},
 								},
 							},
 						},
@@ -112,7 +113,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("source_chain_state"),
-							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"SourceChainSelector": "NewChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
@@ -169,12 +170,11 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Seeds: []solanacodec.PDASeed{
 								{
 									Name: "Tokens",
-									// TODO uncomment when 1053 is merged
-									//Type: solanacodec.IdlType{
-									//AsIdlTypeVec: &solanacodec.IdlTypeVec{
-									//	Vec: codec.IdlType{AsString: codec.IdlTypePublicKey},
-									//	},
-									//},
+									Type: solanacodec.IdlType{
+										AsIdlTypeVec: &solanacodec.IdlTypeVec{
+											Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
+										},
+									},
 								},
 							},
 						},
@@ -197,19 +197,18 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{{
 								Name: "Tokens",
-								// TODO uncomment when 1053 is merged
-								//Type: solanacodec.IdlType{
-								//AsIdlTypeVec: &solanacodec.IdlTypeVec{
-								//	Vec: codec.IdlType{AsString: codec.IdlTypePublicKey},
-								//	},
-								//},
+								Type: solanacodec.IdlType{
+									AsIdlTypeVec: &solanacodec.IdlTypeVec{
+										Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
+									},
+								},
 							}}},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "DestChain",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain"),
-							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "State.UsdPerUnitGas"}},
@@ -218,7 +217,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "DestChain",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain"),
-							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
@@ -259,8 +258,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("nonce"),
 							Seeds: []solanacodec.PDASeed{
-								{Name: "DestinationChainSelector", Type: solanacodec.IdlTypeU64},
-								{Name: "Authority", Type: solanacodec.IdlTypePublicKey},
+								{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}},
+								{Name: "Authority", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey}},
 							},
 						},
 						InputModifications: codec.ModifiersConfig{
@@ -299,7 +298,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain_state"),
-							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
@@ -313,7 +312,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain_state"),
-							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
@@ -323,7 +322,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							},
 							&codec.HardCodeModifierConfig{
 								// TODO how to get Router Address from OnRamp? The offchain code expects it as a result. Hard code it from an already bound Router?
-								OnChainValues: map[string]any{"Router": []byte{}},
+								OnChainValues: map[string]any{"Router": solana.PublicKey{}},
 							},
 						},
 						// TODO implement multireader param reuse
@@ -334,7 +333,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 									ReadType:          config.Account,
 									PDADefinition: solanacodec.PDATypeDef{
 										Prefix: []byte("dest_chain_state"),
-										Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlTypeU64}},
+										Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 									},
 									InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
 									OutputModifications: codec.ModifiersConfig{
@@ -354,14 +353,14 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{&codec.HardCodeModifierConfig{
 							OnChainValues: map[string]any{
 								// doesn't exis on Solana
-								"ReentrancyGuardEntered": []byte{},
+								"ReentrancyGuardEntered": solana.PublicKey{},
 								// TODO what to do with these addresses?
 								// TODO which FeeQuoter is this, what happens if its empty?
-								"FeeQuoter": []byte{},
+								"FeeQuoter": solana.PublicKey{},
 								// TODO what do these correspond to on Solana?
-								"MessageInterceptor": []byte{},
-								"FeeAggregator":      []byte{},
-								"AllowListAdmin":     []byte{},
+								"MessageInterceptor": solana.PublicKey{},
+								"FeeAggregator":      solana.PublicKey{},
+								"AllowListAdmin":     solana.PublicKey{},
 							},
 						}},
 					},
@@ -398,12 +397,11 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Seeds: []solanacodec.PDASeed{
 								{
 									Name: "Tokens",
-									// TODO uncomment when 1053 is merged
-									//Type: solanacodec.IdlType{
-									//AsIdlTypeVec: &solanacodec.IdlTypeVec{
-									//	Vec: codec.IdlType{AsString: codec.IdlTypePublicKey},
-									//	},
-									//},
+									Type: solanacodec.IdlType{
+										AsIdlTypeVec: &solanacodec.IdlTypeVec{
+											Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
+										},
+									},
 								},
 							},
 						},
@@ -438,7 +436,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "DestChain",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain"),
-							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "State.UsdPerUnitGas"}},
@@ -447,7 +445,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "DestChain",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("dest_chain"),
-							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlTypeU64}},
+							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
