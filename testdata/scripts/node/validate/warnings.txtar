@@ -262,11 +262,6 @@ TLSCertPath = 'something'
 [Mercury]
 VerboseLogging = false
 
-[Mercury.Cache]
-LatestReportTTL = '1s'
-MaxStaleAge = '1h0m0s'
-LatestReportDeadline = '5s'
-
 [Mercury.TLS]
 CertFile = ''
 

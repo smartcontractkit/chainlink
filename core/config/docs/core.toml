@@ -683,27 +683,6 @@ env = 'test' # Example
 # by default.
 VerboseLogging = false # Default
 
-# Mercury.Cache controls settings for the price retrieval cache querying a mercury server
-[Mercury.Cache]
-# LatestReportTTL controls how "stale" we will allow a price to be e.g. if
-# set to 1s, a new price will always be fetched if the last result was
-# from 1 second ago or older.
-# 
-# Another way of looking at it is such: the cache will _never_ return a
-# price that was queried from now-LatestReportTTL or before.
-# 
-# Setting to zero disables caching entirely.
-LatestReportTTL = "1s" # Default
-# MaxStaleAge is that maximum amount of time that a value can be stale
-# before it is deleted from the cache (a form of garbage collection).
-# 
-# This should generally be set to something much larger than
-# LatestReportTTL. Setting to zero disables garbage collection.
-MaxStaleAge = "1h" # Default
-# LatestReportDeadline controls how long to wait for a response from the
-# mercury server before retrying. Setting this to zero will wait indefinitely.
-LatestReportDeadline = "5s" # Default
-
 # Mercury.TLS controls client settings for when the node talks to traditional web servers or load balancers.
 [Mercury.TLS]
 # CertFile is the path to a PEM file of trusted root certificate authority certificates
@@ -713,8 +692,7 @@ CertFile = "/path/to/client/certs.pem" # Example
 [Mercury.Transmitter]
 # Protocol is the protocol to use for the transmitter.
 #
-# Options are either:
-# - "wsrpc" for the legacy websocket protocol
+# Options are currently:
 # - "grpc" for the gRPC protocol
 Protocol = "grpc" # Default
 # TransmitQueueMaxSize controls the size of the transmit queue. This is scoped

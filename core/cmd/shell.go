@@ -49,8 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -231,12 +229,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
 
-	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
-		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
-		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
-		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
-	})
-
 	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
 
 	retirementReportCache := llo.NewRetirementReportCache(appLggr, ds)
@@ -249,7 +241,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		Registerer:            appRegisterer,
 		LoopRegistry:          loopRegistry,
 		GRPCOpts:              grpcOpts,
-		MercuryPool:           mercuryPool,
 		CapabilitiesRegistry:  capabilitiesRegistry,
 		HTTPClient:            unrestrictedClient,
 		RetirementReportCache: retirementReportCache,
@@ -325,7 +316,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SecretGenerator:            chainlink.FilePersistedSecretGenerator{},
 		LoopRegistry:               loopRegistry,
 		GRPCOpts:                   grpcOpts,
-		MercuryPool:                mercuryPool,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      lloReaper,
 	})

@@ -237,11 +237,6 @@ test = 'load'
 [Mercury]
 VerboseLogging = true
 
-[Mercury.Cache]
-LatestReportTTL = '1m40s'
-MaxStaleAge = '1m41s'
-LatestReportDeadline = '1m42s'
-
 [Mercury.TLS]
 CertFile = '/path/to/cert.pem'
 

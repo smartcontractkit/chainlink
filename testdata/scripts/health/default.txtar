@@ -36,8 +36,6 @@ ok Heartbeat
 ok JobSpawner
 ok LLOTransmissionReaper
 ok Mailbox.Monitor
-ok Mercury.WSRPCPool
-ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
@@ -89,24 +87,6 @@ ok WorkflowDBStore
       "id": "Mailbox.Monitor",
       "attributes": {
         "name": "Mailbox.Monitor",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Mercury.WSRPCPool",
-      "attributes": {
-        "name": "Mercury.WSRPCPool",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Mercury.WSRPCPool.CacheSet",
-      "attributes": {
-        "name": "Mercury.WSRPCPool.CacheSet",
         "status": "passing",
         "output": ""
       }

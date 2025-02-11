@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -194,7 +193,6 @@ type ApplicationOpts struct {
 	SecretGenerator            SecretGenerator
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
-	MercuryPool                wsrpc.Pool
 	RetirementReportCache      llo.RetirementReportCache
 	LLOTransmissionReaper      services.ServiceCtx
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
@@ -348,10 +346,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set Database.Backup.Mode=lite or Database.Backup.Mode=full")
 	}
 
-	// pool must be started before all relayers and stopped after them
-	if opts.MercuryPool != nil {
-		srvcs = append(srvcs, opts.MercuryPool)
-	}
+	// LLO-related services
 	if opts.RetirementReportCache != nil {
 		srvcs = append(srvcs, opts.RetirementReportCache)
 	}

@@ -789,11 +789,6 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Mercury = toml.Mercury{
-		Cache: toml.MercuryCache{
-			LatestReportTTL:      commoncfg.MustNewDuration(100 * time.Second),
-			MaxStaleAge:          commoncfg.MustNewDuration(101 * time.Second),
-			LatestReportDeadline: commoncfg.MustNewDuration(102 * time.Second),
-		},
 		TLS: toml.MercuryTLS{
 			CertFile: ptr("/path/to/cert.pem"),
 		},
@@ -1267,11 +1262,6 @@ SendOnly = true
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
-
-[Mercury.Cache]
-LatestReportTTL = '1m40s'
-MaxStaleAge = '1m41s'
-LatestReportDeadline = '1m42s'
 
 [Mercury.TLS]
 CertFile = '/path/to/cert.pem'

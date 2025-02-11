@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/dummy"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -34,7 +33,6 @@ type RelayerFactory struct {
 	*plugins.LoopRegistry
 	loop.GRPCOpts
 	Registerer            prometheus.Registerer
-	MercuryPool           wsrpc.Pool
 	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
 	HTTPClient            *http.Client
 	RetirementReportCache llo.RetirementReportCache
@@ -80,7 +78,6 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			DS:                    ccOpts.DS,
 			Registerer:            r.Registerer,
 			CSAETHKeystore:        config.CSAETHKeystore,
-			MercuryPool:           r.MercuryPool,
 			MercuryConfig:         config.MercuryConfig,
 			CapabilitiesRegistry:  r.CapabilitiesRegistry,
 			HTTPClient:            r.HTTPClient,

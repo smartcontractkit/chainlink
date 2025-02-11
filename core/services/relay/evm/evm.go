@@ -58,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/interceptors/mantle"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -143,7 +142,6 @@ type Relayer struct {
 	lggr                 logger.SugaredLogger
 	registerer           prometheus.Registerer
 	ks                   CSAETHKeystore
-	mercuryPool          wsrpc.Pool
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
@@ -167,7 +165,6 @@ type RelayerOpts struct {
 	DS         sqlutil.DataSource
 	Registerer prometheus.Registerer
 	CSAETHKeystore
-	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
 	MercuryConfig
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
@@ -211,7 +208,6 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		lggr:                  logger.Sugared(sugared),
 		registerer:            opts.Registerer,
 		ks:                    opts.CSAETHKeystore,
-		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
 		retirementReportCache: opts.RetirementReportCache,
 		mercuryCfg:            opts.MercuryConfig,
@@ -633,12 +629,6 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 					ServerPubKey:  ed25519.PublicKey(server.PubKey),
 					ServerURL:     server.URL,
 				})
-			case config.MercuryTransmitterProtocolWSRPC:
-				wsrpcClient, checkoutErr := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-				if checkoutErr != nil {
-					return nil, checkoutErr
-				}
-				client = wsrpc.GRPCCompatibilityWrapper{Client: wsrpcClient}
 			default:
 				return nil, fmt.Errorf("unsupported protocol %q", r.mercuryCfg.Transmitter().Protocol())
 			}

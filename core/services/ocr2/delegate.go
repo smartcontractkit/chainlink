@@ -188,7 +188,6 @@ type jobPipelineConfig interface {
 
 type mercuryConfig interface {
 	Credentials(credName string) *types.MercuryCredentials
-	Cache() coreconfig.MercuryCache
 	TLS() coreconfig.MercuryTLS
 	Transmitter() coreconfig.MercuryTransmitter
 	VerboseLogging() bool

@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -380,12 +379,12 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("using legacy verifier configuration contract, produces reports in v0.3 format", func(t *testing.T) {
-		reqs := make(chan wsrpcRequest, 100000)
+		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
-		srv := NewWSRPCMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), packetCh)
 
-		serverURL := startWSRPCMercuryServer(t, srv, clientPubKeys)
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 		donID := uint32(995544)
 		streams := []Stream{ethStream, linkStream, quoteStream1, quoteStream2}
@@ -395,9 +394,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
-		})
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, nil)
 
 		chainID := testutils.SimulatedChainID
 		relayType := "evm"
@@ -463,13 +460,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		// Set config on configurator
-<<<<<<< HEAD
-		setLegacyConfig(
-			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
-=======
 		setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
->>>>>>> 1d31103737 (Remove legacy Mercury plugin and associated code)
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 		)
 
 		signerAddresses := make([]common.Address, len(oracles))
@@ -478,19 +470,21 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		t.Run("receives at least one report per channel from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-			// Expect at least one report per feed from each oracle
-			seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+			// Expect at least one report per feed from each oracle (keyed by ip)
+			seen := make(map[[32]byte]map[string]struct{})
 			for _, cd := range channelDefinitions {
 				var opts lloevm.ReportFormatEVMPremiumLegacyOpts
 				err := json.Unmarshal(cd.Opts, &opts)
 				require.NoError(t, err)
 				// feedID will be deleted when all n oracles have reported
-				seen[opts.FeedID] = make(map[credentials.StaticSizedPublicKey]struct{}, nNodes)
+				seen[opts.FeedID] = make(map[string]struct{}, nNodes)
 			}
-			for req := range reqs {
-				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.req.ReportFormat)
+
+			for pckt := range packetCh {
+				req := pckt.req
+				assert.Equal(t, uint32(llotypes.ReportFormatEVMPremiumLegacy), req.ReportFormat)
 				v := make(map[string]interface{})
-				err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+				err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
 				if !exists {
@@ -544,9 +538,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.Subset(t, signerAddresses, reportSigners)
 				}
 
-				t.Logf("oracle %x reported for 0x%x", req.pk[:], feedID[:])
+				pr, ok := peer.FromContext(pckt.ctx)
+				require.True(t, ok)
+				t.Logf("oracle %s reported for 0x%x", pr.Addr.String(), feedID[:])
 
-				seen[feedID][req.pk] = struct{}{}
+				seen[feedID][pr.Addr.String()] = struct{}{}
 				if len(seen[feedID]) == nNodes {
 					t.Logf("all oracles reported for 0x%x", feedID[:])
 					delete(seen, feedID)
@@ -1131,7 +1127,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap

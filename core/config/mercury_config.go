@@ -2,17 +2,10 @@ package config
 
 import (
 	"fmt"
-	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
-
-type MercuryCache interface {
-	LatestReportTTL() time.Duration
-	MaxStaleAge() time.Duration
-	LatestReportDeadline() time.Duration
-}
 
 type MercuryTLS interface {
 	CertFile() string
@@ -21,8 +14,7 @@ type MercuryTLS interface {
 type MercuryTransmitterProtocol string
 
 const (
-	MercuryTransmitterProtocolWSRPC MercuryTransmitterProtocol = "wsrpc"
-	MercuryTransmitterProtocolGRPC  MercuryTransmitterProtocol = "grpc"
+	MercuryTransmitterProtocolGRPC MercuryTransmitterProtocol = "grpc"
 )
 
 func (m MercuryTransmitterProtocol) String() string {
@@ -31,8 +23,6 @@ func (m MercuryTransmitterProtocol) String() string {
 
 func (m *MercuryTransmitterProtocol) UnmarshalText(text []byte) error {
 	switch string(text) {
-	case "wsrpc":
-		*m = MercuryTransmitterProtocolWSRPC
 	case "grpc":
 		*m = MercuryTransmitterProtocolGRPC
 	default:
@@ -52,7 +42,6 @@ type MercuryTransmitter interface {
 
 type Mercury interface {
 	Credentials(credName string) *types.MercuryCredentials
-	Cache() MercuryCache
 	TLS() MercuryTLS
 	Transmitter() MercuryTransmitter
 	VerboseLogging() bool

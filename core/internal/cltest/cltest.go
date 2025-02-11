@@ -86,8 +86,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -415,12 +413,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), nil, "")
 
-	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
-		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
-		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
-		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
-	})
-
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
 	relayerFactory := chainlink.RelayerFactory{
@@ -428,7 +420,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		LoopRegistry:          loopRegistry,
 		GRPCOpts:              loop.GRPCOpts{},
 		Registerer:            prometheus.NewRegistry(), // Don't use global registry here since otherwise multiple apps can create name conflicts. Could also potentially give a mock registry to test prometheus.
-		MercuryPool:           mercuryPool,
 		CapabilitiesRegistry:  capabilitiesRegistry,
 		HTTPClient:            c,
 		RetirementReportCache: retirementReportCache,
@@ -510,7 +501,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
 		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
-		MercuryPool:                mercuryPool,
+		CapabilitiesRegistry:       capabilitiesRegistry,
+		CapabilitiesDispatcher:     dispatcher,
+		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
