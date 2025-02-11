@@ -55,22 +55,11 @@ func cloneRepo(revision string) error {
 	return nil
 }
 
-// Generate keys using Anchor
-func generateKeys() error {
-	anchorPath := filepath.Join(cloneDir, anchorDir)
-	output, err := runCommand("anchor", []string{"keys", "list"}, anchorPath)
-	if err != nil {
-		fmt.Println(output)
-		return fmt.Errorf("anchor key generation failed: %w", err)
-	}
-
-	return err
-}
-
 // Replace keys in Rust files
 func replaceKeys() error {
-	anchorPath := filepath.Join(cloneDir, anchorDir)
-	output, err := runCommand("anchor", []string{"keys", "sync"}, anchorPath)
+	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
+	fmt.Println("Updating keys with anchor... ", solanaDir)
+	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
 		fmt.Println(output)
 		return fmt.Errorf("anchor key replacement failed: %w", err)
@@ -119,25 +108,19 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain is not solana chain %d", config.ChainSelector)
 	}
 
-	// Step 1: Clone the repository
+	// Clone the repository
 	if err := cloneRepo(config.GitCommitSha); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %v", err)
 	}
 
 	// Upgrades don't need to generate keys
 	if !config.IsUpgrade {
-		// Step 2: Generate keys using Anchor
-		if err := generateKeys(); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error generating keys: %v", err)
-		}
-
-		// Step 3: Replace keys in Rust files
 		if err := replaceKeys(); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %v", err)
 		}
 	}
 
-	// Step 4: Build the project with Anchor
+	// Build the project with Anchor
 	if err := buildProject(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %v", err)
 	}
