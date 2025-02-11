@@ -510,6 +510,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		FetcherFunc:                syncerFetcherFunc,
 		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
+		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})
 
 	require.NoError(t, err)
