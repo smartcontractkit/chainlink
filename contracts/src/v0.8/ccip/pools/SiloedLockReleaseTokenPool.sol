@@ -18,7 +18,6 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   error ChainNotSiloed(uint64 remoteChainSelector);
   error InvalidChainSelector(uint64 remoteChainSelector);
   error LiquidityAmountCannotBeZero();
-  error InvalidZeroAddress();
 
   event LiquidityAdded(uint64 remoteChainSelector, address indexed provider, uint256 amount);
   event LiquidityRemoved(uint64 remoteChainSelector, address indexed remover, uint256 amount);
@@ -104,7 +103,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     uint256 availableLiquidity = chainIsSiloed ? remoteConfig.tokenBalance : s_unsiloedTokenBalance;
     if (localAmount > availableLiquidity) revert InsufficientLiquidity(availableLiquidity, localAmount);
 
-    // Remove funds from the appropriate accounting silo.
+    // Deduct the amount from the correct silo balance, or the unsiloed balance.
     if (chainIsSiloed) {
       remoteConfig.tokenBalance -= localAmount;
     } else {
@@ -126,11 +125,11 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   function getAvailableTokens(
     uint64 remoteChainSelector
   ) external view returns (uint256 lockedTokens) {
+    if (!isSupportedChain(remoteChainSelector)) revert InvalidChainSelector(remoteChainSelector);
+
     if (s_chainConfigs[remoteChainSelector].isSiloed) {
       return s_chainConfigs[remoteChainSelector].tokenBalance;
     }
-
-    if (!isSupportedChain(remoteChainSelector)) revert InvalidChainSelector(remoteChainSelector);
 
     return s_unsiloedTokenBalance;
   }
@@ -183,7 +182,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
         revert InvalidChainSelector(adds[i].remoteChainSelector);
       }
 
-      if (adds[i].rebalancer == address(0)) revert InvalidZeroAddress();
+      if (adds[i].rebalancer == address(0)) revert ZeroAddressNotAllowed();
 
       s_chainConfigs[adds[i].remoteChainSelector] =
         SiloConfig({tokenBalance: 0, rebalancer: adds[i].rebalancer, isSiloed: true});
@@ -220,7 +219,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
     SiloConfig storage remoteConfig = s_chainConfigs[remoteChainSelector];
 
     if (!remoteConfig.isSiloed) revert ChainNotSiloed(remoteChainSelector);
-    if (newRebalancer == address(0)) revert InvalidZeroAddress();
+    if (newRebalancer == address(0)) revert ZeroAddressNotAllowed();
 
     address oldRebalancer = remoteConfig.rebalancer;
 
@@ -235,7 +234,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   function setRebalancer(
     address newRebalancer
   ) external onlyOwner {
-    if (newRebalancer == address(0)) revert InvalidZeroAddress();
+    if (newRebalancer == address(0)) revert ZeroAddressNotAllowed();
 
     address oldRebalancer = s_rebalancer;
 

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenPool.sol";
+import {TokenPool} from "../../../pools/TokenPool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseTokenPoolSetup {
@@ -95,7 +96,7 @@ contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseT
       SiloedLockReleaseTokenPool.SiloConfigUpdate({remoteChainSelector: DEST_CHAIN_SELECTOR, rebalancer: address(0)});
 
     // Rebalancer address cannot be zero
-    vm.expectRevert(abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidZeroAddress.selector));
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.ZeroAddressNotAllowed.selector));
 
     s_siloedLockReleaseTokenPool.updateSiloDesignations(new uint64[](0), adds);
   }
