@@ -234,13 +234,7 @@ func CCIPSendRequest(
 	state changeset.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
-	msg := router.ClientEVM2AnyMessage{
-		Receiver:     cfg.Evm2AnyMessage.Receiver,
-		Data:         cfg.Evm2AnyMessage.Data,
-		TokenAmounts: cfg.Evm2AnyMessage.TokenAmounts,
-		FeeToken:     cfg.Evm2AnyMessage.FeeToken,
-		ExtraArgs:    cfg.Evm2AnyMessage.ExtraArgs,
-	}
+	msg := cfg.Evm2AnyMessage
 	r := state.Chains[cfg.SourceChain].Router
 	if cfg.IsTestRouter {
 		r = state.Chains[cfg.SourceChain].TestRouter
@@ -313,20 +307,25 @@ func CCIPSendCalldata(
 	return calldata, nil
 }
 
+// testhelpers.SendRequest(t, e, state, src, dest, msg, opts...)
+// opts being testRouter, sender
+// always return error
+// note: there's also DoSendRequest vs SendRequest duplication, v1.6 vs v1.5
+
 func TestSendRequest(
 	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
 	src, dest uint64,
 	testRouter bool,
-	evm2AnyMessage router.ClientEVM2AnyMessage,
+	msg any,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	msgSentEvent, err := DoSendRequest(t, e, state,
+	msgSentEvent, err := SendRequest(t, e, state,
 		WithSender(e.Chains[src].DeployerKey),
 		WithSourceChain(src),
 		WithDestChain(dest),
 		WithTestRouter(testRouter),
-		WithEvm2AnyMessage(evm2AnyMessage))
+		WithEvm2AnyMessage(msg.(router.ClientEVM2AnyMessage)))
 	require.NoError(t, err)
 	return msgSentEvent
 }
@@ -371,8 +370,8 @@ func WithDestChain(destChain uint64) SendReqOpts {
 	}
 }
 
-// DoSendRequest similar to TestSendRequest but returns an error.
-func DoSendRequest(
+// SendRequest similar to TestSendRequest but returns an error.
+func SendRequest(
 	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,

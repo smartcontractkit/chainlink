@@ -192,7 +192,7 @@ func Test_OutOfOrderExecution(t *testing.T) {
 
 	// Ordered token transfer, but using different sender, should be executed
 	fifthReceiver := utils.RandomAddress()
-	fifthMessage, err := testhelpers.DoSendRequest(t, e, state,
+	fifthMessage, err := testhelpers.SendRequest(t, e, state,
 		testhelpers.WithSender(anotherSender),
 		testhelpers.WithSourceChain(sourceChain),
 		testhelpers.WithDestChain(destChain),
