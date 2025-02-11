@@ -96,12 +96,13 @@ type server struct {
 }
 
 type QueueConfig interface {
+	ReaperMaxAge() commonconfig.Duration
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
 }
 
 func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client grpc.Client, orm ORM, serverURL string) *server {
-	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency)
+	pm := NewPersistenceManager(lggr, orm, serverURL, int(cfg.TransmitQueueMaxSize()), FlushDeletesFrequency, PruneFrequency, cfg.ReaperMaxAge().Duration())
 	donIDStr := fmt.Sprintf("%d", pm.DonID())
 	var codecLggr logger.Logger
 	if verboseLogging {

@@ -46,7 +46,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := htmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+			mht := htmocks.NewTracker[*evmtypes.Head, common.Hash](t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{
