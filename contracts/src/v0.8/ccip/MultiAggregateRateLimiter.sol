@@ -54,7 +54,7 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers, IT
     RateLimiter.TokenBucket outboundLaneBucket; // Bucket for the outbound lane (local -> remote).
   }
 
-  string public constant override typeAndVersion = "MultiAggregateRateLimiter 1.6.0-dev";
+  string public constant override typeAndVersion = "MultiAggregateRateLimiter 1.6.0";
 
   bytes32 private constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
 

@@ -65,7 +65,7 @@ contract RMNRemote is Ownable2StepMsgSender, ITypeAndVersion, IRMNRemote, IRMN {
   /// @dev this is included in the preimage of the digest that RMN nodes sign.
   bytes32 private constant RMN_V1_6_ANY2EVM_REPORT = keccak256("RMN_V1_6_ANY2EVM_REPORT");
 
-  string public constant override typeAndVersion = "RMNRemote 1.6.0-dev";
+  string public constant override typeAndVersion = "RMNRemote 1.6.0";
   uint64 internal immutable i_localChainSelector;
   IRMN internal immutable i_legacyRMN;
 

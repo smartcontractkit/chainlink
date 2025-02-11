@@ -30,6 +30,10 @@ func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
 	return config.MercuryTransmitterProtocolGRPC
 }
 
+func (m mockCfg) ReaperMaxAge() commonconfig.Duration {
+	return *commonconfig.MustNewDuration(0)
+}
+
 func (m mockCfg) TransmitQueueMaxSize() uint32 {
 	return 10_000
 }
