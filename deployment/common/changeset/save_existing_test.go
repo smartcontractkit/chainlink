@@ -48,6 +48,7 @@ func TestSaveExisting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
 	require.Len(t, addresses, 2)
 	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
 	require.True(t, exists)
@@ -84,6 +85,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
 	require.Len(t, addresses, 1)
 	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
 	require.True(t, exists)
@@ -122,6 +124,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
 	require.Len(t, addresses, 1)
 	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
 	require.True(t, exists)
