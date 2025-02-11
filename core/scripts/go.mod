@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250207224751-03d585da84ab
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/spf13/cobra v1.8.1
