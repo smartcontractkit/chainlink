@@ -111,7 +111,8 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 	// Parse and return the program ID
 	output := stdout.String()
 
-	// workaround due to the cmd finishing before the program is available
+	// TODO workaround due to the cmd finishing before the program is available
+	// We should instead loop to check when it's available
 	time.Sleep(5 * time.Second)
 	return parseProgramID(output)
 }
