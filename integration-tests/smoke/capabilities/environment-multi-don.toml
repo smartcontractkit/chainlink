@@ -133,7 +133,7 @@
 
 [[nodesets]]
   don_type = "capabilities"
-	capabilities = ["write-evm"]
+  capabilities = ["write-evm"]
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10200

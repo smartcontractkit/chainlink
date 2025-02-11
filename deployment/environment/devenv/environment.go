@@ -36,7 +36,6 @@ func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config Envir
 	if jd == nil {
 		return nil, nil, errors.New("offchain client is not set up")
 	}
-
 	var nodeIDs []string
 	if jd.don != nil {
 		err = jd.don.CreateSupportedChains(ctx(), config.Chains, *jd)
