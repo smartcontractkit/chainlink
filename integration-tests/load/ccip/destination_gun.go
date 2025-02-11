@@ -55,7 +55,6 @@ func NewDestinationGun(
 	messageKeys map[uint64]*bind.TransactOpts,
 	chainOffset int,
 	metricPipe chan messageData,
-	transferableTokens map[uint64]*burn_mint_erc677.BurnMintERC677,
 ) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
@@ -68,18 +67,17 @@ func NewDestinationGun(
 		}
 	}
 	dg := DestinationGun{
-		l:                  l,
-		env:                env,
-		state:              state,
-		seqNums:            seqNums,
-		roundNum:           &atomic.Int32{},
-		chainSelector:      chainSelector,
-		receiver:           receiver,
-		testConfig:         overrides,
-		messageKeys:        messageKeys,
-		chainOffset:        chainOffset,
-		metricPipe:         metricPipe,
-		transferableTokens: transferableTokens,
+		l:             l,
+		env:           env,
+		state:         state,
+		seqNums:       seqNums,
+		roundNum:      &atomic.Int32{},
+		chainSelector: chainSelector,
+		receiver:      receiver,
+		testConfig:    overrides,
+		messageKeys:   messageKeys,
+		chainOffset:   chainOffset,
+		metricPipe:    metricPipe,
 	}
 
 	err := dg.Validate()
@@ -146,7 +144,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		acc.Value = big.NewInt(0).Mul(big.NewInt(7), fee)
+		acc.Value = big.NewInt(0).Mul(big.NewInt(9), fee)
 		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
