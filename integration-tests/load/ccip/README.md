@@ -45,3 +45,20 @@ go test -run ^TestCCIPLoad_RPS$ ./integration-tests/load/ccip -v -timeout $TIMEO
 
 ### Remote
 Update the `PROVIDER=aws` and `DEVSPACE_NAMESPACE` in crib environment and deploy. Everything else should be the same. 
+
+### Running Chaos Tests
+
+Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required
+```
+[CCIP.Chaos]
+Namespace = "crib-ccip-chaos"
+ExperimentFullInterval = "3m"
+ExperimentInjectionInterval = "90s"
+SrcChainURL = "$your_crib_src_chain_url"
+DstChainURL = "$your_crib_dst_chain_url"
+```
+
+Run your load test, then start the chaos suite
+```
+go test -v -timeout 12h -run TestK8sChaos
+```

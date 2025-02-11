@@ -251,5 +251,12 @@ LoadDuration = "30s"
 # destination chain selectors to send messages to
 NumDestinationChains = 2
 # Directory where we receive environment configuration from crib
-CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
-TimeoutDuration = "1h"
+CribEnvDirectory = "/Users/fahrenheit/GolandProjects/chainlink/integration-tests/load/ccip/crib-ccip-v2-load-test-data"
+TimeoutDuration = "30m"
+
+[CCIP.Chaos]
+Namespace = "default"
+ExperimentFullInterval = "1m"
+ExperimentInjectionInterval = "30s"
+SrcChainURL = "http://localhost:8545"
+DstChainURL = "http://localhost:8545"
