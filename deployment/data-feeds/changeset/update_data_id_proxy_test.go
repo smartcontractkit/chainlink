@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
@@ -50,6 +51,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
 		IsAdmin:       true,
 	})
+	require.NoError(t, err)
 	// End of pre-requisite contracts
 
 	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
@@ -62,5 +64,4 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }
