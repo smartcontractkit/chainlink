@@ -107,93 +107,93 @@ func TestTokenTransfer(t *testing.T) {
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
-		// {
-		// 	Name:        "Send token to contract",
-		// 	SourceChain: sourceChain,
-		// 	DestChain:   destChain,
-		// 	Tokens: []router.ClientEVMTokenAmount{
-		// 		{
-		// 			Token:  srcToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 	},
-		// 	Receiver: state.Chains[destChain].Receiver.Address(),
-		// 	ExpectedTokenBalances: map[common.Address]*big.Int{
-		// 		destToken.Address(): oneE18,
-		// 	},
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		// },
-		// {
-		// 	Name:        "Send N tokens to contract",
-		// 	SourceChain: destChain,
-		// 	DestChain:   sourceChain,
-		// 	Tokens: []router.ClientEVMTokenAmount{
-		// 		{
-		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 		{
-		// 			Token:  destToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 		{
-		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 	},
-		// 	Receiver:  state.Chains[sourceChain].Receiver.Address(),
-		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
-		// 	ExpectedTokenBalances: map[common.Address]*big.Int{
-		// 		selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
-		// 		srcToken.Address():          oneE18,
-		// 	},
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		// },
-		// {
-		// 	Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
-		// 	SourceChain: destChain,
-		// 	DestChain:   sourceChain,
-		// 	Tokens: []router.ClientEVMTokenAmount{
-		// 		{
-		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 		{
-		// 			Token:  destToken.Address(),
-		// 			Amount: new(big.Int).Add(oneE18, oneE18),
-		// 		},
-		// 	},
-		// 	Receiver:  utils.RandomAddress(),
-		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
-		// 	ExpectedTokenBalances: map[common.Address]*big.Int{
-		// 		selfServeSrcToken.Address(): oneE18,
-		// 		srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
-		// 	},
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-		// },
-		// {
-		// 	Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
-		// 	SourceChain: destChain,
-		// 	DestChain:   sourceChain,
-		// 	Tokens: []router.ClientEVMTokenAmount{
-		// 		{
-		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 		{
-		// 			Token:  destToken.Address(),
-		// 			Amount: oneE18,
-		// 		},
-		// 	},
-		// 	Receiver:  state.Chains[sourceChain].Receiver.Address(),
-		// 	Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
-		// 	ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
-		// 	ExpectedTokenBalances: map[common.Address]*big.Int{
-		// 		selfServeSrcToken.Address(): big.NewInt(0),
-		// 		srcToken.Address():          big.NewInt(0),
-		// 	},
-		// 	ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
-		// },
+		{
+			Name:        "Send token to contract",
+			SourceChain: sourceChain,
+			DestChain:   destChain,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  srcToken.Address(),
+					Amount: oneE18,
+				},
+			},
+			Receiver: state.Chains[destChain].Receiver.Address(),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
+				destToken.Address(): oneE18,
+			},
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			Name:        "Send N tokens to contract",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  destToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+			},
+			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(300_000, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
+				selfServeSrcToken.Address(): new(big.Int).Add(oneE18, oneE18),
+				srcToken.Address():          oneE18,
+			},
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			Name:        "Sending token transfer with custom gasLimits to the EOA is successful",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  destToken.Address(),
+					Amount: new(big.Int).Add(oneE18, oneE18),
+				},
+			},
+			Receiver:  utils.RandomAddress(),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
+				selfServeSrcToken.Address(): oneE18,
+				srcToken.Address():          new(big.Int).Add(oneE18, oneE18),
+			},
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+		{
+			Name:        "Sending PTT with too low gas limit leads to the revert when receiver is a contract",
+			SourceChain: destChain,
+			DestChain:   sourceChain,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  selfServeDestToken.Address(),
+					Amount: oneE18,
+				},
+				{
+					Token:  destToken.Address(),
+					Amount: oneE18,
+				},
+			},
+			Receiver:  state.Chains[sourceChain].Receiver.Address(),
+			Data:      []byte("this should be reverted because gasLimit is too low, no tokens are transferred as well"),
+			ExtraArgs: testhelpers.MakeEVMExtraArgsV2(1, false),
+			ExpectedTokenBalances: map[common.Address]*big.Int{
+				selfServeSrcToken.Address(): big.NewInt(0),
+				srcToken.Address():          big.NewInt(0),
+			},
+			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
+		},
 	}
 
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
