@@ -252,11 +252,11 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			},
 			chainwriter.PDALookups{
 				Name:      "PerChainTokenConfig",
-				PublicKey: getAddressConstant(offrampProgramAddress),
+				PublicKey: getFeeQuoterConfig(offrampProgramAddress),
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("ccip_tokenpool_billing")},
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+					{Static: []byte("per_chain_per_token_config")},
 					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
@@ -269,9 +269,9 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					IncludeIndexes:  []int{2},
 				},
 				Seeds: []chainwriter.Seed{
-					{Static: []byte("ccip_tokenpool_billing")},
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+					{Static: []byte("ccip_tokenpool_chainconfig")},
 					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
