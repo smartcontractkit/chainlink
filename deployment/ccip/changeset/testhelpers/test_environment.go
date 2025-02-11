@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -514,15 +515,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ChangesetApplication
-	allContractParams := make(map[uint64]changeset.ChainContractParams)
-
-	for _, chain := range allChains {
-		allContractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
-	}
-
+	evmContractParams := make(map[uint64]changeset.ChainContractParams)
+	solContractParams := make(map[uint64]changeset.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -534,6 +528,20 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	for _, chain := range allChains {
 		if _, ok := e.Env.SolChains[chain]; ok {
 			solChains = append(solChains, chain)
+		}
+	}
+
+	for _, chain := range evmChains {
+		evmContractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+
+	for _, chain := range solChains {
+		solContractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
 		}
 	}
 
@@ -554,7 +562,14 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
 			Config: changeset.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
-				ContractParamsPerChain: allContractParams,
+				ContractParamsPerChain: evmContractParams,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: solContractParams,
 			},
 		},
 	}...)
