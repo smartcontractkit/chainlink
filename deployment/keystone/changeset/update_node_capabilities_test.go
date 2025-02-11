@@ -133,7 +133,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
 func validateCapabilityUpdates(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
-	wfP2PIDs := p2p32Bytes(t, te.GetP2PIDs("wfDon"))
+	wfP2PIDs := te.GetP2PIDs("wfDon").Bytes32()
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
 	require.NoError(t, err)
 	require.Len(t, nodes, len(wfP2PIDs))

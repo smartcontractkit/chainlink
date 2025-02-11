@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestDeployOCR3(t *testing.T) {
@@ -64,7 +63,7 @@ func TestConfigureOCR3(t *testing.T) {
 			NumChains:       1,
 		})
 
-		wfNodes := p2pStrings(t, te.GetP2PIDs("wfDon"))
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -127,7 +126,7 @@ func TestConfigureOCR3(t *testing.T) {
 			}
 		}
 
-		wfNodes := p2pStrings(t, te.GetP2PIDs("wfDon"))
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		na := common.HexToAddress(newOCR3Addr)
 		w := &bytes.Buffer{}
@@ -151,7 +150,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("fails multiple OCR3 contracts but unspecified address", func(t *testing.T) {
 		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
@@ -174,7 +173,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, addrs, 5)
 
-		wfNodes := p2pStrings(t, te.GetP2PIDs("wfDon"))
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -214,7 +213,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, addrs, 5)
 
-		wfNodes := p2pStrings(t, te.GetP2PIDs("wfDon"))
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		nfa := common.HexToAddress("0x1234567890123456789012345678901234567890")
 		w := &bytes.Buffer{}
@@ -240,7 +239,7 @@ func TestConfigureOCR3(t *testing.T) {
 			UseMCMS:         true,
 		})
 
-		wfNodes := p2pStrings(t, te.GetP2PIDs("wfDon"))
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -281,22 +280,4 @@ func TestConfigureOCR3(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-}
-
-func p2pStrings(t *testing.T, p2pIDs []p2pkey.PeerID) []string {
-	t.Helper()
-	p2pStrings := make([]string, len(p2pIDs))
-	for i, id := range p2pIDs {
-		p2pStrings[i] = id.String()
-	}
-	return p2pStrings
-}
-
-func p2p32Bytes(t *testing.T, p2pIDs []p2pkey.PeerID) [][32]byte {
-	t.Helper()
-	out := make([][32]byte, len(p2pIDs))
-	for i, id := range p2pIDs {
-		out[i] = [32]byte(id)
-	}
-	return out
 }
