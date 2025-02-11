@@ -430,7 +430,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250211163416-98a5dc9e48d7 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250211191524-cf73f3a47655 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.9.0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
