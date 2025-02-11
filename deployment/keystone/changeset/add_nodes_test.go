@@ -19,7 +19,7 @@ func TestAddNodes(t *testing.T) {
 	t.Parallel()
 
 	type input struct {
-		te                 test.TestEnv
+		te                 test.EnvWrapper
 		CreateNodeRequests map[string]changeset.CreateNodeRequest
 		MCMSConfig         *changeset.MCMSConfig
 	}
@@ -37,7 +37,7 @@ func TestAddNodes(t *testing.T) {
 		}
 
 		t.Run(prefix, func(t *testing.T) {
-			te := test.SetupContractTestEnv(t, test.TestConfig{
+			te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 				WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -299,7 +299,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 	}
 }
 
-func applyProposal(t *testing.T, te test.TestEnv, applicable []commonchangeset.ChangesetApplication) error {
+func applyProposal(t *testing.T, te test.EnvWrapper, applicable []commonchangeset.ChangesetApplication) error {
 	// now apply the changeset such that the proposal is signed and execed
 	contracts := te.ContractSets()[te.RegistrySelector]
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{

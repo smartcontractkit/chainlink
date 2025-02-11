@@ -29,7 +29,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
 	)
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupContractTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -75,7 +75,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := test.SetupContractTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -131,7 +131,7 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateCapabilityUpdates(t *testing.T, te test.TestEnv, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
+func validateCapabilityUpdates(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
 	wfP2PIDs := p2p32Bytes(t, te.GetP2PIDs("wfDon"))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)

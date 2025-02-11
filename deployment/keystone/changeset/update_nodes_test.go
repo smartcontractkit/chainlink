@@ -18,7 +18,7 @@ func TestUpdateNodes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupContractTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -52,7 +52,7 @@ func TestUpdateNodes(t *testing.T) {
 	})
 
 	t.Run("with mcms", func(t *testing.T) {
-		te := test.SetupContractTestEnv(t, test.TestConfig{
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
@@ -109,7 +109,7 @@ func TestUpdateNodes(t *testing.T) {
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateUpdate(t *testing.T, te test.TestEnv, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
+func validateUpdate(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
 	wfP2PIDs := p2p32Bytes(t, te.GetP2PIDs("wfDon"))
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)

@@ -10,13 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
-func TestSetupTestEnv(t *testing.T) {
+func TestSetupEnv(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 
 	t.Run("test env with in memory nodes", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {
-			te := SetupContractTestEnv(t, TestConfig{
+			te := SetupContractTestEnv(t, EnvWrapperConfig{
 				WFDonConfig:     DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: DonConfig{Name: "writerDon", N: 4},
@@ -40,7 +40,7 @@ func TestSetupTestEnv(t *testing.T) {
 
 	t.Run("test env with view only, non functional node stubs", func(t *testing.T) {
 		for _, useMCMS := range []bool{true, false} {
-			te := SetupContractTestEnv(t, TestConfig{
+			te := SetupContractTestEnv(t, EnvWrapperConfig{
 				WFDonConfig:     DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: DonConfig{Name: "writerDon", N: 4},
@@ -61,5 +61,4 @@ func TestSetupTestEnv(t *testing.T) {
 			})
 		}
 	})
-
 }

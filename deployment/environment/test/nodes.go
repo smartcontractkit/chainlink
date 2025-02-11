@@ -17,13 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-type TestNodeConfig struct {
+type NodeConfig struct {
 	ChainSelectors []uint64
 	Name           string
 	Labels         map[string]string
 }
 
-func NewNode(t *testing.T, c TestNodeConfig) *deployment.Node {
+func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 	t.Helper()
 	k := randSeed(t)
 	p2p := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -34,6 +34,7 @@ func NewNode(t *testing.T, c TestNodeConfig) *deployment.Node {
 	if c.Labels == nil {
 		c.Labels = map[string]string{}
 	}
+	// make sure to add the p2p_id label b/c downstream systems expect it
 	c.Labels["p2p_id"] = p2p.PeerID().String()
 	return &deployment.Node{
 		NodeID:         c.Name,
@@ -46,7 +47,7 @@ func NewNode(t *testing.T, c TestNodeConfig) *deployment.Node {
 	}
 }
 
-func NewNodes(t *testing.T, configs []TestNodeConfig) []*deployment.Node {
+func NewNodes(t *testing.T, configs []NodeConfig) []*deployment.Node {
 	nodes := make([]*deployment.Node, len(configs))
 	for i, c := range configs {
 		nodes[i] = NewNode(t, c)
@@ -55,11 +56,9 @@ func NewNodes(t *testing.T, configs []TestNodeConfig) []*deployment.Node {
 }
 
 func randSeed(t *testing.T) *big.Int {
-	max := new(big.Int)
-	max.Exp(big.NewInt(2), big.NewInt(256), nil) // 2^256
-
-	// Generate a random big.Int value
-	randomInt, err := rand.Int(rand.Reader, max)
+	maxVal := new(big.Int)
+	maxVal.Exp(big.NewInt(2), big.NewInt(256), nil)
+	randomInt, err := rand.Int(rand.Reader, maxVal)
 	require.NoError(t, err)
 	return randomInt
 }
@@ -90,5 +89,4 @@ func testOCRConfig(t *testing.T, sel uint64, p2p p2pkey.KeyV2) deployment.OCRCon
 		ConfigEncryptionPublicKey: types2.ConfigEncryptionPublicKey(seed[:32]),
 		KeyBundleID:               "fake_orc_bundle_" + f,
 	}
-
 }
