@@ -117,7 +117,7 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
 
-	ht := mocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	ht := mocks.NewTracker[*evmtypes.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 

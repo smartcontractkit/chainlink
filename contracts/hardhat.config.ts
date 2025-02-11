@@ -78,6 +78,13 @@ let config = {
           evmVersion: 'paris',
         },
       },
+      {
+        version: '0.8.26',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
