@@ -190,11 +190,6 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	err := framework.DefaultNetwork(once)
 	require.NoError(t, err)
 
-	err = os.MkdirAll(ProgramsPath, os.ModePerm)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create programs directory: %w", err)
-	}
-
 	maxRetries := 10
 	var url, wsURL string
 	for i := 0; i < maxRetries; i++ {
@@ -238,7 +233,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		time.Sleep(time.Second)
 		out, err := client.GetHealth(tests.Context(t))
 		if err != nil || out != solRpc.HealthOk {
-			t.Logf("API server not ready yet %s (attempt %d)\n", out, i+1)
+			t.Logf("API server not ready yet (attempt %d)\n", i+1)
 			continue
 		}
 		ready = true

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -85,16 +86,18 @@ func buildProject() error {
 }
 
 type BuildSolanaConfig struct {
-	ChainSelector  uint64
-	GitCommitSha   string
-	DestinationDir string
-	IsUpgrade      bool
+	ChainSelector        uint64
+	GitCommitSha         string
+	DestinationDir       string
+	IsUpgrade            bool
+	CleanDestinationDir  bool
+	CreateDestinationDir bool
 }
 
 func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
 	_, ok := e.SolChains[config.ChainSelector]
 	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain not found in environment")
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", config.ChainSelector)
 	}
 	family, err := chainsel.GetSelectorFamily(config.ChainSelector)
 	if err != nil {
@@ -106,19 +109,34 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 
 	// Clone the repository
 	if err := cloneRepo(config.GitCommitSha); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
 	}
 
 	// Upgrades don't need to generate keys, we upgrade the program in place
 	if !config.IsUpgrade {
 		if err := replaceKeys(); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %v", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
 		}
 	}
 
 	// Build the project with Anchor
 	if err := buildProject(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %w", err)
+	}
+
+	if config.CleanDestinationDir {
+		if err := os.RemoveAll(config.DestinationDir); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error cleaning build folder: %w", err)
+		}
+		err = os.MkdirAll(config.DestinationDir, os.ModePerm)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
+		}
+	} else if config.CreateDestinationDir {
+		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
+		}
 	}
 
 	deployFilePath := filepath.Join(cloneDir, deployDir)
