@@ -71,11 +71,11 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			for srcDstSeqNum, metricState := range mm.state {
 				commitDuration, execDuration := uint64(0), uint64(0)
 				timestamps := metricState.timestamps
-				if timestamps[1] != 0 && timestamps[0] != 0 {
-					commitDuration = timestamps[1] - timestamps[0]
+				if timestamps[committed] != 0 && timestamps[transmitted] != 0 {
+					commitDuration = timestamps[committed] - timestamps[transmitted]
 				}
-				if timestamps[2] != 0 && timestamps[1] != 0 {
-					execDuration = timestamps[2] - timestamps[1]
+				if timestamps[executed] != 0 && timestamps[committed] != 0 {
+					execDuration = timestamps[executed] - timestamps[committed]
 				}
 
 				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, metricState.round)
@@ -101,7 +101,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 
 			state := mm.state[data.srcDstSeqNum]
 			state.timestamps[data.eventType] = data.timestamp
-			if data.eventType == 0 && data.round != -1 {
+			if data.eventType == transmitted && data.round != -1 {
 				state.round = data.round
 			}
 			mm.state[data.srcDstSeqNum] = state
@@ -109,14 +109,14 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "round", state.round, "timestamps", state.timestamps)
 			}
 			// we have all data needed to push to Loki
-			if state.timestamps[0] != 0 && state.timestamps[1] != 0 && state.timestamps[2] != 0 {
+			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
 				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
-					ExecDuration:   state.timestamps[2] - state.timestamps[1],
-					CommitDuration: state.timestamps[1] - state.timestamps[0],
+					ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
+					CommitDuration: state.timestamps[committed] - state.timestamps[executed],
 					SequenceNumber: data.seqNum,
 				})
 
