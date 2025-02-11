@@ -1,12 +1,12 @@
 package state
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -30,13 +30,20 @@ type MCMSWithTimelockProgramsSolana struct {
 	ExecutorAccessControllerAccount  solana.PublicKey
 	CancellerAccessControllerAccount solana.PublicKey
 	BypasserAccessControllerAccount  solana.PublicKey
-	// CallProxy                     solana.PublicKey // TODO: do we need this?
 }
 
 func (s *MCMSWithTimelockProgramsSolana) GetStateFromType(programType deployment.ContractType) (solana.PublicKey, PDASeed, error) {
 	switch programType {
 	case types.ManyChainMultisigProgram:
 		return s.McmProgram, PDASeed{}, nil
+	case types.ProposerManyChainMultisig:
+		return s.McmProgram, s.ProposerMcmSeed, nil
+	case types.BypasserManyChainMultisig:
+		return s.McmProgram, s.BypasserMcmSeed, nil
+	case types.CancellerManyChainMultisig:
+		return s.McmProgram, s.CancellerMcmSeed, nil
+	case types.RBACTimelockProgram:
+		return s.TimelockProgram, PDASeed{}, nil
 	case types.RBACTimelock:
 		return s.TimelockProgram, s.TimelockSeed, nil
 	case types.AccessControllerProgram:
@@ -49,14 +56,6 @@ func (s *MCMSWithTimelockProgramsSolana) GetStateFromType(programType deployment
 		return s.AccessControllerProgram, PDASeed(s.CancellerAccessControllerAccount), nil
 	case types.BypasserAccessControllerAccount:
 		return s.AccessControllerProgram, PDASeed(s.BypasserAccessControllerAccount), nil
-	case types.ProposerManyChainMultisig:
-		return s.McmProgram, s.ProposerMcmSeed, nil
-	case types.BypasserManyChainMultisig:
-		return s.McmProgram, s.BypasserMcmSeed, nil
-	case types.CancellerManyChainMultisig:
-		return s.McmProgram, s.CancellerMcmSeed, nil
-	// case types.CallProxy:
-	// 	return state.CallProxy, PDASeed{}, nil
 	default:
 		return solana.PublicKey{}, PDASeed{}, fmt.Errorf("unknown program type: %s", programType)
 	}
@@ -66,6 +65,17 @@ func (s *MCMSWithTimelockProgramsSolana) SetState(contractType deployment.Contra
 	switch contractType {
 	case types.ManyChainMultisigProgram:
 		s.McmProgram = program
+	case types.ProposerManyChainMultisig:
+		s.McmProgram = program
+		s.ProposerMcmSeed = seed
+	case types.BypasserManyChainMultisig:
+		s.McmProgram = program
+		s.BypasserMcmSeed = seed
+	case types.CancellerManyChainMultisig:
+		s.McmProgram = program
+		s.CancellerMcmSeed = seed
+	case types.RBACTimelockProgram:
+		s.TimelockProgram = program
 	case types.RBACTimelock:
 		s.TimelockProgram = program
 		s.TimelockSeed = seed
@@ -83,17 +93,6 @@ func (s *MCMSWithTimelockProgramsSolana) SetState(contractType deployment.Contra
 	case types.BypasserAccessControllerAccount:
 		s.AccessControllerProgram = program
 		s.BypasserAccessControllerAccount = solana.PublicKey(seed)
-	case types.ProposerManyChainMultisig:
-		s.McmProgram = program
-		s.ProposerMcmSeed = seed
-	case types.BypasserManyChainMultisig:
-		s.McmProgram = program
-		s.BypasserMcmSeed = seed
-	case types.CancellerManyChainMultisig:
-		s.McmProgram = program
-		s.CancellerMcmSeed = seed
-	// case types.CallProxy:
-	//	s.CallProxyProgram = program
 	default:
 		return fmt.Errorf("unknown program type: %s", contractType)
 	}
@@ -124,9 +123,6 @@ func (s *MCMSWithTimelockProgramsSolana) Validate() error {
 	if s.BypasserAccessControllerAccount.IsZero() {
 		return errors.New("access controller not found")
 	}
-	// if state.CallProxy.IsZero() {
-	// 	return errors.New("call proxy not found")
-	// }
 	return nil
 }
 
@@ -199,13 +195,12 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 	executorAccessControllerAccount := deployment.NewTypeAndVersion(types.ExecutorAccessControllerAccount, deployment.Version1_0_0)
 	cancellerAccessControllerAccount := deployment.NewTypeAndVersion(types.CancellerAccessControllerAccount, deployment.Version1_0_0)
 	bypasserAccessControllerAccount := deployment.NewTypeAndVersion(types.BypasserAccessControllerAccount, deployment.Version1_0_0)
-	// callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
 	wantTypes := []deployment.TypeAndVersion{
 		mcmProgram, timelockProgram, accessControllerProgram, proposerMCM, cancellerMCM, bypasserMCM, timelock,
 		proposerAccessControllerAccount, executorAccessControllerAccount, cancellerAccessControllerAccount,
-		bypasserAccessControllerAccount, // callProxy,
+		bypasserAccessControllerAccount,
 	}
 
 	// Ensure we either have the bundle or not.
@@ -306,28 +301,16 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 }
 
 func EncodeAddressWithSeed(programID solana.PublicKey, seed PDASeed) string {
-	return fmt.Sprintf("%s.%s", programID.String(), bytes.Trim(seed[:], "\x00"))
+	return mcmssolanasdk.ContractAddress(programID, mcmssolanasdk.PDASeed(seed))
 }
 
 func DecodeAddressWithSeed(address string) (solana.PublicKey, PDASeed, error) {
-	parts := strings.Split(address, ".")
-	if len(parts) != 2 {
-		return solana.PublicKey{}, PDASeed{}, fmt.Errorf("invalid address: %s", address)
-	}
-
-	programID, err := solana.PublicKeyFromBase58(parts[0])
+	programID, seed, err := mcmssolanasdk.ParseContractAddress(address)
 	if err != nil {
-		return solana.PublicKey{}, PDASeed{}, fmt.Errorf("unable to parse public key from program id: %s", parts[0])
+		return solana.PublicKey{}, PDASeed{}, fmt.Errorf("unable to parse address: %s", address)
 	}
 
-	if len(parts[1]) > len(PDASeed{}) {
-		return solana.PublicKey{}, PDASeed{}, fmt.Errorf("seed must have at most %d bytes", len(PDASeed{}))
-	}
-
-	var seed PDASeed
-	copy(seed[:], []byte(parts[1]))
-
-	return programID, seed, nil
+	return programID, PDASeed(seed), nil
 }
 
 func EncodeAddressWithAccount(programID, account solana.PublicKey) string {
