@@ -5,19 +5,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
-	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
 
 func TestSetFeedConfig(t *testing.T) {
@@ -54,6 +51,7 @@ func TestSetFeedConfig(t *testing.T) {
 		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
 		IsAdmin:       true,
 	})
+	require.NoError(t, err)
 	// End of pre-requisite contracts
 
 	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
@@ -73,5 +71,4 @@ func TestSetFeedConfig(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }

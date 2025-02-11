@@ -1,14 +1,12 @@
 package changeset_test
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"testing"
 
-	"go.uber.org/zap/zapcore"
-
-	"github.com/stretchr/testify/require"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -37,5 +35,4 @@ func TestProposeAggregator(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-
 }

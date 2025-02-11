@@ -3,6 +3,7 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	dfView "github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 )

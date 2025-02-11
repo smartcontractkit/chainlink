@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )

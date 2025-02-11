@@ -2,17 +2,19 @@ package changeset
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
-	"strconv"
-	"strings"
 )
 
 var (
@@ -37,11 +39,10 @@ func LoadOnchainState(e deployment.Environment) (DataFeedsOnChainState, error) {
 		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			// Chain not found in address book, initialize empty
-			if errors.Is(err, deployment.ErrChainNotFound) {
-				addresses = make(map[string]deployment.TypeAndVersion)
-			} else {
+			if !errors.Is(err, deployment.ErrChainNotFound) {
 				return state, err
 			}
+			addresses = make(map[string]deployment.TypeAndVersion)
 		}
 		chainState, err := LoadChainState(e.Logger, chain, addresses)
 		if err != nil {

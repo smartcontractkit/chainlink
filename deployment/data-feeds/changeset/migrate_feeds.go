@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
@@ -28,9 +29,9 @@ func MigrateFeedsChangeset(env deployment.Environment, c types.MigrationConfig) 
 	}
 
 	state, _ := LoadOnchainState(env)
-	chain, _ := env.Chains[c.ChainSelector]
-	chainState, _ := state.Chains[c.ChainSelector]
-	contract, _ := chainState.DataFeedsCache[c.CacheAddress]
+	chain := env.Chains[c.ChainSelector]
+	chainState := state.Chains[c.ChainSelector]
+	contract := chainState.DataFeedsCache[c.CacheAddress]
 	ab := deployment.NewMemoryAddressBook()
 
 	proxies, err := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)

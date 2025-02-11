@@ -4,13 +4,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -32,6 +29,7 @@ func TestConfirmAggregator(t *testing.T) {
 
 	tx, _ := proxy.Contract.ProposeAggregator(env.Chains[chainSelector].DeployerKey, common.HexToAddress("0x123"))
 	_, err := env.Chains[chainSelector].Confirm(tx)
+	require.NoError(t, err)
 
 	resp, err := changeset.ConfirmAggregatorChangeset(env, types.ProposeConfirmAggregatorConfig{
 		ChainSelector: chainSelector,

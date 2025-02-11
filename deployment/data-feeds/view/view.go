@@ -2,6 +2,7 @@ package view
 
 import (
 	"encoding/json"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 )
 
