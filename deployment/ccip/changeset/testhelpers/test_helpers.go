@@ -494,8 +494,9 @@ func AddLane(
 					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 						to: {
 							from: {
-								IsEnabled:  true,
-								TestRouter: isTestRouter,
+								IsEnabled:                 true,
+								TestRouter:                isTestRouter,
+								IsRMNVerificationDisabled: !e.RmnEnabledSourceChains[from],
 							},
 						},
 					},

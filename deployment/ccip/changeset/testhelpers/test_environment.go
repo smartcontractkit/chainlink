@@ -18,10 +18,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -222,11 +223,12 @@ type TestEnvironment interface {
 }
 
 type DeployedEnv struct {
-	Env          deployment.Environment
-	HomeChainSel uint64
-	FeedChainSel uint64
-	ReplayBlocks map[uint64]uint64
-	Users        map[uint64][]*bind.TransactOpts
+	Env                    deployment.Environment
+	HomeChainSel           uint64
+	FeedChainSel           uint64
+	ReplayBlocks           map[uint64]uint64
+	Users                  map[uint64][]*bind.TransactOpts
+	RmnEnabledSourceChains map[uint64]bool
 }
 
 func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.TimelockExecutionContracts {
