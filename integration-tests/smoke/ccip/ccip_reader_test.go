@@ -162,6 +162,15 @@ func emitCommitReports(ctx context.Context, t *testing.T, s *testSetupData, numR
 					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
 				},
 			},
+			UnblessedMerkleRoots: []ccip_reader_tester.InternalMerkleRoot{
+				{
+					SourceChainSelector: uint64(chainS2),
+					MinSeqNr:            20,
+					MaxSeqNr:            30,
+					MerkleRoot:          [32]byte{i + 2},
+					OnRampAddress:       common.LeftPadBytes(onRampAddress.Bytes(), 32),
+				},
+			},
 			RmnSignatures: []ccip_reader_tester.IRMNRemoteSignature{
 				{
 					R: [32]byte{1},
@@ -443,14 +452,36 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 		return len(reports) == numReports-1
 	}, 30*time.Second, 50*time.Millisecond)
 
+	iter, err := s.contract.FilterCommitReportAccepted(&bind.FilterOpts{
+		Start: 0,
+	})
+	require.NoError(t, err)
+	var onchainEvents []*ccip_reader_tester.CCIPReaderTesterCommitReportAccepted
+	for iter.Next() {
+		onchainEvents = append(onchainEvents, iter.Event)
+	}
+	require.Len(t, onchainEvents, numReports)
+	sort.Slice(onchainEvents, func(i, j int) bool {
+		return onchainEvents[i].Raw.BlockNumber < onchainEvents[j].Raw.BlockNumber
+	})
+	// trim the first report
+	onchainEvents = onchainEvents[1:]
+	require.Len(t, onchainEvents, numReports-1)
+	require.Len(t, reports[0].Report.UnblessedMerkleRoots, 1) // seems to fail
+
 	assert.Len(t, reports, numReports-1)
 	assert.Len(t, reports[0].Report.BlessedMerkleRoots, 1)
 	assert.Equal(t, chainS1, reports[0].Report.BlessedMerkleRoots[0].ChainSel)
+	assert.Len(t, reports[0].Report.UnblessedMerkleRoots, 1)
+	assert.Equal(t, chainS2, reports[0].Report.UnblessedMerkleRoots[0].ChainSel)
 	assert.Equal(t, onRampAddress.Bytes(), []byte(reports[0].Report.BlessedMerkleRoots[0].OnRampAddress))
 	assert.Equal(t, cciptypes.SeqNum(10), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.Start())
 	assert.Equal(t, cciptypes.SeqNum(20), reports[0].Report.BlessedMerkleRoots[0].SeqNumsRange.End())
 	assert.Equal(t, "0x0200000000000000000000000000000000000000000000000000000000000000",
 		reports[0].Report.BlessedMerkleRoots[0].MerkleRoot.String())
+
+	assert.Equal(t, "0x0300000000000000000000000000000000000000000000000000000000000000",
+		reports[0].Report.UnblessedMerkleRoots[0].MerkleRoot.String())
 	assert.Equal(t, tokenA.String(), string(reports[0].Report.PriceUpdates.TokenPriceUpdates[0].TokenID))
 	assert.Equal(t, uint64(1000), reports[0].Report.PriceUpdates.TokenPriceUpdates[0].Price.Uint64())
 	assert.Equal(t, chainD, reports[0].Report.PriceUpdates.GasPriceUpdates[0].ChainSel)
