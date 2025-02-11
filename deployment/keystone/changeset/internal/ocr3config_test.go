@@ -76,8 +76,8 @@ var ocr3Cfg = `
   "MaxDurationQueryMillis": 1000,
   "MaxDurationObservationMillis": 1000,
   "MaxDurationReportMillis": 1000,
-  "MaxDurationAcceptMillis": 1000,
-  "MaxDurationTransmitMillis": 1000,
+  "MaxDurationShouldAcceptMillis": 1000,
+  "MaxDurationShouldTransmitMillis": 1000,
   "MaxFaultyOracles": 3
 }`
 

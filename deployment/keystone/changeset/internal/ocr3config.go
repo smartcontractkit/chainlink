@@ -54,10 +54,10 @@ type OracleConfig struct {
 	MaxRoundsPerEpoch                 uint64
 	TransmissionSchedule              []int
 
-	MaxDurationQueryMillis       uint32
-	MaxDurationObservationMillis uint32
-	MaxDurationAcceptMillis      uint32
-	MaxDurationTransmitMillis    uint32
+	MaxDurationQueryMillis          uint32
+	MaxDurationObservationMillis    uint32
+	MaxDurationShouldAcceptMillis   uint32
+	MaxDurationShouldTransmitMillis uint32
 
 	MaxFaultyOracles int
 }
@@ -266,8 +266,8 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		nil,      // maxDurationInitialization
 		time.Duration(cfg.MaxDurationQueryMillis)*time.Millisecond,
 		time.Duration(cfg.MaxDurationObservationMillis)*time.Millisecond,
-		time.Duration(cfg.MaxDurationAcceptMillis)*time.Millisecond,
-		time.Duration(cfg.MaxDurationTransmitMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationShouldAcceptMillis)*time.Millisecond,
+		time.Duration(cfg.MaxDurationShouldTransmitMillis)*time.Millisecond,
 		cfg.MaxFaultyOracles,
 		nil, // empty onChain config
 	)
