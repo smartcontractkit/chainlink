@@ -1454,10 +1454,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		Capabilities: kcrAllCaps,
 	}
 
-	transmissionSchedule := make([]int, len(don.Nodes)-1)
-	for i := range transmissionSchedule {
-		transmissionSchedule[i] = i + 1
-	}
+	transmissionSchedule := []int{len(don.Nodes) - 1}
 
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := keystone_changeset.OracleConfig{
