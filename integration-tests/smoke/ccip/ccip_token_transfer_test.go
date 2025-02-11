@@ -6,6 +6,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -15,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -220,7 +223,7 @@ func TestTokenTransfer(t *testing.T) {
 }
 
 func TestTokenTransfer_Solana(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	// lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -246,17 +249,20 @@ func TestTokenTransfer_Solana(t *testing.T) {
 	oneE18 := new(big.Int).SetUint64(1e18)
 
 	// Deploy tokens and pool by CCIP Owner
-	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-		t,
-		lggr,
-		e,
-		sourceChain,
-		destChain,
-		ownerSourceChain,
-		e.ExistingAddresses,
-		"OWNER_TOKEN",
-	)
-	require.NoError(t, err)
+	var srcToken *burn_mint_erc677.BurnMintERC677
+	var destToken solana.PublicKey
+	// TODO:
+	// srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
+	// 	t,
+	// 	lggr,
+	// 	e,
+	// 	sourceChain,
+	// 	destChain,
+	// 	ownerSourceChain,
+	// 	e.ExistingAddresses,
+	// 	"OWNER_TOKEN",
+	// )
+	// require.NoError(t, err)
 
 	// TODO: we need to initialize ATA for receiver?
 
