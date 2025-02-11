@@ -9,7 +9,6 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -37,20 +36,6 @@ func GetTokenProgramID(programName string) (solana.PublicKey, error) {
 		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, deployment.SPLTokens, deployment.SPL2022Tokens)
 	}
 	return programID, nil
-}
-
-// GetPoolType returns the token pool type constant for the given string
-func GetPoolType(poolType string) (solTokenPool.PoolType, error) {
-	poolTypes := map[string]solTokenPool.PoolType{
-		"LockAndRelease": solTokenPool.LockAndRelease_PoolType,
-		"BurnAndMint":    solTokenPool.BurnAndMint_PoolType,
-	}
-
-	poolTypeConstant, ok := poolTypes[poolType]
-	if !ok {
-		return 0, fmt.Errorf("invalid pool type: %s. Must be one of: LockAndRelease, BurnAndMint", poolType)
-	}
-	return poolTypeConstant, nil
 }
 
 func commonValidation(e deployment.Environment, selector uint64, tokenPubKey solana.PublicKey) error {
