@@ -27,9 +27,9 @@ func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataID
 	}
 
 	state, _ := LoadOnchainState(env)
-	chain, _ := env.Chains[c.ChainSelector]
-	chainState, _ := state.Chains[c.ChainSelector]
-	contract, _ := chainState.DataFeedsCache[c.CacheAddress]
+	chain := env.Chains[c.ChainSelector]
+	chainState := state.Chains[c.ChainSelector]
+	contract := chainState.DataFeedsCache[c.CacheAddress]
 
 	txOpt := chain.DeployerKey
 	if c.UseMCMS {
