@@ -52,7 +52,7 @@ runs:
       if: env.exists == 'true'
       shell: bash
       run: |
-        curl -L -o artifact.zip ${{ env.ARTIFACT_DOWNLOAD_URL }}
+        curl -L -H "Authorization: token ${{ inputs.github-token }}" -o artifact.zip ${{ env.ARTIFACT_DOWNLOAD_URL }}
         unzip artifact.zip -d chainlink-ccip/chains/solana/contracts/target/deploy
 
     - name: Build artifact if not found
