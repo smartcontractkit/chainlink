@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -96,10 +97,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		messageKeys := make(map[uint64]*bind.TransactOpts)
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
-		wg.Add(len(other))
+		var wg2 sync.WaitGroup
+		wg2.Add(len(other))
 		for _, src := range other {
 			go func(src uint64) {
-				defer wg.Done()
+				defer wg2.Done()
 				mu.Lock()
 				messageKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
@@ -113,7 +115,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				require.NoError(t, err)
 			}(src)
 		}
-		wg.Wait()
+		wg2.Wait()
 
 		gunMap[cs], err = NewDestinationGun(
 			env.Logger,
@@ -233,16 +235,21 @@ func prepareAccountToSendLink(
 	src uint64,
 	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
+	srcDeployer := e.Chains[src].DeployerKey
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.Chains[src].LinkToken
-	srcDeployer := e.Chains[src].DeployerKey
+
+	lggr.Infow("Granting mint and burn roles")
+	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
+	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
+	require.NoError(t, err)
 
 	lggr.Infow("Minting transfer amounts")
 	//--------------------------------------------------------------------------------------------
-	tx, err := srcLink.Mint(
-		srcDeployer,
+	tx, err = srcLink.Mint(
+		srcAccount,
 		srcAccount.From,
-		deployment.E18Mult(20_000),
+		big.NewInt(20_000),
 	)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
 	if err != nil {
@@ -250,7 +257,6 @@ func prepareAccountToSendLink(
 	}
 
 	//--------------------------------------------------------------------------------------------
-
 	lggr.Infow("Approving routers")
 	// Approve the router to spend the tokens and confirm the tx's
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount

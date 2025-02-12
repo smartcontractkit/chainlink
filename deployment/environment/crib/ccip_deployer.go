@@ -30,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-const LINKTokenSymbol = "LINK"
-
 // DeployHomeChainContracts deploys the home chain contracts so that the chainlink nodes can use the CR address in Capabilities.ExternalRegistry
 // Afterward, we call DeployHomeChainChangeset changeset with nodeinfo ( the peer id and all)
 func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel uint64, feedChainSel uint64) (deployment.CapabilityRegistryConfig, deployment.AddressBook, error) {
@@ -347,18 +345,18 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			TokenAddress:       state.Chains[chain].LinkToken.Address(),
 		}
 		pools[chain] = map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-			LINKTokenSymbol: {
+			changeset.LinkSymbol: {
 				Type:          changeset.BurnMintTokenPool,
 				Version:       deployment.Version1_5_1,
 				ExternalAdmin: e.Chains[chain].DeployerKey.From,
 			},
 		}
 	}
-	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+	env, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
 			Config: changeset.DeployTokenPoolContractsConfig{
-				TokenSymbol: LINKTokenSymbol,
+				TokenSymbol: changeset.LinkSymbol,
 				NewPools:    poolInput,
 			},
 		},
@@ -381,6 +379,26 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			},
 		},
 	})
+
+	if err != nil {
+		return *e, fmt.Errorf("failed to apply changesets: %w", err)
+	}
+
+	state, err = changeset.LoadOnchainState(env)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	for _, chain := range chainSelectors {
+		linkPool := state.Chains[chain].BurnMintTokenPools[changeset.LinkSymbol][deployment.Version1_5_1]
+		linkToken := state.Chains[chain].LinkToken
+		tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
+		_, err = deployment.ConfirmIfNoError(e.Chains[chain], tx, err)
+		if err != nil {
+			return *e, fmt.Errorf("failed to grant mint and burn roles for link pool: %w", err)
+		}
+	}
+	return env, err
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
@@ -449,7 +467,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
 			Config: changeset.ConfigureTokenPoolContractsConfig{
-				TokenSymbol: LINKTokenSymbol,
+				TokenSymbol: changeset.LinkSymbol,
 				PoolUpdates: poolUpdates,
 			},
 		},
