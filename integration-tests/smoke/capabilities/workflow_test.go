@@ -54,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
