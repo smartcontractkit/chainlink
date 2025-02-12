@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -91,7 +92,10 @@ func Test_CCIPMessaging(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
+						// TODO: remove this or make it a "require.Never" once we fix double execution!
+						doubleExecStart := time.Now()
 						testhelpers.ConfirmDoubleExecution(t, sourceChain, e.Env.Chains[destChain], state.Chains[destChain].OffRamp, nil, []uint64{1})
+						t.Logf("Confirmed double execution in %s", time.Since(doubleExecStart).String())
 					},
 				},
 			},
