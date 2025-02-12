@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package commit_store_helper_1_2_0
+package commit_store_helper
 
 import (
 	"errors"

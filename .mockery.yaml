@@ -329,7 +329,7 @@ packages:
         outpkg: mock_contracts
       interfaces:
         EVM2EVMOffRampInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp_1_2_0:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp:
     config:
       dir: core/gethwrappers/ccip/mocks/v1_2_0/
       filename: evm2_evm_off_ramp_interface.go
@@ -343,13 +343,6 @@ packages:
       outpkg: mock_contracts
     interfaces:
       CommitStoreInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter:
-    config:
-      dir: core/gethwrappers/ccip/mocks/
-      filename: fee_quoter_interface.go
-      outpkg: mock_contracts
-    interfaces:
-      FeeQuoterInterface:
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface:
     config:
       dir: core/gethwrappers/ccip/mocks/

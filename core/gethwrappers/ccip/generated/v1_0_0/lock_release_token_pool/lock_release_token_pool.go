@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package lock_release_token_pool_1_0_0
+package lock_release_token_pool
 
 import (
 	"errors"
