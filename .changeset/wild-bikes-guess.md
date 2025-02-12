@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-add binding call to new config initialize method
+#internal add binding call to new config initialize method
