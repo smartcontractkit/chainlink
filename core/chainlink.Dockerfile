@@ -62,10 +62,6 @@ COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
 
-# Dependency of CosmWasm/wasmd
-COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
-RUN chmod 755 /usr/lib/libwasmvm.*.so
-
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS

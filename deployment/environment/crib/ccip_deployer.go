@@ -472,7 +472,8 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: updateOffRampSources,
+				UpdatesByChain:            updateOffRampSources,
+				IsRMNVerificationDisabled: true,
 			},
 		},
 		{

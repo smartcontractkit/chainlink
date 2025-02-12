@@ -116,7 +116,7 @@ contractABI = "[\n  {\n    \"anonymous\": false,\n    \"inputs\": [\n      {\n  
 
 [relayConfig.chainReader.contracts.median.configs]
 LatestRoundRequested = "{\n  \"chainSpecificName\": \"RoundRequested\",\n  \"readType\": \"event\"\n}\n"
-LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDetails\",\n  \"outputModifications\": [\n    {\n      \"Fields\": [\n        \"LatestTimestamp_\"\n      ],\n      \"Type\": \"epoch to time\"\n    },\n    {\n      \"Fields\": {\n        \"LatestAnswer_\": \"LatestAnswer\",\n        \"LatestTimestamp_\": \"LatestTimestamp\"\n      },\n      \"Type\": \"rename\"\n    }\n  ]\n}\n"
+LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDetails\",\n  \"outputModifications\": [\n    {\n      \"EnablePathTraverse\": false,\n      \"Fields\": [\n        \"LatestTimestamp_\"\n      ],\n      \"Type\": \"epoch to time\"\n    },\n    {\n      \"EnablePathTraverse\": false,\n      \"Fields\": {\n        \"LatestAnswer_\": \"LatestAnswer\",\n        \"LatestTimestamp_\": \"LatestTimestamp\"\n      },\n      \"Type\": \"rename\"\n    }\n  ]\n}\n"
 
 [relayConfig.codec]
 [relayConfig.codec.configs]

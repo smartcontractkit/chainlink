@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
 	"github.com/go-yaml/yaml"
 	"github.com/google/go-github/v41/github"
 	"github.com/google/uuid"
@@ -40,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -74,7 +76,6 @@ type WorkflowConfig struct {
 	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
 	DonID        uint32 `toml:"don_id" validate:"required"`
 	WorkflowName string `toml:"workflow_name" validate:"required" `
-	FeedID       string `toml:"feed_id" validate:"required"`
 }
 
 // Defines relases/versions of test dependencies that will be downloaded from Github
@@ -92,10 +93,22 @@ type CompiledConfig struct {
 }
 
 type WorkflowTestConfig struct {
-	BlockchainA    *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	NodeSet        *ns.Input         `toml:"nodeset" validate:"required"`
-	WorkflowConfig *WorkflowConfig   `toml:"workflow_config" validate:"required"`
-	JD             *jd.Input         `toml:"jd" validate:"required"`
+	BlockchainA    *blockchain.Input    `toml:"blockchain_a" validate:"required"`
+	NodeSet        *ns.Input            `toml:"nodeset" validate:"required"`
+	WorkflowConfig *WorkflowConfig      `toml:"workflow_config" validate:"required"`
+	JD             *jd.Input            `toml:"jd" validate:"required"`
+	PriceProvider  *PriceProviderConfig `toml:"price_provider"`
+}
+
+type FakeConfig struct {
+	*fake.Input
+	Prices []float64 `toml:"prices"`
+}
+
+type PriceProviderConfig struct {
+	Fake   *FakeConfig `toml:"fake"`
+	FeedID string      `toml:"feed_id" validate:"required"`
+	URL    string      `toml:"url"`
 }
 
 func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToken string) ([]byte, error) {
@@ -280,6 +293,7 @@ const (
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
+	GistIP                             = "185.199.108.133"
 )
 
 var (
@@ -380,7 +394,7 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 
 	var ghReadToken string
 	// this is a small hack to avoid changing the reusable workflow
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		// This part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
 		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
@@ -428,8 +442,12 @@ func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 		}
 	}
 
+	if in.PriceProvider.Fake == nil {
+		require.NotEmpty(t, in.PriceProvider.URL, "URL must be set in the price provider config, if fake provider is not used")
+	}
+
 	// make sure the feed id is in the correct format
-	in.WorkflowConfig.FeedID = strings.TrimPrefix(in.WorkflowConfig.FeedID, "0x")
+	in.PriceProvider.FeedID = strings.TrimPrefix(in.PriceProvider.FeedID, "0x")
 }
 
 // copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
@@ -722,7 +740,7 @@ func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Cli
 }
 
 //revive:disable // ignore confusing-results
-func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID string, settingsFile *os.File) (string, string) {
+func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID, dataURL string, settingsFile *os.File) (string, string) {
 	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err, "failed to create workflow config file")
 
@@ -739,7 +757,7 @@ func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsum
 
 	workflowConfig := PoRWorkflowConfig{
 		FeedID:          feedIDToUse,
-		URL:             "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+		URL:             dataURL,
 		ConsumerAddress: feedsConsumerAddress.Hex(),
 	}
 
@@ -830,7 +848,7 @@ func preapreCRECLISettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workfl
 	return settingsFile
 }
 
-func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL string) {
+func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL, dataURL string) {
 	// Register workflow directly using the provided binary and config URLs
 	// This is a legacy solution, probably we can remove it soon
 	if !in.WorkflowConfig.ShouldCompileNewWorkflow && !in.WorkflowConfig.UseCRECLI {
@@ -854,7 +872,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 
 	// compile and upload the workflow, if we are not using an existing one
 	if in.WorkflowConfig.ShouldCompileNewWorkflow {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.WorkflowConfig.FeedID, settingsFile)
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.PriceProvider.FeedID, dataURL, settingsFile)
 	} else {
 		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
 		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
@@ -871,7 +889,7 @@ func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, cap
 func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns.Output {
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
 		image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
@@ -884,6 +902,28 @@ func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns
 	require.NoError(t, err, "failed to deploy node set")
 
 	return nodeset
+}
+
+// In order to whitelist host IP in the gateway, we need to resolve the host.docker.internal to the host IP,
+// and since CL image doesn't have dig or nslookup, we need to use curl.
+func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) (string, error) {
+	containerName := nsOutput.CLNodes[0].Node.ContainerName
+	cmd := []string{"curl", "-v", "http://host.docker.internal"}
+	output, err := framework.ExecContainer(containerName, cmd)
+	if err != nil {
+		return "", err
+	}
+
+	re := regexp.MustCompile(`.*Trying ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*`)
+	matches := re.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		testLogger.Error().Msgf("failed to extract IP address from curl output:\n%s", output)
+		return "", errors.New("failed to extract IP address from curl output")
+	}
+
+	testLogger.Info().Msgf("Resolved host.docker.internal to %s", matches[1])
+
+	return matches[1], nil
 }
 
 func fundNodes(t *testing.T, don *devenv.DON, sc *seth.Client) {
@@ -967,7 +1007,6 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 				# assuming that node0 is the bootstrap node
 				DefaultBootstrappers = ['%s@node0:6690']
 
-				# This is needed for the target capability to be initialized
 				[[EVM]]
 				ChainID = '%s'
 
@@ -976,6 +1015,7 @@ func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *b
 				WSURL = '%s'
 				HTTPURL = '%s'
 
+				# This is needed for the target capability to be initialized
 				[EVM.Workflow]
 				FromAddress = '%s'
 				ForwarderAddress = '%s'
@@ -1055,7 +1095,7 @@ func mustSafeUint64(input int64) uint64 {
 	return uint64(input)
 }
 
-func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet) {
+func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, extraAllowedPorts []int, extraAllowedIps []string) {
 	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
 	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
 	require.NoError(t, err, "failed to get OCR3 contract address")
@@ -1164,6 +1204,31 @@ func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *dev
 			don.Nodes[3].AccountAddr[chainIDUint64],
 			don.Nodes[4].AccountAddr[chainIDUint64],
 		)
+
+		if len(extraAllowedPorts) != 0 {
+			var allowedPorts string
+			for _, port := range extraAllowedPorts {
+				allowedPorts += fmt.Sprintf("%d, ", port)
+			}
+
+			// when we pass custom allowed IPs, defaults are not used and we need to
+			// pass HTTP and HTTPS explicitly
+			gatewayJobSpec += fmt.Sprintf(`
+				AllowedPorts = [80, 443, %s]
+				`,
+				allowedPorts,
+			)
+		}
+
+		if len(extraAllowedIps) != 0 {
+			allowedIPs := strings.Join(extraAllowedIps, `", "`)
+
+			gatewayJobSpec += fmt.Sprintf(`
+			AllowedIps = ["%s"]
+			`,
+				allowedIPs,
+			)
+		}
 
 		gatewayJobRequest := &jobv1.ProposeJobRequest{
 			NodeId: don.Nodes[0].NodeID,
@@ -1391,10 +1456,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 		Capabilities: kcrAllCaps,
 	}
 
-	transmissionSchedule := make([]int, len(don.Nodes)-1)
-	for i := range transmissionSchedule {
-		transmissionSchedule[i] = i + 1
-	}
+	transmissionSchedule := []int{len(don.Nodes) - 1}
 
 	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
 	oracleConfig := keystone_changeset.OracleConfig{
@@ -1430,7 +1492,7 @@ func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *dev
 }
 
 func startJobDistributor(t *testing.T, in *WorkflowTestConfig) *jd.Output {
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		jdImage := ctfconfig.MustReadEnvVar_String(e2eJobDistributorImageEnvVarName)
 		jdVersion := os.Getenv(e2eJobDistributorVersionEnvVarName)
 		in.JD.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
@@ -1692,13 +1754,223 @@ func logTestInfo(l zerolog.Logger, feedId, workflowName, feedConsumerAddr, forwa
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
+func float64ToBigInt(f float64) *big.Int {
+	f *= 100
+
+	bigFloat := new(big.Float).SetFloat64(f)
+
+	bigInt := new(big.Int)
+	bigFloat.Int(bigInt) // Truncate towards zero
+
+	return bigInt
+}
+
+func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, priceIndex *int) string {
+	_, err := fake.NewFakeDataProvider(in.PriceProvider.Fake.Input)
+	require.NoError(t, err)
+	fakeApiPath := "/fake/api/price"
+	fakeFinalUrl := fmt.Sprintf("%s:%d%s", framework.HostDockerInternal(), in.PriceProvider.Fake.Port, fakeApiPath)
+
+	getPriceResponseFn := func() map[string]interface{} {
+		response := map[string]interface{}{
+			"accountName": "TrueUSD",
+			"totalTrust":  in.PriceProvider.Fake.Prices[*priceIndex],
+			"ripcord":     false,
+			"updatedAt":   time.Now().Format(time.RFC3339),
+		}
+
+		marshalled, err := json.Marshal(response)
+		if err == nil {
+			testLogger.Info().Msgf("Returning response: %s", string(marshalled))
+		} else {
+			testLogger.Info().Msgf("Returning response: %v", response)
+		}
+
+		return response
+	}
+
+	err = fake.Func("GET", fakeApiPath, func(c *gin.Context) {
+		c.JSON(200, getPriceResponseFn())
+	})
+
+	require.NoError(t, err, "failed to set up fake data provider")
+
+	return fakeFinalUrl
+}
+
+func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	if in.PriceProvider.Fake != nil {
+		return NewFakePriceProvider(t, testLogger, in)
+	}
+
+	return NewLivePriceProvider(t, testLogger, in)
+}
+
+// PriceProvider abstracts away the logic of checking whether the feed has been correctly updated
+// and it also returns port and URL of the price provider. This is so, because when using a mocked
+// price provider we need start a separate service and whitelist its port and IP with the gateway job.
+// Also, since it's a mocked price provider we can now check whether the feed has been correctly updated
+// instead of only checking whether it has some price that's != 0.
+type PriceProvider interface {
+	URL() string
+	NextPrice(price *big.Int, elapsed time.Duration) bool
+	CheckPrices()
+}
+
+// LivePriceProvider is a PriceProvider implementation that uses a live feed to get the price, typically http://api.real-time-reserves.verinumus.io
+type LivePriceProvider struct {
+	t            *testing.T
+	testLogger   zerolog.Logger
+	url          string
+	actualPrices []*big.Int
+}
+
+func NewLivePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	return &LivePriceProvider{
+		testLogger: testLogger,
+		url:        in.PriceProvider.URL,
+		t:          t,
+	}
+}
+
+func (l *LivePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
+
+	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+	l.actualPrices = append(l.actualPrices, price)
+
+	// no other price to return, we are done
+	return false
+}
+
+func (l *LivePriceProvider) URL() string {
+	return l.url
+}
+
+func (l *LivePriceProvider) CheckPrices() {
+	// we don't have a way to check the price in the live feed, so we always assume it's correct
+	// as long as it's != 0. And we only wait for the first price to be set.
+	require.NotEmpty(l.t, l.actualPrices, "no prices found in the feed")
+	require.NotEqual(l.t, l.actualPrices[0], big.NewInt(0), "price found in the feed is 0")
+}
+
+// FakePriceProvider is a PriceProvider implementation that uses a mocked feed to get the price
+// It returns a configured price sequence and makes sure that the feed has been correctly updated
+type FakePriceProvider struct {
+	t              *testing.T
+	testLogger     zerolog.Logger
+	priceIndex     *int
+	url            string
+	expectedPrices []*big.Int
+	actualPrices   []*big.Int
+}
+
+func NewFakePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	priceIndex := ptr.Ptr(0)
+	expectedPrices := make([]*big.Int, len(in.PriceProvider.Fake.Prices))
+	for i, p := range in.PriceProvider.Fake.Prices {
+		// convert float64 to big.Int by multiplying by 100
+		// just like the PoR workflow does
+		expectedPrices[i] = float64ToBigInt(p)
+	}
+
+	return &FakePriceProvider{
+		t:              t,
+		testLogger:     testLogger,
+		expectedPrices: expectedPrices,
+		priceIndex:     priceIndex,
+		url:            setupFakeDataProvider(t, testLogger, in, priceIndex),
+	}
+}
+
+func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
+	for _, p := range f.actualPrices {
+		if p.Cmp(price) == 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
+
+	if !f.priceAlreadyFound(price) {
+		f.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+		f.actualPrices = append(f.actualPrices, price)
+
+		if len(f.actualPrices) == len(f.expectedPrices) {
+			// all prices found, nothing more to check
+			return false
+		} else {
+			require.Less(f.t, len(f.actualPrices), len(f.expectedPrices), "more prices found than expected")
+			f.testLogger.Info().Msgf("Changing price provider price to %f", f.expectedPrices[len(f.actualPrices)])
+			*f.priceIndex = len(f.actualPrices)
+
+			// set new price and continue checking
+			return true
+		}
+	}
+
+	// continue checking, price not updated yet
+	return true
+}
+
+func (f *FakePriceProvider) CheckPrices() {
+	require.EqualValues(f.t, f.expectedPrices, f.actualPrices, "prices found in the feed do not match prices set in the mock")
+	f.testLogger.Info().Msgf("All %d mocked prices were found in the feed", len(f.expectedPrices))
+}
+
+func (f *FakePriceProvider) URL() string {
+	return f.url
+}
+
+func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, nodeOutput *ns.Output) ([]string, []int) {
+	// no need to allow anything, if we are using live feed
+	if in.PriceProvider.Fake == nil {
+		return nil, nil
+	}
+
+	// we need to explicitly allow the port used by the fake data provider
+	// and IP corresponding to host.docker.internal or the IP of the host machine, if we are running on Linux,
+	// because that's where the fake data provider is running
+	var hostIp string
+	var err error
+
+	system := runtime.GOOS
+	switch system {
+	case "darwin":
+		hostIp, err = resolveHostDockerInternaIp(testLogger, nodeOutput)
+		require.NoError(t, err, "failed to resolve host.docker.internal IP")
+	case "linux":
+		// for linux framework already returns an IP, so we don't need to resolve it,
+		// but we need to remove the http:// prefix
+		hostIp = strings.ReplaceAll(framework.HostDockerInternal(), "http://", "")
+	default:
+		err = fmt.Errorf("unsupported OS: %s", system)
+	}
+	require.NoError(t, err, "failed to resolve host.docker.internal IP")
+
+	testLogger.Info().Msgf("Will allow IP %s and port %d for the fake data provider", hostIp, in.PriceProvider.Fake.Port)
+
+	// we also need to explicitly allow Gist's IP
+	return []string{hostIp, GistIP}, []int{in.PriceProvider.Fake.Port}
+}
+
 /*
 !!! ATTENTION !!!
 
 Do not use this test as a template for your tests. It's hacky, since we were working under time pressure. We will soon refactor it follow best practices
 and a golden example. Apart from its structure what is currently missing is:
-- using Job Distribution to create jobs for the nodes
-- using a mock service to provide the feed data
+- DON-2-DON support
+- better structured and reusable methods
 */
 func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	testLogger := framework.L
@@ -1737,6 +2009,10 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 		Build()
 	require.NoError(t, err, "failed to create seth client")
 
+	// Get either a no-op price provider (for live endpoint)
+	// or a fake price provider (for mock endpoint)
+	priceProvider := setupPriceProvider(t, testLogger, in)
+
 	// Start job distributor
 	jdOutput := startJobDistributor(t, in)
 
@@ -1759,18 +2035,20 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl)
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, priceProvider.URL())
 
 	// Create OCR3 and capability jobs for each node JD
 	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
 	// JD client needs to be reinitialised after restarting nodes
 	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
-	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet)
+
+	ips, ports := extraAllowedPortsAndIps(t, testLogger, in, ns)
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, ports, ips)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
+			logTestInfo(testLogger, in.PriceProvider.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
 		}
 	})
 
@@ -1799,7 +2077,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 
 	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
-	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
+	feedBytes := common.HexToHash(in.PriceProvider.FeedID)
 
 	for {
 		select {
@@ -1814,8 +2092,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if price.String() != "0" {
-				testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+			if !priceProvider.NextPrice(price, elapsed) {
+				// check if all expected prices were found and finish the test
+				priceProvider.CheckPrices()
 				return
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)

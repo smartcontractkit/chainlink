@@ -100,8 +100,8 @@ func subscribeCommitEvents(
 			errChan <- subErr
 			return
 		case report := <-sink:
-			if len(report.MerkleRoots) > 0 {
-				for _, mr := range report.MerkleRoots {
+			if len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots) > 0 {
+				for _, mr := range append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...) {
 					lggr.Infow("Received commit report ",
 						"sourceChain", mr.SourceChainSelector,
 						"destChain", chainSelector,

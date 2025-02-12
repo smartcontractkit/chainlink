@@ -464,7 +464,7 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	case chain_selectors.FamilyEVM:
 		offRampAddress = s.Chains[chainSelector].OffRamp.Address().Bytes()
 	case chain_selectors.FamilySolana:
-		offRampAddress = s.SolChains[chainSelector].Router.Bytes()
+		offRampAddress = s.SolChains[chainSelector].OffRamp.Bytes()
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
@@ -536,13 +536,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.CapabilityRegistry = cr
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
 			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OnRamp = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -554,13 +554,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.RMNProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
-		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
 			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -572,7 +572,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.Weth9 = weth9
-		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
 			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -602,7 +602,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.TestRouter = r
-		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
 			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -634,7 +634,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.MockUSDCTokenMessenger = utm
-		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err

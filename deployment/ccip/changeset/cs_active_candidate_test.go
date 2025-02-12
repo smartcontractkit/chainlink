@@ -87,7 +87,8 @@ func Test_ActiveCandidate(t *testing.T) {
 				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
 						source: {
-							IsEnabled: true,
+							IsEnabled:                 true,
+							IsRMNVerificationDisabled: true,
 						},
 					},
 				},

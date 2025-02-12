@@ -176,15 +176,15 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            printResults: true
+            build-solana-artifacts: 'false'
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            printResults: true
+            build-solana-artifacts: 'false'
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
-            printResults: true
           - cmd: go_core_fuzz
             os: ubuntu22.04-8cores-32GB
+            build-solana-artifacts: 'false'
           - cmd: go_core_race_tests
             # use 64cores for certain scheduled runs only
             os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
@@ -230,7 +230,8 @@ jobs:
         uses: ./.github/actions/setup-solana
 
       - name: Build Solana artifacts
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        # do not build for core tests, core 'integration' tests, or fuzz tests
+        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && matrix.type.build-solana-artifacts != 'false' }}
         uses: ./.github/actions/setup-solana/build-contracts
 
       - name: Setup wasmd
