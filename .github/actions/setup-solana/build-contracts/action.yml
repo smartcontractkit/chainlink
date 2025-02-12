@@ -34,8 +34,7 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }}" \ 
-        --jq ".total_count")
+        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }} --jq ".total_count")
 
         if [[ "$ARTIFACT_FOUND" -gt 0 ]]; then
           echo "Artifact found"
