@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1013,55 +1014,21 @@ func fundNodes(t *testing.T, keystoneEnv *KeystoneEnvironment) {
 	}
 }
 
-// don types
-const (
-	WorkflowDON uint = 1 << iota
-	CapabilitiesDON
-)
-
-// capability types
-const (
-	OCR3Capability uint = 1 << (iota + 2) // offset it by 2 to avoid overlapping with the above constants
-	CronCapability
-	CustomComputeCapability
-	WriteEVMCapability
-	// Add more capabilities as needed here
-)
+type CapabilityFlag = string
 
 const (
+	WorkflowDON             CapabilityFlag = "workflow"
+	CapabilitiesDON         CapabilityFlag = "capabilities"
+	OCR3Capability          CapabilityFlag = "ocr3"
+	CronCapability          CapabilityFlag = "cron"
+	CustomComputeCapability CapabilityFlag = "custom-compute"
+	WriteEVMCapability      CapabilityFlag = "write-evm"
+)
+
+var (
 	// Add new capabilities here as well, if single DON should have them by default
-	SingleDonFlags = OCR3Capability | CronCapability | CustomComputeCapability | WriteEVMCapability | WorkflowDON
+	SingleDonFlags = []string{"workflow", "capabilities", "ocr3", "cron", "custom-compute", "write-evm"}
 )
-
-var flagMap = map[string]uint{
-	"workflow":       WorkflowDON,
-	"capabilities":   CapabilitiesDON,
-	"ocr3":           OCR3Capability,
-	"cron":           CronCapability,
-	"custom-compute": CustomComputeCapability,
-	"write-evm":      WriteEVMCapability,
-	// Add more capabilities as needed here
-}
-
-// StringsToFlags converts a list of strings to a bitmap of flags
-func StringsToFlags(flags []string) (uint, error) {
-	if len(flags) == 0 {
-		return 0, nil
-	}
-
-	var result uint
-
-	for _, flag := range flags {
-		cleanFlag := strings.ToLower(strings.TrimSpace(flag))
-		if val, ok := flagMap[cleanFlag]; ok {
-			result |= val
-		} else {
-			return 0, fmt.Errorf("unknown flag: %s", cleanFlag)
-		}
-	}
-
-	return result, nil
-}
 
 // WrappedNodeOutput is a struct that holds the node output and the name of the node set (required by multiple functions)
 type WrappedNodeOutput struct {
@@ -1076,21 +1043,21 @@ type DONTopology struct {
 	NodeInput  *CapabilitiesAwareNodeSet
 	NodeOutput *WrappedNodeOutput
 	ID         uint32
-	Flags      uint
+	Flags      []string
 }
 
-func hasFlag(value uint, flag uint) bool {
-	return value&flag != 0
+func hasFlag(values []string, flag string) bool {
+	return slices.Contains(values, flag)
 }
 
-func mustOneDONTopologyWithFlag(t *testing.T, donTopologies []*DONTopology, flag uint) *DONTopology {
+func mustOneDONTopologyWithFlag(t *testing.T, donTopologies []*DONTopology, flag string) *DONTopology {
 	donTopologies = DONTopologyWithFlag(donTopologies, flag)
 	require.Len(t, donTopologies, 1, "expected exactly one DON topology with flag %d", flag)
 
 	return donTopologies[0]
 }
 
-func DONTopologyWithFlag(donTopologies []*DONTopology, flag uint) []*DONTopology {
+func DONTopologyWithFlag(donTopologies []*DONTopology, flag string) []*DONTopology {
 	var result []*DONTopology
 
 	for _, donTopology := range donTopologies {
@@ -1211,7 +1178,7 @@ func globalBootstraperNodeData(donTopologies []*DONTopology) (string, string, er
 	return "", "", errors.New("expected at least one DON topology")
 }
 
-func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNodeSet, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, donID uint32, flags uint, peeringData PeeringData, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) *WrappedNodeOutput {
+func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNodeSet, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, donID uint32, flags []string, peeringData PeeringData, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) *WrappedNodeOutput {
 	workflowNodeSet := don.Nodes[1:]
 
 	donBootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
@@ -1386,7 +1353,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 	return &WrappedNodeOutput{nodeset, nodeInput.Name, nodeInput.Capabilities}
 }
 
-func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, ocr3CapabilityAddress common.Address, donID uint32, flags uint, extraAllowedPorts []int, extraAllowedIps []string) {
+func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, ocr3CapabilityAddress common.Address, donID uint32, flags []string, extraAllowedPorts []int, extraAllowedIps []string) {
 	donBootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
 	require.NoError(t, err, "failed to get bootstrap node peer ID")
 
@@ -1884,15 +1851,15 @@ func startJobDistributor(t *testing.T, in *TestConfig, keystoneEnv *KeystoneEnvi
 	keystoneEnv.JD = jdOutput
 }
 
-func nodeSetFlags(nodeSet *CapabilitiesAwareNodeSet) (uint, error) {
+func nodeSetFlags(nodeSet *CapabilitiesAwareNodeSet) ([]string, error) {
 	var stringCaps []string
 	if len(nodeSet.Capabilities) == 0 && nodeSet.DONType == "" {
 		// if no flags are set, we assign all known capabilities to the DON
 		return SingleDonFlags, nil
 	}
 
-	stringCaps = append(stringCaps, nodeSet.Capabilities...)
-	return StringsToFlags(append(stringCaps, nodeSet.DONType))
+	stringCaps = append(stringCaps, append(nodeSet.Capabilities, nodeSet.DONType)...)
+	return stringCaps, nil
 }
 
 func buildDONTopology(t *testing.T, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
