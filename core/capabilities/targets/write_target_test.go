@@ -380,7 +380,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
-		require.Contains(t, err2.Error(), "submitted transaction failed")
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
 	})
 
 	t.Run("getTransmissionInfo twice, transaction written to the forwarder, but failed to be written to the consumer contract because of invalid receiver", func(t *testing.T) {
@@ -420,7 +420,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
-		require.Contains(t, err2.Error(), "submitted transaction failed")
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
 	})
 
 	t.Run("getTransmissionInfo once, transaction written to the forwarder, but failed to be written to the consumer contract because of invalid receiver", func(t *testing.T) {
@@ -445,7 +445,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
-		require.Contains(t, err2.Error(), "submitted transaction failed, invalid receiver")
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
 	})
 
 	t.Run("getTransmissionInfo once, transaction written to the forwarder, but failed to be written to the consumer contract because of revert in receiver", func(t *testing.T) {
@@ -453,7 +453,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
 			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
 			*transmissionInfo = targets.TransmissionInfo{
-				GasLimit:        big.NewInt(int64(th.gasLimit + 1)), // has sufficient gas
+				GasLimit:        big.NewInt(0).SetUint64(th.gasLimit + 1), // has sufficient gas
 				InvalidReceiver: false,
 				State:           targets.TransmissionStateFailed,
 				Success:         false,
@@ -470,7 +470,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
-		require.Contains(t, err2.Error(), "submitted transaction failed, receiver reverted")
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
 	})
 
 	t.Run("getTransmissionInfo twice, first time receiver reverted because of insufficient gas, second time succeeded", func(t *testing.T) {
@@ -481,7 +481,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
 			if callCount == 0 {
 				*transmissionInfo = targets.TransmissionInfo{
-					GasLimit:        big.NewInt(int64(th.gasLimit - 1)), // has insufficient gas
+					GasLimit:        big.NewInt(0).SetUint64(th.gasLimit - 1), // has insufficient gas
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateFailed,
 					Success:         false,
@@ -490,7 +490,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 				}
 			} else {
 				*transmissionInfo = targets.TransmissionInfo{
-					GasLimit:        big.NewInt(int64(th.gasLimit + 1)), // has sufficient gas
+					GasLimit:        big.NewInt(0).SetUint64(th.gasLimit + 1), // has sufficient gas
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateSucceeded,
 					Success:         true,
