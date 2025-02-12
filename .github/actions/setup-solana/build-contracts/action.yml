@@ -31,14 +31,16 @@ runs:
     - name: Check if artifact exists
       id: check_artifact
       shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
         if gh api repos/${{ github.repository }}/actions/artifacts \
-              --jq ".artifacts[] | select(.name==\"${{ env.ARTIFACT_NAME }}\")" \
-              --header "Authorization: Bearer ${{ inputs.github-token }}"; then
-            echo "exists=true" >> $GITHUB_ENV
-          else
-            echo "exists=false" >> $GITHUB_ENV
-          fi
+            --jq ".artifacts[] | select(.name==\"${{ env.ARTIFACT_NAME }}\")"; then
+          echo "exists=true" >> $GITHUB_ENV
+        else
+          echo "exists=false" >> $GITHUB_ENV
+        fi
+
 
     - name: Download artifact if it exists
       if: env.exists == 'true'
