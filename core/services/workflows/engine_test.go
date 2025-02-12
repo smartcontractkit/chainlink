@@ -658,6 +658,11 @@ func TestEngine_RateLimit(t *testing.T) {
 			c.WorkflowLimits = workflowLimits
 		}
 
+		// we allow one owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
@@ -665,14 +670,10 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		// we allow one owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
-		servicetest.Run(t, eng)
-
+		go eng.Start(context.Background())
 		select {
-		case <-testHooks.rateLimited:
+		case errMsg := <-testHooks.rateLimited:
+			assert.Equal(t, errGlobalWorkflowCountLimitReached.Error(), errMsg)
 		case <-ctx.Done():
 			t.FailNow()
 		}
@@ -713,6 +714,11 @@ func TestEngine_RateLimit(t *testing.T) {
 			c.WorkflowLimits = workflowLimits
 		}
 
+		// we allow one workflow for this particular owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
@@ -720,14 +726,11 @@ func TestEngine_RateLimit(t *testing.T) {
 			setWorkflowLimits,
 		)
 
-		// we allow one workflow for this particular owner, so the second one should be rate limited
-		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
-		require.True(t, ownerAllow)
-		require.True(t, globalAllow)
-		servicetest.Run(t, eng)
+		go eng.Start(context.Background())
 
 		select {
-		case <-testHooks.rateLimited:
+		case errMsg := <-testHooks.rateLimited:
+			assert.Equal(t, errPerOwnerWorkflowCountLimitReached.Error(), errMsg)
 		case <-ctx.Done():
 			t.FailNow()
 		}

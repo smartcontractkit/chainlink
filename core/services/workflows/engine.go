@@ -35,6 +35,11 @@ const (
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
 )
 
+var (
+	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
+	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
+)
+
 type stepRequest struct {
 	stepRef string
 	state   store.WorkflowExecution
@@ -149,6 +154,20 @@ func (e *Engine) Start(_ context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
+
+		// validate if adding another workflow would exceed either the global or per owner engine count limit
+		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
+		if !globalAllow {
+			e.onRateLimit(errGlobalWorkflowCountLimitReached.Error())
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
+			return errGlobalWorkflowCountLimitReached
+		}
+
+		if !ownerAllow {
+			e.onRateLimit(errPerOwnerWorkflowCountLimitReached.Error())
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
+			return errPerOwnerWorkflowCountLimitReached
+		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
 
@@ -773,23 +792,6 @@ func (e *Engine) worker(ctx context.Context) {
 				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global rate limit exceeded")
 				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global rate limit exceeded", e.logger)
 				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowExecutionRateLimitGlobalCounter(ctx)
-				continue
-			}
-
-			// validate if adding another workflow would exceed either the global or per owner engine count limit
-			ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
-			if !globalAllow {
-				e.onRateLimit(executionID)
-				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: global workflow count limit reached")
-				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: global workflow count limit reached", e.logger)
-				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
-				continue
-			}
-			if !ownerAllow {
-				e.onRateLimit(executionID)
-				e.logger.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner, platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: per owner workflow count limit reached")
-				logCustMsg(ctx, e.cma.With(platform.KeyCapabilityID, te.ID), "failed to start execution: per owner workflow count limit reached", e.logger)
-				e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, executionID, platform.KeyTriggerID, te.ID, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
 				continue
 			}
 
