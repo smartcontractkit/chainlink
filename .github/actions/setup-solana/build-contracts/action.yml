@@ -35,15 +35,25 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
         ARTIFACT_RESPONSE=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }})
-        ARTIFACT_FOUND=$(echo "$ARTIFACT_RESPONSE" | jq '.total_count')
+        ARTIFACT_FOUND=false
+        for artifact in $(echo "$ARTIFACT_RESPONSE" | jq -r '.artifacts[] | @json'); do
+          # Extract relevant fields directly from JSON
+          ARTIFACT_NAME=$(echo "$artifact" | jq -r '.name')
+          ARTIFACT_EXPIRED=$(echo "$artifact" | jq -r '.expired')
+          ARTIFACT_DOWNLOAD_URL=$(echo "$artifact" | jq -r '.archive_download_url')
+          
+          if [[ "$ARTIFACT_NAME" == "${{ env.ARTIFACT_NAME }}" && "$ARTIFACT_EXPIRED" == false ]]; then
+            # First non-expired artifact found, set variables and break loop
+            echo "Artifact found"
+            echo "exists=true" >> $GITHUB_ENV
+            echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> $GITHUB_ENV
+            ARTIFACT_FOUND=true
+            break
+          fi
+        done
 
-        if [[ "$ARTIFACT_FOUND" -gt 0 ]]; then
-          echo "Artifact found"
-          ARTIFACT_DOWNLOAD_URL=$(echo "$ARTIFACT_RESPONSE" | jq -r '.artifacts[0].archive_download_url')
-          echo "exists=true" >> $GITHUB_ENV
-          echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> $GITHUB_ENV
-        else
-          echo "Artifact not found"
+        if [[ "$ARTIFACT_FOUND" == false ]]; then
+          echo "Artifact not found or expired"
           echo "exists=false" >> $GITHUB_ENV
         fi
 
@@ -53,7 +63,7 @@ runs:
       shell: bash
       run: |
         curl -L -H "Authorization: token ${{ inputs.github-token }}" -o artifact.zip ${{ env.ARTIFACT_DOWNLOAD_URL }}
-        unzip artifact.zip -d chainlink-ccip/chains/solana/contracts/target/deploy
+        unzip artifact.zip -d /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
 
     - name: Build artifact if not found
       if: env.exists == 'false'
