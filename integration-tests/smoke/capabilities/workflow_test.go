@@ -1178,6 +1178,107 @@ func globalBootstraperNodeData(donTopologies []*DONTopology) (string, string, er
 	return "", "", errors.New("expected at least one DON topology")
 }
 
+func buildWorkerNodeConfig(donBootstrapNodePeerId, donBootstrapNodeAddress string, peeringData PeeringData, bc *blockchain.Output, capRegAddr, forwarderAddress, workflowRegistryAddr common.Address, donID uint32, flags []string, nodeAddress string) string {
+	workerNodeConfig := fmt.Sprintf(`
+				[Feature]
+				LogPoller = true
+
+				[OCR2]
+				Enabled = true
+				DatabaseTimeout = '1s'
+				ContractPollInterval = '1s'
+
+				[P2P.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:5001']
+				DefaultBootstrappers = ['%s@%s:5001']
+
+				[Capabilities.Peering.V2]
+				Enabled = true
+				ListenAddresses = ['0.0.0.0:6690']
+				DefaultBootstrappers = ['%s@%s:6690']
+
+				[[EVM]]
+				ChainID = '%s'
+
+				[[EVM.Nodes]]
+				Name = 'anvil'
+				WSURL = '%s'
+				HTTPURL = '%s'
+
+				# Capabilities registry address, always needed
+				[Capabilities.ExternalRegistry]
+				Address = '%s'
+				NetworkID = 'evm'
+				ChainID = '%s'
+				`,
+		donBootstrapNodePeerId,
+		donBootstrapNodeAddress,
+		peeringData.GlobalBootstraperPeerId,
+		peeringData.GlobalBootstraperAddress,
+		bc.ChainID,
+		bc.Nodes[0].DockerInternalWSUrl,
+		bc.Nodes[0].DockerInternalHTTPUrl,
+		capRegAddr,
+		bc.ChainID,
+	)
+
+	if hasFlag(flags, WriteEVMCapability) {
+		writeEVMConfig := fmt.Sprintf(`
+				# Required for the target capability to be initialized
+				[EVM.Workflow]
+				FromAddress = '%s'
+				ForwarderAddress = '%s'
+				GasLimitDefault = 400_000
+				`,
+			nodeAddress,
+			forwarderAddress.Hex(),
+		)
+		workerNodeConfig += writeEVMConfig
+	}
+
+	// if it's workflow DON configure workflow registry
+	if hasFlag(flags, WorkflowDON) {
+		workflowRegistryConfig := fmt.Sprintf(`
+				[Capabilities.WorkflowRegistry]
+				Address = "%s"
+				NetworkID = "evm"
+				ChainID = "%s"
+			`,
+			workflowRegistryAddr.Hex(),
+			bc.ChainID,
+		)
+
+		workerNodeConfig += workflowRegistryConfig
+	}
+
+	// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
+	// it's also required by custom compute, which can only run on workflow DON nodes
+	if hasFlag(flags, WorkflowDON) || hasFlag(flags, CustomComputeCapability) {
+		// assuming for now that gateway always used port 5003 and /node path
+		gatewayAddress := fmt.Sprintf("ws://%s:5003/node", donBootstrapNodeAddress)
+		gatewayConfig := fmt.Sprintf(`
+				[Capabilities.GatewayConnector]
+				DonID = "%s"
+				ChainIDForNodeKey = "%s"
+				NodeAddress = '%s'
+
+				[[Capabilities.GatewayConnector.Gateways]]
+				Id = "por_gateway"
+				URL = "%s"
+			`,
+			strconv.FormatUint(uint64(donID), 10),
+			bc.ChainID,
+			nodeAddress,
+			gatewayAddress,
+		)
+
+		workerNodeConfig += gatewayConfig
+	}
+
+	return workerNodeConfig
+}
+
 func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNodeSet, nodeOutput *WrappedNodeOutput, bc *blockchain.Output, donID uint32, flags []string, peeringData PeeringData, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) *WrappedNodeOutput {
 	workflowNodeSet := don.Nodes[1:]
 
@@ -1246,104 +1347,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 
 	// configure worker nodes with OCR Peering, Don2Don peering, EVM, and capabilities registry
 	for i := range workflowNodeSet {
-		workerNodeConfig := fmt.Sprintf(`
-				[Feature]
-				LogPoller = true
-
-				[OCR2]
-				Enabled = true
-				DatabaseTimeout = '1s'
-				ContractPollInterval = '1s'
-
-				[P2P.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:5001']
-				DefaultBootstrappers = ['%s@%s:5001']
-
-				[Capabilities.Peering.V2]
-				Enabled = true
-				ListenAddresses = ['0.0.0.0:6690']
-				DefaultBootstrappers = ['%s@%s:6690']
-
-				[[EVM]]
-				ChainID = '%s'
-
-				[[EVM.Nodes]]
-				Name = 'anvil'
-				WSURL = '%s'
-				HTTPURL = '%s'
-
-				# Capabilities registry address, always needed
-				[Capabilities.ExternalRegistry]
-				Address = '%s'
-				NetworkID = 'evm'
-				ChainID = '%s'
-				`,
-			donBootstrapNodePeerId,
-			donBootstrapNodeAddress,
-			peeringData.GlobalBootstraperPeerId,
-			peeringData.GlobalBootstraperAddress,
-			bc.ChainID,
-			bc.Nodes[0].DockerInternalWSUrl,
-			bc.Nodes[0].DockerInternalHTTPUrl,
-			capRegAddr,
-			bc.ChainID,
-		)
-
-		if hasFlag(flags, WriteEVMCapability) {
-			writeEVMConfig := fmt.Sprintf(`
-				# Required for the target capability to be initialized
-				[EVM.Workflow]
-				FromAddress = '%s'
-				ForwarderAddress = '%s'
-				GasLimitDefault = 400_000
-				`,
-				workflowNodeSet[i].AccountAddr[chainIDUint64],
-				forwarderAddress.Hex(),
-			)
-			workerNodeConfig += writeEVMConfig
-		}
-
-		// if it's workflow DON configure workflow registry
-		if hasFlag(flags, WorkflowDON) {
-			workflowRegistryConfig := fmt.Sprintf(`
-				[Capabilities.WorkflowRegistry]
-				Address = "%s"
-				NetworkID = "evm"
-				ChainID = "%s"
-			`,
-				workflowRegistryAddr.Hex(),
-				bc.ChainID,
-			)
-
-			workerNodeConfig += workflowRegistryConfig
-		}
-
-		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
-		// it's also required by custom compute, which can only run on workflow DON nodes
-		if hasFlag(flags, WorkflowDON) || hasFlag(flags, CustomComputeCapability) {
-			// assuming for now that gateway always used port 5003 and /node path
-			gatewayAddress := fmt.Sprintf("ws://%s:5003/node", donBootstrapNodeAddress)
-			gatewayConfig := fmt.Sprintf(`
-				[Capabilities.GatewayConnector]
-				DonID = "%s"
-				ChainIDForNodeKey = "%s"
-				NodeAddress = '%s'
-
-				[[Capabilities.GatewayConnector.Gateways]]
-				Id = "por_gateway"
-				URL = "%s"
-			`,
-				strconv.FormatUint(uint64(donID), 10),
-				bc.ChainID,
-				workflowNodeSet[i].AccountAddr[chainIDUint64],
-				gatewayAddress,
-			)
-
-			workerNodeConfig += gatewayConfig
-		}
-
-		nodeInput.NodeSpecs[i+1].Node.TestConfigOverrides = workerNodeConfig
+		nodeInput.NodeSpecs[i+1].Node.TestConfigOverrides = buildWorkerNodeConfig(donBootstrapNodePeerId, donBootstrapNodeAddress, peeringData, bc, capRegAddr, forwarderAddress, workflowRegistryAddr, donID, flags, workflowNodeSet[i].AccountAddr[chainIDUint64])
 	}
 
 	// we need to restart all nodes for configuration changes to take effect
