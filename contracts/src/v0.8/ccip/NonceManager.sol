@@ -29,7 +29,7 @@ contract NonceManager is INonceManager, AuthorizedCallers, ITypeAndVersion {
     PreviousRamps prevRamps; // Previous on/off ramps.
   }
 
-  string public constant override typeAndVersion = "NonceManager 1.6.0-dev";
+  string public constant override typeAndVersion = "NonceManager 1.6.0";
 
   /// @dev The previous on/off ramps per chain selector.
   mapping(uint64 chainSelector => PreviousRamps previousRamps) private s_previousRamps;

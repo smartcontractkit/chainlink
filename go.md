@@ -6,12 +6,13 @@ flowchart LR
     chainlink-cosmos
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-evm
+    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
     chainlink-ccip
+    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -27,6 +28,7 @@ flowchart LR
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chain-selectors
 	chainlink-ccip --> chainlink-common
+	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana --> chainlink-common
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
@@ -45,6 +47,8 @@ flowchart LR
 	click chainlink-integrations/evm href "https://github.com/smartcontractkit/chainlink-integrations"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/rmn/v1.6/go
+	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana --> chainlink-ccip
@@ -86,6 +90,7 @@ flowchart LR
 
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/orchestrator
+		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/svr
 	end
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"
@@ -106,12 +111,13 @@ flowchart LR
     chainlink-cosmos
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-evm
+    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
     chainlink-ccip
+    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -129,6 +135,7 @@ flowchart LR
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chain-selectors
 	chainlink-ccip --> chainlink-common
+	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana --> chainlink-common
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
@@ -149,6 +156,8 @@ flowchart LR
 	click chainlink-protos/job-distributor href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/orchestrator --> wsrpc
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
+	chainlink-protos/rmn/v1.6/go
+	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana --> chainlink-ccip
@@ -233,6 +242,7 @@ flowchart LR
 	subgraph chainlink-protos-repo[chainlink-protos]
 		 chainlink-protos/job-distributor
 		 chainlink-protos/orchestrator
+		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/svr
 	end
 	click chainlink-protos-repo href "https://github.com/smartcontractkit/chainlink-protos"

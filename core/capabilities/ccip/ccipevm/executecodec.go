@@ -15,7 +15,7 @@ import (
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.
 // Compatible with:
-// - "OffRamp 1.6.0-dev"
+// - "OffRamp 1.6.0"
 type ExecutePluginCodecV1 struct {
 	executeReportMethodInputs abi.Arguments
 }

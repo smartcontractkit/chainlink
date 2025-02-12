@@ -15,6 +15,7 @@ ok EVM.0.Txm.WrappedEvmEstimator
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
+ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet

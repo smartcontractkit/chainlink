@@ -7,7 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -21,7 +21,7 @@ var _ deployment.ChangeSet[RemoteChainTokenPoolConfig] = SetupTokenPoolForRemote
 
 type TokenPoolConfig struct {
 	ChainSelector    uint64
-	PoolType         string
+	PoolType         solTestTokenPool.PoolType
 	Authority        string
 	TokenPubKey      string
 	TokenProgramName string
@@ -37,9 +37,6 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	if chainState.TokenPool.IsZero() {
 		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
 	}
-	if _, err := GetPoolType(cfg.PoolType); err != nil {
-		return err
-	}
 	if _, err := GetTokenProgramID(cfg.TokenProgramName); err != nil {
 		return err
 	}
@@ -50,7 +47,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 	}
 	chain := e.SolChains[cfg.ChainSelector]
-	var poolConfigAccount solTokenPool.Config
+	var poolConfigAccount solTestTokenPool.State
 	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err == nil {
 		return fmt.Errorf("token pool config already exists for (mint: %s, pool: %s)", tokenPubKey.String(), tokenPool.String())
 	}
@@ -69,12 +66,8 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 
 	// verified
 	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
-	poolType, _ := GetPoolType(cfg.PoolType)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
 	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, chainState.TokenPool)
-
-	// addressing errcheck in the next PR
-	rampAuthorityPubKey, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Router)
 
 	// ata for token pool
 	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -87,14 +80,13 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create associated token account for tokenpool (mint: %s, pool: %s): %w", tokenPubKey.String(), chainState.TokenPool.String(), err)
 	}
 
-	solTokenPool.SetProgramID(chainState.TokenPool)
+	solTestTokenPool.SetProgramID(chainState.TokenPool)
 	// initialize token pool for token
-	poolInitI, err := solTokenPool.NewInitializeInstruction(
-		poolType,
-		rampAuthorityPubKey,
+	poolInitI, err := solTestTokenPool.NewInitializeInstruction(
+		cfg.PoolType,
+		chainState.Router,
 		poolConfigPDA,
 		tokenPubKey,
-		poolSigner,
 		authorityPubKey, // this is assumed to be chain.DeployerKey for now (owner of token pool)
 		solana.SystemProgramID,
 	).ValidateAndBuild()
@@ -129,9 +121,9 @@ type RemoteChainTokenPoolConfig struct {
 	RemoteChainSelector uint64
 	SolTokenPubKey      string
 	// this is actually derivable from on chain given token symbol
-	RemoteConfig      solTokenPool.RemoteConfig
-	InboundRateLimit  solTokenPool.RateLimitConfig
-	OutboundRateLimit solTokenPool.RateLimitConfig
+	RemoteConfig      solTestTokenPool.RemoteConfig
+	InboundRateLimit  solTestTokenPool.RateLimitConfig
+	OutboundRateLimit solTestTokenPool.RateLimitConfig
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
@@ -153,7 +145,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get token pool config address (mint: %s, pool: %s): %w", tokenPubKey.String(), tokenPool.String(), err)
 	}
-	var poolConfigAccount solTokenPool.Config
+	var poolConfigAccount solTestTokenPool.State
 	if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount); err != nil {
 		return fmt.Errorf("token pool config not found (mint: %s, pool: %s): %w", tokenPubKey.String(), chainState.TokenPool.String(), err)
 	}
@@ -163,7 +155,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get token pool remote chain config pda (remoteSelector: %d, mint: %s, pool: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), err)
 	}
-	var remoteChainConfigAccount solTokenPool.ChainConfig
+	var remoteChainConfigAccount solTestTokenPool.ChainConfig
 	if err := chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount); err == nil {
 		return fmt.Errorf("remote chain config already exists for (remoteSelector: %d, mint: %s, pool: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String())
 	}
@@ -182,8 +174,8 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.TokenPool)
 
-	solTokenPool.SetProgramID(chainState.TokenPool)
-	ixConfigure, err := solTokenPool.NewInitChainRemoteConfigInstruction(
+	solTestTokenPool.SetProgramID(chainState.TokenPool)
+	ixConfigure, err := solTestTokenPool.NewInitChainRemoteConfigInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
 		cfg.RemoteConfig,
@@ -195,7 +187,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	ixRates, err := solTokenPool.NewSetChainRateLimitInstruction(
+	ixRates, err := solTestTokenPool.NewSetChainRateLimitInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
 		cfg.InboundRateLimit,
@@ -209,7 +201,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 
-	ixAppend, err := solTokenPool.NewAppendRemotePoolAddressesInstruction(
+	ixAppend, err := solTestTokenPool.NewAppendRemotePoolAddressesInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
 		cfg.RemoteConfig.PoolAddresses, // i dont know why this is a list (is it for different types of pool of the same token?)
