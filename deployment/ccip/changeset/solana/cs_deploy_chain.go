@@ -188,10 +188,7 @@ func intializeOffRamp(
 	offRampExternalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(offRampAddress)
 	offRampTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(offRampAddress)
 
-	instruction, err := solOffRamp.NewInitializeInstruction(
-		chain.Selector,
-		deployment.EnableExecutionAfter,
-		offRampConfigPDA,
+	initIx, err := solOffRamp.NewInitializeInstruction(
 		offRampReferenceAddressesPDA,
 		ccipRouterProgram,
 		feeQuoterAddress,
@@ -208,7 +205,21 @@ func intializeOffRamp(
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+
+	initConfigIx, err := solOffRamp.NewInitializeConfigInstruction(
+		chain.Selector,
+		deployment.EnableExecutionAfter,
+		offRampConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		offRampAddress,
+		programData.Address,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{initIx, initConfigIx}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
