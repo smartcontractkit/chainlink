@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -194,21 +195,21 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	for i := 0; i < maxRetries; i++ {
 		port := freeport.GetOne(t)
 
-		// programIds := map[string]string{
-		// 	"ccip_router":        solTestConfig.CcipRouterProgram.String(),
-		// 	"test_token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
-		// 	"fee_quoter":         solTestConfig.FeeQuoterProgram.String(),
-		// 	"test_ccip_receiver": solTestConfig.CcipLogicReceiver.String(),
-		// 	"ccip_offramp":       solTestConfig.CcipOfframpProgram.String(),
-		// }
+		programIds := map[string]string{
+			"ccip_router":        solTestConfig.CcipRouterProgram.String(),
+			"test_token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
+			"fee_quoter":         solTestConfig.FeeQuoterProgram.String(),
+			"test_ccip_receiver": solTestConfig.CcipLogicReceiver.String(),
+			"ccip_offramp":       solTestConfig.CcipOfframpProgram.String(),
+		}
 
 		bcInput := &blockchain.Input{
-			Type:      "solana",
-			ChainID:   strconv.FormatUint(chainID, 10),
-			PublicKey: adminKey.PublicKey().String(),
-			Port:      strconv.Itoa(port),
-			// ContractsDir:   ProgramsPath,
-			// SolanaPrograms: programIds,
+			Type:           "solana",
+			ChainID:        strconv.FormatUint(chainID, 10),
+			PublicKey:      adminKey.PublicKey().String(),
+			Port:           strconv.Itoa(port),
+			ContractsDir:   ProgramsPath,
+			SolanaPrograms: programIds,
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {

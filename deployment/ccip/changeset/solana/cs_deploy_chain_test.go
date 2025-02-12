@@ -47,6 +47,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			ChainSelector: chain,
 		})
 	}
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
@@ -76,15 +77,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
 			Config: changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(solana.BuildSolanaChangeset),
-			Config: solana.BuildSolanaConfig{
-				ChainSelector:       solChainSelectors[0],
-				GitCommitSha:        "501b3b689b3b21f20dab3719d3ab5bd2334d96c8",
-				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-				CleanDestinationDir: true,
 			},
 		},
 		{
