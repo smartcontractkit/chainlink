@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"golang.org/x/sync/errgroup"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -259,73 +259,83 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 
 func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
-	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
-	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	contractParams := make(map[uint64]changeset.ChainContractParams)
+
+	var eg errgroup.Group
 
 	for _, chain := range chainSelectors {
-		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
-			ChainSelector: chain,
+		chain := chain
+		eg.Go(func() error {
+			chainConfigs := make(map[uint64]changeset.ChainConfig)
+			prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
+			contractParams := make(map[uint64]changeset.ChainContractParams)
+			prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
+				ChainSelector: chain,
+			})
+			chainConfigs[chain] = changeset.ChainConfig{
+				Readers: nodeInfo.NonBootstraps().PeerIDs(),
+				FChain:  1,
+				EncodableChainConfig: chainconfig.ChainConfig{
+					GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
+					DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
+					OptimisticConfirmations: 1,
+				},
+			}
+			contractParams[chain] = changeset.ChainContractParams{
+				FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+				OffRampParams:   changeset.DefaultOffRampParams(),
+			}
+			_, err2 := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
+					Config: changeset.UpdateChainConfigConfig{
+						HomeChainSelector: homeChainSel,
+						RemoteChainAdds:   chainConfigs,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+					Config:    chainSelectors,
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
+					Config: changeset.DeployPrerequisiteConfig{
+						Configs: prereqCfgs,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
+					Config: changeset.DeployChainContractsConfig{
+						HomeChainSelector:      homeChainSel,
+						ContractParamsPerChain: contractParams,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
+					Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+						ChainSelectors: chainSelectors,
+					},
+				},
+				{
+					Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
+					Config:    struct{}{},
+				},
+			})
+			if err2 != nil {
+				return err2
+			}
+			return nil
 		})
-		chainConfigs[chain] = changeset.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  1,
-			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
-				OptimisticConfirmations: 1,
-			},
-		}
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
 	}
-	env, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-			Config: changeset.UpdateChainConfigConfig{
-				HomeChainSelector: homeChainSel,
-				RemoteChainAdds:   chainConfigs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    chainSelectors,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfgs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParams,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
-				ChainSelectors: chainSelectors,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
-			Config:    struct{}{},
-		},
-	})
-	if err != nil {
+
+	if err = eg.Wait(); err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
 	lggr.Infow("setup Link pools")
-	return setupLinkPools(&env)
+	return setupLinkPools(e)
 }
 
 func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
