@@ -55,7 +55,7 @@ runs:
         make docker-build-contracts
          # copy the built contracts so they can be used in the chainlink tests
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
-        cp chainlink-ccip/chains/solana/contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        cp contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
     - name: Upload artifact (if newly built)
       if: env.exists == 'false'
       uses: actions/upload-artifact@v4
