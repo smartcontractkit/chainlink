@@ -10,7 +10,7 @@ import (
 
 	event "github.com/ethereum/go-ethereum/event"
 
-	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
+	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
@@ -138,7 +138,7 @@ func (_c *EVM2EVMOffRampInterface_Address_Call) RunAndReturn(run func() common.A
 }
 
 // ApplyPoolUpdates provides a mock function with given fields: opts, removes, adds
-func (_m *EVM2EVMOffRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, removes []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, adds []evm_2_evm_offramp_1_2_0.InternalPoolUpdate) (*types.Transaction, error) {
+func (_m *EVM2EVMOffRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, removes []evm_2_evm_offramp.InternalPoolUpdate, adds []evm_2_evm_offramp.InternalPoolUpdate) (*types.Transaction, error) {
 	ret := _m.Called(opts, removes, adds)
 
 	if len(ret) == 0 {
@@ -147,10 +147,10 @@ func (_m *EVM2EVMOffRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, rem
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_offramp.InternalPoolUpdate, []evm_2_evm_offramp.InternalPoolUpdate) (*types.Transaction, error)); ok {
 		return rf(opts, removes, adds)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []evm_2_evm_offramp.InternalPoolUpdate, []evm_2_evm_offramp.InternalPoolUpdate) *types.Transaction); ok {
 		r0 = rf(opts, removes, adds)
 	} else {
 		if ret.Get(0) != nil {
@@ -158,7 +158,7 @@ func (_m *EVM2EVMOffRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, rem
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []evm_2_evm_offramp.InternalPoolUpdate, []evm_2_evm_offramp.InternalPoolUpdate) error); ok {
 		r1 = rf(opts, removes, adds)
 	} else {
 		r1 = ret.Error(1)
@@ -174,15 +174,15 @@ type EVM2EVMOffRampInterface_ApplyPoolUpdates_Call struct {
 
 // ApplyPoolUpdates is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
-//   - removes []evm_2_evm_offramp_1_2_0.InternalPoolUpdate
-//   - adds []evm_2_evm_offramp_1_2_0.InternalPoolUpdate
+//   - removes []evm_2_evm_offramp.InternalPoolUpdate
+//   - adds []evm_2_evm_offramp.InternalPoolUpdate
 func (_e *EVM2EVMOffRampInterface_Expecter) ApplyPoolUpdates(opts interface{}, removes interface{}, adds interface{}) *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call {
 	return &EVM2EVMOffRampInterface_ApplyPoolUpdates_Call{Call: _e.mock.On("ApplyPoolUpdates", opts, removes, adds)}
 }
 
-func (_c *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call) Run(run func(opts *bind.TransactOpts, removes []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, adds []evm_2_evm_offramp_1_2_0.InternalPoolUpdate)) *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call {
+func (_c *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call) Run(run func(opts *bind.TransactOpts, removes []evm_2_evm_offramp.InternalPoolUpdate, adds []evm_2_evm_offramp.InternalPoolUpdate)) *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].([]evm_2_evm_offramp_1_2_0.InternalPoolUpdate), args[2].([]evm_2_evm_offramp_1_2_0.InternalPoolUpdate))
+		run(args[0].(*bind.TransactOpts), args[1].([]evm_2_evm_offramp.InternalPoolUpdate), args[2].([]evm_2_evm_offramp.InternalPoolUpdate))
 	})
 	return _c
 }
@@ -192,13 +192,13 @@ func (_c *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call) Return(_a0 *types.Trans
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate, []evm_2_evm_offramp_1_2_0.InternalPoolUpdate) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call {
+func (_c *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call) RunAndReturn(run func(*bind.TransactOpts, []evm_2_evm_offramp.InternalPoolUpdate, []evm_2_evm_offramp.InternalPoolUpdate) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ApplyPoolUpdates_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CcipReceive provides a mock function with given fields: opts, arg0
-func (_m *EVM2EVMOffRampInterface) CcipReceive(opts *bind.CallOpts, arg0 evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage) error {
+func (_m *EVM2EVMOffRampInterface) CcipReceive(opts *bind.CallOpts, arg0 evm_2_evm_offramp.ClientAny2EVMMessage) error {
 	ret := _m.Called(opts, arg0)
 
 	if len(ret) == 0 {
@@ -206,7 +206,7 @@ func (_m *EVM2EVMOffRampInterface) CcipReceive(opts *bind.CallOpts, arg0 evm_2_e
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage) error); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, evm_2_evm_offramp.ClientAny2EVMMessage) error); ok {
 		r0 = rf(opts, arg0)
 	} else {
 		r0 = ret.Error(0)
@@ -222,14 +222,14 @@ type EVM2EVMOffRampInterface_CcipReceive_Call struct {
 
 // CcipReceive is a helper method to define mock.On call
 //   - opts *bind.CallOpts
-//   - arg0 evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage
+//   - arg0 evm_2_evm_offramp.ClientAny2EVMMessage
 func (_e *EVM2EVMOffRampInterface_Expecter) CcipReceive(opts interface{}, arg0 interface{}) *EVM2EVMOffRampInterface_CcipReceive_Call {
 	return &EVM2EVMOffRampInterface_CcipReceive_Call{Call: _e.mock.On("CcipReceive", opts, arg0)}
 }
 
-func (_c *EVM2EVMOffRampInterface_CcipReceive_Call) Run(run func(opts *bind.CallOpts, arg0 evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage)) *EVM2EVMOffRampInterface_CcipReceive_Call {
+func (_c *EVM2EVMOffRampInterface_CcipReceive_Call) Run(run func(opts *bind.CallOpts, arg0 evm_2_evm_offramp.ClientAny2EVMMessage)) *EVM2EVMOffRampInterface_CcipReceive_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.CallOpts), args[1].(evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage))
+		run(args[0].(*bind.CallOpts), args[1].(evm_2_evm_offramp.ClientAny2EVMMessage))
 	})
 	return _c
 }
@@ -239,28 +239,28 @@ func (_c *EVM2EVMOffRampInterface_CcipReceive_Call) Return(_a0 error) *EVM2EVMOf
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_CcipReceive_Call) RunAndReturn(run func(*bind.CallOpts, evm_2_evm_offramp_1_2_0.ClientAny2EVMMessage) error) *EVM2EVMOffRampInterface_CcipReceive_Call {
+func (_c *EVM2EVMOffRampInterface_CcipReceive_Call) RunAndReturn(run func(*bind.CallOpts, evm_2_evm_offramp.ClientAny2EVMMessage) error) *EVM2EVMOffRampInterface_CcipReceive_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // CurrentRateLimiterState provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket, error) {
+func (_m *EVM2EVMOffRampInterface) CurrentRateLimiterState(opts *bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CurrentRateLimiterState")
 	}
 
-	var r0 evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket
+	var r0 evm_2_evm_offramp.RateLimiterTokenBucket
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.RateLimiterTokenBucket); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket)
+		r0 = ret.Get(0).(evm_2_evm_offramp.RateLimiterTokenBucket)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -290,18 +290,18 @@ func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) Run(run func(opt
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) Return(_a0 evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket, _a1 error) *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call {
+func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) Return(_a0 evm_2_evm_offramp.RateLimiterTokenBucket, _a1 error) *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.RateLimiterTokenBucket, error)) *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call {
+func (_c *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp.RateLimiterTokenBucket, error)) *EVM2EVMOffRampInterface_CurrentRateLimiterState_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ExecuteSingleMessage provides a mock function with given fields: opts, message, offchainTokenData
-func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts, message evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, offchainTokenData [][]byte) (*types.Transaction, error) {
+func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte) (*types.Transaction, error) {
 	ret := _m.Called(opts, message, offchainTokenData)
 
 	if len(ret) == 0 {
@@ -310,10 +310,10 @@ func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts,
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)); ok {
 		return rf(opts, message, offchainTokenData)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, [][]byte) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) *types.Transaction); ok {
 		r0 = rf(opts, message, offchainTokenData)
 	} else {
 		if ret.Get(0) != nil {
@@ -321,7 +321,7 @@ func (_m *EVM2EVMOffRampInterface) ExecuteSingleMessage(opts *bind.TransactOpts,
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, [][]byte) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) error); ok {
 		r1 = rf(opts, message, offchainTokenData)
 	} else {
 		r1 = ret.Error(1)
@@ -337,15 +337,15 @@ type EVM2EVMOffRampInterface_ExecuteSingleMessage_Call struct {
 
 // ExecuteSingleMessage is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
-//   - message evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage
+//   - message evm_2_evm_offramp.InternalEVM2EVMMessage
 //   - offchainTokenData [][]byte
 func (_e *EVM2EVMOffRampInterface_Expecter) ExecuteSingleMessage(opts interface{}, message interface{}, offchainTokenData interface{}) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
 	return &EVM2EVMOffRampInterface_ExecuteSingleMessage_Call{Call: _e.mock.On("ExecuteSingleMessage", opts, message, offchainTokenData)}
 }
 
-func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Run(run func(opts *bind.TransactOpts, message evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, offchainTokenData [][]byte)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
+func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Run(run func(opts *bind.TransactOpts, message evm_2_evm_offramp.InternalEVM2EVMMessage, offchainTokenData [][]byte)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage), args[2].([][]byte))
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalEVM2EVMMessage), args[2].([][]byte))
 	})
 	return _c
 }
@@ -355,29 +355,29 @@ func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) Return(_a0 *types.T
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
+func (_c *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalEVM2EVMMessage, [][]byte) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ExecuteSingleMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterAdminSet provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterAdminSet(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterAdminSet(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterAdminSet")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator)
 		}
 	}
 
@@ -408,34 +408,34 @@ func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) Run(run func(opts *bind.F
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator, _a1 error) *EVM2EVMOffRampInterface_FilterAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator, _a1 error) *EVM2EVMOffRampInterface_FilterAdminSet_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSetIterator, error)) *EVM2EVMOffRampInterface_FilterAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_FilterAdminSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSetIterator, error)) *EVM2EVMOffRampInterface_FilterAdminSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterConfigSet provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterConfigSet(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterConfigSet(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterConfigSet")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator)
 		}
 	}
 
@@ -466,34 +466,34 @@ func (_c *EVM2EVMOffRampInterface_FilterConfigSet_Call) Run(run func(opts *bind.
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterConfigSet_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator, _a1 error) *EVM2EVMOffRampInterface_FilterConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_FilterConfigSet_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator, _a1 error) *EVM2EVMOffRampInterface_FilterConfigSet_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterConfigSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSetIterator, error)) *EVM2EVMOffRampInterface_FilterConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_FilterConfigSet_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSetIterator, error)) *EVM2EVMOffRampInterface_FilterConfigSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterConfigSet0 provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterConfigSet0(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterConfigSet0(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterConfigSet0")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator)
 		}
 	}
 
@@ -524,34 +524,34 @@ func (_c *EVM2EVMOffRampInterface_FilterConfigSet0_Call) Run(run func(opts *bind
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterConfigSet0_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator, _a1 error) *EVM2EVMOffRampInterface_FilterConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_FilterConfigSet0_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator, _a1 error) *EVM2EVMOffRampInterface_FilterConfigSet0_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterConfigSet0_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0Iterator, error)) *EVM2EVMOffRampInterface_FilterConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_FilterConfigSet0_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0Iterator, error)) *EVM2EVMOffRampInterface_FilterConfigSet0_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterExecutionStateChanged provides a mock function with given fields: opts, sequenceNumber, messageId
-func (_m *EVM2EVMOffRampInterface) FilterExecutionStateChanged(opts *bind.FilterOpts, sequenceNumber []uint64, messageId [][32]byte) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterExecutionStateChanged(opts *bind.FilterOpts, sequenceNumber []uint64, messageId [][32]byte) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator, error) {
 	ret := _m.Called(opts, sequenceNumber, messageId)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterExecutionStateChanged")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, [][32]byte) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, [][32]byte) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator, error)); ok {
 		return rf(opts, sequenceNumber, messageId)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, [][32]byte) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, [][32]byte) *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator); ok {
 		r0 = rf(opts, sequenceNumber, messageId)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator)
 		}
 	}
 
@@ -584,34 +584,34 @@ func (_c *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call) Run(run func
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, [][32]byte) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChangedIterator, error)) *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, [][32]byte) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChangedIterator, error)) *EVM2EVMOffRampInterface_FilterExecutionStateChanged_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
-func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator, error) {
 	ret := _m.Called(opts, from, to)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterOwnershipTransferRequested")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator, error)); ok {
 		return rf(opts, from, to)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator); ok {
 		r0 = rf(opts, from, to)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator)
 		}
 	}
 
@@ -644,34 +644,34 @@ func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call) Run(run
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequestedIterator, error)) *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequestedIterator, error)) *EVM2EVMOffRampInterface_FilterOwnershipTransferRequested_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterOwnershipTransferred provides a mock function with given fields: opts, from, to
-func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator, error) {
 	ret := _m.Called(opts, from, to)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterOwnershipTransferred")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator, error)); ok {
 		return rf(opts, from, to)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []common.Address, []common.Address) *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator); ok {
 		r0 = rf(opts, from, to)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator)
 		}
 	}
 
@@ -704,34 +704,34 @@ func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call) Run(run func(
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator, _a1 error) *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator, _a1 error) *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferredIterator, error)) *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call) RunAndReturn(run func(*bind.FilterOpts, []common.Address, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferredIterator, error)) *EVM2EVMOffRampInterface_FilterOwnershipTransferred_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterPoolAdded provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterPoolAdded(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterPoolAdded(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterPoolAdded")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator)
 		}
 	}
 
@@ -762,34 +762,34 @@ func (_c *EVM2EVMOffRampInterface_FilterPoolAdded_Call) Run(run func(opts *bind.
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterPoolAdded_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterPoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_FilterPoolAdded_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterPoolAdded_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterPoolAdded_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAddedIterator, error)) *EVM2EVMOffRampInterface_FilterPoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_FilterPoolAdded_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAddedIterator, error)) *EVM2EVMOffRampInterface_FilterPoolAdded_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterPoolRemoved provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterPoolRemoved(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterPoolRemoved(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterPoolRemoved")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator)
 		}
 	}
 
@@ -820,34 +820,34 @@ func (_c *EVM2EVMOffRampInterface_FilterPoolRemoved_Call) Run(run func(opts *bin
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterPoolRemoved_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterPoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_FilterPoolRemoved_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterPoolRemoved_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterPoolRemoved_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemovedIterator, error)) *EVM2EVMOffRampInterface_FilterPoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_FilterPoolRemoved_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemovedIterator, error)) *EVM2EVMOffRampInterface_FilterPoolRemoved_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterSkippedIncorrectNonce provides a mock function with given fields: opts, nonce, sender
-func (_m *EVM2EVMOffRampInterface) FilterSkippedIncorrectNonce(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterSkippedIncorrectNonce(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, error) {
 	ret := _m.Called(opts, nonce, sender)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterSkippedIncorrectNonce")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, error)); ok {
 		return rf(opts, nonce, sender)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator); ok {
 		r0 = rf(opts, nonce, sender)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator)
 		}
 	}
 
@@ -880,34 +880,34 @@ func (_c *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call) Run(run func
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator, _a1 error) *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, _a1 error) *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonceIterator, error)) *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonceIterator, error)) *EVM2EVMOffRampInterface_FilterSkippedIncorrectNonce_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterSkippedSenderWithPreviousRampMessageInflight provides a mock function with given fields: opts, nonce, sender
-func (_m *EVM2EVMOffRampInterface) FilterSkippedSenderWithPreviousRampMessageInflight(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterSkippedSenderWithPreviousRampMessageInflight(opts *bind.FilterOpts, nonce []uint64, sender []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error) {
 	ret := _m.Called(opts, nonce, sender)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterSkippedSenderWithPreviousRampMessageInflight")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error)); ok {
 		return rf(opts, nonce, sender)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts, []uint64, []common.Address) *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator); ok {
 		r0 = rf(opts, nonce, sender)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator)
 		}
 	}
 
@@ -940,34 +940,34 @@ func (_c *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInfl
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, _a1 error) *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, _a1 error) *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error)) *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(*bind.FilterOpts, []uint64, []common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflightIterator, error)) *EVM2EVMOffRampInterface_FilterSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // FilterTransmitted provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) FilterTransmitted(opts *bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator, error) {
+func (_m *EVM2EVMOffRampInterface) FilterTransmitted(opts *bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FilterTransmitted")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator); ok {
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator); ok {
 		r0 = rf(opts)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator)
 		}
 	}
 
@@ -998,12 +998,12 @@ func (_c *EVM2EVMOffRampInterface_FilterTransmitted_Call) Run(run func(opts *bin
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterTransmitted_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_FilterTransmitted_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator, _a1 error) *EVM2EVMOffRampInterface_FilterTransmitted_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_FilterTransmitted_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmittedIterator, error)) *EVM2EVMOffRampInterface_FilterTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_FilterTransmitted_Call) RunAndReturn(run func(*bind.FilterOpts) (*evm_2_evm_offramp.EVM2EVMOffRampTransmittedIterator, error)) *EVM2EVMOffRampInterface_FilterTransmitted_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1126,22 +1126,22 @@ func (_c *EVM2EVMOffRampInterface_GetDestinationTokens_Call) RunAndReturn(run fu
 }
 
 // GetDynamicConfig provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig, error) {
+func (_m *EVM2EVMOffRampInterface) GetDynamicConfig(opts *bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDynamicConfig")
 	}
 
-	var r0 evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig
+	var r0 evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig)
+		r0 = ret.Get(0).(evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -1171,12 +1171,12 @@ func (_c *EVM2EVMOffRampInterface_GetDynamicConfig_Call) Run(run func(opts *bind
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_GetDynamicConfig_Call) Return(_a0 evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig, _a1 error) *EVM2EVMOffRampInterface_GetDynamicConfig_Call {
+func (_c *EVM2EVMOffRampInterface_GetDynamicConfig_Call) Return(_a0 evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig, _a1 error) *EVM2EVMOffRampInterface_GetDynamicConfig_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_GetDynamicConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig, error)) *EVM2EVMOffRampInterface_GetDynamicConfig_Call {
+func (_c *EVM2EVMOffRampInterface_GetDynamicConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig, error)) *EVM2EVMOffRampInterface_GetDynamicConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1414,22 +1414,22 @@ func (_c *EVM2EVMOffRampInterface_GetSenderNonce_Call) RunAndReturn(run func(*bi
 }
 
 // GetStaticConfig provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) GetStaticConfig(opts *bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig, error) {
+func (_m *EVM2EVMOffRampInterface) GetStaticConfig(opts *bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampStaticConfig, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetStaticConfig")
 	}
 
-	var r0 evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig
+	var r0 evm_2_evm_offramp.EVM2EVMOffRampStaticConfig
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampStaticConfig, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.EVM2EVMOffRampStaticConfig); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig)
+		r0 = ret.Get(0).(evm_2_evm_offramp.EVM2EVMOffRampStaticConfig)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -1459,12 +1459,12 @@ func (_c *EVM2EVMOffRampInterface_GetStaticConfig_Call) Run(run func(opts *bind.
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_GetStaticConfig_Call) Return(_a0 evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig, _a1 error) *EVM2EVMOffRampInterface_GetStaticConfig_Call {
+func (_c *EVM2EVMOffRampInterface_GetStaticConfig_Call) Return(_a0 evm_2_evm_offramp.EVM2EVMOffRampStaticConfig, _a1 error) *EVM2EVMOffRampInterface_GetStaticConfig_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_GetStaticConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.EVM2EVMOffRampStaticConfig, error)) *EVM2EVMOffRampInterface_GetStaticConfig_Call {
+func (_c *EVM2EVMOffRampInterface_GetStaticConfig_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp.EVM2EVMOffRampStaticConfig, error)) *EVM2EVMOffRampInterface_GetStaticConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1644,22 +1644,22 @@ func (_c *EVM2EVMOffRampInterface_GetTransmitters_Call) RunAndReturn(run func(*b
 }
 
 // LatestConfigDetails provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) LatestConfigDetails(opts *bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDetails, error) {
+func (_m *EVM2EVMOffRampInterface) LatestConfigDetails(opts *bind.CallOpts) (evm_2_evm_offramp.LatestConfigDetails, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestConfigDetails")
 	}
 
-	var r0 evm_2_evm_offramp_1_2_0.LatestConfigDetails
+	var r0 evm_2_evm_offramp.LatestConfigDetails
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDetails, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.LatestConfigDetails, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp_1_2_0.LatestConfigDetails); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.LatestConfigDetails); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(evm_2_evm_offramp_1_2_0.LatestConfigDetails)
+		r0 = ret.Get(0).(evm_2_evm_offramp.LatestConfigDetails)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -1689,33 +1689,33 @@ func (_c *EVM2EVMOffRampInterface_LatestConfigDetails_Call) Run(run func(opts *b
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_LatestConfigDetails_Call) Return(_a0 evm_2_evm_offramp_1_2_0.LatestConfigDetails, _a1 error) *EVM2EVMOffRampInterface_LatestConfigDetails_Call {
+func (_c *EVM2EVMOffRampInterface_LatestConfigDetails_Call) Return(_a0 evm_2_evm_offramp.LatestConfigDetails, _a1 error) *EVM2EVMOffRampInterface_LatestConfigDetails_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_LatestConfigDetails_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDetails, error)) *EVM2EVMOffRampInterface_LatestConfigDetails_Call {
+func (_c *EVM2EVMOffRampInterface_LatestConfigDetails_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp.LatestConfigDetails, error)) *EVM2EVMOffRampInterface_LatestConfigDetails_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // LatestConfigDigestAndEpoch provides a mock function with given fields: opts
-func (_m *EVM2EVMOffRampInterface) LatestConfigDigestAndEpoch(opts *bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch, error) {
+func (_m *EVM2EVMOffRampInterface) LatestConfigDigestAndEpoch(opts *bind.CallOpts) (evm_2_evm_offramp.LatestConfigDigestAndEpoch, error) {
 	ret := _m.Called(opts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestConfigDigestAndEpoch")
 	}
 
-	var r0 evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch
+	var r0 evm_2_evm_offramp.LatestConfigDigestAndEpoch
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (evm_2_evm_offramp.LatestConfigDigestAndEpoch, error)); ok {
 		return rf(opts)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) evm_2_evm_offramp.LatestConfigDigestAndEpoch); ok {
 		r0 = rf(opts)
 	} else {
-		r0 = ret.Get(0).(evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch)
+		r0 = ret.Get(0).(evm_2_evm_offramp.LatestConfigDigestAndEpoch)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
@@ -1745,18 +1745,18 @@ func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) Run(run func(
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) Return(_a0 evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch, _a1 error) *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call {
+func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) Return(_a0 evm_2_evm_offramp.LatestConfigDigestAndEpoch, _a1 error) *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp_1_2_0.LatestConfigDigestAndEpoch, error)) *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call {
+func (_c *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call) RunAndReturn(run func(*bind.CallOpts) (evm_2_evm_offramp.LatestConfigDigestAndEpoch, error)) *EVM2EVMOffRampInterface_LatestConfigDigestAndEpoch_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ManuallyExecute provides a mock function with given fields: opts, report, gasLimitOverrides
-func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, report evm_2_evm_offramp_1_2_0.InternalExecutionReport, gasLimitOverrides []*big.Int) (*types.Transaction, error) {
+func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []*big.Int) (*types.Transaction, error) {
 	ret := _m.Called(opts, report, gasLimitOverrides)
 
 	if len(ret) == 0 {
@@ -1765,10 +1765,10 @@ func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, repo
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalExecutionReport, []*big.Int) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) (*types.Transaction, error)); ok {
 		return rf(opts, report, gasLimitOverrides)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalExecutionReport, []*big.Int) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) *types.Transaction); ok {
 		r0 = rf(opts, report, gasLimitOverrides)
 	} else {
 		if ret.Get(0) != nil {
@@ -1776,7 +1776,7 @@ func (_m *EVM2EVMOffRampInterface) ManuallyExecute(opts *bind.TransactOpts, repo
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalExecutionReport, []*big.Int) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) error); ok {
 		r1 = rf(opts, report, gasLimitOverrides)
 	} else {
 		r1 = ret.Error(1)
@@ -1792,15 +1792,15 @@ type EVM2EVMOffRampInterface_ManuallyExecute_Call struct {
 
 // ManuallyExecute is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
-//   - report evm_2_evm_offramp_1_2_0.InternalExecutionReport
+//   - report evm_2_evm_offramp.InternalExecutionReport
 //   - gasLimitOverrides []*big.Int
 func (_e *EVM2EVMOffRampInterface_Expecter) ManuallyExecute(opts interface{}, report interface{}, gasLimitOverrides interface{}) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	return &EVM2EVMOffRampInterface_ManuallyExecute_Call{Call: _e.mock.On("ManuallyExecute", opts, report, gasLimitOverrides)}
 }
 
-func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Run(run func(opts *bind.TransactOpts, report evm_2_evm_offramp_1_2_0.InternalExecutionReport, gasLimitOverrides []*big.Int)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
+func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Run(run func(opts *bind.TransactOpts, report evm_2_evm_offramp.InternalExecutionReport, gasLimitOverrides []*big.Int)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp_1_2_0.InternalExecutionReport), args[2].([]*big.Int))
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.InternalExecutionReport), args[2].([]*big.Int))
 	})
 	return _c
 }
@@ -1810,7 +1810,7 @@ func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) Return(_a0 *types.Transa
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.InternalExecutionReport, []*big.Int) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
+func (_c *EVM2EVMOffRampInterface_ManuallyExecute_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.InternalExecutionReport, []*big.Int) (*types.Transaction, error)) *EVM2EVMOffRampInterface_ManuallyExecute_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1874,23 +1874,23 @@ func (_c *EVM2EVMOffRampInterface_Owner_Call) RunAndReturn(run func(*bind.CallOp
 }
 
 // ParseAdminSet provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseAdminSet(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet, error) {
+func (_m *EVM2EVMOffRampInterface) ParseAdminSet(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSet, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseAdminSet")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampAdminSet
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSet, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampAdminSet); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampAdminSet)
 		}
 	}
 
@@ -1921,34 +1921,34 @@ func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) Run(run func(log types.Log
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet, _a1 error) *EVM2EVMOffRampInterface_ParseAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampAdminSet, _a1 error) *EVM2EVMOffRampInterface_ParseAdminSet_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet, error)) *EVM2EVMOffRampInterface_ParseAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_ParseAdminSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampAdminSet, error)) *EVM2EVMOffRampInterface_ParseAdminSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseConfigSet provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseConfigSet(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet, error) {
+func (_m *EVM2EVMOffRampInterface) ParseConfigSet(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseConfigSet")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampConfigSet); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigSet)
 		}
 	}
 
@@ -1979,34 +1979,34 @@ func (_c *EVM2EVMOffRampInterface_ParseConfigSet_Call) Run(run func(log types.Lo
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseConfigSet_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet, _a1 error) *EVM2EVMOffRampInterface_ParseConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_ParseConfigSet_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet, _a1 error) *EVM2EVMOffRampInterface_ParseConfigSet_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseConfigSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet, error)) *EVM2EVMOffRampInterface_ParseConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_ParseConfigSet_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet, error)) *EVM2EVMOffRampInterface_ParseConfigSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseConfigSet0 provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseConfigSet0(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0, error) {
+func (_m *EVM2EVMOffRampInterface) ParseConfigSet0(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseConfigSet0")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0)
 		}
 	}
 
@@ -2037,34 +2037,34 @@ func (_c *EVM2EVMOffRampInterface_ParseConfigSet0_Call) Run(run func(log types.L
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseConfigSet0_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0, _a1 error) *EVM2EVMOffRampInterface_ParseConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_ParseConfigSet0_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0, _a1 error) *EVM2EVMOffRampInterface_ParseConfigSet0_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseConfigSet0_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0, error)) *EVM2EVMOffRampInterface_ParseConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_ParseConfigSet0_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampConfigSet0, error)) *EVM2EVMOffRampInterface_ParseConfigSet0_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseExecutionStateChanged provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseExecutionStateChanged(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, error) {
+func (_m *EVM2EVMOffRampInterface) ParseExecutionStateChanged(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseExecutionStateChanged")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged)
 		}
 	}
 
@@ -2095,12 +2095,12 @@ func (_c *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call) Run(run func(
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, _a1 error) *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, _a1 error) *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, error)) *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, error)) *EVM2EVMOffRampInterface_ParseExecutionStateChanged_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2164,23 +2164,23 @@ func (_c *EVM2EVMOffRampInterface_ParseLog_Call) RunAndReturn(run func(types.Log
 }
 
 // ParseOwnershipTransferRequested provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferRequested(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, error) {
+func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferRequested(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseOwnershipTransferRequested")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested)
 		}
 	}
 
@@ -2211,34 +2211,34 @@ func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call) Run(run 
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, _a1 error) *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, _a1 error) *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, error)) *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, error)) *EVM2EVMOffRampInterface_ParseOwnershipTransferRequested_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseOwnershipTransferred provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferred(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, error) {
+func (_m *EVM2EVMOffRampInterface) ParseOwnershipTransferred(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseOwnershipTransferred")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred)
 		}
 	}
 
@@ -2269,34 +2269,34 @@ func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call) Run(run func(l
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, _a1 error) *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, _a1 error) *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, error)) *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, error)) *EVM2EVMOffRampInterface_ParseOwnershipTransferred_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParsePoolAdded provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParsePoolAdded(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded, error) {
+func (_m *EVM2EVMOffRampInterface) ParsePoolAdded(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAdded, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParsePoolAdded")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAdded, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampPoolAdded)
 		}
 	}
 
@@ -2327,34 +2327,34 @@ func (_c *EVM2EVMOffRampInterface_ParsePoolAdded_Call) Run(run func(log types.Lo
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParsePoolAdded_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded, _a1 error) *EVM2EVMOffRampInterface_ParsePoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_ParsePoolAdded_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded, _a1 error) *EVM2EVMOffRampInterface_ParsePoolAdded_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParsePoolAdded_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded, error)) *EVM2EVMOffRampInterface_ParsePoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_ParsePoolAdded_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolAdded, error)) *EVM2EVMOffRampInterface_ParsePoolAdded_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParsePoolRemoved provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParsePoolRemoved(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved, error) {
+func (_m *EVM2EVMOffRampInterface) ParsePoolRemoved(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParsePoolRemoved")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved)
 		}
 	}
 
@@ -2385,34 +2385,34 @@ func (_c *EVM2EVMOffRampInterface_ParsePoolRemoved_Call) Run(run func(log types.
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParsePoolRemoved_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved, _a1 error) *EVM2EVMOffRampInterface_ParsePoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_ParsePoolRemoved_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved, _a1 error) *EVM2EVMOffRampInterface_ParsePoolRemoved_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParsePoolRemoved_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved, error)) *EVM2EVMOffRampInterface_ParsePoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_ParsePoolRemoved_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved, error)) *EVM2EVMOffRampInterface_ParsePoolRemoved_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseSkippedIncorrectNonce provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseSkippedIncorrectNonce(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, error) {
+func (_m *EVM2EVMOffRampInterface) ParseSkippedIncorrectNonce(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseSkippedIncorrectNonce")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce)
 		}
 	}
 
@@ -2443,34 +2443,34 @@ func (_c *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call) Run(run func(
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, _a1 error) *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, _a1 error) *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, error)) *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, error)) *EVM2EVMOffRampInterface_ParseSkippedIncorrectNonce_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseSkippedSenderWithPreviousRampMessageInflight provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseSkippedSenderWithPreviousRampMessageInflight(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error) {
+func (_m *EVM2EVMOffRampInterface) ParseSkippedSenderWithPreviousRampMessageInflight(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseSkippedSenderWithPreviousRampMessageInflight")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight)
 		}
 	}
 
@@ -2501,34 +2501,34 @@ func (_c *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInfli
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, _a1 error) *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, _a1 error) *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error)) *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, error)) *EVM2EVMOffRampInterface_ParseSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ParseTransmitted provides a mock function with given fields: log
-func (_m *EVM2EVMOffRampInterface) ParseTransmitted(log types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted, error) {
+func (_m *EVM2EVMOffRampInterface) ParseTransmitted(log types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampTransmitted, error) {
 	ret := _m.Called(log)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ParseTransmitted")
 	}
 
-	var r0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted
+	var r0 *evm_2_evm_offramp.EVM2EVMOffRampTransmitted
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted, error)); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampTransmitted, error)); ok {
 		return rf(log)
 	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted); ok {
+	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_offramp.EVM2EVMOffRampTransmitted); ok {
 		r0 = rf(log)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted)
+			r0 = ret.Get(0).(*evm_2_evm_offramp.EVM2EVMOffRampTransmitted)
 		}
 	}
 
@@ -2559,12 +2559,12 @@ func (_c *EVM2EVMOffRampInterface_ParseTransmitted_Call) Run(run func(log types.
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseTransmitted_Call) Return(_a0 *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted, _a1 error) *EVM2EVMOffRampInterface_ParseTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_ParseTransmitted_Call) Return(_a0 *evm_2_evm_offramp.EVM2EVMOffRampTransmitted, _a1 error) *EVM2EVMOffRampInterface_ParseTransmitted_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_ParseTransmitted_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted, error)) *EVM2EVMOffRampInterface_ParseTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_ParseTransmitted_Call) RunAndReturn(run func(types.Log) (*evm_2_evm_offramp.EVM2EVMOffRampTransmitted, error)) *EVM2EVMOffRampInterface_ParseTransmitted_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2693,7 +2693,7 @@ func (_c *EVM2EVMOffRampInterface_SetOCR2Config_Call) RunAndReturn(run func(*bin
 }
 
 // SetRateLimiterConfig provides a mock function with given fields: opts, config
-func (_m *EVM2EVMOffRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts, config evm_2_evm_offramp_1_2_0.RateLimiterConfig) (*types.Transaction, error) {
+func (_m *EVM2EVMOffRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts, config evm_2_evm_offramp.RateLimiterConfig) (*types.Transaction, error) {
 	ret := _m.Called(opts, config)
 
 	if len(ret) == 0 {
@@ -2702,10 +2702,10 @@ func (_m *EVM2EVMOffRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts,
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.RateLimiterConfig) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.RateLimiterConfig) (*types.Transaction, error)); ok {
 		return rf(opts, config)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.RateLimiterConfig) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_offramp.RateLimiterConfig) *types.Transaction); ok {
 		r0 = rf(opts, config)
 	} else {
 		if ret.Get(0) != nil {
@@ -2713,7 +2713,7 @@ func (_m *EVM2EVMOffRampInterface) SetRateLimiterConfig(opts *bind.TransactOpts,
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.RateLimiterConfig) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_offramp.RateLimiterConfig) error); ok {
 		r1 = rf(opts, config)
 	} else {
 		r1 = ret.Error(1)
@@ -2729,14 +2729,14 @@ type EVM2EVMOffRampInterface_SetRateLimiterConfig_Call struct {
 
 // SetRateLimiterConfig is a helper method to define mock.On call
 //   - opts *bind.TransactOpts
-//   - config evm_2_evm_offramp_1_2_0.RateLimiterConfig
+//   - config evm_2_evm_offramp.RateLimiterConfig
 func (_e *EVM2EVMOffRampInterface_Expecter) SetRateLimiterConfig(opts interface{}, config interface{}) *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call {
 	return &EVM2EVMOffRampInterface_SetRateLimiterConfig_Call{Call: _e.mock.On("SetRateLimiterConfig", opts, config)}
 }
 
-func (_c *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call) Run(run func(opts *bind.TransactOpts, config evm_2_evm_offramp_1_2_0.RateLimiterConfig)) *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call {
+func (_c *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call) Run(run func(opts *bind.TransactOpts, config evm_2_evm_offramp.RateLimiterConfig)) *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp_1_2_0.RateLimiterConfig))
+		run(args[0].(*bind.TransactOpts), args[1].(evm_2_evm_offramp.RateLimiterConfig))
 	})
 	return _c
 }
@@ -2746,7 +2746,7 @@ func (_c *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call) Return(_a0 *types.T
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp_1_2_0.RateLimiterConfig) (*types.Transaction, error)) *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call {
+func (_c *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call) RunAndReturn(run func(*bind.TransactOpts, evm_2_evm_offramp.RateLimiterConfig) (*types.Transaction, error)) *EVM2EVMOffRampInterface_SetRateLimiterConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2930,7 +2930,7 @@ func (_c *EVM2EVMOffRampInterface_TypeAndVersion_Call) RunAndReturn(run func(*bi
 }
 
 // WatchAdminSet provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -2939,10 +2939,10 @@ func (_m *EVM2EVMOffRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -2950,7 +2950,7 @@ func (_m *EVM2EVMOffRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -2966,14 +2966,14 @@ type EVM2EVMOffRampInterface_WatchAdminSet_Call struct {
 
 // WatchAdminSet is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchAdminSet(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
 	return &EVM2EVMOffRampInterface_WatchAdminSet_Call{Call: _e.mock.On("WatchAdminSet", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet)) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet)) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet))
 	})
 	return _c
 }
@@ -2983,13 +2983,13 @@ func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) Return(_a0 event.Subscript
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampAdminSet) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
+func (_c *EVM2EVMOffRampInterface_WatchAdminSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampAdminSet) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchAdminSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchConfigSet provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -2998,10 +2998,10 @@ func (_m *EVM2EVMOffRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink cha
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -3009,7 +3009,7 @@ func (_m *EVM2EVMOffRampInterface) WatchConfigSet(opts *bind.WatchOpts, sink cha
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -3025,14 +3025,14 @@ type EVM2EVMOffRampInterface_WatchConfigSet_Call struct {
 
 // WatchConfigSet is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchConfigSet(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchConfigSet_Call {
 	return &EVM2EVMOffRampInterface_WatchConfigSet_Call{Call: _e.mock.On("WatchConfigSet", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchConfigSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet)) *EVM2EVMOffRampInterface_WatchConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_WatchConfigSet_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet)) *EVM2EVMOffRampInterface_WatchConfigSet_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet))
 	})
 	return _c
 }
@@ -3042,13 +3042,13 @@ func (_c *EVM2EVMOffRampInterface_WatchConfigSet_Call) Return(_a0 event.Subscrip
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchConfigSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchConfigSet_Call {
+func (_c *EVM2EVMOffRampInterface_WatchConfigSet_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchConfigSet_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchConfigSet0 provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchConfigSet0(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchConfigSet0(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -3057,10 +3057,10 @@ func (_m *EVM2EVMOffRampInterface) WatchConfigSet0(opts *bind.WatchOpts, sink ch
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -3068,7 +3068,7 @@ func (_m *EVM2EVMOffRampInterface) WatchConfigSet0(opts *bind.WatchOpts, sink ch
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -3084,14 +3084,14 @@ type EVM2EVMOffRampInterface_WatchConfigSet0_Call struct {
 
 // WatchConfigSet0 is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchConfigSet0(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchConfigSet0_Call {
 	return &EVM2EVMOffRampInterface_WatchConfigSet0_Call{Call: _e.mock.On("WatchConfigSet0", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchConfigSet0_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0)) *EVM2EVMOffRampInterface_WatchConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_WatchConfigSet0_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0)) *EVM2EVMOffRampInterface_WatchConfigSet0_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0))
 	})
 	return _c
 }
@@ -3101,13 +3101,13 @@ func (_c *EVM2EVMOffRampInterface_WatchConfigSet0_Call) Return(_a0 event.Subscri
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchConfigSet0_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampConfigSet0) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchConfigSet0_Call {
+func (_c *EVM2EVMOffRampInterface_WatchConfigSet0_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampConfigSet0) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchConfigSet0_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchExecutionStateChanged provides a mock function with given fields: opts, sink, sequenceNumber, messageId
-func (_m *EVM2EVMOffRampInterface) WatchExecutionStateChanged(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, sequenceNumber []uint64, messageId [][32]byte) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchExecutionStateChanged(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, sequenceNumber []uint64, messageId [][32]byte) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, sequenceNumber, messageId)
 
 	if len(ret) == 0 {
@@ -3116,10 +3116,10 @@ func (_m *EVM2EVMOffRampInterface) WatchExecutionStateChanged(opts *bind.WatchOp
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) (event.Subscription, error)); ok {
 		return rf(opts, sink, sequenceNumber, messageId)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) event.Subscription); ok {
 		r0 = rf(opts, sink, sequenceNumber, messageId)
 	} else {
 		if ret.Get(0) != nil {
@@ -3127,7 +3127,7 @@ func (_m *EVM2EVMOffRampInterface) WatchExecutionStateChanged(opts *bind.WatchOp
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) error); ok {
 		r1 = rf(opts, sink, sequenceNumber, messageId)
 	} else {
 		r1 = ret.Error(1)
@@ -3143,16 +3143,16 @@ type EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call struct {
 
 // WatchExecutionStateChanged is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged
 //   - sequenceNumber []uint64
 //   - messageId [][32]byte
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchExecutionStateChanged(opts interface{}, sink interface{}, sequenceNumber interface{}, messageId interface{}) *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call {
 	return &EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call{Call: _e.mock.On("WatchExecutionStateChanged", opts, sink, sequenceNumber, messageId)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, sequenceNumber []uint64, messageId [][32]byte)) *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, sequenceNumber []uint64, messageId [][32]byte)) *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged), args[2].([]uint64), args[3].([][32]byte))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged), args[2].([]uint64), args[3].([][32]byte))
 	})
 	return _c
 }
@@ -3162,13 +3162,13 @@ func (_c *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call) Return(_a0 ev
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call {
+func (_c *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged, []uint64, [][32]byte) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchExecutionStateChanged_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
-func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
 
 	if len(ret) == 0 {
@@ -3177,10 +3177,10 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferRequested(opts *bind.Wa
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)); ok {
 		return rf(opts, sink, from, to)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) event.Subscription); ok {
 		r0 = rf(opts, sink, from, to)
 	} else {
 		if ret.Get(0) != nil {
@@ -3188,7 +3188,7 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferRequested(opts *bind.Wa
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) error); ok {
 		r1 = rf(opts, sink, from, to)
 	} else {
 		r1 = ret.Error(1)
@@ -3204,16 +3204,16 @@ type EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call struct {
 
 // WatchOwnershipTransferRequested is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested
 //   - from []common.Address
 //   - to []common.Address
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchOwnershipTransferRequested(opts interface{}, sink interface{}, from interface{}, to interface{}) *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call {
 	return &EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call{Call: _e.mock.On("WatchOwnershipTransferRequested", opts, sink, from, to)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, from []common.Address, to []common.Address)) *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, from []common.Address, to []common.Address)) *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested), args[2].([]common.Address), args[3].([]common.Address))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested), args[2].([]common.Address), args[3].([]common.Address))
 	})
 	return _c
 }
@@ -3223,13 +3223,13 @@ func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call) Return(_
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call {
+func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferRequested, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchOwnershipTransferRequested_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchOwnershipTransferred provides a mock function with given fields: opts, sink, from, to
-func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
 
 	if len(ret) == 0 {
@@ -3238,10 +3238,10 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpt
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)); ok {
 		return rf(opts, sink, from, to)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) event.Subscription); ok {
 		r0 = rf(opts, sink, from, to)
 	} else {
 		if ret.Get(0) != nil {
@@ -3249,7 +3249,7 @@ func (_m *EVM2EVMOffRampInterface) WatchOwnershipTransferred(opts *bind.WatchOpt
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) error); ok {
 		r1 = rf(opts, sink, from, to)
 	} else {
 		r1 = ret.Error(1)
@@ -3265,16 +3265,16 @@ type EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call struct {
 
 // WatchOwnershipTransferred is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred
 //   - from []common.Address
 //   - to []common.Address
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchOwnershipTransferred(opts interface{}, sink interface{}, from interface{}, to interface{}) *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call {
 	return &EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call{Call: _e.mock.On("WatchOwnershipTransferred", opts, sink, from, to)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, from []common.Address, to []common.Address)) *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, from []common.Address, to []common.Address)) *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred), args[2].([]common.Address), args[3].([]common.Address))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred), args[2].([]common.Address), args[3].([]common.Address))
 	})
 	return _c
 }
@@ -3284,13 +3284,13 @@ func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call) Return(_a0 eve
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call {
+func (_c *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampOwnershipTransferred, []common.Address, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchOwnershipTransferred_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchPoolAdded provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -3299,10 +3299,10 @@ func (_m *EVM2EVMOffRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink cha
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -3310,7 +3310,7 @@ func (_m *EVM2EVMOffRampInterface) WatchPoolAdded(opts *bind.WatchOpts, sink cha
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -3326,14 +3326,14 @@ type EVM2EVMOffRampInterface_WatchPoolAdded_Call struct {
 
 // WatchPoolAdded is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchPoolAdded(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchPoolAdded_Call {
 	return &EVM2EVMOffRampInterface_WatchPoolAdded_Call{Call: _e.mock.On("WatchPoolAdded", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchPoolAdded_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded)) *EVM2EVMOffRampInterface_WatchPoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_WatchPoolAdded_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded)) *EVM2EVMOffRampInterface_WatchPoolAdded_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded))
 	})
 	return _c
 }
@@ -3343,13 +3343,13 @@ func (_c *EVM2EVMOffRampInterface_WatchPoolAdded_Call) Return(_a0 event.Subscrip
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchPoolAdded_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolAdded) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchPoolAdded_Call {
+func (_c *EVM2EVMOffRampInterface_WatchPoolAdded_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolAdded) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchPoolAdded_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchPoolRemoved provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchPoolRemoved(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchPoolRemoved(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -3358,10 +3358,10 @@ func (_m *EVM2EVMOffRampInterface) WatchPoolRemoved(opts *bind.WatchOpts, sink c
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -3369,7 +3369,7 @@ func (_m *EVM2EVMOffRampInterface) WatchPoolRemoved(opts *bind.WatchOpts, sink c
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -3385,14 +3385,14 @@ type EVM2EVMOffRampInterface_WatchPoolRemoved_Call struct {
 
 // WatchPoolRemoved is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchPoolRemoved(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchPoolRemoved_Call {
 	return &EVM2EVMOffRampInterface_WatchPoolRemoved_Call{Call: _e.mock.On("WatchPoolRemoved", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchPoolRemoved_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved)) *EVM2EVMOffRampInterface_WatchPoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_WatchPoolRemoved_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved)) *EVM2EVMOffRampInterface_WatchPoolRemoved_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved))
 	})
 	return _c
 }
@@ -3402,13 +3402,13 @@ func (_c *EVM2EVMOffRampInterface_WatchPoolRemoved_Call) Return(_a0 event.Subscr
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchPoolRemoved_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampPoolRemoved) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchPoolRemoved_Call {
+func (_c *EVM2EVMOffRampInterface_WatchPoolRemoved_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampPoolRemoved) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchPoolRemoved_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchSkippedIncorrectNonce provides a mock function with given fields: opts, sink, nonce, sender
-func (_m *EVM2EVMOffRampInterface) WatchSkippedIncorrectNonce(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, nonce []uint64, sender []common.Address) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchSkippedIncorrectNonce(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, nonce []uint64, sender []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, nonce, sender)
 
 	if len(ret) == 0 {
@@ -3417,10 +3417,10 @@ func (_m *EVM2EVMOffRampInterface) WatchSkippedIncorrectNonce(opts *bind.WatchOp
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) (event.Subscription, error)); ok {
 		return rf(opts, sink, nonce, sender)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) event.Subscription); ok {
 		r0 = rf(opts, sink, nonce, sender)
 	} else {
 		if ret.Get(0) != nil {
@@ -3428,7 +3428,7 @@ func (_m *EVM2EVMOffRampInterface) WatchSkippedIncorrectNonce(opts *bind.WatchOp
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) error); ok {
 		r1 = rf(opts, sink, nonce, sender)
 	} else {
 		r1 = ret.Error(1)
@@ -3444,16 +3444,16 @@ type EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call struct {
 
 // WatchSkippedIncorrectNonce is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce
 //   - nonce []uint64
 //   - sender []common.Address
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchSkippedIncorrectNonce(opts interface{}, sink interface{}, nonce interface{}, sender interface{}) *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call {
 	return &EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call{Call: _e.mock.On("WatchSkippedIncorrectNonce", opts, sink, nonce, sender)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, nonce []uint64, sender []common.Address)) *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, nonce []uint64, sender []common.Address)) *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce), args[2].([]uint64), args[3].([]common.Address))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce), args[2].([]uint64), args[3].([]common.Address))
 	})
 	return _c
 }
@@ -3463,13 +3463,13 @@ func (_c *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call) Return(_a0 ev
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call {
+func (_c *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedIncorrectNonce, []uint64, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchSkippedIncorrectNonce_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchSkippedSenderWithPreviousRampMessageInflight provides a mock function with given fields: opts, sink, nonce, sender
-func (_m *EVM2EVMOffRampInterface) WatchSkippedSenderWithPreviousRampMessageInflight(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, nonce []uint64, sender []common.Address) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchSkippedSenderWithPreviousRampMessageInflight(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, nonce []uint64, sender []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, nonce, sender)
 
 	if len(ret) == 0 {
@@ -3478,10 +3478,10 @@ func (_m *EVM2EVMOffRampInterface) WatchSkippedSenderWithPreviousRampMessageInfl
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) (event.Subscription, error)); ok {
 		return rf(opts, sink, nonce, sender)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) event.Subscription); ok {
 		r0 = rf(opts, sink, nonce, sender)
 	} else {
 		if ret.Get(0) != nil {
@@ -3489,7 +3489,7 @@ func (_m *EVM2EVMOffRampInterface) WatchSkippedSenderWithPreviousRampMessageInfl
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) error); ok {
 		r1 = rf(opts, sink, nonce, sender)
 	} else {
 		r1 = ret.Error(1)
@@ -3505,16 +3505,16 @@ type EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_C
 
 // WatchSkippedSenderWithPreviousRampMessageInflight is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight
 //   - nonce []uint64
 //   - sender []common.Address
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchSkippedSenderWithPreviousRampMessageInflight(opts interface{}, sink interface{}, nonce interface{}, sender interface{}) *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call {
 	return &EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call{Call: _e.mock.On("WatchSkippedSenderWithPreviousRampMessageInflight", opts, sink, nonce, sender)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, nonce []uint64, sender []common.Address)) *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, nonce []uint64, sender []common.Address)) *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight), args[2].([]uint64), args[3].([]common.Address))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight), args[2].([]uint64), args[3].([]common.Address))
 	})
 	return _c
 }
@@ -3524,13 +3524,13 @@ func (_c *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInfli
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call {
+func (_c *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampSkippedSenderWithPreviousRampMessageInflight, []uint64, []common.Address) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchSkippedSenderWithPreviousRampMessageInflight_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // WatchTransmitted provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOffRampInterface) WatchTransmitted(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted) (event.Subscription, error) {
+func (_m *EVM2EVMOffRampInterface) WatchTransmitted(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted) (event.Subscription, error) {
 	ret := _m.Called(opts, sink)
 
 	if len(ret) == 0 {
@@ -3539,10 +3539,10 @@ func (_m *EVM2EVMOffRampInterface) WatchTransmitted(opts *bind.WatchOpts, sink c
 
 	var r0 event.Subscription
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted) (event.Subscription, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted) (event.Subscription, error)); ok {
 		return rf(opts, sink)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted) event.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted) event.Subscription); ok {
 		r0 = rf(opts, sink)
 	} else {
 		if ret.Get(0) != nil {
@@ -3550,7 +3550,7 @@ func (_m *EVM2EVMOffRampInterface) WatchTransmitted(opts *bind.WatchOpts, sink c
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
@@ -3566,14 +3566,14 @@ type EVM2EVMOffRampInterface_WatchTransmitted_Call struct {
 
 // WatchTransmitted is a helper method to define mock.On call
 //   - opts *bind.WatchOpts
-//   - sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted
+//   - sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted
 func (_e *EVM2EVMOffRampInterface_Expecter) WatchTransmitted(opts interface{}, sink interface{}) *EVM2EVMOffRampInterface_WatchTransmitted_Call {
 	return &EVM2EVMOffRampInterface_WatchTransmitted_Call{Call: _e.mock.On("WatchTransmitted", opts, sink)}
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchTransmitted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted)) *EVM2EVMOffRampInterface_WatchTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_WatchTransmitted_Call) Run(run func(opts *bind.WatchOpts, sink chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted)) *EVM2EVMOffRampInterface_WatchTransmitted_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted))
+		run(args[0].(*bind.WatchOpts), args[1].(chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted))
 	})
 	return _c
 }
@@ -3583,7 +3583,7 @@ func (_c *EVM2EVMOffRampInterface_WatchTransmitted_Call) Return(_a0 event.Subscr
 	return _c
 }
 
-func (_c *EVM2EVMOffRampInterface_WatchTransmitted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp_1_2_0.EVM2EVMOffRampTransmitted) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchTransmitted_Call {
+func (_c *EVM2EVMOffRampInterface_WatchTransmitted_Call) RunAndReturn(run func(*bind.WatchOpts, chan<- *evm_2_evm_offramp.EVM2EVMOffRampTransmitted) (event.Subscription, error)) *EVM2EVMOffRampInterface_WatchTransmitted_Call {
 	_c.Call.Return(run)
 	return _c
 }

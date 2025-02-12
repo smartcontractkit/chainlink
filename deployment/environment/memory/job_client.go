@@ -26,7 +26,8 @@ import (
 )
 
 type JobClient struct {
-	Nodes map[string]Node
+	Nodes           map[string]Node
+	RegisteredNodes map[string]Node
 }
 
 func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
@@ -49,9 +50,38 @@ func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest,
 	panic("implement me")
 }
 
-func (j JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
-	// TODO implement me
-	panic("implement me")
+func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
+	if in == nil || in.GetPublicKey() == "" {
+		return nil, errors.New("public key is required")
+	}
+
+	if _, exists := j.RegisteredNodes[in.GetPublicKey()]; exists {
+		return nil, fmt.Errorf("node with Public Key %s is already registered", in.GetPublicKey())
+	}
+
+	var foundNode *Node
+	for _, node := range j.Nodes {
+		if node.Keys.CSA.ID() == in.GetPublicKey() {
+			foundNode = &node
+			break
+		}
+	}
+
+	if foundNode == nil {
+		return nil, fmt.Errorf("node with Public Key %s is not known", in.GetPublicKey())
+	}
+
+	j.RegisteredNodes[in.GetPublicKey()] = *foundNode
+
+	return &nodev1.RegisterNodeResponse{
+		Node: &nodev1.Node{
+			Id:          in.GetPublicKey(),
+			PublicKey:   in.GetPublicKey(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels:      in.Labels,
+		},
+	}, nil
 }
 
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
@@ -335,7 +365,7 @@ func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
-	return &JobClient{nodesByPeerID}
+	return &JobClient{nodesByPeerID, make(map[string]Node)}
 }
 
 func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {

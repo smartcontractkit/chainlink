@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 )
 

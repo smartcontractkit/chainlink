@@ -28,19 +28,20 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	burn_mint_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
-	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
-	evm_2_evm_onramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_0_0"
-	lock_release_token_pool "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	commit_store_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store"
+	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
+	burn_mint_token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/burn_mint_token_pool"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	lock_release_token_pool_1_0_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	evm_2_evm_onramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
@@ -182,7 +183,7 @@ type Common struct {
 	User              *bind.TransactOpts
 	Chain             *backends.SimulatedBackend
 	LinkToken         *link_token_interface.LinkToken
-	LinkTokenPool     *lock_release_token_pool.LockReleaseTokenPool
+	LinkTokenPool     *lock_release_token_pool_1_4_0.LockReleaseTokenPool
 	CustomToken       *link_token_interface.LinkToken
 	WrappedNative     *weth9.WETH9
 	WrappedNativePool *lock_release_token_pool_1_0_0.LockReleaseTokenPool
@@ -610,7 +611,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		return [20]byte{}, nil, err
 	}
 
-	destPoolAddress, _, destPool, err := burn_mint_token_pool.DeployBurnMintTokenPool(
+	destPoolAddress, _, destPool, err := burn_mint_token_pool_1_4_0.DeployBurnMintTokenPool(
 		c.Dest.User,
 		c.Dest.Chain,
 		destTokenAddress,
@@ -629,16 +630,16 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 	}
 
 	_, err = destPool.ApplyChainUpdates(c.Dest.User,
-		[]burn_mint_token_pool.TokenPoolChainUpdate{
+		[]burn_mint_token_pool_1_4_0.TokenPoolChainUpdate{
 			{
 				RemoteChainSelector: c.Source.ChainSelector,
 				Allowed:             true,
-				OutboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
+				OutboundRateLimiterConfig: burn_mint_token_pool_1_4_0.RateLimiterConfig{
 					IsEnabled: true,
 					Capacity:  HundredLink,
 					Rate:      big.NewInt(1e18),
 				},
-				InboundRateLimiterConfig: burn_mint_token_pool.RateLimiterConfig{
+				InboundRateLimiterConfig: burn_mint_token_pool_1_4_0.RateLimiterConfig{
 					IsEnabled: true,
 					Capacity:  HundredLink,
 					Rate:      big.NewInt(1e18),
@@ -650,7 +651,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 	}
 	c.Dest.Chain.Commit()
 
-	sourcePoolAddress, _, sourcePool, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+	sourcePoolAddress, _, sourcePool, err := lock_release_token_pool_1_4_0.DeployLockReleaseTokenPool(
 		c.Source.User,
 		c.Source.Chain,
 		sourceTokenAddress,
@@ -665,16 +666,16 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 	c.Source.Chain.Commit()
 
 	// set onRamp as valid caller for source pool
-	_, err = sourcePool.ApplyChainUpdates(c.Source.User, []lock_release_token_pool.TokenPoolChainUpdate{
+	_, err = sourcePool.ApplyChainUpdates(c.Source.User, []lock_release_token_pool_1_4_0.TokenPoolChainUpdate{
 		{
 			RemoteChainSelector: c.Dest.ChainSelector,
 			Allowed:             true,
-			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			OutboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
 			},
-			InboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			InboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
@@ -860,7 +861,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	sourceWeth9Pool, err := lock_release_token_pool_1_0_0.NewLockReleaseTokenPool(sourceWeth9PoolAddress, sourceChain.Client())
 	require.NoError(t, err)
 
-	sourcePoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+	sourcePoolAddress, _, _, err := lock_release_token_pool_1_4_0.DeployLockReleaseTokenPool(
 		sourceUser,
 		sourceChain.Client(),
 		sourceLinkTokenAddress,
@@ -871,7 +872,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
-	sourcePool, err := lock_release_token_pool.NewLockReleaseTokenPool(sourcePoolAddress, sourceChain.Client())
+	sourcePool, err := lock_release_token_pool_1_4_0.NewLockReleaseTokenPool(sourcePoolAddress, sourceChain.Client())
 	require.NoError(t, err)
 
 	// Deploy custom token pool source
@@ -993,15 +994,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	_, err = sourcePool.ApplyChainUpdates(
 		sourceUser,
-		[]lock_release_token_pool.TokenPoolChainUpdate{{
+		[]lock_release_token_pool_1_4_0.TokenPoolChainUpdate{{
 			RemoteChainSelector: DestChainSelector,
 			Allowed:             true,
-			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			OutboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
 			},
-			InboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			InboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
@@ -1043,7 +1044,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	destChain.Commit()
 	destLinkToken, err := link_token_interface.NewLinkToken(destLinkTokenAddress, destChain.Client())
 	require.NoError(t, err)
-	destPoolAddress, _, _, err := lock_release_token_pool.DeployLockReleaseTokenPool(
+	destPoolAddress, _, _, err := lock_release_token_pool_1_4_0.DeployLockReleaseTokenPool(
 		destUser,
 		destChain.Client(),
 		destLinkTokenAddress,
@@ -1054,7 +1055,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	)
 	require.NoError(t, err)
 	destChain.Commit()
-	destPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destPoolAddress, destChain.Client())
+	destPool, err := lock_release_token_pool_1_4_0.NewLockReleaseTokenPool(destPoolAddress, destChain.Client())
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -1144,15 +1145,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(offRampAddress, destChain.Client())
 	require.NoError(t, err)
 	_, err = destPool.ApplyChainUpdates(destUser,
-		[]lock_release_token_pool.TokenPoolChainUpdate{{
+		[]lock_release_token_pool_1_4_0.TokenPoolChainUpdate{{
 			RemoteChainSelector: sourceChainSelector,
 			Allowed:             true,
-			OutboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			OutboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
 			},
-			InboundRateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+			InboundRateLimiterConfig: lock_release_token_pool_1_4_0.RateLimiterConfig{
 				IsEnabled: true,
 				Capacity:  HundredLink,
 				Rate:      big.NewInt(1e18),
@@ -1455,7 +1456,7 @@ func (args *ManualExecArgs) execute(report *commit_store_1_2_0.CommitStoreCommit
 	seqNr := args.SeqNr
 	// Build a merkle tree for the report
 	mctx := hashutil.NewKeccak()
-	onRampContract, err := evm_2_evm_onramp_1_2_0.NewEVM2EVMOnRamp(common.HexToAddress(args.OnRamp), args.SourceChain)
+	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(args.OnRamp), args.SourceChain)
 	if err != nil {
 		return nil, err
 	}

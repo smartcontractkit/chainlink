@@ -25,7 +25,7 @@ const (
 	// FlushDeletesFrequency controls how often we wake up to check if there
 	// are records in the delete queue, and if so, attempt to drain the queue
 	// and delete them all.
-	FlushDeletesFrequency = 1 * time.Second
+	FlushDeletesFrequency = 15 * time.Second
 
 	// PruneFrequency controls how often we wake up to check to see if the
 	// transmissions table has exceeded its allowed size, and if so, truncate
@@ -133,9 +133,9 @@ func (pm *persistenceManager) runFlushDeletesLoop() {
 	ticker := services.TickerConfig{
 		// Don't prune right away, wait some time for the application to settle
 		// down first
-		Initial:   services.DefaultJitter.Apply(pm.pruneFrequency),
+		Initial:   services.DefaultJitter.Apply(pm.flushDeletesFrequency),
 		JitterPct: services.DefaultJitter,
-	}.NewTicker(pm.pruneFrequency)
+	}.NewTicker(pm.flushDeletesFrequency)
 	defer ticker.Stop()
 	for {
 		select {
@@ -196,7 +196,7 @@ func (pm *persistenceManager) deleteTransmissions(ctx context.Context, hashes []
 			break
 		}
 	}
-	pm.lggr.Debugw("Deleted queued transmit requests", "nDeleted", len(hashes))
+	pm.lggr.Debugw("Flushed delete queue", "nDeleted", len(hashes))
 }
 
 func (pm *persistenceManager) runPruneLoop() {
