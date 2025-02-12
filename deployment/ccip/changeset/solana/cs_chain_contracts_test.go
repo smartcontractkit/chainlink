@@ -9,7 +9,7 @@ import (
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -132,7 +132,7 @@ func TestAddTokenPool(t *testing.T) {
 				ChainSelector:    solChain,
 				TokenPubKey:      tokenAddress.String(),
 				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         "LockAndRelease",
+				PoolType:         solTestTokenPool.LockAndRelease_PoolType,
 				// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
 				Authority: e.SolChains[solChain].DeployerKey.PublicKey().String(),
 			},
@@ -143,18 +143,18 @@ func TestAddTokenPool(t *testing.T) {
 				SolChainSelector:    solChain,
 				RemoteChainSelector: evmChain,
 				SolTokenPubKey:      tokenAddress.String(),
-				RemoteConfig: solTokenPool.RemoteConfig{
+				RemoteConfig: solTestTokenPool.RemoteConfig{
 					// TODO:this can be potentially read from the state if we are given the token symbol
-					PoolAddresses: []solTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
-					TokenAddress:  solTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
+					PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
+					TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
 					Decimals:      9,
 				},
-				InboundRateLimit: solTokenPool.RateLimitConfig{
+				InboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000),
 					Rate:     1,
 				},
-				OutboundRateLimit: solTokenPool.RateLimitConfig{
+				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  false,
 					Capacity: 0,
 					Rate:     0,
@@ -167,20 +167,19 @@ func TestAddTokenPool(t *testing.T) {
 	// test AddTokenPool results
 	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenAddress, state.SolChains[solChain].TokenPool)
 	require.NoError(t, err)
-	var configAccount solTokenPool.Config
+	var configAccount solTestTokenPool.State
 	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
-	t.Logf("configAccount: %+v", configAccount)
 	require.NoError(t, err)
-	require.Equal(t, solTokenPool.LockAndRelease_PoolType, configAccount.PoolType)
-	require.Equal(t, tokenAddress, configAccount.Mint)
+	require.Equal(t, solTestTokenPool.LockAndRelease_PoolType, configAccount.PoolType)
+	require.Equal(t, tokenAddress, configAccount.Config.Mint)
 	// try minting after this and see if the pool or the deployer key is the authority
 
 	// test SetupTokenPoolForRemoteChain results
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].TokenPool)
-	var remoteChainConfigAccount solTokenPool.ChainConfig
+	var remoteChainConfigAccount solTestTokenPool.ChainConfig
 	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
 	require.NoError(t, err)
-	require.Equal(t, uint8(9), remoteChainConfigAccount.Remote.Decimals)
+	require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
 }
 
 func TestBilling(t *testing.T) {
