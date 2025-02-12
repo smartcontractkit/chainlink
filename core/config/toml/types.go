@@ -1488,17 +1488,17 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 }
 
 type WorkflowLimits struct {
-	WorkflowsGlobalLimit   *int32
-	WorkflowsPerOwnerLimit *int32
+	WorkflowsGlobal   *int32
+	WorkflowsPerOwner *int32
 }
 
 func (r *WorkflowLimits) setFrom(f *WorkflowLimits) {
-	if f.WorkflowsGlobalLimit != nil {
-		r.WorkflowsGlobalLimit = f.WorkflowsGlobalLimit
+	if f.WorkflowsGlobal != nil {
+		r.WorkflowsGlobal = f.WorkflowsGlobal
 	}
 
-	if f.WorkflowsPerOwnerLimit != nil {
-		r.WorkflowsPerOwnerLimit = f.WorkflowsPerOwnerLimit
+	if f.WorkflowsPerOwner != nil {
+		r.WorkflowsPerOwner = f.WorkflowsPerOwner
 	}
 }
 

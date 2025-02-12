@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	defaultWorkflowsGlobalLimit    = 50
-	defaultWorkfllowsPerOwnerLimit = 5
+	defaultWorkflowsGlobal   = 50
+	defaultWorkflowsPerOwner = 5
 )
 
 type Limits struct {
@@ -23,8 +23,8 @@ type Config struct {
 
 func NewWorkflowLimits(config Config) (*Limits, error) {
 	if config.Global <= 0 || config.PerOwner <= 0 {
-		config.Global = defaultWorkflowsGlobalLimit
-		config.PerOwner = defaultWorkfllowsPerOwnerLimit
+		config.Global = defaultWorkflowsGlobal
+		config.PerOwner = defaultWorkflowsPerOwner
 	}
 
 	return &Limits{

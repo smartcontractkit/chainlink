@@ -479,8 +479,8 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			Limits: toml.WorkflowLimits{
-				WorkflowsGlobalLimit:   ptr(int32(50)),
-				WorkflowsPerOwnerLimit: ptr(int32(5)),
+				WorkflowsGlobal:   ptr(int32(50)),
+				WorkflowsPerOwner: ptr(int32(5)),
 			},
 		},
 		Dispatcher: toml.Dispatcher{

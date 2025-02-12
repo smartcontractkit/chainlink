@@ -471,10 +471,10 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 
 [Capabilities.WorkflowRegistry.Limits]
-# WorkflowsGlobalLimit is the maximum number of workflows that can be registered globally.
-WorkflowsGlobalLimit = 50 # Default
-# WorkflowsPerOwnerLimit is the maximum number of workflows that can be registered per owner.
-WorkflowsPerOwnerLimit = 5 # Default
+# WorkflowsGlobal is the maximum number of workflows that can be registered globally.
+WorkflowsGlobal = 50 # Default
+# WorkflowsPerOwner is the maximum number of workflows that can be registered per owner.
+WorkflowsPerOwner = 5 # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.

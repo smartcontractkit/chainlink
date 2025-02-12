@@ -294,8 +294,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
-		Global:   cfg.Capabilities().WorkflowRegistry().WorkflowsGlobalLimit(),
-		PerOwner: cfg.Capabilities().WorkflowRegistry().WorkflowsPerOwnerLimit(),
+		Global:   cfg.Capabilities().WorkflowRegistry().WorkflowsGlobal(),
+		PerOwner: cfg.Capabilities().WorkflowRegistry().WorkflowsPerOwner(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
