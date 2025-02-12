@@ -1,6 +1,7 @@
 package template
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,6 +21,18 @@ func defaultListeners(l zerolog.Logger) []havoc.ChaosListener {
 	}
 }
 
+type ChaosRunner struct {
+	l zerolog.Logger
+	c client.Client
+}
+
+func NewChaosRunner(l zerolog.Logger, c client.Client) *ChaosRunner {
+	return &ChaosRunner{
+		l: l,
+		c: c,
+	}
+}
+
 type PodPartitionCfg struct {
 	Namespace             string
 	Description           string
@@ -31,8 +44,8 @@ type PodPartitionCfg struct {
 	ExperimentCreateDelay time.Duration
 }
 
-func PodPartition(client client.Client, l zerolog.Logger, cfg PodPartitionCfg) (*havoc.Chaos, error) {
-	return havoc.NewChaos(havoc.ChaosOpts{
+func (cr *ChaosRunner) RunPodPartition(ctx context.Context, cfg PodPartitionCfg) (*havoc.Chaos, error) {
+	experiment, err := havoc.NewChaos(havoc.ChaosOpts{
 		Object: &v1alpha1.NetworkChaos{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       string(v1alpha1.TypeNetworkChaos),
@@ -77,10 +90,15 @@ func PodPartition(client client.Client, l zerolog.Logger, cfg PodPartitionCfg) (
 				},
 			},
 		},
-		Listeners: defaultListeners(l),
-		Logger:    &l,
-		Client:    client,
+		Listeners: defaultListeners(cr.l),
+		Logger:    &cr.l,
+		Client:    cr.c,
 	})
+	if err != nil {
+		return nil, err
+	}
+	experiment.Create(ctx)
+	return experiment, nil
 }
 
 type PodDelayCfg struct {
@@ -95,8 +113,8 @@ type PodDelayCfg struct {
 	ExperimentCreateDelay time.Duration
 }
 
-func PodDelay(client client.Client, l zerolog.Logger, cfg PodDelayCfg) (*havoc.Chaos, error) {
-	return havoc.NewChaos(havoc.ChaosOpts{
+func (cr *ChaosRunner) RunPodDelay(ctx context.Context, cfg PodDelayCfg) (*havoc.Chaos, error) {
+	experiment, err := havoc.NewChaos(havoc.ChaosOpts{
 		Object: &v1alpha1.NetworkChaos{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       string(v1alpha1.TypeNetworkChaos),
@@ -133,10 +151,15 @@ func PodDelay(client client.Client, l zerolog.Logger, cfg PodDelayCfg) (*havoc.C
 				},
 			},
 		},
-		Listeners: defaultListeners(l),
-		Logger:    &l,
-		Client:    client,
+		Listeners: defaultListeners(cr.l),
+		Logger:    &cr.l,
+		Client:    cr.c,
 	})
+	if err != nil {
+		return nil, err
+	}
+	experiment.Create(ctx)
+	return experiment, nil
 }
 
 type PodFailCfg struct {
@@ -148,8 +171,8 @@ type PodFailCfg struct {
 	ExperimentCreateDelay time.Duration
 }
 
-func PodFail(client client.Client, l zerolog.Logger, cfg PodFailCfg) (*havoc.Chaos, error) {
-	return havoc.NewChaos(havoc.ChaosOpts{
+func (cr *ChaosRunner) RunPodFail(ctx context.Context, cfg PodFailCfg) (*havoc.Chaos, error) {
+	experiment, err := havoc.NewChaos(havoc.ChaosOpts{
 		Description: cfg.Description,
 		DelayCreate: cfg.ExperimentCreateDelay,
 		Object: &v1alpha1.PodChaos{
@@ -183,10 +206,15 @@ func PodFail(client client.Client, l zerolog.Logger, cfg PodFailCfg) (*havoc.Cha
 				},
 			},
 		},
-		Listeners: defaultListeners(l),
-		Logger:    &l,
-		Client:    client,
+		Listeners: defaultListeners(cr.l),
+		Logger:    &cr.l,
+		Client:    cr.c,
 	})
+	if err != nil {
+		return nil, err
+	}
+	experiment.Create(ctx)
+	return experiment, nil
 }
 
 type NodeCPUStressConfig struct {
@@ -201,12 +229,11 @@ type NodeCPUStressConfig struct {
 	ExperimentCreateDelay   time.Duration
 }
 
-func podStressCPU(client client.Client, l zerolog.Logger, cfg NodeCPUStressConfig) (*havoc.Schedule, error) {
-	return havoc.NewSchedule(havoc.ScheduleOpts{
+func (cr *ChaosRunner) RunPodStressCPU(ctx context.Context, cfg NodeCPUStressConfig) (*havoc.Schedule, error) {
+	experiment, err := havoc.NewSchedule(havoc.ScheduleOpts{
 		Description: cfg.Description,
 		DelayCreate: cfg.ExperimentCreateDelay,
 		Duration:    cfg.ExperimentTotalDuration,
-		Logger:      &l,
 		Object: &v1alpha1.Schedule{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Schedule",
@@ -255,6 +282,13 @@ func podStressCPU(client client.Client, l zerolog.Logger, cfg NodeCPUStressConfi
 				},
 			},
 		},
-		Client: client,
+		Listeners: defaultListeners(cr.l),
+		Logger:    &cr.l,
+		Client:    cr.c,
 	})
+	if err != nil {
+		return nil, err
+	}
+	experiment.Create(ctx)
+	return experiment, nil
 }
