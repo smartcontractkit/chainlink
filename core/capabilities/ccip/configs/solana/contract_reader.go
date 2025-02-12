@@ -116,9 +116,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("source_chain_state"),
 							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"SourceChainSelector": "NewChainSelector"}}},
+						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "SourceChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.PropertyExtractorConfig{FieldName: "SourceChainConfig"},
+							&codec.PropertyExtractorConfig{FieldName: "Config"},
 							// TODO, onchain comment cays that both can be populated, but EVM contracts only have 1, so we take first here
 							//	  // OnRamp addresses supported from the source chain, each of them has a 64 byte address. So this can hold 2 addresses.
 							//    // If only one address is configured, then the space for the second address must be zeroed.
@@ -212,7 +212,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain"),
 							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
+						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestinationChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "State.UsdPerUnitGas"}},
 					},
 					consts.MethodNameGetDestChainConfig: {
@@ -221,7 +221,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain"),
 							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
+						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestinationChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "Config"},
 							&codec.RenameModifierConfig{
@@ -266,8 +266,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{
-								"SourceChainSelector": "DestinationChainSelector",
-								"Sender":              "Authority",
+								"DestinationChainSelector": "SourceChainSelector",
+								"Authority":                "Sender",
 							}}},
 					},
 				},
@@ -306,7 +306,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain_state"),
 							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
+						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "State"},
 							&codec.RenameModifierConfig{
@@ -324,7 +324,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
 							OffChainValues: map[string]any{"Router": solana.PublicKey{}},
 						},
-						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
+						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "State"},
 							&codec.RenameModifierConfig{
@@ -341,7 +341,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 										Prefix: []byte("dest_chain_state"),
 										Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 									},
-									InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
+									InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "DestChainSelector"}}},
 									OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "Config"}},
 								},
 							},
@@ -436,7 +436,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain"),
 							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
+						InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestinationChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "State.UsdPerUnitGas"}},
 					},
 					consts.MethodNameGetDestChainConfig: {
@@ -445,7 +445,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain"),
 							Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
-						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "DestinationChainSelector"}}},
+						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestinationChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "Config"},
 							&codec.RenameModifierConfig{
