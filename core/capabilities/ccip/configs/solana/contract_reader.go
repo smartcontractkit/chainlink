@@ -142,7 +142,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 				},
 			},
 			consts.ContractNameFeeQuoter: {
-				IDL: solanacodec.IDL{},
+				IDL: feeQuoterIDL,
 				Reads: map[string]config.ReadDefinition{
 					consts.MethodNameFeeQuoterGetStaticConfig: {
 						ChainSpecificName: "Config",
@@ -288,6 +288,11 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
+	var feeQuoterIDL solanacodec.IDL
+	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
+		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
+	}
+
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameOnRamp}},
 		Namespaces: map[string]config.ChainContractReader{
@@ -361,7 +366,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 				},
 			},
 			consts.ContractNameFeeQuoter: {
-				IDL: solanacodec.IDL{},
+				IDL: feeQuoterIDL,
 				Reads: map[string]config.ReadDefinition{
 					consts.MethodNameFeeQuoterGetStaticConfig: {
 						ChainSpecificName: "Config",
