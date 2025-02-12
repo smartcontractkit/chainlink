@@ -416,7 +416,8 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 				feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig(true)
 
 				updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
-					IsEnabled: true,
+					IsEnabled:                 true,
+					IsRMNVerificationDisabled: true,
 				}
 
 				updateRouterChanges[src].OffRampUpdates[dst] = true
@@ -472,8 +473,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 		{
 			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
 			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain:            updateOffRampSources,
-				IsRMNVerificationDisabled: true,
+				UpdatesByChain: updateOffRampSources,
 			},
 		},
 		{
