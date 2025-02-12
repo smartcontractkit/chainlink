@@ -663,20 +663,16 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, ownerAllow)
 		require.True(t, globalAllow)
 
-		eng, testHooks := newTestEngineWithYAMLSpec(
+		eng, _ := newTestEngineWithYAMLSpec(
 			t,
 			reg,
 			hardcodedWorkflow,
 			setWorkflowLimits,
 		)
 
-		go eng.Start(context.Background())
-		select {
-		case errMsg := <-testHooks.rateLimited:
-			assert.Equal(t, errGlobalWorkflowCountLimitReached.Error(), errMsg)
-		case <-ctx.Done():
-			t.FailNow()
-		}
+		err = eng.Start(context.Background())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errGlobalWorkflowCountLimitReached)
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
@@ -719,21 +715,16 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.True(t, ownerAllow)
 		require.True(t, globalAllow)
 
-		eng, testHooks := newTestEngineWithYAMLSpec(
+		eng, _ := newTestEngineWithYAMLSpec(
 			t,
 			reg,
 			hardcodedWorkflow,
 			setWorkflowLimits,
 		)
 
-		go eng.Start(context.Background())
-
-		select {
-		case errMsg := <-testHooks.rateLimited:
-			assert.Equal(t, errPerOwnerWorkflowCountLimitReached.Error(), errMsg)
-		case <-ctx.Done():
-			t.FailNow()
-		}
+		err = eng.Start(context.Background())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
 	})
 }
 

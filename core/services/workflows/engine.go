@@ -158,13 +158,11 @@ func (e *Engine) Start(_ context.Context) error {
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
-			e.onRateLimit(errGlobalWorkflowCountLimitReached.Error())
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
 			return errGlobalWorkflowCountLimitReached
 		}
 
 		if !ownerAllow {
-			e.onRateLimit(errPerOwnerWorkflowCountLimitReached.Error())
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
 			return errPerOwnerWorkflowCountLimitReached
 		}
