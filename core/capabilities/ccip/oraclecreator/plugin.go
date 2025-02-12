@@ -599,7 +599,7 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
-	offrampProgramAddress []byte,
+	offrampAddress []byte,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -608,11 +608,13 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		if solana.PublicKeyLength != len(offrampProgramAddress) {
-			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+		var offrampProgramAddress solana.PublicKey
+		// NOTE: this function can still be called with EVM inputs, and PublicKeyFromBytes will panic on addresses with len=20
+		// technically we only need the writer to do fee estimation so this doesn't matter and we can use a zero address
+		if len(offrampAddress) == solana.PublicKeyLength {
+			offrampProgramAddress = solana.PublicKeyFromBytes(offrampAddress)
 		}
-		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0]); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0], destChainSelector); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
