@@ -62,8 +62,9 @@ runs:
         cp contracts/target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
     - name: Upload artifact (if newly built)
       if: env.exists == 'false'
+      continue-on-error: true # don't fail if the upload fails, it might conflict with another job
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTIFACT_NAME }}
-        path: chainlink-ccip/chains/solana/contracts/target/deploy/
+        path: chainlink-ccip/chains/solana/contracts/target/deploy/*.so
        
