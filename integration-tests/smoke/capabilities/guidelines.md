@@ -75,7 +75,7 @@ To add a new capability to the test, follow these steps:
 1. Copy the capability binary to the Chainlink node’s Docker container (must be in `linux/amd64` format).
    - You can skip this step if the capability is already included in the Chainlink image you are using or if it's built-in.
 2. Add support for the new capability in the testing code:
-   - Define a new bitmask flag representing the capability.
+   - Define a new `CapabilityFlag` representing the capability.
    - (Optional) Define additional node configuration if required.
    - Define the job spec for the new capability.
    - Register the capability in the Capabilities Registry contract.
@@ -102,39 +102,22 @@ This instructs the framework to copy `./aptos_linux_amd64` to the container’s 
 
 ### Adding Support for the New Capability in the Testing Code
 
-#### Defining a Bitmask Flag for the Capability
+#### Defining a CapabilityFlag for the Capability
 
-The testing code uses bitmask flags to map DON capabilities to node configuration, job creation, and the Capabilities Registry contract. This means that adding a new capability requires defining a unique flag. Let's name our capability flag as `WriteAptosCapability`.
+The testing code uses string flags to map DON capabilities to node configuration, job creation, and the Capabilities Registry contract. This means that adding a new capability requires defining a unique flag. Let's name our capability flag as `WriteAptosCapability`.
 
 First, define the new flag:
 
 ```go
-// Capability types
 const (
-	OCR3Capability uint = 1 << (iota + 2) // Offset by 2 to avoid overlap
-	CronCapability
-	CustomComputeCapability
-	WriteEVMCapability
-	WriteAptosCapability                  // <------------ New entry
+	OCR3Capability          CapabilityFlag = "ocr3"
+	CronCapability          CapabilityFlag = "cron"
+	CustomComputeCapability CapabilityFlag = "custom-compute"
+	WriteEVMCapability      CapabilityFlag = "write-evm"
+  WriteAptosCapability    CapabilityFlag = "write-aptos"               // <------------ New entry
 
 	// Add more capabilities as needed
 )
-```
-
-Next, update the string-to-uint mapping:
-
-```go
-var flagMap = map[string]uint{
-	"workflow":       WorkflowDON,
-	"capabilities":   CapabilitiesDON,
-	"ocr3":           OCR3Capability,
-	"cron":           CronCapability,
-	"custom-compute": CustomComputeCapability,
-	"write-evm":      WriteEVMCapability,
-	"write-aptos":    WriteAptosCapability       // <------------ New entry
-
-	// Add more capabilities as needed
-}
 ```
 
 This ensures the TOML configuration correctly maps each DON to its capabilities.
@@ -142,14 +125,14 @@ This ensures the TOML configuration correctly maps each DON to its capabilities.
 Optionally, add the new flag to the default capabilities used in a single DON setup:
 
 ```go
-const (
-	// Add new capabilities here as well if they should be enabled by default in a single DON
-	SingleDonFlags = OCR3Capability | CronCapability | CustomComputeCapability | WriteEVMCapability | WorkflowDON | WriteAptosCapability
-                                                                                                                  // <------------ New entry
+var (
+	// Add new capabilities here as well, if single DON should have them by default
+	SingleDonFlags = []string{"workflow", "capabilities", "ocr3", "cron", "custom-compute", "write-evm", "write-aptos"}
+                                                                                                        // <------------ New entry
 )
 ```
 
-Now that the bitmask flag is defined, let's configure the nodes and jobs.
+Now that the flag is defined, let's configure the nodes and jobs.
 
 #### Defining Additional Node Configuration
 
