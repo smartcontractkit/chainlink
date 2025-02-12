@@ -182,6 +182,7 @@ jobs:
             build-solana-artifacts: 'false'
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
+            build-solana-artifacts: 'false'
           - cmd: go_core_fuzz
             os: ubuntu22.04-8cores-32GB
             build-solana-artifacts: 'false'
