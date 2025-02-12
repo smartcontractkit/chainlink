@@ -1,7 +1,7 @@
 // Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
-package burn_mint_token_pool_1_2_0
+package burn_mint_token_pool
 
 import (
 	"errors"
