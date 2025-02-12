@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 #internal skip stale price update from keystone instead of reverting
-
 
 PR issue: CCIP-3795
 

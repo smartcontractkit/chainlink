@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 remove legacy curse check from RMNRemote isCursed() method #bugfix
-
 
 PR issue: CCIP-4476
 

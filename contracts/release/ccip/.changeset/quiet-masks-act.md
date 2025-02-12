@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 Comment and parameter validation fixes and remove outstandingTokens from BurnToAddressMintTokenPool #bugfix
-
 
 PR issue: CCIP-5061
 

@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 Additional security and parameter checks and comment fixes
-
 
 PR issue: CCIP-5183
 

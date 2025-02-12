@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 #internal CCIP test restructuring

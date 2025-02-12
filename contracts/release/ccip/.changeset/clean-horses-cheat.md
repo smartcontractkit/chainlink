@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 Update FeeQuoter to support Solana chain families #feature
-
 
 PR issue: CCIP-4687
 

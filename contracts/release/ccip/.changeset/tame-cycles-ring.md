@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 enable via-ir in CCIP compilation
-
 
 PR issue: CCIP-4656
 

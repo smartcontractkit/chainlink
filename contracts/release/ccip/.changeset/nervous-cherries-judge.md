@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 remove rawVs from RMNRemote
-
 
 PR issue: CCIP-4015
 

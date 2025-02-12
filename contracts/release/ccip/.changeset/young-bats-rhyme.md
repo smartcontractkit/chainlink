@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 add getChainConfig to ccipHome
-
 
 PR issue: CCIP-4517
 

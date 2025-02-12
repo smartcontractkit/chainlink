@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal cap max accounts in svm extra args
-
 
 PR issue: CCIP-5111
 

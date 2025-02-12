@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal Minor fixes and changing the order of removes/adds in feeToken config

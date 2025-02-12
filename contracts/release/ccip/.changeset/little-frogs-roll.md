@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal add EIP-7623 support
-
 
 PR issue: CCIP-4761
 

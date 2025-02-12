@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal decouple LiquidityManager tests with LockReleaseTokenPool + Test Rename

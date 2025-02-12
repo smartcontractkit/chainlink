@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 Add token address to TokenHandlingError
-
 
 PR issue: CCIP-4174
 

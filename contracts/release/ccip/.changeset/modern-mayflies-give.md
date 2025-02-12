@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 allow multiple remote pools per chain selector
-
 
 PR issue: CCIP-4269
 

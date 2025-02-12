@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 #internal Add new event in setRateLimitAdmin for Atlas

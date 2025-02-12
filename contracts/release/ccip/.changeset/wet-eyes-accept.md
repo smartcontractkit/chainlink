@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 Refactor MockCCIPRouter to support EVMExtraArgsV2

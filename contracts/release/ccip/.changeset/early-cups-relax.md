@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 #internal Account for tokenTransferBytesOverhead in exec cost

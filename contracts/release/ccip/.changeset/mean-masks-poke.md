@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #added new function to CCIPReaderTester getLatestPriceSequenceNumber
-
 
 PR issue: CCIP-4239
 

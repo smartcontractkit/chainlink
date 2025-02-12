@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal enable both blessed and unblessed roots in a single commit report
-
 
 PR issue: CCIP-5140
 

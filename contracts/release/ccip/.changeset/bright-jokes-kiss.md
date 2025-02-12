@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 add legacy fallback to RMN
-
 
 PR issue: CCIP-4261
 

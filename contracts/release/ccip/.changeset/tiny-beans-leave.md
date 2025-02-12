@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal more efficient ownership usage
-
 
 PR issue: CCIP-4083
 

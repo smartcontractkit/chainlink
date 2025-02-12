@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal Generate gethwrappers through Foundry instead of solc-select via python
-
 
 PR issue: CCIP-4737
 

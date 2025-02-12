@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': minor
+'@chainlink/contracts-ccip': minor
 ---
 
 #internal fix sender encoding and comments in CCIP Any2EVMMEssage and corrected comments

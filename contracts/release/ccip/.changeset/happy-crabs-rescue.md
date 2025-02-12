@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 Gas optimizations and comment cleanup #internal
-
 
 PR issue: CCIP-3736
 

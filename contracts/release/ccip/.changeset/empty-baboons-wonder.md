@@ -1,5 +1,5 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal Add Support for SVM ATA to USDCTokenPool and send correct tokenReceiver to token pools

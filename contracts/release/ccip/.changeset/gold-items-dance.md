@@ -1,9 +1,8 @@
 ---
-'@chainlink/contracts': patch
+'@chainlink/contracts-ccip': patch
 ---
 
 #internal move multiple weth9 implementations to vendor
-
 
 PR issue: CCIP-5081
 
