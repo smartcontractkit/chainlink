@@ -27,15 +27,17 @@ runs:
         git checkout $short_revision
 
         echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
-        echo "ARTIFACT_NAME=solana-ccip-${{ env.CHAINLINK_CCIP_COMMIT_SHORT }}" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=solana-ccip-${short_revision}" >> $GITHUB_ENV
     - name: Check if artifact exists
       id: check_artifact
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        if gh api repos/${{ github.repository }}/actions/artifacts \
-            --jq ".artifacts[] | select(.name==\"${{ env.ARTIFACT_NAME }}\")"; then
+        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts \
+          --jq ".artifacts[] | select(.name==\"${{ env.ARTIFACT_NAME }}\")" | wc -l)
+
+        if [[ "$ARTIFACT_FOUND" -gt 0 ]]; then
           echo "exists=true" >> $GITHUB_ENV
         else
           echo "exists=false" >> $GITHUB_ENV
