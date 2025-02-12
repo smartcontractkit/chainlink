@@ -242,7 +242,9 @@ func prepareAccountToSendLink(
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	lggr.Infow("Minting transfer amounts")
 	//--------------------------------------------------------------------------------------------
