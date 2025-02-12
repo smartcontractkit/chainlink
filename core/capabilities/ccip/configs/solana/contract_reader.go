@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/gagliardetto/solana-go"
-
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -67,17 +65,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 									"SvmChainSelector": "ChainSelector",
 								},
 							},
-							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{
-									// Also doesn't exist on Solana?
-									"NonceManager": solana.PublicKey{},
-									// I don't see this being used in the ccip plugin, but it's still worth figuring out what the equivalent is
-									"TokenAdminRegistry": solana.PublicKey{},
-									// these two don't exist on Solana
-									"GasForCallExactCheck": 0,
-									"RmnRemote":            solana.PublicKey{},
-								},
-							},
 						},
 					},
 					consts.MethodNameOffRampGetDynamicConfig: {
@@ -89,12 +76,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"EnableManualExecutionAfter": "PermissionLessExecutionThresholdSeconds"},
-							},
-							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{
-									"IsRMNVerificationDisabled": false,
-									"MessageInterceptor":        solana.PublicKey{},
-								},
 							},
 						},
 						MultiReader: &config.MultiReader{
@@ -157,11 +138,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 									"LinkTokenMint":     "LinkToken",
 								},
 							},
-							&codec.HardCodeModifierConfig{
-								// This comment is from onchain program
-								// The following field is unused until the day we integrate with feeds to fetch fresh values
-								OnChainValues: map[string]any{"StalenessThreshold": 0},
-							},
 						},
 					},
 					// This one is hacky, but works - [NONEVM-1320]
@@ -185,8 +161,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								Fields: []string{"Config"},
 							},
 							&codec.HardCodeModifierConfig{
+								// TODO json doesn't retian types, add this type to IDL manually ...
 								OffChainValues: map[string]any{
-									"Response": make([]TimestampedUnixBig, 1000),
+									"Response": []TimestampedUnixBig{},
 								},
 							},
 							&codec.PropertyExtractorConfig{FieldName: "Response"},
@@ -322,7 +299,8 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						},
 						// response Router field will be populated with the bound address of the onramp
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
-							OffChainValues: map[string]any{"Router": solana.PublicKey{}},
+							// type doesn't matter it will be overridden with address internally
+							OffChainValues: map[string]any{"Router": ""},
 						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "DestChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
@@ -354,13 +332,6 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"Owner": "AllowListAdmin"},
-							},
-							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{
-									// don't exist on Solana, just leave empty
-									"ReentrancyGuardEntered": solana.PublicKey{},
-									"MessageInterceptor":     solana.PublicKey{},
-								},
 							}},
 					},
 				},
@@ -380,11 +351,6 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 									"MaxFeeJuelsPerMsg": "MaxFeeJuelsPerMsg",
 									"LinkTokenMint":     "LinkToken",
 								},
-							},
-							&codec.HardCodeModifierConfig{
-								//  comment from onchain
-								// The following field is unused until the day we integrate with feeds to fetch fresh values
-								OnChainValues: map[string]any{"StalenessThreshold": 0},
 							},
 						},
 					},
@@ -409,8 +375,9 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 								Fields: []string{"Config"},
 							},
 							&codec.HardCodeModifierConfig{
+								// TODO json doesn't retian types, add this type to IDL manually ...
 								OffChainValues: map[string]any{
-									"Response": make([]TimestampedUnixBig, 1000),
+									"Response": []TimestampedUnixBig{},
 								},
 							},
 							&codec.PropertyExtractorConfig{FieldName: "Response"},
