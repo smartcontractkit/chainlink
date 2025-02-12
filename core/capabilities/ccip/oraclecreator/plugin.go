@@ -135,14 +135,9 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	chainFamily, err := chainsel.GetSelectorFamily(uint64(config.Config.ChainSelector))
-	if err != nil {
-		return nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
-	}
-
-	plugin, exists := plugins[chainFamily]
+	plugin, exists := plugins[destChainFamily]
 	if !exists {
-		return nil, fmt.Errorf("unsupported chain %v", chainFamily)
+		return nil, fmt.Errorf("unsupported chain %v", destChainFamily)
 	}
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		ctx,
@@ -180,7 +175,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, plugin)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainFamily, destChainID, plugin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -315,20 +310,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainWriter types.ContractWriter,
 	destFromAccounts []string,
 	publicConfig ocr3confighelper.PublicConfig,
+	chainFamily string,
+	destChainID string,
 	plugin plugin,
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
-
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
-	if err != nil {
-		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
-	}
-
-	chainFamily, err := chainsel.GetSelectorFamily(uint64(config.Config.ChainSelector))
-	if err != nil {
-		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
-	}
 	messageHasher := plugin.MessageHasher(i.lggr.Named(chainFamily).Named("MessageHasherV1"))
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
@@ -365,7 +352,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			plugin.EncodedOfframpAddr(config.Config.OfframpAddress, false),
@@ -388,7 +375,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractReaders:  contractReaders,
 				ContractWriters:  chainWriters,
 			})
-		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
+		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			plugin.EncodedOfframpAddr(config.Config.OfframpAddress, false),
