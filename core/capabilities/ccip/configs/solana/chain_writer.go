@@ -42,78 +42,78 @@ func getCommitMethodConfig(fromAddress string, routerProgramAddress string, comm
 		},
 		Accounts: []chainwriter.Lookup{
 			getRouterAccountConfig(routerProgramAddress),
-			chainwriter.PDALookups{
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "SourceChainState",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: merkleRootChainSelector}}},
 				},
 				IsSigner:   false,
 				IsWritable: true,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "RouterReportAccount",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address:    routerProgramAddress,
 					IsSigner:   false,
 					IsWritable: false,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("commit_report")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
-					{Dynamic: chainwriter.AccountLookup{
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: merkleRootChainSelector}}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{
 						Location: "Info.MerkleRoots.MerkleRoot",
-					}},
+					}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
+			}},
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
-			chainwriter.AccountConstant{
+			chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 				Name:       "SysvarInstructions",
 				Address:    sysvarInstructionsAddress,
 				IsSigner:   true,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "GlobalState",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("state")},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "BillingTokenConfig",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("fee_billing_token_config")},
-					{Dynamic: chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "ChainConfigGasPrice",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("dest_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: merkleRootChainSelector}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: merkleRootChainSelector}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
+			}},
 		},
 		DebugIDLocation: "",
 	}
@@ -137,13 +137,13 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{
 					Name: "PoolLookupTable",
-					Accounts: chainwriter.PDALookups{
+					Accounts: chainwriter.Lookup{PDALookups: &chainwriter.PDALookups{
 						Name: "TokenAdminRegistry",
-						PublicKey: chainwriter.AccountConstant{
+						PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 							Address: routerProgramAddress,
-						},
+						}},
 						Seeds: []chainwriter.Seed{
-							{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+							{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 						},
 						IsSigner:   false,
 						IsWritable: false,
@@ -151,7 +151,7 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 							TypeName: "TokenAdminRegistry",
 							Location: "LookupTable",
 						},
-					},
+					}},
 				},
 			},
 			StaticLookupTables: []solana.PublicKey{
@@ -160,118 +160,118 @@ func getExecuteMethodConfig(fromAddress string, routerProgramAddress string, com
 		},
 		Accounts: []chainwriter.Lookup{
 			getRouterAccountConfig(routerProgramAddress),
-			chainwriter.PDALookups{
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "SourceChainState",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("source_chain_state")},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "CommitReport",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_execution_config")},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
-					{Dynamic: chainwriter.AccountLookup{
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{
 						// The seed is the merkle root of the report, as passed into the input params.
 						Location: "Info.MerkleRoots.MerkleRoot",
-					}},
+					}}},
 				},
 				IsSigner:   false,
 				IsWritable: true,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "ExternalExecutionConfig",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_execution_config")},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
+			}},
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
-			chainwriter.AccountConstant{
+			chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 				Name:       "SysvarInstructions",
 				Address:    sysvarInstructionsAddress,
 				IsSigner:   true,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "ExternalTokenPoolsSigner",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("external_token_pools_signer")},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.AccountLookup{
+			}},
+			chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{
 				Name:       "UserAccounts",
 				Location:   "Info.AbstractReports.Message.ExtraArgsDecoded.Accounts",
 				IsWritable: chainwriter.MetaBool{BitmapLocation: "Info.AbstractReports.Message.ExtraArgsDecoded.IsWritableBitmap"},
 				IsSigner:   chainwriter.MetaBool{Value: false},
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "ReceiverAssociatedTokenAccount",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: solana.SPLAssociatedTokenAccountProgramID.String(),
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte(fromAddress)},
-					{Dynamic: chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}},
-					{Dynamic: chainwriter.AccountsFromLookupTable{
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}}},
+					{Dynamic: chainwriter.Lookup{AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
 						LookupTableName: "PoolLookupTable",
 						IncludeIndexes:  []int{6},
-					}},
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
+					}}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "PerChainTokenConfig",
-				PublicKey: chainwriter.AccountConstant{
+				PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 					Address: routerProgramAddress,
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("ccip_tokenpool_billing")},
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.PDALookups{
+			}},
+			{PDALookups: &chainwriter.PDALookups{
 				Name: "PoolChainConfig",
-				PublicKey: chainwriter.AccountsFromLookupTable{
+				PublicKey: chainwriter.Lookup{AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
 					LookupTableName: "PoolLookupTable",
 					IncludeIndexes:  []int{2},
-				},
+				}},
 				Seeds: []chainwriter.Seed{
 					{Static: []byte("ccip_tokenpool_billing")},
-					{Dynamic: chainwriter.AccountLookup{Location: destTokenAddress}},
-					{Dynamic: chainwriter.AccountLookup{Location: destChainSelectorPath}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
+					{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
 				},
 				IsSigner:   false,
 				IsWritable: false,
-			},
-			chainwriter.AccountsFromLookupTable{
+			}},
+			chainwriter.Lookup{AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
 				LookupTableName: "PoolLookupTable",
 				IncludeIndexes:  []int{},
-			},
+			}},
 		},
 		DebugIDLocation: "AbstractReport.Message.MessageID",
 	}
@@ -309,34 +309,34 @@ func GetSolanaChainWriterConfig(routerProgramAddress string, commonAddressesLook
 	return solConfig, nil
 }
 
-func getRouterAccountConfig(routerProgramAddress string) chainwriter.PDALookups {
-	return chainwriter.PDALookups{
+func getRouterAccountConfig(routerProgramAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{PDALookups: &chainwriter.PDALookups{
 		Name: "RouterAccountConfig",
-		PublicKey: chainwriter.AccountConstant{
+		PublicKey: chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 			Address: routerProgramAddress,
-		},
+		}},
 		Seeds: []chainwriter.Seed{
 			{Static: []byte("config")},
 		},
 		IsSigner:   false,
 		IsWritable: false,
-	}
+	}}
 }
 
-func getAuthorityAccountConstant(fromAddress string) chainwriter.AccountConstant {
-	return chainwriter.AccountConstant{
+func getAuthorityAccountConstant(fromAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 		Name:       "Authority",
 		Address:    fromAddress,
 		IsSigner:   true,
 		IsWritable: true,
-	}
+	}}
 }
 
-func getSystemProgramConstant() chainwriter.AccountConstant {
-	return chainwriter.AccountConstant{
+func getSystemProgramConstant() chainwriter.Lookup {
+	return chainwriter.Lookup{AccountConstant: &chainwriter.AccountConstant{
 		Name:       "SystemProgram",
 		Address:    solana.SystemProgramID.String(),
 		IsSigner:   false,
 		IsWritable: false,
-	}
+	}}
 }
