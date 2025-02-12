@@ -639,7 +639,7 @@ func getSolanaChainWriter(
 	offrampProgramAddress []byte,
 	destChainSelector uint64,
 ) (types.ContractWriter, error) {
-	transmitter, _ := transmitters[types.NewRelayID(chainFamily, chainID)]
+	transmitter := transmitters[types.NewRelayID(chainFamily, chainID)]
 	offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
 	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector)
 	if err == nil {
