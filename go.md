@@ -6,12 +6,13 @@ flowchart LR
     chainlink-cosmos
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-evm
+    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
     chainlink-ccip
+    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions
@@ -110,12 +111,13 @@ flowchart LR
     chainlink-cosmos
     chainlink-solana
     chainlink-starknet/relayer
-    chainlink-evm
+    chainlink-integrations/evm
   end
 
   subgraph products
     chainlink-automation
     chainlink-ccip
+    chainlink-ccip/chains/solana
     chainlink-data-streams
     chainlink-feeds
     chainlink-functions

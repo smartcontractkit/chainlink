@@ -3,7 +3,6 @@ package solana
 import (
 	"testing"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,10 +24,9 @@ func TestChainWriterConfigRaw(t *testing.T) {
 		},
 	}
 
-	commonAddressesLookupTable := solana.MustPublicKeyFromBase58("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", commonAddressesLookupTable, tt.fromAddress)
+			_, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress, 0)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
