@@ -33,11 +33,11 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
-func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
-	nodes, err := deployment.NodeInfo(nodeIds, oc)
+	nodes, err := deployment.NodeInfo(nodeIDs, oc)
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
-		fmt.Println("WARNING: Missing node metadata:\n%s", err.Error())
+		fmt.Printf("WARNING: Missing node metadata:\n%s", err.Error())
 	} else if err != nil {
 		return nv, err
 	}
