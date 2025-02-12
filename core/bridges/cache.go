@@ -139,6 +139,7 @@ func (c *Cache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 }
 
 func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
+	fmt.Println("UpdateBridgeType in cache.go called")
 	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
