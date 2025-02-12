@@ -1058,10 +1058,7 @@ func setTokenPoolCounterPart(
 	}
 
 	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func attachTokenToTheRegistry(
