@@ -69,11 +69,13 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							},
 							&codec.HardCodeModifierConfig{
 								OnChainValues: map[string]any{
+									// Also doesn't exist on Solana?
+									"NonceManager": solana.PublicKey{},
+									// I don't see this being used in the ccip plugin, but it's still worth figuring out what the equivalent is
+									"TokenAdminRegistry": solana.PublicKey{},
+									// these two don't exist on Solana
 									"GasForCallExactCheck": 0,
 									"RmnRemote":            solana.PublicKey{},
-									// TODO what to do with these two? Do they share address with router?
-									"TokenAdminRegistry": solana.PublicKey{},
-									"NonceManager":       solana.PublicKey{},
 								},
 							},
 						},
@@ -162,7 +164,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							},
 						},
 					},
-					// TODO this one is hacky, NONEVM-1320
+					// This one is hacky, but works - [NONEVM-1320]
 					consts.MethodNameFeeQuoterGetTokenPrices: {
 						ChainSpecificName: "BillingTokenConfigWrapper",
 						PDADefinition: solanacodec.PDATypeDef{
