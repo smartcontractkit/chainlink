@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var _ deployment.ChangeSet[TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
@@ -38,7 +38,8 @@ func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryC
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS)
+
+	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]
@@ -66,5 +67,5 @@ func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryC
 		}
 	}
 
-	return deployerGroup.Enact("propose admin role for tokens on token admin registries")
+	return deployerGroup.Enact()
 }

@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
@@ -85,9 +85,13 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
+	tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
+	if err != nil {
+		return fmt.Errorf("failed to connect address %s with token pool bindings: %w", tokenPoolAddress, err)
+	}
 
 	// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, state.Timelock.Address(), state.TokenAdminRegistry); err != nil {
+	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, state.Timelock.Address(), tokenPool); err != nil {
 		return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
 	}
 
@@ -173,7 +177,8 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS)
+
+	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
 		chain := env.Chains[chainSelector]
@@ -188,7 +193,7 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 		}
 	}
 
-	return deployerGroup.Enact(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
+	return deployerGroup.Enact()
 }
 
 // configureTokenPool creates all transactions required to configure the desired token pool on a chain,
@@ -242,7 +247,8 @@ func configureTokenPool(
 			// First, we need to assemble a list of valid remote pools
 			// The desired token pool on the remote chain is added by default
 			var remotePoolAddresses [][]byte
-			remotePoolAddresses = append(remotePoolAddresses, remoteTokenPool.Address().Bytes())
+			remoteTokenPoolAddressBytes := common.LeftPadBytes(remoteTokenPool.Address().Bytes(), 32)
+			remotePoolAddresses = append(remotePoolAddresses, remoteTokenPoolAddressBytes)
 			// If the desired token pool is updating an old one, we still need to support the remote pool addresses that the old pool supported to ensure 0 downtime
 			if tokenConfig.TokenPool != utils.ZeroAddress && tokenConfig.TokenPool != tokenPool.Address() {
 				activeTokenPool, err := token_pool.NewTokenPool(tokenConfig.TokenPool, chain.Client)
@@ -254,7 +260,7 @@ func configureTokenPool(
 					return fmt.Errorf("failed to fetch remote pools from token pool with address %s on chain %s: %w", tokenConfig.TokenPool, chain.String(), err)
 				}
 				for _, address := range remotePoolAddressesOnChain {
-					if !bytes.Equal(address, remoteTokenPool.Address().Bytes()) {
+					if !bytes.Equal(address, remoteTokenPoolAddressBytes) {
 						remotePoolAddresses = append(remotePoolAddresses, remotePoolAddressesOnChain...)
 					}
 				}
@@ -263,7 +269,7 @@ func configureTokenPool(
 				RemoteChainSelector:       remoteChainSelector,
 				InboundRateLimiterConfig:  chainUpdate.Inbound,
 				OutboundRateLimiterConfig: chainUpdate.Outbound,
-				RemoteTokenAddress:        remoteTokenAddress.Bytes(),
+				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress.Bytes(), 32),
 				RemotePoolAddresses:       remotePoolAddresses,
 			})
 		}
@@ -287,7 +293,7 @@ func configureTokenPool(
 
 	// Handle remote pool additions
 	for remoteChainSelector, remotePoolAddress := range remotePoolAddressAdditions {
-		_, err := tokenPool.AddRemotePool(opts, remoteChainSelector, remotePoolAddress.Bytes())
+		_, err := tokenPool.AddRemotePool(opts, remoteChainSelector, common.LeftPadBytes(remotePoolAddress.Bytes(), 32))
 		if err != nil {
 			return fmt.Errorf("failed to create addRemotePool transaction for token pool with address %s: %w", tokenPool.Address(), err)
 		}

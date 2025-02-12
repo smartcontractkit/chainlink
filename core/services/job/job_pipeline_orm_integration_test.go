@@ -11,6 +11,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -155,11 +156,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db)
 		legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-			GeneralConfig:  config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),
-			Client:         evmtest.NewEthClientMockWithDefaultChain(t),
+			Client:         clienttest.NewClientWithDefaultChainID(t),
 			DB:             db,
 			KeyStore:       ethKeyStore,
 		})

@@ -34,15 +34,6 @@ type GetContractSetsResponse = internal.GetContractSetsResponse
 // GetContractSets gets contract sets
 var GetContractSets = internal.GetContractSets
 
-// RegisterCapabilitiesRequest is a request to register capabilities
-type RegisterCapabilitiesRequest = internal.RegisterCapabilitiesRequest
-
-// RegisterCapabilitiesResponse is a response to register capabilities
-type RegisterCapabilitiesResponse = internal.RegisterCapabilitiesResponse
-
-// RegisterCapabilities registers capabilities
-var RegisterCapabilities = internal.RegisterCapabilities
-
 // RegisterNOPSRequest is a request to register NOPS
 type RegisterNOPSRequest = internal.RegisterNOPSRequest
 
@@ -78,6 +69,9 @@ var RegisterDons = internal.RegisterDons
 
 // DONToRegister is the minimal information needed to register a DON with the capabilities registry
 type DONToRegister = internal.DONToRegister
+
+// NOP is a node operator profile, required to register a node with the capabilities registry
+type NOP = internal.NOP
 
 // ConfigureContractsRequest is a request to configure ALL the contracts
 type ConfigureContractsRequest = internal.ConfigureContractsRequest

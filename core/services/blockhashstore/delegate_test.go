@@ -10,6 +10,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_JobType(t *testing.T) {
@@ -49,7 +49,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	t.Helper()
 
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 	})
@@ -63,7 +63,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	legacyChains := evmtest.NewLegacyChains(
 		t,
 		evmtest.TestChainOpts{
-			GeneralConfig:  cfg,
+			ChainConfigs:   cfg.EVMConfigs(),
 			DatabaseConfig: cfg.Database(),
 			FeatureConfig:  cfg.Feature(),
 			ListenerConfig: cfg.Database().Listener(),

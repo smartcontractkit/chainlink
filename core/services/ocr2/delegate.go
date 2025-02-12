@@ -178,6 +178,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 	TraceLogging() bool
 	CaptureAutomationCustomTelemetry() bool
+	AllowNoBootstrappers() bool
 }
 
 type insecureConfig interface {
@@ -377,7 +378,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
-		return llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector)
+		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
+			// Cleanup is optimistic. Don't return error here, as we don't want
+			// to block job deletion
+			d.lggr.Errorw("failed to cleanup llo", "err", err, "spec", spec)
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -476,7 +482,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"DefaultMaxDurationInitialization", lc.DefaultMaxDurationInitialization,
 	)
 
-	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers())
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PV2Bootstrappers, d.peerWrapper.P2PConfig().V2().DefaultBootstrappers(), spec.AllowNoBootstrappers)
 	if err != nil {
 		return nil, err
 	}
@@ -885,7 +891,7 @@ func (d *Delegate) newServicesMercury(
 	lc.ContractConfigTrackerPollInterval = 1 * time.Second // This is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
 	// Disable OCR debug+info logging for legacy mercury jobs unless tracelogging is enabled, because its simply too verbose (150 jobs => ~50k logs per second)
-	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+	ocrLogger := ocrcommon.NewOCRWrapper(llo.NewSuppressedLogger(lggr, d.cfg.OCR2().TraceLogging(), d.cfg.OCR2().TraceLogging()), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 
@@ -946,7 +952,6 @@ func (d *Delegate) newServicesLLO(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
-	lggr = logger.Sugared(lggr.Named("LLO"))
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
 	if len(transmitterID) != 64 {
@@ -985,6 +990,7 @@ func (d *Delegate) newServicesLLO(
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &pluginCfg); err != nil {
 		return nil, err
 	}
+	lggr = logger.Sugared(lggr.Named("LLO").With("donID", pluginCfg.DonID, "channelDefinitionsContractAddress", pluginCfg.ChannelDefinitionsContractAddress))
 
 	// Handle key bundle IDs explicitly specified in job spec
 	kbm := make(map[llotypes.ReportFormat]llo.Key)

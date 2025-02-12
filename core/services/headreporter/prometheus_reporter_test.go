@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -17,11 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
 )
 
 func Test_PrometheusReporter(t *testing.T) {
@@ -121,7 +121,7 @@ func Test_PrometheusReporter(t *testing.T) {
 func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	keyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
@@ -157,7 +157,7 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 }
 
 func newLegacyChainContainerWithNullTxm(t *testing.T) legacyevm.LegacyChainContainer {
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txm := &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("TXM disabled for chain %d", ethClient.ConfiguredChainID())}
 	cfg := configtest.NewGeneralConfig(t, nil)
 	return cltest.NewLegacyChainsWithMockChainAndTxManager(t, ethClient, cfg, txm)

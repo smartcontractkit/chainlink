@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func Test_ReplayFromBlock(t *testing.T) {

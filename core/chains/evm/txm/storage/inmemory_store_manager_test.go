@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 )
 
 func TestAdd(t *testing.T) {

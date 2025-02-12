@@ -1,342 +1,177 @@
 package capabilities_test
 
 import (
+	"bufio"
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
-	"slices"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
 	"github.com/go-yaml/yaml"
 	"github.com/google/go-github/v41/github"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	geth_types "github.com/ethereum/go-ethereum/core/types"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	cr_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
-	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
-// Copying this to avoid dependency on the core repo
-func GetChainType(chainType string) (uint8, error) {
-	switch chainType {
-	case "evm":
-		return 1, nil
-	// case Solana:
-	// 	return 2, nil
-	// case Cosmos:
-	// 	return 3, nil
-	// case StarkNet:
-	// 	return 4, nil
-	// case Aptos:
-	// 	return 5, nil
-	default:
-		return 0, fmt.Errorf("unexpected chaintype.ChainType: %#v", chainType)
-	}
-}
-
-// Copying this to avoid dependency on the core repo
-func MarshalMultichainPublicKey(ost map[string]types.OnchainPublicKey) (types.OnchainPublicKey, error) {
-	pubKeys := make([][]byte, 0, len(ost))
-	for k, pubKey := range ost {
-		typ, err := GetChainType(k)
-		if err != nil {
-			// skipping unknown key type
-			continue
-		}
-		buf := new(bytes.Buffer)
-		if err = binary.Write(buf, binary.LittleEndian, typ); err != nil {
-			return nil, err
-		}
-		length := len(pubKey)
-		if length < 0 || length > math.MaxUint16 {
-			return nil, errors.New("pubKey doesn't fit into uint16")
-		}
-		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil {
-			return nil, err
-		}
-		_, _ = buf.Write(pubKey)
-		pubKeys = append(pubKeys, buf.Bytes())
-	}
-	// sort keys based on encoded type to make encoding deterministic
-	slices.SortFunc(pubKeys, func(a, b []byte) int { return cmp.Compare(a[0], b[0]) })
-	return bytes.Join(pubKeys, nil), nil
-}
-
 type WorkflowConfig struct {
-	UseChainlinkCLI bool                    `toml:"use_chainlink_cli"`
-	ChainlinkCLI    *ChainlinkCLIConfig     `toml:"chainlink_cli"`
-	UseExising      bool                    `toml:"use_existing"`
-	Existing        *ExistingWorkflowConfig `toml:"existing"`
+	UseCRECLI                bool `toml:"use_cre_cli"`
+	ShouldCompileNewWorkflow bool `toml:"should_compile_new_workflow"`
+	// Tells the test where the workflow to compile is located
+	WorkflowFolderLocation *string             `toml:"workflow_folder_location"`
+	CompiledWorkflowConfig *CompiledConfig     `toml:"compiled_config"`
+	DependenciesConfig     *DependenciesConfig `toml:"dependencies"`
+	// id, which will be used, when registering the DON with the workflow registry,
+	// and when instructing the Gateway job on the bootstrap node as to which workflow to run.
+	DonID        uint32 `toml:"don_id" validate:"required"`
+	WorkflowName string `toml:"workflow_name" validate:"required" `
 }
 
-type ExistingWorkflowConfig struct {
+// Defines relases/versions of test dependencies that will be downloaded from Github
+type DependenciesConfig struct {
+	CapabiltiesVersion string `toml:"capabilities_version"`
+	CRECLIVersion      string `toml:"cre_cli_version"`
+}
+
+// Defines the location of already compiled workflow binary and config files
+// They will be used if WorkflowConfig.ShouldCompileNewWorkflow is `false`
+// Otherwise test will compile and upload a new workflow
+type CompiledConfig struct {
 	BinaryURL string `toml:"binary_url"`
 	ConfigURL string `toml:"config_url"`
 }
 
-type ChainlinkCLIConfig struct {
-	FolderLocation *string `toml:"folder_location"`
-}
-
 type WorkflowTestConfig struct {
-	BlockchainA    *blockchain.Input `toml:"blockchain_a" validate:"required"`
-	NodeSet        *ns.Input         `toml:"nodeset" validate:"required"`
-	WorkflowConfig *WorkflowConfig   `toml:"workflow_config" validate:"required"`
+	BlockchainA    *blockchain.Input    `toml:"blockchain_a" validate:"required"`
+	NodeSet        *ns.Input            `toml:"nodeset" validate:"required"`
+	WorkflowConfig *WorkflowConfig      `toml:"workflow_config" validate:"required"`
+	JD             *jd.Input            `toml:"jd" validate:"required"`
+	PriceProvider  *PriceProviderConfig `toml:"price_provider"`
 }
 
-type OCR3Config struct {
-	Signers               [][]byte
-	Transmitters          []common.Address
-	F                     uint8
-	OnchainConfig         []byte
-	OffchainConfigVersion uint64
-	OffchainConfig        []byte
+type FakeConfig struct {
+	*fake.Input
+	Prices []float64 `toml:"prices"`
 }
 
-type NodeInfo struct {
-	OcrKeyBundleID            string
-	TransmitterAddress        string
-	PeerID                    string
-	Signer                    common.Address
-	OffchainPublicKey         [32]byte
-	OnchainPublicKey          types.OnchainPublicKey
-	ConfigEncryptionPublicKey [32]byte
+type PriceProviderConfig struct {
+	Fake   *FakeConfig `toml:"fake"`
+	FeedID string      `toml:"feed_id" validate:"required"`
+	URL    string      `toml:"url"`
 }
 
-func extractKey(value string) string {
-	parts := strings.Split(value, "_")
-	if len(parts) > 1 {
-		return parts[len(parts)-1]
-	}
-	return value
-}
-
-func downloadGHAssetFromLatestRelease(owner, repository, releaseType, assetName, ghToken string) ([]byte, error) {
+func downloadGHAssetFromRelease(owner, repository, releaseTag, assetName, ghToken string) ([]byte, error) {
 	var content []byte
 	if ghToken == "" {
 		return content, errors.New("no github token provided")
 	}
 
-	if (releaseType == test_env.AUTOMATIC_LATEST_TAG) || (releaseType == test_env.AUTOMATIC_STABLE_LATEST_TAG) {
-		ctx := context.Background()
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: ghToken},
-		)
-		tc := oauth2.NewClient(ctx, ts)
-
-		ghClient := github.NewClient(tc)
-
-		latestTags, _, err := ghClient.Repositories.ListReleases(context.Background(), owner, repository, &github.ListOptions{PerPage: 20})
-		if err != nil {
-			return content, errors.Wrapf(err, "failed to list releases for %s", repository)
-		}
-
-		var latestRelease *github.RepositoryRelease
-		for _, tag := range latestTags {
-			if releaseType == test_env.AUTOMATIC_STABLE_LATEST_TAG {
-				if tag.Prerelease != nil && *tag.Prerelease {
-					continue
-				}
-				if tag.Draft != nil && *tag.Draft {
-					continue
-				}
-			}
-			if tag.TagName != nil {
-				latestRelease = tag
-				break
-			}
-		}
-
-		if latestRelease == nil {
-			return content, errors.New("failed to find latest release with automatic tag: " + releaseType)
-		}
-
-		var assetID int64
-		for _, asset := range latestRelease.Assets {
-			if strings.Contains(asset.GetName(), assetName) {
-				assetID = asset.GetID()
-				break
-			}
-		}
-
-		if assetID == 0 {
-			return content, fmt.Errorf("failed to find asset %s for %s", assetName, *latestRelease.TagName)
-		}
-
-		asset, _, err := ghClient.Repositories.DownloadReleaseAsset(context.Background(), owner, repository, assetID, tc)
-		if err != nil {
-			return content, errors.Wrapf(err, "failed to download asset %s for %s", assetName, *latestRelease.TagName)
-		}
-
-		content, err = io.ReadAll(asset)
-		if err != nil {
-			return content, err
-		}
-
-		return content, nil
-	}
-
-	return content, errors.New("no automatic tag provided")
-}
-
-func getNodesInfo(
-	t *testing.T,
-	nodes []*clclient.ChainlinkClient,
-) (nodesInfo []NodeInfo) {
-	nodesInfo = make([]NodeInfo, len(nodes))
-
-	for i, node := range nodes {
-		// OCR Keys
-		ocr2Keys, err := node.MustReadOCR2Keys()
-		require.NoError(t, err)
-		nodesInfo[i].OcrKeyBundleID = ocr2Keys.Data[0].ID
-
-		firstOCR2Key := ocr2Keys.Data[0].Attributes
-		nodesInfo[i].Signer = common.HexToAddress(extractKey(firstOCR2Key.OnChainPublicKey))
-
-		pubKeys := make(map[string]types.OnchainPublicKey)
-		ethOnchainPubKey, err := hex.DecodeString(extractKey(firstOCR2Key.OnChainPublicKey))
-		require.NoError(t, err)
-		pubKeys["evm"] = ethOnchainPubKey
-
-		multichainPubKey, err := MarshalMultichainPublicKey(pubKeys)
-		require.NoError(t, err)
-		nodesInfo[i].OnchainPublicKey = multichainPubKey
-
-		offchainPublicKeyBytes, err := hex.DecodeString(extractKey(firstOCR2Key.OffChainPublicKey))
-		require.NoError(t, err)
-		var offchainPublicKey [32]byte
-		copy(offchainPublicKey[:], offchainPublicKeyBytes)
-		nodesInfo[i].OffchainPublicKey = offchainPublicKey
-
-		sharedSecretEncryptionPublicKeyBytes, err := hex.DecodeString(extractKey(firstOCR2Key.ConfigPublicKey))
-		require.NoError(t, err)
-		var sharedSecretEncryptionPublicKey [32]byte
-		copy(sharedSecretEncryptionPublicKey[:], sharedSecretEncryptionPublicKeyBytes)
-		nodesInfo[i].ConfigEncryptionPublicKey = sharedSecretEncryptionPublicKey
-
-		// ETH Keys
-		ethKeys, err := node.MustReadETHKeys()
-		require.NoError(t, err)
-		nodesInfo[i].TransmitterAddress = ethKeys.Data[0].Attributes.Address
-
-		// P2P Keys
-		p2pKeys, err := node.MustReadP2PKeys()
-		require.NoError(t, err)
-		nodesInfo[i].PeerID = p2pKeys.Data[0].Attributes.PeerID
-	}
-
-	return nodesInfo
-}
-
-func generateOCR3Config(
-	t *testing.T,
-	nodesInfo []NodeInfo,
-) (config *OCR3Config) {
-	oracleIdentities := []confighelper.OracleIdentityExtra{}
-	transmissionSchedule := []int{}
-
-	for _, nodeInfo := range nodesInfo {
-		transmissionSchedule = append(transmissionSchedule, 1)
-		oracleIdentity := confighelper.OracleIdentityExtra{}
-		oracleIdentity.OffchainPublicKey = nodeInfo.OffchainPublicKey
-		oracleIdentity.OnchainPublicKey = nodeInfo.OnchainPublicKey
-		oracleIdentity.ConfigEncryptionPublicKey = nodeInfo.ConfigEncryptionPublicKey
-		oracleIdentity.PeerID = nodeInfo.PeerID
-		oracleIdentity.TransmitAccount = types.Account(nodeInfo.TransmitterAddress)
-		oracleIdentities = append(oracleIdentities, oracleIdentity)
-	}
-
-	maxDurationInitialization := 10 * time.Second
-
-	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
-		5*time.Second,              // DeltaProgress: Time between rounds
-		5*time.Second,              // DeltaResend: Time between resending unconfirmed transmissions
-		5*time.Second,              // DeltaInitial: Initial delay before starting the first round
-		2*time.Second,              // DeltaRound: Time between rounds within an epoch
-		500*time.Millisecond,       // DeltaGrace: Grace period for delayed transmissions
-		1*time.Second,              // DeltaCertifiedCommitRequest: Time between certified commit requests
-		30*time.Second,             // DeltaStage: Time between stages of the protocol
-		uint64(10),                 // MaxRoundsPerEpoch: Maximum number of rounds per epoch
-		transmissionSchedule,       // TransmissionSchedule: Transmission schedule
-		oracleIdentities,           // Oracle identities with their public keys
-		nil,                        // Plugin config (empty for now)
-		&maxDurationInitialization, // MaxDurationInitialization: ???
-		1*time.Second,              // MaxDurationQuery: Maximum duration for querying
-		1*time.Second,              // MaxDurationObservation: Maximum duration for observation
-		1*time.Second,              // MaxDurationAccept: Maximum duration for acceptance
-		1*time.Second,              // MaxDurationTransmit: Maximum duration for transmission
-		1,                          // F: Maximum number of faulty oracles
-		nil,                        // OnChain config (empty for now)
+	// assuming 180s is enough to fetch releases, find the asset we need and download it
+	// some assets might be 30+ MB, so we need to give it some time (for really slow connections)
+	ctx, cancelFn := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancelFn()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: ghToken},
 	)
-	require.NoError(t, err)
+	tc := oauth2.NewClient(ctx, ts)
 
-	signerAddresses := [][]byte{}
-	for _, signer := range signers {
-		signerAddresses = append(signerAddresses, signer)
+	ghClient := github.NewClient(tc)
+
+	ghReleases, _, err := ghClient.Repositories.ListReleases(ctx, owner, repository, &github.ListOptions{PerPage: 20})
+	if err != nil {
+		return content, errors.Wrapf(err, "failed to list releases for %s", repository)
 	}
 
-	transmitterAddresses := []common.Address{}
-	for _, transmitter := range transmitters {
-		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(transmitter)))
+	var ghRelease *github.RepositoryRelease
+	for _, release := range ghReleases {
+		if release.TagName == nil {
+			continue
+		}
+
+		if *release.TagName == releaseTag {
+			ghRelease = release
+			break
+		}
 	}
 
-	return &OCR3Config{
-		Signers:               signerAddresses,
-		Transmitters:          transmitterAddresses,
-		F:                     f,
-		OnchainConfig:         onchainConfig,
-		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        offchainConfig,
+	if ghRelease == nil {
+		return content, errors.New("failed to find release with tag: " + releaseTag)
 	}
+
+	var assetID int64
+	for _, asset := range ghRelease.Assets {
+		if strings.Contains(asset.GetName(), assetName) {
+			assetID = asset.GetID()
+			break
+		}
+	}
+
+	if assetID == 0 {
+		return content, fmt.Errorf("failed to find asset %s for %s", assetName, *ghRelease.TagName)
+	}
+
+	asset, _, err := ghClient.Repositories.DownloadReleaseAsset(ctx, owner, repository, assetID, tc)
+	if err != nil {
+		return content, errors.Wrapf(err, "failed to download asset %s for %s", assetName, *ghRelease.TagName)
+	}
+
+	content, err = io.ReadAll(asset)
+	if err != nil {
+		return content, err
+	}
+
+	return content, nil
 }
 
 func GenerateWorkflowIDFromStrings(owner string, name string, workflow []byte, config []byte, secretsURL string) (string, error) {
@@ -404,7 +239,7 @@ func downloadAndDecode(url string) ([]byte, error) {
 	return decoded, nil
 }
 
-type ChainlinkCliSettings struct {
+type CRECLISettings struct {
 	DevPlatform  DevPlatform  `yaml:"dev-platform"`
 	UserWorkflow UserWorkflow `yaml:"user-workflow"`
 	Logging      Logging      `yaml:"logging"`
@@ -453,49 +288,84 @@ type PoRWorkflowConfig struct {
 }
 
 const (
-	chainlinkCliAssetFile   = "cre_v1.0.2_linux_amd64.tar.gz"
-	cronCapabilityAssetFile = "amd64_cron"
+	CRECLISettingsFileName             = ".cre-cli-settings.yaml"
+	cronCapabilityAssetFile            = "amd64_cron"
+	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
+	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
+	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
+	GistIP                             = "185.199.108.133"
 )
 
-func downloadAndInstallChainlinkCLI(ghToken string) error {
-	content, err := downloadGHAssetFromLatestRelease("smartcontractkit", "dev-platform", test_env.AUTOMATIC_LATEST_TAG, chainlinkCliAssetFile, ghToken)
-	if err != nil {
-		return err
+var (
+	CRECLICommand string
+)
+
+func downloadAndInstallChainlinkCLI(ghToken, version string) error {
+	system := runtime.GOOS
+	arch := runtime.GOARCH
+
+	switch system {
+	case "darwin", "linux":
+		// nothing to do, we have the binaries
+	default:
+		return fmt.Errorf("chainlnk-cli does not support OS: %s", system)
 	}
 
-	tmpfile, err := os.CreateTemp("", chainlinkCliAssetFile)
+	switch arch {
+	case "amd64", "arm64":
+		// nothing to do, we have the binaries
+	default:
+		return fmt.Errorf("chainlnk-cli does not support arch: %s", arch)
+	}
+
+	CRECLIAssetFile := fmt.Sprintf("cre_%s_%s_%s.tar.gz", version, system, arch)
+	content, err := downloadGHAssetFromRelease("smartcontractkit", "dev-platform", version, CRECLIAssetFile, ghToken)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to download CRE CLI asset %s", CRECLIAssetFile)
+	}
+
+	tmpfile, err := os.CreateTemp("", CRECLIAssetFile)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create temp file for CRE CLI asset %s", CRECLIAssetFile)
 	}
 	defer tmpfile.Close()
 
 	if _, err := tmpfile.Write(content); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to write content to temp file for CRE CLI asset %s", CRECLIAssetFile)
 	}
 
-	cmd := exec.Command("tar", "-xvf", tmpfile.Name()) // #nosec G204
-	err = cmd.Run()
+	cmd := exec.Command("tar", "-xvf", tmpfile.Name(), "-C", ".") // #nosec G204
+	if cmd.Run() != nil {
+		return errors.Wrapf(err, "failed to extract CRE CLI asset %s", CRECLIAssetFile)
+	}
 
+	extractedFileName := fmt.Sprintf("cre_%s_%s_%s", version, system, arch)
+	cmd = exec.Command("chmod", "+x", extractedFileName)
+	if cmd.Run() != nil {
+		return errors.Wrapf(err, "failed to make %s executable", extractedFileName)
+	}
+
+	// set it to absolute path, because some commands (e.g. compile) need to be executed in the context
+	// of the workflow directory
+	extractedFile, err := os.Open(extractedFileName)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to open %s", extractedFileName)
 	}
 
-	cmd = exec.Command("chmod", "+x", "chainlink-cli")
-	err = cmd.Run()
-
+	CRECLICommand, err = filepath.Abs(extractedFile.Name())
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to get absolute path for %s", tmpfile.Name())
 	}
 
-	if isInstalled := isInstalled("chainlink-cli"); !isInstalled {
-		return errors.New("failed to install chainlink-cli or it is not available in the PATH")
+	if isInstalled := isInstalled(CRECLICommand); !isInstalled {
+		return errors.New("failed to install CRE CLI or it is not available in the PATH")
 	}
 
 	return nil
 }
 
-func downloadCronCapability(ghToken string) (string, error) {
-	content, err := downloadGHAssetFromLatestRelease("smartcontractkit", "capabilities", test_env.AUTOMATIC_LATEST_TAG, cronCapabilityAssetFile, ghToken)
+func downloadCronCapability(ghToken, version string) (string, error) {
+	content, err := downloadGHAssetFromRelease("smartcontractkit", "capabilities", version, cronCapabilityAssetFile, ghToken)
 	if err != nil {
 		return "", err
 	}
@@ -514,90 +384,218 @@ func downloadCronCapability(ghToken string) (string, error) {
 	return fileName, nil
 }
 
-func validateInputsAndEnvVars(t *testing.T, testConfig *WorkflowTestConfig) {
+func validateInputsAndEnvVars(t *testing.T, in *WorkflowTestConfig) {
 	require.NotEmpty(t, os.Getenv("PRIVATE_KEY"), "PRIVATE_KEY env var must be set")
-	if !testConfig.WorkflowConfig.UseChainlinkCLI {
-		require.True(t, testConfig.WorkflowConfig.UseExising, "if you are not using chainlink-cli you must use an existing workflow")
+	require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig, "dependencies config must be set")
+
+	if !in.WorkflowConfig.UseCRECLI {
+		require.False(t, in.WorkflowConfig.ShouldCompileNewWorkflow, "if you are not using CRE CLI you cannot compile a new workflow")
 	}
 
-	ghToken := os.Getenv("GITHUB_API_TOKEN")
-	_, err := downloadCronCapability(ghToken)
-	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
-
-	// TODO this part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
-	// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
-	if os.Getenv("IS_CI") == "true" {
+	var ghReadToken string
+	// this is a small hack to avoid changing the reusable workflow
+	if os.Getenv("CI") == "true" {
+		// This part should ideally happen outside of the test, but due to how our reusable e2e test workflow is structured now
+		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
+		require.NotEmpty(t, os.Getenv(e2eJobDistributorImageEnvVarName), "missing env var: "+e2eJobDistributorImageEnvVarName)
+		require.NotEmpty(t, os.Getenv(e2eJobDistributorVersionEnvVarName), "missing env var: "+e2eJobDistributorVersionEnvVarName)
 
-		if testConfig.WorkflowConfig.UseChainlinkCLI {
-			err = downloadAndInstallChainlinkCLI(ghToken)
-			require.NoError(t, err, "failed to download and install chainlink-cli. Make sure token has content:read permissions to the dev-platform repo")
+		// disabled until we can figure out how to generate a gist read:write token in CI
+		/*
+		 This test can be run in two modes:
+		 1. `existing` mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
+		 2. `compile` mode: it compiles a new workflow binary and uploads it to Gist
+
+		 For the `new` mode to work, the `GITHUB_API_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
+		 are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
+		 is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
+		*/
+		require.False(t, in.WorkflowConfig.ShouldCompileNewWorkflow, "you cannot compile a new workflow in the CI as of now due to issues with generating a gist write token")
+
+		// we use this special function to subsitute a placeholder env variable with the actual environment variable name
+		// it is defined in .github/e2e-tests.yml as '{{ env.GITHUB_API_TOKEN }}'
+		ghReadToken = ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
+	} else {
+		ghReadToken = os.Getenv(ghReadTokenEnvVarName)
+	}
+
+	require.NotEmpty(t, ghReadToken, ghReadTokenEnvVarName+" env var must be set")
+	require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion, "capabilities_version must be set in the dependencies config")
+
+	_, err := downloadCronCapability(ghReadToken, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion)
+	require.NoError(t, err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
+
+	if in.WorkflowConfig.UseCRECLI {
+		require.NotEmpty(t, in.WorkflowConfig.DependenciesConfig.CRECLIVersion, "chainlink_cli_version must be set in the dependencies config")
+
+		err = downloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.CRECLIVersion)
+		require.NoError(t, err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
+
+		if in.WorkflowConfig.ShouldCompileNewWorkflow {
+			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
+			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use CRE CLI to compile workflows. It requires gist:read and gist:write permissions")
+			err := os.Setenv("GITHUB_API_TOKEN", gistWriteToken)
+			require.NoError(t, err, "failed to set GITHUB_API_TOKEN env var")
+			require.NotEmpty(t, in.WorkflowConfig.WorkflowFolderLocation, "workflow_folder_location must be set, when compiling new workflow")
 		}
 	}
 
-	if testConfig.WorkflowConfig.UseChainlinkCLI {
-		require.True(t, isInstalled("chainlink-cli"), "chainlink-cli is required for this test. Please install it, add to path and run again")
-
-		if !testConfig.WorkflowConfig.UseExising {
-			require.NotEmpty(t, os.Getenv("GITHUB_API_TOKEN"), "GITHUB_API_TOKEN must be set to use chainlink-cli. It requires gist:read and gist:write permissions")
-		} else {
-			require.NotEmpty(t, testConfig.WorkflowConfig.ChainlinkCLI.FolderLocation, "folder_location must be set in the chainlink_cli config")
-		}
+	if in.PriceProvider.Fake == nil {
+		require.NotEmpty(t, in.PriceProvider.URL, "URL must be set in the price provider config, if fake provider is not used")
 	}
+
+	// make sure the feed id is in the correct format
+	in.PriceProvider.FeedID = strings.TrimPrefix(in.PriceProvider.FeedID, "0x")
 }
 
-func buildChainlinkDeploymentEnv(t *testing.T, sc *seth.Client) (*deployment.Environment, uint64) {
-	lgr := logger.TestLogger(t)
+// copied from Bala's unmerged PR: https://github.com/smartcontractkit/chainlink/pull/15751
+// TODO: remove this once the PR is merged and import his function
+func getNodeInfo(nodeOut *ns.Output, bootstrapNodeCount int) ([]devenv.NodeInfo, error) {
+	var nodeInfo []devenv.NodeInfo
+	for i := 1; i <= len(nodeOut.CLNodes); i++ {
+		p2pURL, err := url.Parse(nodeOut.CLNodes[i-1].Node.DockerP2PUrl)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse p2p url: %w", err)
+		}
+		if i <= bootstrapNodeCount {
+			nodeInfo = append(nodeInfo, devenv.NodeInfo{
+				IsBootstrap: true,
+				Name:        fmt.Sprintf("bootstrap-%d", i),
+				P2PPort:     p2pURL.Port(),
+				CLConfig: nodeclient.ChainlinkConfig{
+					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
+					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
+					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
+				},
+			})
+		} else {
+			nodeInfo = append(nodeInfo, devenv.NodeInfo{
+				IsBootstrap: false,
+				Name:        fmt.Sprintf("node-%d", i),
+				P2PPort:     p2pURL.Port(),
+				CLConfig: nodeclient.ChainlinkConfig{
+					URL:        nodeOut.CLNodes[i-1].Node.HostURL,
+					Email:      nodeOut.CLNodes[i-1].Node.APIAuthUser,
+					Password:   nodeOut.CLNodes[i-1].Node.APIAuthPassword,
+					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
+				},
+			})
+		}
+	}
+	return nodeInfo, nil
+}
 
-	addressBook := deployment.NewMemoryAddressBook()
-	chainMap := make(map[uint64]deployment.Chain)
-	ctx := context.Background()
+func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, nodeOutput *ns.Output, bs *blockchain.Output, sc *seth.Client) (*deployment.Environment, *devenv.DON, uint64) {
+	lgr := logger.TestLogger(t)
 
 	chainSelector, err := chainselectors.SelectorFromChainId(sc.Cfg.Network.ChainID)
 	require.NoError(t, err, "failed to get chain selector for chain id %d", sc.Cfg.Network.ChainID)
-	chainMap[chainSelector] = deployment.Chain{
-		Selector:    chainSelector,
-		Client:      sc.Client,
-		DeployerKey: sc.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-		Confirm: func(tx *geth_types.Transaction) (uint64, error) {
-			decoded, revertErr := sc.DecodeTx(tx)
-			if revertErr != nil {
-				return 0, revertErr
-			}
-			if decoded.Receipt == nil {
-				return 0, fmt.Errorf("no receipt found for transaction %s even though it wasn't reverted. This should not happen", tx.Hash().String())
-			}
-			return decoded.Receipt.BlockNumber.Uint64(), nil
+
+	nodeInfo, err := getNodeInfo(nodeOutput, 1)
+	require.NoError(t, err, "failed to get node info")
+
+	jdConfig := devenv.JDConfig{
+		GRPC:     jdOutput.HostGRPCUrl,
+		WSRPC:    jdOutput.DockerWSRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: nodeInfo,
+	}
+
+	require.GreaterOrEqual(t, len(bs.Nodes), 1, "expected at least one node in the blockchain output")
+
+	devenvConfig := devenv.EnvironmentConfig{
+		JDConfig: jdConfig,
+		Chains: []devenv.ChainConfig{
+			{
+				ChainID:   sc.Cfg.Network.ChainID,
+				ChainName: sc.Cfg.Network.Name,
+				ChainType: strings.ToUpper(bs.Family),
+				WSRPCs: []devenv.CribRPCs{{
+					External: bs.Nodes[0].HostWSUrl,
+					Internal: bs.Nodes[0].DockerInternalWSUrl,
+				}},
+				HTTPRPCs: []devenv.CribRPCs{{
+					External: bs.Nodes[0].HostHTTPUrl,
+					Internal: bs.Nodes[0].DockerInternalHTTPUrl,
+				}},
+				DeployerKey: sc.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+			},
 		},
 	}
 
-	return deployment.NewEnvironment("ctfV2", lgr, addressBook, chainMap, nil, nil, nil, func() context.Context { return ctx }, deployment.OCRSecrets{}), chainSelector
+	env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
+	require.NoError(t, err, "failed to create environment")
+
+	return env, don, chainSelector
 }
 
-func prepareCapabilitiesRegistry(t *testing.T, sc *seth.Client, allCaps []cr_wrapper.CapabilitiesRegistryCapability) (common.Address, [][32]byte) {
-	capRegAddr, tx, capabilitiesRegistryInstance, err := cr_wrapper.DeployCapabilitiesRegistry(sc.NewTXOpts(), sc.Client)
-	_, decodeErr := sc.Decode(tx, err)
-	require.NoError(t, decodeErr, "failed to deploy capabilities registry contract")
+func deployKeystoneContracts(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) keystone_changeset.ContractSet {
+	// Deploy keystone forwarder contract
+	_ = deployKeystoneForwarder(t, testLogger, ctfEnv, chainSelector)
 
-	_, decodeErr = sc.Decode(capabilitiesRegistryInstance.AddCapabilities(
-		sc.NewTXOpts(),
-		allCaps,
-	))
-	require.NoError(t, decodeErr, "failed to add capabilities to capabilities registry")
+	// Deploy OCR3 contract
+	_ = deployOCR3(t, testLogger, ctfEnv, chainSelector)
 
-	hashedCapabilities := make([][32]byte, len(allCaps))
-	for i, capability := range allCaps {
-		hashed, err := capabilitiesRegistryInstance.GetHashedCapabilityId(
-			sc.NewCallOpts(),
-			capability.LabelledName,
-			capability.Version,
-		)
-		require.NoError(t, err, "failed to get hashed capability ID for %s", capability.LabelledName)
-		hashedCapabilities[i] = hashed
+	// Deploy capabilities registry contract
+	_ = deployCapabilitiesRegistry(t, testLogger, ctfEnv, chainSelector)
+
+	contractSetResponse, err := keystone_changeset.GetContractSets(nil, &keystone_changeset.GetContractSetsRequest{
+		Chains:      ctfEnv.Chains,
+		AddressBook: ctfEnv.ExistingAddresses,
+	})
+	require.NoError(t, err, "failed to get contract sets")
+
+	contractSet, ok := contractSetResponse.ContractSets[chainSelector]
+	require.True(t, ok, "failed to get contract set for chain %d", chainSelector)
+
+	return contractSet
+}
+
+func deployOCR3(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) common.Address {
+	output, err := keystone_changeset.DeployOCR3(*ctfEnv, chainSelector)
+	require.NoError(t, err, "failed to deploy OCR3 Capability contract")
+
+	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
+	require.NoError(t, err, "failed to merge address book")
+
+	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err, "failed to get addresses for chain %d from the address book", chainSelector)
+
+	var forwarderAddress common.Address
+	for addrStr, tv := range addresses {
+		if strings.Contains(tv.String(), "OCR3Capability") {
+			forwarderAddress = common.HexToAddress(addrStr)
+			testLogger.Info().Msgf("Deployed OCR3Capability contract at %s", forwarderAddress.Hex())
+			break
+		}
 	}
 
-	return capRegAddr, hashedCapabilities
+	return forwarderAddress
+}
+
+func deployCapabilitiesRegistry(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) common.Address {
+	output, err := keystone_changeset.DeployCapabilityRegistry(*ctfEnv, chainSelector)
+	require.NoError(t, err, "failed to deploy Capabilities Registry contract")
+
+	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
+	require.NoError(t, err, "failed to merge address book")
+
+	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err, "failed to get addresses for chain %d from the address book", chainSelector)
+
+	var forwarderAddress common.Address
+	for addrStr, tv := range addresses {
+		if strings.Contains(tv.String(), "CapabilitiesRegistry") {
+			forwarderAddress = common.HexToAddress(addrStr)
+			testLogger.Info().Msgf("Deployed Capabilities Registry contract at %s", forwarderAddress.Hex())
+			break
+		}
+	}
+
+	return forwarderAddress
 }
 
 func deployKeystoneForwarder(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) common.Address {
@@ -622,49 +620,6 @@ func deployKeystoneForwarder(t *testing.T, testLogger zerolog.Logger, ctfEnv *de
 	}
 
 	return forwarderAddress
-}
-
-func configureKeystoneForwarder(t *testing.T, forwarderAddress common.Address, sc *seth.Client, nodesInfo []NodeInfo) {
-	forwarderInstance, err := forwarder.NewKeystoneForwarder(forwarderAddress, sc.Client)
-	require.NoError(t, err, "failed to create forwarder instance")
-
-	signers := make([]common.Address, len(nodesInfo)-1)
-
-	for i, node := range nodesInfo {
-		// skip the first node, as it's the bootstrap node
-		// it doesn't have any capabilities that are required by the workflow
-		if i == 0 {
-			continue
-		}
-		signers[i-1] = node.Signer
-	}
-
-	_, err = sc.Decode(forwarderInstance.SetConfig(
-		sc.NewTXOpts(),
-		1, // donID
-		1, // configVersion -- wonder what it does
-		1, // maximum number of faulty nodes
-		signers))
-	require.NoError(t, err, "failed to set config for forwarder")
-}
-
-func configureOCR3Capability(t *testing.T, ocr3CapabilityAddress common.Address, sc *seth.Client, nodeInfo []NodeInfo) {
-	workflowNodesetInfo := nodeInfo[1:]
-
-	ocr3CapabilityContract, err := ocr3_capability.NewOCR3Capability(ocr3CapabilityAddress, sc.Client)
-	require.NoError(t, err, "failed to create OCR3 capability contract instance")
-
-	ocr3Config := generateOCR3Config(t, workflowNodesetInfo)
-	_, decodeErr := sc.Decode(ocr3CapabilityContract.SetConfig(
-		sc.NewTXOpts(),
-		ocr3Config.Signers,
-		ocr3Config.Transmitters,
-		ocr3Config.F,
-		ocr3Config.OnchainConfig,
-		ocr3Config.OffchainConfigVersion,
-		ocr3Config.OffchainConfig,
-	))
-	require.NoError(t, decodeErr, "failed to set OCR3 configuration")
 }
 
 func prepareWorkflowRegistry(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64, sc *seth.Client, donID uint32) common.Address {
@@ -718,8 +673,8 @@ func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deplo
 	var feedsConsumerAddress common.Address
 	for addrStr, tv := range addresses {
 		if strings.Contains(tv.String(), "FeedConsumer") {
-			testLogger.Info().Msgf("Deployed FeedConsumer contract at %s", feedsConsumerAddress.Hex())
 			feedsConsumerAddress = common.HexToAddress(addrStr)
+			testLogger.Info().Msgf("Deployed FeedConsumer contract at %s", feedsConsumerAddress.Hex())
 			break
 		}
 	}
@@ -761,26 +716,14 @@ func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deplo
 	return feedsConsumerAddress
 }
 
-func deployOCR3Capability(t *testing.T, testLogger zerolog.Logger, sc *seth.Client) common.Address {
-	ocr3CapabilityAddress, tx, _, err := ocr3_capability.DeployOCR3Capability(
-		sc.NewTXOpts(),
-		sc.Client,
-	)
-	_, decodeErr := sc.Decode(tx, err)
-	require.NoError(t, decodeErr, "failed to deploy OCR Capability contract")
-
-	testLogger.Info().Msgf("Deployed OCR3 Capability contract at %s", ocr3CapabilityAddress.Hex())
-
-	return ocr3CapabilityAddress
-}
 func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName string) {
-	require.NotEmpty(t, in.WorkflowConfig.Existing.BinaryURL)
-	workFlowData, err := downloadAndDecode(in.WorkflowConfig.Existing.BinaryURL)
+	require.NotEmpty(t, in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL)
+	workFlowData, err := downloadAndDecode(in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL)
 	require.NoError(t, err, "failed to download and decode workflow binary")
 
 	var configData []byte
-	if in.WorkflowConfig.Existing.ConfigURL != "" {
-		configData, err = download(in.WorkflowConfig.Existing.ConfigURL)
+	if in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL != "" {
+		configData, err = download(in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL)
 		require.NoError(t, err, "failed to download workflow config")
 	}
 
@@ -792,20 +735,29 @@ func registerWorkflowDirectly(t *testing.T, in *WorkflowTestConfig, sc *seth.Cli
 	require.NoError(t, err, "failed to create workflow registry instance")
 
 	// use non-encoded workflow name
-	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), in.WorkflowConfig.Existing.BinaryURL, in.WorkflowConfig.Existing.ConfigURL, ""))
+	_, decodeErr := sc.Decode(workflowRegistryInstance.RegisterWorkflow(sc.NewTXOpts(), workflowName, [32]byte(common.Hex2Bytes(workflowID)), donID, uint8(0), in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL, in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL, ""))
 	require.NoError(t, decodeErr, "failed to register workflow")
 }
 
 //revive:disable // ignore confusing-results
-func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, settingsFile *os.File) (string, string) {
-	feedID := "0x018BFE88407000400000000000000000"
-
+func compileWorkflowWithCRECLI(t *testing.T, in *WorkflowTestConfig, feedsConsumerAddress common.Address, feedID, dataURL string, settingsFile *os.File) (string, string) {
 	configFile, err := os.CreateTemp("", "config.json")
 	require.NoError(t, err, "failed to create workflow config file")
 
+	cleanFeedId := strings.TrimPrefix(feedID, "0x")
+	feedLength := len(cleanFeedId)
+
+	require.GreaterOrEqual(t, feedLength, 32, "feed ID must be at least 32 characters long")
+
+	if feedLength > 32 {
+		cleanFeedId = cleanFeedId[:32]
+	}
+
+	feedIDToUse := "0x" + cleanFeedId
+
 	workflowConfig := PoRWorkflowConfig{
-		FeedID:          feedID,
-		URL:             "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
+		FeedID:          feedIDToUse,
+		URL:             dataURL,
 		ConsumerAddress: feedsConsumerAddress.Hex(),
 	}
 
@@ -817,17 +769,19 @@ func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feeds
 
 	var outputBuffer bytes.Buffer
 
-	compileCmd := exec.Command("chainlink-cli", "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
+	// the CLI expects the workflow code to be located in the same directory as its `go.mod`` file. That's why we assume that the file, which
+	// contains the entrypoint method is always named `main.go`. This is a limitation of the CLI, which we can't change.
+	compileCmd := exec.Command(CRECLICommand, "workflow", "compile", "-S", settingsFile.Name(), "-c", configFile.Name(), "main.go") // #nosec G204
 	compileCmd.Stdout = &outputBuffer
 	compileCmd.Stderr = &outputBuffer
-	compileCmd.Dir = *in.WorkflowConfig.ChainlinkCLI.FolderLocation
+	compileCmd.Dir = *in.WorkflowConfig.WorkflowFolderLocation
 	err = compileCmd.Start()
 	require.NoError(t, err, "failed to start compile command")
 
 	err = compileCmd.Wait()
-	require.NoError(t, err, "failed to wait for compile command")
-
 	fmt.Println("Compile output:\n", outputBuffer.String())
+
+	require.NoError(t, err, "failed to wait for compile command")
 
 	re := regexp.MustCompile(`Gist URL=([^\s]+)`)
 	matches := re.FindAllStringSubmatch(outputBuffer.String(), -1)
@@ -845,12 +799,12 @@ func compileWorkflowWithChainlinkCli(t *testing.T, in *WorkflowTestConfig, feeds
 	return workflowGistURL, workflowConfigURL
 }
 
-func preapreChainlinkCliSettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) *os.File {
-	// create chainlink-cli settings file
-	settingsFile, err := os.CreateTemp("", ".chainlink-cli-settings.yaml")
-	require.NoError(t, err, "failed to create chainlink-cli settings file")
+func preapreCRECLISettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) *os.File {
+	// create CRE CLI settings file
+	settingsFile, err := os.CreateTemp("", CRECLISettingsFileName)
+	require.NoError(t, err, "failed to create CRE CLI settings file")
 
-	settings := ChainlinkCliSettings{
+	settings := CRECLISettings{
 		DevPlatform: DevPlatform{
 			CapabilitiesRegistryAddress: capRegAddr.Hex(),
 			DonID:                       donID,
@@ -886,56 +840,56 @@ func preapreChainlinkCliSettingsFile(t *testing.T, sc *seth.Client, capRegAddr, 
 	}
 
 	settingsMarshalled, err := yaml.Marshal(settings)
-	require.NoError(t, err, "failed to marshal chainlink-cli settings")
+	require.NoError(t, err, "failed to marshal CRE CLI settings")
 
 	_, err = settingsFile.Write(settingsMarshalled)
-	require.NoError(t, err, "failed to write chainlink-cli settings file")
+	require.NoError(t, err, "failed to write %s settings file", CRECLISettingsFileName)
 
 	return settingsFile
 }
 
-func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL string) {
+func registerWorkflow(t *testing.T, in *WorkflowTestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL, dataURL string) {
 	// Register workflow directly using the provided binary and config URLs
 	// This is a legacy solution, probably we can remove it soon
-	if in.WorkflowConfig.UseExising && !in.WorkflowConfig.UseChainlinkCLI {
+	if !in.WorkflowConfig.ShouldCompileNewWorkflow && !in.WorkflowConfig.UseCRECLI {
 		registerWorkflowDirectly(t, in, sc, workflowRegistryAddr, donID, workflowName)
 
 		return
 	}
 
-	// These two env vars are required by the chainlink-cli
+	// These two env vars are required by the CRE CLI
 	err := os.Setenv("WORKFLOW_OWNER_ADDRESS", sc.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "failed to set WORKFLOW_OWNER_ADDRESS env var")
 
 	err = os.Setenv("ETH_PRIVATE_KEY", pkey)
 	require.NoError(t, err, "failed to set ETH_PRIVATE_KEY env var")
 
-	// create chainlink-cli settings file
-	settingsFile := preapreChainlinkCliSettingsFile(t, sc, capRegAddr, workflowRegistryAddr, donID, chainSelector, rpcHTTPURL)
+	// create CRE CLI settings file
+	settingsFile := preapreCRECLISettingsFile(t, sc, capRegAddr, workflowRegistryAddr, donID, chainSelector, rpcHTTPURL)
 
 	var workflowGistURL string
 	var workflowConfigURL string
 
 	// compile and upload the workflow, if we are not using an existing one
-	if !in.WorkflowConfig.UseExising {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithChainlinkCli(t, in, feedsConsumerAddress, settingsFile)
+	if in.WorkflowConfig.ShouldCompileNewWorkflow {
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.PriceProvider.FeedID, dataURL, settingsFile)
 	} else {
-		workflowGistURL = in.WorkflowConfig.Existing.BinaryURL
-		workflowConfigURL = in.WorkflowConfig.Existing.ConfigURL
+		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
+		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
 	}
 
 	// register the workflow
-	registerCmd := exec.Command("chainlink-cli", "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
+	registerCmd := exec.Command(CRECLICommand, "workflow", "register", workflowName, "-b", workflowGistURL, "-c", workflowConfigURL, "-S", settingsFile.Name(), "-v")
 	registerCmd.Stdout = os.Stdout
 	registerCmd.Stderr = os.Stderr
 	err = registerCmd.Run()
-	require.NoError(t, err, "failed to register workflow using chainlink-cli")
+	require.NoError(t, err, "failed to register workflow using CRE CLI")
 }
 
-func starAndFundNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output, sc *seth.Client) (*ns.Output, []NodeInfo) {
+func startNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Output) *ns.Output {
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
-	if os.Getenv("IS_CI") == "true" {
+	if os.Getenv("CI") == "true" {
 		// Due to how we pass custom env vars to reusable workflow we need to use placeholders, so first we need to resolve what's the name of the target environment variable
 		// that stores chainlink version and then we can use it to resolve the image name
 		image := fmt.Sprintf("%s:%s", os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), ctfconfig.MustReadEnvVar_String(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV))
@@ -947,27 +901,47 @@ func starAndFundNodes(t *testing.T, in *WorkflowTestConfig, bc *blockchain.Outpu
 	nodeset, err := ns.NewSharedDBNodeSet(in.NodeSet, bc)
 	require.NoError(t, err, "failed to deploy node set")
 
-	nodeClients, err := clclient.New(nodeset.CLNodes)
-	require.NoError(t, err, "failed to create chainlink clients")
+	return nodeset
+}
 
-	nodesInfo := getNodesInfo(t, nodeClients)
+// In order to whitelist host IP in the gateway, we need to resolve the host.docker.internal to the host IP,
+// and since CL image doesn't have dig or nslookup, we need to use curl.
+func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) (string, error) {
+	containerName := nsOutput.CLNodes[0].Node.ContainerName
+	cmd := []string{"curl", "-v", "http://host.docker.internal"}
+	output, err := framework.ExecContainer(containerName, cmd)
+	if err != nil {
+		return "", err
+	}
 
-	// Fund all nodes
-	for _, nodeInfo := range nodesInfo {
+	re := regexp.MustCompile(`.*Trying ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*`)
+	matches := re.FindStringSubmatch(output)
+	if len(matches) < 2 {
+		testLogger.Error().Msgf("failed to extract IP address from curl output:\n%s", output)
+		return "", errors.New("failed to extract IP address from curl output")
+	}
+
+	testLogger.Info().Msgf("Resolved host.docker.internal to %s", matches[1])
+
+	return matches[1], nil
+}
+
+func fundNodes(t *testing.T, don *devenv.DON, sc *seth.Client) {
+	for _, node := range don.Nodes {
 		_, err := actions.SendFunds(zerolog.Logger{}, sc, actions.FundsToSendPayload{
-			ToAddress:  common.HexToAddress(nodeInfo.TransmitterAddress),
+			ToAddress:  common.HexToAddress(node.AccountAddr[sc.Cfg.Network.ChainID]),
 			Amount:     big.NewInt(5000000000000000000),
 			PrivateKey: sc.MustGetRootPrivateKey(),
 		})
 		require.NoError(t, err)
 	}
-
-	return nodeset, nodesInfo
 }
 
-func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, bc *blockchain.Output, capRegAddr common.Address, workflowRegistryAddr common.Address, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
-	bootstrapNodeInfo := nodesInfo[0]
-	workflowNodesetInfo := nodesInfo[1:]
+func configureNodes(t *testing.T, don *devenv.DON, in *WorkflowTestConfig, bc *blockchain.Output, capRegAddr, workflowRegistryAddr, forwarderAddress common.Address) (*ns.Output, []*clclient.ChainlinkClient) {
+	workflowNodeSet := don.Nodes[1:]
+
+	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
+	require.NoError(t, err, "failed to get bootstrap node peer ID")
 
 	// configure the bootstrap node
 	in.NodeSet.NodeSpecs[0].Node.TestConfigOverrides = fmt.Sprintf(`
@@ -977,6 +951,7 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				[OCR2]
 				Enabled = true
 				DatabaseTimeout = '1s'
+				ContractPollInterval = '1s'
 
 				[P2P.V2]
 				Enabled = true
@@ -997,16 +972,20 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				WSURL = '%s'
 				HTTPURL = '%s'
 			`,
-		bootstrapNodeInfo.PeerID,
-		bootstrapNodeInfo.PeerID,
+		bootstrapNodePeerId,
+		bootstrapNodePeerId,
 		bc.ChainID,
 		bc.Nodes[0].DockerInternalWSUrl,
 		bc.Nodes[0].DockerInternalHTTPUrl,
 	)
 
+	chainIDInt, err := strconv.Atoi(bc.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
+
 	// configure worker nodes with p2p, peering capabilitity (for DON-2-DON communication),
 	// capability (external) registry, workflow registry and gateway connector (required for reading from workflow registry and for external communication)
-	for i := range workflowNodesetInfo {
+	for i := range workflowNodeSet {
 		in.NodeSet.NodeSpecs[i+1].Node.TestConfigOverrides = fmt.Sprintf(`
 				[Feature]
 				LogPoller = true
@@ -1014,6 +993,7 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				[OCR2]
 				Enabled = true
 				DatabaseTimeout = '1s'
+				ContractPollInterval = '1s'
 
 				[P2P.V2]
 				Enabled = true
@@ -1027,7 +1007,6 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				# assuming that node0 is the bootstrap node
 				DefaultBootstrappers = ['%s@node0:6690']
 
-				# This is needed for the target capability to be initialized
 				[[EVM]]
 				ChainID = '%s'
 
@@ -1036,6 +1015,7 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				WSURL = '%s'
 				HTTPURL = '%s'
 
+				# This is needed for the target capability to be initialized
 				[EVM.Workflow]
 				FromAddress = '%s'
 				ForwarderAddress = '%s'
@@ -1052,7 +1032,7 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				ChainID = "%s"
 
 				[Capabilities.GatewayConnector]
-				DonID = "1"
+				DonID = "%s"
 				ChainIDForNodeKey = "%s"
 				NodeAddress = '%s'
 
@@ -1060,19 +1040,20 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 				Id = "por_gateway"
 				URL = "%s"
 			`,
-			bootstrapNodeInfo.PeerID,
-			bootstrapNodeInfo.PeerID,
+			bootstrapNodePeerId,
+			bootstrapNodePeerId,
 			bc.ChainID,
 			bc.Nodes[0].DockerInternalWSUrl,
 			bc.Nodes[0].DockerInternalHTTPUrl,
-			workflowNodesetInfo[i].TransmitterAddress,
+			workflowNodeSet[i].AccountAddr[chainIDUint64],
 			forwarderAddress.Hex(),
 			capRegAddr,
 			bc.ChainID,
 			workflowRegistryAddr.Hex(),
 			bc.ChainID,
+			strconv.FormatUint(uint64(in.WorkflowConfig.DonID), 10),
 			bc.ChainID,
-			workflowNodesetInfo[i].TransmitterAddress,
+			workflowNodeSet[i].AccountAddr[chainIDUint64],
 			"ws://node0:5003/node", // bootstrap node exposes gateway port on 5003
 		)
 	}
@@ -1088,12 +1069,49 @@ func configureNodes(t *testing.T, nodesInfo []NodeInfo, in *WorkflowTestConfig, 
 	return nodeset, nodeClients
 }
 
-func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodesInfo []NodeInfo, bc *blockchain.Output, ocr3CapabilityAddress common.Address) {
-	bootstrapNodeInfo := nodesInfo[0]
-	workflowNodesetInfo := nodesInfo[1:]
+func reinitialiseJDClient(t *testing.T, ctfEnv *deployment.Environment, jdOutput *jd.Output, nodeOutput *ns.Output) deployment.Environment {
+	nodeInfo, err := getNodeInfo(nodeOutput, 1)
+	require.NoError(t, err, "failed to get node info")
 
-	// Create gateway and bootstrap (ocr3) jobs for the bootstrap node
-	bootstrapNode := nodeClients[0]
+	jdConfig := devenv.JDConfig{
+		GRPC:     jdOutput.HostGRPCUrl,
+		WSRPC:    jdOutput.DockerWSRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: nodeInfo,
+	}
+
+	offChain, err := devenv.NewJDClient(context.Background(), jdConfig)
+	require.NoError(t, err, "failed to create JD client")
+
+	ctfEnv.Offchain = offChain
+
+	return *ctfEnv
+}
+
+func mustSafeUint64(input int64) uint64 {
+	if input < 0 {
+		panic(fmt.Errorf("int64 %d is below uint64 min value", input))
+	}
+	return uint64(input)
+}
+
+func createNodeJobsWithJd(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, extraAllowedPorts []int, extraAllowedIps []string) {
+	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
+	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
+	require.NoError(t, err, "failed to get OCR3 contract address")
+
+	ocr3CapabilityAddress := ocr3Contract.Address().Hex()
+
+	chainIDInt, err := strconv.Atoi(bc.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+	chainIDUint64 := mustSafeUint64(int64(chainIDInt))
+
+	bootstrapNodePeerId, err := nodeToP2PID(don.Nodes[0], keyExtractingTransformFn)
+	require.NoError(t, err, "failed to get bootstrap node peer ID")
+
+	jobCount := 2 + (len(don.Nodes)-1)*3
+	errCh := make(chan error, jobCount)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -1102,45 +1120,52 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 		bootstrapJobSpec := fmt.Sprintf(`
 				type = "bootstrap"
 				schemaVersion = 1
+				externalJobID = "%s"
 				name = "Botostrap"
 				contractID = "%s"
 				contractConfigTrackerPollInterval = "1s"
 				contractConfigConfirmations = 1
 				relay = "evm"
-
 				[relayConfig]
 				chainID = %s
 				providerType = "ocr3-capability"
-			`, ocr3CapabilityAddress, bc.ChainID)
-		r, _, bootErr := bootstrapNode.CreateJobRaw(bootstrapJobSpec)
-		assert.NoError(t, bootErr, "failed to create bootstrap job for the bootstrap node")
-		assert.Empty(t, r.Errors, "failed to create bootstrap job for the bootstrap node")
+			`, uuid.NewString(),
+			ocr3CapabilityAddress,
+			bc.ChainID)
+
+		bootstrapJobRequest := &jobv1.ProposeJobRequest{
+			NodeId: don.Nodes[0].NodeID,
+			Spec:   bootstrapJobSpec,
+		}
+
+		_, bootErr := ctfEnv.Offchain.ProposeJob(context.Background(), bootstrapJobRequest)
+		if bootErr != nil {
+			errCh <- errors.Wrapf(bootErr, "failed to propose bootstrap job")
+			return
+		}
 
 		gatewayJobSpec := fmt.Sprintf(`
 				type = "gateway"
 				schemaVersion = 1
-				name = "PoR Gateway"
+				externalJobID = "%s"
+				name = "Gateway"
 				forwardingAllowed = false
-
 				[gatewayConfig.ConnectionManagerConfig]
 				AuthChallengeLen = 10
 				AuthGatewayId = "por_gateway"
 				AuthTimestampToleranceSec = 5
 				HeartbeatIntervalSec = 20
-
 				[[gatewayConfig.Dons]]
 				DonId = "1"
 				F = 1
 				HandlerName = "web-api-capabilities"
 					[gatewayConfig.Dons.HandlerConfig]
 					MaxAllowedMessageAgeSec = 1_000
-
 						[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
 						GlobalBurst = 10
 						GlobalRPS = 50
 						PerSenderBurst = 10
 						PerSenderRPS = 10
-
 					[[gatewayConfig.Dons.Members]]
 					Address = "%s"
 					Name = "Workflow Node 1"
@@ -1153,7 +1178,6 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 					[[gatewayConfig.Dons.Members]]
 					Address = "%s"
 					Name = "Workflow Node 4"
-
 				[gatewayConfig.NodeServerConfig]
 				HandshakeTimeoutMillis = 1_000
 				MaxRequestBytes = 100_000
@@ -1162,7 +1186,6 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 				ReadTimeoutMillis = 1_000
 				RequestTimeoutMillis = 10_000
 				WriteTimeoutMillis = 1_000
-
 				[gatewayConfig.UserServerConfig]
 				ContentTypeHeader = "application/jsonrpc"
 				MaxRequestBytes = 100_000
@@ -1171,24 +1194,55 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 				ReadTimeoutMillis = 1_000
 				RequestTimeoutMillis = 10_000
 				WriteTimeoutMillis = 1_000
-
 				[gatewayConfig.HTTPClientConfig]
 				MaxResponseBytes = 100_000_000
 			`,
+			uuid.NewString(),
 			// ETH keys of the workflow nodes
-			workflowNodesetInfo[0].TransmitterAddress,
-			workflowNodesetInfo[1].TransmitterAddress,
-			workflowNodesetInfo[2].TransmitterAddress,
-			workflowNodesetInfo[3].TransmitterAddress,
+			don.Nodes[1].AccountAddr[chainIDUint64],
+			don.Nodes[2].AccountAddr[chainIDUint64],
+			don.Nodes[3].AccountAddr[chainIDUint64],
+			don.Nodes[4].AccountAddr[chainIDUint64],
 		)
 
-		r, _, gatewayErr := bootstrapNode.CreateJobRaw(gatewayJobSpec)
-		assert.NoError(t, gatewayErr, "failed to create gateway job for the bootstrap node")
-		assert.Empty(t, r.Errors, "failed to create gateway job for the bootstrap node")
+		if len(extraAllowedPorts) != 0 {
+			var allowedPorts string
+			for _, port := range extraAllowedPorts {
+				allowedPorts += fmt.Sprintf("%d, ", port)
+			}
+
+			// when we pass custom allowed IPs, defaults are not used and we need to
+			// pass HTTP and HTTPS explicitly
+			gatewayJobSpec += fmt.Sprintf(`
+				AllowedPorts = [80, 443, %s]
+				`,
+				allowedPorts,
+			)
+		}
+
+		if len(extraAllowedIps) != 0 {
+			allowedIPs := strings.Join(extraAllowedIps, `", "`)
+
+			gatewayJobSpec += fmt.Sprintf(`
+			AllowedIps = ["%s"]
+			`,
+				allowedIPs,
+			)
+		}
+
+		gatewayJobRequest := &jobv1.ProposeJobRequest{
+			NodeId: don.Nodes[0].NodeID,
+			Spec:   gatewayJobSpec,
+		}
+
+		_, gateErr := ctfEnv.Offchain.ProposeJob(context.Background(), gatewayJobRequest)
+		if gateErr != nil {
+			errCh <- errors.Wrapf(gateErr, "failed to propose gateway job for the bootstrap node")
+		}
 	}()
 
 	// for each capability that's required by the workflow, create a job for workflow each node
-	for i, nodeClient := range nodeClients {
+	for i, node := range don.Nodes {
 		// First node is a bootstrap node, so we skip it
 		if i == 0 {
 			continue
@@ -1199,22 +1253,35 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 			defer wg.Done()
 			// since we are using a capability that is not bundled-in, we need to copy it to the Docker container
 			// and point the job to the copied binary
+
+			// failed to propose job. err: rpc error: code = Internal desc = failed to propose job to node: failed to generate a job based on spec: unknown job type: standardcapabilities
 			cronJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "cron-capabilities"
 					forwardingAllowed = false
 					command = "/home/capabilities/%s"
 					config = ""
-				`, cronCapabilityAssetFile)
+				`,
+				uuid.NewString(),
+				cronCapabilityAssetFile)
 
-			response, _, errCron := nodeClient.CreateJobRaw(cronJobSpec)
-			assert.NoError(t, errCron, "failed to create cron job")
-			assert.Empty(t, response.Errors, "failed to create cron job")
+			cronJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   cronJobSpec,
+			}
 
-			computeJobSpec := `
+			_, cronErr := ctfEnv.Offchain.ProposeJob(context.Background(), cronJobRequest)
+			if cronErr != nil {
+				errCh <- errors.Wrapf(cronErr, "failed to propose cron job for node %s", node.NodeID)
+				return
+			}
+
+			computeJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "compute-capabilities"
 					forwardingAllowed = false
 					command = "__builtin_custom-compute-action"
@@ -1226,15 +1293,24 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 						perSenderRPS = 1.0
 						perSenderBurst = 5
 					"""
-				`
+				`,
+				uuid.NewString())
 
-			response, _, errCompute := nodeClient.CreateJobRaw(computeJobSpec)
-			assert.NoError(t, errCompute, "failed to create compute job")
-			assert.Empty(t, response.Errors, "failed to create compute job")
+			computeJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   computeJobSpec,
+			}
+
+			_, compErr := ctfEnv.Offchain.ProposeJob(context.Background(), computeJobRequest)
+			if compErr != nil {
+				errCh <- errors.Wrapf(compErr, "failed to propose compute job for node %s", node.NodeID)
+				return
+			}
 
 			consensusJobSpec := fmt.Sprintf(`
 					type = "offchainreporting2"
 					schemaVersion = 1
+					externalJobID = "%s"
 					name = "Keystone OCR3 Consensus Capability"
 					contractID = "%s"
 					ocrKeyBundleID = "%s"
@@ -1244,106 +1320,648 @@ func createNodeJobs(t *testing.T, nodeClients []*clclient.ChainlinkClient, nodes
 					relay = "evm"
 					pluginType = "plugin"
 					transmitterID = "%s"
-
 					[relayConfig]
 					chainID = "%s"
-
 					[pluginConfig]
 					command = "/usr/local/bin/chainlink-ocr3-capability"
 					ocrVersion = 3
 					pluginName = "ocr-capability"
 					providerType = "ocr3-capability"
 					telemetryType = "plugin"
-
 					[onchainSigningStrategy]
 					strategyName = 'multi-chain'
 					[onchainSigningStrategy.config]
 					evm = "%s"
 					`,
+				uuid.NewString(),
 				ocr3CapabilityAddress,
-				nodesInfo[i].OcrKeyBundleID,
-				bootstrapNodeInfo.PeerID,
+				node.Ocr2KeyBundleID,
+				bootstrapNodePeerId,
 				"node0:5001",
-				nodesInfo[i].TransmitterAddress,
+				node.AccountAddr[chainIDUint64],
 				bc.ChainID,
-				nodesInfo[i].OcrKeyBundleID,
+				node.Ocr2KeyBundleID,
 			)
-			fmt.Println("consensusJobSpec", consensusJobSpec)
-			response, _, errCons := nodeClient.CreateJobRaw(consensusJobSpec)
-			assert.NoError(t, errCons, "failed to create consensus job")
-			assert.Empty(t, response.Errors, "failed to create consensus job")
+
+			consensusJobRequest := &jobv1.ProposeJobRequest{
+				NodeId: node.NodeID,
+				Spec:   consensusJobSpec,
+			}
+
+			_, consErr := ctfEnv.Offchain.ProposeJob(context.Background(), consensusJobRequest)
+			if consErr != nil {
+				errCh <- errors.Wrapf(consErr, "failed to propose consensus job for node %s ", node.NodeID)
+			}
 		}()
 	}
 	wg.Wait()
+
+	close(errCh)
+
+	errFound := false
+	for err := range errCh {
+		errFound = true
+		//nolint:testifylint // we want to assert here to catch all errors
+		assert.NoError(t, err, "job creation/acception failed")
+	}
+
+	require.False(t, errFound, "failed to create at least one job")
 }
 
-func registerDONAndCapabilities(t *testing.T, capRegAddr common.Address, hashedCapabilities [][32]byte, nodesInfo []NodeInfo, sc *seth.Client) {
-	// Register node operators, nodes and DON in the Capabilities registry
-	nopsToAdd := make([]cr_wrapper.CapabilitiesRegistryNodeOperator, len(nodesInfo)-1)
-	nodesToAdd := make([]cr_wrapper.CapabilitiesRegistryNodeParams, len(nodesInfo)-1)
-	donNodes := make([][32]byte, len(nodesInfo)-1)
+func noOpTransformFn(value string) string {
+	return value
+}
 
-	for i, node := range nodesInfo {
-		// skip the first node, as it's the bootstrap node
-		// it doesn't have any capabilities that are required by the workflow
+func keyExtractingTransformFn(value string) string {
+	parts := strings.Split(value, "_")
+	if len(parts) > 1 {
+		return parts[len(parts)-1]
+	}
+	return value
+}
+
+func nodeToP2PID(node devenv.Node, transformFn func(string) string) (string, error) {
+	for _, label := range node.Labels() {
+		if label.Key == devenv.NodeLabelP2PIDType {
+			if label.Value == nil {
+				return "", fmt.Errorf("p2p label value is nil for node %s", node.Name)
+			}
+			return transformFn(*label.Value), nil
+		}
+	}
+
+	return "", fmt.Errorf("p2p label not found for node %s", node.Name)
+}
+
+func configureWorkflowDON(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, chainSelector uint64) {
+	kcrAllCaps := []keystone_changeset.DONCapabilityWithConfig{
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "offchain_reporting",
+				Version:        "1.0.0",
+				CapabilityType: 2, // CONSENSUS
+				ResponseType:   0, // REPORT
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "write_geth-testnet",
+				Version:        "1.0.0",
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "cron-trigger",
+				Version:        "1.0.0",
+				CapabilityType: uint8(0), // trigger
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
+		{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "custom-compute",
+				Version:        "1.0.0",
+				CapabilityType: uint8(1), // action
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		},
+	}
+
+	peerIds := make([]string, len(don.Nodes)-1)
+	for i, node := range don.Nodes {
 		if i == 0 {
 			continue
 		}
-		nopsToAdd[i-1] = cr_wrapper.CapabilitiesRegistryNodeOperator{
-			Admin: common.HexToAddress(node.TransmitterAddress),
-			Name:  fmt.Sprintf("NOP %d", i),
-		}
 
-		var peerID ragetypes.PeerID
-		err := peerID.UnmarshalText([]byte(node.PeerID))
-		require.NoError(t, err, "failed to unmarshal peer ID")
+		p2pId, err := nodeToP2PID(node, noOpTransformFn)
+		require.NoError(t, err, "failed to get p2p id for node %s", node.Name)
 
-		nodesToAdd[i-1] = cr_wrapper.CapabilitiesRegistryNodeParams{
-			NodeOperatorId:      uint32(i), //nolint:gosec // disable G115
-			Signer:              common.BytesToHash(node.Signer.Bytes()),
-			P2pId:               peerID,
-			EncryptionPublicKey: [32]byte{1, 2, 3, 4, 5},
-			HashedCapabilityIds: hashedCapabilities,
-		}
-
-		donNodes[i-1] = peerID
+		peerIds[i-1] = p2pId
 	}
 
-	capabilitiesRegistryInstance, err := cr_wrapper.NewCapabilitiesRegistry(capRegAddr, sc.Client)
-	require.NoError(t, err, "failed to create capabilities registry instance")
+	nop := keystone_changeset.NOP{
+		Name:  "NOP 1",
+		Nodes: peerIds,
+	}
 
-	// Add NOPs to capabilities registry
-	_, decodeErr := sc.Decode(capabilitiesRegistryInstance.AddNodeOperators(
-		sc.NewTXOpts(),
-		nopsToAdd,
-	))
-	require.NoError(t, decodeErr, "failed to add NOPs to capabilities registry")
+	donName := "keystone-don"
+	donCap := keystone_changeset.DonCapabilities{
+		Name:         donName,
+		F:            1,
+		Nops:         []keystone_changeset.NOP{nop},
+		Capabilities: kcrAllCaps,
+	}
 
-	// Add nodes to capabilities registry
-	_, decodeErr = sc.Decode(capabilitiesRegistryInstance.AddNodes(
-		sc.NewTXOpts(),
-		nodesToAdd,
-	))
-	require.NoError(t, decodeErr, "failed to add nodes to capabilities registry")
+	transmissionSchedule := []int{len(don.Nodes) - 1}
 
-	capRegConfig := make([]cr_wrapper.CapabilitiesRegistryCapabilityConfiguration, len(hashedCapabilities))
-	for i, hashed := range hashedCapabilities {
-		capRegConfig[i] = cr_wrapper.CapabilitiesRegistryCapabilityConfiguration{
-			CapabilityId: hashed,
-			Config:       []byte(""),
+	// values supplied by Alexandr Yepishev as the expected values for OCR3 config
+	oracleConfig := keystone_changeset.OracleConfig{
+		DeltaProgressMillis:               5000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              transmissionSchedule,
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationAcceptMillis:           1000,
+		MaxDurationTransmitMillis:         1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxRequestBatchSize:               1000,
+		UniqueReports:                     true,
+	}
+
+	cfg := keystone_changeset.InitialContractsCfg{
+		RegistryChainSel: chainSelector,
+		Dons:             []keystone_changeset.DonCapabilities{donCap},
+		OCR3Config:       &oracleConfig,
+	}
+
+	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*ctfEnv, cfg)
+	require.NoError(t, err, "failed to configure initial contracts")
+}
+
+func startJobDistributor(t *testing.T, in *WorkflowTestConfig) *jd.Output {
+	if os.Getenv("CI") == "true" {
+		jdImage := ctfconfig.MustReadEnvVar_String(e2eJobDistributorImageEnvVarName)
+		jdVersion := os.Getenv(e2eJobDistributorVersionEnvVarName)
+		in.JD.Image = fmt.Sprintf("%s:%s", jdImage, jdVersion)
+	}
+	jdOutput, err := jd.NewJD(in.JD)
+	require.NoError(t, err, "failed to create new job distributor")
+
+	return jdOutput
+}
+
+func getLogFileHandles(t *testing.T, l zerolog.Logger, ns *ns.Output) ([]*os.File, error) {
+	var logFiles []*os.File
+
+	var belongsToCurrentEnv = func(filePath string) bool {
+		for i, clNode := range ns.CLNodes {
+			if clNode == nil {
+				continue
+			}
+
+			// skip the first node, as it's the bootstrap node
+			if i == 0 {
+				continue
+			}
+
+			if strings.EqualFold(filePath, clNode.Node.ContainerName+".log") {
+				return true
+			}
+		}
+		return false
+	}
+
+	logsDir := "logs/docker-" + t.Name()
+
+	fileWalkErr := filepath.Walk(logsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && belongsToCurrentEnv(info.Name()) {
+			file, fileErr := os.Open(path)
+			if fileErr != nil {
+				return fmt.Errorf("failed to open file %s: %w", path, fileErr)
+			}
+			logFiles = append(logFiles, file)
+		}
+		return nil
+	})
+
+	expectedLogCount := len(ns.CLNodes) - 1
+	if len(logFiles) != expectedLogCount {
+		l.Warn().Int("Expected", expectedLogCount).Int("Got", len(logFiles)).Msg("Number of log files does not match number of worker nodes. Some logs might be missing.")
+	}
+
+	if fileWalkErr != nil {
+		l.Error().Err(fileWalkErr).Msg("Error walking through log files. Will not look for report transmission transaction hashes")
+		return nil, fileWalkErr
+	}
+
+	return logFiles, nil
+}
+
+// This function is used to go through Chainlink Node logs and look for entries related to report transmissions.
+// Once such a log entry is found, it looks for transaction hash and then it tries to decode the transaction and print the result.
+func debugReportTransmissions(logFiles []*os.File, l zerolog.Logger, wsRPCURL string) {
+	/*
+	 Example log entry:
+	 2025-01-28T14:44:48.080Z [DEBUG] Node sent transaction                              multinode@v0.0.0-20250121205514-f73e2f86c23b/transaction_sender.go:180 chainID=1337 logger=EVM.1337.TransactionSender tx={"type":"0x0","chainId":"0x539","nonce":"0x0","to":"0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9","gas":"0x61a80","gasPrice":"0x3b9aca00","maxPriorityFeePerGas":null,"maxFeePerGas":null,"value":"0x0","input":"0x11289565000000000000000000000000a513e6e4b8f2a923d98304ec87f64353c4d5c853000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000001c00000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000010d010f715db03509d388f706e16137722000e26aa650a64ac826ae8e5679cdf57fd96798ed50000000010000000100000a9c593aaed2f5371a5bc0779d1b8ea6f9c7d37bfcbb876a0a9444dbd36f64306466323239353031f39fd6e51aad88f6f4ce6ab8827279cfffb92266000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001018bfe88407000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000bb5c162c8000000000000000000000000000000000000000000000000000000006798ed37000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000e700d4c57250eac9dc925c951154c90c1b6017944322fb2075055d8bdbe19000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000041561c171b7465e8efef35572ef82adedb49ea71b8344a34a54ce5e853f80ca1ad7d644ebe710728f21ebfc3e2407bd90173244f744faa011c3a57213c8c585de90000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004165e6f3623acc43f163a58761655841bfebf3f6b4ea5f8d34c64188036b0ac23037ebbd3854b204ca26d828675395c4b9079ca068d9798326eb8c93f26570a1080100000000000000000000000000000000000000000000000000000000000000","v":"0xa96","r":"0x168547e96e7088c212f85a4e8dddce044bbb2abfd5ccc8a5451fdfcb812c94e5","s":"0x2a735a3df046632c2aaa7e583fe161113f3345002e6c9137bbfa6800a63f28a4","hash":"0x3fc5508310f8deef09a46ad594dcc5dc9ba415319ef1dfa3136335eb9e87ff4d"} version=2.19.0@05c05a9
+
+	 What we are looking for:
+	 "hash":"0x3fc5508310f8deef09a46ad594dcc5dc9ba415319ef1dfa3136335eb9e87ff4d"
+	*/
+	reportTransmissionTxHashPattern := regexp.MustCompile(`"hash":"(0x[0-9a-fA-F]+)"`)
+
+	// let's be prudent and assume that in extreme scenario when feed price isn't updated, but
+	// transmission is still sent, we might have multiple transmissions per node, and if we want
+	// to avoid blocking on the channel, we need to have a higher buffer
+	resultsCh := make(chan string, len(logFiles)*4)
+
+	wg := &sync.WaitGroup{}
+	for _, f := range logFiles {
+		wg.Add(1)
+		file := f
+
+		go func() {
+			defer wg.Done()
+
+			scanner := bufio.NewScanner(file)
+			scanner.Split(bufio.ScanLines)
+
+			for scanner.Scan() {
+				jsonLogLine := scanner.Text()
+
+				if !strings.Contains(jsonLogLine, "Node sent transaction") {
+					continue
+				}
+
+				match := reportTransmissionTxHashPattern.MatchString(jsonLogLine)
+				if match {
+					resultsCh <- reportTransmissionTxHashPattern.FindStringSubmatch(jsonLogLine)[1]
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(resultsCh)
+
+	if len(resultsCh) == 0 {
+		l.Error().Msg("❌ No report transmissions found in Chainlink Node logs.")
+		return
+	}
+
+	// required as Seth prints transaction traces to stdout with debug level
+	_ = os.Setenv(seth.LogLevelEnvVar, "debug")
+
+	sc, err := seth.NewClientBuilder().
+		WithRpcUrl(wsRPCURL).
+		WithReadOnlyMode().
+		WithGethWrappersFolders([]string{"../../../core/gethwrappers/keystone/generated"}). // point Seth to the folder with keystone geth wrappers, so that it can load contract ABIs
+		Build()
+
+	if err != nil {
+		l.Error().Err(err).Msg("Failed to create seth client")
+		return
+	}
+
+	for txHash := range resultsCh {
+		l.Info().Msgf("🔍 Tracing report transmission transaction %s", txHash)
+		// set tracing level to all to trace also successful transactions
+		sc.Cfg.TracingLevel = seth.TracingLevel_All
+		tx, _, err := sc.Client.TransactionByHash(context.Background(), common.HexToHash(txHash))
+		if err != nil {
+			l.Warn().Err(err).Msgf("Failed to get transaction by hash %s", txHash)
+			continue
+		}
+		_, decodedErr := sc.DecodeTx(tx)
+
+		if decodedErr != nil {
+			l.Error().Err(decodedErr).Msgf("Transmission transaction %s failed due to %s", txHash, decodedErr.Error())
+			continue
+		}
+	}
+}
+
+// this function is used to print debug information from Chainlink Node logs
+// it checks whether workflow was executing, OCR was executing and whether reports were sent
+// and if they were, it traces each report transmission transaction
+func printTestDebug(t *testing.T, l zerolog.Logger, ns *ns.Output, wsRPCURL string) {
+	logFiles, err := getLogFileHandles(t, l, ns)
+	if err != nil {
+		l.Error().Err(err).Msg("Failed to get log file handles. No debug information will be printed")
+		return
+	}
+
+	defer func() {
+		for _, f := range logFiles {
+			_ = f.Close()
+		}
+	}()
+
+	l.Info().Msg("🔍 Debug information from Chainlink Node logs:")
+
+	// assuming one bootstrap node
+	workflowNodeCount := len(ns.CLNodes) - 1
+	if !checkIfWorkflowWasExecuting(logFiles, workflowNodeCount) {
+		l.Error().Msg("❌ Workflow was not executing")
+		return
+	} else {
+		l.Info().Msg("✅ Workflow was executing")
+	}
+
+	if !checkIfOCRWasExecuting(logFiles, workflowNodeCount) {
+		l.Error().Msg("❌ OCR was not executing")
+		return
+	} else {
+		l.Info().Msg("✅ OCR was executing")
+	}
+
+	if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
+		l.Error().Msg("❌ Reports were not sent")
+		return
+	} else {
+		l.Info().Msg("✅ Reports were sent")
+
+		// debug report transmissions
+		debugReportTransmissions(logFiles, l, wsRPCURL)
+	}
+}
+
+func checkIfLogsHaveText(logFiles []*os.File, bufferSize int, expectedText string, validationFn func(int) bool) bool {
+	wg := &sync.WaitGroup{}
+
+	resultsCh := make(chan struct{}, bufferSize)
+
+	for _, f := range logFiles {
+		wg.Add(1)
+		file := f
+
+		go func() {
+			defer func() {
+				wg.Done()
+				// reset file pointer to the beginning of the file
+				// so that subsequent reads start from the beginning
+				_, _ = file.Seek(0, io.SeekStart)
+			}()
+
+			scanner := bufio.NewScanner(file)
+			scanner.Split(bufio.ScanLines)
+
+			for scanner.Scan() {
+				jsonLogLine := scanner.Text()
+
+				if strings.Contains(jsonLogLine, expectedText) {
+					resultsCh <- struct{}{}
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(resultsCh)
+
+	var found int
+	for range resultsCh {
+		found++
+	}
+
+	return validationFn(found)
+}
+
+func exactCountValidationFn(expected int) func(int) bool {
+	return func(found int) bool {
+		return found == expected
+	}
+}
+
+func checkIfWorkflowWasExecuting(logFiles []*os.File, workflowNodeCount int) bool {
+	return checkIfLogsHaveText(logFiles, workflowNodeCount, "step request enqueued", exactCountValidationFn(workflowNodeCount))
+}
+
+func checkIfOCRWasExecuting(logFiles []*os.File, workflowNodeCount int) bool {
+	return checkIfLogsHaveText(logFiles, workflowNodeCount, "✅ committed outcome", exactCountValidationFn(workflowNodeCount))
+}
+
+func checkIfAtLeastOneReportWasSent(logFiles []*os.File, workflowNodeCount int) bool {
+	// we are looking for "Node sent transaction" log entry, which might appear various times in the logs
+	// but most probably not in the logs of all nodes, since they take turns in sending reports
+	// our buffer must be large enough to capture all the possible log entries in order to avoid channel blocking
+	bufferSize := workflowNodeCount * 4
+
+	return checkIfLogsHaveText(logFiles, bufferSize, "Node sent transaction", func(found int) bool { return found > 0 })
+}
+
+func logTestInfo(l zerolog.Logger, feedId, workflowName, feedConsumerAddr, forwarderAddr string) {
+	l.Info().Msg("------ Test configuration:")
+	l.Info().Msgf("Feed ID: %s", feedId)
+	l.Info().Msgf("Workflow name: %s", workflowName)
+	l.Info().Msgf("FeedConsumer address: %s", feedConsumerAddr)
+	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
+}
+
+func float64ToBigInt(f float64) *big.Int {
+	f *= 100
+
+	bigFloat := new(big.Float).SetFloat64(f)
+
+	bigInt := new(big.Int)
+	bigFloat.Int(bigInt) // Truncate towards zero
+
+	return bigInt
+}
+
+func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, priceIndex *int) string {
+	_, err := fake.NewFakeDataProvider(in.PriceProvider.Fake.Input)
+	require.NoError(t, err)
+	fakeApiPath := "/fake/api/price"
+	fakeFinalUrl := fmt.Sprintf("%s:%d%s", framework.HostDockerInternal(), in.PriceProvider.Fake.Port, fakeApiPath)
+
+	getPriceResponseFn := func() map[string]interface{} {
+		response := map[string]interface{}{
+			"accountName": "TrueUSD",
+			"totalTrust":  in.PriceProvider.Fake.Prices[*priceIndex],
+			"ripcord":     false,
+			"updatedAt":   time.Now().Format(time.RFC3339),
+		}
+
+		marshalled, err := json.Marshal(response)
+		if err == nil {
+			testLogger.Info().Msgf("Returning response: %s", string(marshalled))
+		} else {
+			testLogger.Info().Msgf("Returning response: %v", response)
+		}
+
+		return response
+	}
+
+	err = fake.Func("GET", fakeApiPath, func(c *gin.Context) {
+		c.JSON(200, getPriceResponseFn())
+	})
+
+	require.NoError(t, err, "failed to set up fake data provider")
+
+	return fakeFinalUrl
+}
+
+func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	if in.PriceProvider.Fake != nil {
+		return NewFakePriceProvider(t, testLogger, in)
+	}
+
+	return NewLivePriceProvider(t, testLogger, in)
+}
+
+// PriceProvider abstracts away the logic of checking whether the feed has been correctly updated
+// and it also returns port and URL of the price provider. This is so, because when using a mocked
+// price provider we need start a separate service and whitelist its port and IP with the gateway job.
+// Also, since it's a mocked price provider we can now check whether the feed has been correctly updated
+// instead of only checking whether it has some price that's != 0.
+type PriceProvider interface {
+	URL() string
+	NextPrice(price *big.Int, elapsed time.Duration) bool
+	CheckPrices()
+}
+
+// LivePriceProvider is a PriceProvider implementation that uses a live feed to get the price, typically http://api.real-time-reserves.verinumus.io
+type LivePriceProvider struct {
+	t            *testing.T
+	testLogger   zerolog.Logger
+	url          string
+	actualPrices []*big.Int
+}
+
+func NewLivePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	return &LivePriceProvider{
+		testLogger: testLogger,
+		url:        in.PriceProvider.URL,
+		t:          t,
+	}
+}
+
+func (l *LivePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
+
+	l.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+	l.actualPrices = append(l.actualPrices, price)
+
+	// no other price to return, we are done
+	return false
+}
+
+func (l *LivePriceProvider) URL() string {
+	return l.url
+}
+
+func (l *LivePriceProvider) CheckPrices() {
+	// we don't have a way to check the price in the live feed, so we always assume it's correct
+	// as long as it's != 0. And we only wait for the first price to be set.
+	require.NotEmpty(l.t, l.actualPrices, "no prices found in the feed")
+	require.NotEqual(l.t, l.actualPrices[0], big.NewInt(0), "price found in the feed is 0")
+}
+
+// FakePriceProvider is a PriceProvider implementation that uses a mocked feed to get the price
+// It returns a configured price sequence and makes sure that the feed has been correctly updated
+type FakePriceProvider struct {
+	t              *testing.T
+	testLogger     zerolog.Logger
+	priceIndex     *int
+	url            string
+	expectedPrices []*big.Int
+	actualPrices   []*big.Int
+}
+
+func NewFakePriceProvider(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig) PriceProvider {
+	priceIndex := ptr.Ptr(0)
+	expectedPrices := make([]*big.Int, len(in.PriceProvider.Fake.Prices))
+	for i, p := range in.PriceProvider.Fake.Prices {
+		// convert float64 to big.Int by multiplying by 100
+		// just like the PoR workflow does
+		expectedPrices[i] = float64ToBigInt(p)
+	}
+
+	return &FakePriceProvider{
+		t:              t,
+		testLogger:     testLogger,
+		expectedPrices: expectedPrices,
+		priceIndex:     priceIndex,
+		url:            setupFakeDataProvider(t, testLogger, in, priceIndex),
+	}
+}
+
+func (f *FakePriceProvider) priceAlreadyFound(price *big.Int) bool {
+	for _, p := range f.actualPrices {
+		if p.Cmp(price) == 0 {
+			return true
 		}
 	}
 
-	// Add nodeset to capabilities registry
-	_, decodeErr = sc.Decode(capabilitiesRegistryInstance.AddDON(
-		sc.NewTXOpts(),
-		donNodes,
-		capRegConfig,
-		true,     // is public
-		true,     // accepts workflows
-		uint8(1), // max number of malicious nodes
-	))
-	require.NoError(t, decodeErr, "failed to add DON to capabilities registry")
+	return false
+}
+
+func (f *FakePriceProvider) NextPrice(price *big.Int, elapsed time.Duration) bool {
+	// if price is nil or 0 it means that the feed hasn't been updated yet
+	if price == nil || price.Cmp(big.NewInt(0)) == 0 {
+		return true
+	}
+
+	if !f.priceAlreadyFound(price) {
+		f.testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+		f.actualPrices = append(f.actualPrices, price)
+
+		if len(f.actualPrices) == len(f.expectedPrices) {
+			// all prices found, nothing more to check
+			return false
+		} else {
+			require.Less(f.t, len(f.actualPrices), len(f.expectedPrices), "more prices found than expected")
+			f.testLogger.Info().Msgf("Changing price provider price to %f", f.expectedPrices[len(f.actualPrices)])
+			*f.priceIndex = len(f.actualPrices)
+
+			// set new price and continue checking
+			return true
+		}
+	}
+
+	// continue checking, price not updated yet
+	return true
+}
+
+func (f *FakePriceProvider) CheckPrices() {
+	require.EqualValues(f.t, f.expectedPrices, f.actualPrices, "prices found in the feed do not match prices set in the mock")
+	f.testLogger.Info().Msgf("All %d mocked prices were found in the feed", len(f.expectedPrices))
+}
+
+func (f *FakePriceProvider) URL() string {
+	return f.url
+}
+
+func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *WorkflowTestConfig, nodeOutput *ns.Output) ([]string, []int) {
+	// no need to allow anything, if we are using live feed
+	if in.PriceProvider.Fake == nil {
+		return nil, nil
+	}
+
+	// we need to explicitly allow the port used by the fake data provider
+	// and IP corresponding to host.docker.internal or the IP of the host machine, if we are running on Linux,
+	// because that's where the fake data provider is running
+	var hostIp string
+	var err error
+
+	system := runtime.GOOS
+	switch system {
+	case "darwin":
+		hostIp, err = resolveHostDockerInternaIp(testLogger, nodeOutput)
+		require.NoError(t, err, "failed to resolve host.docker.internal IP")
+	case "linux":
+		// for linux framework already returns an IP, so we don't need to resolve it,
+		// but we need to remove the http:// prefix
+		hostIp = strings.ReplaceAll(framework.HostDockerInternal(), "http://", "")
+	default:
+		err = fmt.Errorf("unsupported OS: %s", system)
+	}
+	require.NoError(t, err, "failed to resolve host.docker.internal IP")
+
+	testLogger.Info().Msgf("Will allow IP %s and port %d for the fake data provider", hostIp, in.PriceProvider.Fake.Port)
+
+	// we also need to explicitly allow Gist's IP
+	return []string{hostIp, GistIP}, []int{in.PriceProvider.Fake.Port}
 }
 
 /*
@@ -1351,27 +1969,37 @@ func registerDONAndCapabilities(t *testing.T, capRegAddr common.Address, hashedC
 
 Do not use this test as a template for your tests. It's hacky, since we were working under time pressure. We will soon refactor it follow best practices
 and a golden example. Apart from its structure what is currently missing is:
-- using `chainlink/deployment` to deploy and configure all the contracts
-- using Job Distribution to create jobs for the nodes
-- using only `chainlink-cli` to register the workflow
-- using a mock service to provide the feed data
+- DON-2-DON support
+- better structured and reusable methods
 */
 func TestKeystoneWithOCR3Workflow(t *testing.T) {
-	testLogger := logging.GetTestLogger(t)
+	testLogger := framework.L
 
-	// Define and load the test configuration
-	donID := uint32(1)
-	workflowName := "abcdefgasd"
-	feedID := "018bfe8840700040000000000000000000000000000000000000000000000000" // without 0x prefix!
-	feedBytes := common.HexToHash(feedID)
+	// we need to use double-pointers, so that what's captured in the cleanup function is a pointer, not the actual object,
+	// which is only set later in the test, after the cleanup function is defined
+	var nodes **ns.Output
+	var wsRPCURL *string
 
+	// clean up is LIFO, so we need to make sure we execute the debug report transmission after logs are written down
+	// by function added to clean up by framework.Load() method
+	t.Cleanup(func() {
+		if t.Failed() {
+			if nodes == nil {
+				testLogger.Warn().Msg("nodeset output is nil, skipping debug report transmission")
+				return
+			}
+			printTestDebug(t, testLogger, *nodes, *wsRPCURL)
+		}
+	})
+
+	// Load test configuration
 	in, err := framework.Load[WorkflowTestConfig](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateInputsAndEnvVars(t, in)
 
 	pkey := os.Getenv("PRIVATE_KEY")
 
-	// Create a new blockchain network
+	// Create a new blockchain network and Seth client to interact with it
 	bc, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
 	require.NoError(t, err)
 
@@ -1381,66 +2009,54 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 		Build()
 	require.NoError(t, err, "failed to create seth client")
 
+	// Get either a no-op price provider (for live endpoint)
+	// or a fake price provider (for mock endpoint)
+	priceProvider := setupPriceProvider(t, testLogger, in)
+
+	// Start job distributor
+	jdOutput := startJobDistributor(t, in)
+
+	// Deploy the DON
+	nodeOutput := startNodes(t, in, bc)
+
 	// Prepare the chainlink/deployment environment
-	ctfEnv, chainSelector := buildChainlinkDeploymentEnv(t, sc)
+	ctfEnv, don, chainSelector := buildChainlinkDeploymentEnv(t, jdOutput, nodeOutput, bc, sc)
 
-	// Define required capabilities
-	// These need to match the capabilities that are required by the workflow,
-	// which in our case is a Proof-of-Reserves workflow
-	allCaps := []cr_wrapper.CapabilitiesRegistryCapability{
-		{
-			LabelledName:   "offchain_reporting",
-			Version:        "1.0.0",
-			CapabilityType: 2, // CONSENSUS
-			ResponseType:   0, // REPORT
-		},
-		{
-			LabelledName:   "write_geth-testnet",
-			Version:        "1.0.0",
-			CapabilityType: 3, // TARGET
-			ResponseType:   1, // OBSERVATION_IDENTICAL
-		},
-		{
-			LabelledName:   "cron-trigger",
-			Version:        "1.0.0",
-			CapabilityType: uint8(0), // trigger
-		},
-		{
-			LabelledName:   "custom-compute",
-			Version:        "1.0.0",
-			CapabilityType: uint8(1), // action
-		},
-	}
-	capRegAddr, hashedCapabilities := prepareCapabilitiesRegistry(t, sc, allCaps)
+	// Fund the nodes
+	fundNodes(t, don, sc)
 
-	// Deploy keystone forwarder contract
-	forwarderAddress := deployKeystoneForwarder(t, testLogger, ctfEnv, chainSelector)
+	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability)
+	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnv, chainSelector)
 
 	// Deploy and pre-configure workflow registry contract
-	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, donID)
+	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, in.WorkflowConfig.DonID)
 
 	// Deploy and configure Keystone Feeds Consumer contract
-	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, forwarderAddress, workflowName)
+	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
 
-	// Register the workflow (either via chainlink-cli or by calling the workflow registry directly)
-	registerWorkflow(t, in, sc, capRegAddr, workflowRegistryAddr, feedsConsumerAddress, donID, chainSelector, workflowName, pkey, bc.Nodes[0].HostHTTPUrl)
+	// Register the workflow (either via CRE CLI or by calling the workflow registry directly)
+	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, in.WorkflowConfig.DonID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, priceProvider.URL())
 
-	// Deploy and fund the DON
-	_, nodesInfo := starAndFundNodes(t, in, bc, sc)
-	_, nodeClients := configureNodes(t, nodesInfo, in, bc, capRegAddr, workflowRegistryAddr, forwarderAddress)
+	// Create OCR3 and capability jobs for each node JD
+	ns, _ := configureNodes(t, don, in, bc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+	// JD client needs to be reinitialised after restarting nodes
+	ctfEnv = ptr.Ptr(reinitialiseJDClient(t, ctfEnv, jdOutput, nodeOutput))
 
-	// Deploy OCR3 Capability contract
-	ocr3CapabilityAddress := deployOCR3Capability(t, testLogger, sc)
+	ips, ports := extraAllowedPortsAndIps(t, testLogger, in, ns)
+	createNodeJobsWithJd(t, ctfEnv, don, bc, keystoneContractSet, ports, ips)
 
-	// Create OCR3 and capability jobs for each node
-	createNodeJobs(t, nodeClients, nodesInfo, bc, ocr3CapabilityAddress)
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.PriceProvider.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
+		}
+	})
 
-	// Register DON and capabilities
-	registerDONAndCapabilities(t, capRegAddr, hashedCapabilities, nodesInfo, sc)
+	// set variables that are needed for the cleanup function, which debugs report transmissions
+	nodes = &ns
+	wsRPCURL = &bc.Nodes[0].HostWSUrl
 
-	// configure Keystone Forwarder contract
-	configureKeystoneForwarder(t, forwarderAddress, sc, nodesInfo)
-
+	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
 	// TODO make it fluent!
@@ -1448,8 +2064,8 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	time.Sleep(30 * time.Second)
 	testLogger.Info().Msg("Proceeding to set OCR3 configuration.")
 
-	// Configure OCR3 capability contract
-	configureOCR3Capability(t, ocr3CapabilityAddress, sc, nodesInfo)
+	// Configure the workflow DON and contracts
+	configureWorkflowDON(t, ctfEnv, don, chainSelector)
 
 	// It can take a while before the first report is produced, particularly on CI.
 	timeout := 10 * time.Minute
@@ -1459,11 +2075,15 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(feedsConsumerAddress, sc.Client)
 	require.NoError(t, err, "failed to create feeds consumer instance")
 
+	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
+	feedBytes := common.HexToHash(in.PriceProvider.FeedID)
+
 	for {
 		select {
 		case <-ctx.Done():
-			t.Fatalf("feed did not update, timeout after %s", timeout)
+			testLogger.Error().Msgf("feed did not update, timeout after %s", timeout)
+			t.FailNow()
 		case <-time.After(10 * time.Second):
 			elapsed := time.Since(startTime).Round(time.Second)
 			price, _, err := feedsConsumerInstance.GetPrice(
@@ -1472,8 +2092,9 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if price.String() != "0" {
-				testLogger.Info().Msgf("Feed updated after %s - price set, price=%s", elapsed, price)
+			if !priceProvider.NextPrice(price, elapsed) {
+				// check if all expected prices were found and finish the test
+				priceProvider.CheckPrices()
 				return
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)

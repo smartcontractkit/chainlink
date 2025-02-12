@@ -1,6 +1,7 @@
 package log_test
 
 import (
+	"context"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -10,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 func TestORM_broadcasts(t *testing.T) {
@@ -238,3 +239,10 @@ func TestORM_Reinitialize(t *testing.T) {
 		})
 	}
 }
+
+type mockListener struct {
+	jobID int32
+}
+
+func (l *mockListener) JobID() int32                             { return l.jobID }
+func (l *mockListener) HandleLog(context.Context, log.Broadcast) {}

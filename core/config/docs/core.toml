@@ -359,6 +359,8 @@ KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false # Default
 # CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 CaptureAutomationCustomTelemetry = true # Default
+# AllowNoBootstrappers enables single-node consensus without bootstrapper nodes (i.e. f=0, n=1)
+AllowNoBootstrappers = false # Default
 # DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in OCR2. Set to 0 to use `SendEvery` strategy instead.
 DefaultTransactionQueueDepth = 1 # Default
 # SimulateTransactions enables transaction simulation for OCR2.
@@ -723,6 +725,12 @@ TransmitTimeout = "5s" # Default
 #
 # Only has effect with LLO jobs.
 TransmitConcurrency = 100 # Default
+# ReaperFrequency controls how often the stale transmission reaper will run.
+# Setting to 0 disables the reaper.
+ReaperFrequency = "1h" # Default
+# ReaperMaxAge controls how old a transmission can be before it is considered
+# stale. Setting to 0 disables the reaper.
+ReaperMaxAge = "48h" # Default
 
 # Telemetry holds OTEL settings.
 # This data includes open telemetry metrics, traces, & logs.

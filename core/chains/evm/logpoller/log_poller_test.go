@@ -22,25 +22,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func logRuntime(t testing.TB, start time.Time) {
@@ -89,7 +87,7 @@ func populateDatabase(t testing.TB, o logpoller.ORM, chainID *big.Int) (common.H
 func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 	chainId := big.NewInt(137)
 	ctx := testutils.Context(b)
-	_, db := heavyweight.FullTestDBV2(b, nil)
+	db := testutils.NewIndependentSqlxDB(b)
 	o := logpoller.NewORM(chainId, db, logger.Test(b))
 	event, address, _ := populateDatabase(b, o, chainId)
 
@@ -107,7 +105,7 @@ func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
 
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("Only for local load testing and query analysis")
-	_, db := heavyweight.FullTestDBV2(t, nil)
+	db := testutils.NewIndependentSqlxDB(t)
 	ctx := testutils.Context(t)
 	chainID := big.NewInt(137)
 
@@ -1532,7 +1530,7 @@ func TestTooManyLogResults(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
-	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	ec := clienttest.NewClientWithDefaultChainID(t)
 	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 	chainID := testutils.NewRandomEVMChainID()
 	db := testutils.NewSqlxDB(t)
@@ -1546,7 +1544,7 @@ func TestTooManyLogResults(t *testing.T) {
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker := htMocks.NewTracker[*evmtypes.Head, common.Hash](t)
 	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
@@ -1579,6 +1577,9 @@ func TestTooManyLogResults(t *testing.T) {
 			}
 			from := fq.FromBlock.Uint64()
 			to := fq.ToBlock.Uint64()
+			if to-from >= 8 {
+				return []types.Log{}, context.DeadlineExceeded // simulate RPC client timeout as a "too many results" scenario
+			}
 			if to-from >= 4 {
 				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
 			}
@@ -1960,7 +1961,7 @@ func Test_PruneOldBlocks(t *testing.T) {
 
 func TestFindLCA(t *testing.T) {
 	ctx := testutils.Context(t)
-	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	ec := clienttest.NewClientWithDefaultChainID(t)
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := testutils.NewSqlxDB(t)

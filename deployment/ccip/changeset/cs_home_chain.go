@@ -46,9 +46,7 @@ func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainCon
 	}
 
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		JobSpecs:    nil,
 	}, nil
 }
 
@@ -159,7 +157,7 @@ func deployHomeChain(
 					capReg.Address,
 				)
 				return deployment.ContractDeploy[*ccip_home.CCIPHome]{
-					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: cc,
+					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
 				}
 			})
 		if err != nil {
@@ -180,7 +178,7 @@ func deployHomeChain(
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*rmn_home.RMNHome]{
-					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev), Tx: tx, Err: err2, Contract: rmn,
+					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
 				}
 			},
 		)
@@ -220,7 +218,7 @@ func deployHomeChain(
 	if setCandidate {
 		tx, err := rmnHome.SetCandidate(
 			chain.DeployerKey, rmnHomeStatic, rmnHomeDynamic, configs.CandidateConfig.ConfigDigest)
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
 			lggr.Errorw("Failed to set candidate on RMNHome", "err", err)
 			return nil, err
 		}
@@ -234,7 +232,7 @@ func deployHomeChain(
 		}
 
 		tx, err := rmnHome.PromoteCandidateAndRevokeActive(chain.DeployerKey, rmnCandidateDigest, [32]byte{})
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, rmn_home.RMNHomeABI, err); err != nil {
 			lggr.Errorw("Failed to promote candidate and revoke active on RMNHome", "chain", chain.String(), "err", err)
 			return nil, err
 		}
@@ -280,7 +278,7 @@ func deployHomeChain(
 			chain.DeployerKey, []capabilities_registry.CapabilitiesRegistryCapability{
 				capabilityToAdd,
 			})
-		if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
+		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err); err != nil {
 			lggr.Errorw("Failed to add capabilities", "chain", chain.String(), "err", err)
 			return nil, err
 		}
@@ -310,7 +308,7 @@ func deployHomeChain(
 	p2pIDsByNodeOpID := make(map[uint32][][32]byte)
 	if len(nodeOpsToAdd) > 0 {
 		tx, err := capReg.Contract.AddNodeOperators(chain.DeployerKey, nodeOps)
-		txBlockNum, err := deployment.ConfirmIfNoError(chain, tx, err)
+		txBlockNum, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			lggr.Errorw("Failed to add node operators", "chain", chain.String(), "err", err)
 			return nil, err

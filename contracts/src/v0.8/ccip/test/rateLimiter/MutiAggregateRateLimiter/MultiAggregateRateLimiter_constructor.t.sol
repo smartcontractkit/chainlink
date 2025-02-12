@@ -33,6 +33,6 @@ contract MultiAggregateRateLimiter_constructor is MultiAggregateRateLimiterSetup
 
     assertEq(OWNER, s_rateLimiter.owner());
     assertEq(address(s_feeQuoter), s_rateLimiter.getFeeQuoter());
-    assertEq(s_rateLimiter.typeAndVersion(), "MultiAggregateRateLimiter 1.6.0-dev");
+    assertEq(s_rateLimiter.typeAndVersion(), "MultiAggregateRateLimiter 1.6.0");
   }
 }

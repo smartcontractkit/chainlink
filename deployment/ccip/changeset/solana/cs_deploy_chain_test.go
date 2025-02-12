@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -17,7 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestDeployChainContractsChangeset(t *testing.T) {
+func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -29,22 +30,12 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
-	selectors := make([]uint64, 0, len(evmSelectors)+len(solChainSelectors))
-	selectors = append(selectors, evmSelectors...)
-	selectors = append(selectors, solChainSelectors...)
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
-		}
-	}
-	for _, chain := range solChainSelectors {
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -67,13 +58,17 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
 				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIDs,
+					testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 				},
 			},
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    selectors,
+			Config:    e.AllChainSelectors(),
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
+			Config:    e.AllChainSelectorsSolana(),
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
@@ -92,31 +87,20 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 				ContractParamsPerChain: contractParams,
 			},
 		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
+			Config: changeset.DeployChainContractsConfig{
+				HomeChainSelector: homeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					solChainSelectors[0]: {
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
-
-	// load onchain state
-	state, err := changeset.LoadOnchainState(e)
-	require.NoError(t, err)
-
-	// verify all contracts populated
-	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
-	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
-	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	for _, sel := range evmSelectors {
-		require.NotNil(t, state.Chains[sel].LinkToken)
-		require.NotNil(t, state.Chains[sel].Weth9)
-		require.NotNil(t, state.Chains[sel].TokenAdminRegistry)
-		require.NotNil(t, state.Chains[sel].RegistryModule)
-		require.NotNil(t, state.Chains[sel].Router)
-		require.NotNil(t, state.Chains[sel].RMNRemote)
-		require.NotNil(t, state.Chains[sel].TestRouter)
-		require.NotNil(t, state.Chains[sel].NonceManager)
-		require.NotNil(t, state.Chains[sel].FeeQuoter)
-		require.NotNil(t, state.Chains[sel].OffRamp)
-		require.NotNil(t, state.Chains[sel].OnRamp)
-	}
-
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
