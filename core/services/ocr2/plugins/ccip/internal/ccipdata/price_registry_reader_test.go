@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -76,7 +76,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	headTracker := headstest.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)

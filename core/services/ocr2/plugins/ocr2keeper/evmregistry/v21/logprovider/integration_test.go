@@ -17,12 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -457,7 +457,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend evmtypes.Backend) (log
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        2,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)

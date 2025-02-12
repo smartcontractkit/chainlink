@@ -28,10 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -126,7 +126,7 @@ func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) Test
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, backend, big.NewInt(chainID))

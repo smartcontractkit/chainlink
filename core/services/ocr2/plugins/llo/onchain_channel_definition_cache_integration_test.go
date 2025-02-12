@@ -26,8 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -148,7 +148,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)

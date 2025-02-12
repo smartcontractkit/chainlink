@@ -23,10 +23,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
@@ -107,7 +107,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 		UseFinalityTag:           useFinalityTag,
 		FinalityDepth:            finalityDepth,
 		BackfillBatchSize:        backfillBatchSize,
-		RpcBatchSize:             rpcBatchSize,
+		RPCBatchSize:             rpcBatchSize,
 		KeepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
 	}
 	ht := headstest.NewSimulatedHeadTracker(esc, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
@@ -835,7 +835,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 	logs := []logpoller.Log{}
 	for i := 0; i < 10; i++ {
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     chainID,
+			EVMChainID:     chainID,
 			LogIndex:       0,
 			BlockHash:      common.BigToHash(big.NewInt(int64(i))),
 			BlockNumber:    int64(i),
@@ -877,7 +877,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 			}
 		}
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     chainID,
+			EVMChainID:     chainID,
 			LogIndex:       0,
 			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
 			BlockNumber:    int64(2 * i),
@@ -891,7 +891,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 		})
 		if i%2 == 0 {
 			logs = append(logs, logpoller.Log{
-				EvmChainId:     chainID,
+				EVMChainID:     chainID,
 				LogIndex:       0,
 				BlockHash:      common.BigToHash(big.NewInt(int64(2*i + 1))),
 				BlockNumber:    int64(2*i + 1),
@@ -935,7 +935,7 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 			}
 		}
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     chainID,
+			EVMChainID:     chainID,
 			LogIndex:       0,
 			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
 			BlockNumber:    int64(2 * i),
@@ -976,7 +976,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 			}
 		}
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     chainID,
+			EVMChainID:     chainID,
 			LogIndex:       0,
 			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
 			BlockNumber:    int64(2 * i),
@@ -1023,7 +1023,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 			}
 		}
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     chainID,
+			EVMChainID:     chainID,
 			LogIndex:       0,
 			BlockHash:      common.BigToHash(big.NewInt(int64(2 * i))),
 			BlockNumber:    int64(2 * i),
@@ -1037,7 +1037,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		})
 		if i%2 == 0 && i < 6 {
 			logs = append(logs, logpoller.Log{
-				EvmChainId:     chainID,
+				EVMChainID:     chainID,
 				LogIndex:       0,
 				BlockHash:      common.BigToHash(big.NewInt(int64(2*i + 1))),
 				BlockNumber:    int64(2*i + 1),
