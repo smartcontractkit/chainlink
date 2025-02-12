@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
@@ -51,12 +51,15 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -797,6 +800,128 @@ func DeployTransferableToken(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
+// assuming one out of the src and dst is solana and the other is evm
+func DeployTransferableTokenSolana(
+	t *testing.T,
+	lggr logger.Logger,
+	e deployment.Environment,
+	evmChainSel, solChainSel uint64,
+	evmDeployer *bind.TransactOpts,
+	addresses deployment.AddressBook,
+	evmTokenName string,
+) (*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// deploy evm token
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	require.NoError(t, err)
+
+	// deploy solana token
+	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
+		{ // this makes the deployer the mint authority by default
+			Changeset: commoncs.WrapChangeSet(changeset_solana.DeploySolanaToken),
+			Config: changeset_solana.DeploySolanaTokenConfig{
+				ChainSelector:    solChainSel,
+				TokenProgramName: deployment.SPL2022Tokens,
+				TokenDecimals:    9,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	state, err = changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
+	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
+	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
+		{ // create the ata for the deployerKey
+			Changeset: commoncs.WrapChangeSet(changeset_solana.CreateSolanaTokenATA),
+			Config: changeset_solana.CreateSolanaTokenATAConfig{
+				ChainSelector: solChainSel,
+				TokenPubkey:   solTokenAddress,
+				TokenProgram:  deployment.SPL2022Tokens,
+				ATAList:       []string{solDeployerKey.String()},
+			},
+		},
+		{ // mint the token to the deployerKey
+			Changeset: commoncs.WrapChangeSet(changeset_solana.MintSolanaToken),
+			Config: changeset_solana.MintSolanaTokenConfig{
+				ChainSelector: solChainSel,
+				TokenPubkey:   solTokenAddress,
+				TokenProgram:  deployment.SPL2022Tokens,
+				AmountToAddress: map[string]uint64{
+					solDeployerKey.String(): uint64(1000),
+				},
+			},
+		},
+		{ // deploy token pool and set the burn/mint authority to the tokenPool
+			Changeset: commoncs.WrapChangeSet(changeset_solana.AddTokenPool),
+			Config: changeset_solana.TokenPoolConfig{
+				ChainSelector:    solChainSel,
+				TokenPubKey:      solTokenAddress.String(),
+				TokenProgramName: deployment.SPL2022Tokens,
+				PoolType:         solTestTokenPool.BurnAndMint_PoolType,
+				Authority:        solDeployerKey.String(),
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// configure evm
+	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].TokenPool)
+	require.NoError(t, err)
+	err = setTokenPoolCounterPart(e.Chains[evmChainSel], evmPool, evmDeployer, solChainSel, solTokenAddress.Bytes(), poolConfigPDA.Bytes())
+	require.NoError(t, err)
+
+	err = grantMintBurnPermissions(lggr, e.Chains[evmChainSel], evmToken, evmDeployer, evmPool.Address())
+	require.NoError(t, err)
+
+	// configure solana
+	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
+		{
+			Changeset: commoncs.WrapChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
+			Config: changeset_solana.RemoteChainTokenPoolConfig{
+				SolChainSelector:    solChainSel,
+				RemoteChainSelector: evmChainSel,
+				SolTokenPubKey:      solTokenAddress.String(),
+				RemoteConfig: solTestTokenPool.RemoteConfig{
+					// this can be potentially read from the state if we are given the token symbol
+					PoolAddresses: []solTestTokenPool.RemoteAddress{
+						{
+							Address: evmPool.Address().Bytes(),
+						},
+					},
+					TokenAddress: solTestTokenPool.RemoteAddress{
+						Address: evmToken.Address().Bytes(),
+					},
+					Decimals: 9,
+				},
+				InboundRateLimit: solTestTokenPool.RateLimitConfig{
+					Enabled:  true,
+					Capacity: uint64(1000),
+					Rate:     1,
+				},
+				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
+					Enabled:  true,
+					Capacity: uint64(1000),
+					Rate:     1,
+				},
+			},
+		},
+	})
+
+	require.NoError(t, err)
+	return evmToken, evmPool, solTokenAddress, nil
+}
+
 func deployTokenPoolsInParallel(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
@@ -931,28 +1056,6 @@ func setTokenPoolCounterPart(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to apply chain updates on token pool %s: %w", tokenPool.Address(), err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
-	}
-
-	supported, err := tokenPool.IsSupportedChain(&bind.CallOpts{}, destChainSelector)
-	if err != nil {
-		return err
-	}
-	if !supported {
-		return fmt.Errorf("token pool %s is not supported on chain %d", tokenPool.Address(), destChainSelector)
-	}
-
-	tx, err = tokenPool.AddRemotePool(
-		actor,
-		destChainSelector,
-		destTokenPoolAddress,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to set remote pool on token pool %s: %w", tokenPool.Address(), err)
 	}
 
 	_, err = chain.Confirm(tx)
