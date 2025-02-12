@@ -188,6 +188,7 @@ jobs:
           - cmd: go_core_race_tests
             # use 64cores for certain scheduled runs only
             os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
+            build-solana-artifacts: 'false'
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
