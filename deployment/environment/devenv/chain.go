@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -96,6 +97,7 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 
 func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployment.Chain, error) {
 	chains := make(map[uint64]deployment.Chain)
+	var syncMap sync.Map
 	g := new(errgroup.Group)
 	for _, chainCfg := range configs {
 		chainCfg := chainCfg
@@ -122,7 +124,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			if err != nil {
 				return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
 			}
-			chains[selector] = deployment.Chain{
+			syncMap.Store(selector, deployment.Chain{
 				Selector:    selector,
 				Client:      ec,
 				DeployerKey: chainCfg.DeployerKey,
@@ -150,10 +152,15 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 					}
 					return blockNumber, nil
 				},
-			}
+			})
 			return nil
 		})
 	}
 	err := g.Wait()
+
+	syncMap.Range(func(sel, value interface{}) bool {
+		chains[sel.(uint64)] = value.(deployment.Chain)
+		return true
+	})
 	return chains, err
 }
