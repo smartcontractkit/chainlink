@@ -34,12 +34,14 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts \
-          --jq ".artifacts[] | select(.name==\"${{ env.ARTIFACT_NAME }}\")" | wc -l)
+        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }}" \ 
+        --jq ".total_count")
 
         if [[ "$ARTIFACT_FOUND" -gt 0 ]]; then
+          echo "Artifact found"
           echo "exists=true" >> $GITHUB_ENV
         else
+          echo "Artifact not found"
           echo "exists=false" >> $GITHUB_ENV
         fi
 
