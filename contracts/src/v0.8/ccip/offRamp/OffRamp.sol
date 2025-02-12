@@ -144,7 +144,7 @@ contract OffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   // STATIC CONFIG
-  string public constant override typeAndVersion = "OffRamp 1.6.0-dev";
+  string public constant override typeAndVersion = "OffRamp 1.6.0";
   /// @dev Hash of encoded address(0) used for empty address checks.
   bytes32 internal constant EMPTY_ENCODED_ADDRESS_HASH = keccak256(abi.encode(address(0)));
   /// @dev ChainSelector of this chain.
