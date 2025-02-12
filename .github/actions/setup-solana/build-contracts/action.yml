@@ -34,11 +34,14 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        ARTIFACT_FOUND=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }} --jq ".total_count")
+        ARTIFACT_RESPONSE=$(gh api repos/${{ github.repository }}/actions/artifacts?name=${{ env.ARTIFACT_NAME }})
+        ARTIFACT_FOUND=$(echo "$ARTIFACT_RESPONSE" | jq '.total_count')
 
         if [[ "$ARTIFACT_FOUND" -gt 0 ]]; then
           echo "Artifact found"
+          ARTIFACT_DOWNLOAD_URL=$(echo "$ARTIFACT_RESPONSE" | jq -r '.artifacts[0].archive_download_url')
           echo "exists=true" >> $GITHUB_ENV
+          echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> $GITHUB_ENV
         else
           echo "Artifact not found"
           echo "exists=false" >> $GITHUB_ENV
@@ -47,10 +50,10 @@ runs:
 
     - name: Download artifact if it exists
       if: env.exists == 'true'
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ env.ARTIFACT_NAME }}
-        path: /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+      shell: bash
+      run: |
+        curl -L -o artifact.zip ${{ env.ARTIFACT_DOWNLOAD_URL }}
+        unzip artifact.zip -d chainlink-ccip/chains/solana/contracts/target/deploy
 
     - name: Build artifact if not found
       if: env.exists == 'false'
