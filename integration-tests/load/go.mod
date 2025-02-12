@@ -28,7 +28,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250211204327-6aca485891a7
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250212131315-e9b53b05b02a
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211163724-89a32c016ce4
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.0
@@ -40,6 +40,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c
+	golang.org/x/sync v0.10.0
 )
 
 require (
@@ -508,7 +509,6 @@ require (
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
