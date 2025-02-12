@@ -36,7 +36,9 @@ type OCRKeyView struct {
 func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
 	nodes, err := deployment.NodeInfo(nodeIds, oc)
-	if err != nil {
+	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
+		fmt.Println("WARNING: Missing node metadata:\n%s", err.Error())
+	} else if err != nil {
 		return nv, err
 	}
 	for _, node := range nodes {

@@ -377,8 +377,16 @@ type NodeChainConfigsLister interface {
 	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
+var ErrMissingNodeMetadata = errors.New("missing node metadata")
+
 // Gathers all the node info through JD required to be able to set
 // OCR config for example. nodeIDs can be JD IDs or PeerIDs
+//
+// It is optimistic execution and will attempt to return an element for all
+// nodes in the input list that exists in JD
+//
+// If some subset of nodes cannot have all their metadata returned, the error with be
+// [ErrMissingNodeMetadata] and the caller can choose to handle or continue.
 func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -412,6 +420,8 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	}
 
 	var nodes []Node
+	onlyMissingEVMChain := true
+	var xerr error
 	for _, node := range nodesFromJD.GetNodes() {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
@@ -422,20 +432,35 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create deployment node from JD metadata: %w", err)
+			xerr = errors.Join(xerr, err)
+			if !errors.Is(err, ErrMissingEVMChain) {
+				onlyMissingEVMChain = false
+			}
 		}
-
 		nodes = append(nodes, *n)
 	}
-
-	return nodes, nil
+	if xerr != nil && onlyMissingEVMChain {
+		xerr = errors.Join(ErrMissingNodeMetadata, xerr)
+	}
+	return nodes, xerr
 }
 
+var ErrMissingEVMChain = errors.New("no EVM chain found")
+
+// NewNodeFromJD creates a Node from a JD Node. Populating all the fields requires an enabled
+// EVM chain and OCR2 config. If this does not exist, the Node will be returned with
+// the minimal fields populated and return a [ErrMissingEVMChain] error.
 func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
 	// the protobuf does not map well to the domain model
 	// we have to infer the p2p key, bootstrap and multiaddr from some chain config
 	// arbitrarily pick the first EVM chain config
 	// we use EVM because the home or registry chain is always EVM
+	emptyNode := &Node{
+		NodeID:         jdNode.Id,
+		Name:           jdNode.Name,
+		CSAKey:         jdNode.PublicKey,
+		SelToOCRConfig: make(map[chain_selectors.ChainDetails]OCRConfig),
+	}
 	var goldenConfig *nodev1.ChainConfig
 	for _, chainConfig := range chainConfigs {
 		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
@@ -444,7 +469,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		}
 	}
 	if goldenConfig == nil {
-		return nil, errors.New("no EVM chain config found")
+		return emptyNode, fmt.Errorf("node '%s', id '%s', csa '%s': %w", jdNode.Name, jdNode.Id, jdNode.PublicKey, ErrMissingEVMChain)
 	}
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
@@ -452,7 +477,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		var err error
 		selToOCRConfig, err = chainConfigsToOCRConfig(chainConfigs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain to ocr config: %w", err)
+			return emptyNode, fmt.Errorf("failed to get chain to ocr config: %w", err)
 		}
 	}
 	return &Node{
