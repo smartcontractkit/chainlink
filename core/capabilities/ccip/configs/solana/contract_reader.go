@@ -30,7 +30,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	}
 
 	var feeQuoterIDL solanacodec.IDL
-	// TODO ccipFeeQuoterIDL needs to be exported from chainlink-ccip, this is just a placeholder
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
 	}
@@ -124,8 +123,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							//    // Each address must be right padded with zeros if it is less than 64 bytes.
 							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
 						},
-						// TODO MultiReader which reuses params from the first read to get isEnabled
+						// TODO enable multi reader for batch (should be a really small simple feature) https://github.com/smartcontractkit/chainlink-solana/pull/1070
 						MultiReader: &config.MultiReader{
+							ReuseParams: true,
 							Reads: []config.ReadDefinition{
 								{
 									ChainSpecificName: "ReferenceAddresses",
@@ -156,7 +156,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								},
 							},
 							&codec.HardCodeModifierConfig{
-								// TODO This todo is from onchain
+								// This comment is from onchain program
 								// The following field is unused until the day we integrate with feeds to fetch fresh values
 								OnChainValues: map[string]any{"StalenessThreshold": 0},
 							},
@@ -313,19 +313,19 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("dest_chain_state"),
 							Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 						},
+						// response Router field will be populated with the bound address of the onramp
+						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
+							OffChainValues: map[string]any{"Router": solana.PublicKey{}},
+						},
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "State"},
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"SequenceNumber": "ExpectedNextSequenceNumber"},
 							},
-							// we can't dynamically attach address here, but when this
-							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{"Router": solana.PublicKey{}},
-							},
 						},
-						// TODO implement multireader param reuse
 						MultiReader: &config.MultiReader{
+							ReuseParams: true,
 							Reads: []config.ReadDefinition{
 								{
 									ChainSpecificName: "DestChain",
@@ -334,12 +334,8 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 										Prefix: []byte("dest_chain_state"),
 										Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
 									},
-									InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
-									OutputModifications: codec.ModifiersConfig{
-										&codec.PropertyExtractorConfig{FieldName: "Config"},
-										&codec.RenameModifierConfig{
-											Fields: map[string]string{"SequenceNumber": "ExpectedNextSequenceNumber"},
-										}},
+									InputModifications:  codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestChainSelector": "NewChainSelector"}}},
+									OutputModifications: codec.ModifiersConfig{&codec.PropertyExtractorConfig{FieldName: "Config"}},
 								},
 							},
 						},
