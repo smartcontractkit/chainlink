@@ -8,7 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/message_hasher"
 )
 
 func Test_decodeExtraData(t *testing.T) {

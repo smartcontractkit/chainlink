@@ -10,7 +10,7 @@ import (
 
 	event "github.com/ethereum/go-ethereum/event"
 
-	fee_quoter "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	fee_quoter "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/fee_quoter"
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 

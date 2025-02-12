@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/message_hasher"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {

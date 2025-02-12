@@ -18,9 +18,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/report_codec"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/report_codec"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
