@@ -10,7 +10,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_encoding_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_encoding_utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -20,7 +20,7 @@ var (
 
 // CommitPluginCodecV1 is a codec for encoding and decoding commit plugin reports.
 // Compatible with:
-// - "OffRamp 1.6.0-dev"
+// - "OffRamp 1.6.0"
 type CommitPluginCodecV1 struct{}
 
 func NewCommitPluginCodecV1() *CommitPluginCodecV1 {

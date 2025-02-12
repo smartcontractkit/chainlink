@@ -26,7 +26,7 @@ contract SiloedLockReleaseTokenPool is TokenPool, ITypeAndVersion {
   event SiloRebalancerSet(uint64 indexed remoteChainSelector, address oldRebalancer, address newRebalancer);
   event UnsiloedRebalancerSet(address oldRebalancer, address newRebalancer);
 
-  string public constant override typeAndVersion = "SiloedLockReleaseTokenPool 1.6.0-dev";
+  string public constant override typeAndVersion = "SiloedLockReleaseTokenPool 1.6.0";
 
   /// @notice The amount of tokens available for remote chains which are not siloed as an additional security precaution.
   uint256 internal s_unsiloedTokenBalance;

@@ -119,7 +119,7 @@ contract OffRamp_constructor is OffRampSetup {
     _assertSourceChainConfigEquality(actualSourceChainConfigs[1], expectedSourceChainConfig2);
 
     // OffRamp initial values
-    assertEq("OffRamp 1.6.0-dev", s_offRamp.typeAndVersion());
+    assertEq("OffRamp 1.6.0", s_offRamp.typeAndVersion());
     assertEq(OWNER, s_offRamp.owner());
     assertEq(0, s_offRamp.getLatestPriceSequenceNumber());
 
