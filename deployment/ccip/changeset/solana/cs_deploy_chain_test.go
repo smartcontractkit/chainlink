@@ -82,7 +82,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			Changeset: commonchangeset.WrapChangeSet(solana.BuildSolanaChangeset),
 			Config: solana.BuildSolanaConfig{
 				ChainSelector:       solChainSelectors[0],
-				GitCommitSha:        "a0730c062375d07fb8645b3b6ae337e3220dc699",
+				GitCommitSha:        "501b3b689b3b21f20dab3719d3ab5bd2334d96c8",
 				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 				CleanDestinationDir: true,
 			},
