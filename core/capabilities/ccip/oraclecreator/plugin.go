@@ -441,7 +441,10 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			relayer,
 			i.transmitters,
 			execBatchGasLimit,
-			relayChainFamily)
+			relayChainFamily,
+			config.Config.OfframpAddress,
+			chainDetails.ChainSelector,
+		)
 		if err1 != nil {
 			return nil, nil, err1
 		}
@@ -561,6 +564,8 @@ func createChainWriter(
 	transmitters map[types.RelayID][]string,
 	execBatchGasLimit uint64,
 	chainFamily string,
+	offrampProgramAddress []byte,
+	destChainSelector uint64,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -569,8 +574,8 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
-		// TODO once on-chain account lookup address are available, the routerProgramAddress and commonAddressesLookupTable should be provided from tooling config, and populated here for the params.
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig("", solana.PublicKey{}, transmitter[0]); err == nil {
+		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err == nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
