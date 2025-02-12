@@ -79,16 +79,10 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				for _, sel := range chains.ToSlice() {
-					timelockContracts, ok := timelockContractsPerChain[sel]
-					if !ok || timelockContracts == nil {
-						return deployment.Environment{}, fmt.Errorf("timelock contracts not found for chain %d", sel)
-					}
+				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+				proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
 
-					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
-					proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop, sel)
-				}
+				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 			}
 		}
 		if out.MCMSProposals != nil {
@@ -99,9 +93,7 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 				}
 
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				for _, sel := range chains.ToSlice() {
-					proposalutils.ExecuteMCMSProposalV2(t, e, p, sel)
-				}
+				proposalutils.ExecuteMCMSProposalV2(t, e, p)
 			}
 		}
 		currentEnv = deployment.Environment{
