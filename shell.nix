@@ -22,7 +22,7 @@ with pkgs; let
       autoPatchelfIgnoreMissingDeps = stdenv.isLinux;
 
       buildInputs = with pkgs; [stdenv.cc.cc.lib] ++ lib.optionals stdenv.isLinux [ stdenv.cc.cc.libgcc libudev-zero ];
-      
+
       src = pkgs.fetchzip {
         inherit url sha256;
       };
@@ -63,7 +63,7 @@ in
     nativeBuildInputs =
       [
         go
-        postgresql_17
+        postgresql
 
         python3
         python3Packages.pip
@@ -85,7 +85,7 @@ in
         gopls
         delve
         golangci-lint
-        git
+        github-cli
         jq
 
         # gofuzz
