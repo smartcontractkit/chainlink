@@ -9,8 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -102,13 +103,14 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mu.Lock()
 				messageKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
-				prepareAccountToSendLink(
+				err := prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
 					messageKeys[src],
 				)
+				require.NoError(t, err)
 			}(src)
 		}
 		wg.Wait()
@@ -229,7 +231,7 @@ func prepareAccountToSendLink(
 	state ccipchangeset.CCIPOnChainState,
 	e deployment.Environment,
 	src uint64,
-	srcAccount *bind.TransactOpts) {
+	srcAccount *bind.TransactOpts) error {
 	lggr := logger.Test(t)
 	lggr.Infow("Setting up link token", "src", src)
 	srcLink := state.Chains[src].LinkToken
@@ -243,7 +245,9 @@ func prepareAccountToSendLink(
 		deployment.E18Mult(20_000),
 	)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	//--------------------------------------------------------------------------------------------
 
@@ -252,5 +256,5 @@ func prepareAccountToSendLink(
 	// To prevent having to approve the router for every transfer, we approve a sufficiently large amount
 	tx, err = srcLink.Approve(srcAccount, state.Chains[src].Router.Address(), math.MaxBig256)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	require.NoError(t, err)
+	return err
 }

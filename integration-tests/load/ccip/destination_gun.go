@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"math"
 	"math/big"
 	"math/rand"
@@ -31,18 +30,17 @@ type SeqNumRange struct {
 }
 
 type DestinationGun struct {
-	l                  logger.Logger
-	env                deployment.Environment
-	state              *ccipchangeset.CCIPOnChainState
-	seqNums            map[testhelpers.SourceDestPair]SeqNumRange
-	roundNum           *atomic.Int32
-	chainSelector      uint64
-	receiver           common.Address
-	testConfig         *ccip.LoadConfig
-	messageKeys        map[uint64]*bind.TransactOpts
-	chainOffset        int
-	metricPipe         chan messageData
-	transferableTokens map[uint64]*burn_mint_erc677.BurnMintERC677
+	l             logger.Logger
+	env           deployment.Environment
+	state         *ccipchangeset.CCIPOnChainState
+	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
+	roundNum      *atomic.Int32
+	chainSelector uint64
+	receiver      common.Address
+	testConfig    *ccip.LoadConfig
+	messageKeys   map[uint64]*bind.TransactOpts
+	chainOffset   int
+	metricPipe    chan messageData
 }
 
 func NewDestinationGun(

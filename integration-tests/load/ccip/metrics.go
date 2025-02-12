@@ -2,9 +2,10 @@ package ccip
 
 import (
 	"context"
+	"strconv"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"strconv"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
