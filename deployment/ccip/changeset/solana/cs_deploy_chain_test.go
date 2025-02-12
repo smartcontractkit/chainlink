@@ -47,6 +47,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			ChainSelector: chain,
 		})
 	}
+
 	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
 		{
