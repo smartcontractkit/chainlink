@@ -60,6 +60,14 @@ type Node struct {
 	IsBoostrap bool
 }
 
+func (n Node) MultiAddr() string {
+	a := ""
+	if n.IsBoostrap {
+		a = fmt.Sprint("%s@%s:%s", n.Keys.PeerID.String(), n.Addr.IP, n.Addr.Port)
+	}
+	return a
+}
+
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
@@ -93,7 +101,7 @@ func (n Node) DeploymentNode() (deployment.Node, error) {
 		CSAKey:         n.Keys.CSA.ID(),
 		PeerID:         n.Keys.PeerID,
 		AdminAddr:      admin,
-		MultiAddr:      n.Addr.String(),
+		MultiAddr:      n.MultiAddr(),
 		IsBootstrap:    n.IsBoostrap,
 	}, nil
 }
@@ -170,8 +178,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 					PeerId: n.Keys.PeerID.String(),
 				},
 				OcrKeyBundle:     keyBundle,
-				Multiaddr:        n.Addr.String(),
-				Plugins:          nil,
+				Multiaddr:        n.MultiAddr(),
+				Plugins:          nil, // TODO: programmatic way to list these from the embedded chainlink.Application?
 				ForwarderAddress: ptr(""),
 			},
 		})

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -296,9 +297,12 @@ func (n Nodes) BootstrapLocators() []string {
 	bootstrapMp := make(map[string]struct{})
 	for _, node := range n {
 		if node.IsBootstrap {
-			bootstrapMp[fmt.Sprintf("%s@%s",
-				// p2p_12D3... -> 12D3...
-				node.PeerID.String()[4:], node.MultiAddr)] = struct{}{}
+			key := node.MultiAddr
+			// compatibility with legacy code. unclear what code path is setting half baked node.MultiAddr
+			if !isValidMultiAddr(key) {
+				key = fmt.Sprintf("%s@%s", node.PeerID.String()[4:], node.MultiAddr) // trim off the p2p_ prefix
+			}
+			bootstrapMp[key] = struct{}{}
 		}
 	}
 	var locators []string
@@ -306,6 +310,25 @@ func (n Nodes) BootstrapLocators() []string {
 		locators = append(locators, b)
 	}
 	return locators
+}
+
+func isValidMultiAddr(s string) bool {
+	// Define the regular expression pattern
+	pattern := `^(.+)@(.+):(\d+)$`
+
+	// Compile the regular expression
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) != 4 { // 4 because the entire match + 3 submatches
+		return false
+	}
+	p2p := "p2p_" + matches[1]
+
+	_, err := p2pkey.MakePeerID(p2p)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 type Node struct {
