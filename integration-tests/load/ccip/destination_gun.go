@@ -252,7 +252,6 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			Receiver: rcv,
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					//Token: m.transferableTokens[src].Address(),
 					Token:  m.state.Chains[src].LinkToken.Address(),
 					Amount: big.NewInt(1),
 				},
@@ -266,7 +265,6 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			Data:     common.Hex2Bytes("message with token"),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					//Token: m.transferableTokens[src].Address(),
 					Token:  m.state.Chains[src].LinkToken.Address(),
 					Amount: big.NewInt(1),
 				},
