@@ -74,19 +74,20 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	state.AggregatorProxy = make(map[common.Address]*proxy.AggregatorProxy)
 
 	for address, tv := range addresses {
-		if tv.String() == dfCacheTV.String() || tv.String() == devPlatformCacheTV.String() {
+		switch {
+		case tv.String() == dfCacheTV.String() || tv.String() == devPlatformCacheTV.String():
 			contract, err := cache.NewDataFeedsCache(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &state, err
 			}
 			state.DataFeedsCache[common.HexToAddress(address)] = contract
-		} else if strings.Contains(tv.String(), "AggregatorProxy") {
+		case strings.Contains(tv.String(), "AggregatorProxy"):
 			contract, err := proxy.NewAggregatorProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &state, err
 			}
 			state.AggregatorProxy[common.HexToAddress(address)] = contract
-		} else {
+		default:
 			logger.Warnw("unknown contract type", "type", tv.Type)
 		}
 	}
