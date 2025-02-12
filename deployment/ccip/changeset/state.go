@@ -376,6 +376,7 @@ type CCIPOnChainState struct {
 	// When generating bindings, make sure the package name corresponds to the version.
 	Chains    map[uint64]CCIPChainState
 	SolChains map[uint64]SolCCIPChainState
+	AptChains map[uint64]AptCCIPChainState
 }
 
 func (s CCIPOnChainState) Validate() error {

@@ -6,7 +6,7 @@ import (
 
 // AptChain represents an Aptos chain.
 type AptChain struct {
-	Selector        uint64
-	Client          *aptos.Client
-	DeployerAccount *aptos.Account
+	Selector       uint64
+	Client         aptos.AptosRpcClient
+	DeployerSigner aptos.TransactionSigner
 }
