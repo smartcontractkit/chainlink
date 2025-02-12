@@ -142,8 +142,13 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
-
+	// Log cached bridge data after the update
+	c.eng.Debugw("After update", "bridgeType", bt)
+	c.eng.Debugw("After update", "BridgeTypeRequest", btr)
 	c.bridgeTypesCache.Store(bt.Name, *bt)
+	// Print cached bridge data after the update
+	c.eng.Debugw("After update", "bridgeType", bt)
+	c.eng.Debugw("After update", "BridgeTypeRequest", btr)
 
 	return nil
 }
