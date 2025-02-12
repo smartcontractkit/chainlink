@@ -53,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -502,21 +501,27 @@ func getNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 	return nodeInfo, nil
 }
 
-func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockchain.Output, sc *seth.Client, nodeOutputs ...*WrappedNodeOutput) (*deployment.Environment, []*devenv.DON) {
+func buildChainlinkDeploymentEnv(t *testing.T, keystoneEnv *KeystoneEnvironment) {
 	lgr := logger.TestLogger(t)
-	require.GreaterOrEqual(t, len(bs.Nodes), 1, "expected at least one node in the blockchain output")
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Blockchain, "blockchain must be set")
+	require.NotNil(t, keystoneEnv.WrappedNodeOutput, "wrapped node output must be set")
+	require.NotNil(t, keystoneEnv.JD, "job distributor must be set")
+	require.NotNil(t, keystoneEnv.SethClient, "seth client must be set")
+	require.GreaterOrEqual(t, len(keystoneEnv.Blockchain.Nodes), 1, "expected at least one node in the blockchain output")
+	require.GreaterOrEqual(t, len(keystoneEnv.WrappedNodeOutput), 1, "expected at least one node in the wrapped node output")
 
-	envs := make([]*deployment.Environment, len(nodeOutputs))
-	dons := make([]*devenv.DON, len(nodeOutputs))
+	envs := make([]*deployment.Environment, len(keystoneEnv.WrappedNodeOutput))
+	keystoneEnv.dons = make([]*devenv.DON, len(keystoneEnv.WrappedNodeOutput))
 
-	for i, nodeOutput := range nodeOutputs {
+	for i, nodeOutput := range keystoneEnv.WrappedNodeOutput {
 		// assume that each nodeset has only one bootstrap node
 		nodeInfo, err := getNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
 		require.NoError(t, err, "failed to get node info")
 
 		jdConfig := devenv.JDConfig{
-			GRPC:     jdOutput.HostGRPCUrl,
-			WSRPC:    jdOutput.DockerWSRPCUrl,
+			GRPC:     keystoneEnv.JD.HostGRPCUrl,
+			WSRPC:    keystoneEnv.JD.DockerWSRPCUrl,
 			Creds:    insecure.NewCredentials(),
 			NodeInfo: nodeInfo,
 		}
@@ -525,18 +530,18 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 			JDConfig: jdConfig,
 			Chains: []devenv.ChainConfig{
 				{
-					ChainID:   sc.Cfg.Network.ChainID,
-					ChainName: sc.Cfg.Network.Name,
-					ChainType: strings.ToUpper(bs.Family),
+					ChainID:   keystoneEnv.SethClient.Cfg.Network.ChainID,
+					ChainName: keystoneEnv.SethClient.Cfg.Network.Name,
+					ChainType: strings.ToUpper(keystoneEnv.Blockchain.Family),
 					WSRPCs: []devenv.CribRPCs{{
-						External: bs.Nodes[0].HostWSUrl,
-						Internal: bs.Nodes[0].DockerInternalWSUrl,
+						External: keystoneEnv.Blockchain.Nodes[0].HostWSUrl,
+						Internal: keystoneEnv.Blockchain.Nodes[0].DockerInternalWSUrl,
 					}},
 					HTTPRPCs: []devenv.CribRPCs{{
-						External: bs.Nodes[0].HostHTTPUrl,
-						Internal: bs.Nodes[0].DockerInternalHTTPUrl,
+						External: keystoneEnv.Blockchain.Nodes[0].HostHTTPUrl,
+						Internal: keystoneEnv.Blockchain.Nodes[0].DockerInternalHTTPUrl,
 					}},
-					DeployerKey: sc.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+					DeployerKey: keystoneEnv.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 				},
 			},
 		}
@@ -545,7 +550,7 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 		require.NoError(t, err, "failed to create environment")
 
 		envs[i] = env
-		dons[i] = don
+		keystoneEnv.dons[i] = don
 	}
 
 	var nodeIDs []string
@@ -557,7 +562,7 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 	// also, we don't care which instance of offchain client we use, because we have
 	// only one instance of offchain client and we have just configured it to work
 	// with nodes from all DONs
-	unifiedEnv := &deployment.Environment{
+	keystoneEnv.Environment = &deployment.Environment{
 		Name:              envs[0].Name,
 		Logger:            envs[0].Logger,
 		ExistingAddresses: envs[0].ExistingAddresses,
@@ -567,30 +572,23 @@ func buildChainlinkDeploymentEnv(t *testing.T, jdOutput *jd.Output, bs *blockcha
 		GetContext:        envs[0].GetContext,
 		NodeIDs:           nodeIDs,
 	}
-
-	return unifiedEnv, dons
 }
 
-func deployKeystoneContracts(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) keystone_changeset.ContractSet {
+func deployKeystoneContracts(t *testing.T, testLogger zerolog.Logger, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Environment, "environment must be set")
+	require.NotEmpty(t, keystoneEnv.ChainSelector, "chain selector must be set")
+
+	keystoneEnv.KeystoneContractAddresses = &KeystoneContractAddresses{}
+
 	// Deploy keystone forwarder contract
-	_ = deployKeystoneForwarder(t, testLogger, ctfEnv, chainSelector)
+	keystoneEnv.KeystoneContractAddresses.ForwarderAddress = deployKeystoneForwarder(t, testLogger, keystoneEnv.Environment, keystoneEnv.ChainSelector)
 
 	// Deploy OCR3 contract
-	_ = deployOCR3(t, testLogger, ctfEnv, chainSelector)
+	keystoneEnv.KeystoneContractAddresses.OCR3CapabilityAddress = deployOCR3(t, testLogger, keystoneEnv.Environment, keystoneEnv.ChainSelector)
 
 	// Deploy capabilities registry contract
-	_ = deployCapabilitiesRegistry(t, testLogger, ctfEnv, chainSelector)
-
-	contractSetResponse, err := keystone_changeset.GetContractSets(nil, &keystone_changeset.GetContractSetsRequest{
-		Chains:      ctfEnv.Chains,
-		AddressBook: ctfEnv.ExistingAddresses,
-	})
-	require.NoError(t, err, "failed to get contract sets")
-
-	contractSet, ok := contractSetResponse.ContractSets[chainSelector]
-	require.True(t, ok, "failed to get contract set for chain %d", chainSelector)
-
-	return contractSet
+	keystoneEnv.KeystoneContractAddresses.CapabilitiesRegistryAddress = deployCapabilitiesRegistry(t, testLogger, keystoneEnv.Environment, keystoneEnv.ChainSelector)
 }
 
 func deployOCR3(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64) common.Address {
@@ -661,15 +659,21 @@ func deployKeystoneForwarder(t *testing.T, testLogger zerolog.Logger, ctfEnv *de
 	return forwarderAddress
 }
 
-func prepareWorkflowRegistry(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64, sc *seth.Client, donID uint32) common.Address {
-	output, err := workflow_registry_changeset.Deploy(*ctfEnv, chainSelector)
+func prepareWorkflowRegistry(t *testing.T, testLogger zerolog.Logger, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Environment, "environment must be set")
+	require.NotEmpty(t, keystoneEnv.ChainSelector, "chain selector must be set")
+	require.NotNil(t, keystoneEnv.SethClient, "seth client must be set")
+	require.NotEmpty(t, keystoneEnv.WorkflowDONID, "workflow DON ID must be set")
+
+	output, err := workflow_registry_changeset.Deploy(*keystoneEnv.Environment, keystoneEnv.ChainSelector)
 	require.NoError(t, err, "failed to deploy workflow registry contract")
 
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
+	err = keystoneEnv.Environment.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err, "failed to merge address book")
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	require.NoError(t, err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addresses, err := keystoneEnv.Environment.ExistingAddresses.AddressesForChain(keystoneEnv.ChainSelector)
+	require.NoError(t, err, "failed to get addresses for chain %d from the address book", keystoneEnv.ChainSelector)
 
 	var workflowRegistryAddr common.Address
 	for addrStr, tv := range addresses {
@@ -680,34 +684,41 @@ func prepareWorkflowRegistry(t *testing.T, testLogger zerolog.Logger, ctfEnv *de
 	}
 
 	// Configure Workflow Registry contract
-	_, err = workflow_registry_changeset.UpdateAllowedDons(*ctfEnv, &workflow_registry_changeset.UpdateAllowedDonsRequest{
-		RegistryChainSel: chainSelector,
-		DonIDs:           []uint32{donID},
+	_, err = workflow_registry_changeset.UpdateAllowedDons(*keystoneEnv.Environment, &workflow_registry_changeset.UpdateAllowedDonsRequest{
+		RegistryChainSel: keystoneEnv.ChainSelector,
+		DonIDs:           []uint32{keystoneEnv.WorkflowDONID},
 		Allowed:          true,
 	})
 	require.NoError(t, err, "failed to update allowed Dons")
 
-	_, err = workflow_registry_changeset.UpdateAuthorizedAddresses(*ctfEnv, &workflow_registry_changeset.UpdateAuthorizedAddressesRequest{
-		RegistryChainSel: chainSelector,
-		Addresses:        []string{sc.MustGetRootKeyAddress().Hex()},
+	_, err = workflow_registry_changeset.UpdateAuthorizedAddresses(*keystoneEnv.Environment, &workflow_registry_changeset.UpdateAuthorizedAddressesRequest{
+		RegistryChainSel: keystoneEnv.ChainSelector,
+		Addresses:        []string{keystoneEnv.SethClient.MustGetRootKeyAddress().Hex()},
 		Allowed:          true,
 	})
 	require.NoError(t, err, "failed to update authorized addresses")
 
-	return workflowRegistryAddr
+	keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress = workflowRegistryAddr
 }
 
-func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deployment.Environment, chainSelector uint64, sc *seth.Client, forwarderAddress common.Address, workflowName string) common.Address {
-	output, err := keystone_changeset.DeployFeedsConsumer(*ctfEnv, &keystone_changeset.DeployFeedsConsumerRequest{
-		ChainSelector: chainSelector,
+func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, workflowName string, keystonEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystonEnv, "keystone environment must be set")
+	require.NotNil(t, keystonEnv.Environment, "environment must be set")
+	require.NotEmpty(t, keystonEnv.ChainSelector, "chain selector must be set")
+	require.NotNil(t, keystonEnv.SethClient, "seth client must be set")
+	require.NotNil(t, keystonEnv.KeystoneContractAddresses, "keystone contract addresses must be set")
+	require.NotEmpty(t, keystonEnv.KeystoneContractAddresses.ForwarderAddress, "forwarder address must be set")
+
+	output, err := keystone_changeset.DeployFeedsConsumer(*keystonEnv.Environment, &keystone_changeset.DeployFeedsConsumerRequest{
+		ChainSelector: keystonEnv.ChainSelector,
 	})
 	require.NoError(t, err, "failed to deploy feeds_consumer contract")
 
-	err = ctfEnv.ExistingAddresses.Merge(output.AddressBook)
+	err = keystonEnv.Environment.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err, "failed to merge address book")
 
-	addresses, err := ctfEnv.ExistingAddresses.AddressesForChain(chainSelector)
-	require.NoError(t, err, "failed to get addresses for chain %d from the address book", chainSelector)
+	addresses, err := keystonEnv.Environment.ExistingAddresses.AddressesForChain(keystonEnv.ChainSelector)
+	require.NoError(t, err, "failed to get addresses for chain %d from the address book", keystonEnv.ChainSelector)
 
 	var feedsConsumerAddress common.Address
 	for addrStr, tv := range addresses {
@@ -722,7 +733,7 @@ func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deplo
 
 	// configure Keystone Feeds Consumer contract, so it can accept reports from the forwarder contract,
 	// that come from our workflow that is owned by the root private key
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(feedsConsumerAddress, sc.Client)
+	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(feedsConsumerAddress, keystonEnv.SethClient.Client)
 	require.NoError(t, err, "failed to create feeds consumer instance")
 
 	// Prepare hex-encoded and truncated workflow name
@@ -743,16 +754,16 @@ func prepareFeedsConsumer(t *testing.T, testLogger zerolog.Logger, ctfEnv *deplo
 	truncated := HashTruncateName(workflowName)
 	copy(workflowNameBytes[:], []byte(truncated))
 
-	_, decodeErr := sc.Decode(feedsConsumerInstance.SetConfig(
-		sc.NewTXOpts(),
-		[]common.Address{forwarderAddress},           // allowed senders
-		[]common.Address{sc.MustGetRootKeyAddress()}, // allowed workflow owners
+	_, decodeErr := keystonEnv.SethClient.Decode(feedsConsumerInstance.SetConfig(
+		keystonEnv.SethClient.NewTXOpts(),
+		[]common.Address{keystonEnv.KeystoneContractAddresses.ForwarderAddress}, // allowed senders
+		[]common.Address{keystonEnv.SethClient.MustGetRootKeyAddress()},         // allowed workflow owners
 		// here we need to use hex-encoded workflow name converted to []byte
 		[][10]byte{workflowNameBytes}, // allowed workflow names
 	))
 	require.NoError(t, decodeErr, "failed to set config for feeds consumer")
 
-	return feedsConsumerAddress
+	keystonEnv.KeystoneContractAddresses.FeedsConsumerAddress = feedsConsumerAddress
 }
 
 func registerWorkflowDirectly(t *testing.T, in *TestConfig, sc *seth.Client, workflowRegistryAddr common.Address, donID uint32, workflowName string) {
@@ -886,32 +897,45 @@ func preapreCRECLISettingsFile(t *testing.T, sc *seth.Client, capRegAddr, workfl
 	return settingsFile
 }
 
-func registerWorkflow(t *testing.T, in *TestConfig, sc *seth.Client, capRegAddr, workflowRegistryAddr, feedsConsumerAddress common.Address, donID uint32, chainSelector uint64, workflowName, pkey, rpcHTTPURL, dataURL string) {
+func registerWorkflow(t *testing.T, in *TestConfig, workflowName string, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Environment, "environment must be set")
+	require.NotNil(t, keystoneEnv.SethClient, "seth client must be set")
+	require.NotNil(t, keystoneEnv.Blockchain, "blockchain must be set")
+	require.NotEmpty(t, keystoneEnv.ChainSelector, "chain selector must be set")
+	require.NotNil(t, keystoneEnv.KeystoneContractAddresses, "keystone contract addresses must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.CapabilitiesRegistryAddress, "capabilities registry address must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress, "workflow registry address must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.FeedsConsumerAddress, "feed consumer address must be set")
+	require.NotEmpty(t, keystoneEnv.DeployerPrivateKey, "deployer private key must be set")
+	require.NotEmpty(t, keystoneEnv.WorkflowDONID, "workflow DON ID must be set")
+	require.NotNil(t, keystoneEnv.PriceProvider, "price provider must be set")
+
 	// Register workflow directly using the provided binary and config URLs
 	// This is a legacy solution, probably we can remove it soon, but there's still quite a lot of people
 	// who have no access to dev-platform repo, so they cannot use the CRE CLI
 	if !in.WorkflowConfig.ShouldCompileNewWorkflow && !in.WorkflowConfig.UseCRECLI {
-		registerWorkflowDirectly(t, in, sc, workflowRegistryAddr, donID, workflowName)
+		registerWorkflowDirectly(t, in, keystoneEnv.SethClient, keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress, keystoneEnv.WorkflowDONID, workflowName)
 
 		return
 	}
 
 	// These two env vars are required by the CRE CLI
-	err := os.Setenv("WORKFLOW_OWNER_ADDRESS", sc.MustGetRootKeyAddress().Hex())
+	err := os.Setenv("WORKFLOW_OWNER_ADDRESS", keystoneEnv.SethClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "failed to set WORKFLOW_OWNER_ADDRESS env var")
 
-	err = os.Setenv("ETH_PRIVATE_KEY", pkey)
+	err = os.Setenv("ETH_PRIVATE_KEY", keystoneEnv.DeployerPrivateKey)
 	require.NoError(t, err, "failed to set ETH_PRIVATE_KEY env var")
 
 	// create CRE CLI settings file
-	settingsFile := preapreCRECLISettingsFile(t, sc, capRegAddr, workflowRegistryAddr, donID, chainSelector, rpcHTTPURL)
+	settingsFile := preapreCRECLISettingsFile(t, keystoneEnv.SethClient, keystoneEnv.KeystoneContractAddresses.CapabilitiesRegistryAddress, keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress, keystoneEnv.WorkflowDONID, keystoneEnv.ChainSelector, keystoneEnv.Blockchain.Nodes[0].HostHTTPUrl)
 
 	var workflowGistURL string
 	var workflowConfigURL string
 
 	// compile and upload the workflow, if we are not using an existing one
 	if in.WorkflowConfig.ShouldCompileNewWorkflow {
-		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, feedsConsumerAddress, in.PriceProvider.FeedID, dataURL, settingsFile)
+		workflowGistURL, workflowConfigURL = compileWorkflowWithCRECLI(t, in, keystoneEnv.KeystoneContractAddresses.FeedsConsumerAddress, in.PriceProvider.FeedID, keystoneEnv.PriceProvider.URL(), settingsFile)
 	} else {
 		workflowGistURL = in.WorkflowConfig.CompiledWorkflowConfig.BinaryURL
 		workflowConfigURL = in.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
@@ -925,7 +949,10 @@ func registerWorkflow(t *testing.T, in *TestConfig, sc *seth.Client, capRegAddr,
 	require.NoError(t, err, "failed to register workflow using CRE CLI")
 }
 
-func startSingleNodeSet(t *testing.T, nsInput *CapabilitiesAwareNodeSet, bc *blockchain.Output) *WrappedNodeOutput {
+func startSingleNodeSet(t *testing.T, nsInput *CapabilitiesAwareNodeSet, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Blockchain, "blockchain environment must be set")
+
 	// Hack for CI that allows us to dynamically set the chainlink image and version
 	// CTFv2 currently doesn't support dynamic image and version setting
 	if os.Getenv("CI") == "true" {
@@ -937,14 +964,14 @@ func startSingleNodeSet(t *testing.T, nsInput *CapabilitiesAwareNodeSet, bc *blo
 		}
 	}
 
-	nodeset, err := ns.NewSharedDBNodeSet(nsInput.Input, bc)
+	nodeset, err := ns.NewSharedDBNodeSet(nsInput.Input, keystoneEnv.Blockchain)
 	require.NoError(t, err, "failed to deploy node set")
 
-	return &WrappedNodeOutput{
+	keystoneEnv.WrappedNodeOutput = append(keystoneEnv.WrappedNodeOutput, &WrappedNodeOutput{
 		nodeset,
 		nsInput.Name,
 		nsInput.Capabilities,
-	}
+	})
 }
 
 // In order to whitelist host IP in the gateway, we need to resolve the host.docker.internal to the host IP,
@@ -969,15 +996,19 @@ func resolveHostDockerInternaIp(testLogger zerolog.Logger, nsOutput *ns.Output) 
 	return matches[1], nil
 }
 
-func fundNodes(t *testing.T, dons []*devenv.DON, sc *seth.Client) {
-	for _, don := range dons {
+func fundNodes(t *testing.T, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.SethClient, "seth client must be set")
+	require.NotNil(t, keystoneEnv.dons, "dons must be set")
+
+	for _, don := range keystoneEnv.dons {
 		for _, node := range don.Nodes {
-			_, err := actions.SendFunds(zerolog.Logger{}, sc, actions.FundsToSendPayload{
-				ToAddress:  common.HexToAddress(node.AccountAddr[sc.Cfg.Network.ChainID]),
+			_, err := actions.SendFunds(zerolog.Logger{}, keystoneEnv.SethClient, actions.FundsToSendPayload{
+				ToAddress:  common.HexToAddress(node.AccountAddr[keystoneEnv.SethClient.Cfg.Network.ChainID]),
 				Amount:     big.NewInt(5000000000000000000),
-				PrivateKey: sc.MustGetRootPrivateKey(),
+				PrivateKey: keystoneEnv.SethClient.MustGetRootPrivateKey(),
 			})
-			require.NoError(t, err)
+			require.NoError(t, err, "failed to send funds to node %s", node.AccountAddr[keystoneEnv.SethClient.Cfg.Network.ChainID])
 		}
 	}
 }
@@ -1088,37 +1119,67 @@ func peeringData(donTopologies []*DONTopology) (PeeringData, error) {
 	}, nil
 }
 
-func configureNodes(t *testing.T, testLogger zerolog.Logger, in *TestConfig, donTopologies []*DONTopology, ctfEnv *deployment.Environment, jdOutput *jd.Output, bc *blockchain.Output, keystoneContractSet keystone_changeset.ContractSet, workflowRegistryAddr common.Address) ([]*DONTopology, *deployment.Environment) {
-	require.GreaterOrEqual(t, len(donTopologies), 1, "expected at least one DON topology")
+type KeystoneContractAddresses struct {
+	CapabilitiesRegistryAddress common.Address
+	ForwarderAddress            common.Address
+	OCR3CapabilityAddress       common.Address
+	WorkflowRegistryAddress     common.Address
+	FeedsConsumerAddress        common.Address
+}
 
-	peeringData, err := peeringData(donTopologies)
+type KeystoneEnvironment struct {
+	*deployment.Environment
+	Blockchain                *blockchain.Output
+	SethClient                *seth.Client
+	ChainSelector             uint64
+	DeployerPrivateKey        string
+	KeystoneContractAddresses *KeystoneContractAddresses
+
+	JD *jd.Output
+
+	WrappedNodeOutput []*WrappedNodeOutput
+	DONTopology       []*DONTopology
+	dons              []*devenv.DON
+	WorkflowDONID     uint32
+
+	PriceProvider PriceProvider
+}
+
+func configureNodes(t *testing.T, testLogger zerolog.Logger, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.Environment, "environment must be set")
+	require.NotNil(t, keystoneEnv.Blockchain, "blockchain must be set")
+	require.NotNil(t, keystoneEnv.WrappedNodeOutput, "wrapped node output must be set")
+	require.NotNil(t, keystoneEnv.JD, "job distributor must be set")
+	require.NotNil(t, keystoneEnv.SethClient, "seth client must be set")
+	require.NotEmpty(t, keystoneEnv.DONTopology, "DON topology must not be empty")
+	require.NotNil(t, keystoneEnv.KeystoneContractAddresses, "keystone contract addresses must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.CapabilitiesRegistryAddress, "capabilities registry address must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.OCR3CapabilityAddress, "OCR3 capability address must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.ForwarderAddress, "forwarder address must be set")
+	require.NotEmpty(t, keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress, "workflow registry address must be set")
+	require.GreaterOrEqual(t, len(keystoneEnv.DONTopology), 1, "expected at least one DON topology")
+
+	peeringData, err := peeringData(keystoneEnv.DONTopology)
 	require.NoError(t, err, "failed to get peering data")
 
-	// if there's only one OCR3 contract in the set, we can use `nil` as the address to get its instance
-	ocr3Contract, err := keystoneContractSet.GetOCR3Contract(nil)
-	require.NoError(t, err, "failed to get OCR3 contract address")
-
-	ocr3CapabilityAddress := ocr3Contract.Address()
-
-	for i, donTopology := range donTopologies {
-		donTopologies[i].NodeOutput = configureDON(t, donTopology.DON, donTopology.NodeInput, donTopology.NodeOutput, bc, donTopology.ID, donTopology.Flags, peeringData, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, keystoneContractSet.Forwarder.Address())
+	for i, donTopology := range keystoneEnv.DONTopology {
+		keystoneEnv.DONTopology[i].NodeOutput = configureDON(t, donTopology.DON, donTopology.NodeInput, donTopology.NodeOutput, keystoneEnv.Blockchain, donTopology.ID, donTopology.Flags, peeringData, keystoneEnv.KeystoneContractAddresses.CapabilitiesRegistryAddress, keystoneEnv.KeystoneContractAddresses.WorkflowRegistryAddress, keystoneEnv.KeystoneContractAddresses.ForwarderAddress)
 	}
 
-	nodeOutputs := make([]*WrappedNodeOutput, 0, len(donTopologies))
-	for i := range donTopologies {
-		nodeOutputs = append(nodeOutputs, donTopologies[i].NodeOutput)
+	nodeOutputs := make([]*WrappedNodeOutput, 0, len(keystoneEnv.DONTopology))
+	for i := range keystoneEnv.DONTopology {
+		nodeOutputs = append(nodeOutputs, keystoneEnv.DONTopology[i].NodeOutput)
 	}
 
 	// after restarting the nodes, we need to reinitialize the JD clients otherwise
 	// communication between JD and nodes will fail due to invalidated session cookie
-	ctfEnv = reinitialiseJDClients(t, ctfEnv, jdOutput, nodeOutputs...)
+	keystoneEnv.Environment = reinitialiseJDClients(t, keystoneEnv.Environment, keystoneEnv.JD, nodeOutputs...)
 
-	for _, donTopology := range donTopologies {
+	for _, donTopology := range keystoneEnv.DONTopology {
 		ips, ports := extraAllowedPortsAndIps(t, testLogger, in, donTopology.NodeOutput.Output)
-		createJobs(t, ctfEnv, donTopology.DON, donTopology.NodeOutput, bc, ocr3CapabilityAddress, donTopology.ID, donTopology.Flags, ports, ips)
+		createJobs(t, keystoneEnv.Environment, donTopology.DON, donTopology.NodeOutput, keystoneEnv.Blockchain, keystoneEnv.KeystoneContractAddresses.OCR3CapabilityAddress, donTopology.ID, donTopology.Flags, ports, ips)
 	}
-
-	return donTopologies, ctfEnv
 }
 
 func globalBootstraperNodeData(donTopologies []*DONTopology) (string, string, error) {
@@ -1678,10 +1739,15 @@ func nodeToP2PID(node devenv.Node, transformFn func(string) string) (string, err
 	return "", fmt.Errorf("p2p label not found for node %s", node.Name)
 }
 
-func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopologies []*DONTopology, chainSelector uint64) {
-	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(donTopologies))
+func configureContracts(t *testing.T, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must be set")
+	require.NotNil(t, keystoneEnv.DONTopology, "DON topology must be set")
+	require.NotEmpty(t, keystoneEnv.ChainSelector, "chain selector must be set")
+	require.NotNil(t, keystoneEnv.Environment, "environment must be set")
 
-	for _, donTopology := range donTopologies {
+	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(keystoneEnv.DONTopology))
+
+	for _, donTopology := range keystoneEnv.DONTopology {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		// check what capabilities each DON has and register them with Capabilities Registry contract
@@ -1763,7 +1829,7 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 
 	var transmissionSchedule []int
 
-	for _, donTopology := range donTopologies {
+	for _, donTopology := range keystoneEnv.DONTopology {
 		if hasFlag(donTopology.Flags, OCR3Capability) {
 			// this schedule makes sure that all worker nodes are transmitting OCR3 reports
 			transmissionSchedule = []int{len(donTopology.DON.Nodes) - 1}
@@ -1797,16 +1863,16 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 	}
 
 	cfg := keystone_changeset.InitialContractsCfg{
-		RegistryChainSel: chainSelector,
+		RegistryChainSel: keystoneEnv.ChainSelector,
 		Dons:             donCapabilities,
 		OCR3Config:       &oracleConfig,
 	}
 
-	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*ctfEnv, cfg)
+	_, err := keystone_changeset.ConfigureInitialContractsChangeset(*keystoneEnv.Environment, cfg)
 	require.NoError(t, err, "failed to configure initial contracts")
 }
 
-func startJobDistributor(t *testing.T, in *TestConfig) *jd.Output {
+func startJobDistributor(t *testing.T, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
 	if os.Getenv("CI") == "true" {
 		jdImage := ctfconfig.MustReadEnvVar_String(e2eJobDistributorImageEnvVarName)
 		jdVersion := os.Getenv(e2eJobDistributorVersionEnvVarName)
@@ -1815,7 +1881,7 @@ func startJobDistributor(t *testing.T, in *TestConfig) *jd.Output {
 	jdOutput, err := jd.NewJD(in.JD)
 	require.NoError(t, err, "failed to create new job distributor")
 
-	return jdOutput
+	keystoneEnv.JD = jdOutput
 }
 
 func nodeSetFlags(nodeSet *CapabilitiesAwareNodeSet) (uint, error) {
@@ -1829,38 +1895,43 @@ func nodeSetFlags(nodeSet *CapabilitiesAwareNodeSet) (uint, error) {
 	return StringsToFlags(append(stringCaps, nodeSet.DONType))
 }
 
-func buildDONTopology(t *testing.T, in *TestConfig, dons []*devenv.DON, nodeOutputs []*WrappedNodeOutput) []*DONTopology {
-	require.Equal(t, len(dons), len(nodeOutputs), "number of DONs and node outputs must match")
-	donTopologies := make([]*DONTopology, len(dons))
+func buildDONTopology(t *testing.T, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, in, "test config must not be nil")
+	require.NotNil(t, keystoneEnv, "keystone environment must not be nil")
+	require.NotNil(t, keystoneEnv.dons, "keystone environment must have DONs")
+	require.NotNil(t, keystoneEnv.WrappedNodeOutput, "keystone environment must have node outputs")
+
+	require.Equal(t, len(keystoneEnv.dons), len(keystoneEnv.WrappedNodeOutput), "number of DONs and node outputs must match")
+	keystoneEnv.DONTopology = make([]*DONTopology, len(keystoneEnv.dons))
 
 	// one DON to do everything
-	if len(dons) == 1 {
+	if len(keystoneEnv.dons) == 1 {
 		flags, err := nodeSetFlags(in.NodeSets[0])
 		require.NoError(t, err, "failed to convert string flags to bitmap for nodeset %s", in.NodeSets[0].Name)
 
-		donTopologies[0] = &DONTopology{
-			DON:        dons[0],
+		keystoneEnv.DONTopology[0] = &DONTopology{
+			DON:        keystoneEnv.dons[0],
 			NodeInput:  in.NodeSets[0],
-			NodeOutput: nodeOutputs[0],
+			NodeOutput: keystoneEnv.WrappedNodeOutput[0],
 			ID:         1,
 			Flags:      flags,
 		}
 	} else {
-		for i, don := range dons {
+		for i, don := range keystoneEnv.dons {
 			flags, err := nodeSetFlags(in.NodeSets[i])
 			require.NoError(t, err, "failed to convert string flags to bitmap for nodeset %s", in.NodeSets[i].Name)
 
-			donTopologies[i] = &DONTopology{
+			keystoneEnv.DONTopology[i] = &DONTopology{
 				DON:        don,
 				NodeInput:  in.NodeSets[i],
-				NodeOutput: nodeOutputs[i],
+				NodeOutput: keystoneEnv.WrappedNodeOutput[i],
 				ID:         mustSafeUint32(i + 1),
 				Flags:      flags,
 			}
 		}
 	}
 
-	return donTopologies
+	keystoneEnv.WorkflowDONID = mustOneDONTopologyWithFlag(t, keystoneEnv.DONTopology, WorkflowDON).ID
 }
 
 func getLogFileHandles(t *testing.T, l zerolog.Logger, ns *ns.Output) ([]*os.File, error) {
@@ -1999,10 +2070,14 @@ func debugReportTransmissions(logFiles []*os.File, l zerolog.Logger, wsRPCURL st
 // this function is used to print debug information from Chainlink Node logs
 // it checks whether workflow was executing, OCR was executing and whether reports were sent
 // and if they were, it traces each report transmission transaction
-func printTestDebug(t *testing.T, l zerolog.Logger, donTopologies []*DONTopology, wsRPCURL string) {
+func printTestDebug(t *testing.T, l zerolog.Logger, keystoneEnv *KeystoneEnvironment) {
+	require.NotNil(t, keystoneEnv, "keystone environment must not be nil")
+	require.NotNil(t, keystoneEnv.DONTopology, "keystone environment must have DON topology")
+	require.NotNil(t, keystoneEnv.Blockchain, "keystone environment must have blockchain")
+
 	l.Info().Msg("🔍 Debug information from Chainlink Node logs:")
 
-	for _, donTopology := range donTopologies {
+	for _, donTopology := range keystoneEnv.DONTopology {
 		logFiles, err := getLogFileHandles(t, l, donTopology.NodeOutput.Output)
 		if err != nil {
 			l.Error().Err(err).Msg("Failed to get log file handles. No debug information will be printed")
@@ -2044,7 +2119,7 @@ func printTestDebug(t *testing.T, l zerolog.Logger, donTopologies []*DONTopology
 				l.Info().Msg("✅ Reports were sent")
 
 				// debug report transmissions
-				debugReportTransmissions(logFiles, l, wsRPCURL)
+				debugReportTransmissions(logFiles, l, keystoneEnv.Blockchain.Nodes[0].HostWSUrl)
 			}
 		}
 
@@ -2169,12 +2244,13 @@ func setupFakeDataProvider(t *testing.T, testLogger zerolog.Logger, in *TestConf
 	return fakeFinalUrl
 }
 
-func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *TestConfig) PriceProvider {
+func setupPriceProvider(t *testing.T, testLogger zerolog.Logger, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
 	if in.PriceProvider.Fake != nil {
-		return NewFakePriceProvider(t, testLogger, in)
+		keystoneEnv.PriceProvider = NewFakePriceProvider(t, testLogger, in)
+		return
 	}
 
-	return NewLivePriceProvider(t, testLogger, in)
+	keystoneEnv.PriceProvider = NewLivePriceProvider(t, testLogger, in)
 }
 
 // PriceProvider abstracts away the logic of checking whether the feed has been correctly updated
@@ -2303,6 +2379,28 @@ func (f *FakePriceProvider) URL() string {
 	return f.url
 }
 
+func startBlockchain(t *testing.T, in *TestConfig, keystoneEnv *KeystoneEnvironment) {
+	bc, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
+	require.NoError(t, err, "failed to create blockchain network")
+
+	pkey := os.Getenv("PRIVATE_KEY")
+	require.NotEmpty(t, pkey, "private key must not be empty")
+
+	sc, err := seth.NewClientBuilder().
+		WithRpcUrl(bc.Nodes[0].HostWSUrl).
+		WithPrivateKeys([]string{pkey}).
+		Build()
+	require.NoError(t, err, "failed to create seth client")
+
+	chainSelector, err := chainselectors.SelectorFromChainId(sc.Cfg.Network.ChainID)
+	require.NoError(t, err, "failed to get chain selector for chain id %d", sc.Cfg.Network.ChainID)
+
+	keystoneEnv.Blockchain = bc
+	keystoneEnv.SethClient = sc
+	keystoneEnv.DeployerPrivateKey = pkey
+	keystoneEnv.ChainSelector = chainSelector
+}
+
 func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *TestConfig, nodeOutput *ns.Output) ([]string, []int) {
 	// no need to allow anything, if we are using live feed
 	if in.PriceProvider.Fake == nil {
@@ -2334,7 +2432,6 @@ func extraAllowedPortsAndIps(t *testing.T, testLogger zerolog.Logger, in *TestCo
 	// we also need to explicitly allow Gist's IP
 	return []string{hostIp, GistIP}, []int{in.PriceProvider.Fake.Port}
 }
-
 func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	testLogger := framework.L
 
@@ -2343,61 +2440,50 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	validateInputsAndEnvVars(t, in)
 
-	pkey := os.Getenv("PRIVATE_KEY")
+	keystoneEnv := &KeystoneEnvironment{}
 
 	// Create a new blockchain network and Seth client to interact with it
-	bc, err := blockchain.NewBlockchainNetwork(in.BlockchainA)
-	require.NoError(t, err)
-
-	sc, err := seth.NewClientBuilder().
-		WithRpcUrl(bc.Nodes[0].HostWSUrl).
-		WithPrivateKeys([]string{pkey}).
-		Build()
-	require.NoError(t, err, "failed to create seth client")
-
-	chainSelector, err := chainselectors.SelectorFromChainId(sc.Cfg.Network.ChainID)
-	require.NoError(t, err, "failed to get chain selector for chain id %d", sc.Cfg.Network.ChainID)
+	startBlockchain(t, in, keystoneEnv)
 
 	// Get either a no-op price provider (for live endpoint)
 	// or a fake price provider (for mock endpoint)
-	priceProvider := setupPriceProvider(t, testLogger, in)
+	setupPriceProvider(t, testLogger, in, keystoneEnv)
 
 	// Start job distributor
-	jdOutput := startJobDistributor(t, in)
+	startJobDistributor(t, in, keystoneEnv)
 
 	// Deploy the DONs
-	nodeOutputs := make([]*WrappedNodeOutput, len(in.NodeSets))
-	for i, don := range in.NodeSets {
-		nodeOutputs[i] = startSingleNodeSet(t, don, bc)
+	for _, nodeSet := range in.NodeSets {
+		startSingleNodeSet(t, nodeSet, keystoneEnv)
 	}
 
 	// Prepare the chainlink/deployment environment, which also configures chains for nodes and job distributor
-	ctfEnv, dons := buildChainlinkDeploymentEnv(t, jdOutput, bc, sc, nodeOutputs...)
+	buildChainlinkDeploymentEnv(t, keystoneEnv)
 
 	// Fund the nodes
-	fundNodes(t, dons, sc)
+	fundNodes(t, keystoneEnv)
 
-	donTopology := buildDONTopology(t, in, dons, nodeOutputs)
-	workflowDONID := mustOneDONTopologyWithFlag(t, donTopology, WorkflowDON).ID
+	buildDONTopology(t, in, keystoneEnv)
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability)
-	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnv, chainSelector)
+	deployKeystoneContracts(t, testLogger, keystoneEnv)
 
 	// Deploy and pre-configure workflow registry contract (using only workflow DON id)
-	workflowRegistryAddr := prepareWorkflowRegistry(t, testLogger, ctfEnv, chainSelector, sc, workflowDONID)
+	prepareWorkflowRegistry(t, testLogger, keystoneEnv)
 
 	// Deploy and configure Keystone Feeds Consumer contract
-	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
+	prepareFeedsConsumer(t, testLogger, in.WorkflowConfig.WorkflowName, keystoneEnv)
 
 	// Register the workflow (either via CRE CLI or by calling the workflow registry directly; using only workflow DON id)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, workflowDONID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, priceProvider.URL())
+	registerWorkflow(t, in, in.WorkflowConfig.WorkflowName, keystoneEnv)
 
-	donTopology, ctfEnv = configureNodes(t, testLogger, in, donTopology, ctfEnv, jdOutput, bc, keystoneContractSet, workflowRegistryAddr)
+	// update node configuration and create jobs
+	configureNodes(t, testLogger, in, keystoneEnv)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.PriceProvider.FeedID, in.WorkflowConfig.WorkflowName, feedsConsumerAddress.Hex(), keystoneContractSet.Forwarder.Address().Hex())
+			logTestInfo(testLogger, in.PriceProvider.FeedID, in.WorkflowConfig.WorkflowName, keystoneEnv.KeystoneContractAddresses.FeedsConsumerAddress.Hex(), keystoneEnv.KeystoneContractAddresses.ForwarderAddress.Hex())
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
@@ -2413,7 +2499,7 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 				return
 			}
 
-			printTestDebug(t, testLogger, donTopology, bc.Nodes[0].HostWSUrl)
+			printTestDebug(t, testLogger, keystoneEnv)
 		}
 	})
 
@@ -2426,14 +2512,14 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 	testLogger.Info().Msg("Proceeding to set OCR3 configuration.")
 
 	// Configure the workflow DON and contracts
-	configureContracts(t, ctfEnv, donTopology, chainSelector)
+	configureContracts(t, keystoneEnv)
 
 	// It can take a while before the first report is produced, particularly on CI.
 	timeout := 10 * time.Minute
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(feedsConsumerAddress, sc.Client)
+	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(keystoneEnv.KeystoneContractAddresses.FeedsConsumerAddress, keystoneEnv.SethClient.Client)
 	require.NoError(t, err, "failed to create feeds consumer instance")
 
 	testLogger.Info().Msg("Waiting for feed to update...")
@@ -2448,14 +2534,14 @@ func TestKeystoneWithOCR3Workflow(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			elapsed := time.Since(startTime).Round(time.Second)
 			price, _, err := feedsConsumerInstance.GetPrice(
-				sc.NewCallOpts(),
+				keystoneEnv.SethClient.NewCallOpts(),
 				feedBytes,
 			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if !priceProvider.NextPrice(price, elapsed) {
+			if !keystoneEnv.PriceProvider.NextPrice(price, elapsed) {
 				// check if all expected prices were found and finish the test
-				priceProvider.CheckPrices()
+				keystoneEnv.PriceProvider.CheckPrices()
 				return
 			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
