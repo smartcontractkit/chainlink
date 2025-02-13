@@ -529,7 +529,7 @@ type testCasePopulatedFields struct {
 func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemoteSigner) []rmn_remote.RMNRemoteSigner {
 	for _, n := range tc.nodesWithIncorrectSigner {
 		for i, s := range signers {
-			if s.NodeIndex == uint64(n) {
+			if n >= 0 && s.NodeIndex == uint64(n) {
 				// Random address ethereum private key
 				privateKey, err := crypto.GenerateKey()
 				if err != nil {
@@ -639,17 +639,23 @@ func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNClus
 }
 
 func (tc rmnTestCase) restartNode(t *testing.T, rmnCluster devenv.RMNCluster) func() {
+	errCh := make(chan error, 1)
 	go func() {
 		time.Sleep(10 * time.Second)
 		for _, n := range tc.rmnNodes {
 			if n.restart {
 				t.Logf("Restarting RMN node %d", n.id)
 				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
-				require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker start "+rmnN.Proxy.ContainerName))
+				if err := osutil.ExecCmd(zerolog.Nop(), "docker start "+rmnN.Proxy.ContainerName); err != nil {
+					errCh <- err
+					return
+				}
 				t.Logf("Restarted RMN node %d", n.id)
 			}
 		}
+		errCh <- nil
 	}()
+	require.NoError(t, <-errCh)
 	return func() {
 		for _, n := range tc.rmnNodes {
 			if n.restart {
