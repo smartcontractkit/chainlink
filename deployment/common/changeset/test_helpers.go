@@ -74,24 +74,13 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		}
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
-				chains := mapset.NewSet[uint64]()
-				for _, op := range prop.Operations {
-					chains.Add(uint64(op.ChainSelector))
-				}
-
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
 				proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
-
 				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 			}
 		}
 		if out.MCMSProposals != nil {
 			for _, prop := range out.MCMSProposals {
-				chains := mapset.NewSet[uint64]()
-				for _, op := range prop.Operations {
-					chains.Add(uint64(op.ChainSelector))
-				}
-
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
 				proposalutils.ExecuteMCMSProposalV2(t, e, p)
 			}
