@@ -27,7 +27,6 @@ import (
 
 // This tests the main fields on the job results. Embedded spec testing is done
 // in the `spec_test` file
-// trigger
 func TestResolver_Jobs(t *testing.T) {
 	var (
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
