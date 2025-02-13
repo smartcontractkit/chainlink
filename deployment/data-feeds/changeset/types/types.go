@@ -2,6 +2,7 @@ package types
 
 import (
 	"embed"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -9,6 +10,10 @@ import (
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
+
+type MCMSConfig struct {
+	MinDelay time.Duration // delay for timelock worker to execute the transfers.
+}
 
 type AddressType string
 
@@ -48,7 +53,7 @@ type SetFeedAdminConfig struct {
 	CacheAddress  common.Address
 	AdminAddress  common.Address
 	IsAdmin       bool
-	UseMCMS       bool
+	McmsConfig    *MCMSConfig
 }
 
 type ProposeConfirmAggregatorConfig struct {
@@ -63,7 +68,7 @@ type SetFeedDecimalConfig struct {
 	DataIDs          [][16]byte // without the 0x prefix
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
-	UseMCMS          bool
+	McmsConfig       *MCMSConfig
 }
 
 type UpdateDataIDProxyConfig struct {
@@ -71,7 +76,7 @@ type UpdateDataIDProxyConfig struct {
 	CacheAddress  common.Address
 	Proxies       []common.Address
 	DataIDs       [][16]byte
-	UseMCMS       bool
+	McmsConfig    *MCMSConfig
 }
 
 type ImportToAddressbookConfig struct {

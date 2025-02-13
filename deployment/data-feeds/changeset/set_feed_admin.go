@@ -1,13 +1,13 @@
 package changeset
 
 import (
+	"encoding/json"
 	"fmt"
-	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -28,7 +28,7 @@ func SetFeedAdminChangeset(env deployment.Environment, c types.SetFeedAdminConfi
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 
 	txOpt := chain.DeployerKey
-	if c.UseMCMS {
+	if c.McmsConfig != nil {
 		txOpt = deployment.SimTransactOpts()
 	}
 
@@ -37,36 +37,41 @@ func SetFeedAdminChangeset(env deployment.Environment, c types.SetFeedAdminConfi
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed admin %w", err)
 	}
 
-	if c.UseMCMS {
-		ops := &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(c.ChainSelector),
-			Batch: []mcms.Operation{
+	if c.McmsConfig != nil {
+		ops := &mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(c.ChainSelector),
+			Transactions: []mcmstypes.Transaction{
 				{
-					To:    contract.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
+					To:               contract.Address().Hex(),
+					Data:             tx.Data(),
+					AdditionalFields: json.RawMessage(`{"value": 0}`),
 				},
 			},
 		}
 
-		timelocksPerChain := map[uint64]common.Address{
-			c.ChainSelector: chainState.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			c.ChainSelector: chainState.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			c.ChainSelector: chainState.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			c.ChainSelector: chainState.ProposerMcm.Address().Hex(),
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		inspectorPerChain := map[uint64]sdk.Inspector{}
+		inspectorPerChain[c.ChainSelector] = evm.NewInspector(chain.Client)
+
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env.GetContext(),
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*ops},
-			"proposal to set feed admin on cache",
-			0,
+			inspectorPerChain,
+			[]mcmstypes.BatchOperation{*ops},
+			"proposal to set feed admin on a cache",
+			c.McmsConfig.MinDelay,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{*proposal}}, nil
+		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
 	_, err = chain.Confirm(tx)
 	if err != nil {
