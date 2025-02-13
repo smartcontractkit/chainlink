@@ -43,7 +43,7 @@ type ChainlinkNodeLogScannerSettings struct {
 }
 
 type CLTestEnvBuilder struct {
-	hasKillgrave                    bool
+	hasParrot                       bool
 	jdConfig                        *ccip.JDConfig
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
@@ -176,7 +176,7 @@ func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 }
 
 func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
-	b.hasKillgrave = true
+	b.hasParrot = true
 	return b
 }
 
@@ -364,12 +364,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.l.Warn().Msg("Won't dump container and postgres logs, because either test instance is not set or cleanup type is set to none")
 	}
 
-	if b.hasKillgrave {
+	if b.hasParrot {
 		if b.te.DockerNetwork == nil {
 			return nil, fmt.Errorf("test environment builder failed: %w", fmt.Errorf("cannot start mock adapter without a network"))
 		}
 
-		b.te.MockAdapter = test_env.NewKillgrave([]string{b.te.DockerNetwork.Name}, "")
+		b.te.MockAdapter = test_env.NewParrot([]string{b.te.DockerNetwork.Name})
 
 		err = b.te.StartMockAdapter()
 		if err != nil {
@@ -556,7 +556,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	b.l.Info().
 		Str("privateEthereumNetwork", enDesc).
-		Bool("hasKillgrave", b.hasKillgrave).
+		Bool("hasKillgrave", b.hasParrot).
 		Bool("hasJobDistributor", b.jdConfig != nil).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).

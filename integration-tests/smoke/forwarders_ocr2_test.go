@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -45,7 +46,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
-	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	require.NoError(t, err, "Failed to retrieve on-chain wallet addresses for chainlink nodes")
 
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
@@ -53,7 +54,12 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	sethClient, err := utils.TestAwareSethClient(t, config, evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
-	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(
+		l,
+		sethClient,
+		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()),
+		big.NewFloat(*config.Common.ChainlinkNodeFunding),
+	)
 	require.NoError(t, err, "Failed to fund the nodes")
 
 	t.Cleanup(func() {
@@ -66,7 +72,12 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	fundingAmount := big.NewFloat(.05)
 	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
-	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), fundingAmount)
+	err = actions.FundChainlinkNodesFromRootAddress(
+		l,
+		sethClient,
+		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
+		fundingAmount,
+	)
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
@@ -90,7 +101,14 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 
 	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	ocrInstances, err := actions.SetupOCRv2Contracts(l, sethClient, config.OCR2, common.HexToAddress(linkContract.Address()), transmitters, ocrOffchainOptions)
+	ocrInstances, err := actions.SetupOCRv2Contracts(
+		l,
+		sethClient,
+		config.OCR2,
+		common.HexToAddress(linkContract.Address()),
+		transmitters,
+		ocrOffchainOptions,
+	)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
@@ -103,7 +121,22 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	if sethClient.ChainID < 0 {
 		t.Errorf("negative chain ID: %d", sethClient.ChainID)
 	}
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false) //nolint:gosec // G115 false positive
+	ocrRoute := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/ocr2",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = actions.CreateOCRv2JobsLocal(
+		ocrInstances,
+		bootstrapNode,
+		workerNodes,
+		env.MockAdapter,
+		ocrRoute,
+		uint64(sethClient.ChainID),
+		true,
+		false,
+	)
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
@@ -115,12 +148,24 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	for i := 2; i <= 3; i++ {
 		ocrRoundVal := (5 + i) % 10
-		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
+		ocrRoute.ResponseBody = ocrRoundVal
+		err = env.MockAdapter.SetAdapterRoute(ocrRoute)
 		require.NoError(t, err)
-		err = actions.WatchNewOCRRound(l, sethClient, int64(i), contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+		err = actions.WatchNewOCRRound(
+			l,
+			sethClient,
+			int64(i),
+			contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances),
+			time.Duration(10*time.Minute),
+		)
 		require.NoError(t, err, "error watching for new OCRv2 round")
 		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
-		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
+		require.Equal(
+			t,
+			int64(ocrRoundVal),
+			answer.Int64(),
+			fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()),
+		)
 	}
 }

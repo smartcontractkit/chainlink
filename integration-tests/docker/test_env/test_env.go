@@ -39,7 +39,7 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	ClCluster              *ClCluster
-	MockAdapter            *test_env.Killgrave
+	MockAdapter            *test_env.Parrot
 	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
 	rpcProviders           map[int64]*test_env.RpcProvider
@@ -67,7 +67,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.DockerNetwork.Name}
-		te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+		te.MockAdapter = test_env.NewParrot(n, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	}
 	return te
 }
@@ -137,11 +137,19 @@ func (te *CLClusterTestEnv) StartJobDistributor(cfg *ccip.JDConfig) error {
 	return nil
 }
 
+// StartMockAdapter starts the MockAdapter container
 func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
+// StartClCluster starts the chainlink cluster with the provided node config and count.
+func (te *CLClusterTestEnv) StartClCluster(
+	nodeConfig *chainlink.Config,
+	count int,
+	secretsConfig string,
+	testconfig ctf_config.GlobalTestConfig,
+	opts ...ClNodeOption,
+) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
@@ -156,7 +164,13 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
+			ocrNode, err := NewClNode(
+				[]string{te.DockerNetwork.Name},
+				*testconfig.GetChainlinkImageConfig().Image,
+				*testconfig.GetChainlinkImageConfig().Version,
+				nodeConfig,
+				opts...,
+			)
 			if err != nil {
 				return err
 			}
@@ -190,7 +204,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	if te.t == nil {
-		return fmt.Errorf("cannot cleanup test environment without a testing.T")
+		return errors.New("cannot cleanup test environment without a testing.T")
 	}
 
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
@@ -280,7 +294,7 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 func getChainlinkDir() (string, error) {
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
-		return "", fmt.Errorf("cannot determine the path of the calling file")
+		return "", errors.New("cannot determine the path of the calling file")
 	}
 	dir := filepath.Dir(filename)
 	chainlinkDir := filepath.Clean(filepath.Join(dir, "../../.."))
@@ -306,6 +320,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
+// GetRpcProvider retrieves the RPC node for the specified chain
 func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {
 	if rpc, ok := te.rpcProviders[chainId]; ok {
 		return rpc, nil
@@ -314,14 +329,16 @@ func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider
 	return nil, fmt.Errorf("no RPC provider available for chain ID %d", chainId)
 }
 
+// GetFirstEvmNetwork retrieves the first EVM network available in the test environment
 func (te *CLClusterTestEnv) GetFirstEvmNetwork() (*blockchain.EVMNetwork, error) {
 	if len(te.EVMNetworks) == 0 {
-		return nil, fmt.Errorf("no EVM networks available")
+		return nil, errors.New("no EVM networks available")
 	}
 
 	return te.EVMNetworks[0], nil
 }
 
+// GetEVMNetworkForChainId retrieves the EVM network for the specified chain ID
 func (te *CLClusterTestEnv) GetEVMNetworkForChainId(chainId int64) (*blockchain.EVMNetwork, error) {
 	for _, network := range te.EVMNetworks {
 		if network.ChainID == chainId {

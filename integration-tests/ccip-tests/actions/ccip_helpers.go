@@ -32,6 +32,7 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -2966,8 +2967,9 @@ func (lane *CCIPLane) UpdateLaneConfig() {
 	lane.DstNetworkLaneCfg.DestContractsMu.Unlock()
 }
 
+// RecordStateBeforeTransfer records all balances before a CCIP transer happens,
+// allowing for balance validation after the transfer is complete.
 func (lane *CCIPLane) RecordStateBeforeTransfer() {
-	// collect the balance assert.ment to verify balances after transfer
 	bal, err := testhelpers.GetBalances(lane.Test, lane.Source.CollectBalanceRequirements())
 	require.NoError(lane.Test, err, "fetching source balance")
 	lane.Balance.RecordBalance(bal)
@@ -4089,7 +4091,12 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
 	}
-	tokenAddresses = append(tokenAddresses, lane.Dest.Common.FeeToken.Address(), lane.Source.Common.WrappedNative.Hex(), lane.Dest.Common.WrappedNative.Hex())
+	tokenAddresses = append(
+		tokenAddresses,
+		lane.Dest.Common.FeeToken.Address(),
+		lane.Source.Common.WrappedNative.Hex(),
+		lane.Dest.Common.WrappedNative.Hex(),
+	)
 
 	// Only one off pipeline or price getter to be set.
 	tokenPricesUSDPipeline := ""
@@ -4262,7 +4269,8 @@ func SetOCR2Config(
 		return fmt.Errorf("failed to create commit onchain config: %w", err)
 	}
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
-		commitNodes, commitOffchainCfg, commitOnchainCfg, OCR2ParamsForCommit, 3*time.Minute)
+		commitNodes, commitOffchainCfg, commitOnchainCfg, OCR2ParamsForCommit, 3*time.Minute,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2 config params for commit: %w", err)
 	}
@@ -4443,6 +4451,7 @@ merge [type=merge left="{}" right="{%s}"];`, source, right)
 	return source
 }
 
+// CCIPTestEnv contains the environment for running a CCIP E2E test
 type CCIPTestEnv struct {
 	MockServer               *ctfClient.MockserverClient
 	LocalCluster             *test_env.CLClusterTestEnv
@@ -4847,13 +4856,13 @@ func SetMockServerWithUSDCAttestation(
 	return nil
 }
 
-// SetMockServerWithLBTCAttestation responds with a mock attestation for any msgHash
+// SetMockAdapterWithLBTCAttestation responds with a mock attestation for any msgHash
 // The path is set with regex to match any path that starts with /v1/attestations
-func SetMockServerWithLBTCAttestation(
-	killGrave *ctftestenv.Killgrave,
-	mockserver *ctfClient.MockserverClient,
-) error {
-	path := "/bridge/v1/deposits/getByHash"
+func SetMockAdapterWithLBTCAttestation(mockAdapter *ctftestenv.Parrot) error {
+	if mockAdapter == nil {
+		return errors.New("mockAdapter is nil")
+	}
+
 	type attestation struct {
 		Status      string `json:"status"`
 		Attestation string `json:"attestation"`
@@ -4870,21 +4879,15 @@ func SetMockServerWithLBTCAttestation(
 			},
 		},
 	}
-	if killGrave == nil && mockserver == nil {
-		return errors.New("both killgrave and mockserver are nil")
+	route := &parrot.Route{
+		Method:             http.MethodPost,
+		Path:               "/bridge/v1/deposits/getByHash",
+		ResponseBody:       response,
+		ResponseStatusCode: http.StatusOK,
 	}
-	log.Info().Str("path", path).Msg("setting attestation-api response for any msgHash")
-	if killGrave != nil {
-		err := killGrave.SetAnyValueResponse(path, []string{http.MethodPost}, response)
-		if err != nil {
-			return fmt.Errorf("failed to set killgrave server value: %w", err)
-		}
-	}
-	if mockserver != nil {
-		err := mockserver.SetAnyValueResponse(path, response)
-		if err != nil {
-			return fmt.Errorf("failed to set mockserver value: %w URL = %s", err, fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path))
-		}
+	err := mockAdapter.Client.RegisterRoute(route)
+	if err != nil {
+		return fmt.Errorf("failed to set mock adapter route: %w", err)
 	}
 	return nil
 }

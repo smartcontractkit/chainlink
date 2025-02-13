@@ -1176,7 +1176,7 @@ func CCIPDefaultTestSetUp(
 			// if it's a new LBTC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithLBTCAttestation(killgrave, setUpArgs.Env.MockServer)
+			err = actions.SetMockAdapterWithLBTCAttestation(killgrave, setUpArgs.Env.MockServer)
 			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}

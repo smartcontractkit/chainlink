@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -39,8 +40,14 @@ func TestCronBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
-	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
@@ -94,8 +101,14 @@ func TestCronJobReplacement(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
-	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
+	route := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               "/variable",
+		ResponseBody:       5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),

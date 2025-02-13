@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -35,9 +37,8 @@ func CreateOCRv2JobsLocal(
 	ocrInstances []contracts.OffchainAggregatorV2,
 	bootstrapNode *nodeclient.ChainlinkClient,
 	workerChainlinkNodes []*nodeclient.ChainlinkClient,
-	mockAdapter *test_env.Killgrave,
-	mockAdapterPath string, // Path on the mock server for the Chainlink nodes to query
-	mockAdapterValue int, // Value to get from the mock server when querying the path
+	mockAdapter *test_env.Parrot,
+	valueRoute *parrot.Route,
 	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
 	enableChainReaderAndCodec bool,
@@ -49,12 +50,18 @@ func CreateOCRv2JobsLocal(
 	}
 	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
 	// Set the value for the jobs to report on
-	err = mockAdapter.SetAdapterBasedIntValuePath(mockAdapterPath, []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
+	err = mockAdapter.SetAdapterRoute(valueRoute)
 	if err != nil {
 		return err
 	}
 	// Set the juelsPerFeeCoinSource config value
-	err = mockAdapter.SetAdapterBasedIntValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockAdapterPath), []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
+	juelsRoute := &parrot.Route{
+		Method:             parrot.MethodAny,
+		Path:               filepath.Join(valueRoute.Path, "juelsPerFeeCoinSource"),
+		ResponseBody:       valueRoute.ResponseBody,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = mockAdapter.SetAdapterRoute(juelsRoute)
 	if err != nil {
 		return err
 	}
@@ -69,7 +76,7 @@ func CreateOCRv2JobsLocal(
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath)),
+				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valueRoute.Path)),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
 		}
@@ -90,12 +97,12 @@ func CreateOCRv2JobsLocal(
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
 			bta := &nodeclient.BridgeTypeAttributes{
-				Name: fmt.Sprintf("%s-%s", mockAdapterPath, uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath),
+				Name: fmt.Sprintf("%s-%s", valueRoute.Path, uuid.NewString()),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valueRoute.Path),
 			}
 			juelsBridge := &nodeclient.BridgeTypeAttributes{
 				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockAdapter.InternalEndpoint, mockAdapterPath),
+				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockAdapter.InternalEndpoint, valueRoute.Path),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
