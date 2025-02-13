@@ -324,6 +324,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      lloReaper,
 		CapabilitiesRegistry:       capabilitiesRegistry,
+		Registerer:                 appRegisterer,
 	})
 }
 

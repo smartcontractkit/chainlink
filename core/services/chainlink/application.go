@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/promotel"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -203,6 +202,7 @@ type ApplicationOpts struct {
 	NewOracleFactoryFn         standardcapabilities.NewOracleFactoryFn
 	FetcherFunc                syncer.FetcherFunc
 	FetcherFactoryFn           compute.FetcherFactory
+	Registerer                 prometheus.Registerer
 }
 
 type Heartbeat struct {
@@ -280,8 +280,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	promForwarder := promotel.NewForwarder(globalLogger, prometheus.DefaultGatherer, otel.GetMeterProvider())
-	srvcs = append(srvcs, promForwarder)
+	if beholderClient := beholder.GetClient(); beholderClient != nil {
+		forwarderOpts := promotel.DefaultOptions()
+		forwarderOpts.Endpoint = beholderClient.Config.OtelExporterGRPCEndpoint
+		forwarderOpts.TLSInsecure = beholderClient.Config.InsecureConnection
+		forwarderOpts.AuthHeaders = beholderClient.Config.AuthHeaders
+		promForwarder, err := promotel.NewForwarderService(prometheus.DefaultGatherer, opts.Registerer, globalLogger, forwarderOpts)
+		if err != nil {
+			return nil, fmt.Errorf("could not create prometheus forwarder: %w", err)
+		}
+		srvcs = append(srvcs, promForwarder)
+	}
 
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
