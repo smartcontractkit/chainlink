@@ -33,11 +33,11 @@ const (
 	transmitted = iota
 	committed
 	executed
-	tickerDuration = 30 * time.Second
+	tickerDuration = 3 * time.Minute
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(10), deployment.UBigInt(1e18)) // 100 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
 )
 
 // todo: Have a different struct for commit/exec?
