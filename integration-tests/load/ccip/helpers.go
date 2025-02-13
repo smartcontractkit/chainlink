@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/event"
 	"math"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/event"
 
 	"golang.org/x/sync/errgroup"
 
