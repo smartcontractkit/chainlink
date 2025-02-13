@@ -8,7 +8,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-// DeployMCMSWithTimelockProgramsSolana deploys an MCMS program f
+// DeployMCMSWithTimelockProgramsSolana deploys an MCMS program
 // and initializes 3 instances for each of the timelock roles: Bypasser, ProposerMcm, Canceller on an Solana chain.
 // as well as the timelock program. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
@@ -35,19 +35,19 @@ func DeployMCMSWithTimelockProgramsSolana(
 	}
 	err = initAccessController(e, chainState, commontypes.ProposerAccessControllerAccount, chain, addressBook)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy proposer access controller: %w", err)
+		return nil, fmt.Errorf("failed to init proposer access controller: %w", err)
 	}
 	err = initAccessController(e, chainState, commontypes.ExecutorAccessControllerAccount, chain, addressBook)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy access controller: %w", err)
+		return nil, fmt.Errorf("failed to init access controller: %w", err)
 	}
 	err = initAccessController(e, chainState, commontypes.CancellerAccessControllerAccount, chain, addressBook)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy access controller: %w", err)
+		return nil, fmt.Errorf("failed to init access controller: %w", err)
 	}
 	err = initAccessController(e, chainState, commontypes.BypasserAccessControllerAccount, chain, addressBook)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy access controller: %w", err)
+		return nil, fmt.Errorf("failed to init access controller: %w", err)
 	}
 
 	// mcm
@@ -57,15 +57,15 @@ func DeployMCMSWithTimelockProgramsSolana(
 	}
 	err = initMCM(e, chainState, commontypes.BypasserManyChainMultisig, chain, addressBook, &config.Bypasser)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy bypasser mcm: %w", err)
+		return nil, fmt.Errorf("failed to init bypasser mcm: %w", err)
 	}
 	err = initMCM(e, chainState, commontypes.CancellerManyChainMultisig, chain, addressBook, &config.Canceller)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy canceller mcm: %w", err)
+		return nil, fmt.Errorf("failed to init canceller mcm: %w", err)
 	}
 	err = initMCM(e, chainState, commontypes.ProposerManyChainMultisig, chain, addressBook, &config.Proposer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy proposer mcm: %w", err)
+		return nil, fmt.Errorf("failed to init proposer mcm: %w", err)
 	}
 
 	// timelock
@@ -75,7 +75,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 	}
 	err = initTimelock(e, chainState, chain, addressBook, config.TimelockMinDelay)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy timelock: %w", err)
+		return nil, fmt.Errorf("failed to init timelock: %w", err)
 	}
 
 	err = setupRoles(chainState, chain)
@@ -85,7 +85,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 
 	err = transferOwnership(chainState, chain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup roles and ownership: %w", err)
+		return nil, fmt.Errorf("failed to transfer ownership: %w", err)
 	}
 
 	return chainState, nil
