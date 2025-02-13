@@ -489,7 +489,9 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 
 	// Find the bridge
 	orm := r.App.BridgeORM()
-	bridge, err := orm.FindBridge(ctx, taskType)
+	// Initialize the cache with the required logger argument
+	bridgeCache := bridges.NewCache(orm, r.App.GetLogger(), bridges.DefaultUpsertInterval)
+	bridge, err := bridgeCache.FindBridge(ctx, taskType)
 	if errors.Is(err, sql.ErrNoRows) {
 		return NewUpdateBridgePayload(nil, err), nil
 	}
@@ -502,7 +504,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if err := orm.UpdateBridgeType(ctx, &bridge, btr); err != nil {
+	if err := bridgeCache.UpdateBridgeType(ctx, &bridge, btr); err != nil {
 		return nil, err
 	}
 

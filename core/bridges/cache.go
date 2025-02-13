@@ -144,8 +144,8 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 		return err
 	}
 	// Log cached bridge data after the update
-	c.eng.Debugw("After update", "bridgeType", bt)
-	c.eng.Debugw("After update", "BridgeTypeRequest", btr)
+	c.eng.Debugw("Before update", "bridgeType", bt)
+	c.eng.Debugw("Before update", "BridgeTypeRequest", btr)
 	c.bridgeTypesCache.Store(bt.Name, *bt)
 	// Print cached bridge data after the update
 	c.eng.Debugw("After update", "bridgeType", bt)
