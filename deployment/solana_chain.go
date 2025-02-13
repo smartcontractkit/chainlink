@@ -81,7 +81,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 	baseArgs := []string{
 		"program", "deploy",
 		programFile,                // .so file
-		"--keypair", c.KeypairPath, // program keypair
+		"--keypair", c.KeypairPath, // deployer keypair
 		"--url", c.URL, // rpc url
 	}
 
@@ -149,7 +149,7 @@ func (c SolChain) UpgradeProgram(logger logger.Logger, programName string, progr
 	cmd := exec.Command("solana", "program", "deploy", programFile,
 		"--program-id", programID.String(),
 		"--upgrade-authority", tempFile.Name(),
-		"--signer", tempFile.Name(),
+		"--keypair", tempFile.Name(),
 		"--fee-payer", tempFile.Name(),
 		"--url", c.URL)
 
