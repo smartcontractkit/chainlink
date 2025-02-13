@@ -6,13 +6,14 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 type HeadProvider struct {
-	ht         httypes.HeadTracker
-	hb         httypes.HeadBroadcaster
+	ht         heads.Tracker
+	hb         heads.Broadcaster
 	chHead     chan ocr2keepers.BlockKey
 	subscribed bool
 }
@@ -46,7 +47,7 @@ type headWrapper struct {
 	c chan ocr2keepers.BlockKey
 }
 
-func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *types.Head) {
 	var bl int64
 	if head != nil {
 		bl = head.Number

@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,10 +28,10 @@ func TestRegisterNodesWithJD(t *testing.T) {
 
 	csaKey := jobClient.Nodes[nodeP2pKey].Keys.CSA.PublicKeyString()
 
-	e, err := changeset.ApplyChangesets(t, e, nil, []changeset.ChangesetApplication{
-		{
-			Changeset: changeset.WrapChangeSet(RegisterNodesWithJD),
-			Config: RegisterNodesInput{
+	e, err := changeset.Apply(t, e, nil,
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(RegisterNodesWithJD),
+			RegisterNodesInput{
 				EnvLabel:    "test-env",
 				ProductName: "test-product",
 				DONs: DONConfigMap{
@@ -42,8 +43,8 @@ func TestRegisterNodesWithJD(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	require.Lenf(t, jobClient.RegisteredNodes, 1, "1 registered node expected")
 	require.NotNilf(t, jobClient.RegisteredNodes[csaKey], "expected node with csa key %s to be registered", csaKey)

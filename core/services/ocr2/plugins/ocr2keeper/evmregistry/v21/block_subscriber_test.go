@@ -11,9 +11,10 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,7 +27,7 @@ const finality = uint32(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
@@ -45,7 +46,7 @@ func TestBlockSubscriber_Subscribe(t *testing.T) {
 
 func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
@@ -63,7 +64,7 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 
 func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := NewBlockSubscriber(hb, lp, finality, lggr)
@@ -75,7 +76,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 
 func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 
 	tests := []struct {
 		Name           string
@@ -114,7 +115,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 
 func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 
 	tests := []struct {
 		Name             string
@@ -177,7 +178,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 
 func TestBlockSubscriber_BuildHistory(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -227,7 +228,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 
 func TestBlockSubscriber_Cleanup(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	var hb types.HeadBroadcaster
+	var hb heads.Broadcaster
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
@@ -275,7 +276,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 
 func TestBlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	hb := htmocks.NewBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)

@@ -10,12 +10,21 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
+type MCMSRole string
+
 const (
 	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
+	ManyChainMultisig          deployment.ContractType = "ManyChainMultiSig"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
 	CallProxy                  deployment.ContractType = "CallProxy"
+
+	// roles
+	ProposerRole  MCMSRole = "PROPOSER"
+	BypasserRole  MCMSRole = "BYPASSER"
+	CancellerRole MCMSRole = "CANCELLER"
+
 	// LinkToken is the burn/mint link token. It should be used everywhere for
 	// new deployments. Corresponds to
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/shared/generated/link_token/link_token.go#L34
@@ -27,6 +36,10 @@ const (
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/generated/link_token_interface/link_token_interface.go#L34
 	StaticLinkToken deployment.ContractType = "StaticLinkToken"
 )
+
+func (role MCMSRole) String() string {
+	return string(role)
+}
 
 type MCMSWithTimelockConfig struct {
 	Canceller        config.Config

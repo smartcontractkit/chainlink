@@ -68,6 +68,23 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	return nil
 }
 
+type ConfigOpt func(c *chainlink.Config)
+
+// WithFinalityDepths sets the finality depths of the evm chain
+// in the map.
+func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
+	return func(c *chainlink.Config) {
+		for chainID, depth := range finalityDepths {
+			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
+			for _, evmChainConfig := range c.EVM {
+				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
+					evmChainConfig.Chain.FinalityDepth = ptr(depth)
+				}
+			}
+		}
+	}
+}
+
 // Creates a CL node which is:
 // - Configured for OCR
 // - Configured for the chains specified
@@ -80,6 +97,7 @@ func NewNode(
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
+	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
@@ -144,6 +162,10 @@ func NewNode(
 			solConfigs = append(solConfigs, createSolanaChainConfig(solanaChainID, chain))
 		}
 		c.Solana = solConfigs
+
+		for _, opt := range configOpts {
+			opt(c)
+		}
 	})
 
 	// Set logging.

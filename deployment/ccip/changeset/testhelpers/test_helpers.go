@@ -432,10 +432,10 @@ func AddLane(
 		t.Fatalf("from family is not evm, %s", fromFamily)
 	}
 
-	changesets := []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
+	changesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			changeset.UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					from: {
 						to: {
@@ -446,10 +446,10 @@ func AddLane(
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
@@ -457,20 +457,20 @@ func AddLane(
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+			changeset.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
 				UpdatesByChain: map[uint64]changeset.RouterUpdates{
 					// onRamp update on source chain
@@ -481,17 +481,17 @@ func AddLane(
 					},
 				},
 			},
-		},
+		),
 	}
 
 	require.NoError(t, err)
 
 	switch toFamily {
 	case chainsel.FamilyEVM:
-		evmChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-				Config: changeset.UpdateOffRampSourcesConfig{
+		evmChangesets := []commoncs.ConfiguredChangeSet{
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
+				changeset.UpdateOffRampSourcesConfig{
 					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 						to: {
 							from: {
@@ -502,10 +502,10 @@ func AddLane(
 						},
 					},
 				},
-			},
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-				Config: changeset.UpdateRouterRampsConfig{
+			),
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+				changeset.UpdateRouterRampsConfig{
 					TestRouter: isTestRouter,
 					UpdatesByChain: map[uint64]changeset.RouterUpdates{
 						// offramp update on dest chain
@@ -516,7 +516,7 @@ func AddLane(
 						},
 					},
 				},
-			},
+			),
 		}
 		changesets = append(changesets, evmChangesets...)
 	case chainsel.FamilySolana:
@@ -524,10 +524,10 @@ func AddLane(
 		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 		require.True(t, ok)
 		bigNum.FillBytes(value[:])
-		solanaChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
-				Config: changeset_solana.AddRemoteChainToSolanaConfig{
+		solanaChangesets := []commoncs.ConfiguredChangeSet{
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
+				changeset_solana.AddRemoteChainToSolanaConfig{
 					ChainSelector: to,
 					UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
 						from: {
@@ -547,7 +547,7 @@ func AddLane(
 						},
 					},
 				},
-			},
+			),
 		}
 		changesets = append(changesets, solanaChangesets...)
 	}
@@ -559,10 +559,10 @@ func AddLane(
 // RemoveLane removes a lane between the source and destination chains in the deployed environment.
 func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter bool) {
 	var err error
-	apps := []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
+	apps := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+			changeset.UpdateRouterRampsConfig{
 				UpdatesByChain: map[uint64]changeset.RouterUpdates{
 					// onRamp update on source chain
 					src: {
@@ -572,20 +572,20 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+			changeset.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					src: {
 						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			changeset.UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					src: {
 						dest: {
@@ -596,7 +596,7 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 					},
 				},
 			},
-		},
+		),
 	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
@@ -825,35 +825,38 @@ func DeployTransferableTokenSolana(
 	require.NoError(t, err)
 
 	// deploy solana token
-	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{ // this makes the deployer the mint authority by default
-			Changeset: commoncs.WrapChangeSet(changeset_solana.DeploySolanaToken),
-			Config: changeset_solana.DeploySolanaTokenConfig{
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			// this makes the deployer the mint authority by default
+			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
+			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChainSel,
 				TokenProgramName: deployment.SPL2022Tokens,
 				TokenDecimals:    9,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	state, err = changeset.LoadOnchainState(e)
 	require.NoError(t, err)
 	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
 	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
-	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{ // create the ata for the deployerKey
-			Changeset: commoncs.WrapChangeSet(changeset_solana.CreateSolanaTokenATA),
-			Config: changeset_solana.CreateSolanaTokenATAConfig{
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			// create the ata for the deployerKey
+			deployment.CreateLegacyChangeSet(changeset_solana.CreateSolanaTokenATA),
+			changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChainSel,
 				TokenPubkey:   solTokenAddress,
 				TokenProgram:  deployment.SPL2022Tokens,
 				ATAList:       []string{solDeployerKey.String()},
 			},
-		},
-		{ // mint the token to the deployerKey
-			Changeset: commoncs.WrapChangeSet(changeset_solana.MintSolanaToken),
-			Config: changeset_solana.MintSolanaTokenConfig{
+		),
+		commoncs.Configure(
+			// mint the token to the deployerKey
+			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
+			changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChainSel,
 				TokenPubkey:   solTokenAddress,
 				TokenProgram:  deployment.SPL2022Tokens,
@@ -861,18 +864,19 @@ func DeployTransferableTokenSolana(
 					solDeployerKey.String(): uint64(1000),
 				},
 			},
-		},
-		{ // deploy token pool and set the burn/mint authority to the tokenPool
-			Changeset: commoncs.WrapChangeSet(changeset_solana.AddTokenPool),
-			Config: changeset_solana.TokenPoolConfig{
+		),
+		commoncs.Configure(
+			// deploy token pool and set the burn/mint authority to the tokenPool
+			deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+			changeset_solana.TokenPoolConfig{
 				ChainSelector:    solChainSel,
 				TokenPubKey:      solTokenAddress.String(),
 				TokenProgramName: deployment.SPL2022Tokens,
 				PoolType:         solTestTokenPool.BurnAndMint_PoolType,
 				Authority:        solDeployerKey.String(),
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// configure evm
@@ -885,10 +889,10 @@ func DeployTransferableTokenSolana(
 	require.NoError(t, err)
 
 	// configure solana
-	e, err = commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
-			Config: changeset_solana.RemoteChainTokenPoolConfig{
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
+			changeset_solana.RemoteChainTokenPoolConfig{
 				SolChainSelector:    solChainSel,
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
@@ -915,8 +919,8 @@ func DeployTransferableTokenSolana(
 					Rate:     1,
 				},
 			},
-		},
-	})
+		),
+	)
 
 	require.NoError(t, err)
 	return evmToken, evmPool, solTokenAddress, nil
@@ -1632,12 +1636,9 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		config = append(config, solChain1)
 	}
 
-	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(commoncs.DeployLinkToken),
-			Config:    config,
-		},
-	})
+	e, err := commoncs.Apply(t, e, nil,
+		commoncs.Configure(deployment.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
+	)
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)

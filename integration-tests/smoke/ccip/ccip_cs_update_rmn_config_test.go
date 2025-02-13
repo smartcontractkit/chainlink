@@ -192,15 +192,15 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
 	if tc.useMCMS {
 		// This is required because RMNHome is initially owned by the deployer
-		_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-				Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+		_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
 					MinDelay:         0,
 				},
-			},
-		})
+			),
+		)
 		require.NoError(t, err)
 	}
 
@@ -237,12 +237,12 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		MCMSConfig: mcmsConfig,
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNHomeCandidateConfigChangeset),
-			Config:    setRMNHomeCandidateConfig,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.SetRMNHomeCandidateConfigChangeset),
+			setRMNHomeCandidateConfig,
+		),
+	)
 
 	require.NoError(t, err)
 
@@ -263,12 +263,12 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		MCMSConfig:        mcmsConfig,
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteRMNHomeCandidateConfigChangeset),
-			Config:    promoteConfig,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.PromoteRMNHomeCandidateConfigChangeset),
+			promoteConfig,
+		),
+	)
 
 	require.NoError(t, err)
 	currentActiveDigest, err = rmnHome.GetActiveDigest(nil)
@@ -297,12 +297,12 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		MCMSConfig:        mcmsConfig,
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteConfigChangeset),
-			Config:    setRemoteConfig,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteConfigChangeset),
+			setRemoteConfig,
+		),
+	)
 
 	require.NoError(t, err)
 	rmnRemotePerChain := changeset.BuildRMNRemotePerChain(e.Env, state)
@@ -345,22 +345,22 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	}
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    allChains,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			allChains,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-	})
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			mcmsCfg,
+		),
+	)
 	require.NoError(t, err)
 	contractsByChain := make(map[uint64][]common.Address)
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -384,19 +384,18 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	}
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContractsPerChain, []commonchangeset.ChangesetApplication{
+	e.Env, err = commonchangeset.Apply(t, e.Env, timelockContractsPerChain,
 		// transfer ownership of RMNProxy to timelock
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
 			},
-		},
-
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -405,24 +404,24 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 					"NodeOperator": envNodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: allContractParams,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
+			changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
 				MCMSConfig: &changeset.MCMSConfig{
 					MinDelay: 0,
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

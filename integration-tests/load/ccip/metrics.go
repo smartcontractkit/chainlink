@@ -117,7 +117,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
 					ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
-					CommitDuration: state.timestamps[committed] - state.timestamps[executed],
+					CommitDuration: state.timestamps[committed] - state.timestamps[transmitted],
 					SequenceNumber: data.seqNum,
 				})
 
