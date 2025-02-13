@@ -7,7 +7,7 @@ import (
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	common "github.com/ethereum/go-ethereum/common"
-	commit_store "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	commit_store "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
 
 	event "github.com/ethereum/go-ethereum/event"
 

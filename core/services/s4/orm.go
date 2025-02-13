@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 // Row represents a data row persisted by ORM.

@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"

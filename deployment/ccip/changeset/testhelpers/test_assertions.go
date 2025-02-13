@@ -15,16 +15,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 func ConfirmGasPriceUpdatedForAll(
@@ -311,29 +312,36 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	seenMessages := NewCommitReportTracker(srcSelector, expectedSeqNumRange)
 
 	verifyCommitReport := func(report *offramp.OffRampCommitReportAccepted) bool {
-		if len(report.MerkleRoots) > 0 {
-			// Check the interval of sequence numbers and make sure it matches
-			// the expected range.
-			for _, mr := range report.MerkleRoots {
-				t.Logf("Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
-					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates)
-
+		processRoots := func(roots []offramp.InternalMerkleRoot) bool {
+			for _, mr := range roots {
+				t.Logf(
+					"Received commit report for [%d, %d] on selector %d from source selector %d expected seq nr range %s, token prices: %v",
+					mr.MinSeqNr, mr.MaxSeqNr, dest.Selector, srcSelector, expectedSeqNumRange.String(), report.PriceUpdates.TokenPriceUpdates,
+				)
 				seenMessages.visitCommitReport(srcSelector, mr.MinSeqNr, mr.MaxSeqNr)
 
 				if mr.SourceChainSelector == srcSelector &&
 					uint64(expectedSeqNumRange.Start()) >= mr.MinSeqNr &&
 					uint64(expectedSeqNumRange.End()) <= mr.MaxSeqNr {
-					t.Logf("All sequence numbers committed in a single report [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					t.Logf(
+						"All sequence numbers committed in a single report [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
 					return true
 				}
 
 				if !enforceSingleCommit && seenMessages.allCommited(srcSelector) {
-					t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
+					t.Logf(
+						"All sequence numbers already committed from range [%d, %d]",
+						expectedSeqNumRange.Start(), expectedSeqNumRange.End(),
+					)
 					return true
 				}
 			}
+			return false
 		}
-		return false
+
+		return processRoots(report.BlessedMerkleRoots) || processRoots(report.UnblessedMerkleRoots)
 	}
 
 	defer subscription.Unsubscribe()

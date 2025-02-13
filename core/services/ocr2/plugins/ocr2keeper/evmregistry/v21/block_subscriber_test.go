@@ -11,13 +11,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const historySize = 4
@@ -275,7 +275,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 
 func TestBlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb := htmocks.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)

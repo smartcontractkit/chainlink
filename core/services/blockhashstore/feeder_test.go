@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const (

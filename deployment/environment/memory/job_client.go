@@ -26,7 +26,8 @@ import (
 )
 
 type JobClient struct {
-	Nodes map[string]Node
+	Nodes           map[string]Node
+	RegisteredNodes map[string]Node
 }
 
 func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
@@ -49,9 +50,38 @@ func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest,
 	panic("implement me")
 }
 
-func (j JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
-	// TODO implement me
-	panic("implement me")
+func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
+	if in == nil || in.GetPublicKey() == "" {
+		return nil, errors.New("public key is required")
+	}
+
+	if _, exists := j.RegisteredNodes[in.GetPublicKey()]; exists {
+		return nil, fmt.Errorf("node with Public Key %s is already registered", in.GetPublicKey())
+	}
+
+	var foundNode *Node
+	for _, node := range j.Nodes {
+		if node.Keys.CSA.ID() == in.GetPublicKey() {
+			foundNode = &node
+			break
+		}
+	}
+
+	if foundNode == nil {
+		return nil, fmt.Errorf("node with Public Key %s is not known", in.GetPublicKey())
+	}
+
+	j.RegisteredNodes[in.GetPublicKey()] = *foundNode
+
+	return &nodev1.RegisterNodeResponse{
+		Node: &nodev1.Node{
+			Id:          in.GetPublicKey(),
+			PublicKey:   in.GetPublicKey(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels:      in.Labels,
+		},
+	}, nil
 }
 
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
@@ -85,40 +115,6 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	include := func(node *nodev1.Node) bool {
-		if in.Filter == nil {
-			return true
-		}
-		if len(in.Filter.Ids) > 0 {
-			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
-				return node.Id == id
-			})
-			if idx < 0 {
-				return false
-			}
-		}
-		for _, selector := range in.Filter.Selectors {
-			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == selector.Key
-			})
-			if idx < 0 {
-				return false
-			}
-			label := node.Labels[idx]
-
-			switch selector.Op {
-			case ptypes.SelectorOp_IN:
-				values := strings.Split(*selector.Value, ",")
-				found := slices.Contains(values, *label.Value)
-				if !found {
-					return false
-				}
-			default:
-				panic("unimplemented selector")
-			}
-		}
-		return true
-	}
 	var nodes []*nodev1.Node
 	for id, n := range j.Nodes {
 		node := &nodev1.Node{
@@ -133,7 +129,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 				},
 			},
 		}
-		if include(node) {
+		if ApplyNodeFilter(in.Filter, node) {
 			nodes = append(nodes, node)
 		}
 	}
@@ -369,5 +365,46 @@ func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
-	return &JobClient{nodesByPeerID}
+	return &JobClient{nodesByPeerID, make(map[string]Node)}
+}
+
+func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
+	if filter == nil {
+		return true
+	}
+	if len(filter.Ids) > 0 {
+		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
+			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	for _, selector := range filter.Selectors {
+		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+			return label.Key == selector.Key
+		})
+		if idx < 0 {
+			return false
+		}
+		label := node.Labels[idx]
+
+		switch selector.Op {
+		case ptypes.SelectorOp_IN:
+			values := strings.Split(*selector.Value, ",")
+			found := slices.Contains(values, *label.Value)
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_EQ:
+			if *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_EXIST:
+			// do nothing
+		default:
+			panic("unimplemented selector")
+		}
+	}
+	return true
 }

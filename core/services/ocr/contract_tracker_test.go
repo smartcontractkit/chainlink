@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -29,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocrmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -48,7 +48,7 @@ func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFiltere
 type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
-	hb      *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb      *htmocks.Broadcaster[*evmtypes.Head, common.Hash]
 	ec      *clienttest.Client
 	tracker *ocr.OCRContractTracker
 }
@@ -76,7 +76,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = htmocks.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
@@ -136,7 +136,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		assert.Equal(t, uint64(42), l)
 	})
 
-	t.Run("if headbroadcaster has it, uses the given value on start", func(t *testing.T) {
+	t.Run("if Broadcaster has it, uses the given value on start", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
 		uni.hb.On("Subscribe", uni.tracker).Return(&evmtypes.Head{Number: 42}, func() {})
@@ -324,8 +324,8 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() { eventuallyCloseLogBroadcaster.ItHappened() })
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
-		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
-		uni.hb.On("Subscribe", uni.tracker).Return((*evmtypes.Head)(nil), func() { eventuallyCloseHeadBroadcaster.ItHappened() })
+		eventuallyCloseBroadcaster := cltest.NewAwaiter()
+		uni.hb.On("Subscribe", uni.tracker).Return((*evmtypes.Head)(nil), func() { eventuallyCloseBroadcaster.ItHappened() })
 
 		uni.db.On("LoadLatestRoundRequested", mock.Anything).Return(rr, nil)
 
@@ -339,7 +339,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		require.NoError(t, uni.tracker.Close())
 
-		eventuallyCloseHeadBroadcaster.AssertHappened(t, true)
+		eventuallyCloseBroadcaster.AssertHappened(t, true)
 		eventuallyCloseLogBroadcaster.AssertHappened(t, true)
 	})
 }

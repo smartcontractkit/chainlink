@@ -11,10 +11,10 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func (lsn *listenerV2) runLogListener(

@@ -12,11 +12,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
@@ -397,14 +398,16 @@ func TestUpdateOffRampsSources(t *testing.T) {
 						UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 							source: {
 								dest: {
-									IsEnabled:  true,
-									TestRouter: true,
+									IsEnabled:                 true,
+									TestRouter:                true,
+									IsRMNVerificationDisabled: true,
 								},
 							},
 							dest: {
 								source: {
-									IsEnabled:  true,
-									TestRouter: false,
+									IsEnabled:                 true,
+									TestRouter:                false,
+									IsRMNVerificationDisabled: true,
 								},
 							},
 						},
@@ -612,7 +615,6 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 						Updates: map[uint64]changeset.OffRampParams{
 							source: {
 								PermissionLessExecutionThresholdSeconds: uint32(2 * 60 * 60),
-								IsRMNVerificationDisabled:               false,
 								MessageInterceptor:                      msgInterceptor,
 							},
 						},
@@ -625,7 +627,6 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 			actualConfig, err := state.Chains[source].OffRamp.GetDynamicConfig(nil)
 			require.NoError(t, err)
 			require.Equal(t, uint32(2*60*60), actualConfig.PermissionLessExecutionThresholdSeconds)
-			require.False(t, actualConfig.IsRMNVerificationDisabled)
 			require.Equal(t, msgInterceptor, actualConfig.MessageInterceptor)
 			require.Equal(t, state.Chains[source].FeeQuoter.Address(), actualConfig.FeeQuoter)
 		})

@@ -14,8 +14,8 @@ import (
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -722,8 +722,9 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 				updates[dest] = make(map[uint64]ccipcs.OffRampSourceUpdate)
 			}
 			updates[dest][source] = ccipcs.OffRampSourceUpdate{
-				IsEnabled:  true,
-				TestRouter: testRouterEnabled,
+				IsEnabled:                 true,
+				TestRouter:                testRouterEnabled,
+				IsRMNVerificationDisabled: true,
 			}
 		}
 	}
