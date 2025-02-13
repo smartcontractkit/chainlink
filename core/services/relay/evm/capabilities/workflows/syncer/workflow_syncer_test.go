@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -315,7 +316,7 @@ func Test_SecretsWorker(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		encryptionKey  = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 		workflowOwner  = backendTH.ContractsOwner.From.Hex()
@@ -378,9 +379,11 @@ func Test_SecretsWorker(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
 	require.NoError(t, err)
 
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
+
 	handler := &testSecretsWorkEventHandler{
-		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), encryptionKey, rl, wl),
+		wrappedHandler: syncer.NewEventHandler(lggr, nil, nil,
+			emitter, rl, wl, store),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -507,7 +510,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -543,8 +546,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
 	require.NoError(t, err)
 
-	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl, syncer.WithEngineRegistry(er))
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler := syncer.NewEventHandler(lggr, nil, nil,
+		emitter, rl, wl, store, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -610,7 +615,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
-		orm       = syncer.NewWorkflowRegistryDS(db, lggr)
+		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
 
 		giveTicker    = time.NewTicker(500 * time.Millisecond)
 		giveBinaryURL = "https://original-url.com"
@@ -645,20 +650,11 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
 	require.NoError(t, err)
-	handler := syncer.NewEventHandler(
-		lggr,
-		orm,
-		fetcherFn,
-		nil,
-		nil,
-		emitter,
-		clockwork.NewFakeClock(),
-		workflowkey.Key{},
-		rl,
-		wl,
-		syncer.WithEngineRegistry(er),
-		syncer.WithEngineFactoryFn(mf.new),
-	)
+
+	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
+
+	handler := syncer.NewEventHandler(lggr, nil, nil,
+		emitter, rl, wl, store, syncer.WithEngineRegistry(er), syncer.WithEngineFactoryFn(mf.new))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,

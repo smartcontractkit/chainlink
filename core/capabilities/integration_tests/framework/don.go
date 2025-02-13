@@ -15,8 +15,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
@@ -26,6 +25,7 @@ import (
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -50,7 +50,7 @@ type DonContext struct {
 	p2pNetwork            *FakeRageP2PNetwork
 	capabilityRegistry    *CapabilitiesRegistry
 	workflowRegistry      *WorkflowRegistry
-	syncerFetcherFunc     syncer.FetcherFunc
+	syncerFetcherFunc     artifacts.FetcherFunc
 	computeFetcherFactory compute.FetcherFactory
 }
 
@@ -64,7 +64,7 @@ func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
 	return DonContext{EthBlockchain: ethBlockchain, p2pNetwork: rageP2PNetwork, capabilityRegistry: capabilitiesRegistry}
 }
 
-func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc syncer.FetcherFunc,
+func CreateDonContextWithWorkflowRegistry(ctx context.Context, t *testing.T, syncerFetcherFunc artifacts.FetcherFunc,
 	computeFetcherFactory compute.FetcherFactory) DonContext {
 	donContext := CreateDonContext(ctx, t)
 	workflowRegistry := NewWorkflowRegistry(ctx, t, donContext.EthBlockchain)
@@ -413,7 +413,7 @@ func startNewNode(ctx context.Context,
 	newOracleFactoryFn standardcapabilities.NewOracleFactoryFn,
 	keyV2 ethkey.KeyV2,
 	setupCfg func(c *chainlink.Config),
-	fetcherFunc syncer.FetcherFunc,
+	fetcherFunc artifacts.FetcherFunc,
 	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
 	beholderTester := tests.Beholder(t)
