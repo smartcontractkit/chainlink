@@ -146,9 +146,10 @@ func (c SolChain) UpgradeProgram(logger logger.Logger, programName string, progr
 	}
 	tempFile.Close() // Close before passing to external command
 
-	cmd := exec.Command("solana", "program", "deploy",
-		programFile, "--program-id", programID.String(),
+	cmd := exec.Command("solana", "program", "deploy", programFile,
+		"--program-id", programID.String(),
 		"--upgrade-authority", tempFile.Name(),
+		"--signer", tempFile.Name(),
 		"--fee-payer", tempFile.Name(),
 		"--url", c.URL)
 
