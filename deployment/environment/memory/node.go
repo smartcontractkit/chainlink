@@ -75,7 +75,7 @@ type ConfigOpt func(c *chainlink.Config)
 func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 	return func(c *chainlink.Config) {
 		for chainID, depth := range finalityDepths {
-			chainIDBig := evmutils.NewI(int64(chainID))
+			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
 				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
 					evmChainConfig.Chain.FinalityDepth = ptr(depth)

@@ -31,9 +31,9 @@ func Test_CCIPMessaging(t *testing.T) {
 		chainsel.GETH_TESTNET,  // source
 		chainsel.TEST_90000001, // dest
 	}
-	var chainIDs []uint64
-	for _, chain := range chains {
-		chainIDs = append(chainIDs, chain.EvmChainID)
+	var chainIDs = []uint64{
+		chains[0].EvmChainID,
+		chains[1].EvmChainID,
 	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
@@ -94,7 +94,10 @@ func Test_CCIPMessaging(t *testing.T) {
 					func(t *testing.T) {
 						// TODO: remove this or make it a "require.Never" once we fix double execution!
 						doubleExecStart := time.Now()
-						testhelpers.ConfirmDoubleExecution(t, sourceChain, e.Env.Chains[destChain], state.Chains[destChain].OffRamp, nil, []uint64{1})
+						require.NoError(
+							t,
+							testhelpers.ConfirmDoubleExecution(t, sourceChain, e.Env.Chains[destChain], state.Chains[destChain].OffRamp, nil, []uint64{1}),
+						)
 						t.Logf("Confirmed double execution in %s", time.Since(doubleExecStart).String())
 					},
 				},
