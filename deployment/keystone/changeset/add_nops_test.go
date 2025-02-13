@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -84,12 +85,9 @@ func TestAddNops(t *testing.T) {
 				CallProxy: contracts.CallProxy,
 			},
 		}
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.AddNops),
-				Config:    req,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(deployment.CreateLegacyChangeSet(changeset.AddNops), req),
+		)
 		require.NoError(t, err)
 
 		assertNopsExist(t, te.CapabilitiesRegistry(), nops...)

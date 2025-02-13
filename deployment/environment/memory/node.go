@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,7 +64,7 @@ type Node struct {
 func (n Node) MultiAddr() string {
 	a := ""
 	if n.IsBoostrap {
-		a = fmt.Sprintf("%s@%s:%s", n.Keys.PeerID.String(), n.Addr.IP, n.Addr.Port)
+		a = fmt.Sprintf("%s@%s", strings.TrimPrefix(n.Keys.PeerID.String(), "p2p_"), n.Addr.String())
 	}
 	return a
 }

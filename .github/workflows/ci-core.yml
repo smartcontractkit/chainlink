@@ -234,6 +234,8 @@ jobs:
         # do not build for core tests, core 'integration' tests, or fuzz tests
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && matrix.type.build-solana-artifacts != 'false' }}
         uses: ./.github/actions/setup-solana/build-contracts
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}

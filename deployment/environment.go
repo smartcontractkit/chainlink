@@ -300,7 +300,7 @@ func (n Nodes) BootstrapLocators() []string {
 			key := node.MultiAddr
 			// compatibility with legacy code. unclear what code path is setting half baked node.MultiAddr
 			if !isValidMultiAddr(key) {
-				key = fmt.Sprintf("%s@%s", node.PeerID.String()[4:], node.MultiAddr) // trim off the p2p_ prefix
+				key = fmt.Sprintf("%s@%s", strings.TrimPrefix(node.PeerID.String(), "p2p_"), node.MultiAddr)
 			}
 			bootstrapMp[key] = struct{}{}
 		}
@@ -322,9 +322,8 @@ func isValidMultiAddr(s string) bool {
 	if len(matches) != 4 { // 4 because the entire match + 3 submatches
 		return false
 	}
-	p2p := "p2p_" + matches[1]
 
-	_, err := p2pkey.MakePeerID(p2p)
+	_, err := p2pkey.MakePeerID("p2p_" + matches[1])
 	return err == nil
 }
 

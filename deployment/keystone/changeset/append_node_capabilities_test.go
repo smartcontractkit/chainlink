@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -91,12 +92,12 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			},
 		}
 
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.AppendNodeCapabilities),
-				Config:    &cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.AppendNodeCapabilities),
+				&cfg,
+			),
+		)
 		require.NoError(t, err)
 		validateCapabilityAppends(t, te, newCapabilities)
 	})

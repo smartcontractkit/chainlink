@@ -126,12 +126,12 @@ func TestConfigureForwarders(t *testing.T) {
 						CallProxy: contractSet.CallProxy,
 					}
 				}
-				_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureForwardContracts),
-						Config:    cfg,
-					},
-				})
+				_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(changeset.ConfigureForwardContracts),
+						cfg,
+					),
+				)
 				require.NoError(t, err)
 			})
 		}
