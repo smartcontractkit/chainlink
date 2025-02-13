@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {EtherSenderReceiver} from "../../applications/EtherSenderReceiver.sol";
+import {EtherSenderReceiver} from "../../applications/internal/EtherSenderReceiver.sol";
 import {Client} from "../../libraries/Client.sol";
 
 contract EtherSenderReceiverHelper is EtherSenderReceiver {
