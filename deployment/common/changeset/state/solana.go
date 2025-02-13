@@ -176,7 +176,8 @@ func MaybeLoadMCMSWithTimelockStateSolana(env deployment.Environment, chainSelec
 
 // MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
 // contracts deployed with DeployMCMSWithTimelock and loads them into a
-// MCMSWithTimelockState struct. If none of the contracts are found, the state struct will be nil.
+// MCMSWithTimelockStateSolana struct. If none of the contracts are found, the
+// state struct will be nil.
 // An error indicates:
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
