@@ -18,7 +18,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func TestDeployChainContractsChangesetSolana(t *testing.T) {
+func TestDeployAndUpgradeChainContractsChangesetSolana(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -89,13 +89,51 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		},
 		{
 			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
-			Config: changeset.DeployChainContractsConfig{
-				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
-					solChainSelectors[0]: {
-						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-						OffRampParams:   changeset.DefaultOffRampParams(),
+			Config: solana.DeployChainContractsConfigSolana{
+				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
+					HomeChainSelector: homeChainSel,
+					ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+						solChainSelectors[0]: {
+							FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+							OffRampParams:   changeset.DefaultOffRampParams(),
+						},
 					},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	// solana verification
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+
+	// Verify upgrade flow
+	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+		{
+			Changeset: commonchangeset.WrapChangeSet(solana.BuildSolanaChangeset),
+			Config: solana.BuildSolanaConfig{
+				ChainSelector:       solChainSelectors[0],
+				GitCommitSha:        "9a0ab24a17ac44d4a58b77db28e13a5f31fd2ca4",
+				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+				CleanDestinationDir: true,
+			},
+		},
+		{
+			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
+			Config: solana.DeployChainContractsConfigSolana{
+				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
+					HomeChainSelector: homeChainSel,
+					ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+						solChainSelectors[0]: {
+							FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+							OffRampParams:   changeset.DefaultOffRampParams(),
+						},
+					},
+				},
+				UpgradeConfig: solana.UpgradeConfigSolana{
+					NewFeeQuoterVersion: &deployment.Version1_1_0,
+					NewRouterVersion:    &deployment.Version1_1_0,
+					UpgradeAuthority:    *e.SolChains[solChainSelectors[0]].DeployerKey,
+					NewOffRampVersion:   &deployment.Version1_1_0,
 				},
 			},
 		},

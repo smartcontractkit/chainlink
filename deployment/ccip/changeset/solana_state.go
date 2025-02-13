@@ -93,9 +93,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case OfframpAddressLookupTable:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.OfframpAddressLookupTable = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -153,6 +150,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.OffRampStatePDA = offRampStatePDA
+		case OfframpAddressLookupTable:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.OfframpAddressLookupTable = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}

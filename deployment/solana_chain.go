@@ -3,6 +3,7 @@ package deployment
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -106,6 +107,59 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 	// Run the command
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("error deploying program: %s: %s", err.Error(), stderr.String())
+	}
+
+	// Parse and return the program ID
+	output := stdout.String()
+
+	// TODO: obviously need to do this better
+	time.Sleep(5 * time.Second)
+	return parseProgramID(output)
+}
+
+func (c SolChain) UpgradeProgram(logger logger.Logger, programName string, programID solana.PublicKey, upgradeAuthority solana.PrivateKey) (string, error) {
+	programFile := filepath.Join(c.ProgramsPath, programName+".so")
+	if _, err := os.Stat(programFile); err != nil {
+		return "", fmt.Errorf("program file not found: %w", err)
+	}
+
+	// Create a temporary file for the upgrade authority keypair
+	tempFile, err := os.CreateTemp("", "upgrade-authority-*.json")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tempFile.Name()) // Ensure cleanup
+
+	keypairInts := make([]int, len(upgradeAuthority))
+	for i, b := range upgradeAuthority {
+		keypairInts[i] = int(b) // Convert to int slice to ensure JSON array format
+	}
+
+	keypairJSON, err := json.Marshal(keypairInts)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize private key: %w", err)
+	}
+
+	if _, err := tempFile.Write(keypairJSON); err != nil {
+		tempFile.Close()
+		return "", fmt.Errorf("failed to write to temp file: %w", err)
+	}
+	tempFile.Close() // Close before passing to external command
+
+	cmd := exec.Command("solana", "program", "deploy",
+		programFile, "--program-id", programID.String(),
+		"--upgrade-authority", tempFile.Name(),
+		"--fee-payer", tempFile.Name(),
+		"--url", c.URL)
+
+	// Capture the command output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Run the command
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("error running command: %s: %s: %s", cmd.String(), err.Error(), stderr.String())
 	}
 
 	// Parse and return the program ID

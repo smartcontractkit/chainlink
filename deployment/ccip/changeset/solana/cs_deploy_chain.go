@@ -3,6 +3,7 @@ package solana
 import (
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -20,9 +21,23 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
-var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
+var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
 
-func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+type DeployChainContractsConfigSolana struct {
+	DeployChainContractsConfig changeset.DeployChainContractsConfig
+	UpgradeConfig              UpgradeConfigSolana
+}
+
+type UpgradeConfigSolana struct {
+	NewFeeQuoterVersion *semver.Version
+	NewRouterVersion    *semver.Version
+	UpgradeAuthority    solana.PrivateKey
+	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
+	NewOffRampVersion *semver.Version
+}
+
+func DeployChainContractsChangesetSolana(e deployment.Environment, config DeployChainContractsConfigSolana) (deployment.ChangesetOutput, error) {
+	c := config.DeployChainContractsConfig
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -51,7 +66,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.D
 		if existingState.SolChains[chainSel].LinkToken.IsZero() {
 			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		err = deployChainContractsSolana(e, chain, newAddresses)
+		err = deployChainContractsSolana(e, chain, newAddresses, config)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 			return deployment.ChangesetOutput{}, err
@@ -170,14 +185,48 @@ func initializeFeeQuoter(
 	return nil
 }
 
-func intializeOffRamp(
+func initializeOffRamp(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
-	addressLookupTable solana.PublicKey,
+	addressLookupTable *solana.PublicKey,
+	offRampVersion semver.Version,
+	ab deployment.AddressBook,
 ) error {
+	if addressLookupTable.IsZero() {
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+		table, err := solCommonUtil.SetupLookupTable(
+			e.GetContext(),
+			chain.Client,
+			*chain.DeployerKey,
+			[]solana.PublicKey{
+				// system
+				solana.SystemProgramID,
+				solana.ComputeBudget,
+				solana.SysVarInstructionsPubkey,
+				// token
+				solana.Token2022ProgramID,
+				solana.TokenProgramID,
+				solana.SPLAssociatedTokenAccountProgramID,
+				// offramp
+				offRampAddress,
+				offRampConfigPDA,
+				offRampReferenceAddressesPDA,
+				offRampBillingSignerPDA,
+			})
+		if err != nil {
+			return fmt.Errorf("failed to create address lookup table: %w", err)
+		}
+		addressLookupTable = &table
+		err = ab.Save(chain.Selector, addressLookupTable.String(), deployment.NewTypeAndVersion(changeset.OfframpAddressLookupTable, offRampVersion))
+		if err != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+	}
 	programData, err := solProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -192,7 +241,7 @@ func intializeOffRamp(
 		offRampReferenceAddressesPDA,
 		ccipRouterProgram,
 		feeQuoterAddress,
-		addressLookupTable,
+		*addressLookupTable,
 		offRampStatePDA,
 		offRampExternalExecutionConfigPDA,
 		offRampTokenPoolsSignerPDA,
@@ -230,6 +279,7 @@ func deployChainContractsSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
+	config DeployChainContractsConfigSolana,
 ) error {
 	state, err := changeset.LoadOnchainStateSolana(e)
 	if err != nil {
@@ -244,32 +294,43 @@ func deployChainContractsSolana(
 		return fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
+	// OFFRAMP DEPLOY
+	var offRampAddress solana.PublicKey
+	var offRampVersion semver.Version
 	// initialize this last with every address we need
 	var addressLookupTable solana.PublicKey
-	if chainState.OfframpAddressLookupTable.IsZero() {
-		addressLookupTable, err = solCommonUtil.SetupLookupTable(
-			e.GetContext(),
-			chain.Client,
-			*chain.DeployerKey,
-			[]solana.PublicKey{
-				// system
-				solana.SystemProgramID,
-				solana.ComputeBudget,
-				solana.SysVarInstructionsPubkey,
-				// token
-				solana.Token2022ProgramID,
-				solana.TokenProgramID,
-				solana.SPLAssociatedTokenAccountProgramID,
-			})
-
+	// gather lookup table keys from other deploys
+	lookupTableKeys := make([]solana.PublicKey, 0)
+	needFQinLookupTable := false
+	needRouterinLookupTable := false
+	if chainState.OffRamp.IsZero() || config.UpgradeConfig.NewOffRampVersion != nil {
+		// deploy offramp
+		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp")
 		if err != nil {
-			return fmt.Errorf("failed to create lookup table: %w", err)
+			return fmt.Errorf("failed to deploy program: %w", err)
 		}
-		err = ab.Save(chain.Selector, addressLookupTable.String(), deployment.NewTypeAndVersion(changeset.OfframpAddressLookupTable, deployment.Version1_0_0))
+		offRampAddress = solana.MustPublicKeyFromBase58(programID)
+
+		offRampVersion = deployment.Version1_0_0
+		if config.UpgradeConfig.NewOffRampVersion != nil {
+			offRampVersion = *config.UpgradeConfig.NewOffRampVersion
+		}
+		tv := deployment.NewTypeAndVersion(changeset.OffRamp, offRampVersion)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
+
+		// Creating a new offramp means we need a new lookup table and need to fully populate it
+		needFQinLookupTable = true
+		needRouterinLookupTable = true
+	} else {
+		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
+		offRampAddress = chainState.OffRamp
+		addressLookupTable = chainState.OfframpAddressLookupTable
 	}
+	solOffRamp.SetProgramID(offRampAddress)
 
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
@@ -279,15 +340,28 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
+		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
 
 		tv := deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-
-		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
+	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
+		// fee quoter updated in place
+		programID, err := chain.UpgradeProgram(e.Logger, "fee_quoter", chainState.FeeQuoter, config.UpgradeConfig.UpgradeAuthority)
+		if err != nil {
+			return fmt.Errorf("failed to upgrade program: %w", err)
+		}
+		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
+		// collision with the existing fee quoter in AB
+		// tv := deployment.NewTypeAndVersion(changeset.FeeQuoter, *config.UpgradeConfig.NewFeeQuoterVersion)
+		// e.Logger.Infow("Upgraded contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		// err = ab.Save(chain.Selector, programID, tv)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to save address: %w", err)
+		// }
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -302,41 +376,33 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
+		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
 
 		tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-
-		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
+	} else if config.UpgradeConfig.NewRouterVersion != nil {
+		// router updated in place
+		programID, err := chain.UpgradeProgram(e.Logger, "ccip_router", chainState.Router, config.UpgradeConfig.UpgradeAuthority)
+		if err != nil {
+			return fmt.Errorf("failed to upgrade program: %w", err)
+		}
+		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
+		// collision with the existing router in AB
+		// tv := deployment.NewTypeAndVersion(changeset.Router, *config.UpgradeConfig.NewRouterVersion)
+		// e.Logger.Infow("Upgraded contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		// err = ab.Save(chain.Selector, programID, tv)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to save address: %w", err)
+		// }
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
 	}
 	solRouter.SetProgramID(ccipRouterProgram)
-
-	// OFFRAMP DEPLOY
-	var offRampAddress solana.PublicKey
-	if chainState.OffRamp.IsZero() {
-		// deploy offramp
-		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp")
-		if err != nil {
-			return fmt.Errorf("failed to deploy program: %w", err)
-		}
-		tv := deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		offRampAddress = solana.MustPublicKeyFromBase58(programID)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
-		offRampAddress = chainState.OffRamp
-	}
-	solOffRamp.SetProgramID(offRampAddress)
 
 	// FEE QUOTER INITIALIZE
 	var fqConfig solFeeQuoter.Config
@@ -368,7 +434,7 @@ func deployChainContractsSolana(
 	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), offRampConfigPDA, &offRampConfigAccount)
 	if err != nil {
-		if err2 := intializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, addressLookupTable); err2 != nil {
+		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, &addressLookupTable, offRampVersion, ab); err2 != nil {
 			return err2
 		}
 	} else {
@@ -384,46 +450,54 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
+		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
+
 		tv := deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
+
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// token pools
+			tokenPoolProgram,
+		}...)
 	} else {
 		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
 		tokenPoolProgram = chainState.TokenPool
 	}
 
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
-	feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
-	linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
-	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	if needFQinLookupTable {
+		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
+		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// fee quoter
+			feeQuoterConfigPDA,
+			feeQuoterAddress,
+			linkFqBillingConfigPDA,
+		}...)
+	}
 
-	if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey,
-		[]solana.PublicKey{
-			// token pools
-			tokenPoolProgram,
-			// offramp
-			offRampAddress,
-			offRampConfigPDA,
-			offRampReferenceAddressesPDA,
-			offRampBillingSignerPDA,
+	if needRouterinLookupTable {
+		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
+		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			// router
 			ccipRouterProgram,
 			routerConfigPDA,
 			externalExecutionConfigPDA,
 			externalTokenPoolsSignerPDA,
-			// fee quoter
 			feeBillingSignerPDA,
-			feeQuoterConfigPDA,
-			feeQuoterAddress,
-			linkFqBillingConfigPDA,
-		}); err != nil {
-		return fmt.Errorf("failed to extend lookup table: %w", err)
+		}...)
+	}
+
+	if len(lookupTableKeys) > 0 {
+		if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey, lookupTableKeys); err != nil {
+			return fmt.Errorf("failed to extend lookup table: %w", err)
+		}
 	}
 
 	return nil
