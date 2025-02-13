@@ -280,17 +280,17 @@ func TestDeployTokenPoolContracts(t *testing.T) {
 
 			test.Input.TokenAddress = tokens[selectorA].Address
 
-			e, err := commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-				commonchangeset.ChangesetApplication{
-					Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
-					Config: changeset.DeployTokenPoolContractsConfig{
+			e, err := commonchangeset.Apply(t, e, timelockContracts,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.DeployTokenPoolContractsChangeset),
+					changeset.DeployTokenPoolContractsConfig{
 						TokenSymbol: testhelpers.TestTokenSymbol,
 						NewPools: map[uint64]changeset.DeployTokenPoolInput{
 							selectorA: test.Input,
 						},
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			state, err := changeset.LoadOnchainState(e)

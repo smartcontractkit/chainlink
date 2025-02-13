@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/event"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,11 +35,12 @@ const (
 	transmitted = iota
 	committed
 	executed
-	tickerDuration = 30 * time.Second
+	tickerDuration      = 3 * time.Minute
+	SubscriptionTimeout = 1 * time.Minute
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(10), deployment.UBigInt(1e18)) // 100 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
 )
 
 // todo: Have a different struct for commit/exec?
@@ -81,15 +84,12 @@ func subscribeCommitEvents(
 	}
 
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
-	// todo: add event.Resubscriber if we move to unreliable rpcs
-	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
-		Context: ctx,
-		Start:   startBlock,
-	}, sink)
-	if err != nil {
-		errChan <- err
-		return
-	}
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
+			Context: ctx,
+			Start:   startBlock,
+		}, sink)
+	})
 	defer subscription.Unsubscribe()
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()
@@ -212,15 +212,12 @@ func subscribeExecutionEvents(
 	}
 
 	sink := make(chan *offramp.OffRampExecutionStateChanged)
-	// todo: add event.Resubscriber if we move to unreliable rpcs
-	subscription, err := offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
-		Context: ctx,
-		Start:   startBlock,
-	}, sink, nil, nil, nil)
-	if err != nil {
-		errChan <- err
-		return
-	}
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return offRamp.WatchExecutionStateChanged(&bind.WatchOpts{
+			Context: ctx,
+			Start:   startBlock,
+		}, sink, nil, nil, nil)
+	})
 	defer subscription.Unsubscribe()
 	ticker := time.NewTicker(tickerDuration)
 	defer ticker.Stop()

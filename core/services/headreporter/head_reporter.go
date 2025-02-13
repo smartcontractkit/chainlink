@@ -9,14 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (
 	HeadReporter interface {
-		ReportNewHead(ctx context.Context, head *evmtypes.Head) error
+		ReportNewHead(ctx context.Context, head *types.Head) error
 		ReportPeriodic(ctx context.Context) error
 	}
 
@@ -24,7 +25,7 @@ type (
 		services.StateMachine
 		ds             sqlutil.DataSource
 		lggr           logger.Logger
-		newHeads       *mailbox.Mailbox[*evmtypes.Head]
+		newHeads       *mailbox.Mailbox[*types.Head]
 		chStop         services.StopChan
 		wgDone         sync.WaitGroup
 		reportPeriod   time.Duration
@@ -37,14 +38,14 @@ func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters
 	return &HeadReporterService{
 		ds:           ds,
 		lggr:         lggr.Named("HeadReporter"),
-		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
+		newHeads:     mailbox.NewSingle[*types.Head](),
 		chStop:       make(chan struct{}),
 		reporters:    reporters,
 		reportPeriod: 15 * time.Second,
 	}
 }
 
-func (hrd *HeadReporterService) Subscribe(subFn func(types.HeadTrackable) (evmtypes.Head, func())) {
+func (hrd *HeadReporterService) Subscribe(subFn func(heads.Trackable) (types.Head, func())) {
 	_, unsubscribe := subFn(hrd)
 	hrd.unsubscribeFns = append(hrd.unsubscribeFns, unsubscribe)
 }
@@ -73,7 +74,7 @@ func (hrd *HeadReporterService) HealthReport() map[string]error {
 	return map[string]error{hrd.Name(): hrd.Healthy()}
 }
 
-func (hrd *HeadReporterService) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (hrd *HeadReporterService) OnNewLongestChain(ctx context.Context, head *types.Head) {
 	hrd.newHeads.Deliver(head)
 }
 

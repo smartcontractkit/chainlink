@@ -21,13 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
 	"github.com/smartcontractkit/chainlink-integrations/evm/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -41,9 +40,9 @@ type Chain interface {
 	Client() client.Client
 	Config() config.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
-	HeadBroadcaster() httypes.HeadBroadcaster
+	HeadBroadcaster() heads.Broadcaster
 	TxManager() txmgr.TxManager
-	HeadTracker() httypes.HeadTracker
+	HeadTracker() heads.Tracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
@@ -108,8 +107,8 @@ type chain struct {
 	client          client.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
-	headBroadcaster httypes.HeadBroadcaster
-	headTracker     httypes.HeadTracker
+	headBroadcaster heads.Broadcaster
+	headTracker     heads.Tracker
 	logBroadcaster  log.Broadcaster
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
@@ -151,7 +150,7 @@ type ChainOpts struct {
 	GenEthClient      func(*big.Int) client.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
-	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenHeadTracker    func(*big.Int, heads.Broadcaster) heads.Tracker
 	GenTxManager      func(*big.Int) txmgr.TxManager
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
@@ -213,20 +212,20 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 		cl = opts.GenEthClient(chainID)
 	}
 
-	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	headSaver := headtracker.NullSaver
-	var headTracker httypes.HeadTracker
+	headBroadcaster := heads.NewBroadcaster(l)
+	headSaver := heads.NullSaver
+	var headTracker heads.Tracker
 	if !opts.ChainConfigs.RPCEnabled() {
-		headTracker = headtracker.NullTracker
+		headTracker = heads.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		var orm headtracker.ORM
+		var orm heads.ORM
 		if cfg.EVM().HeadTracker().PersistenceEnabled() {
-			orm = headtracker.NewORM(*chainID, opts.DS)
+			orm = heads.NewORM(*chainID, opts.DS)
 		} else {
-			orm = headtracker.NewNullORM()
+			orm = heads.NewNullORM()
 		}
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewHeadTracker(l, cl, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		headSaver = heads.NewSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+		headTracker = heads.NewTracker(l, cl, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -481,14 +480,14 @@ func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken 
 	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
-func (c *chain) ID() *big.Int                             { return c.id }
-func (c *chain) Client() client.Client                    { return c.client }
-func (c *chain) Config() config.ChainScopedConfig         { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
-func (c *chain) Logger() logger.Logger                    { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
-func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
+func (c *chain) ID() *big.Int                           { return c.id }
+func (c *chain) Client() client.Client                  { return c.client }
+func (c *chain) Config() config.ChainScopedConfig       { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster        { return c.logBroadcaster }
+func (c *chain) LogPoller() logpoller.LogPoller         { return c.logPoller }
+func (c *chain) HeadBroadcaster() heads.Broadcaster     { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager             { return c.txm }
+func (c *chain) HeadTracker() heads.Tracker             { return c.headTracker }
+func (c *chain) Logger() logger.Logger                  { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }

@@ -18,8 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -33,8 +34,8 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
-	_ job.ServiceCtx        = (*UpkeepExecuter)(nil)
-	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
+	_ job.ServiceCtx  = (*UpkeepExecuter)(nil)
+	_ heads.Trackable = (*UpkeepExecuter)(nil)
 )
 
 var (
@@ -59,7 +60,7 @@ type UpkeepExecuter struct {
 	ethClient              evmclient.Client
 	config                 UpkeepExecuterConfig
 	executionQueue         chan struct{}
-	headBroadcaster        httypes.HeadBroadcaster
+	headBroadcaster        heads.Broadcaster
 	gasEstimator           gas.EvmFeeEstimator
 	job                    job.Job
 	mailbox                *mailbox.Mailbox[*evmtypes.Head]
@@ -76,7 +77,7 @@ func NewUpkeepExecuter(
 	orm *ORM,
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster heads.Broadcaster,
 	gasEstimator gas.EvmFeeEstimator,
 	logger logger.Logger,
 	config UpkeepExecuterConfig,

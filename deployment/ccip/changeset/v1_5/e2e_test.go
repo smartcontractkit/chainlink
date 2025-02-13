@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
@@ -56,10 +57,10 @@ func TestE2ELegacy(t *testing.T) {
 	}
 	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
 	// permabless the commit stores
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
-			Config: v1_5changeset.PermaBlessCommitStoreConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.PermaBlessCommitStoreChangeset),
+			v1_5changeset.PermaBlessCommitStoreConfig{
 				Configs: map[uint64]v1_5changeset.PermaBlessCommitStoreConfigPerDest{
 					dest: {
 						Sources: []v1_5changeset.PermaBlessConfigPerSourceChain{
@@ -71,8 +72,8 @@ func TestE2ELegacy(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)

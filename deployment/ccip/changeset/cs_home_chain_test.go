@@ -148,15 +148,15 @@ func TestRemoveDons(t *testing.T) {
 	// Remove a don w/o MCMS
 	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.RemoveDONs),
-			Config: changeset.RemoveDONsConfig{
+	e.Env, err = commoncs.Apply(t, e.Env, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.RemoveDONs),
+			changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	donsAfter, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
@@ -165,30 +165,31 @@ func TestRemoveDons(t *testing.T) {
 	// Remove a don w/ MCMS
 	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-		e.HomeChainSel: {
-			Timelock:  s.Chains[e.HomeChainSel].Timelock,
-			CallProxy: s.Chains[e.HomeChainSel].CallProxy,
+	e.Env, err = commoncs.Apply(t, e.Env,
+		map[uint64]*proposalutils.TimelockExecutionContracts{
+			e.HomeChainSel: {
+				Timelock:  s.Chains[e.HomeChainSel].Timelock,
+				CallProxy: s.Chains[e.HomeChainSel].CallProxy,
+			},
 		},
-	}, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
-			Config: commoncs.TransferToMCMSWithTimelockConfig{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+			commoncs.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 				},
 				MinDelay: 0,
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.RemoveDONs),
-			Config: changeset.RemoveDONsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.RemoveDONs),
+			changeset.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
 				MCMS:         &changeset.MCMSConfig{MinDelay: 0},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	donsAfter, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)

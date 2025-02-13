@@ -22,6 +22,12 @@ type NopView struct {
 	CSAKey       string                `json:"csaKey"`
 	IsConnected  bool                  `json:"isConnected"`
 	IsEnabled    bool                  `json:"isEnabled"`
+	Labels       []LabelView           `json:"labels"`
+}
+
+type LabelView struct {
+	Key   string  `json:"key"`
+	Value *string `json:"value"`
 }
 
 type OCRKeyView struct {
@@ -54,6 +60,13 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 		if nodeName == "" {
 			nodeName = node.NodeID
 		}
+		labels := []LabelView{}
+		for _, l := range nodeDetails.Node.Labels {
+			labels = append(labels, LabelView{
+				Key:   l.Key,
+				Value: l.Value,
+			})
+		}
 		nop := NopView{
 			NodeID:       node.NodeID,
 			PeerID:       node.PeerID.String(),
@@ -63,6 +76,7 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 			CSAKey:       nodeDetails.Node.PublicKey,
 			IsConnected:  nodeDetails.Node.IsConnected,
 			IsEnabled:    nodeDetails.Node.IsEnabled,
+			Labels:       labels,
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			nop.OCRKeys[details.ChainName] = OCRKeyView{
