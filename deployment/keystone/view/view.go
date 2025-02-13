@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -19,12 +21,12 @@ type KeystoneChainView struct {
 }
 
 type OCR3ConfigView struct {
-	Signers               [][]byte         `json:"signers"`
-	Transmitters          []common.Address `json:"transmitters"`
-	F                     uint8            `json:"f"`
-	OnchainConfig         []byte           `json:"onchainConfig"`
-	OffchainConfigVersion uint64           `json:"offchainConfigVersion"`
-	OffchainConfig        []byte           `json:"offchainConfig"`
+	Signers               []string            `json:"signers"`
+	Transmitters          []ocr2types.Account `json:"transmitters"`
+	F                     uint8               `json:"f"`
+	OnchainConfig         []byte              `json:"onchainConfig"`
+	OffchainConfigVersion uint64              `json:"offchainConfigVersion"`
+	OffchainConfig        interface{}         `json:"offchainConfig"` // TODO: we need a struct here to hold the values
 }
 
 func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
@@ -43,11 +45,38 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		return OCR3ConfigView{}, err
 	}
 
-	return OCR3ConfigView{
-		Signers:               config.Event.Signers,
-		Transmitters:          config.Event.Transmitters,
+	var signers []ocr2types.OnchainPublicKey
+	var readableSigners []string
+	for _, s := range config.Event.Signers {
+		signers = append(signers, s)
+		readableSigners = append(readableSigners, string(s))
+	}
+	var transmitters []ocr2types.Account
+	for _, t := range config.Event.Transmitters {
+		transmitters = append(transmitters, ocr2types.Account(t.String()))
+	}
+	// `PublicConfigFromContractConfig` returns the `ocr2types.PublicConfig` that contains all the `OracleConfig` fields we need, including the
+	// report plugin config.
+	_, err = ocr3confighelper.PublicConfigFromContractConfig(true, ocr2types.ContractConfig{
+		ConfigDigest:          config.Event.ConfigDigest,
+		ConfigCount:           config.Event.ConfigCount,
+		Signers:               signers,
+		Transmitters:          transmitters,
 		F:                     config.Event.F,
-		OnchainConfig:         config.Event.OnchainConfig,
+		OnchainConfig:         nil, // empty onChain config
+		OffchainConfigVersion: config.Event.OffchainConfigVersion,
+		OffchainConfig:        config.Event.OffchainConfig,
+	})
+	if err != nil {
+		return OCR3ConfigView{}, err
+	}
+
+	// TODO: make human readable
+	return OCR3ConfigView{
+		Signers:               readableSigners,
+		Transmitters:          transmitters,
+		F:                     config.Event.F,
+		OnchainConfig:         nil, // empty onChain config
 		OffchainConfigVersion: config.Event.OffchainConfigVersion,
 		OffchainConfig:        config.Event.OffchainConfig,
 	}, nil
