@@ -276,7 +276,7 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 		case tvStr.Type == proposerMCM.Type && tvStr.Version.String() == proposerMCM.Version.String():
 			programID, seed, err := DecodeAddressWithSeed(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode timelock address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode proposer address (%s): %w", address, err)
 			}
 			state.McmProgram = programID
 			state.ProposerMcmSeed = seed
@@ -284,7 +284,7 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 		case tvStr.Type == bypasserMCM.Type && tvStr.Version.String() == bypasserMCM.Version.String():
 			programID, seed, err := DecodeAddressWithSeed(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode timelock address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode bypasser address (%s): %w", address, err)
 			}
 			state.McmProgram = programID
 			state.BypasserMcmSeed = seed
@@ -292,7 +292,7 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 		case tvStr.Type == cancellerMCM.Type && tvStr.Version.String() == cancellerMCM.Version.String():
 			programID, seed, err := DecodeAddressWithSeed(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode timelock address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode canceller address (%s): %w", address, err)
 			}
 			state.McmProgram = programID
 			state.CancellerMcmSeed = seed
