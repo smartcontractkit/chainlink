@@ -63,7 +63,7 @@ type Node struct {
 func (n Node) MultiAddr() string {
 	a := ""
 	if n.IsBoostrap {
-		a = fmt.Sprint("%s@%s:%s", n.Keys.PeerID.String(), n.Addr.IP, n.Addr.Port)
+		a = fmt.Sprintf("%s@%s:%s", n.Keys.PeerID.String(), n.Addr.IP, n.Addr.Port)
 	}
 	return a
 }

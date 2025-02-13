@@ -325,10 +325,7 @@ func isValidMultiAddr(s string) bool {
 	p2p := "p2p_" + matches[1]
 
 	_, err := p2pkey.MakePeerID(p2p)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 type Node struct {
