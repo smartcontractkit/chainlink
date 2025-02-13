@@ -191,42 +191,8 @@ func initializeOffRamp(
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
-	addressLookupTable *solana.PublicKey,
-	offRampVersion semver.Version,
-	ab deployment.AddressBook,
+	addressLookupTable solana.PublicKey,
 ) error {
-	if addressLookupTable.IsZero() {
-		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
-		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
-		table, err := solCommonUtil.SetupLookupTable(
-			e.GetContext(),
-			chain.Client,
-			*chain.DeployerKey,
-			[]solana.PublicKey{
-				// system
-				solana.SystemProgramID,
-				solana.ComputeBudget,
-				solana.SysVarInstructionsPubkey,
-				// token
-				solana.Token2022ProgramID,
-				solana.TokenProgramID,
-				solana.SPLAssociatedTokenAccountProgramID,
-				// offramp
-				offRampAddress,
-				offRampConfigPDA,
-				offRampReferenceAddressesPDA,
-				offRampBillingSignerPDA,
-			})
-		if err != nil {
-			return fmt.Errorf("failed to create address lookup table: %w", err)
-		}
-		addressLookupTable = &table
-		err = ab.Save(chain.Selector, addressLookupTable.String(), deployment.NewTypeAndVersion(changeset.OfframpAddressLookupTable, offRampVersion))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	}
 	programData, err := solProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -241,7 +207,7 @@ func initializeOffRamp(
 		offRampReferenceAddressesPDA,
 		ccipRouterProgram,
 		feeQuoterAddress,
-		*addressLookupTable,
+		addressLookupTable,
 		offRampStatePDA,
 		offRampExternalExecutionConfigPDA,
 		offRampTokenPoolsSignerPDA,
@@ -321,10 +287,6 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
-
-		// Creating a new offramp means we need a new lookup table and need to fully populate it
-		needFQinLookupTable = true
-		needRouterinLookupTable = true
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
@@ -434,9 +396,44 @@ func deployChainContractsSolana(
 	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), offRampConfigPDA, &offRampConfigAccount)
 	if err != nil {
-		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, &addressLookupTable, offRampVersion, ab); err2 != nil {
+		table, err2 := solCommonUtil.SetupLookupTable(
+			e.GetContext(),
+			chain.Client,
+			*chain.DeployerKey,
+			[]solana.PublicKey{
+				// system
+				solana.SystemProgramID,
+				solana.ComputeBudget,
+				solana.SysVarInstructionsPubkey,
+				// token
+				solana.Token2022ProgramID,
+				solana.TokenProgramID,
+				solana.SPLAssociatedTokenAccountProgramID,
+			})
+		if err2 != nil {
+			return fmt.Errorf("failed to create address lookup table: %w", err)
+		}
+		addressLookupTable = table
+		err2 = ab.Save(chain.Selector, addressLookupTable.String(), deployment.NewTypeAndVersion(changeset.OfframpAddressLookupTable, offRampVersion))
+		if err2 != nil {
+			return fmt.Errorf("failed to save address: %w", err)
+		}
+		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, addressLookupTable); err2 != nil {
 			return err2
 		}
+		// Initializing a new offramp means we need a new lookup table and need to fully populate it
+		needFQinLookupTable = true
+		needRouterinLookupTable = true
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// offramp
+			offRampAddress,
+			offRampConfigPDA,
+			offRampReferenceAddressesPDA,
+			offRampBillingSignerPDA,
+		}...)
 	} else {
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
 	}
@@ -495,6 +492,7 @@ func deployChainContractsSolana(
 	}
 
 	if len(lookupTableKeys) > 0 {
+		e.Logger.Debugw("Populating lookup table", "lookupTable", addressLookupTable.String(), "keys", lookupTableKeys)
 		if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey, lookupTableKeys); err != nil {
 			return fmt.Errorf("failed to extend lookup table: %w", err)
 		}

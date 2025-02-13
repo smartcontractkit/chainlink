@@ -50,7 +50,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		})
 	}
 
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
@@ -91,6 +90,15 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solana.BuildSolanaChangeset),
+			solana.BuildSolanaConfig{
+				ChainSelector:       solChainSelectors[0],
+				GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+				CleanDestinationDir: true,
+			},
+		),
+		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
 			solana.DeployChainContractsConfigSolana{
 				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
@@ -112,15 +120,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	// Verify upgrade flow
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solana.BuildSolanaChangeset),
-			solana.BuildSolanaConfig{
-				ChainSelector:       solChainSelectors[0],
-				GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
-				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-				CleanDestinationDir: true,
-			},
-		),
-		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
 			solana.DeployChainContractsConfigSolana{
 				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
@@ -136,7 +135,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
 					UpgradeAuthority:    *e.SolChains[solChainSelectors[0]].DeployerKey,
-					NewOffRampVersion:   &deployment.Version1_1_0,
 				},
 			},
 		),
