@@ -3,6 +3,7 @@ package v1_0
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -71,11 +72,27 @@ func (ws *WorkflowStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// WorkflowRegistryError is a custom error type for errors that occur while building the workflow registry view.
+type WorkflowRegistryError struct {
+	Operation string
+	Err       error
+}
+
+func (e *WorkflowRegistryError) Error() string {
+	return fmt.Sprintf("%s: %v", e.Operation, e.Err)
+}
+
+func (e *WorkflowRegistryError) Unwrap() error {
+	return e.Err
+}
+
 func NewWorkflowView(wmd *workflow_registry.WorkflowRegistryWorkflowMetadata) (WorkflowView, error) {
 	if wmd == nil {
-		return WorkflowView{}, nil
+		return WorkflowView{}, &WorkflowRegistryError{
+			Operation: "converting workflow metadata",
+			Err:       errors.New("workflow metadata is nil"),
+		}
 	}
-
 	return WorkflowView{
 		WorkflowID:   hex.EncodeToString(wmd.WorkflowID[:]),
 		Owner:        wmd.Owner,
@@ -88,57 +105,80 @@ func NewWorkflowView(wmd *workflow_registry.WorkflowRegistryWorkflowMetadata) (W
 	}, nil
 }
 
-func GenerateWorkflowRegistryView(wr workflow_registry.WorkflowRegistryInterface) (WorkflowRegistryView, error) {
-	// 1) Build up basic contract metadata
+// GenerateWorkflowRegistryView builds a WorkflowRegistryView from the provided workflow registry interface.
+// Instead of aborting on the first error, it collects errors in a slice.
+func GenerateWorkflowRegistryView(wr workflow_registry.WorkflowRegistryInterface) (WorkflowRegistryView, []error) {
+	var errs []error
+
+	// 1) Build up basic contract metadata.
 	md, err := types.NewContractMetaData(wr, wr.Address())
 	if err != nil {
-		return WorkflowRegistryView{}, fmt.Errorf("failed to build WorkflowRegistry ContractMetaData: %w", err)
+		errs = append(errs, &WorkflowRegistryError{
+			Operation: "failed to build WorkflowRegistry ContractMetaData",
+			Err:       err,
+		})
 	}
 
-	// 2) Query "getAllAllowedDONs”
+	// 2) Query "getAllAllowedDONs”.
 	donIDs, err := wr.GetAllAllowedDONs(nil)
 	if err != nil {
-		return WorkflowRegistryView{}, fmt.Errorf("GetAllAllowedDONs call failed: %w", err)
+		errs = append(errs, &WorkflowRegistryError{
+			Operation: "GetAllAllowedDONs call failed",
+			Err:       err,
+		})
 	}
 
-	// 3) Query "getAllAuthorizedAddresses"
+	// 3) Query "getAllAuthorizedAddresses".
 	authAddrs, err := wr.GetAllAuthorizedAddresses(nil)
 	if err != nil {
-		return WorkflowRegistryView{}, fmt.Errorf("GetAllAuthorizedAddresses call failed: %w", err)
+		errs = append(errs, &WorkflowRegistryError{
+			Operation: "GetAllAuthorizedAddresses call failed",
+			Err:       err,
+		})
 	}
 
-	// 4) Query "isRegistryLocked"
+	// 4) Query "isRegistryLocked".
 	locked, err := wr.IsRegistryLocked(nil)
 	if err != nil {
-		return WorkflowRegistryView{}, fmt.Errorf("IsRegistryLocked call failed: %w", err)
+		errs = append(errs, &WorkflowRegistryError{
+			Operation: "IsRegistryLocked call failed",
+			Err:       err,
+		})
 	}
 
-	// 5) For each donID, gather their workflows
+	// 5) For each DON ID, gather their workflows.
 	var allWorkflowViews []WorkflowView
 	for _, donID := range donIDs {
-		// Start from index 0, fetch in pages up to the max, in a loop.
-		var (
-			pageSize = big.NewInt(100) // The registry's default max is 100 per page.
-			start    = big.NewInt(0)
-		)
+		// Start from index 0; fetch in pages up to the max.
+		// The registry's default max is 100 per page.
+		pageSize := big.NewInt(100)
+		start := big.NewInt(0)
 
 		for {
 			wmds, err := wr.GetWorkflowMetadataListByDON(nil, donID, start, pageSize)
 			if err != nil {
-				return WorkflowRegistryView{}, fmt.Errorf("GetWorkflowMetadataListByDON failed for donID %d: %w", donID, err)
+				errs = append(errs, &WorkflowRegistryError{
+					Operation: fmt.Sprintf("GetWorkflowMetadataListByDON failed for donID %d", donID),
+					Err:       err,
+				})
+				break
 			}
 			if len(wmds) == 0 {
 				break
 			}
-			// Convert each WorkflowMetadata to a local WorkflowView
+			// Convert each WorkflowMetadata to a local WorkflowView.
 			for _, wmd := range wmds {
 				wv, err := NewWorkflowView(&wmd)
 				if err != nil {
-					return WorkflowRegistryView{}, err
+					errs = append(errs, &WorkflowRegistryError{
+						Operation: "failed to convert workflow metadata",
+						Err:       err,
+					})
+					continue
 				}
 				allWorkflowViews = append(allWorkflowViews, wv)
 			}
-			// If the returned slice is smaller than pageSize, we've exhausted all results
+			// If the returned slice is smaller than pageSize, we've exhausted all results.
 			if len(wmds) < int(pageSize.Int64()) {
 				break
 			}
@@ -146,12 +186,13 @@ func GenerateWorkflowRegistryView(wr workflow_registry.WorkflowRegistryInterface
 		}
 	}
 
-	// 6) Build up the final struct
-	return WorkflowRegistryView{
+	// 6) Build up the final struct.
+	view := WorkflowRegistryView{
 		ContractMetaData:    md,
 		AllowedDONs:         donIDs,
 		AuthorizedAddresses: authAddrs,
 		IsRegistryLocked:    locked,
 		Workflows:           allWorkflowViews,
-	}, nil
+	}
+	return view, errs
 }

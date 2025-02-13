@@ -14,11 +14,14 @@ import (
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
-// TestNewWorkflowView tests the helper function that converts on-chain WorkflowMetadata -> WorkflowView
+// TestNewWorkflowView tests the helper function that converts on-chain WorkflowMetadata -> WorkflowView.
 func TestNewWorkflowView(t *testing.T) {
-	t.Run("nil input => empty struct", func(t *testing.T) {
+	t.Run("nil input => error", func(t *testing.T) {
+		// Updated: nil input now returns an error.
 		wv, err := NewWorkflowView(nil)
-		require.NoError(t, err)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "workflow metadata is nil")
+		// And we expect the returned struct to be empty.
 		require.Equal(t, WorkflowView{}, wv)
 	})
 
@@ -27,7 +30,7 @@ func TestNewWorkflowView(t *testing.T) {
 			WorkflowID:   [32]byte{0xab, 0xcd},
 			Owner:        common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678"),
 			DonID:        42,
-			Status:       0, // => WorkflowStatusActive
+			Status:       0, // WorkflowStatusActive
 			WorkflowName: "TestWorkflow",
 			BinaryURL:    "http://binary",
 			ConfigURL:    "http://config",
@@ -37,7 +40,7 @@ func TestNewWorkflowView(t *testing.T) {
 		wv, err := NewWorkflowView(&meta)
 		require.NoError(t, err)
 
-		wantID := hex.EncodeToString(meta.WorkflowID[:]) // abcd0000...
+		wantID := hex.EncodeToString(meta.WorkflowID[:])
 		assert.Equal(t, wantID, wv.WorkflowID)
 		assert.Equal(t, meta.Owner, wv.Owner)
 		assert.Equal(t, uint32(42), wv.DonID)
@@ -49,12 +52,12 @@ func TestNewWorkflowView(t *testing.T) {
 	})
 }
 
-// TestGenerateWorkflowRegistryView uses a mock workflow registry to test the main function
+// TestGenerateWorkflowRegistryView uses a mock workflow registry to test the main view generation function.
 func TestGenerateWorkflowRegistryView(t *testing.T) {
 	tests := []struct {
 		name            string
 		mockSetup       func(*mocks.WorkflowRegistryInterface)
-		wantErr         bool
+		wantErrCount    int
 		wantAllowedDONs []uint32
 		wantAuthAddrs   []common.Address
 		wantLocked      bool
@@ -67,20 +70,20 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 				m.EXPECT().TypeAndVersion(mock.Anything).Return("WorkflowRegistry 1.0.0", nil).Maybe()
 				m.EXPECT().Owner(mock.Anything).Return(common.HexToAddress("0x12345..."), nil).Maybe()
 
-				// Return 2 DON IDs
+				// Return 2 DON IDs.
 				m.EXPECT().GetAllAllowedDONs(mock.Anything).Return([]uint32{42, 84}, nil)
 
-				// Return 2 authorized addresses
+				// Return 2 authorized addresses.
 				m.EXPECT().GetAllAuthorizedAddresses(mock.Anything).
 					Return([]common.Address{
 						common.HexToAddress("0x1111111111111111111111111111111111111111"),
 						common.HexToAddress("0x2222222222222222222222222222222222222222"),
 					}, nil)
 
-				// Return locked=false
+				// Return locked = false.
 				m.EXPECT().IsRegistryLocked(mock.Anything).Return(false, nil)
 
-				// For DON=42, single workflow -> active
+				// For DON=42, single workflow -> active.
 				wf42 := []workflow_registry.WorkflowRegistryWorkflowMetadata{
 					{
 						WorkflowID:   [32]byte{0xde, 0xad, 0xbe, 0xef},
@@ -94,11 +97,11 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 				}
 				m.EXPECT().GetWorkflowMetadataListByDON(mock.Anything, uint32(42), big.NewInt(0), big.NewInt(100)).
 					Return(wf42, nil).Once()
-				// next page => empty => breaks loop
+				// Next page returns empty.
 				m.EXPECT().GetWorkflowMetadataListByDON(mock.Anything, uint32(42), big.NewInt(100), big.NewInt(100)).
 					Return([]workflow_registry.WorkflowRegistryWorkflowMetadata{}, nil).Maybe()
 
-				// For DON=84, single workflow -> paused
+				// For DON=84, single workflow -> paused.
 				wf84 := []workflow_registry.WorkflowRegistryWorkflowMetadata{
 					{
 						WorkflowID:   [32]byte{0xca, 0xfe, 0xba, 0xbe},
@@ -112,11 +115,11 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 				}
 				m.EXPECT().GetWorkflowMetadataListByDON(mock.Anything, uint32(84), big.NewInt(0), big.NewInt(100)).
 					Return(wf84, nil).Once()
-				// next page => empty
+				// Next page returns empty.
 				m.EXPECT().GetWorkflowMetadataListByDON(mock.Anything, uint32(84), big.NewInt(100), big.NewInt(100)).
 					Return([]workflow_registry.WorkflowRegistryWorkflowMetadata{}, nil).Maybe()
 			},
-			wantErr:         false,
+			wantErrCount:    0,
 			wantAllowedDONs: []uint32{42, 84},
 			wantAuthAddrs: []common.Address{
 				common.HexToAddress("0x1111111111111111111111111111111111111111"),
@@ -126,32 +129,39 @@ func TestGenerateWorkflowRegistryView(t *testing.T) {
 			wantNumWf:  2,
 		},
 		{
-			name: "GetAllAllowedDONs returns error => fail early",
+			name: "GetAllAllowedDONs returns error => include error",
 			mockSetup: func(m *mocks.WorkflowRegistryInterface) {
 				m.EXPECT().Address().Return(common.HexToAddress("0xABCD")).Maybe()
 				m.EXPECT().TypeAndVersion(mock.Anything).Return("WorkflowRegistry 1.0.0", nil).Maybe()
 				m.EXPECT().Owner(mock.Anything).Return(common.HexToAddress("0x12345..."), nil).Maybe()
+				// Simulate three errors:
+				// 1. GetAllAllowedDONs error. Since there are no dons, there are no workflows to fetch.
 				m.EXPECT().GetAllAllowedDONs(mock.Anything).
 					Return([]uint32{}, assert.AnError)
+				// 2. GetAllAuthorizedAddresses error.
+				m.EXPECT().GetAllAuthorizedAddresses(mock.Anything).
+					Return(nil, assert.AnError)
+				// 3. IsRegistryLocked error.
+				m.EXPECT().IsRegistryLocked(mock.Anything).
+					Return(false, assert.AnError)
 			},
-			wantErr: true,
+			wantErrCount: 3,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			mockWR := mocks.NewWorkflowRegistryInterface(t)
-
 			tc.mockSetup(mockWR)
 
-			view, err := GenerateWorkflowRegistryView(mockWR)
-			if tc.wantErr {
-				require.Error(t, err)
+			view, errs := GenerateWorkflowRegistryView(mockWR)
+			if tc.wantErrCount > 0 {
+				require.NotEmpty(t, errs)
 				return
 			}
-			require.NoError(t, err)
+			require.Empty(t, errs)
 
-			// Check fields
+			// Check fields.
 			assert.Equal(t, tc.wantAllowedDONs, view.AllowedDONs)
 			assert.Equal(t, tc.wantAuthAddrs, view.AuthorizedAddresses)
 			assert.Equal(t, tc.wantLocked, view.IsRegistryLocked)
@@ -172,12 +182,12 @@ func TestWorkflowStatus_MarshalUnmarshal(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Marshal
+			// Marshal.
 			data, err := tc.ws.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, string(data))
 
-			// Unmarshal
+			// Unmarshal.
 			var back WorkflowStatus
 			err = back.UnmarshalJSON(data)
 			require.NoError(t, err)
