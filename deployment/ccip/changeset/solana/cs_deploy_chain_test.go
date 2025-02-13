@@ -115,7 +115,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployment.CreateLegacyChangeSet(solana.BuildSolanaChangeset),
 			solana.BuildSolanaConfig{
 				ChainSelector:       solChainSelectors[0],
-				GitCommitSha:        "9a0ab24a17ac44d4a58b77db28e13a5f31fd2ca4",
+				GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
 				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 				CleanDestinationDir: true,
 			},
