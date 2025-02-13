@@ -187,11 +187,13 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 
 		opts, err := deployerGroup.GetDeployer(chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for %s", chain)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get deployer for chain %s, %w", chain, err)
 		}
 		err = configureTokenPool(env.GetContext(), opts, env.Chains, state, c, chainSelector)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to make operations to configure %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
+			return deployment.ChangesetOutput{},
+				fmt.Errorf("failed to make operations to configure %s token pool on %s: %w",
+					c.TokenSymbol, chain.String(), err)
 		}
 	}
 
