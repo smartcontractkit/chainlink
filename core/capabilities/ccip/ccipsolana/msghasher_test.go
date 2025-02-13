@@ -140,8 +140,8 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	}
 
 	msgAccounts := []solana.PublicKey{
-		solana.PublicKey(config.CcipLogicReceiver),
-		solana.PublicKey(config.ReceiverTargetAccountPDA),
+		config.CcipLogicReceiver,
+		config.ReceiverTargetAccountPDA,
 		solana.SystemProgramID,
 	}
 	return any2AnyMsg, any2SolanaMsg, msgAccounts
