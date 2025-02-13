@@ -279,14 +279,14 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 
 	if c.UseMCMS {
 		// deploy, configure and xfer ownership of MCMS on all chains
-		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 		for sel := range env.Chains {
 			t.Logf("Enabling MCMS on chain %d", sel)
-			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfig(t)
+			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
 		}
 		env, err = commonchangeset.Apply(t, env, nil,
 			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)
