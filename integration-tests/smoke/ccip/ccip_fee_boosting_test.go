@@ -96,10 +96,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		feeQuoterCfg)
 
 	// Update token prices in destination chain FeeQuoter
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
+	e.Env, err = commoncs.Apply(t, e.Env, e.TimelockContracts(t),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					destChain: {
 						TokenPrices: map[common.Address]*big.Int{
@@ -109,8 +109,8 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	startBlocks := make(map[uint64]*uint64)
@@ -137,10 +137,10 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 		DestChainSelector:   destChain,
 	}] = []uint64{msgSentEvent.SequenceNumber}
 
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
+	e.Env, err = commoncs.Apply(t, e.Env, e.TimelockContracts(t),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+			changeset.UpdateFeeQuoterPricesConfig{
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					sourceChain: {
 						GasPrices: map[uint64]*big.Int{
@@ -149,8 +149,8 @@ func Test_CCIPFeeBoosting(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// Confirm gas prices are updated

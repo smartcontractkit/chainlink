@@ -7,7 +7,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
-	headtracker "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
@@ -20,7 +21,7 @@ const finality = uint32(4)
 func TestNewAutomationCustomTelemetryService(t *testing.T) {
 	me := &MockMonitoringEndpoint{}
 	lggr := logger.TestLogger(t)
-	var hb headtracker.HeadBroadcaster
+	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
 	bs := evm.NewBlockSubscriber(hb, lp, finality, lggr)

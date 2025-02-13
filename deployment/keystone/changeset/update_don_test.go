@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -39,22 +40,19 @@ func TestUpdateDon(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
 		// contract set is already deployed with capabilities
 		// we have to keep track of the existing capabilities to add to the new ones
-		var p2pIDs []p2pkey.PeerID
+		p2pIDs := te.GetP2PIDs("wfDon")
 		newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
-			p2pIDs = append(p2pIDs, k)
-			newCapabilities[k] = caps
+		for _, id := range p2pIDs {
+			newCapabilities[id] = caps
 		}
 
 		t.Run("succeeds if update sets new and existing capabilities", func(t *testing.T) {
@@ -80,22 +78,17 @@ func TestUpdateDon(t *testing.T) {
 		})
 	})
 	t.Run("with mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
 		// contract set is already deployed with capabilities
 		// we have to keep track of the existing capabilities to add to the new ones
-		var p2pIDs []p2pkey.PeerID
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
-			p2pIDs = append(p2pIDs, k)
-		}
+		p2pIDs := te.GetP2PIDs("wfDon")
 
 		cfg := changeset.UpdateDonRequest{
 			RegistryChainSel: te.RegistrySelector,
@@ -129,12 +122,12 @@ func TestUpdateDon(t *testing.T) {
 				CallProxy: contracts.CallProxy,
 			},
 		}
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.UpdateDon),
-				Config:    &cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.UpdateDon),
+				&cfg,
+			),
+		)
 		require.NoError(t, err)
 		assertDonContainsCapabilities(t, te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry, caps, p2pIDs)
 	})

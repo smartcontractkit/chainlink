@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -56,17 +57,14 @@ func TestConfigureOCR3(t *testing.T) {
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
-		var wfNodes []string
-		for id := range te.WFNodes {
-			wfNodes = append(wfNodes, id)
-		}
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -87,10 +85,10 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("success multiple OCR3 contracts", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
@@ -129,10 +127,7 @@ func TestConfigureOCR3(t *testing.T) {
 			}
 		}
 
-		var wfNodes []string
-		for id := range te.WFNodes {
-			wfNodes = append(wfNodes, id)
-		}
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		na := common.HexToAddress(newOCR3Addr)
 		w := &bytes.Buffer{}
@@ -155,10 +150,10 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("fails multiple OCR3 contracts but unspecified address", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
@@ -179,10 +174,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, addrs, 5)
 
-		var wfNodes []string
-		for id := range te.WFNodes {
-			wfNodes = append(wfNodes, id)
-		}
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -198,10 +190,10 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("fails multiple OCR3 contracts but address not found", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
@@ -222,10 +214,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, addrs, 5)
 
-		var wfNodes []string
-		for id := range te.WFNodes {
-			wfNodes = append(wfNodes, id)
-		}
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		nfa := common.HexToAddress("0x1234567890123456789012345678901234567890")
 		w := &bytes.Buffer{}
@@ -243,18 +232,15 @@ func TestConfigureOCR3(t *testing.T) {
 	})
 
 	t.Run("mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: nWfNodes},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: nWfNodes},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
-		var wfNodes []string
-		for id := range te.WFNodes {
-			wfNodes = append(wfNodes, id)
-		}
+		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
 		w := &bytes.Buffer{}
 		cfg := changeset.ConfigureOCR3Config{
@@ -287,12 +273,12 @@ func TestConfigureOCR3(t *testing.T) {
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
-				Config:    cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
+				cfg,
+			),
+		)
 		require.NoError(t, err)
 	})
 }

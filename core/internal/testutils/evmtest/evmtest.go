@@ -22,10 +22,11 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
 	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -59,7 +60,7 @@ type TestChainOpts struct {
 	DatabaseConfig txmgr.DatabaseConfig
 	FeatureConfig  legacyevm.FeatureConfig
 	ListenerConfig txmgr.ListenerConfig
-	HeadTracker    httypes.HeadTracker
+	HeadTracker    evmheads.Tracker
 	DB             sqlutil.DataSource
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
@@ -116,7 +117,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(*big.Int, evmheads.Broadcaster) evmheads.Tracker {
 			return testopts.HeadTracker
 		}
 	}
