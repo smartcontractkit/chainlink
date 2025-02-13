@@ -102,12 +102,12 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			_, err := commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
-					Config:    test.Config,
-				},
-			})
+			_, err := commonchangeset.Apply(t, e, timelockContracts,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.SetPoolChangeset),
+					test.Config,
+				),
+			)
 			require.Error(t, err)
 			require.ErrorContains(t, err, test.ErrStr)
 		})
@@ -143,10 +143,10 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 			registryOnA := state.Chains[selectorA].TokenAdminRegistry
 			registryOnB := state.Chains[selectorB].TokenAdminRegistry
 
-			_, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.ProposeAdminRoleChangeset),
-					Config: changeset.TokenAdminRegistryChangesetConfig{
+			_, err = commonchangeset.Apply(t, e, timelockContracts,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 							selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -163,10 +163,10 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 							},
 						},
 					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAdminRoleChangeset),
-					Config: changeset.TokenAdminRegistryChangesetConfig{
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.AcceptAdminRoleChangeset),
+					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 							selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -183,10 +183,10 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 							},
 						},
 					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
-					Config: changeset.TokenAdminRegistryChangesetConfig{
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.SetPoolChangeset),
+					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 							selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -203,8 +203,8 @@ func TestSetPoolChangeset_Execution(t *testing.T) {
 							},
 						},
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			configOnA, err := registryOnA.GetTokenConfig(nil, tokens[selectorA].Address)

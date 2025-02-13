@@ -100,11 +100,11 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 		},
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(workflowregistry.UpdateAllowedDons),
-			Config:    req,
-		},
-	})
+	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAllowedDons),
+			req,
+		),
+	)
 	require.NoError(t, err)
 }

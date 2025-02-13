@@ -165,16 +165,15 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		deployGrp.Go(func() error {
 			chain := env.Chains[chainSelector]
 			chainState := state.Chains[chainSelector]
+
 			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
 			return err
 		})
 	}
-
 	if err := deployGrp.Wait(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %s",
 			c.TokenSymbol, err)
 	}
-
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil

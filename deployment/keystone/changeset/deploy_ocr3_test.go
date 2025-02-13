@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -287,12 +288,12 @@ func TestConfigureOCR3(t *testing.T) {
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
-				Config:    cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
+				cfg,
+			),
+		)
 		require.NoError(t, err)
 	})
 }
