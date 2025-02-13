@@ -110,7 +110,6 @@ func (c *Cache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeTy
 }
 
 func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
-	fmt.Println("DeleteBridgeType in cache.go called")
 	err := c.ORM.DeleteBridgeType(ctx, bt)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -129,7 +128,6 @@ func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]Bridg
 }
 
 func (c *Cache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
-	fmt.Println("CreateBridgeType in cache.go called")
 	err := c.ORM.CreateBridgeType(ctx, bt)
 	if err != nil {
 		return err
@@ -141,12 +139,10 @@ func (c *Cache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 }
 
 func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
-	fmt.Println("UpdateBridgeType in cache.go called")
 	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
-	c.eng.Debugw("Bridge update", "bridgeType", bt)
-	c.eng.Debugw("Bridge update", "BridgeTypeRequest", btr)
+	// Update the cache
 	c.bridgeTypesCache.Store(bt.Name, *bt)
 
 	return nil

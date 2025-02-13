@@ -141,7 +141,6 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 
 // UpdateBridgeType updates the bridge type.
 func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
-	fmt.Println("UpdateBridgeType in orm.go called")
 	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
 	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
 
