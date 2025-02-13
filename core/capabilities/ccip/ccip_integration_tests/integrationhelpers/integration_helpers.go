@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -102,7 +103,7 @@ type TestUniverse struct {
 }
 
 func NewTestUniverse(ctx context.Context, t *testing.T, lggr logger.Logger) TestUniverse {
-	transactor := testutils.MustNewSimTransactor(t)
+	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := simulated.NewBackend(ethtypes.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
 	}, simulated.WithBlockGasLimit(30e6))

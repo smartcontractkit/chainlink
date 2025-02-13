@@ -805,7 +805,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 	chain := evmmocks.NewChain(t)
 
 	// Construct CoordinatorV2_X object for VRF listener
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 	b := simulated.NewBackend(ethtypes.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
