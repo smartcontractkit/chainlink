@@ -107,12 +107,12 @@ jobs:
             echo "should_run=true" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "## Build trigger" >> $GITHUB_STEP_SUMMARY
-            echo "schedule" >> $GITHUB_STEP_SUMMARY    
+            echo "schedule" >> $GITHUB_STEP_SUMMARY
             echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
             echo "should_run=true" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
-            echo "should_run=true" >> $GITHUB_OUTPUT          
+            echo "should_run=true" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "## Build trigger" >> $GITHUB_STEP_SUMMARY
             echo "new tag" >> $GITHUB_STEP_SUMMARY
@@ -150,7 +150,7 @@ jobs:
           GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS: ${{ github.event.inputs.evmImplementations }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
-          export PATH          
+          export PATH
 
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Checking for new releases"
@@ -180,7 +180,7 @@ jobs:
               echo "New reth release found: $new_reth"
               implementations_arr+=("reth")
             fi
-          
+
             IFS=','
             eth_implementations="${implementations_arr[*]}"
             if [ -n "$eth_implementations" ]; then
@@ -196,7 +196,7 @@ jobs:
               echo "Will test following EVM implementations: $GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS"
               echo "evm_implementations=$GH_EVENT_INPUTS_EVM_IMPLEMENTATIONS" >> $GITHUB_OUTPUT
             fi
-          else 
+          else
             echo "Will test all EVM implementations"
             echo "evm_implementations=geth,besu,nethermind,erigon,reth" >> $GITHUB_OUTPUT
           fi
@@ -223,7 +223,7 @@ jobs:
             echo "Fetching Chainlink version from input"
             if [ -n "$GH_EVENT_INPUTS_CHAINLINK_VERSION" ]; then
               echo "Chainlink version provided in input"
-              chainlink_version="$GH_EVENT_INPUTS_CHAINLINK_VERSION"              
+              chainlink_version="$GH_EVENT_INPUTS_CHAINLINK_VERSION"
               if [[ "$chainlink_version" =~ ^[0-9a-f]{40}$ ]]; then
                 cl_ref_path="commit"
                 chainlink_image_version=$chainlink_version
@@ -400,7 +400,7 @@ jobs:
           ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
-          export PATH          
+          export PATH
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             geth_images=$(ecrimagefetcher 'ethereum/client-go' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
@@ -424,14 +424,14 @@ jobs:
             # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
             erigon_images=$(ecrimagefetcher 'thorax/erigon' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "<v2.60.0 || >v2.60.2")
             echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
-            echo "Erigon latest images: $erigon_images" 
+            echo "Erigon latest images: $erigon_images"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
             reth_images=$(ecrimagefetcher 'ghcr.io/paradigmxyz/reth' '^v?[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "RETH_IMAGES=$reth_images" >> $GITHUB_ENV
-            echo "Reth latest images: $reth_images" 
-          fi          
+            echo "Reth latest images: $reth_images"
+          fi
 
   # End Build Test Dependencies
 
@@ -490,7 +490,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-                
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
             testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -560,7 +560,7 @@ jobs:
           else
             echo "Will not test compatibility with nethermind"
           fi
-          
+
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
             echo "Will test compatibility with reth"
             testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -576,8 +576,8 @@ jobs:
             testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with reth"
-          fi          
-          
+          fi
+
           jq . compatibility_test_list.json
           JOB_MATRIX_JSON=$(jq -c . compatibility_test_list.json)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
@@ -651,7 +651,7 @@ jobs:
       #          comment_on_pr: false
       #          theme: 'dark'
       - name: Run Tests
-        uses: smartcontractkit/.github/actions/ctf-run-tests@725dd141dd77cc87dad420e9484416fc4ae26be2 # ctf-run-tests@v0.5.0
+        uses: smartcontractkit/.github/actions/ctf-run-tests@a48a41903275a2cd1b2bbe29cb3eb420848eb801 # ctf-run-tests@v0.6.0
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -659,7 +659,7 @@ jobs:
           artifacts_name: ${{ env.TEST_LOG_NAME }}
           artifacts_location: |
             ./integration-tests/smoke/logs/
-            ./integration-tests/smoke/db_dumps/      
+            ./integration-tests/smoke/db_dumps/
             /tmp/gotest.log
           publish_check_name: ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -673,6 +673,7 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
           main-dns-zone: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
           k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+          enable-gap: "false"
         env:
           E2E_TEST_SELECTED_NETWORK: ${{ env.SELECTED_NETWORKS}}
           E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
@@ -790,7 +791,7 @@ jobs:
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^cron compatibility with (.*?)$" -namedKey="cron" -outputFile=output.json
-                    
+
           echo "base64_parsed_results=$(base64 -w 0 output.json)" >> $GITHUB_OUTPUT
 
   display-test-results:
@@ -818,7 +819,7 @@ jobs:
 
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
           echo $raw_results > input.json
-          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
