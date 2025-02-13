@@ -17,8 +17,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -27,13 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func NewChainScopedConfig(t testing.TB, cfg configtoml.HasEVMConfigs) evmconfig.ChainScopedConfig {
@@ -59,7 +60,7 @@ type TestChainOpts struct {
 	DatabaseConfig txmgr.DatabaseConfig
 	FeatureConfig  legacyevm.FeatureConfig
 	ListenerConfig txmgr.ListenerConfig
-	HeadTracker    httypes.HeadTracker
+	HeadTracker    evmheads.Tracker
 	DB             sqlutil.DataSource
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
@@ -116,7 +117,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(*big.Int, evmheads.Broadcaster) evmheads.Tracker {
 			return testopts.HeadTracker
 		}
 	}

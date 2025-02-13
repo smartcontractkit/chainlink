@@ -27,18 +27,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 
-	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func logRuntime(t testing.TB, start time.Time) {
@@ -712,7 +711,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			KeepFinalizedBlocksDepth: 1000,
 		}
 		simulatedClient := client.NewSimulatedBackendClient(t, backend, chainID)
-		ht := headtracker.NewSimulatedHeadTracker(simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		ht := headstest.NewSimulatedHeadTracker(simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 		lp := logpoller.NewLogPoller(orm, simulatedClient, lggr, ht, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			backend.Commit()
@@ -1544,7 +1543,7 @@ func TestTooManyLogResults(t *testing.T) {
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	headTracker := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
@@ -1577,6 +1576,9 @@ func TestTooManyLogResults(t *testing.T) {
 			}
 			from := fq.FromBlock.Uint64()
 			to := fq.ToBlock.Uint64()
+			if to-from >= 8 {
+				return []types.Log{}, context.DeadlineExceeded // simulate RPC client timeout as a "too many results" scenario
+			}
 			if to-from >= 4 {
 				return []types.Log{}, tooLargeErr // return "too many results" error if block range spans 4 or more blocks
 			}

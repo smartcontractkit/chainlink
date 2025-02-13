@@ -21,6 +21,9 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	gasMocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
@@ -28,9 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	gasMocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {

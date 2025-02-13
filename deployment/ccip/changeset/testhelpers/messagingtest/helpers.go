@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 // Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
@@ -125,9 +126,11 @@ func getLatestNonce(tc TestCase) uint64 {
 
 // Run runs a messaging test case.
 func Run(tc TestCase) (out TestCaseOutput) {
-	// check latest nonce
-	latestNonce := getLatestNonce(tc)
-	require.Equal(tc.T, tc.Nonce, latestNonce)
+	if tc.ValidateResp {
+		// check latest nonce
+		latestNonce := getLatestNonce(tc)
+		require.Equal(tc.T, tc.Nonce, latestNonce)
+	}
 
 	startBlocks := make(map[uint64]*uint64)
 	msgSentEvent := testhelpers.TestSendRequest(
@@ -166,8 +169,12 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	}
 
 	if tc.ValidateResp {
+		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		execStart := time.Now()
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
+		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
 		require.Equalf(
 			tc.T,
@@ -186,7 +193,7 @@ func Run(tc TestCase) (out TestCaseOutput) {
 		)
 
 		// check the sender latestNonce on the dest, should be incremented
-		latestNonce = getLatestNonce(tc)
+		latestNonce := getLatestNonce(tc)
 		require.Equal(tc.T, tc.Nonce+1, latestNonce)
 		out.Nonce = latestNonce
 		tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)

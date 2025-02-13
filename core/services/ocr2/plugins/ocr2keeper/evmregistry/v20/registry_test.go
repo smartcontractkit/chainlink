@@ -12,12 +12,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -46,7 +47,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := htmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+			mht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{

@@ -1,7 +1,9 @@
 package changeset_test
 
 import (
+	"bytes"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -14,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -40,7 +42,7 @@ func validateMemberOfTokenPoolPair(
 	t *testing.T,
 	state changeset.CCIPOnChainState,
 	tokenPool *token_pool.TokenPool,
-	expectedRemotePools []string,
+	expectedRemotePools []common.Address,
 	tokens map[uint64]*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677],
 	tokenSymbol changeset.TokenSymbol,
 	chainSelector uint64,
@@ -73,16 +75,25 @@ func validateMemberOfTokenPoolPair(
 
 		remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, supportedChain)
 		require.NoError(t, err)
-		require.Equal(t, tokens[supportedChain].Address.Bytes(), remoteTokenAddress)
+		require.Equal(t, common.LeftPadBytes(tokens[supportedChain].Address.Bytes(), 32), remoteTokenAddress)
 
 		remotePoolAddresses, err := tokenPool.GetRemotePools(nil, supportedChain)
 		require.NoError(t, err)
 
-		remotePoolsStr := make([]string, len(remotePoolAddresses))
-		for i, remotePool := range remotePoolAddresses {
-			remotePoolsStr[i] = common.HexToAddress(common.Bytes2Hex(remotePool)).String()
+		require.Equal(t, len(expectedRemotePools), len(remotePoolAddresses))
+		expectedRemotePoolAddressesBytes := make([][]byte, len(expectedRemotePools))
+		for i, remotePool := range expectedRemotePools {
+			expectedRemotePoolAddressesBytes[i] = common.LeftPadBytes(remotePool.Bytes(), 32)
 		}
-		require.ElementsMatch(t, expectedRemotePools, remotePoolsStr)
+		sort.Slice(expectedRemotePoolAddressesBytes, func(i, j int) bool {
+			return bytes.Compare(expectedRemotePoolAddressesBytes[i], expectedRemotePoolAddressesBytes[j]) < 0
+		})
+		sort.Slice(remotePoolAddresses, func(i, j int) bool {
+			return bytes.Compare(remotePoolAddresses[i], remotePoolAddresses[j]) < 0
+		})
+		for i := range expectedRemotePoolAddressesBytes {
+			require.Equal(t, expectedRemotePoolAddressesBytes[i], remotePoolAddresses[i])
+		}
 	}
 }
 
@@ -429,10 +440,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 
 				if test.RegistrationPass != nil {
 					// Configure & set the active pools on the registry
-					e, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							Config: changeset.ConfigureTokenPoolContractsConfig{
+					e, err = commonchangeset.Apply(t, e, timelockContracts,
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+							changeset.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
 								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
@@ -452,10 +463,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ProposeAdminRoleChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -472,10 +483,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAdminRoleChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.AcceptAdminRoleChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -492,10 +503,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
-							Config: changeset.TokenAdminRegistryChangesetConfig{
+						),
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.SetPoolChangeset),
+							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
@@ -512,8 +523,8 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-					})
+						),
+					)
 					require.NoError(t, err)
 
 					for _, selector := range e.AllChainSelectors() {
@@ -531,7 +542,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							t,
 							state,
 							pools[selector].LockRelease,
-							[]string{pools[remoteChainSelector].LockRelease.Address().String()},
+							[]common.Address{pools[remoteChainSelector].LockRelease.Address()},
 							tokens,
 							testhelpers.TestTokenSymbol,
 							selector,
@@ -552,10 +563,10 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					if test.UpdatePass.UpdatePoolOnB {
 						bType = changeset.BurnMintTokenPool
 					}
-					e, err = commonchangeset.ApplyChangesets(t, e, timelockContracts, []commonchangeset.ChangesetApplication{
-						{
-							Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							Config: changeset.ConfigureTokenPoolContractsConfig{
+					e, err = commonchangeset.Apply(t, e, timelockContracts,
+						commonchangeset.Configure(
+							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+							changeset.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
 								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
@@ -575,8 +586,8 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 									},
 								},
 							},
-						},
-					})
+						),
+					)
 					require.NoError(t, err)
 
 					for _, selector := range e.AllChainSelectors() {
@@ -596,9 +607,9 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							updatePool = test.UpdatePass.UpdatePoolOnB
 							updateRemotePool = test.UpdatePass.UpdatePoolOnA
 						}
-						remotePoolAddresses := []string{pools[remoteChainSelector].LockRelease.Address().String()} // add registered pool by default
-						if updateRemotePool {                                                                      // if remote pool address is being updated, we push the new address
-							remotePoolAddresses = append(remotePoolAddresses, pools[remoteChainSelector].BurnMint.Address().String())
+						remotePoolAddresses := []common.Address{pools[remoteChainSelector].LockRelease.Address()} // add registered pool by default
+						if updateRemotePool {                                                                     // if remote pool address is being updated, we push the new address
+							remotePoolAddresses = append(remotePoolAddresses, pools[remoteChainSelector].BurnMint.Address())
 						}
 						tokenPool := pools[selector].LockRelease
 						if updatePool {

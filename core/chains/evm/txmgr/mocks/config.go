@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	chaintype "github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
+	chaintype "github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -16,7 +16,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
@@ -27,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -46,7 +48,7 @@ func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.O
 type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
-	hb                  *htmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb                  *headstest.Broadcaster[*evmtypes.Head, common.Hash]
 	ec                  *clienttest.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
@@ -74,7 +76,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = clienttest.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)

@@ -89,7 +89,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "msgId", msg.MessageId, "calls", len(e.requesters), "hasResponse", e.response != nil)
+	e.lggr.Debugw("OnMessage called for request", "msgId", msg.MessageId, "calls", len(e.requesters), "hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		switch e.method {
 		case types.MethodExecute:

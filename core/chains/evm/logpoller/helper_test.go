@@ -20,13 +20,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -112,7 +113,7 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 
-	headTracker := headtracker.NewSimulatedHeadTracker(esc, opts.UseFinalityTag, opts.FinalityDepth)
+	headTracker := headstest.NewSimulatedHeadTracker(esc, opts.UseFinalityTag, opts.FinalityDepth)
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
 	}

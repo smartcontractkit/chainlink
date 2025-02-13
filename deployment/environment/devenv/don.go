@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
@@ -75,22 +76,26 @@ func (don *DON) NodeIds() []string {
 }
 
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
-	var err error
+	g := new(errgroup.Group)
 	for i := range don.Nodes {
-		node := &don.Nodes[i]
-		var jdChains []JDChainConfigInput
-		for _, chain := range chains {
-			jdChains = append(jdChains, JDChainConfigInput{
-				ChainID:   chain.ChainID,
-				ChainType: chain.ChainType,
-			})
-		}
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
-			err = multierror.Append(err, err1)
-		}
-		don.Nodes[i] = *node
+		i := i
+		g.Go(func() error {
+			node := &don.Nodes[i]
+			var jdChains []JDChainConfigInput
+			for _, chain := range chains {
+				jdChains = append(jdChains, JDChainConfigInput{
+					ChainID:   chain.ChainID,
+					ChainType: chain.ChainType,
+				})
+			}
+			if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
+				return err1
+			}
+			don.Nodes[i] = *node
+			return nil
+		})
 	}
-	return err
+	return g.Wait()
 }
 
 // NewRegisteredDON creates a DON with the given node info, registers the nodes with the job distributor
@@ -106,13 +111,6 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 		node, err := NewNode(info)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create node %d: %w", i, err)
-		}
-		// node Labels so that it's easier to query them
-		for key, value := range info.Labels {
-			node.labels = append(node.labels, &ptypes.Label{
-				Key:   key,
-				Value: &value,
-			})
 		}
 		if info.IsBootstrap {
 			// create multi address for OCR2, applicable only for bootstrap nodes
@@ -168,11 +166,21 @@ func NewNode(nodeInfo NodeInfo) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", err)
 	}
+	// node Labels so that it's easier to query them
+	labels := make([]*ptypes.Label, 0)
+	for key, value := range nodeInfo.Labels {
+		labels = append(labels, &ptypes.Label{
+			Key:   key,
+			Value: &value,
+		})
+	}
 	return &Node{
 		gqlClient:  gqlClient,
 		restClient: chainlinkClient,
 		Name:       nodeInfo.Name,
 		adminAddr:  nodeInfo.AdminAddr,
+		multiAddr:  nodeInfo.MultiAddr,
+		labels:     labels,
 	}, nil
 }
 
@@ -251,7 +259,8 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
 		// fetch node labels to know if the node is bootstrap or plugin
-		isBootstrap := false
+		// if multi address is set, then it's a bootstrap node
+		isBootstrap := n.multiAddr != ""
 		for _, label := range n.labels {
 			if label.Key == NodeLabelKeyType && value(label.Value) == NodeLabelValueBootstrap {
 				isBootstrap = true
@@ -371,7 +380,6 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		Name:      n.Name,
 	})
 	// node already registered, fetch it's id
-	// TODO: check for rpc code = "AlreadyExists" instead
 	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {
 		nodesResponse, err := jd.ListNodes(ctx, &nodev1.ListNodesRequest{
 			Filter: &nodev1.ListNodesRequest_Filter{

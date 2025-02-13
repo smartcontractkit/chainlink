@@ -15,12 +15,13 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -30,7 +31,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
@@ -202,6 +203,9 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				RMNSignaturesTimeout:               30 * time.Minute,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				MerkleRootAsyncObserverDisabled:    false,
+				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
+				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {
@@ -720,17 +724,17 @@ func newDonWithCandidateOp(
 		false, // acceptsWorkflows
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ %s config: %w",
-			types.PluginType(pluginConfig.PluginType).String(), err)
-	}
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, addDonTx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, addDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return mcms.Operation{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
 	}
-
+	if err != nil {
+		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ %s config: %w",
+			types.PluginType(pluginConfig.PluginType).String(), err)
+	}
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  addDonTx.Data(),
@@ -910,22 +914,16 @@ func setCandidateOnExistingDon(
 		false,
 		nodes.DefaultF(),
 	)
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+		if err != nil {
+			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
 	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
-		}
-	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
-		}
-	}
-
 	return []mcms.Operation{{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
@@ -973,17 +971,18 @@ func promoteCandidateOp(
 		false,
 		nodes.DefaultF(),
 	)
+	if !mcmsEnabled {
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+		if err != nil {
+			return mcms.Operation{},
+				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
+		}
+	}
 	if err != nil {
 		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%s): %w",
 			donID, types.PluginType(pluginType).String(), err)
 	}
-	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
-		if err != nil {
-			return mcms.Operation{}, fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
-		}
-	}
-
 	return mcms.Operation{
 		To:    capReg.Address(),
 		Data:  updateDonTx.Data(),
@@ -1202,7 +1201,9 @@ func revokeCandidateOps(
 		return nil, fmt.Errorf("update don w/ revokeCandidate call: %w", deployment.MaybeDataErr(err))
 	}
 	if !mcmsEnabled {
-		_, err = deployment.ConfirmIfNoError(homeChain, updateDonTx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(
+			homeChain, updateDonTx,
+			capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
 		}
@@ -1321,7 +1322,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 
 	tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
 	if cfg.MCMS == nil {
-		_, err = deployment.ConfirmIfNoError(e.Chains[cfg.HomeChainSelector], tx, err)
+		_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

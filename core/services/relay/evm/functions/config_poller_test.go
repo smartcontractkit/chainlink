@@ -23,7 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -33,8 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestFunctionsConfigPoller(t *testing.T) {
@@ -89,7 +90,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, ht, lpOpts)
 	servicetest.Run(t, lp)
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)

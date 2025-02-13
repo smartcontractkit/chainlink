@@ -76,7 +76,7 @@ var isIntegrationBuild = false
 
 func commonEnv(t testing.TB) func(*testscript.Env) error {
 	return func(te *testscript.Env) error {
-		if _, err := os.Stat(integrationBuildName); err == nil && !isIntegrationBuild {
+		if _, err := os.Stat(filepath.Join(te.WorkDir, integrationBuildName)); err == nil && !isIntegrationBuild {
 			te.T().Skip("integration test")
 			return nil
 		}

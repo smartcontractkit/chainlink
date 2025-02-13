@@ -22,14 +22,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -41,7 +42,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
-	_ httypes.HeadTrackable          = &OCRContractTracker{}
+	_ heads.Trackable                = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -67,7 +68,7 @@ type (
 		mailMon          *mailbox.Monitor
 
 		// HeadBroadcaster
-		headBroadcaster  httypes.HeadBroadcaster
+		headBroadcaster  heads.Broadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -113,7 +114,7 @@ func NewOCRContractTracker(
 	ds sqlutil.DataSource,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster heads.Broadcaster,
 	mailMon *mailbox.Monitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")

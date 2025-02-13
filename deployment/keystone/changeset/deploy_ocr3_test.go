@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -48,14 +49,16 @@ func TestDeployOCR3(t *testing.T) {
 func TestConfigureOCR3(t *testing.T) {
 	t.Parallel()
 
+	nWfNodes := 4
 	c := internal.OracleConfig{
-		MaxFaultyOracles:    1,
-		DeltaProgressMillis: 12345,
+		MaxFaultyOracles:     1,
+		DeltaProgressMillis:  12345,
+		TransmissionSchedule: []int{nWfNodes},
 	}
 
 	t.Run("no mcms", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{N: 4},
 			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
@@ -86,7 +89,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("success multiple OCR3 contracts", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{N: 4},
 			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
@@ -154,7 +157,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("fails multiple OCR3 contracts but unspecified address", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{N: 4},
 			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
@@ -197,7 +200,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("fails multiple OCR3 contracts but address not found", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{N: 4},
 			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
@@ -242,7 +245,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 	t.Run("mcms", func(t *testing.T) {
 		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
+			WFDonConfig:     test.DonConfig{N: nWfNodes},
 			AssetDonConfig:  test.DonConfig{N: 4},
 			WriterDonConfig: test.DonConfig{N: 4},
 			NumChains:       1,
@@ -285,12 +288,12 @@ func TestConfigureOCR3(t *testing.T) {
 		// now apply the changeset such that the proposal is signed and execed
 		w2 := &bytes.Buffer{}
 		cfg.WriteGeneratedConfig = w2
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureOCR3Contract),
-				Config:    cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.ConfigureOCR3Contract),
+				cfg,
+			),
+		)
 		require.NoError(t, err)
 	})
 }

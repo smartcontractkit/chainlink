@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 )
 
@@ -134,9 +135,9 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 }
 
 // InitCosmos is a option for instantiating Cosmos relayers
-func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
+func InitCosmos(ctx context.Context, factory RelayerFactory, ks keystore.Cosmos, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		relayers, err := factory.NewCosmos(config)
+		relayers, err := factory.NewCosmos(ks, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err)
 		}
@@ -167,9 +168,9 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 }
 
 // InitStarknet is a option for instantiating Starknet relayers
-func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
+func InitStarknet(ctx context.Context, factory RelayerFactory, ks keystore.StarkNet, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		starkRelayers, err := factory.NewStarkNet(config.Keystore, config.TOMLConfigs)
+		starkRelayers, err := factory.NewStarkNet(ks, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
@@ -184,9 +185,9 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 }
 
 // InitAptos is a option for instantiating Aptos relayers
-func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryConfig) CoreRelayerChainInitFunc {
+func InitAptos(ctx context.Context, factory RelayerFactory, ks keystore.Aptos, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		relayers, err := factory.NewAptos(config.Keystore, config.TOMLConfigs)
+		relayers, err := factory.NewAptos(ks, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup aptos relayer: %w", err)
 		}
@@ -201,9 +202,9 @@ func InitAptos(ctx context.Context, factory RelayerFactory, config AptosFactoryC
 }
 
 // InitTron is a option for instantiating Tron relayers
-func InitTron(ctx context.Context, factory RelayerFactory, config TronFactoryConfig) CoreRelayerChainInitFunc {
+func InitTron(ctx context.Context, factory RelayerFactory, ks keystore.Tron, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		tronRelayers, err := factory.NewTron(config.Keystore, config.TOMLConfigs)
+		tronRelayers, err := factory.NewTron(ks, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Tron relayer: %w", err)
 		}
