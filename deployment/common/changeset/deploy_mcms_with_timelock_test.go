@@ -124,16 +124,14 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 			TimelockMinDelay: big.NewInt(2),
 		},
 	}
-	changesetApplication := []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			Config:    changesetConfig,
-		},
-	}
+	configuredChangeset := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		changesetConfig,
+	)
 	setPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 
 	// --- act ---
-	updatedEnv, err := commonchangeset.ApplyChangesets(t, env, nil, changesetApplication)
+	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
 	require.NoError(t, err)
 
 	evmState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
