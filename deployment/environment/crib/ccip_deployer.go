@@ -504,7 +504,55 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState, hom
 			}
 			mu.Unlock()
 
-	return commonchangeset.Apply(nil, *e, nil,
+			_, err := commonchangeset.Apply(nil, *e, nil,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+					changeset.ConfigureTokenPoolContractsConfig{
+						TokenSymbol: changeset.LinkSymbol,
+						PoolUpdates: poolUpdates,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+					changeset.UpdateOnRampDestsConfig{
+						UpdatesByChain: onRampUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+					changeset.UpdateFeeQuoterPricesConfig{
+						PricesByChain: pricesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+					changeset.UpdateFeeQuoterDestsConfig{
+						UpdatesByChain: feeQuoterDestsUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
+					changeset.UpdateOffRampSourcesConfig{
+						UpdatesByChain: updateOffRampSources,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+					changeset.UpdateRouterRampsConfig{
+						UpdatesByChain: updateRouterChanges,
+					},
+				),
+			)
+			fmt.Println("finished setting up lane for chain: ", src)
+			return err
+		})
+	}
+	err := eg.Wait()
+	if err != nil {
+		return *e, err
+	}
+
+	_, err = commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
 			changeset.ConfigureTokenPoolContractsConfig{
@@ -512,40 +560,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState, hom
 				PoolUpdates: poolUpdates,
 			},
 		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampUpdatesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: pricesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			changeset.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestsUpdatesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: updateOffRampSources,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
-				UpdatesByChain: updateRouterChanges,
-			},
-		),
 	)
-		},
-	})
-
 	return *e, err
 }
 
