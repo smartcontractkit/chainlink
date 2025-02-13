@@ -157,8 +157,9 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					Name: "PoolLookupTable",
 					Accounts: chainwriter.Lookup{PDALookups: &chainwriter.PDALookups{
 						Name:      "TokenAdminRegistry",
-						PublicKey: getAddressConstant(offrampProgramAddress),
+						PublicKey: getRouterConfig(offrampProgramAddress),
 						Seeds: []chainwriter.Seed{
+							{Static: []byte("token_admin_registry")},
 							{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 						},
 						IsSigner:   false,
