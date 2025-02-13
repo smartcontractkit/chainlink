@@ -1,4 +1,4 @@
-package internal
+package changeset
 
 import (
 	"errors"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -26,13 +28,24 @@ type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
-// TODO move this out of internal
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
+}
+
+func (cs ContractSet) Convert() internal.ContractSet {
+	return internal.ContractSet{
+		MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
+			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
+		},
+		Forwarder:            cs.Forwarder,
+		WorkflowRegistry:     cs.WorkflowRegistry,
+		OCR3:                 cs.OCR3,
+		CapabilitiesRegistry: cs.CapabilitiesRegistry,
+	}
 }
 
 func (cs ContractSet) TransferableContracts() []common.Address {
@@ -52,6 +65,31 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 		out = append(out, cs.WorkflowRegistry.Address())
 	}
 	return out
+}
+
+func (cs ContractSet) View() (KeystoneChainView, error) {
+	out := NewKeystoneChainView()
+	if cs.CapabilitiesRegistry != nil {
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+		if err != nil {
+			return KeystoneChainView{}, err
+		}
+		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+	}
+
+	if cs.OCR3 != nil {
+		for addr, ocr3Cap := range cs.OCR3 {
+			oc := *ocr3Cap
+			addrCopy := addr
+			ocrView, err := GenerateOCR3ConfigView(oc)
+			if err != nil {
+				return KeystoneChainView{}, err
+			}
+			out.OCR3ConfigView[addrCopy.String()] = ocrView
+		}
+	}
+
+	return out, nil
 }
 
 func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {

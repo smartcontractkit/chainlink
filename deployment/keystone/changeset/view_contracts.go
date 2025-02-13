@@ -1,4 +1,4 @@
-package view
+package changeset
 
 import (
 	"encoding/json"

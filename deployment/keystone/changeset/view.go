@@ -8,21 +8,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 )
 
 var _ deployment.ViewState = ViewKeystone
 
 func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
-	state, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
+	state, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})
 	if err != nil {
 		return nil, err
 	}
-	chainViews := make(map[string]view.KeystoneChainView)
+	chainViews := make(map[string]KeystoneChainView)
 	for chainSel, contracts := range state.ContractSets {
 		chainid, err := chainsel.ChainIdFromSelector(chainSel)
 		if err != nil {
@@ -42,7 +40,7 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to view nops: %w", err)
 	}
-	return &view.KeystoneView{
+	return &KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
 	}, nil

@@ -87,7 +87,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
