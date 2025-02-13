@@ -8,7 +8,7 @@ import (
 )
 
 type OpDeps struct {
-	Operation func(a, b int) int
+	Operation func(a, b int) (int, error)
 }
 
 type OpInput struct {
@@ -18,7 +18,7 @@ type OpInput struct {
 
 // Create an instance using NewOperation
 var op = NewOperation("V1", "Description", func(ctx OpContext, deps OpDeps, input OpInput) (int, error) {
-	return deps.Operation(input.A, input.B), nil
+	return deps.Operation(input.A, input.B)
 })
 
 func TestOperation(t *testing.T) {
@@ -30,7 +30,7 @@ func TestOperation(t *testing.T) {
 	// Build Deps
 	deps := OpDeps{
 		// The operation this time adds two numbers
-		Operation: func(a, b int) int { return a + b },
+		Operation: func(a, b int) (int, error) { return a + b, nil },
 	}
 
 	res, err := op.Execute(ctx, deps, OpInput{A: 1, B: 2})
@@ -48,7 +48,7 @@ func TestExecuteOperation(t *testing.T) {
 	// Build Deps
 	deps := OpDeps{
 		// The operation this time multiply two numbers
-		Operation: func(a, b int) int { return a * b },
+		Operation: func(a, b int) (int, error) { return a * b, nil },
 	}
 	// Execute the operation
 	report, err := ExecuteOp(env, op, deps, OpInput{A: 2, B: 2})
