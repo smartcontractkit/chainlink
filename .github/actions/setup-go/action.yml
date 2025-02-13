@@ -4,7 +4,7 @@ inputs:
   only-modules:
     description: Set to 'true' to only cache modules
     default: "false"
-  cache-version: 
+  cache-version:
     description: Set this to cache bust
     default: "1"
   build-cache-version:
@@ -97,7 +97,7 @@ runs:
 
     - uses: actions/cache/restore@v4
       name: Cache Go Build Outputs (restore)
-      # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one. 
+      # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one.
       if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
       with:
         path: |
@@ -106,8 +106,6 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
           ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-
-          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
 
     - uses: actions/cache@v4
       # don't save cache on merge queue events
@@ -121,5 +119,3 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
           ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-
-          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-

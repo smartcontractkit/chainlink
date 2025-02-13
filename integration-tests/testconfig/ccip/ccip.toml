@@ -242,16 +242,14 @@ addresses_to_fund = [
 ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
-# replace this with the loki endpoint of the crib stack
-LokiEndpoint = "http://loki.localhost/loki/api/v1/push"
-# MessageTypeWeights corresponds with [data only, token only, message with data]
-MessageTypeWeights = [100,0,0]
+# MessageTypeWeights corresponds with [data only, token only, message with token]
+#MessageTypeWeights = [100,0,0]
+MessageTypeWeights = [10,45,45]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "10s"
-LoadDuration = "1m"
-# test duration
-TestDuration = "5h"
+LoadDuration = "30s"
 # destination chain selectors to send messages to
-EnabledDestionationChains = [3379446385462418246]
+NumDestinationChains = 2
 # Directory where we receive environment configuration from crib
-CribEnvDirectory = "/Users/austin.wang/ccip-core/repos/crib/deployments/ccip-v2/.tmp"
+CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
+TimeoutDuration = "1h"

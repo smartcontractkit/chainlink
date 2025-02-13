@@ -103,11 +103,11 @@ func Test_UpdateAuthorizedAddresses_WithMCMS(t *testing.T) {
 		},
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(workflowregistry.UpdateAuthorizedAddresses),
-			Config:    req,
-		},
-	})
+	_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(workflowregistry.UpdateAuthorizedAddresses),
+			req,
+		),
+	)
 	require.NoError(t, err)
 }

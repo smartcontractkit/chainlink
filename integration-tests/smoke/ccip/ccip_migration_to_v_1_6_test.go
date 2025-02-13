@@ -14,18 +14,22 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -80,10 +84,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
 
 	// permabless the commit stores
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5.PermaBlessCommitStoreChangeset),
-			Config: v1_5.PermaBlessCommitStoreConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
+			v1_5.PermaBlessCommitStoreConfig{
 				Configs: map[uint64]v1_5.PermaBlessCommitStoreConfigPerDest{
 					dest: {
 						Sources: []v1_5.PermaBlessConfigPerSourceChain{
@@ -99,8 +103,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	// reload state after adding lanes
 	state, err = changeset.LoadOnchainState(e.Env)
@@ -166,15 +170,15 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		}
 	}
 
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	// add 1.6 contracts to the environment and send 1.6 jobs
 	// First we need to deploy Homechain contracts and restart the nodes with updated cap registry
@@ -182,20 +186,20 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
 	// Set RMNProxy to point to RMNRemote.
 	// nonce manager should point to 1.5 ramps
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
+			changeset.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: e.Env.AllChainSelectors(),
 				MCMSConfig: &changeset.MCMSConfig{
 					MinDelay: 0,
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersChangeset),
-			Config: changeset.UpdateNonceManagerConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
+			changeset.UpdateNonceManagerConfig{
 				// we only have lanes between src1 --> dest
 				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
 					src1: {
@@ -228,8 +232,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	state, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -281,10 +285,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 
 	// now that the 1.6 lane is working, we can enable the real router
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+			changeset.UpdateOnRampDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 					src1: {
 						dest: {
@@ -295,10 +299,10 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			Config: changeset.UpdateOffRampSourcesConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
+			changeset.UpdateOffRampSourcesConfig{
 				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 					dest: {
 						src1: {
@@ -309,11 +313,11 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// this needs to be MCMS proposal as the router contract is owned by MCMS
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
+			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+			changeset.UpdateRouterRampsConfig{
 				TestRouter: false,
 				MCMS: &changeset.MCMSConfig{
 					MinDelay: 0,
@@ -333,8 +337,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	// confirm that the other lane src2->dest is still working with v1.5
 	sentEventOnOtherLane, err := v1_5testhelpers.SendRequest(t, e.Env, state,
