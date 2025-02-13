@@ -256,7 +256,9 @@ TimeoutDuration = "1h"
 
 [CCIP.Chaos]
 Namespace = "default"
-ExperimentFullInterval = "30s"
-ExperimentInjectionInterval = "10s"
+ExperimentFullInterval = "3m"
+ExperimentInjectionInterval = "30s"
+ReorgDepthBelowFinality = 20
+ReorgDepthAboveFinality = 60
 SrcChainURL = "http://localhost:8545"
 DstChainURL = "http://localhost:8545"

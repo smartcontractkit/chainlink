@@ -2,19 +2,36 @@ package ccip
 
 import (
 	"context"
+	"fmt"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	framework "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
+	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
+	"github.com/smartcontractkit/chainlink/load-tests/ccip/template"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
-	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/load-tests/ccip/template"
 )
+
+func Ptr[T any](value T) *T { return &value }
+
+func a(ns, text string, from, to *time.Time) framework.Annotation {
+	a := framework.Annotation{
+		Text:         fmt.Sprintf("Namespace: %s, Test: %s", ns, text),
+		StartTime:    from,
+		Tags:         []string{"chaos"},
+		DashboardUID: []string{"WaspDebug"},
+	}
+	if !to.IsZero() {
+		a.EndTime = to
+	}
+	return a
+}
 
 func TestK8sChaos(t *testing.T) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
@@ -25,6 +42,8 @@ func TestK8sChaos(t *testing.T) {
 	require.NoError(t, err)
 	cfg := config.CCIP.Chaos
 	cr := template.NewChaosRunner(l, c)
+
+	gc := framework.NewGrafanaClient(os.Getenv("GRAFANA_URL"), os.Getenv("GRAFANA_TOKEN"))
 
 	testCases := []struct {
 		name     string
@@ -61,7 +80,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "Fail one node",
+			name: "Fail one CL node",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodFail(context.Background(),
 					template.PodFailCfg{
@@ -75,7 +94,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "Fail two nodes",
+			name: "Fail two CL nodes",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodFail(context.Background(),
 					template.PodFailCfg{
@@ -89,13 +108,41 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "Fail one node DB",
+			name: "Fail one CL node DB",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodFail(context.Background(),
 					template.PodFailCfg{
 						Namespace:         cfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
 						LabelValues:       []string{"chainlink-don-db-0"},
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "Fail one RMN node",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodFail(context.Background(),
+					template.PodFailCfg{
+						Namespace:         cfg.Namespace,
+						LabelKey:          "app.kubernetes.io/instance",
+						LabelValues:       []string{"rmn-0"},
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "Fail two RMN nodes",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodFail(context.Background(),
+					template.PodFailCfg{
+						Namespace:         cfg.Namespace,
+						LabelKey:          "app.kubernetes.io/instance",
+						LabelValues:       []string{"rmn-0", "rmn-1"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
 				require.NoError(t, err)
@@ -138,7 +185,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "One slow node",
+			name: "One slow CL node",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodDelay(context.Background(),
 					template.PodDelayCfg{
@@ -155,7 +202,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "Two slow nodes",
+			name: "Two slow CL nodes",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodDelay(context.Background(),
 					template.PodDelayCfg{
@@ -172,7 +219,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "One slow node DB",
+			name: "One slow CL node DB",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodDelay(context.Background(),
 					template.PodDelayCfg{
@@ -188,9 +235,43 @@ func TestK8sChaos(t *testing.T) {
 			},
 			validate: func(t *testing.T) {},
 		},
+		{
+			name: "One slow RMN node",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodDelay(context.Background(),
+					template.PodDelayCfg{
+						Namespace:         cfg.Namespace,
+						LabelKey:          "app.kubernetes.io/instance",
+						LabelValues:       []string{"rmn-0"},
+						Latency:           200 * time.Millisecond,
+						Jitter:            200 * time.Millisecond,
+						Correlation:       "0",
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "Two slow RMN nodes",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodDelay(context.Background(),
+					template.PodDelayCfg{
+						Namespace:         cfg.Namespace,
+						LabelKey:          "app.kubernetes.io/instance",
+						LabelValues:       []string{"rmn-0", "rmn-1"},
+						Latency:           200 * time.Millisecond,
+						Jitter:            200 * time.Millisecond,
+						Correlation:       "0",
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
 		// network partition
 		{
-			name: "One node partition",
+			name: "CL node <> CL nodes partition",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodPartition(context.Background(),
 					template.PodPartitionCfg{
@@ -206,7 +287,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "Two nodes partition",
+			name: "2 CL nodes <> 2 CL nodes partition",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodPartition(context.Background(),
 					template.PodPartitionCfg{
@@ -222,7 +303,7 @@ func TestK8sChaos(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "One node to DB partition",
+			name: "CL node <> DB partition",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodPartition(context.Background(),
 					template.PodPartitionCfg{
@@ -231,6 +312,54 @@ func TestK8sChaos(t *testing.T) {
 						LabelFromValues:   []string{"ccip-0"},
 						LabelToKey:        "app.kubernetes.io/instance",
 						LabelToValues:     []string{"chainlink-don-db-0"},
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "RMN node <> RMN node",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodPartition(context.Background(),
+					template.PodPartitionCfg{
+						Namespace:         cfg.Namespace,
+						LabelFromKey:      "app.kubernetes.io/instance",
+						LabelFromValues:   []string{"rmn-0"},
+						LabelToKey:        "app.kubernetes.io/instance",
+						LabelToValues:     []string{"rmn-1", "rmn-2", "rmn-3"},
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "2 RMN nodes <> 2 RMN nodes partition",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodPartition(context.Background(),
+					template.PodPartitionCfg{
+						Namespace:         cfg.Namespace,
+						LabelFromKey:      "app.kubernetes.io/instance",
+						LabelFromValues:   []string{"rmn-0", "rmn-1"},
+						LabelToKey:        "app.kubernetes.io/instance",
+						LabelToValues:     []string{"rmn-2", "rmn-3"},
+						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+					})
+				require.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		{
+			name: "2 CL nodes <> 2 RMN nodes partition",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodPartition(context.Background(),
+					template.PodPartitionCfg{
+						Namespace:         cfg.Namespace,
+						LabelFromKey:      "app.kubernetes.io/instance",
+						LabelFromValues:   []string{"ccip-0", "ccip-1"},
+						LabelToKey:        "app.kubernetes.io/instance",
+						LabelToValues:     []string{"rmn-2", "rmn-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
 				require.NoError(t, err)
@@ -283,8 +412,10 @@ func TestK8sChaos(t *testing.T) {
 	// Run test cases
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			n := time.Now()
 			testCase.run(t)
 			time.Sleep(cfg.GetExperimentInterval())
+			_, _, err = gc.Annotate(a(cfg.Namespace, testCase.name, Ptr(n), Ptr(time.Now())))
 			testCase.validate(t)
 		})
 	}
