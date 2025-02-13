@@ -9,8 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -62,42 +63,46 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	if err := cfg.Validate(state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	timelocks, err := state.GetAllTimeLocksForChains(cfg.ChainSelectors)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get timelocks for chains %v: %w", cfg.ChainSelectors, err)
-	}
-	multiSigs, err := state.GetAllProposerMCMSForChains(cfg.ChainSelectors)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get proposer MCMS for chains %v: %w", cfg.ChainSelectors, err)
-	}
-	var timelockBatch []timelock.BatchChainOperation
+
+	timelocks := BuildTimelockAddressPerChain(e, state)
+	proposerMcms := BuildProposerMcmAddressesPerChain(e, state)
+
+	inspectors := map[uint64]mcmssdk.Inspector{}
+	timelockBatch := []mcmstypes.BatchOperation{}
 	for _, sel := range cfg.ChainSelectors {
 		chain, exists := e.Chains[sel]
 		if !exists {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found", sel)
 		}
+
+		inspectors[sel], err = proposalutils.McmsInspectorForChain(e, sel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+
 		txOpts := chain.DeployerKey
 		if cfg.MCMSConfig != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
-		mcmsOps, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
+		batchOperation, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
 		}
+
 		if cfg.MCMSConfig != nil {
-			timelockBatch = append(timelockBatch, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(sel),
-				Batch:           []mcms.Operation{mcmsOps},
-			})
+			timelockBatch = append(timelockBatch, batchOperation)
 		}
 	}
 	// If we're not using MCMS, we can just return now as we've already confirmed the transactions
 	if len(timelockBatch) == 0 {
 		return deployment.ChangesetOutput{}, nil
 	}
-	prop, err := proposalutils.BuildProposalFromBatches(
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
-		multiSigs,
+		proposerMcms,
+		inspectors,
 		timelockBatch,
 		fmt.Sprintf("proposal to set RMNRemote on RMNProxy for chains %v", cfg.ChainSelectors),
 		cfg.MCMSConfig.MinDelay,
@@ -106,30 +111,35 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 		return deployment.ChangesetOutput{}, err
 	}
 	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{
 			*prop,
 		},
 	}, nil
 }
 
-func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain, chainState CCIPChainState, mcmsEnabled bool) (mcms.Operation, error) {
+func setRMNRemoteOnRMNProxyOp(
+	txOpts *bind.TransactOpts, chain deployment.Chain, chainState CCIPChainState, mcmsEnabled bool,
+) (mcmstypes.BatchOperation, error) {
 	rmnProxy := chainState.RMNProxy
 	rmnRemoteAddr := chainState.RMNRemote.Address()
 	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
 	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
 	}
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(chain, setRMNTx, rmn_proxy_contract.RMNProxyABI, err)
 		if err != nil {
-			return mcms.Operation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
+			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
 		}
 	}
-	return mcms.Operation{
-		To:    rmnProxy.Address(),
-		Data:  setRMNTx.Data(),
-		Value: big.NewInt(0),
-	}, nil
+
+	batchOperation, err := proposalutils.BatchOperationForChain(chain.Selector, rmnProxy.Address().Hex(),
+		setRMNTx.Data(), big.NewInt(0), string(RMN), []string{})
+	if err != nil {
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to create batch operation for chain%s: %w", chain.String(), err)
+	}
+
+	return batchOperation, nil
 }
 
 type RMNNopConfig struct {
@@ -347,7 +357,6 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 	if config.MCMSConfig == nil {
 		chain := e.Chains[config.HomeChainSelector]
 		_, err := chain.Confirm(setCandidateTx)
-
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
@@ -355,38 +364,33 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	op := mcms.Operation{
-		To:    rmnHome.Address(),
-		Data:  setCandidateTx.Data(),
-		Value: big.NewInt(0),
+	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
+		setCandidateTx.Data(), big.NewInt(0), string(RMN), []string{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
-	batches := []timelock.BatchChainOperation{
-		{
-			ChainIdentifier: mcms.ChainIdentifier(config.HomeChainSelector),
-			Batch:           []mcms.Operation{op},
-		},
+	timelocks := BuildTimelockAddressPerChain(e, state)
+	proposerMcms := BuildProposerMcmAddressesPerChain(e, state)
+	inspectors, err := proposalutils.McmsInspectors(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
-
-	proposerMCMSes := BuildProposerPerChain(e, state)
-
-	prop, err := proposalutils.BuildProposalFromBatches(
-		timelocksPerChain,
-		proposerMCMSes,
-		batches,
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposerMcms,
+		inspectors,
+		[]mcmstypes.BatchOperation{operation},
 		"proposal to set candidate config",
 		config.MCMSConfig.MinDelay,
 	)
-
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
-	}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
@@ -430,7 +434,6 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	if config.MCMSConfig == nil {
 		chain := e.Chains[config.HomeChainSelector]
 		_, err := chain.Confirm(promoteCandidateTx)
-
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm tx for chain %s: %w", homeChain.String(), deployment.MaybeDataErr(err))
 		}
@@ -438,37 +441,36 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	op := mcms.Operation{
-		To:    rmnHome.Address(),
-		Data:  promoteCandidateTx.Data(),
-		Value: big.NewInt(0),
+	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
+		promoteCandidateTx.Data(), big.NewInt(0), string(RMN), []string{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 	}
 
-	batches := []timelock.BatchChainOperation{
-		{
-			ChainIdentifier: mcms.ChainIdentifier(config.HomeChainSelector),
-			Batch:           []mcms.Operation{op},
-		},
+	timelocks := BuildTimelockAddressPerChain(e, state)
+	proposerMcms := BuildProposerMcmAddressesPerChain(e, state)
+
+	inspectors := map[uint64]mcmssdk.Inspector{}
+	inspectors[config.HomeChainSelector], err = proposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
-
-	proposerMCMSes := BuildProposerPerChain(e, state)
-
-	prop, err := proposalutils.BuildProposalFromBatches(
-		timelocksPerChain,
-		proposerMCMSes,
-		batches,
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposerMcms,
+		inspectors,
+		[]mcmstypes.BatchOperation{operation},
 		"proposal to promote candidate config",
 		config.MCMSConfig.MinDelay,
 	)
-
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
 	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
 }
 
@@ -693,7 +695,7 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 	}
 
 	rmnRemotePerChain := BuildRMNRemotePerChain(e, state)
-	batches := make([]timelock.BatchChainOperation, 0)
+	batches := make([]mcmstypes.BatchOperation, 0)
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
 		if !ok {
@@ -731,31 +733,31 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 			}
 		}
 
-		op := mcms.Operation{
-			To:    remote.Address(),
-			Data:  tx.Data(),
-			Value: big.NewInt(0),
+		operation, err := proposalutils.BatchOperationForChain(e.Chains[chain].Selector, remote.Address().Hex(),
+			tx.Data(), big.NewInt(0), string(RMN), []string{})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
 		}
 
-		batch := timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(chain),
-			Batch:           []mcms.Operation{op},
-		}
-
-		batches = append(batches, batch)
+		batches = append(batches, operation)
 	}
 
 	if config.MCMSConfig == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
+	timelocks := BuildTimelockAddressPerChain(e, state)
+	proposerMcms := BuildProposerMcmAddressesPerChain(e, state)
+	inspectors, err := proposalutils.McmsInspectors(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+	}
 
-	proposerMCMSes := BuildProposerPerChain(e, state)
-
-	prop, err := proposalutils.BuildProposalFromBatches(
-		timelocksPerChain,
-		proposerMCMSes,
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposerMcms,
+		inspectors,
 		batches,
 		"proposal to promote candidate config",
 		config.MCMSConfig.MinDelay,
@@ -765,7 +767,5 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal for chain %s: %w", homeChain.String(), err)
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
-	}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }

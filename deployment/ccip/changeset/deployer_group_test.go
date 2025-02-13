@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -331,13 +331,13 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	cs, err := dummyDeployerGroupMintMultiDeploymentContextChangeset(e.Env, tc)
 	require.NoError(t, err)
-	require.Len(t, cs.Proposals, len(tc.mints))
-	require.Equal(t, "mint tokens 1", cs.Proposals[0].Description)
-	require.Equal(t, "mint tokens 2", cs.Proposals[1].Description)
-	require.Equal(t, "mint tokens 3", cs.Proposals[2].Description)
-	require.Equal(t, uint64(2), cs.Proposals[0].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(3), cs.Proposals[1].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
-	require.Equal(t, uint64(2), cs.Proposals[2].ChainMetadata[mcms.ChainIdentifier(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
+	require.Len(t, cs.MCMSTimelockProposals, len(tc.mints))
+	require.Equal(t, "mint tokens 1", cs.MCMSTimelockProposals[0].Description)
+	require.Equal(t, "mint tokens 2", cs.MCMSTimelockProposals[1].Description)
+	require.Equal(t, "mint tokens 3", cs.MCMSTimelockProposals[2].Description)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
+	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
 }
 
 func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
@@ -424,5 +424,5 @@ func TestEmptyBatch(t *testing.T) {
 
 	result, err := dummyEmptyBatchChangeset(e.Env, cfg)
 	require.NoError(t, err)
-	require.Empty(t, result.Proposals)
+	require.Empty(t, result.MCMSTimelockProposals)
 }
