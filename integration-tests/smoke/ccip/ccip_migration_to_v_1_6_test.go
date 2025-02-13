@@ -206,7 +206,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 						PreviousRampsArgs: []changeset.PreviousRampCfg{
 							{
 								RemoteChainSelector: dest,
-								EnableOnRamp:        true,
 							},
 						},
 					},
@@ -214,7 +213,6 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 						PreviousRampsArgs: []changeset.PreviousRampCfg{
 							{
 								RemoteChainSelector: dest,
-								EnableOnRamp:        true,
 							},
 						},
 					},
@@ -222,11 +220,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 						PreviousRampsArgs: []changeset.PreviousRampCfg{
 							{
 								RemoteChainSelector: src1,
-								EnableOffRamp:       true,
 							},
 							{
 								RemoteChainSelector: src2,
-								EnableOffRamp:       true,
 							},
 						},
 					},
