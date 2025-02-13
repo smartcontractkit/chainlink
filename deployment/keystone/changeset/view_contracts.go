@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -29,6 +30,8 @@ type OCR3ConfigView struct {
 	OffchainConfig        interface{}         `json:"offchainConfig"` // TODO: we need a struct here to hold the values
 }
 
+var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
+
 func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
 	details, err := ocr3Cap.LatestConfigDetails(nil)
 	if err != nil {
@@ -45,6 +48,9 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		return OCR3ConfigView{}, err
 	}
 
+	if config.Event == nil {
+		return OCR3ConfigView{}, ErrOCR3NotConfigured
+	}
 	var signers []ocr2types.OnchainPublicKey
 	var readableSigners []string
 	for _, s := range config.Event.Signers {

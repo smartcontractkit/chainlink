@@ -98,7 +98,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+	resp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

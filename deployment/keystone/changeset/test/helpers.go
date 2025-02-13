@@ -22,7 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	kschangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
+	changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
@@ -81,8 +82,8 @@ type TestEnv struct {
 	AssetNodes map[string]memory.Node
 }
 
-func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
-	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
+func (te TestEnv) ContractSets() map[uint64]changeset.ContractSet {
+	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      te.Env.Chains,
 		AddressBook: te.Env.ExistingAddresses,
 	})
@@ -91,7 +92,7 @@ func (te TestEnv) ContractSets() map[uint64]internal.ContractSet {
 }
 
 func (te TestEnv) CapabilitiesRegistry() *kcr.CapabilitiesRegistry {
-	r, err := internal.GetContractSets(te.Env.Logger, &internal.GetContractSetsRequest{
+	r, err := changeset.GetContractSets(te.Env.Logger, &changeset.GetContractSetsRequest{
 		Chains:      te.Env.Chains,
 		AddressBook: te.Env.ExistingAddresses,
 	})
@@ -141,16 +142,16 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	}
 	e, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(kschangeset.DeployCapabilityRegistry),
+			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
 			registryChainSel,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(kschangeset.DeployOCR3),
+			deployment.CreateLegacyChangeSet(changeset.DeployOCR3),
 			registryChainSel,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(kschangeset.DeployForwarder),
-			kschangeset.DeployForwarderRequest{},
+			deployment.CreateLegacyChangeSet(changeset.DeployForwarder),
+			changeset.DeployForwarderRequest{},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(workflowregistry.Deploy),
@@ -244,7 +245,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	}
 	var allDons = []internal.DonCapabilities{wfDon, cwDon, assetDon}
 
-	csOut, err := kschangeset.ConfigureInitialContractsChangeset(env, kschangeset.InitialContractsCfg{
+	csOut, err := changeset.ConfigureInitialContractsChangeset(env, changeset.InitialContractsCfg{
 		RegistryChainSel: registryChainSel,
 		Dons:             allDons,
 		OCR3Config:       &ocr3Config,
@@ -252,12 +253,12 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := &internal.GetContractSetsRequest{
+	req := &changeset.GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	}
 
-	contractSetsResp, err := internal.GetContractSets(lggr, req)
+	contractSetsResp, err := changeset.GetContractSets(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
@@ -292,7 +293,7 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		)
 		require.NoError(t, err)
 		// extract the MCMS address
-		r, err := internal.GetContractSets(lggr, &internal.GetContractSetsRequest{
+		r, err := changeset.GetContractSets(lggr, &changeset.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
 		})
@@ -308,8 +309,8 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
 				},
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(kschangeset.AcceptAllOwnershipsProposal),
-					&kschangeset.AcceptAllOwnershipRequest{
+					deployment.CreateLegacyChangeSet(changeset.AcceptAllOwnershipsProposal),
+					&changeset.AcceptAllOwnershipRequest{
 						ChainSelector: sel,
 						MinDelay:      0,
 					},

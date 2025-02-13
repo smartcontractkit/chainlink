@@ -68,7 +68,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	contractSetsResp, err := GetContractSets(lggr, &GetContractSetsRequest{
+	contractSetsResp, err := getContractSets(lggr, &getContractSetsRequest{
 		Chains:      req.Env.Chains,
 		AddressBook: req.Env.ExistingAddresses,
 	})
@@ -148,7 +148,7 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*c
 		return nil, deployment.Chain{}, fmt.Errorf("chain %d not found in environment", registryChainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
+	contractSetsResp, err := getContractSets(e.Logger, &getContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})
@@ -297,7 +297,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
 
-	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	contractSetsResp, err := getContractSets(env.Logger, &getContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -315,7 +315,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 			return fmt.Errorf("failed to get contract set for chain %d", chainSel)
 		}
 
-		contract, err := contracts.GetOCR3Contract(nil)
+		contract, err := contracts.getOCR3Contract(nil)
 		if err != nil {
 			env.Logger.Errorf("failed to get OCR3 contract: %s", err)
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
@@ -361,7 +361,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 	}
-	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	contractSetsResp, err := getContractSets(env.Logger, &getContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -373,7 +373,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, fmt.Errorf("failed to get contract set for chain %d", cfg.ChainSel)
 	}
 
-	contract, err := contracts.GetOCR3Contract(cfg.Address)
+	contract, err := contracts.getOCR3Contract(cfg.Address)
 	if err != nil {
 		env.Logger.Errorf("%sfailed to get OCR3 contract at %s : %s", prefix, cfg.Address, err)
 		return nil, fmt.Errorf("failed to get OCR3 contract: %w", err)

@@ -17,16 +17,10 @@ import (
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
-type GetContractSetsRequest struct {
-	Chains      map[uint64]deployment.Chain
-	AddressBook deployment.AddressBook
-}
-
-type GetContractSetsResponse struct {
-	ContractSets map[uint64]ContractSet
-}
-
-// TODO move this out of internal
+// ContractSet is a set of contracts for a single chain
+// It is a mirror of changeset.ContractSet, and acts an an adapter to the internal package
+//
+// TODO: remove after CRE-227
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
@@ -35,31 +29,21 @@ type ContractSet struct {
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
 
-func (cs ContractSet) TransferableContracts() []common.Address {
-	var out []common.Address
-	if cs.OCR3 != nil {
-		for _, ocr := range cs.OCR3 {
-			out = append(out, ocr.Address())
-		}
-	}
-	if cs.Forwarder != nil {
-		out = append(out, cs.Forwarder.Address())
-	}
-	if cs.CapabilitiesRegistry != nil {
-		out = append(out, cs.CapabilitiesRegistry.Address())
-	}
-	if cs.WorkflowRegistry != nil {
-		out = append(out, cs.WorkflowRegistry.Address())
-	}
-	return out
+type getContractSetsRequest struct {
+	Chains      map[uint64]deployment.Chain
+	AddressBook deployment.AddressBook
 }
 
-func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+type getContractSetsResponse struct {
+	ContractSets map[uint64]ContractSet
+}
+
+func (cs ContractSet) getOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
 
-func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
-	resp := &GetContractSetsResponse{
+func getContractSets(lggr logger.Logger, req *getContractSetsRequest) (*getContractSetsResponse, error) {
+	resp := &getContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}
 	for id, chain := range req.Chains {

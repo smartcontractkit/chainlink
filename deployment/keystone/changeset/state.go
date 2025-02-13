@@ -67,12 +67,16 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 	return out
 }
 
-func (cs ContractSet) View() (KeystoneChainView, error) {
+// View is a view of the keystone chain
+// It is best effort and logs errors
+func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
+	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
 		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
 		if err != nil {
-			return KeystoneChainView{}, err
+			allErrs = errors.Join(allErrs, err)
+			lggr.Warn("failed to generate capability registry view: %w", err)
 		}
 		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
 	}
@@ -83,13 +87,19 @@ func (cs ContractSet) View() (KeystoneChainView, error) {
 			addrCopy := addr
 			ocrView, err := GenerateOCR3ConfigView(oc)
 			if err != nil {
-				return KeystoneChainView{}, err
+				allErrs = errors.Join(allErrs, err)
+				// don't block view on single OCR3 not being configured
+				if errors.Is(err, ErrOCR3NotConfigured) {
+					lggr.Warnf("ocr3 not configured for address %s", addr)
+				} else {
+					lggr.Errorf("failed to generate OCR3 config view: %w", err)
+				}
 			}
 			out.OCR3ConfigView[addrCopy.String()] = ocrView
 		}
 	}
 
-	return out, nil
+	return out, allErrs
 }
 
 func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
