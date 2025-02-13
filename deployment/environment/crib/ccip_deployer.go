@@ -104,7 +104,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
-	fmt.Println("setting up chains...")
+	lggr.Infow("setting up chains...")
 	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
@@ -115,7 +115,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	fmt.Println("setting up lanes...")
+	lggr.Infow("setting up lanes...")
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
@@ -124,7 +124,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 
 	// ----- Part 2 -----
-	fmt.Println("setting up ocr...")
+	lggr.Infow("setting up ocr...")
 	*e, err = setupOCR(e, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
@@ -133,7 +133,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
-	fmt.Println("distributing funds...")
+	lggr.Infow("distributing funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
@@ -159,7 +159,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	e.ExistingAddresses = ab
 
 	// Setup because we only need to deploy the contracts and distribute job specs
-	fmt.Println("setting up chains...")
+	lggr.Infow("setting up chains...")
 	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
@@ -188,7 +188,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	fmt.Println("setting up lanes...")
+	lggr.Infow("setting up lanes...")
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
@@ -214,7 +214,7 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}
 	e.ExistingAddresses = ab
 
-	fmt.Println("setting up ocr...")
+	lggr.Infow("setting up ocr...")
 	*e, err = setupOCR(e, homeChainSel, feedChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
@@ -242,7 +242,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
-	fmt.Println("distributing funds...")
+	lggr.Infow("distributing funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
