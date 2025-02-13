@@ -12,7 +12,6 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -20,7 +19,6 @@ import (
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	transmittersStr := make([]common.Address, 0)
 	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
-	minThreshold := new(big.Int).Mul(deployment.UBigInt(5), deployment.UBigInt(1e16))    // 0.05 ETH
 
 	g := new(errgroup.Group)
 	for sel, chain := range env.Chains {
@@ -33,20 +31,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					return err
 				}
 				addr := common.HexToAddress(n.AccountAddr[chainID])
-				balance, err := chain.Client.BalanceAt(env.GetContext(), addr, nil)
-				if err != nil {
-					lggr.Errorw("error fetching balance for %s: %v\n", n.Name, err)
-					return err
-				}
-				if balance.Cmp(minThreshold) < 0 {
-					lggr.Infow(
-						"sending funds to",
-						"node", n.Name,
-						"address", addr.String(),
-						"amount", conversions.WeiToEther(fundingAmount).String(),
-					)
-					transmittersStr = append(transmittersStr, addr)
-				}
+				transmittersStr = append(transmittersStr, addr)
 			}
 			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
 		})

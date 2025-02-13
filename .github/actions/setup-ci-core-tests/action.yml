@@ -33,13 +33,9 @@ runs:
       working-directory: ${{ inputs.go-mod-download-directory }}
       run: go mod download
 
-    - name: Build binary
-      shell: bash
-      run: go build -o chainlink.test .
-
     - name: Setup DB
       shell: bash
-      run: ./chainlink.test local db preparetest
+      run: go run ./core/store/cmd/preparetest
       env:
         CL_DATABASE_URL: ${{ inputs.db-url }}
 
