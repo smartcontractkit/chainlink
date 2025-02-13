@@ -35,19 +35,24 @@ func TestAddNodes(t *testing.T) {
 		checkErr func(t *testing.T, useMCMS bool, err error)
 	}
 
-	var mcmsCases = []*mcmsTestCase{
+	type mcmsCase struct {
+		name       string
+		mcmsConfig *changeset.MCMSConfig
+	}
+
+	var mcCases = []mcmsCase{
 		{name: "no mcms", mcmsConfig: nil},
 		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDuration: 0}},
 	}
-
-	for _, mc := range mcmsCases {
-		t.Run(mc.name, func(t *testing.T) {
+	for _, mcCase := range mcCases {
+		mcmsConfig := mcCase.mcmsConfig
+		t.Run(mcCase.name, func(t *testing.T) {
 			te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 				WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 				NumChains:       1,
-				UseMCMS:         mc != nil,
+				UseMCMS:         mcmsConfig != nil,
 			})
 
 			var cases = []testCase{
@@ -65,7 +70,7 @@ func TestAddNodes(t *testing.T) {
 								P2PID:               testPeerID(t, "test-peer-id"),
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -93,7 +98,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -121,7 +126,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 				{
@@ -152,7 +157,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 
@@ -184,7 +189,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -220,7 +225,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc.mcmsConfig,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)

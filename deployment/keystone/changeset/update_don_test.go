@@ -17,26 +17,37 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+var (
+	capA = kcr.CapabilitiesRegistryCapability{
+		LabelledName: "capA",
+		Version:      "0.4.2",
+	}
+	capB = kcr.CapabilitiesRegistryCapability{
+		LabelledName: "capB",
+		Version:      "3.16.0",
+	}
+	caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
+)
+
 func TestUpdateDon(t *testing.T) {
 	t.Parallel()
 
-	var (
-		capA = kcr.CapabilitiesRegistryCapability{
-			LabelledName: "capA",
-			Version:      "0.4.2",
-		}
-		capB = kcr.CapabilitiesRegistryCapability{
-			LabelledName: "capB",
-			Version:      "3.16.0",
-		}
-		caps = []kcr.CapabilitiesRegistryCapability{capA, capB}
-	)
-	capACfg := test.GetDefaultCapConfig(t, capA)
-	capACfgB, err := proto.Marshal(capACfg)
+	capACfg, err := proto.Marshal(test.GetDefaultCapConfig(t, capA))
 	require.NoError(t, err)
-	capBCfg := test.GetDefaultCapConfig(t, capB)
-	capBCfgB, err := proto.Marshal(capBCfg)
+
+	capBCfg, err := proto.Marshal(test.GetDefaultCapConfig(t, capB))
 	require.NoError(t, err)
+
+	type input struct {
+		te              test.EnvWrapper
+		nodeSetToUpdate []p2pkey.PeerID
+		mcmsConfig      *changeset.MCMSConfig
+	}
+	type testCase struct {
+		name     string
+		input    input
+		checkErr func(t *testing.T, useMCMS bool, err error)
+	}
 
 	var mcmsCases = []mcmsTestCase{
 		{name: "no mcms", mcmsConfig: nil},
@@ -44,7 +55,6 @@ func TestUpdateDon(t *testing.T) {
 	}
 
 	for _, mc := range mcmsCases {
-
 		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
@@ -54,36 +64,33 @@ func TestUpdateDon(t *testing.T) {
 		})
 
 		t.Run(mc.name, func(t *testing.T) {
-			type testCase struct {
-				name            string
-				nodeSetToUpdate []p2pkey.PeerID
-				checkErr        func(t *testing.T, useMCMS bool, err error)
-				mcmsConfig      *changeset.MCMSConfig
-			}
 			var cases = []testCase{
 				{
-					name:            "forbid wf update",
-					nodeSetToUpdate: te.GetP2PIDs("wfDon"),
+					name: "forbid wf update",
+					input: input{
+						nodeSetToUpdate: te.GetP2PIDs("wfDon"),
+						mcmsConfig:      mc.mcmsConfig,
+						te:              te,
+					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
-						if useMCMS {
-							assert.ErrorContains(t, err, "sadfasdds")
-						}
+						// this error is independent of mcms because it is a pre-txn check
 						assert.ErrorContains(t, err, "refusing to update workflow don")
 					},
-					mcmsConfig: mc.mcmsConfig,
 				},
 				{
-					name:            "writer don update ok",
-					nodeSetToUpdate: te.GetP2PIDs("writerDon"),
-					mcmsConfig:      mc.mcmsConfig,
+					name: "writer don update ok",
+					input: input{
+						te:              te,
+						nodeSetToUpdate: te.GetP2PIDs("writerDon"),
+						mcmsConfig:      mc.mcmsConfig,
+					},
 				},
 			}
 			for _, tc := range cases {
 				t.Run(tc.name, func(t *testing.T) {
-
 					// contract set is already deployed with capabilities
 					// we have to keep track of the existing capabilities to add to the new ones
-					p2pIDs := tc.nodeSetToUpdate
+					p2pIDs := tc.input.nodeSetToUpdate
 					newCapabilities := make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability)
 					for _, id := range p2pIDs {
 						newCapabilities[id] = caps
@@ -94,13 +101,13 @@ func TestUpdateDon(t *testing.T) {
 						P2PIDs:           p2pIDs,
 						CapabilityConfigs: []changeset.CapabilityConfig{
 							{
-								Capability: capA, Config: capACfgB,
+								Capability: capA, Config: capACfg,
 							},
 							{
-								Capability: capB, Config: capBCfgB,
+								Capability: capB, Config: capBCfg,
 							},
 						},
-						MCMSConfig: tc.mcmsConfig,
+						MCMSConfig: tc.input.mcmsConfig,
 					}
 
 					csOut, err := changeset.UpdateDon(te.Env, &cfg)
