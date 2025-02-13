@@ -3,10 +3,11 @@ package changeset
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"slices"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
