@@ -21,9 +21,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
@@ -57,7 +58,7 @@ func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
 }
 
 func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
-	user := evmtestutils.MustNewSimTransactor(t)
+	user := testutils.MustNewSimTransactor(t)
 	sim := simulated.NewBackend(map[common.Address]types.Account{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),

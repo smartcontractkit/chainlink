@@ -194,7 +194,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
-	err = migrate.SetMigrationENVVars(cfg)
+	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
 	}

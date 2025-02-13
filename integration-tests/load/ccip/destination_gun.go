@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
@@ -34,35 +34,50 @@ type SeqNumRange struct {
 type DestinationGun struct {
 	l             logger.Logger
 	env           deployment.Environment
+	state         *ccipchangeset.CCIPOnChainState
 	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
 	testConfig    *ccip.LoadConfig
-	loki          *wasp.LokiClient
+	messageKeys   map[uint64]*bind.TransactOpts
+	chainOffset   int
+	metricPipe    chan messageData
 }
 
-func NewDestinationGun(l logger.Logger, chainSelector uint64, env deployment.Environment, receiver common.Address, overrides *ccip.LoadConfig, loki *wasp.LokiClient) (*DestinationGun, error) {
+func NewDestinationGun(
+	l logger.Logger,
+	chainSelector uint64,
+	env deployment.Environment,
+	state *ccipchangeset.CCIPOnChainState,
+	receiver common.Address,
+	overrides *ccip.LoadConfig,
+	messageKeys map[uint64]*bind.TransactOpts,
+	chainOffset int,
+	metricPipe chan messageData,
+) (*DestinationGun, error) {
 	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
 	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
-		// query for the actual sequence number
 		seqNums[testhelpers.SourceDestPair{
 			SourceChainSelector: cs,
 			DestChainSelector:   chainSelector,
 		}] = SeqNumRange{
-			Start: atomic.NewUint64(0),
+			Start: atomic.NewUint64(math.MaxUint64),
 			End:   atomic.NewUint64(0),
 		}
 	}
 	dg := DestinationGun{
 		l:             l,
 		env:           env,
+		state:         state,
 		seqNums:       seqNums,
 		roundNum:      &atomic.Int32{},
 		chainSelector: chainSelector,
 		receiver:      receiver,
 		testConfig:    overrides,
-		loki:          loki,
+		messageKeys:   messageKeys,
+		chainOffset:   chainOffset,
+		metricPipe:    metricPipe,
 	}
 
 	err := dg.Validate()
@@ -104,10 +119,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
-	lokiLabels, err := setLokiLabels(src, m.chainSelector)
-	if err != nil {
-		m.l.Errorw("Failed setting loki labels", "error", err)
-	}
+	acc := m.messageKeys[src]
 
 	csPair := testhelpers.SourceDestPair{
 		SourceChainSelector: src,
@@ -116,7 +128,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	r := state.Chains[src].Router
 
-	msg, err := m.GetMessage()
+	msg, err := m.GetMessage(src)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
@@ -132,8 +144,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		m.env.Chains[src].DeployerKey.Value = fee
-		defer func() { m.env.Chains[src].DeployerKey.Value = nil }()
+		acc.Value = big.NewInt(0).Mul(big.NewInt(6), fee)
+		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
 		"srcChain", src,
@@ -142,7 +154,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		"fee", fee,
 		"msg", msg)
 	tx, err := r.CcipSend(
-		m.env.Chains[src].DeployerKey,
+		acc,
 		m.chainSelector,
 		msg)
 	if err != nil {
@@ -180,19 +192,29 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		"destChain", m.chainSelector,
 		"sequence number", it.Event.SequenceNumber)
 
-	SendMetricsToLoki(m.l, m.loki, lokiLabels, &LokiMetric{
-		EventType:      transmitted,
-		Timestamp:      time.Now(),
-		SequenceNumber: it.Event.SequenceNumber,
-	})
+	// push metric to metric manager for eventual distribution to loki
+	blockNum = it.Event.Raw.BlockNumber
+	header, err := m.env.Chains[src].Client.HeaderByNumber(m.env.GetContext(), new(big.Int).SetUint64(blockNum))
+	if err != nil {
+		return &wasp.Response{Error: "Could not get timestamp of block number", Group: waspGroup, Failed: true}
+	}
+	m.metricPipe <- messageData{
+		eventType: transmitted,
+		srcDstSeqNum: srcDstSeqNum{
+			src:    src,
+			dst:    m.chainSelector,
+			seqNum: it.Event.SequenceNumber,
+		},
+		timestamp: header.Time,
+		round:     int(requestedRound),
+	}
 
-	// if this is the first time we are sending a message, set the start sequence number
-	// if we ran into a concurrency issue, store the lowest sequence number
-	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() || m.seqNums[csPair].End.Load() == 0 {
+	// always store the lowest seen number as the start seq num
+	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() {
 		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
 	}
 
-	// only store the greatest sequence number we have seen as the maximum
+	// always store the greatest sequence number we have seen as the maximum
 	if it.Event.SequenceNumber > m.seqNums[csPair].End.Load() {
 		m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
 	}
@@ -208,12 +230,12 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := int(m.roundNum.Load()) % len(otherCS)
+	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
 	return otherCS[index], nil
 }
 
 // GetMessage will return the message to be sent while considering expected load of different messages
-func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
+func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
@@ -232,8 +254,8 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			Receiver: rcv,
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
+					Token:  m.state.Chains[src].LinkToken.Address(),
+					Amount: big.NewInt(1),
 				},
 			},
 			Data:      common.Hex2Bytes("0xabcdefabcdef"),
@@ -245,8 +267,8 @@ func (m *DestinationGun) GetMessage() (router.ClientEVM2AnyMessage, error) {
 			Data:     common.Hex2Bytes("message with token"),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
-					Token:  common.HexToAddress("0x0"),
-					Amount: big.NewInt(100),
+					Token:  m.state.Chains[src].LinkToken.Address(),
+					Amount: big.NewInt(1),
 				},
 			},
 			FeeToken:  common.HexToAddress("0x0"),

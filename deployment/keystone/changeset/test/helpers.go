@@ -139,24 +139,24 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployCapabilityRegistry),
-			Config:    registryChainSel,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployOCR3),
-			Config:    registryChainSel,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(kschangeset.DeployForwarder),
-			Config:    kschangeset.DeployForwarderRequest{},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(workflowregistry.Deploy),
-			Config:    registryChainSel,
-		},
-	})
+	e, err := commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(kschangeset.DeployCapabilityRegistry),
+			registryChainSel,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(kschangeset.DeployOCR3),
+			registryChainSel,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(kschangeset.DeployForwarder),
+			kschangeset.DeployForwarderRequest{},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(workflowregistry.Deploy),
+			registryChainSel,
+		),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	require.Len(t, e.Chains, c.NumChains)
@@ -284,12 +284,12 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			t.Logf("Enabling MCMS on chain %d", sel)
 			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfig(t)
 		}
-		env, err = commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-				Config:    timelockCfgs,
-			},
-		})
+		env, err = commonchangeset.Apply(t, env, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+				timelockCfgs,
+			),
+		)
 		require.NoError(t, err)
 		// extract the MCMS address
 		r, err := internal.GetContractSets(lggr, &internal.GetContractSetsRequest{
@@ -303,15 +303,18 @@ func SetupTestEnv(t *testing.T, c TestConfig) TestEnv {
 			require.NoError(t, mcms.Validate())
 
 			// transfer ownership of all contracts to the MCMS
-			env, err = commonchangeset.ApplyChangesets(t, env, map[uint64]*proposalutils.TimelockExecutionContracts{sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy}}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(kschangeset.AcceptAllOwnershipsProposal),
-					Config: &kschangeset.AcceptAllOwnershipRequest{
+			env, err = commonchangeset.Apply(t, env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					sel: {Timelock: mcms.Timelock, CallProxy: mcms.CallProxy},
+				},
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(kschangeset.AcceptAllOwnershipsProposal),
+					&kschangeset.AcceptAllOwnershipRequest{
 						ChainSelector: sel,
 						MinDelay:      0,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 		}
 	}

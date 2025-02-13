@@ -302,6 +302,11 @@ func BuildOCR3ConfigForCCIPHome(
 				SignObservationPrefix:              commitOffchainCfg.SignObservationPrefix,
 				RMNEnabled:                         commitOffchainCfg.RMNEnabled,
 				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
+				MerkleRootAsyncObserverSyncFreq:    commitOffchainCfg.MerkleRootAsyncObserverSyncFreq,
+				MerkleRootAsyncObserverSyncTimeout: commitOffchainCfg.MerkleRootAsyncObserverSyncTimeout,
+				InflightPriceCheckRetries:          commitOffchainCfg.InflightPriceCheckRetries,
+				TransmissionDelayMultiplier:        commitOffchainCfg.TransmissionDelayMultiplier,
+				FeeInfo:                            commitOffchainCfg.FeeInfo,
 			})
 		} else {
 			if execOffchainCfg == nil {

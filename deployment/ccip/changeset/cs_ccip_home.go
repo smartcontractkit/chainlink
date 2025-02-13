@@ -15,12 +15,13 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -202,6 +203,9 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				RMNSignaturesTimeout:               30 * time.Minute,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				MerkleRootAsyncObserverDisabled:    false,
+				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
+				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {

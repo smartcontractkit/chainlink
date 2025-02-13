@@ -22,15 +22,14 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -50,7 +49,7 @@ var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 }
 
 func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
-	owner := evmtestutils.MustNewSimTransactor(t)
+	owner := testutils.MustNewSimTransactor(t)
 
 	i := &big.Int{}
 	oneEth, _ := i.SetString("100000000000000000000", 10)
