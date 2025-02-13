@@ -5,6 +5,7 @@
     "MaxReportLengthBytes": 1000000,
     "MaxRequestBatchSize": 1000,
     "UniqueReports": true,
+    "RequestTimeout": "30s",
     "DeltaProgressMillis": 5000,
     "DeltaResendMillis": 5000,
     "DeltaInitialMillis": 5000,
