@@ -105,7 +105,7 @@ type RMNKeys struct {
 	EVMOnchainPublicKey common.Address
 }
 
-func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (keys RMNKeys, fileString string, passphrase string, err error) {
+func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string, platform string) (keys RMNKeys, fileString string, passphrase string, err error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			AutoRemove: false,
@@ -113,8 +113,9 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (key
 			Env: map[string]string{
 				"AFN_PASSPHRASE": DefaultAFNPassphrase,
 			},
-			Cmd:        []string{"afn2proxy", "--generate", "--keystore", RMNKeyStore},
-			WaitingFor: tcwait.ForExit(),
+			Cmd:           []string{"afn2proxy", "--generate", "--keystore", RMNKeyStore},
+			WaitingFor:    tcwait.ForExit(),
+			ImagePlatform: platform,
 		},
 		Started: true,
 		Logger:  &lggr,
@@ -159,7 +160,7 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string) (key
 	return keys, fileString, passphrase, nil
 }
 
-func GeneratePeerID(lggr zerolog.Logger, image string, version string) (p2ptypes.PeerID, string, string, error) {
+func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlatform string) (p2ptypes.PeerID, string, string, error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			AutoRemove: false,
@@ -167,8 +168,9 @@ func GeneratePeerID(lggr zerolog.Logger, image string, version string) (p2ptypes
 			Env: map[string]string{
 				"RAGEPROXY_PASSPHRASE": DefaultAFNPassphrase,
 			},
-			Cmd:        []string{"rageproxy", "--generate", "--keystore", ProxyKeyStore},
-			WaitingFor: tcwait.ForExit(),
+			Cmd:           []string{"rageproxy", "--generate", "--keystore", ProxyKeyStore},
+			WaitingFor:    tcwait.ForExit(),
+			ImagePlatform: imagePlatform,
 		},
 		Started: true,
 		Logger:  &lggr,

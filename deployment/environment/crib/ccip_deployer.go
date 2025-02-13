@@ -351,9 +351,9 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 type RMNNodeConfig struct {
 	changeset.RMNNopConfig
-	rageproxyKeystore string
-	rmnKeystore       string
-	passphrase        string
+	RageProxyKeystore string
+	RMNKeystore       string
+	Passphrase        string
 }
 
 func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, nodes []RMNNodeConfig) error {
@@ -447,17 +447,18 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	return nil
 }
 
-func GenerateRMNNodeIdentities(rmnNodeCount uint) ([]RMNNodeConfig, error) {
+func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyImageTag, afn2proxyImageURI,
+	afn2proxyImageTag string, imagePlatform string) ([]RMNNodeConfig, error) {
 	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
 	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
 
 	for i := uint(0); i < rmnNodeCount; i++ {
-		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), "rageproxy", "latest")
+		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), rageProxyImageURI, rageProxyImageTag, imagePlatform)
 		if err != nil {
 			return nil, err
 		}
 
-		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(lggr, "afn2proxy", "latest")
+		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(lggr, afn2proxyImageURI, afn2proxyImageTag, imagePlatform)
 		if err != nil {
 			return nil, err
 		}
@@ -474,9 +475,9 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint) ([]RMNNodeConfig, error) {
 				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
 				PeerId:              newPeerID,
 			},
-			rageproxyKeystore: rawKeystore,
-			rmnKeystore:       rawRMNKeystore,
-			passphrase:        afnPassphrase,
+			RageProxyKeystore: rawKeystore,
+			RMNKeystore:       rawRMNKeystore,
+			Passphrase:        afnPassphrase,
 		}
 	}
 	return rmnNodeConfigs, nil
