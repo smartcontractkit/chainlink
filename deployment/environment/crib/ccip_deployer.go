@@ -116,19 +116,39 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	eg := errgroup.Group{}
 	fmt.Println("setting up lanes...")
 	// Add all lanes
-	*e, err = setupLanes(e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-	}
+	eg.Go(func() error {
+		_, err := setupLanes(e, state, homeChainSel)
+		if err != nil {
+			return fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+		}
+		return nil
+	})
+	//*e, err = setupLanes(e, state)
+	//if err != nil {
+	//	return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+	//}
 	// ------ Part 1 -----
 
 	// ----- Part 2 -----
 	fmt.Println("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	eg.Go(func() error {
+		_, err := setupOCR(e, homeChainSel, feedChainSel)
+		if err != nil {
+			return fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+		}
+		return nil
+	})
+	//*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	//if err != nil {
+	//	return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	//}
+
+	err = eg.Wait()
 	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
 	}
 
 	// distribute funds to transmitters
@@ -175,36 +195,36 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}, nil
 }
 
-// ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
-// It creates a fully connected mesh where all chains are connected to all chains
-func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
-	}
-	e.ExistingAddresses = ab
-
-	state, err := changeset.LoadOnchainState(*e)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	fmt.Println("setting up lanes...")
-	// Add all lanes
-	*e, err = setupLanes(e, state)
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-	}
-
-	addresses, err := e.ExistingAddresses.Addresses()
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
-	}
-	return DeployCCIPOutput{
-		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
-		NodeIDs:     e.NodeIDs,
-	}, nil
-}
+//// ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
+//// It creates a fully connected mesh where all chains are connected to all chains
+//func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+//	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+//	if err != nil {
+//		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
+//	}
+//	e.ExistingAddresses = ab
+//
+//	state, err := changeset.LoadOnchainState(*e)
+//	if err != nil {
+//		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+//	}
+//
+//	fmt.Println("setting up lanes...")
+//	// Add all lanes
+//	*e, err = setupLanes(e, state)
+//	if err != nil {
+//		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+//	}
+//
+//	addresses, err := e.ExistingAddresses.Addresses()
+//	if err != nil {
+//		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
+//	}
+//	return DeployCCIPOutput{
+//		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+//		NodeIDs:     e.NodeIDs,
+//	}, nil
+//}
 
 // ConfigureCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
 // This sets up OCR on all chains in the envConfig by configuring the CCIP home chain
@@ -408,13 +428,17 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	return env, eg.Wait()
 }
 
-func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
+// Excludes the home chain and feed chain from the lane setup to prevent race conditions with the setup
+func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState, homeChainSel uint64) (deployment.Environment, error) {
 	eg := errgroup.Group{}
 	poolUpdates := make(map[uint64]changeset.TokenPoolConfig)
 	rateLimitPerChain := make(changeset.RateLimiterPerChain)
 	mu := sync.Mutex{}
 
 	for src := range e.Chains {
+		if src == homeChainSel {
+			continue
+		}
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
 			pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
@@ -437,6 +461,9 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			}
 
 			for dst := range e.Chains {
+				if dst == homeChainSel {
+					continue
+				}
 				if src != dst {
 					onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
 						IsEnabled:        true,
@@ -509,6 +536,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 					},
 				},
 			})
+			fmt.Println("finished setting up lane for chain: ", src)
 			return err
 		})
 	}
