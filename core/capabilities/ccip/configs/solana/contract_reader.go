@@ -53,6 +53,16 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameOffRamp: {
 				IDL: offRampIDL,
 				Reads: map[string]config.ReadDefinition{
+					consts.MethodNameOffRampLatestConfigDetails: {
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("config")},
+						OutputModifications: codec.ModifiersConfig{
+							// TODO why does Solana have two of these in an array, but EVM has one
+							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"Ocr3": &locationFirst}},
+							&codec.RenameModifierConfig{Fields: map[string]string{"Ocr3": "OCRConfig"}},
+						},
+					},
 					consts.MethodNameGetLatestPriceSequenceNumber: {
 						ChainSpecificName: "GlobalState",
 						ReadType:          config.Account,
