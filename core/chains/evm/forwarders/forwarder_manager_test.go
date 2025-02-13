@@ -22,10 +22,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
@@ -66,7 +67,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, ht, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
 	fwdMgr.ORM = forwarders.NewORM(db)
@@ -127,7 +128,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, ht, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
 	fwdMgr.ORM = forwarders.NewORM(db)
@@ -192,7 +193,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, ht, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
 	fwdMgr.ORM = forwarders.NewORM(db)

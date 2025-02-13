@@ -25,28 +25,31 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
-		name:        "messages on two lanes including batching",
+		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,
 		homeChainConfig: homeChainConfig{
-			f: map[int]int{chain0: 1, chain1: 1},
+			f: map[int]int{
+				chain0: 1,
+				//chain1: RMN-Disabled if no f defined
+			},
 		},
 		remoteChainsConfig: []remoteChainConfig{
 			{chainIdx: chain0, f: 1},
 			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0}},
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
@@ -317,6 +320,12 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	require.NoError(t, err)
 
 	tc.killMarkedRmnNodes(t, rmnCluster)
+
+	envWithRMN.RmnEnabledSourceChains = make(map[uint64]bool)
+	for chainIdx := range tc.homeChainConfig.f {
+		chainSel := tc.pf.chainSelectors[chainIdx]
+		envWithRMN.RmnEnabledSourceChains[chainSel] = true
+	}
 
 	testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
 	testhelpers.AddLanesForAll(t, &envWithRMN, onChainState)

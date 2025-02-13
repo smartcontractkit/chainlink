@@ -5,8 +5,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 type OffRampView struct {

@@ -160,7 +160,16 @@ func generateMemoryChainSol(inputs map[uint64]SolanaChain) map[uint64]deployment
 	return chains
 }
 
-func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment.Chain, solChains map[uint64]deployment.SolChain, numNodes, numBootstraps int, registryConfig deployment.CapabilityRegistryConfig) map[string]Node {
+func NewNodes(
+	t *testing.T,
+	logLevel zapcore.Level,
+	chains map[uint64]deployment.Chain,
+	solChains map[uint64]deployment.SolChain,
+	numNodes,
+	numBootstraps int,
+	registryConfig deployment.CapabilityRegistryConfig,
+	configOpts ...ConfigOpt,
+) map[string]Node {
 	nodesByPeerID := make(map[string]Node)
 	if numNodes+numBootstraps == 0 {
 		return nodesByPeerID
@@ -170,13 +179,13 @@ func NewNodes(t *testing.T, logLevel zapcore.Level, chains map[uint64]deployment
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
 	for i := 0; i < numBootstraps; i++ {
-		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[i], chains, solChains, logLevel, true /* bootstrap */, registryConfig, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}
 	for i := 0; i < numNodes; i++ {
 		// grab port offset by numBootstraps, since above loop also takes some ports.
-		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig)
+		node := NewNode(t, ports[numBootstraps+i], chains, solChains, logLevel, false /* bootstrap */, registryConfig, configOpts...)
 		nodesByPeerID[node.Keys.PeerID.String()] = *node
 		// Note in real env, this ID is allocated by JD.
 	}

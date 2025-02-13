@@ -35,18 +35,18 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 
 	config := proposalutils.SingleGroupTimelockConfig(t)
 	// Deploy MCMS and Timelock
-	env, err := commonchangeset.ApplyChangesets(t, env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    []uint64{chainSelector},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config: map[uint64]types.MCMSWithTimelockConfig{
+	env, err := commonchangeset.Apply(t, env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			[]uint64{chainSelector},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			map[uint64]types.MCMSWithTimelockConfig{
 				chainSelector: config,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	return env
 }
@@ -56,15 +56,15 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
-		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication
+		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet
 	}{
 		{
 			name: "MCMS disabled",
-			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
-				return []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-						Config: commonchangeset.MCMSConfig{
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
+						commonchangeset.MCMSConfig{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 								chainSel: {
 									Proposer:  cfgProp,
@@ -73,25 +73,25 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 								},
 							},
 						},
-					},
+					),
 				}
 			},
 		},
 		{
 			name: "MCMS enabled",
-			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
-				return []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-						Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
 							},
 						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMS),
-						Config: commonchangeset.MCMSConfig{
+					),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
+						commonchangeset.MCMSConfig{
 							ProposalConfig: &commonchangeset.TimelockConfig{
 								MinDelay: 0,
 							},
@@ -103,7 +103,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 								},
 							},
 						},
-					},
+					),
 				}
 			},
 		},
@@ -165,15 +165,15 @@ func TestSetConfigMCMSV2Variants(t *testing.T) {
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
-		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication
+		changeSets func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet
 	}{
 		{
 			name: "MCMS disabled",
-			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
-				return []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMSV2),
-						Config: commonchangeset.MCMSConfig{
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						commonchangeset.MCMSConfig{
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
 								chainSel: {
 									Proposer:  cfgProp,
@@ -182,25 +182,25 @@ func TestSetConfigMCMSV2Variants(t *testing.T) {
 								},
 							},
 						},
-					},
+					),
 				}
 			},
 		},
 		{
 			name: "MCMS enabled",
-			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ChangesetApplication {
-				return []commonchangeset.ChangesetApplication{
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-						Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+			changeSets: func(mcmsState *commonchangeset.MCMSWithTimelockState, chainSel uint64, cfgProp, cfgCancel, cfgBypass config.Config) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								chainSel: {mcmsState.ProposerMcm.Address(), mcmsState.BypasserMcm.Address(), mcmsState.CancellerMcm.Address()},
 							},
 						},
-					},
-					{
-						Changeset: commonchangeset.WrapChangeSet(commonchangeset.SetConfigMCMSV2),
-						Config: commonchangeset.MCMSConfig{
+					),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						commonchangeset.MCMSConfig{
 							ProposalConfig: &commonchangeset.TimelockConfig{
 								MinDelay: 0,
 							},
@@ -212,7 +212,7 @@ func TestSetConfigMCMSV2Variants(t *testing.T) {
 								},
 							},
 						},
-					},
+					),
 				}
 			},
 		},

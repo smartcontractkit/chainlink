@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
@@ -30,7 +30,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)
 		bitmap := uint64(0)
-		extraArgs := ccip_router.SVMExtraArgsV1{
+		extraArgs := fee_quoter.SVMExtraArgsV1{
 			ComputeUnits:             destGasAmount,
 			AccountIsWritableBitmap:  bitmap,
 			AllowOutOfOrderExecution: false,
@@ -64,7 +64,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm", func(t *testing.T) {
-		extraArgs := ccip_router.EVMExtraArgsV2{
+		extraArgs := fee_quoter.EVMExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}

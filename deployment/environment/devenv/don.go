@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
@@ -75,22 +76,26 @@ func (don *DON) NodeIds() []string {
 }
 
 func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig, jd JobDistributor) error {
-	var err error
+	g := new(errgroup.Group)
 	for i := range don.Nodes {
-		node := &don.Nodes[i]
-		var jdChains []JDChainConfigInput
-		for _, chain := range chains {
-			jdChains = append(jdChains, JDChainConfigInput{
-				ChainID:   chain.ChainID,
-				ChainType: chain.ChainType,
-			})
-		}
-		if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
-			err = multierror.Append(err, err1)
-		}
-		don.Nodes[i] = *node
+		i := i
+		g.Go(func() error {
+			node := &don.Nodes[i]
+			var jdChains []JDChainConfigInput
+			for _, chain := range chains {
+				jdChains = append(jdChains, JDChainConfigInput{
+					ChainID:   chain.ChainID,
+					ChainType: chain.ChainType,
+				})
+			}
+			if err1 := node.CreateCCIPOCRSupportedChains(ctx, jdChains, jd); err1 != nil {
+				return err1
+			}
+			don.Nodes[i] = *node
+			return nil
+		})
 	}
-	return err
+	return g.Wait()
 }
 
 // NewRegisteredDON creates a DON with the given node info, registers the nodes with the job distributor
@@ -375,7 +380,6 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, jd JobDistribut
 		Name:      n.Name,
 	})
 	// node already registered, fetch it's id
-	// TODO: check for rpc code = "AlreadyExists" instead
 	if err != nil && strings.Contains(err.Error(), "AlreadyExists") {
 		nodesResponse, err := jd.ListNodes(ctx, &nodev1.ListNodesRequest{
 			Filter: &nodev1.ListNodesRequest_Filter{

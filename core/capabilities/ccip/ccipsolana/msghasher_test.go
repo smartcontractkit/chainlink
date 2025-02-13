@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,7 +33,7 @@ func TestMessageHasher_Any2Solana(t *testing.T) {
 	require.Equal(t, expectedHash, actualHash[:32])
 }
 
-func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2SVMRampMessage, []solana.PublicKey) {
+func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
 	messageID := utils.RandomBytes32()
 
 	sourceChain := rand.Uint64()
@@ -50,7 +50,7 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 	computeUnit := uint32(1000)
 	bitmap := uint64(10)
 
-	extraArgs := ccip_router.Any2SVMRampExtraArgs{
+	extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 		ComputeUnits:     computeUnit,
 		IsWritableBitmap: bitmap,
 	}
@@ -72,18 +72,18 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_router.Any2
 		}
 	}
 
-	solTokenAmounts := make([]ccip_router.Any2SVMTokenTransfer, 5)
+	solTokenAmounts := make([]ccip_offramp.Any2SVMTokenTransfer, 5)
 	for z := 0; z < 5; z++ {
-		solTokenAmounts[z] = ccip_router.Any2SVMTokenTransfer{
+		solTokenAmounts[z] = ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver,
-			Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Int, 32))},
+			Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Int, 32))},
 			DestGasAmount:     uint32(10),
 		}
 	}
 
-	any2SolanaMsg := ccip_router.Any2SVMRampMessage{
-		Header: ccip_router.RampMessageHeader{
+	any2SolanaMsg := ccip_offramp.Any2SVMRampMessage{
+		Header: ccip_offramp.RampMessageHeader{
 			MessageId:           messageID,
 			SourceChainSelector: sourceChain,
 			DestChainSelector:   destChain,

@@ -8,35 +8,24 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
-	solBinary "github.com/gagliardetto/binary"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
-
-var (
-	EnableExecutionAfter = int64(1800) // 30min
-)
 
 // DeployChainContracts deploys all new CCIP v1.6 or later contracts for the given chains.
 // It returns the new addresses for the contracts.
@@ -145,7 +134,6 @@ func DefaultFeeQuoterParams() FeeQuoterParams {
 type OffRampParams struct {
 	GasForCallExactCheck                    uint16
 	PermissionLessExecutionThresholdSeconds uint32
-	IsRMNVerificationDisabled               bool
 	MessageInterceptor                      common.Address
 }
 
@@ -163,11 +151,10 @@ func DefaultOffRampParams() OffRampParams {
 	return OffRampParams{
 		GasForCallExactCheck:                    uint16(5000),
 		PermissionLessExecutionThresholdSeconds: uint32(24 * 60 * 60),
-		IsRMNVerificationDisabled:               true,
 	}
 }
 
-func validateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
+func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
 	existingState, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -221,7 +208,7 @@ func deployChainContractsForChains(
 		return err
 	}
 
-	err = validateHomeChainState(e, homeChainSel, existingState)
+	err = ValidateHomeChainState(e, homeChainSel, existingState)
 	if err != nil {
 		return err
 	}
@@ -248,13 +235,6 @@ func deployChainContractsForChains(
 			}
 			chain := e.Chains[chainSel]
 			deployFn = func() error { return deployChainContractsEVM(e, chain, ab, rmnHome, contractParams) }
-
-		case chainsel.FamilySolana:
-			chain := e.SolChains[chainSel]
-			if existingState.SolChains[chainSel].LinkToken.IsZero() {
-				return fmt.Errorf("fee tokens not found for chain %d", chainSel)
-			}
-			deployFn = func() error { return deployChainContractsSolana(e, chain, ab) }
 		default:
 			return fmt.Errorf("unsupported chain family for chain %d", chainSel)
 		}
@@ -334,7 +314,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					rmnLegacyAddr,
 				)
 				return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
-					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev), Err: err2,
+					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -395,7 +375,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]common.Address{}, // Need to add onRamp after
 				)
 				return deployment.ContractDeploy[*nonce_manager.NonceManager]{
-					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev), Err: err2,
+					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -435,7 +415,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					contractParams.FeeQuoterParams.DestChainConfigArgs,
 				)
 				return deployment.ContractDeploy[*fee_quoter.FeeQuoter]{
-					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev), Err: err2,
+					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -466,7 +446,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]onramp.OnRampDestChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*onramp.OnRamp]{
-					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev), Err: err2,
+					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -494,13 +474,12 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					offramp.OffRampDynamicConfig{
 						FeeQuoter:                               feeQuoterContract.Address(),
 						PermissionLessExecutionThresholdSeconds: contractParams.OffRampParams.PermissionLessExecutionThresholdSeconds,
-						IsRMNVerificationDisabled:               contractParams.OffRampParams.IsRMNVerificationDisabled,
 						MessageInterceptor:                      contractParams.OffRampParams.MessageInterceptor,
 					},
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*offramp.OffRamp]{
-					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev), Err: err2,
+					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -530,179 +509,5 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 		return err
 	}
 	e.Logger.Infow("Added nonce manager authorized callers", "chain", chain.String(), "callers", []common.Address{offRampContract.Address(), onRampContract.Address()})
-	return nil
-}
-
-// TODO: move everything below to solana file
-func solRouterProgramData(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey) (struct {
-	DataType uint32
-	Address  solana.PublicKey
-}, error) {
-	var programData struct {
-		DataType uint32
-		Address  solana.PublicKey
-	}
-	data, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), ccipRouterProgram, &solRpc.GetAccountInfoOpts{
-		Commitment: solRpc.CommitmentConfirmed,
-	})
-	if err != nil {
-		return programData, fmt.Errorf("failed to deploy program: %w", err)
-	}
-
-	err = solBinary.UnmarshalBorsh(&programData, data.Bytes())
-	if err != nil {
-		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
-	}
-	return programData, nil
-}
-
-func initializeRouter(e deployment.Environment, chain deployment.SolChain, ccipRouterProgram solana.PublicKey, linkTokenAddress solana.PublicKey) error {
-	programData, err := solRouterProgramData(e, chain, ccipRouterProgram)
-	if err != nil {
-		return fmt.Errorf("failed to get solana router program data: %w", err)
-	}
-	// addressing errcheck in the next PR
-	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
-
-	instruction, err := solRouter.NewInitializeInstruction(
-		chain.Selector,                         // chain selector
-		EnableExecutionAfter,                   // period to wait before allowing manual execution
-		solana.PublicKey{},                     // fee aggregator (TODO: changeset to set the fee aggregator)
-		linkTokenAddress,                       // link token mint
-		deployment.SolDefaultMaxFeeJuelsPerMsg, // max fee juels per msg
-		routerConfigPDA,
-		routerStatePDA,
-		chain.DeployerKey.PublicKey(),
-		solana.SystemProgramID,
-		ccipRouterProgram,
-		programData.Address,
-		externalExecutionConfigPDA,
-		externalTokenPoolsSignerPDA,
-	).ValidateAndBuild()
-
-	if err != nil {
-		return fmt.Errorf("failed to build instruction: %w", err)
-	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return fmt.Errorf("failed to confirm instructions: %w", err)
-	}
-	e.Logger.Infow("Initialized router", "chain", chain.String())
-	return nil
-}
-
-func deployChainContractsSolana(
-	e deployment.Environment,
-	chain deployment.SolChain,
-	ab deployment.AddressBook,
-) error {
-	state, err := LoadOnchainStateSolana(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return err
-	}
-	chainState, chainExists := state.SolChains[chain.Selector]
-	if !chainExists {
-		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
-	}
-	if chainState.LinkToken.IsZero() {
-		return fmt.Errorf("failed to get link token address for chain %s", chain.String())
-	}
-
-	// ROUTER DEPLOY AND INITIALIZE
-	var ccipRouterProgram solana.PublicKey
-	if chainState.Router.IsZero() {
-		// deploy router
-		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
-		if err != nil {
-			return fmt.Errorf("failed to deploy program: %w", err)
-		}
-
-		tv := deployment.NewTypeAndVersion(Router, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-
-		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
-		ccipRouterProgram = chainState.Router
-	}
-	solRouter.SetProgramID(ccipRouterProgram)
-
-	// check if solana router is initialised
-	var routerConfigAccount solRouter.Config
-	// addressing errcheck in the next PR
-	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
-	if err != nil {
-		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken); err2 != nil {
-			return err2
-		}
-	} else {
-		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
-	}
-
-	var tokenPoolProgram solana.PublicKey
-	if chainState.TokenPool.IsZero() {
-		// TODO: there should be two token pools deployed one of each type (lock/burn)
-		// separate token pools are not ready yet
-		programID, err := chain.DeployProgram(e.Logger, "token_pool")
-		if err != nil {
-			return fmt.Errorf("failed to deploy program: %w", err)
-		}
-		tv := deployment.NewTypeAndVersion(TokenPool, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	} else {
-		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
-		tokenPoolProgram = chainState.TokenPool
-	}
-
-	// initialize this last with every address we need
-	if chainState.AddressLookupTable.IsZero() {
-		// addressing errcheck in the next PR
-		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
-		routerStatePDA, _, _ := solState.FindStatePDA(ccipRouterProgram)
-		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
-		table, err := solCommonUtil.SetupLookupTable(
-			e.GetContext(),
-			chain.Client,
-			*chain.DeployerKey,
-			[]solana.PublicKey{
-				// system
-				solana.SystemProgramID,
-				solana.ComputeBudget,
-				solana.SysVarInstructionsPubkey,
-				// router
-				ccipRouterProgram,
-				routerConfigPDA,
-				routerStatePDA,
-				externalExecutionConfigPDA,
-				externalTokenPoolsSignerPDA,
-				// token pools
-				tokenPoolProgram,
-				// token
-				solana.Token2022ProgramID,
-				solana.TokenProgramID,
-				solana.SPLAssociatedTokenAccountProgramID,
-			})
-		if err != nil {
-			return fmt.Errorf("failed to create lookup table: %w", err)
-		}
-		err = ab.Save(chain.Selector, table.String(), deployment.NewTypeAndVersion(AddressLookupTable, deployment.Version1_0_0))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	}
 	return nil
 }

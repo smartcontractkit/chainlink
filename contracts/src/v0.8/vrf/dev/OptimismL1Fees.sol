@@ -5,7 +5,6 @@ import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
 
 /// @dev An abstract contract that provides Optimism specific L1 fee calculations.
-// solhint-disable-next-line contract-name-camelcase
 abstract contract OptimismL1Fees is ConfirmedOwner {
   /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
   /// @dev The padding size was estimated based on hypothetical max RLP-encoded transaction size
