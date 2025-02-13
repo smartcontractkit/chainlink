@@ -2,4 +2,4 @@
 '@chainlink/contracts': patch
 ---
 
-fix test naming
+#internal fix solhint issues

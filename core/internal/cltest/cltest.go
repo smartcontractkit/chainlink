@@ -488,7 +488,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if err != nil {
 		t.Fatal(err)
 	}
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry:    capabilitiesRegistry,
+		CapabilitiesDispatcher:  dispatcher,
+		CapabilitiesPeerWrapper: peerWrapper,
+		FetcherFunc:             syncerFetcherFunc,
+		FetcherFactoryFn:        computeFetcherFactory,
+	}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
+		CREOpts:                    creOpts,
 		Config:                     cfg,
 		MailMon:                    mailMon,
 		DS:                         ds,
@@ -503,12 +511,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		SecretGenerator:            MockSecretGenerator{},
 		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
 		MercuryPool:                mercuryPool,
-		CapabilitiesRegistry:       capabilitiesRegistry,
-		CapabilitiesDispatcher:     dispatcher,
-		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
-		FetcherFunc:                syncerFetcherFunc,
-		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})

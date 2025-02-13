@@ -295,6 +295,8 @@ jobs:
         uses: ./.github/actions/setup-solana
 
       - name: Build Solana artifacts
+        # Only required for the deployment project
+        if: ${{ inputs.projectPath == 'deployment' }}
         uses: ./.github/actions/setup-solana/build-contracts
         with:
           github-token: ${{ secrets.GH_TOKEN }}

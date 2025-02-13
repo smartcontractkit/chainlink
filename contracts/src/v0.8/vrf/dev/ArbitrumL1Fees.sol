@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {ArbGasInfo} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 
 /// @dev An abstract contract that provides Arbitrum specific L1 fee calculations.
-// solhint-disable-next-line contract-name-camelcase
 abstract contract ArbitrumL1Fees {
   /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbGasInfo.sol#L10

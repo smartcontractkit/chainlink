@@ -21,18 +21,20 @@
 	workflow_name = "abcdefgasd"
 
   use_cre_cli = true
-  should_compile_new_workflow = false
-  workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
+  should_compile_new_workflow = true
+  workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
   cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/a91a240f16bb64bd1be44c93a38e6703/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/27c96141aac0c6eac832660c2abea6d4/raw/c8a3776ac34d484b81374bec01926619e1f54757/config.json2739136466"
+    binary_url = "https://gist.githubusercontent.com/Tofel/b6e7afd05de86ba0444d85894f58857b/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    config_url = "https://gist.githubusercontent.com/Tofel/cdd80b48ef6c6faf44c10a6673043a4a/raw/871c0b69c032edb4c1371fe896c10b973a93eb06/config.json1025406406"
 
 [[nodesets]]
+  capabilities = ["cron", "custom-compute", "ocr3"]
+  don_type = "workflow"
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10100
@@ -124,6 +126,109 @@
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+  don_type = "capabilities"
+  capabilities = ["write-evm"]
+  nodes = 5
+  override_mode = "each"
+  http_port_range_start = 10200
+  name = "capabilities"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+    volume_name = "capabilities_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

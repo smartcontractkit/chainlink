@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {VRFV2PlusWrapper} from "./VRFV2PlusWrapper.sol";
 
-// solhint-disable-next-line contract-name-camelcase
 contract VRFV2PlusWrapper_Optimism is VRFV2PlusWrapper, OptimismL1Fees {
   error UnsupportedL1FeeCalculationMode(uint8 mode);
 

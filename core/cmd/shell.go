@@ -305,7 +305,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr)
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(ds, unrestrictedClient)
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry: capabilitiesRegistry,
+	}
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
+		CREOpts: creOpts,
+
 		Config:                     cfg,
 		DS:                         ds,
 		KeyStore:                   keyStore,
@@ -323,7 +328,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:                mercuryPool,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      lloReaper,
-		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }
 

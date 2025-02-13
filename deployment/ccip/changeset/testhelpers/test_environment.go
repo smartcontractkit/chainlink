@@ -66,6 +66,7 @@ type TestConfigs struct {
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
 	BlockTime                  time.Duration
+	CLNodeConfigOpts           []memory.ConfigOpt
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -109,6 +110,12 @@ func DefaultTestConfigs() *TestConfigs {
 }
 
 type TestOps func(testCfg *TestConfigs)
+
+func WithCLNodeConfigOpts(opts ...memory.ConfigOpt) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.CLNodeConfigOpts = opts
+	}
+}
 
 func WithBlockTime(blockTime time.Duration) TestOps {
 	return func(testCfg *TestConfigs) {
@@ -319,7 +326,7 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
-	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, tc.Nodes, tc.Bootstraps, crConfig)
+	nodes := memory.NewNodes(t, zapcore.InfoLevel, m.Chains, m.SolChains, tc.Nodes, tc.Bootstraps, crConfig, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
 	lggr := logger.Test(t)
 	for _, node := range nodes {
