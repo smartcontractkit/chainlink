@@ -303,7 +303,7 @@ jobs:
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        uses: ./.github/actions/setup-postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
 
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
@@ -311,11 +311,8 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
 
-      - name: Build binary
-        run: go build -o chainlink.test .
-
       - name: Setup DB
-        run: ./chainlink.test local db preparetest
+        run: go run ./core/store/cmd/preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}        
 

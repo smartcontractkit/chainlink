@@ -243,7 +243,7 @@ jobs:
 
       - name: Setup Postgres
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        uses: ./.github/actions/setup-postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
 
       - name: Touching core/web/assets/index.html
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
@@ -253,13 +253,9 @@ jobs:
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
         run: go mod download
 
-      - name: Build binary
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: go build -o chainlink.test .
-
       - name: Setup DB
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: ./chainlink.test local db preparetest
+        run: go run ./core/store/cmd/preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
@@ -306,8 +302,9 @@ jobs:
 
       - name: Print postgres logs
         if: ${{ always() &&  needs.filter.outputs.should-run-ci-core == 'true' }}
-        run: docker compose logs postgres | tee ../../../postgres_logs.txt
-        working-directory: ./.github/actions/setup-postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
+        with:
+          print-logs: 'true'
 
       - name: Store logs artifacts
         if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}

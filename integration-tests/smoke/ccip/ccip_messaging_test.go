@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
@@ -18,22 +21,40 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 func Test_CCIPMessaging(t *testing.T) {
+	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
+	chains := []chainsel.Chain{
+		chainsel.GETH_TESTNET,  // source
+		chainsel.TEST_90000001, // dest
+	}
+	var chainIDs = []uint64{
+		chains[0].EvmChainID,
+		chains[1].EvmChainID,
+	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithChainIDs(chainIDs),
+		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
+			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
+		})),
+	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	require.Len(t, allChainSelectors, 2)
-	sourceChain := allChainSelectors[0]
-	destChain := allChainSelectors[1]
+	sourceChain := chains[0].Selector
+	destChain := chains[1].Selector
+	require.Contains(t, allChainSelectors, sourceChain)
+	require.Contains(t, allChainSelectors, destChain)
 	t.Log("All chain selectors:", allChainSelectors,
 		", home chain selector:", e.HomeChainSel,
 		", feed chain selector:", e.FeedChainSel,
@@ -70,6 +91,17 @@ func Test_CCIPMessaging(t *testing.T) {
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						// TODO: remove this or make it a "require.Never" once we fix double execution!
+						doubleExecStart := time.Now()
+						require.NoError(
+							t,
+							testhelpers.ConfirmDoubleExecution(t, sourceChain, e.Env.Chains[destChain], state.Chains[destChain].OffRamp, nil, []uint64{1}),
+						)
+						t.Logf("Confirmed double execution in %s", time.Since(doubleExecStart).String())
+					},
+				},
 			},
 		)
 	})

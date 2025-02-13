@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -426,18 +426,18 @@ func makeTestEvmTxm(
 	}
 
 	chainID := big.NewInt(1337)
-	headSaver := headtracker.NewHeadSaver(
+	headSaver := heads.NewSaver(
 		logger.NullLogger,
-		headtracker.NewORM(*chainID, db),
+		heads.NewORM(*chainID, db),
 		evmConfig,
 		evmConfig.HeadTrackerConfig,
 	)
 
-	broadcaster := headtracker.NewHeadBroadcaster(logger.NullLogger)
+	broadcaster := heads.NewBroadcaster(logger.NullLogger)
 	require.NoError(t, broadcaster.Start(testutils.Context(t)), "failed to start head broadcaster")
 	t.Cleanup(func() { require.NoError(t, broadcaster.Close()) })
 
-	ht := headtracker.NewHeadTracker(
+	ht := heads.NewTracker(
 		logger.NullLogger,
 		ethClient,
 		evmConfig,

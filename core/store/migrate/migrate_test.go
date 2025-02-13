@@ -432,7 +432,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 			}}
 		})
 
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig.EVMConfigs()))
 
 		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
@@ -442,7 +442,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
 
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig.EVMConfigs()))
 
 		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())

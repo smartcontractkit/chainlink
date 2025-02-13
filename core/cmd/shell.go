@@ -194,7 +194,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
-	err = migrate.SetMigrationENVVars(cfg)
+	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr)
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(ds, unrestrictedClient)
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry: capabilitiesRegistry,
+	}
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
+		CREOpts: creOpts,
+
 		Config:                     cfg,
 		DS:                         ds,
 		KeyStore:                   keyStore,
@@ -323,7 +328,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:                mercuryPool,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      lloReaper,
-		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }
 

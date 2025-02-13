@@ -101,6 +101,7 @@ type Environment struct {
 	ExistingAddresses AddressBook
 	Chains            map[uint64]Chain
 	SolChains         map[uint64]SolChain
+	AptosChains       map[uint64]AptosChain
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
