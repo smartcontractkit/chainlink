@@ -10,12 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -432,23 +433,23 @@ func setupInboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOffRampSourcesChangeset),
-			Config: ccipcs.UpdateOffRampSourcesConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateOffRampSourcesChangeset),
+			ccipcs.UpdateOffRampSourcesConfig{
 				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
-			Config: ccipcs.UpdateRouterRampsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateRouterRampsChangeset),
+			ccipcs.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -473,37 +474,37 @@ func setupOutboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOnRampsDestsChangeset),
-			Config: ccipcs.UpdateOnRampDestsConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateOnRampsDestsChangeset),
+			ccipcs.UpdateOnRampDestsConfig{
 				UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterPricesChangeset),
-			Config: ccipcs.UpdateFeeQuoterPricesConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateFeeQuoterPricesChangeset),
+			ccipcs.UpdateFeeQuoterPricesConfig{
 				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
 				MCMS:          mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterDestsChangeset),
-			Config: ccipcs.UpdateFeeQuoterDestsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateFeeQuoterDestsChangeset),
+			ccipcs.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
-			Config: ccipcs.UpdateRouterRampsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.UpdateRouterRampsChangeset),
+			ccipcs.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -517,14 +518,14 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.SetRMNRemoteOnRMNProxyChangeset),
-			Config: ccipcs.SetRMNRemoteOnRMNProxyConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipcs.SetRMNRemoteOnRMNProxyChangeset),
+			ccipcs.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chains,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -722,8 +723,9 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 				updates[dest] = make(map[uint64]ccipcs.OffRampSourceUpdate)
 			}
 			updates[dest][source] = ccipcs.OffRampSourceUpdate{
-				IsEnabled:  true,
-				TestRouter: testRouterEnabled,
+				IsEnabled:                 true,
+				TestRouter:                testRouterEnabled,
+				IsRMNVerificationDisabled: true,
 			}
 		}
 	}
@@ -757,7 +759,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	state ccipcs.CCIPOnChainState,
 	onlyChainContracts bool,
 ) {
-	apps := make([]commonchangeset.ChangesetApplication, 0, len(chains)+1)
+	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)
 	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state)
 	if onlyChainContracts {
 		// filter out the home chain contracts from e.HomeChainSel
@@ -774,17 +776,17 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		}
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
-	apps = append(apps, commonchangeset.ChangesetApplication{
-		Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-		Config:    cfg,
-	})
+	apps = append(apps, commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+		cfg,
+	))
 	for _, chain := range chains {
-		apps = append(apps, commonchangeset.ChangesetApplication{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.RenounceTimelockDeployer),
-			Config: commonchangeset.RenounceTimelockDeployerConfig{
+		apps = append(apps, commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
+			commonchangeset.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},
-		})
+		))
 	}
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)

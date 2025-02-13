@@ -1,10 +1,13 @@
 package solana
 
 import (
+	"encoding/json"
 	"testing"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 )
 
 func TestChainWriterConfigRaw(t *testing.T) {
@@ -25,14 +28,20 @@ func TestChainWriterConfigRaw(t *testing.T) {
 		},
 	}
 
-	commonAddressesLookupTable := solana.MustPublicKeyFromBase58("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", commonAddressesLookupTable, tt.fromAddress)
+			config, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress, 0)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
+
+				raw, err := json.Marshal(config)
+				require.NoError(t, err)
+				var result chainwriter.ChainWriterConfig
+				err = json.Unmarshal(raw, &result)
+				require.NoError(t, err)
+				require.EqualValues(t, config, result)
 			}
 		})
 	}

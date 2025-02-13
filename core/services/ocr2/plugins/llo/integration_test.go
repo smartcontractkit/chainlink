@@ -1065,14 +1065,14 @@ func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
 	// nReports: the number of reports to expect per node
 
 	// LESS STRESSFUL
-	// const nChannels = 200
-	// const maxQueueSize = 10
-	// const nReports = 1_000
+	const nChannels = 200
+	const maxQueueSize = 10
+	const nReports = 1_000
 
 	// MORE STRESSFUL
-	const nChannels = 2000
-	const maxQueueSize = 4_000
-	const nReports = 10_000
+	// const nChannels = 2000
+	// const maxQueueSize = 4_000
+	// const nReports = 10_000
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)

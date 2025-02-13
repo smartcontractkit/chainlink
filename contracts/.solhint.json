@@ -9,7 +9,7 @@
 		"func-named-parameters": "off",
 		"immutable-vars-naming": "off",
 		"no-inline-assembly": "off",
-		"contract-name-camelcase": "off",
+		"contract-name-capwords": "off",
 		"no-unused-import": "error",
 		"gas-struct-packing": "warn",
 		"interface-starts-with-i": "warn",

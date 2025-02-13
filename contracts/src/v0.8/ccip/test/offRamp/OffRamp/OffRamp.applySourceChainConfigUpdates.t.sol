@@ -29,11 +29,17 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
-    OffRamp.SourceChainConfig memory expectedSourceChainConfig =
-      OffRamp.SourceChainConfig({router: s_destRouter, isEnabled: true, minSeqNr: 1, onRamp: ON_RAMP_ADDRESS_1});
+    OffRamp.SourceChainConfig memory expectedSourceChainConfig = OffRamp.SourceChainConfig({
+      router: s_destRouter,
+      isEnabled: true,
+      minSeqNr: 1,
+      onRamp: ON_RAMP_ADDRESS_1,
+      isRMNVerificationDisabled: false
+    });
 
     vm.expectEmit();
     emit OffRamp.SourceChainSelectorAdded(SOURCE_CHAIN_SELECTOR_1);
@@ -52,14 +58,20 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
 
     sourceChainConfigs[0].isEnabled = false;
-    OffRamp.SourceChainConfig memory expectedSourceChainConfig =
-      OffRamp.SourceChainConfig({router: s_destRouter, isEnabled: false, minSeqNr: 1, onRamp: ON_RAMP_ADDRESS_1});
+    OffRamp.SourceChainConfig memory expectedSourceChainConfig = OffRamp.SourceChainConfig({
+      router: s_destRouter,
+      isEnabled: false,
+      minSeqNr: 1,
+      onRamp: ON_RAMP_ADDRESS_1,
+      isRMNVerificationDisabled: false
+    });
 
     vm.expectEmit();
     emit OffRamp.SourceChainConfigSet(SOURCE_CHAIN_SELECTOR_1, expectedSourceChainConfig);
@@ -83,19 +95,22 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: abi.encode(ON_RAMP_ADDRESS_1, 0),
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1 + 1,
       onRamp: abi.encode(ON_RAMP_ADDRESS_1, 1),
-      isEnabled: false
+      isEnabled: false,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[2] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1 + 2,
       onRamp: abi.encode(ON_RAMP_ADDRESS_1, 2),
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     OffRamp.SourceChainConfig[] memory expectedSourceChainConfigs = new OffRamp.SourceChainConfig[](3);
@@ -104,7 +119,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
         router: s_destRouter,
         isEnabled: sourceChainConfigs[i].isEnabled,
         minSeqNr: 1,
-        onRamp: abi.encode(ON_RAMP_ADDRESS_1, i)
+        onRamp: abi.encode(ON_RAMP_ADDRESS_1, i),
+        isRMNVerificationDisabled: false
       });
 
       vm.expectEmit();
@@ -139,7 +155,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = sourceChainConfigArgs;
 
@@ -153,7 +170,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: sourceChainConfigArgs.router,
       isEnabled: sourceChainConfigArgs.isEnabled,
       minSeqNr: 1,
-      onRamp: sourceChainConfigArgs.onRamp
+      onRamp: sourceChainConfigArgs.onRamp,
+      isRMNVerificationDisabled: sourceChainConfigArgs.isRMNVerificationDisabled
     });
 
     if (isNewChain) {
@@ -177,7 +195,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
@@ -187,7 +206,13 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     vm.expectEmit();
     emit OffRamp.SourceChainConfigSet(
       SOURCE_CHAIN_SELECTOR_1,
-      OffRamp.SourceChainConfig({router: s_destRouter, isEnabled: true, minSeqNr: 1, onRamp: ON_RAMP_ADDRESS_2})
+      OffRamp.SourceChainConfig({
+        router: s_destRouter,
+        isEnabled: true,
+        minSeqNr: 1,
+        onRamp: ON_RAMP_ADDRESS_2,
+        isRMNVerificationDisabled: false
+      })
     );
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
   }
@@ -198,7 +223,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
@@ -215,7 +241,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     _commit(
       OffRamp.CommitReport({
         priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
-        merkleRoots: roots,
+        blessedMerkleRoots: roots,
+        unblessedMerkleRoots: new Internal.MerkleRoot[](0),
         rmnSignatures: s_rmnSignatures
       }),
       s_latestSequenceNumber
@@ -239,7 +266,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: new bytes(0),
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);
@@ -256,7 +284,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: IRouter(address(0)),
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     vm.expectRevert(OffRamp.ZeroAddressNotAllowed.selector);
@@ -269,7 +298,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: 0,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     vm.expectRevert(OffRamp.ZeroChainSelectorNotAllowed.selector);
@@ -282,7 +312,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
 
     s_offRamp.applySourceChainConfigUpdates(sourceChainConfigs);
@@ -299,7 +330,8 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     _commit(
       OffRamp.CommitReport({
         priceUpdates: _getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
-        merkleRoots: roots,
+        blessedMerkleRoots: roots,
+        unblessedMerkleRoots: new Internal.MerkleRoot[](0),
         rmnSignatures: s_rmnSignatures
       }),
       s_latestSequenceNumber

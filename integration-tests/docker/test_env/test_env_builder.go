@@ -66,6 +66,12 @@ type CLTestEnvBuilder struct {
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
 	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
 	testreporters.NewAllowedLogMessage("Error stopping job service", "It's a known issue with lifecycle. There's ongoing work that will fix it.", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
+	testreporters.NewAllowedLogMessage(
+		"No live RPC nodes available",
+		"Networking or infra issues can cause brief disconnections from the node to RPC nodes, especially at startup. This isn't a concern as long as the test passes otherwise",
+		zapcore.DPanicLevel,
+		testreporters.WarnAboutAllowedMsgs_Yes,
+	),
 }
 
 var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
@@ -295,17 +301,24 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					for _, f := range logFiles {
 						file := f
 						verifyLogsGroup.Go(func() error {
-							verifyErr := testreporters.VerifyLogFile(file, b.chainlinkNodeLogScannerSettings.FailingLogLevel, b.chainlinkNodeLogScannerSettings.Threshold, b.chainlinkNodeLogScannerSettings.AllowedMessages...)
+							verifyErr := testreporters.VerifyLogFile(
+								file,
+								b.chainlinkNodeLogScannerSettings.FailingLogLevel,
+								b.chainlinkNodeLogScannerSettings.Threshold,
+								b.chainlinkNodeLogScannerSettings.AllowedMessages...,
+							)
 							_ = file.Close()
 							// ignore processing errors
-							if verifyErr != nil && !strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr) {
+							if verifyErr != nil && !strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) &&
+								!strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr) {
 								b.l.Error().Err(verifyErr).Msg("Error processing CL node logs")
 
 								return nil
 
 								// if it's not a processing error, we want to fail the test; we also can stop processing logs all together at this point
-							} else if verifyErr != nil && (strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr)) {
-
+							} else if verifyErr != nil &&
+								(strings.Contains(verifyErr.Error(), testreporters.MultipleLogsAtLogLevelErr) ||
+									strings.Contains(verifyErr.Error(), testreporters.OneLogAtLogLevelErr)) {
 								return verifyErr
 							}
 							return nil

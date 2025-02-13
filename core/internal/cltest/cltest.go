@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
@@ -57,7 +58,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -488,7 +488,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if err != nil {
 		t.Fatal(err)
 	}
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry:    capabilitiesRegistry,
+		CapabilitiesDispatcher:  dispatcher,
+		CapabilitiesPeerWrapper: peerWrapper,
+		FetcherFunc:             syncerFetcherFunc,
+		FetcherFactoryFn:        computeFetcherFactory,
+	}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
+		CREOpts:                    creOpts,
 		Config:                     cfg,
 		MailMon:                    mailMon,
 		DS:                         ds,
@@ -503,13 +511,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		SecretGenerator:            MockSecretGenerator{},
 		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
 		MercuryPool:                mercuryPool,
-		CapabilitiesRegistry:       capabilitiesRegistry,
-		CapabilitiesDispatcher:     dispatcher,
-		CapabilitiesPeerWrapper:    peerWrapper,
 		NewOracleFactoryFn:         newOracleFactoryFn,
-		FetcherFunc:                syncerFetcherFunc,
-		FetcherFactoryFn:           computeFetcherFactory,
 		RetirementReportCache:      retirementReportCache,
+		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})
 
 	require.NoError(t, err)
@@ -1340,7 +1344,7 @@ func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash,
 }
 
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
-func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...httypes.HeadTrackable) (done chan struct{}) {
+func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...evmheads.Trackable) (done chan struct{}) {
 	// Build the full chain of heads
 	ctx := testutils.Context(t)
 	done = make(chan struct{})
