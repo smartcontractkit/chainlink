@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -39,10 +40,15 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 		switch family {
 		case chainsel.FamilyEVM:
 			// Deploy EVM LINK token
-			_, err := deployLinkTokenContractEVM(
-				e.Logger, e.Chains[chain], newAddresses,
-			)
-			if err != nil {
+			deployGrp := errgroup.Group{}
+			deployGrp.Go(func() error {
+				_, err := deployLinkTokenContractEVM(
+					e.Logger, e.Chains[chain], newAddresses,
+				)
+				return err
+			})
+
+			if err := deployGrp.Wait(); err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}
 		case chainsel.FamilySolana:
