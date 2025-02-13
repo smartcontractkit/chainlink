@@ -64,6 +64,26 @@ type OracleConfig struct {
 	MaxFaultyOracles int
 }
 
+func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
+	type aliasT OracleConfig
+	temp := &struct {
+		RequestTimeout string `json:"RequestTimeout"`
+		*aliasT
+	}{
+		aliasT: (*aliasT)(oc),
+	}
+	if err := json.Unmarshal(data, temp); err != nil {
+		return fmt.Errorf("failed to unmarshal OracleConfig: %w", err)
+	}
+
+	requestTimeout, err := time.ParseDuration(temp.RequestTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to parse RequestTimeout: %w", err)
+	}
+	oc.RequestTimeout = requestTimeout
+	return nil
+}
+
 type NodeKeys struct {
 	EthAddress            string `json:"EthAddress"`
 	AptosAccount          string `json:"AptosAccount"`
