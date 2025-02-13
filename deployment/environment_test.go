@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -300,4 +301,126 @@ func test32Byte(t *testing.T, s string) [32]byte {
 func hexFrom32Byte(t *testing.T, s string) string {
 	b := test32Byte(t, s)
 	return hex.EncodeToString(b[:])
+}
+
+func TestNewNodeFromJD(t *testing.T) {
+	type args struct {
+		jdNode       *nodev1.Node
+		chainConfigs []*nodev1.ChainConfig
+	}
+	tests := []struct {
+		name     string
+		args     args
+		want     *Node
+		checkErr func(t *testing.T, err error)
+	}{
+		{
+			name: "ok",
+			args: args{
+				jdNode: &nodev1.Node{
+					Id:        "node-id1",
+					Name:      "node1",
+					PublicKey: "node-pub-key",
+				},
+				chainConfigs: []*nodev1.ChainConfig{
+					{
+
+						Chain: &nodev1.Chain{
+							Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+							Id:   strconv.FormatUint(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID, 10),
+						},
+						NodeId: "node-id1",
+						Ocr2Config: &nodev1.OCR2Config{
+							OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+								BundleId:              "bundle1",
+								OffchainPublicKey:     hexFrom32Byte(t, "offchain-pub-key1"),
+								OnchainSigningAddress: gethcommon.HexToAddress("0x1").Hex(),
+								ConfigPublicKey:       hexFrom32Byte(t, "config-encryption-pub-key1"),
+							},
+							P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+								PeerId: testPeerID(t, "peer-id1").String(),
+							},
+						},
+					},
+				},
+			},
+			want: &Node{
+				NodeID: "node-id1",
+				Name:   "node1",
+				CSAKey: "node-pub-key",
+				SelToOCRConfig: map[chain_selectors.ChainDetails]OCRConfig{
+					{
+						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
+						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+					}: {
+						KeyBundleID:               "bundle1",
+						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
+						OnchainPublicKey:          types2.OnchainPublicKey(gethcommon.HexToAddress("0x1").Bytes()),
+						ConfigEncryptionPublicKey: types3.ConfigEncryptionPublicKey(test32Byte(t, "config-encryption-pub-key1")),
+
+						PeerID: testPeerID(t, "peer-id1"),
+					},
+				},
+				PeerID: testPeerID(t, "peer-id1"),
+			},
+		},
+		{
+			name: "no evm chain",
+			args: args{
+				jdNode: &nodev1.Node{
+					Id:        "node-id1",
+					Name:      "node1",
+					PublicKey: "node-pub-key",
+				},
+				chainConfigs: []*nodev1.ChainConfig{
+					{
+						Chain: &nodev1.Chain{
+							Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+							Id:   strconv.FormatUint(chain_selectors.APTOS_TESTNET.ChainID, 10),
+						},
+						NodeId: "node-id1",
+						Ocr2Config: &nodev1.OCR2Config{
+							OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+								BundleId:              "bundle1",
+								OffchainPublicKey:     hexFrom32Byte(t, "offchain-pub-key1"),
+								OnchainSigningAddress: gethcommon.HexToAddress("0x1").Hex(),
+								ConfigPublicKey:       hexFrom32Byte(t, "config-encryption-pub-key1"),
+							},
+							P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+								PeerId: testPeerID(t, "peer-id1").String(),
+							},
+						},
+					},
+				},
+			},
+			checkErr: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, ErrMissingEVMChain)
+			},
+			want: &Node{
+				NodeID:         "node-id1",
+				Name:           "node1",
+				CSAKey:         "node-pub-key",
+				SelToOCRConfig: map[chain_selectors.ChainDetails]OCRConfig{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewNodeFromJD(tt.args.jdNode, tt.args.chainConfigs)
+			if tt.checkErr != nil {
+				tt.checkErr(t, err)
+				return
+			}
+			assert.Equal(t, tt.want.PeerID, got.PeerID)
+			assert.Equal(t, tt.want.CSAKey, got.CSAKey)
+			assert.Equal(t, tt.want.NodeID, got.NodeID)
+			assert.Equal(t, tt.want.Name, got.Name)
+			for k, v := range tt.want.SelToOCRConfig {
+				assert.Equal(t, v, got.SelToOCRConfig[k])
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewNodeFromJD() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

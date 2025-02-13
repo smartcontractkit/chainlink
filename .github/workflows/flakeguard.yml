@@ -296,6 +296,8 @@ jobs:
 
       - name: Build Solana artifacts
         uses: ./.github/actions/setup-solana/build-contracts
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd

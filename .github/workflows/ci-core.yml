@@ -234,6 +234,8 @@ jobs:
         # do not build for core tests, core 'integration' tests, or fuzz tests
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && matrix.type.build-solana-artifacts != 'false' }}
         uses: ./.github/actions/setup-solana/build-contracts
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
@@ -279,7 +281,10 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
-        run: ./tools/bin/${{ matrix.type.cmd }} ./...
+        run: |
+          # See: https://github.com/golang/go/issues/69179
+          GODEBUG=goindex=0
+          ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Print Races
         id: print-races
