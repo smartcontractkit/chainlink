@@ -3,7 +3,6 @@ package solana
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
@@ -17,11 +16,6 @@ var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
 
 // TODO add events when Querying is finished
 func DestContractReaderConfig() (config.ContractReader, error) {
-	type TimestampedUnixBig struct {
-		Value     *big.Int `json:"value"`
-		Timestamp uint32   `json:"timestamp"`
-	}
-
 	var offRampIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipOffRampIDL), &offRampIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP OffRamp IDL, error: %w", err)
@@ -31,6 +25,21 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
 	}
+
+	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
+		Name: "USDPerToken",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind: solanacodec.IdlTypeDefTyKindStruct,
+			Fields: &solanacodec.IdlTypeDefStruct{
+				{
+					Name: "tokenPrices",
+					Type: solanacodec.IdlType{
+						AsIdlTypeVec: &solanacodec.IdlTypeVec{Vec: solanacodec.IdlType{AsIdlTypeDefined: &solanacodec.IdlTypeDefined{Defined: "TimestampedPackedU224"}}},
+					},
+				},
+			},
+		},
+	})
 
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
@@ -106,7 +115,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							//    // Each address must be right padded with zeros if it is less than 64 bytes.
 							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
 						},
-						// TODO enable multi reader for batch (should be a really small simple feature) https://github.com/smartcontractkit/chainlink-solana/pull/1070
 						MultiReader: &config.MultiReader{
 							ReuseParams: true,
 							Reads: []config.ReadDefinition{
@@ -142,7 +150,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 					},
 					// This one is hacky, but works - [NONEVM-1320]
 					consts.MethodNameFeeQuoterGetTokenPrices: {
-						ChainSpecificName: "BillingTokenConfigWrapper",
+						ChainSpecificName: "USDPerToken",
+						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{
@@ -157,18 +166,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.DropModifierConfig{
-								Fields: []string{"Config"},
-							},
-							&codec.HardCodeModifierConfig{
-								// TODO json doesn't retian types, add this type to IDL manually ...
-								OffChainValues: map[string]any{
-									"Response": []TimestampedUnixBig{},
-								},
-							},
-							&codec.PropertyExtractorConfig{FieldName: "Response"},
+							&codec.PropertyExtractorConfig{FieldName: "TokenPrices"},
 						},
-						ReadType: config.Account,
 					},
 					consts.MethodNameFeeQuoterGetTokenPrice: {
 						ChainSpecificName: "BillingTokenConfigWrapper",
@@ -255,11 +254,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 
 // TODO add events when Querying is finished
 func SourceContractReaderConfig() (config.ContractReader, error) {
-	type TimestampedUnixBig struct {
-		Value     *big.Int `json:"value"`
-		Timestamp uint32   `json:"timestamp"`
-	}
-
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
@@ -269,6 +263,21 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
 	}
+
+	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
+		Name: "USDPerToken",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind: solanacodec.IdlTypeDefTyKindStruct,
+			Fields: &solanacodec.IdlTypeDefStruct{
+				{
+					Name: "tokenPrices",
+					Type: solanacodec.IdlType{
+						AsIdlTypeVec: &solanacodec.IdlTypeVec{Vec: solanacodec.IdlType{AsIdlTypeDefined: &solanacodec.IdlTypeDefined{Defined: "TimestampedPackedU224"}}},
+					},
+				},
+			},
+		},
+	})
 
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameOnRamp}},
@@ -354,9 +363,10 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							},
 						},
 					},
-					// TODO this one is hacky, but should work NONEVM-1320
+					// this one is hacky, but should work NONEVM-1320
 					consts.MethodNameFeeQuoterGetTokenPrices: {
-						ChainSpecificName: "BillingTokenConfigWrapper",
+						ChainSpecificName: "USDPerToken",
+						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{
@@ -371,18 +381,8 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							},
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.DropModifierConfig{
-								Fields: []string{"Config"},
-							},
-							&codec.HardCodeModifierConfig{
-								// TODO json doesn't retian types, add this type to IDL manually ...
-								OffChainValues: map[string]any{
-									"Response": []TimestampedUnixBig{},
-								},
-							},
-							&codec.PropertyExtractorConfig{FieldName: "Response"},
+							&codec.PropertyExtractorConfig{FieldName: "TokenPrices"},
 						},
-						ReadType: config.Account,
 					},
 					consts.MethodNameFeeQuoterGetTokenPrice: {
 						ChainSpecificName: "BillingTokenConfigWrapper",
