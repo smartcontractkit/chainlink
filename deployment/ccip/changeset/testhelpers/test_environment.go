@@ -579,7 +579,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			solana.DeployChainContractsConfigSolana{
 				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
 					HomeChainSelector:      e.HomeChainSel,
-					ContractParamsPerChain: evmContractParams,
+					ContractParamsPerChain: solContractParams,
 				},
 			},
 		),
