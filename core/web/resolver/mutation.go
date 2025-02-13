@@ -92,13 +92,14 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		return nil, err
 	}
 	orm := r.App.BridgeORM()
+	bridgeCache := bridges.NewCache(orm, r.App.GetLogger(), bridges.DefaultUpsertInterval)
 	if err = ValidateBridgeType(btr); err != nil {
 		return nil, err
 	}
 	if err = ValidateBridgeTypeUniqueness(ctx, btr, orm); err != nil {
 		return nil, err
 	}
-	if err := orm.CreateBridgeType(ctx, bt); err != nil {
+	if err := bridgeCache.CreateBridgeType(ctx, bt); err != nil {
 		return nil, err
 	}
 
@@ -489,7 +490,6 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 
 	// Find the bridge
 	orm := r.App.BridgeORM()
-	// Initialize the cache with the required logger argument
 	bridgeCache := bridges.NewCache(orm, r.App.GetLogger(), bridges.DefaultUpsertInterval)
 	bridge, err := bridgeCache.FindBridge(ctx, taskType)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -666,7 +666,8 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 	}
 
 	orm := r.App.BridgeORM()
-	bt, err := orm.FindBridge(ctx, taskType)
+	bridgeCache := bridges.NewCache(orm, r.App.GetLogger(), bridges.DefaultUpsertInterval)
+	bt, err := bridgeCache.FindBridge(ctx, taskType)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteBridgePayload(nil, err), nil
@@ -683,7 +684,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return NewDeleteBridgePayload(nil, fmt.Errorf("bridge has jobs associated with it")), nil
 	}
 
-	if err = orm.DeleteBridgeType(ctx, &bt); err != nil {
+	if err = bridgeCache.DeleteBridgeType(ctx, &bt); err != nil {
 		return nil, err
 	}
 
