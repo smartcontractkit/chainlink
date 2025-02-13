@@ -11,12 +11,14 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
@@ -56,10 +58,10 @@ func TestUpdateOnRampsDests(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-					Config: changeset.UpdateOnRampDestsConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+					changeset.UpdateOnRampDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
 							source: {
 								dest: {
@@ -78,8 +80,8 @@ func TestUpdateOnRampsDests(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the onramp configuration is as we expect.
@@ -132,10 +134,10 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampDynamicConfigChangeset),
-					Config: changeset.UpdateOnRampDynamicConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampDynamicConfigChangeset),
+					changeset.UpdateOnRampDynamicConfig{
 						UpdatesByChain: map[uint64]changeset.OnRampDynamicConfigUpdate{
 							source: {
 								FeeAggregator: common.HexToAddress("0x1002"),
@@ -146,8 +148,8 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the onramp configuration is as we expect.
@@ -200,10 +202,10 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampAllowListChangeset),
-					Config: changeset.UpdateOnRampAllowListConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampAllowListChangeset),
+					changeset.UpdateOnRampAllowListConfig{
 						UpdatesByChain: map[uint64]map[uint64]changeset.OnRampAllowListUpdate{
 							source: {
 								dest: {
@@ -222,8 +224,8 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the onramp configuration is as we expect.
@@ -330,18 +332,18 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tokenAmount, onRampInitWeth)
 
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.WithdrawOnRampFeeTokensChangeset),
-					Config: changeset.WithdrawOnRampFeeTokensConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.WithdrawOnRampFeeTokensChangeset),
+					changeset.WithdrawOnRampFeeTokensConfig{
 						FeeTokensByChain: map[uint64][]common.Address{
 							source: {linkToken.Address(), weth9.Address()},
 							dest:   {state.Chains[dest].LinkToken.Address(), state.Chains[dest].Weth9.Address()},
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert that feeAggregator receives all fee tokens from OnRamp
@@ -390,10 +392,10 @@ func TestUpdateOffRampsSources(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-					Config: changeset.UpdateOffRampSourcesConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
+					changeset.UpdateOffRampSourcesConfig{
 						UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
 							source: {
 								dest: {
@@ -412,8 +414,8 @@ func TestUpdateOffRampsSources(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the offramp configuration is as we expect.
@@ -466,10 +468,10 @@ func TestUpdateFQDests(t *testing.T) {
 			fqCfg1 := changeset.DefaultFeeQuoterDestChainConfig(true)
 			fqCfg2 := changeset.DefaultFeeQuoterDestChainConfig(true)
 			fqCfg2.DestGasOverhead = 1000
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-					Config: changeset.UpdateFeeQuoterDestsConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+					changeset.UpdateFeeQuoterDestsConfig{
 						UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 							source: {
 								dest: fqCfg1,
@@ -480,8 +482,8 @@ func TestUpdateFQDests(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the fq configuration is as we expect.
@@ -532,10 +534,10 @@ func TestUpdateRouterRamps(t *testing.T) {
 			}
 
 			// Updates test router.
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-					Config: changeset.UpdateRouterRampsConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+					changeset.UpdateRouterRampsConfig{
 						TestRouter: true,
 						UpdatesByChain: map[uint64]changeset.RouterUpdates{
 							source: {
@@ -557,8 +559,8 @@ func TestUpdateRouterRamps(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// Assert the router configuration is as we expect.
@@ -607,10 +609,10 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 				}
 			}
 			msgInterceptor := utils.RandomAddress()
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateDynamicConfigOffRampChangeset),
-					Config: changeset.UpdateDynamicConfigOffRampConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateDynamicConfigOffRampChangeset),
+					changeset.UpdateDynamicConfigOffRampConfig{
 						Updates: map[uint64]changeset.OffRampParams{
 							source: {
 								PermissionLessExecutionThresholdSeconds: uint32(2 * 60 * 60),
@@ -619,8 +621,8 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 			// Assert the nonce manager configuration is as we expect.
 			actualConfig, err := state.Chains[source].OffRamp.GetDynamicConfig(nil)
@@ -667,10 +669,10 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 				}
 			}
 
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, tenv.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNonceManagersChangeset),
-					Config: changeset.UpdateNonceManagerConfig{
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
+					changeset.UpdateNonceManagerConfig{
 						UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
 							source: {
 								RemovedAuthCallers: []common.Address{state.Chains[source].OnRamp.Address()},
@@ -678,8 +680,8 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 			// Assert the nonce manager configuration is as we expect.
 			callers, err := state.Chains[source].NonceManager.GetAllAuthorizedCallers(nil)

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -258,12 +259,14 @@ func TestAddNodes(t *testing.T) {
 						}
 						require.NotNil(t, r.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 						require.Len(t, r.Proposals, 1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-						applyErr := applyProposal(t, tc.input.te, []commonchangeset.ChangesetApplication{
-							{
-								Changeset: commonchangeset.WrapChangeSet(changeset.AddNodes),
-								Config:    req,
-							},
-						})
+						applyErr := applyProposal(
+							t,
+							tc.input.te,
+							commonchangeset.Configure(
+								deployment.CreateLegacyChangeSet(changeset.AddNodes),
+								req,
+							),
+						)
 						if tc.checkErr != nil {
 							tc.checkErr(t, useMCMS, applyErr)
 							return
@@ -299,7 +302,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 	}
 }
 
-func applyProposal(t *testing.T, te test.TestEnv, applicable []commonchangeset.ChangesetApplication) error {
+func applyProposal(t *testing.T, te test.TestEnv, applicable ...commonchangeset.ConfiguredChangeSet) error {
 	// now apply the changeset such that the proposal is signed and execed
 	contracts := te.ContractSets()[te.RegistrySelector]
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{

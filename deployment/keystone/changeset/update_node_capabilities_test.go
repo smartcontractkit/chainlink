@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -126,12 +127,12 @@ func TestUpdateNodeCapabilities(t *testing.T) {
 			},
 		}
 
-		_, err = commonchangeset.ApplyChangesets(t, te.Env, timelockContracts, []commonchangeset.ChangesetApplication{
-			{
-				Changeset: commonchangeset.WrapChangeSet(changeset.UpdateNodeCapabilities),
-				Config:    &cfg,
-			},
-		})
+		_, err = commonchangeset.Apply(t, te.Env, timelockContracts,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset.UpdateNodeCapabilities),
+				&cfg,
+			),
+		)
 		require.NoError(t, err)
 		validateCapabilityUpdates(t, te, capabiltiesToSet)
 	})

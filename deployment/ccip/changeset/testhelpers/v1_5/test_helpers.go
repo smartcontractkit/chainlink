@@ -24,37 +24,30 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
 func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.DeployLanesChangeset),
-			Config: v1_5changeset.DeployLanesConfig{
-				Configs: addLanesCfg,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			Config: v1_5changeset.OCR2Config{
-				CommitConfigs: commitOCR2Configs,
-				ExecConfigs:   execOCR2Configs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			Config: v1_5changeset.JobSpecsForLanesConfig{
-				Configs: jobspecs,
-			},
-		},
-	})
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+		),
+	)
 	require.NoError(t, err)
 	return e
 }

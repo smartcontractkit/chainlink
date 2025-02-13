@@ -19,9 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	evmhttypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -547,7 +548,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := tests.Context(t)
 			lggr := logger.Test(t)
-			var hb evmhttypes.HeadBroadcaster
+			var hb evmheads.Broadcaster
 			var lp logpoller.LogPoller
 
 			bs := NewBlockSubscriber(hb, lp, 1000, lggr)
