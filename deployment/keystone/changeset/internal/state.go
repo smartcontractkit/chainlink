@@ -64,6 +64,19 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 		}
 		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
 	}
+
+	if cs.OCR3 != nil {
+		for addr, ocr3Cap := range cs.OCR3 {
+			oc := *ocr3Cap
+			addrCopy := addr
+			ocrView, err := view.GenerateOCR3ConfigView(oc)
+			if err != nil {
+				return view.KeystoneChainView{}, err
+			}
+			out.OCR3ConfigView[addrCopy.String()] = ocrView
+		}
+	}
+
 	return out, nil
 }
 
