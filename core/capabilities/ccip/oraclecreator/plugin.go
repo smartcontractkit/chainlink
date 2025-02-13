@@ -259,10 +259,12 @@ var plugins = map[string]plugin{
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
 	},
 	chainsel.FamilySolana: {
-		CommitPluginCodec:   ccipsolana.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  ccipsolana.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipsolana.NewMessageHasherV1(lggr) },
+		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec()),
+		ExtraArgsCodec:     ccipcommon.NewExtraDataCodec(),
+		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
+			return ccipsolana.NewMessageHasherV1(lggr, ccipcommon.NewExtraDataCodec())
+		},
 		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
 		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },

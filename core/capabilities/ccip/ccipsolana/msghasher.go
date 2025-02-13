@@ -20,12 +20,14 @@ import (
 // Compatible with:
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
-	lggr logger.Logger
+	lggr           logger.Logger
+	extraDataCodec cciptypes.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec cciptypes.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
-		lggr: lggr,
+		lggr:           lggr,
+		extraDataCodec: extraDataCodec,
 	}
 }
 
@@ -45,7 +47,12 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
 	for _, ta := range msg.TokenAmounts {
-		destGasAmount, err := extractDestGasAmountFromMap(ta.DestExecDataDecoded)
+		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(ta.DestExecData, msg.Header.SourceChainSelector)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
+		}
+
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 		if err != nil {
 			return [32]byte{}, err
 		}
@@ -59,9 +66,13 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		})
 	}
 
-	var err error
+	extraDataDecodecMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to decode extra args: %w", err)
+	}
+
 	var msgAccounts []solana.PublicKey
-	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}

@@ -19,10 +19,13 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
+	extraDataCodec cciptypes.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
-	return &ExecutePluginCodecV1{}
+func NewExecutePluginCodecV1(extraDataCodec cciptypes.ExtraDataCodec) *ExecutePluginCodecV1 {
+	return &ExecutePluginCodecV1{
+		extraDataCodec: extraDataCodec,
+	}
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
@@ -50,7 +53,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
-			destGasAmount, err := extractDestGasAmountFromMap(tokenAmount.DestExecDataDecoded)
+			destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+			}
+
+			destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 			if err != nil {
 				return nil, err
 			}
@@ -64,8 +72,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
+		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+
 		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err := parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
