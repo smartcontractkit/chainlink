@@ -1,17 +1,12 @@
 package changeset
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	"github.com/smartcontractkit/mcms/sdk/evm"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -42,36 +37,7 @@ func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataID
 	}
 
 	if c.McmsConfig != nil {
-		ops := &mcmstypes.BatchOperation{
-			ChainSelector: mcmstypes.ChainSelector(c.ChainSelector),
-			Transactions: []mcmstypes.Transaction{
-				{
-					To:               contract.Address().Hex(),
-					Data:             tx.Data(),
-					AdditionalFields: json.RawMessage(`{"value": 0}`),
-				},
-			},
-		}
-
-		timelocksPerChain := map[uint64]string{
-			c.ChainSelector: chainState.Timelock.Address().Hex(),
-		}
-		proposerMCMSes := map[uint64]string{
-			c.ChainSelector: chainState.ProposerMcm.Address().Hex(),
-		}
-
-		inspectorPerChain := map[uint64]sdk.Inspector{}
-		inspectorPerChain[c.ChainSelector] = evm.NewInspector(chain.Client)
-
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
-			timelocksPerChain,
-			proposerMCMSes,
-			inspectorPerChain,
-			[]mcmstypes.BatchOperation{*ops},
-			"proposal to update proxy-dataId mapping on a cache",
-			c.McmsConfig.MinDelay,
-		)
+		proposal, err := BuildMCMProposal(env, "proposal to update proxy-dataId mapping on a cache", c.ChainSelector, contract.Address().Hex(), tx, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
