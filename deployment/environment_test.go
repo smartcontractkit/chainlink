@@ -3,6 +3,7 @@ package deployment
 import (
 	"encoding/hex"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
@@ -303,6 +304,40 @@ func hexFrom32Byte(t *testing.T, s string) string {
 	return hex.EncodeToString(b[:])
 }
 
+func Test_isValidMultiAddr(t *testing.T) {
+	// Generate a p2p piece using p2pkey.MustNewV2XXXTestingOnly()
+	seed := big.NewInt(123)
+	p2p := p2pkey.MustNewV2XXXTestingOnly(seed).PeerID().String()
+
+	// Create valid and invalid multi-address strings
+	validMultiAddr := p2p[4:] + "@example.com:12345" // Remove "p2p_" prefix from p2p
+	invalidMultiAddr1 := "invalid@address:12345"
+	invalidMultiAddr2 := p2p[4:] + "@example.com:notanumber"
+	invalidMultiAddr3 := "missingatsign.com:12345"
+	invalidMultiAddr4 := p2p[4:] + "@example.com"
+	invalidMultiAddr5 := "@missingp2p:123"
+
+	// Test cases
+	tests := []struct {
+		name     string
+		addr     string
+		expected bool
+	}{
+		{"Valid MultiAddr", validMultiAddr, true},
+		{"Invalid MultiAddr - Invalid Address", invalidMultiAddr1, false},
+		{"Invalid MultiAddr - Non-numeric Port", invalidMultiAddr2, false},
+		{"Invalid MultiAddr - Missing @", invalidMultiAddr3, false},
+		{"Invalid MultiAddr - Missing Port", invalidMultiAddr4, false},
+		{"Invalid MultiAddr - Missing p2p", invalidMultiAddr5, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidMultiAddr(tt.addr)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
 func TestNewNodeFromJD(t *testing.T) {
 	type args struct {
 		jdNode       *nodev1.Node
