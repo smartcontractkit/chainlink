@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -496,7 +497,11 @@ func SolEventEmitter[T any](
 					require.NotNil(t, tx)
 
 					var event T
-					require.NoError(t, solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents))
+					err = solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents)
+					if err != nil && strings.Contains(err.Error(), "event not found") {
+						continue
+					}
+					require.NoError(t, err)
 
 					select {
 					case ch <- event:
