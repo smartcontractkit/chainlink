@@ -421,6 +421,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			if err != nil {
 				return fmt.Errorf("failed to grant mint and burn roles for link pool on chain %d: %w", chain, err)
 			}
+			fmt.Println("granting mint and burn roles for link pool on chain ", chain)
 			return nil
 		})
 	}
