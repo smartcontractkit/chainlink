@@ -217,6 +217,11 @@ jobs:
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
 
+      - name: Install Foundry
+        uses: ./chainlink/.github/actions/install-solidity-foundry
+        with:
+          working-directory: chainlink/contracts
+
       - name: Version package.json
         working-directory: contracts
         shell: bash
@@ -262,6 +267,11 @@ jobs:
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: ./chainlink/.github/actions/install-solidity-foundry
+        with:
+          working-directory: chainlink/contracts
 
       - name: Validate version
         working-directory: contracts
