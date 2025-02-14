@@ -16,7 +16,7 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250213022122-3f5fc4eae2e8
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250211210516-c98bb1ee1bd8
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250128231431-9279badae2f0
+	github.com/smartcontractkit/chainlink/v2 v2.19.0-ccip1.5.16-alpha.0.0.20250214191649-18df7375dfde
 )
 
 require (
