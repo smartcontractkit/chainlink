@@ -60,7 +60,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{
 							// TODO why does Solana have two of these in an array, but EVM has one
 							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"Ocr3": &locationFirst}},
-							&codec.RenameModifierConfig{Fields: map[string]string{"Ocr3": "OCRConfig"}},
 						},
 					},
 					consts.MethodNameGetLatestPriceSequenceNumber: {
