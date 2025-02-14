@@ -51,7 +51,7 @@ func (c DonConfig) Validate() error {
 }
 
 type testEnvIface interface {
-	ContractSets() map[uint64]internal.ContractSet
+	ContractSets() map[uint64]changeset.ContractSet
 	CapabilitiesRegistry() *kcr.CapabilitiesRegistry
 	CapabilityInfos() []kcr.CapabilitiesRegistryCapabilityInfo
 	Nops() []kcr.CapabilitiesRegistryNodeOperatorAdded
