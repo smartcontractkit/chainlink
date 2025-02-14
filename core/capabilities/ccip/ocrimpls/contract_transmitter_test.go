@@ -15,6 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -316,7 +317,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		contractName,
 		methodTransmitWithSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.ToCommitCalldata,
+		ocrimpls.NewToCommitCalldata(consts.MethodCommit, ""),
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
