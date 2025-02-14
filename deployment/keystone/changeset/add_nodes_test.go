@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -15,11 +16,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type mcmsTestCase struct {
+	name       string
+	mcmsConfig *changeset.MCMSConfig
+}
+
 func TestAddNodes(t *testing.T) {
 	t.Parallel()
 
 	type input struct {
-		te                 test.TestEnv
+		te                 test.EnvWrapper
 		CreateNodeRequests map[string]changeset.CreateNodeRequest
 		MCMSConfig         *changeset.MCMSConfig
 	}
@@ -28,21 +34,25 @@ func TestAddNodes(t *testing.T) {
 		input    input
 		checkErr func(t *testing.T, useMCMS bool, err error)
 	}
-	// run the same tests for both mcms and non-mcms
-	var mcmsConfigs = []*changeset.MCMSConfig{nil, {MinDuration: 0}}
-	for _, mc := range mcmsConfigs {
-		prefix := "no mcms"
-		if mc != nil {
-			prefix = "with mcms"
-		}
 
-		t.Run(prefix, func(t *testing.T) {
-			te := test.SetupTestEnv(t, test.TestConfig{
-				WFDonConfig:     test.DonConfig{N: 4},
-				AssetDonConfig:  test.DonConfig{N: 4},
-				WriterDonConfig: test.DonConfig{N: 4},
+	type mcmsCase struct {
+		name       string
+		mcmsConfig *changeset.MCMSConfig
+	}
+
+	var mcCases = []mcmsCase{
+		{name: "no mcms", mcmsConfig: nil},
+		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDuration: 0}},
+	}
+	for _, mcCase := range mcCases {
+		mcmsConfig := mcCase.mcmsConfig
+		t.Run(mcCase.name, func(t *testing.T) {
+			te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+				WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+				AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+				WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 				NumChains:       1,
-				UseMCMS:         mc != nil,
+				UseMCMS:         mcmsConfig != nil,
 			})
 
 			var cases = []testCase{
@@ -60,7 +70,7 @@ func TestAddNodes(t *testing.T) {
 								P2PID:               testPeerID(t, "test-peer-id"),
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -88,7 +98,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -116,7 +126,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 				{
@@ -147,7 +157,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 
@@ -179,7 +189,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -215,7 +225,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -258,12 +268,14 @@ func TestAddNodes(t *testing.T) {
 						}
 						require.NotNil(t, r.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 						require.Len(t, r.Proposals, 1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-						applyErr := applyProposal(t, tc.input.te, []commonchangeset.ChangesetApplication{
-							{
-								Changeset: commonchangeset.WrapChangeSet(changeset.AddNodes),
-								Config:    req,
-							},
-						})
+						applyErr := applyProposal(
+							t,
+							tc.input.te,
+							commonchangeset.Configure(
+								deployment.CreateLegacyChangeSet(changeset.AddNodes),
+								req,
+							),
+						)
 						if tc.checkErr != nil {
 							tc.checkErr(t, useMCMS, applyErr)
 							return
@@ -299,7 +311,7 @@ func assertNodesExist(t *testing.T, registry *kcr.CapabilitiesRegistry, nodes ..
 	}
 }
 
-func applyProposal(t *testing.T, te test.TestEnv, applicable []commonchangeset.ChangesetApplication) error {
+func applyProposal(t *testing.T, te test.EnvWrapper, applicable ...commonchangeset.ConfiguredChangeSet) error {
 	// now apply the changeset such that the proposal is signed and execed
 	contracts := te.ContractSets()[te.RegistrySelector]
 	timelockContracts := map[uint64]*proposalutils.TimelockExecutionContracts{

@@ -17,7 +17,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
@@ -135,14 +136,14 @@ func (p *mercuryProvider) ContractReader() commontypes.ContractReader {
 var _ mercurytypes.ChainReader = (*mercuryChainReader)(nil)
 
 type mercuryChainReader struct {
-	tracker httypes.HeadTracker
+	tracker heads.Tracker
 }
 
-func NewChainReader(h httypes.HeadTracker) mercurytypes.ChainReader {
+func NewChainReader(h heads.Tracker) mercurytypes.ChainReader {
 	return &mercuryChainReader{h}
 }
 
-func NewMercuryChainReader(h httypes.HeadTracker) mercurytypes.ChainReader {
+func NewMercuryChainReader(h heads.Tracker) mercurytypes.ChainReader {
 	return &mercuryChainReader{
 		tracker: h,
 	}

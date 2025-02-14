@@ -8,7 +8,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_v08_verifier_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"

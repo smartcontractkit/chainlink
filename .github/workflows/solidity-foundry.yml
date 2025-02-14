@@ -48,7 +48,7 @@ jobs:
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -65,7 +65,7 @@ jobs:
       all_changes: ${{ steps.changes.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Detect changes
@@ -153,7 +153,7 @@ jobs:
           ${{ contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name)
           || contains(fromJson(needs.changes.outputs.all_changes), 'shared')
           || needs.changes.outputs.non_src_changes == 'true' }}
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
@@ -218,7 +218,7 @@ jobs:
         shell: bash
         working-directory: contracts/src/v0.8
         run: |
-          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')  
+          exact_versions=$(grep -rh "pragma solidity" ${{ matrix.product.name }} | sort | uniq | grep -v '\^' | awk '{print $3}' | tr -d ';')
           for version in $exact_versions; do
             echo "Installing exact version: $version"
             if ! svm install "$version"; then
@@ -326,12 +326,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout this repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Checkout .github repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
@@ -345,7 +345,7 @@ jobs:
         uses: ./.github/actions/install-solidity-foundry
 
       - name: Set up Python
-        uses: actions/setup-python@v5.2.0
+        uses: actions/setup-python@v5
         with:
           python-version: "3.8"
 
@@ -382,7 +382,7 @@ jobs:
       # in that case we extract new issues introduced by the changes by using an LLM model
       - name: Upload Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -393,7 +393,7 @@ jobs:
       # we need to upload scripts and configuration in case base_ref doesn't have the scripts, or they are in different version
       - name: Upload Slither scripts
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -403,7 +403,7 @@ jobs:
 
       - name: Upload configs
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         with:
           name: tmp-configs-${{ github.sha }}
@@ -414,21 +414,21 @@ jobs:
 
       - name: Checkout earlier version of this repository
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.base_ref }}
 
       - name: Download Slither scripts
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: tmp-slither-scripts-${{ github.sha }}
           path: ./dot_github/tools/scripts/solidity
 
       - name: Download configs
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: tmp-configs-${{ github.sha }}
           path: contracts/configs
@@ -465,7 +465,7 @@ jobs:
 
       - name: Upload Slither report
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -476,7 +476,7 @@ jobs:
 
       - name: Download Slither results for current branch
         if: needs.changes.outputs.sol_mod_only == 'true'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: slither-reports-current-${{ github.sha }}
           path: contracts/slither-reports-current
@@ -529,7 +529,7 @@ jobs:
           sol_files: ${{ needs.changes.outputs.not_test_sol_modified_files }}
 
       - name: Upload Slither reports
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -608,7 +608,7 @@ jobs:
     steps:
       - name: Checkout the repo
         if: ${{ (contains(fromJson(needs.changes.outputs.all_changes), matrix.product.name) || needs.changes.outputs.non_src_changes == 'true') && matrix.product.setup.run-forge-fmt }}
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive

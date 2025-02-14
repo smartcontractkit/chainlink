@@ -20,15 +20,3 @@ var OCR3Cap = kcr.CapabilitiesRegistryCapability{
 	Version:        "1.0.0",
 	CapabilityType: uint8(2), // consensus
 }
-
-var DonToCapabilities = map[string][]kcr.CapabilitiesRegistryCapability{
-	WFDonName:     []kcr.CapabilitiesRegistryCapability{OCR3Cap},
-	TargetDonName: []kcr.CapabilitiesRegistryCapability{WriteChainCap},
-	StreamDonName: []kcr.CapabilitiesRegistryCapability{StreamTriggerCap},
-}
-
-var (
-	WFDonName     = "wf"
-	TargetDonName = "target"
-	StreamDonName = "streams"
-)

@@ -5,11 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -271,4 +278,123 @@ func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[st
 		}
 	}
 	return &state, nil
+}
+
+func McmsTimelockConverterForChain(env deployment.Environment, chain uint64) (mcmssdk.TimelockConverter, error) {
+	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
+	}
+
+	switch chainFamily {
+	case chain_selectors.FamilyEVM:
+		return &mcmsevmsdk.TimelockConverter{}, nil
+	case chain_selectors.FamilySolana:
+		return mcmssolanasdk.NewTimelockConverter(env.SolChains[chain].Client), nil
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
+	}
+}
+
+func McmsTimelockConverters(env deployment.Environment) (map[uint64]mcmssdk.TimelockConverter, error) {
+	converters := make(map[uint64]mcmssdk.TimelockConverter, len(env.Chains)+len(env.SolChains))
+
+	for _, chain := range env.Chains {
+		var err error
+		converters[chain.Selector], err = McmsTimelockConverterForChain(env, chain.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+	}
+
+	for _, chain := range env.SolChains {
+		var err error
+		converters[chain.Selector], err = McmsTimelockConverterForChain(env, chain.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+	}
+
+	return converters, nil
+}
+
+func McmsInspectorForChain(env deployment.Environment, chain uint64) (mcmssdk.Inspector, error) {
+	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
+	}
+
+	switch chainFamily {
+	case chain_selectors.FamilyEVM:
+		return mcmsevmsdk.NewInspector(env.Chains[chain].Client), nil
+	case chain_selectors.FamilySolana:
+		return mcmssolanasdk.NewInspector(env.SolChains[chain].Client), nil
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
+	}
+}
+
+func McmsInspectors(env deployment.Environment) (map[uint64]mcmssdk.Inspector, error) {
+	inspectors := make(map[uint64]mcmssdk.Inspector, len(env.Chains)+len(env.SolChains))
+
+	for _, chain := range env.Chains {
+		var err error
+		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+	}
+
+	for _, chain := range env.SolChains {
+		var err error
+		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
+		}
+	}
+
+	return inspectors, nil
+}
+
+func TransactionForChain(
+	chain uint64, toAddress string, data []byte, value *big.Int, contractType string, tags []string,
+) (mcmstypes.Transaction, error) {
+	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
+	}
+
+	var tx mcmstypes.Transaction
+
+	switch chainFamily {
+	case chain_selectors.FamilyEVM:
+		tx = mcmsevmsdk.NewTransaction(common.HexToAddress(toAddress), data, value, contractType, tags)
+
+	case chain_selectors.FamilySolana:
+		accounts := []*solana.AccountMeta{} // FIXME: how to pass accounts to support solana?
+		var err error
+		tx, err = mcmssolanasdk.NewTransaction(toAddress, data, value, accounts, contractType, tags)
+		if err != nil {
+			return mcmstypes.Transaction{}, fmt.Errorf("failed to create solana transaction: %w", err)
+		}
+
+	default:
+		return mcmstypes.Transaction{}, fmt.Errorf("unsupported chain family %s", chainFamily)
+	}
+
+	return tx, nil
+}
+
+func BatchOperationForChain(
+	chain uint64, toAddress string, data []byte, value *big.Int, contractType string, tags []string,
+) (mcmstypes.BatchOperation, error) {
+	tx, err := TransactionForChain(chain, toAddress, data, value, contractType, tags)
+	if err != nil {
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to create transaction for chain: %w", err)
+	}
+
+	return mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(chain),
+		Transactions:  []mcmstypes.Transaction{tx},
+	}, nil
 }

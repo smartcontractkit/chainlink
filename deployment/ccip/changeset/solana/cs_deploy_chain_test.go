@@ -32,10 +32,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	solChainSelectors := e.AllChainSelectorsSolana()
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -49,10 +49,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	}
 
 	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -61,35 +61,36 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    e.AllChainSelectors(),
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    e.AllChainSelectorsSolana(),
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    cfg,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			e.AllChainSelectors(),
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			e.AllChainSelectorsSolana(),
+		),
+
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cfg,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(solana.DeployChainContractsChangesetSolana),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
 					solChainSelectors[0]: {
@@ -98,8 +99,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)

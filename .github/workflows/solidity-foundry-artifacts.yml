@@ -48,7 +48,7 @@ jobs:
       changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.head_ref }}
@@ -129,7 +129,7 @@ jobs:
       generate_code_coverage: ${{ steps.skip-code-coverage.outputs.generate_code_coverage }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 

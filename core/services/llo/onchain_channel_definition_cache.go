@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
@@ -69,7 +69,7 @@ type ChannelDefinitionCacheORM interface {
 var _ llotypes.ChannelDefinitionCache = &channelDefinitionCache{}
 
 type LogPoller interface {
-	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
+	LatestBlock(ctx context.Context) (logpoller.Block, error)
 	FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error)
 	RegisterFilter(ctx context.Context, filter logpoller.Filter) error
 	UnregisterFilter(ctx context.Context, filterName string) error
