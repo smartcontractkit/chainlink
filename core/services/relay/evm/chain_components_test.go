@@ -33,9 +33,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	clevmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -294,7 +294,7 @@ func getLPOpts() logpoller.Opts {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            finalityDepth,
 		BackfillBatchSize:        1,
-		RpcBatchSize:             1,
+		RPCBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
 }

@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -39,7 +39,7 @@ jobs:
         with:
           only-modules: "true"
           restore-module-cache-only: "false"
-      
+
       - name: Install Dependencies
         shell: bash
         run:  go mod download all

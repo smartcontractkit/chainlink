@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -33,6 +32,7 @@ type testHarness struct {
 	writeTarget   *targets.WriteTarget
 	forwarderAddr string
 	binding       types.BoundContract
+	gasLimit      uint64
 }
 
 func setup(t *testing.T) testHarness {
@@ -44,7 +44,8 @@ func setup(t *testing.T) testHarness {
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()
 
-	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr, 400_000)
+	var txGasLimit uint64 = 400_000
+	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr, txGasLimit)
 	require.NotNil(t, writeTarget)
 
 	config, err := values.NewMap(map[string]any{
@@ -106,6 +107,7 @@ func setup(t *testing.T) testHarness {
 		writeTarget:   writeTarget,
 		forwarderAddr: forwarderAddr,
 		binding:       binding,
+		gasLimit:      txGasLimit - targets.ForwarderContractLogicGasCost,
 	}
 }
 func TestWriteTarget(t *testing.T) {
@@ -320,7 +322,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 					GasLimit:        big.NewInt(0),
 					InvalidReceiver: false,
 					State:           targets.TransmissionStateSucceeded,
-					Success:         false,
+					Success:         true,
 					TransmissionId:  [32]byte{},
 					Transmitter:     common.HexToAddress("0x0"),
 				}
@@ -341,7 +343,7 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		require.NotNil(t, response)
 	})
 
-	t.Run("transaction written to the forwarder, but failed to be written to the consumer contract", func(t *testing.T) {
+	t.Run("getTransmissionInfo twice, transaction written to the forwarder, but failed to be written to the consumer contract because of revert in receiver", func(t *testing.T) {
 		th := setup(t)
 		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
 		callCount := 0
@@ -378,6 +380,137 @@ func TestWriteTarget_UnconfirmedTransaction(t *testing.T) {
 		ctx := testutils.Context(t)
 		_, err2 := th.writeTarget.Execute(ctx, req)
 		require.Error(t, err2)
-		require.Contains(t, err2.Error(), "submitted transaction failed")
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
+	})
+
+	t.Run("getTransmissionInfo twice, transaction written to the forwarder, but failed to be written to the consumer contract because of invalid receiver", func(t *testing.T) {
+		th := setup(t)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+		callCount := 0
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			if callCount == 0 {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateNotAttempted,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			} else {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0),
+					InvalidReceiver: true,
+					State:           targets.TransmissionStateInvalidReceiver,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			}
+			callCount++
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
+	})
+
+	t.Run("getTransmissionInfo once, transaction written to the forwarder, but failed to be written to the consumer contract because of invalid receiver", func(t *testing.T) {
+		th := setup(t)
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			*transmissionInfo = targets.TransmissionInfo{
+				GasLimit:        big.NewInt(0),
+				InvalidReceiver: true,
+				State:           targets.TransmissionStateInvalidReceiver,
+				Success:         false,
+				TransmissionId:  [32]byte{},
+				Transmitter:     common.HexToAddress("0x0"),
+			}
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
+	})
+
+	t.Run("getTransmissionInfo once, transaction written to the forwarder, but failed to be written to the consumer contract because of revert in receiver", func(t *testing.T) {
+		th := setup(t)
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Once().Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			*transmissionInfo = targets.TransmissionInfo{
+				GasLimit:        big.NewInt(0).SetUint64(th.gasLimit + 1), // has sufficient gas
+				InvalidReceiver: false,
+				State:           targets.TransmissionStateFailed,
+				Success:         false,
+				TransmissionId:  [32]byte{},
+				Transmitter:     common.HexToAddress("0x0"),
+			}
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		ctx := testutils.Context(t)
+		_, err2 := th.writeTarget.Execute(ctx, req)
+		require.Error(t, err2)
+		require.ErrorIs(t, err2, targets.ErrTxFailed)
+	})
+
+	t.Run("getTransmissionInfo twice, first time receiver reverted because of insufficient gas, second time succeeded", func(t *testing.T) {
+		th := setup(t)
+		th.cw.On("SubmitTransaction", mock.Anything, "forwarder", "report", mock.Anything, mock.Anything, th.forwarderAddr, mock.Anything, mock.Anything).Return(nil).Once()
+		callCount := 0
+		th.cr.On("GetLatestValue", mock.Anything, th.binding.ReadIdentifier("getTransmissionInfo"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			transmissionInfo := args.Get(4).(*targets.TransmissionInfo)
+			if callCount == 0 {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0).SetUint64(th.gasLimit - 1), // has insufficient gas
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateFailed,
+					Success:         false,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			} else {
+				*transmissionInfo = targets.TransmissionInfo{
+					GasLimit:        big.NewInt(0).SetUint64(th.gasLimit + 1), // has sufficient gas
+					InvalidReceiver: false,
+					State:           targets.TransmissionStateSucceeded,
+					Success:         true,
+					TransmissionId:  [32]byte{},
+					Transmitter:     common.HexToAddress("0x0"),
+				}
+			}
+			callCount++
+		})
+		req := capabilities.CapabilityRequest{
+			Metadata: th.validMetadata,
+			Config:   th.config,
+			Inputs:   th.validInputs,
+		}
+
+		th.cw.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(types.Unconfirmed, nil).Once()
+
+		ctx := testutils.Context(t)
+		response, err2 := th.writeTarget.Execute(ctx, req)
+		require.NoError(t, err2)
+		require.NotNil(t, response)
 	})
 }

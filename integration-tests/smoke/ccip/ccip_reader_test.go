@@ -38,12 +38,12 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmchaintypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
@@ -254,7 +254,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
@@ -378,7 +378,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
@@ -1140,7 +1140,7 @@ func populateDatabaseForCommitReportAccepted(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(new(big.Int).SetUint64(uint64(destChain))),
+			EVMChainID:     ubig.New(new(big.Int).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1260,7 +1260,7 @@ func populateDatabaseForExecutionStateChanged(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(big.NewInt(0).SetUint64(uint64(destChain))),
+			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1415,7 +1415,7 @@ func populateDatabaseForMessageSent(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
+			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1485,7 +1485,7 @@ func testSetupRealContracts(
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	lggr := logger.TestLogger(t)
@@ -1577,7 +1577,7 @@ func testSetup(
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
