@@ -14,6 +14,8 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
@@ -462,4 +464,5 @@ type LogEmitter interface {
 	EmitLogInt(payload int) (*types.Transaction, error)
 	EmitLogIntIndexed(payload int) (*types.Transaction, error)
 	EmitLogString(strings string) (*types.Transaction, error)
+	EmitLogStringsFromKeyAsync(strings []string, keyNum int, o ...seth.TransactOpt) (*types.Transaction, error)
 }

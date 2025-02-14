@@ -96,6 +96,11 @@ func (e *LogEmitterContract) EmitLogString(strings string) (*types.Transaction, 
 	return e.EmitLogStrings([]string{strings})
 }
 
+// EmitLogStringsFromKeyAsync - same as EmitLogStringsFromKey, but does not wait for transaction to be mined
+func (e *LogEmitterContract) EmitLogStringsFromKeyAsync(strings []string, keyNum int, o ...seth.TransactOpt) (*types.Transaction, error) {
+	return e.instance.EmitLog3(e.client.NewTXKeyOpts(keyNum, o...), strings)
+}
+
 func DeployLogEmitterContract(l zerolog.Logger, client *seth.Client) (LogEmitter, error) {
 	return DeployLogEmitterContractFromKey(l, client, 0)
 }
