@@ -50,19 +50,6 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, des
 				getCommonAddressLookupTableConfig(offrampProgramAddress),
 			},
 		},
-		ATAs: []chainwriter.ATALookup{
-			{
-				Location:      destTokenAddress,
-				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: receiverAddress}},
-				TokenProgram: chainwriter.Lookup{
-					AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-						LookupTableName: "PoolLookupTable",
-						IncludeIndexes:  []int{6},
-					},
-				},
-				MintAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
-			},
-		},
 		Accounts:        buildCommitAccountsList(fromAddress, offrampProgramAddress, destChainSelectorBytes, priceOnly),
 		DebugIDLocation: "",
 	}
@@ -155,6 +142,19 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					},
 				},
 				getCommonAddressLookupTableConfig(offrampProgramAddress),
+			},
+		},
+		ATAs: []chainwriter.ATALookup{
+			{
+				Location:      destTokenAddress,
+				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: receiverAddress}},
+				TokenProgram: chainwriter.Lookup{
+					AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
+						LookupTableName: "PoolLookupTable",
+						IncludeIndexes:  []int{6},
+					},
+				},
+				MintAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
 			},
 		},
 		Accounts: []chainwriter.Lookup{
