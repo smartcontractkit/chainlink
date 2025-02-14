@@ -65,7 +65,7 @@ var plugins = map[string]plugin{
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(extraDataCodec),
 		ExtraArgsCodec:      extraDataCodec,
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
+		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr, extraDataCodec) },
 		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
 		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
