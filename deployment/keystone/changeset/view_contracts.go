@@ -104,6 +104,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		MaxBatchSize:              cfg.MaxBatchSize,
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
 		RequestTimeout:            cfg.RequestTimeout.AsDuration(),
+		UniqueReports:             true, // This is hardcoded to true in the OCR3 contract
 
 		DeltaProgressMillis:               millisecondsToUint32(publicConfig.DeltaProgress),
 		DeltaResendMillis:                 millisecondsToUint32(publicConfig.DeltaResend),

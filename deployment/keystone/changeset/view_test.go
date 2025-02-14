@@ -2,10 +2,12 @@ package changeset_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -93,4 +95,18 @@ func TestKeystoneView(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, b)
 	t.Log(string(b))
+
+	var outView changeset.KeystoneView
+	require.NoError(t, json.Unmarshal(b, &outView))
+
+	chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
+	require.NoError(t, err)
+	chainName, err := chain_selectors.NameFromChainId(chainID)
+	require.NoError(t, err)
+
+	viewChain, ok := outView.Chains[chainName]
+	require.True(t, ok)
+	viewOCR3Config, ok := viewChain.OCR3ConfigView[newOCR3Addr]
+	require.True(t, ok)
+	require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
 }
