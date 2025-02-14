@@ -49,7 +49,7 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250214134649-a707ef4dd1e5
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250214160806-1da4cf287ee3
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211220805-23e1d9f38c6b
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
