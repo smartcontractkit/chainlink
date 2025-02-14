@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -227,7 +228,7 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 			return fmt.Errorf("zero address found in signer key, chain %d", chainSel)
 		}
 		if bytes.IsEmpty(node.TransmitterKey) {
-			return fmt.Errorf("zero address found in transmitter key, donID: %d, chain %d", chainSel)
+			return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
 		}
 		if bytes.IsEmpty(node.P2pId[:]) {
 			return fmt.Errorf("empty p2p id, chain %d", chainSel)

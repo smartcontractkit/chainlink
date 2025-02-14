@@ -7,11 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -856,7 +857,6 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 
 	// Build the per chain config.
 	wrongChainConfigs := make(map[uint64]changeset.ChainConfig)
-	chainConfigs := make(map[uint64]changeset.ChainConfig)
 	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
 	for _, chain := range allChains {
 		ocrParams := changeset.DeriveCCIPOCRParams(
@@ -864,19 +864,11 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 			changeset.WithDefaultExecuteOffChainConfig(nil),
 		)
 		ocrConfigs[chain] = ocrParams
-		chainConfigs[chain] = changeset.ChainConfig{
-			Readers: envNodes.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(envNodes.NonBootstraps().PeerIDs()) / 3),
-			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
-				OptimisticConfirmations: globals.OptimisticConfirmations,
-			},
-		}
 		// set wrong chain config with incorrect value of FChain
 		wrongChainConfigs[chain] = changeset.ChainConfig{
 			Readers: envNodes.NonBootstraps().PeerIDs(),
-			FChain:  uint8(len(envNodes.NonBootstraps().PeerIDs())),
+			// nolint:gosec it can never cause integer overflow conversion
+			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
