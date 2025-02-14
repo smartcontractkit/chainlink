@@ -248,6 +248,8 @@ type plugin struct {
 	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
 }
 
+var extraDataCodec = ccipcommon.NewExtraDataCodec()
+
 var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
@@ -260,10 +262,10 @@ var plugins = map[string]plugin{
 	},
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
-		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec()),
-		ExtraArgsCodec:     ccipcommon.NewExtraDataCodec(),
+		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraArgsCodec:     extraDataCodec,
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
-			return ccipsolana.NewMessageHasherV1(lggr, ccipcommon.NewExtraDataCodec())
+			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
 		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
 		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
