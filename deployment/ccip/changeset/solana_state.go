@@ -2,10 +2,10 @@ package changeset
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/rs/zerolog/log"
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -32,7 +32,6 @@ var (
 type SolCCIPChainState struct {
 	LinkToken                 solana.PublicKey
 	Router                    solana.PublicKey
-	Timelock                  solana.PublicKey
 	OfframpAddressLookupTable solana.PublicKey
 	Receiver                  solana.PublicKey // for tests only
 	SPL2022Tokens             []solana.PublicKey
@@ -154,7 +153,8 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.OffRampStatePDA = offRampStatePDA
 		default:
-			return state, fmt.Errorf("unknown contract %s", tvStr)
+			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
+			continue
 		}
 	}
 	state.WSOL = solana.SolMint

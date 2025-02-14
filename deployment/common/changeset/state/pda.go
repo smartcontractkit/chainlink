@@ -1,12 +1,10 @@
-package mcmsnew
+package state
 
 import (
 	"encoding/binary"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 func getPDA(programID solana.PublicKey, seeds [][]byte) solana.PublicKey {
@@ -14,56 +12,56 @@ func getPDA(programID solana.PublicKey, seeds [][]byte) solana.PublicKey {
 	return pda
 }
 
-func GetMCMSignerPDA(programID solana.PublicKey, msigID state.PDASeed) solana.PublicKey {
+func GetMCMSignerPDA(programID solana.PublicKey, msigID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("multisig_signer"), msigID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetMCMConfigPDA(programID solana.PublicKey, msigID state.PDASeed) solana.PublicKey {
+func GetMCMConfigPDA(programID solana.PublicKey, msigID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("multisig_config"), msigID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetMCMRootMetadataPDA(programID solana.PublicKey, msigID state.PDASeed) solana.PublicKey {
+func GetMCMRootMetadataPDA(programID solana.PublicKey, msigID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("root_metadata"), msigID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetMCMExpiringRootAndOpCountPDA(programID solana.PublicKey, pdaSeed state.PDASeed) solana.PublicKey {
+func GetMCMExpiringRootAndOpCountPDA(programID solana.PublicKey, pdaSeed PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("expiring_root_and_op_count"), pdaSeed[:]}
 	return getPDA(programID, seeds)
 }
 
 func GetMCMRootSignaturesPDA(
-	programID solana.PublicKey, msigID state.PDASeed, root common.Hash, validUntil uint32,
+	programID solana.PublicKey, msigID PDASeed, root common.Hash, validUntil uint32,
 ) solana.PublicKey {
 	seeds := [][]byte{[]byte("root_signatures"), msigID[:], root[:], validUntilBytes(validUntil)}
 	return getPDA(programID, seeds)
 }
 
 func GetMCMSeenSignedHashesPDA(
-	programID solana.PublicKey, msigID state.PDASeed, root common.Hash, validUntil uint32,
+	programID solana.PublicKey, msigID PDASeed, root common.Hash, validUntil uint32,
 ) solana.PublicKey {
 	seeds := [][]byte{[]byte("seen_signed_hashes"), msigID[:], root[:], validUntilBytes(validUntil)}
 	return getPDA(programID, seeds)
 }
 
-func GetTimelockConfigPDA(programID solana.PublicKey, timelockID state.PDASeed) solana.PublicKey {
+func GetTimelockConfigPDA(programID solana.PublicKey, timelockID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("timelock_config"), timelockID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetTimelockOperationPDA(programID solana.PublicKey, timelockID state.PDASeed, opID [32]byte) solana.PublicKey {
+func GetTimelockOperationPDA(programID solana.PublicKey, timelockID PDASeed, opID [32]byte) solana.PublicKey {
 	seeds := [][]byte{[]byte("timelock_operation"), timelockID[:], opID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetTimelockBypasserOperationPDA(programID solana.PublicKey, timelockID state.PDASeed, opID [32]byte) solana.PublicKey {
+func GetTimelockBypasserOperationPDA(programID solana.PublicKey, timelockID PDASeed, opID [32]byte) solana.PublicKey {
 	seeds := [][]byte{[]byte("timelock_bypasser_operation"), timelockID[:], opID[:]}
 	return getPDA(programID, seeds)
 }
 
-func GetTimelockSignerPDA(programID solana.PublicKey, timelockID state.PDASeed) solana.PublicKey {
+func GetTimelockSignerPDA(programID solana.PublicKey, timelockID PDASeed) solana.PublicKey {
 	seeds := [][]byte{[]byte("timelock_signer"), timelockID[:]}
 	return getPDA(programID, seeds)
 }

@@ -18,7 +18,6 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
 	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -269,11 +268,11 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 // ----- helpers -----
 
 func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
-	return solanainternal.GetMCMSignerPDA(programID, seed).String()
+	return mcmschangesetstate.GetMCMSignerPDA(programID, seed).String()
 }
 
 func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
-	return solanainternal.GetTimelockSignerPDA(programID, seed).String()
+	return mcmschangesetstate.GetTimelockSignerPDA(programID, seed).String()
 }
 
 func setPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
@@ -296,7 +295,7 @@ func solanaTimelockConfig(
 	t.Helper()
 
 	var data timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(ctx, solanainternal.GetTimelockConfigPDA(programID, seed), &data)
+	err := chain.GetAccountDataBorshInto(ctx, mcmschangesetstate.GetTimelockConfigPDA(programID, seed), &data)
 	require.NoError(t, err)
 
 	return data

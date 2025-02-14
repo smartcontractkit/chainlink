@@ -3,7 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/gagliardetto/solana-go"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -82,19 +81,15 @@ func (s *MCMSWithTimelockProgramsSolana) SetState(contractType deployment.Contra
 	case types.AccessControllerProgram:
 		s.AccessControllerProgram = program
 	case types.ProposerAccessControllerAccount:
-		s.AccessControllerProgram = program
-		s.ProposerAccessControllerAccount = solana.PublicKey(seed)
+		s.ProposerAccessControllerAccount = program
 	case types.ExecutorAccessControllerAccount:
-		s.AccessControllerProgram = program
-		s.ExecutorAccessControllerAccount = solana.PublicKey(seed)
+		s.ExecutorAccessControllerAccount = program
 	case types.CancellerAccessControllerAccount:
-		s.AccessControllerProgram = program
-		s.CancellerAccessControllerAccount = solana.PublicKey(seed)
+		s.CancellerAccessControllerAccount = program
 	case types.BypasserAccessControllerAccount:
-		s.AccessControllerProgram = program
-		s.BypasserAccessControllerAccount = solana.PublicKey(seed)
+		s.BypasserAccessControllerAccount = program
 	default:
-		return fmt.Errorf("unknown program type: %s", contractType)
+		return fmt.Errorf("unknown contract type: %s", contractType)
 	}
 	return nil
 }
@@ -235,35 +230,31 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 			state.AccessControllerProgram = programID
 
 		case tvStr.Type == proposerAccessControllerAccount.Type && tvStr.Version.String() == proposerAccessControllerAccount.Version.String():
-			programID, account, err := DecodeAddressWithAccount(address)
+			account, err := solana.PublicKeyFromBase58(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode proposer access controlle address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode proposer access controller address (%s): %w", address, err)
 			}
-			state.AccessControllerProgram = programID
 			state.ProposerAccessControllerAccount = account
 
 		case tvStr.Type == executorAccessControllerAccount.Type && tvStr.Version.String() == executorAccessControllerAccount.Version.String():
-			programID, account, err := DecodeAddressWithAccount(address)
+			account, err := solana.PublicKeyFromBase58(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode executor access controlle address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode executor access controller address (%s): %w", address, err)
 			}
-			state.AccessControllerProgram = programID
 			state.ExecutorAccessControllerAccount = account
 
 		case tvStr.Type == cancellerAccessControllerAccount.Type && tvStr.Version.String() == cancellerAccessControllerAccount.Version.String():
-			programID, account, err := DecodeAddressWithAccount(address)
+			account, err := solana.PublicKeyFromBase58(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode canceller access controlle address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode canceller access controller address (%s): %w", address, err)
 			}
-			state.AccessControllerProgram = programID
 			state.CancellerAccessControllerAccount = account
 
 		case tvStr.Type == bypasserAccessControllerAccount.Type && tvStr.Version.String() == bypasserAccessControllerAccount.Version.String():
-			programID, account, err := DecodeAddressWithAccount(address)
+			account, err := solana.PublicKeyFromBase58(address)
 			if err != nil {
-				return nil, fmt.Errorf("unable to decode bypasser access controlle address (%s): %w", address, err)
+				return nil, fmt.Errorf("unable to decode bypasser access controller address (%s): %w", address, err)
 			}
-			state.AccessControllerProgram = programID
 			state.BypasserAccessControllerAccount = account
 
 		case tvStr.Type == mcmProgram.Type && tvStr.Version.String() == mcmProgram.Version.String():
@@ -312,27 +303,4 @@ func DecodeAddressWithSeed(address string) (solana.PublicKey, PDASeed, error) {
 	}
 
 	return programID, PDASeed(seed), nil
-}
-
-func EncodeAddressWithAccount(programID, account solana.PublicKey) string {
-	return fmt.Sprintf("%s.%s", programID.String(), account.String())
-}
-
-func DecodeAddressWithAccount(address string) (solana.PublicKey, solana.PublicKey, error) {
-	parts := strings.Split(address, ".")
-	if len(parts) != 2 {
-		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("invalid address: %s", address)
-	}
-
-	programID, err := solana.PublicKeyFromBase58(parts[0])
-	if err != nil {
-		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("unable to parse public key from program id: %s", parts[0])
-	}
-
-	account, err := solana.PublicKeyFromBase58(parts[1])
-	if err != nil {
-		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("unable to parse public key from account: %s", parts[1])
-	}
-
-	return programID, account, nil
 }
