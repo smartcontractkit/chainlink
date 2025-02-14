@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -40,7 +41,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -135,7 +135,7 @@ type Application interface {
 	SecretGenerator() SecretGenerator
 
 	// FindLCA - finds last common ancestor for LogPoller's chain available in the database and RPC chain
-	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error)
+	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
 }
@@ -1225,7 +1225,7 @@ func (app *ChainlinkApplication) ID() uuid.UUID {
 }
 
 // FindLCA - finds last common ancestor
-func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return nil, err

@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -108,7 +108,7 @@ func TestLogpollerEventsBased(t *testing.T) {
 
 	for _, round := range testRounds {
 		lp.On("LatestBlock", mock.Anything).
-			Return(logpoller.LogPollerBlock{FinalizedBlockNumber: round.logPollerLatestBlock}, nil).Once()
+			Return(logpoller.Block{FinalizedBlockNumber: round.logPollerLatestBlock}, nil).Once()
 
 		if round.stateLatestBlock > 0 {
 			lp.On(

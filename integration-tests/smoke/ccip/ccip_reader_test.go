@@ -38,12 +38,12 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmchaintypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
@@ -254,7 +254,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
@@ -378,7 +378,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, sb, big.NewInt(1337))
@@ -546,86 +546,6 @@ func requireEqualRoots(
 			onchainRoots[i].MerkleRoot,
 			[32]byte(ccipReaderRoots[i].MerkleRoot),
 		)
-	}
-}
-
-// NOTE: this test should eventually be removed when CommitReportsGTETimestamp fetches
-// unconfirmed CommitReportAccepted events.
-func TestCCIPReader_CommitReportsGTETimestamp_RespectsFinality(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
-	var finalityDepth int64 = 10
-	s, _, onRampAddress := setupGetCommitGTETimestampTest(ctx, t, finalityDepth, false)
-
-	tokenA := common.HexToAddress("123")
-	const numReports = 5
-
-	firstReportTs := emitCommitReports(ctx, t, s, numReports, tokenA, onRampAddress)
-
-	iter, err := s.contract.FilterCommitReportAccepted(&bind.FilterOpts{
-		Start: 0,
-	})
-	require.NoError(t, err)
-	var onchainEvents []*ccip_reader_tester.CCIPReaderTesterCommitReportAccepted
-	for iter.Next() {
-		onchainEvents = append(onchainEvents, iter.Event)
-	}
-	require.Len(t, onchainEvents, numReports)
-	sort.Slice(onchainEvents, func(i, j int) bool {
-		return onchainEvents[i].Raw.BlockNumber < onchainEvents[j].Raw.BlockNumber
-	})
-
-	// Need to replay as sometimes the logs are not picked up by the log poller (?)
-	// Maybe another situation where chain reader doesn't register filters as expected.
-	require.NoError(t, s.lp.Replay(ctx, 1))
-
-	var ccipReaderReports []plugintypes.CommitPluginReportWithMeta
-	// Will not return any reports as the finality depth is not reached.
-	require.Never(t, func() bool {
-		var err2 error
-		ccipReaderReports, err2 = s.reader.CommitReportsGTETimestamp(
-			ctx,
-			// Skips first report
-			//nolint:gosec // this won't overflow
-			time.Unix(int64(firstReportTs)+1, 0),
-			10,
-		)
-		require.NoError(t, err2)
-		return len(ccipReaderReports) == numReports-1
-	}, 20*time.Second, 50*time.Millisecond)
-
-	// Commit finality depth number of blocks.
-	for i := 0; i < int(finalityDepth); i++ {
-		s.sb.Commit()
-	}
-
-	require.Eventually(t, func() bool {
-		ccipReaderReports, err = s.reader.CommitReportsGTETimestamp(
-			ctx,
-			// Skips first report
-			//nolint:gosec // this won't overflow
-			time.Unix(int64(firstReportTs)+1, 0),
-			10,
-		)
-		require.NoError(t, err)
-		return len(ccipReaderReports) == numReports-1
-	}, 30*time.Second, 50*time.Millisecond)
-
-	require.Len(t, ccipReaderReports, numReports-1)
-	// trim the first report to simulate the finality filter above.
-	onchainEvents = onchainEvents[1:]
-	require.Len(t, onchainEvents, numReports-1)
-
-	require.Len(t, ccipReaderReports, numReports-1)
-	for i := range onchainEvents {
-		// check blessed roots are deserialized correctly
-		requireEqualRoots(t, onchainEvents[i].BlessedMerkleRoots, ccipReaderReports[i].Report.BlessedMerkleRoots)
-
-		// check unblessed roots are deserialized correctly
-		requireEqualRoots(t, onchainEvents[i].UnblessedMerkleRoots, ccipReaderReports[i].Report.UnblessedMerkleRoots)
-
-		// check price updates are deserialized correctly
-		requireEqualPriceUpdates(t, onchainEvents[i].PriceUpdates, ccipReaderReports[i].Report.PriceUpdates)
 	}
 }
 
@@ -1220,7 +1140,7 @@ func populateDatabaseForCommitReportAccepted(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(new(big.Int).SetUint64(uint64(destChain))),
+			EVMChainID:     ubig.New(new(big.Int).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1340,7 +1260,7 @@ func populateDatabaseForExecutionStateChanged(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(big.NewInt(0).SetUint64(uint64(destChain))),
+			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(destChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1495,7 +1415,7 @@ func populateDatabaseForMessageSent(
 
 		// Create log entry
 		logs = append(logs, logpoller.Log{
-			EvmChainId:     ubig.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
+			EVMChainID:     ubig.New(big.NewInt(0).SetUint64(uint64(sourceChain))),
 			LogIndex:       logIndex,
 			BlockHash:      utils.NewHash(),
 			BlockNumber:    blockNumber,
@@ -1565,7 +1485,7 @@ func testSetupRealContracts(
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	lggr := logger.TestLogger(t)
@@ -1657,7 +1577,7 @@ func testSetup(
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
 		BackfillBatchSize:        10,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))

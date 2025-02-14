@@ -75,8 +75,6 @@ type NonceManagerUpdate struct {
 type PreviousRampCfg struct {
 	RemoteChainSelector uint64
 	OverrideExisting    bool
-	EnableOnRamp        bool
-	EnableOffRamp       bool
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
@@ -106,22 +104,18 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
-			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
-				return errors.New("must specify either onramp or offramp")
+			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+			// it will not be possible to update the previous ramps later.
+			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
+			if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
+				return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
+			} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil || prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+				return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
 			}
-			if prevRamp.EnableOnRamp {
-				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
-					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
-				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
-				}
-			}
-			if prevRamp.EnableOffRamp {
-				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
-					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
-				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
-				}
+			if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
+				return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
+			} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil || prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+				return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
 		}
 	}
@@ -165,13 +159,8 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 		if len(updates.PreviousRampsArgs) > 0 {
 			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range updates.PreviousRampsArgs {
-				var onRamp, offRamp common.Address
-				if prevRamp.EnableOnRamp {
-					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
-				}
-				if prevRamp.EnableOffRamp {
-					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
-				}
+				onRamp := s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
+				offRamp := s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
 					RemoteChainSelector:   prevRamp.RemoteChainSelector,
 					OverrideExistingRamps: prevRamp.OverrideExisting,

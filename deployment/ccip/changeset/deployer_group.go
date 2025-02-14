@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -272,18 +274,26 @@ func getBatchCountForChain(chain mcms.ChainIdentifier, m *timelock.MCMSWithTimel
 func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	for _, c := range contexts {
+		g := errgroup.Group{}
 		for selector, txs := range c.transactions {
-			for _, tx := range txs {
-				err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to send transaction: %w", err)
+			selector, txs := selector, txs
+			g.Go(func() error {
+				for _, tx := range txs {
+					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx)
+					if err != nil {
+						return fmt.Errorf("failed to send transaction: %w", err)
+					}
+					// TODO how to pass abi here to decode error reason
+					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx, err)
+					if err != nil {
+						return fmt.Errorf("waiting for tx to be mined failed: %w", err)
+					}
 				}
-				// TODO how to pass abi here to decode error reason
-				_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx, err)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("waiting for tx to be mined failed: %w", err)
-				}
-			}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return deployment.ChangesetOutput{}, err
 		}
 	}
 	return deployment.ChangesetOutput{}, nil
