@@ -44,18 +44,14 @@ var oracleConfig = changeset.OracleConfig{
 
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
-	env := test.SetupTestEnv(t, test.TestConfig{
-		WFDonConfig:     test.DonConfig{N: 4},
-		AssetDonConfig:  test.DonConfig{N: 4},
-		WriterDonConfig: test.DonConfig{N: 4},
+	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+		WFDonConfig:     test.DonConfig{N: 4, Name: "wfDon"},
+		AssetDonConfig:  test.DonConfig{N: 4, Name: "assetDon"},
+		WriterDonConfig: test.DonConfig{N: 4, Name: "writerDon"},
 		NumChains:       1,
 	})
 	registryChain := env.Env.AllChainSelectors()[0]
-	var wfNodes []string
-	for id := range env.WFNodes {
-		wfNodes = append(wfNodes, id)
-	}
-	oracleConfig.TransmissionSchedule = []int{len(wfNodes)}
+	oracleConfig.TransmissionSchedule = []int{len(env.Env.NodeIDs)}
 
 	addrs, err := env.Env.ExistingAddresses.AddressesForChain(registryChain)
 	require.NoError(t, err)
@@ -75,7 +71,7 @@ func TestKeystoneView(t *testing.T) {
 		na := common.HexToAddress(newOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             env.RegistrySelector,
-			NodeIDs:              wfNodes,
+			NodeIDs:              env.Env.NodeIDs,
 			Address:              &na,
 			OCR3Config:           &oracleConfigCopy,
 			WriteGeneratedConfig: w,
@@ -125,7 +121,7 @@ func TestKeystoneView(t *testing.T) {
 		na := common.HexToAddress(newOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             env.RegistrySelector,
-			NodeIDs:              wfNodes,
+			NodeIDs:              env.Env.NodeIDs,
 			Address:              &na,
 			OCR3Config:           &oracleConfigCopy,
 			WriteGeneratedConfig: w,
