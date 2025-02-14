@@ -142,10 +142,16 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
-	// Update the cache
+	// Invalidate the cache
+	c.InvalidateCache(bt.Name)
+	// Update the cache with the new value
 	c.bridgeTypesCache.Store(bt.Name, *bt)
 
 	return nil
+}
+
+func (c *Cache) InvalidateCache( name BridgeName){
+	c.bridgeTypesCache.Delete(name)
 }
 
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
