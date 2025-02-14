@@ -31,6 +31,13 @@ func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePlugi
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+	if len(report.ChainReports) == 0 {
+		// OCR3 runs in a constant loop and will produce empty reports, so we need to handle this case
+		// return an empty report, CCIP will discard it on ShouldAcceptAttestedReport/ShouldTransmitAcceptedReport
+		// via validateReport before attempting to decode
+		return nil, nil
+	}
+
 	if len(report.ChainReports) != 1 {
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
