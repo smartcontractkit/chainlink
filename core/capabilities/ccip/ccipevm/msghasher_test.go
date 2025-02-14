@@ -17,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -31,6 +33,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
+
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
 func TestMessageHasher_EVM2EVM(t *testing.T) {
@@ -38,19 +42,19 @@ func TestMessageHasher_EVM2EVM(t *testing.T) {
 	d := testSetup(t)
 
 	testCases := []evmExtraArgs{
-		{version: "v1", gasLimit: big.NewInt(rand.Int63())},
-		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: false},
-		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: true},
+		{version: "v1", gasLimit: big.NewInt(rand.Int63()), chainSelector: 5009297550715157269},                  // ETH mainnet chain selector
+		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: false, chainSelector: 5009297550715157269}, // ETH mainnet chain selector
+		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: true, chainSelector: 5009297550715157269},  // ETH mainnet chain selector
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("tc_%d", i), func(tt *testing.T) {
-			testHasherEVM2EVM(ctx, tt, d, tc)
+			testHasherEVM2EVM(ctx, tt, d, tc, tc.chainSelector)
 		})
 	}
 }
 
-func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmExtraArgs evmExtraArgs) {
-	ccipMsg := createEVM2EVMMessage(t, d.contract, evmExtraArgs)
+func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmExtraArgs evmExtraArgs, sourceChainSelector uint64) {
+	ccipMsg := createEVM2EVMMessage(t, d.contract, evmExtraArgs, sourceChainSelector)
 
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range ccipMsg.TokenAmounts {
@@ -83,7 +87,7 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, ccipMsg.Header.OnRamp)
 	require.NoError(t, err)
 
-	evmMsgHasher := NewMessageHasherV1(logger.Test(t))
+	evmMsgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 
@@ -91,19 +95,20 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 }
 
 type evmExtraArgs struct {
-	version  string
-	gasLimit *big.Int
-	allowOOO bool
+	version       string
+	gasLimit      *big.Int
+	allowOOO      bool
+	chainSelector uint64
 }
 
-func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHasher, evmExtraArgs evmExtraArgs) cciptypes.Message {
+func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHasher, evmExtraArgs evmExtraArgs, sourceChainSelector uint64) cciptypes.Message {
 	messageID := utils.RandomBytes32()
 
 	sourceTokenData := make([]byte, rand.Intn(2048))
 	_, err := cryptorand.Read(sourceTokenData)
 	require.NoError(t, err)
 
-	sourceChain := rand.Uint64()
+	sourceChain := sourceChainSelector
 	seqNum := rand.Uint64()
 	nonce := rand.Uint64()
 	destChain := rand.Uint64()
@@ -257,7 +262,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
 		require.NoError(t, err)
 
-		h := NewMessageHasherV1(logger.Test(t))
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 		require.Equal(t, expectedMsgHash, msgH.String())
@@ -330,7 +335,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		)
 
-		h := NewMessageHasherV1(logger.Test(t))
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 
@@ -355,7 +360,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		err = json.Unmarshal(data, &msgs)
 		require.NoError(t, err)
 
-		msgHasher := NewMessageHasherV1(logger.Test(t))
+		msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 
 		for _, msg := range msgs {
 			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg)

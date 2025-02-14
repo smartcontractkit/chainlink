@@ -119,7 +119,7 @@ func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_offramp.Any2SVMRa
 				return out, accounts, errors.New("invalid type for Accounts, expected [][32]byte")
 			}
 		default:
-			// no error here, aswe only need the keys to construct SVMExtraArgs, other keys can be skipped without
+			// no error here, as we only need the keys to construct SVMExtraArgs, other keys can be skipped without
 			// return errors because there's no guarantee SVMExtraArgs will match with SVMExtraArgsV1
 		}
 	}

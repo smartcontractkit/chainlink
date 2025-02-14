@@ -63,7 +63,7 @@ var extraDataCodec = ccipcommon.NewExtraDataCodec(
 var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
+		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(extraDataCodec),
 		ExtraArgsCodec:      extraDataCodec,
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),

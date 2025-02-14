@@ -206,25 +206,23 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 }
 
 func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
-	var out uint32
-
-	// Iterate through the expected fields in the struct
+	// Search for the gas fields
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
 			// Expect uint32
 			if v, ok := fieldValue.(uint32); ok {
-				out = v
+				return v, nil
 			} else {
-				return out, errors.New("invalid type for destgasamount, expected uint32")
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
 			}
 		default:
-			return out, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+
 		}
 	}
 
-	return out, nil
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
