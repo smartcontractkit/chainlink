@@ -95,7 +95,7 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 					lggr.Errorf("failed to generate OCR3 config view: %v", err)
 				}
 			}
-			out.OCR3ConfigView[addrCopy.String()] = ocrView
+			out.OCR3Config[addrCopy.String()] = ocrView
 		}
 	}
 

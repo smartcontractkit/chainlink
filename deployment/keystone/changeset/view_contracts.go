@@ -22,8 +22,8 @@ import (
 
 type KeystoneChainView struct {
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
-	// OCR3ConfigView is a map of OCR3 contract addresses to their configuration view
-	OCR3ConfigView map[string]OCR3ConfigView `json:"ocr3ConfigViews,omitempty"`
+	// OCR3Config is a map of OCR3 contract addresses to their configuration view
+	OCR3Config map[string]OCR3ConfigView `json:"ocr3Config,omitempty"`
 }
 
 type OCR3ConfigView struct {
@@ -145,7 +145,7 @@ func millisecondsToUint32(dur time.Duration) uint32 {
 func NewKeystoneChainView() KeystoneChainView {
 	return KeystoneChainView{
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
-		OCR3ConfigView:     make(map[string]OCR3ConfigView),
+		OCR3Config:         make(map[string]OCR3ConfigView),
 	}
 }
 

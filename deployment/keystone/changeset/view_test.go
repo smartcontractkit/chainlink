@@ -95,7 +95,7 @@ func TestKeystoneView(t *testing.T) {
 
 		viewChain, ok := outView.Chains[chainName]
 		require.True(t, ok)
-		viewOCR3Config, ok := viewChain.OCR3ConfigView[newOCR3Addr]
+		viewOCR3Config, ok := viewChain.OCR3Config[newOCR3Addr]
 		require.True(t, ok)
 		require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
 	})
