@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"google.golang.org/protobuf/proto"
 
-	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -43,7 +44,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}
 
 	blockNumber := uint64(details.BlockNumber)
-	config, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
+	configIterator, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
 		Start:   blockNumber,
 		End:     &blockNumber,
 		Context: nil,
@@ -51,31 +52,41 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	if err != nil {
 		return OCR3ConfigView{}, err
 	}
+	var config *ocr3_capability.OCR3CapabilityConfigSet
+	for configIterator.Next() {
+		// We wait for the iterator to receive an event
+		if configIterator.Event == nil {
+			return OCR3ConfigView{}, ErrOCR3NotConfigured
+		}
 
-	if config.Event == nil {
+		config = configIterator.Event
+	}
+	// TODO: maybe we don't do this check? If we didn't get an event above, we are already returning an error
+	if config == nil {
 		return OCR3ConfigView{}, ErrOCR3NotConfigured
 	}
+
 	var signers []ocr2types.OnchainPublicKey
 	var readableSigners []string
-	for _, s := range config.Event.Signers {
+	for _, s := range config.Signers {
 		signers = append(signers, s)
 		readableSigners = append(readableSigners, string(s))
 	}
 	var transmitters []ocr2types.Account
-	for _, t := range config.Event.Transmitters {
+	for _, t := range config.Transmitters {
 		transmitters = append(transmitters, ocr2types.Account(t.String()))
 	}
 	// `PublicConfigFromContractConfig` returns the `ocr2types.PublicConfig` that contains all the `OracleConfig` fields we need, including the
 	// report plugin config.
 	publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(true, ocr2types.ContractConfig{
-		ConfigDigest:          config.Event.ConfigDigest,
-		ConfigCount:           config.Event.ConfigCount,
+		ConfigDigest:          config.ConfigDigest,
+		ConfigCount:           config.ConfigCount,
 		Signers:               signers,
 		Transmitters:          transmitters,
-		F:                     config.Event.F,
+		F:                     config.F,
 		OnchainConfig:         nil, // empty onChain config
-		OffchainConfigVersion: config.Event.OffchainConfigVersion,
-		OffchainConfig:        config.Event.OffchainConfig,
+		OffchainConfigVersion: config.OffchainConfigVersion,
+		OffchainConfig:        config.OffchainConfig,
 	})
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -94,20 +105,20 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
 		RequestTimeout:            cfg.RequestTimeout.AsDuration(),
 
-		DeltaProgressMillis:               durationToUint32(publicConfig.DeltaProgress),
-		DeltaResendMillis:                 durationToUint32(publicConfig.DeltaResend),
-		DeltaInitialMillis:                durationToUint32(publicConfig.DeltaInitial),
-		DeltaRoundMillis:                  durationToUint32(publicConfig.DeltaRound),
-		DeltaGraceMillis:                  durationToUint32(publicConfig.DeltaGrace),
-		DeltaCertifiedCommitRequestMillis: durationToUint32(publicConfig.DeltaCertifiedCommitRequest),
-		DeltaStageMillis:                  durationToUint32(publicConfig.DeltaStage),
+		DeltaProgressMillis:               millisecondsToUint32(publicConfig.DeltaProgress),
+		DeltaResendMillis:                 millisecondsToUint32(publicConfig.DeltaResend),
+		DeltaInitialMillis:                millisecondsToUint32(publicConfig.DeltaInitial),
+		DeltaRoundMillis:                  millisecondsToUint32(publicConfig.DeltaRound),
+		DeltaGraceMillis:                  millisecondsToUint32(publicConfig.DeltaGrace),
+		DeltaCertifiedCommitRequestMillis: millisecondsToUint32(publicConfig.DeltaCertifiedCommitRequest),
+		DeltaStageMillis:                  millisecondsToUint32(publicConfig.DeltaStage),
 		MaxRoundsPerEpoch:                 publicConfig.RMax,
 		TransmissionSchedule:              publicConfig.S,
 
-		MaxDurationQueryMillis:          durationToUint32(publicConfig.MaxDurationQuery),
-		MaxDurationObservationMillis:    durationToUint32(publicConfig.MaxDurationObservation),
-		MaxDurationShouldAcceptMillis:   durationToUint32(publicConfig.MaxDurationShouldAcceptAttestedReport),
-		MaxDurationShouldTransmitMillis: durationToUint32(publicConfig.MaxDurationShouldTransmitAcceptedReport),
+		MaxDurationQueryMillis:          millisecondsToUint32(publicConfig.MaxDurationQuery),
+		MaxDurationObservationMillis:    millisecondsToUint32(publicConfig.MaxDurationObservation),
+		MaxDurationShouldAcceptMillis:   millisecondsToUint32(publicConfig.MaxDurationShouldAcceptAttestedReport),
+		MaxDurationShouldTransmitMillis: millisecondsToUint32(publicConfig.MaxDurationShouldTransmitAcceptedReport),
 
 		MaxFaultyOracles: publicConfig.F,
 	}
@@ -115,14 +126,14 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	return OCR3ConfigView{
 		Signers:               readableSigners,
 		Transmitters:          transmitters,
-		F:                     config.Event.F,
+		F:                     config.F,
 		OnchainConfig:         nil, // empty onChain config
-		OffchainConfigVersion: config.Event.OffchainConfigVersion,
+		OffchainConfigVersion: config.OffchainConfigVersion,
 		OffchainConfig:        oracleConfig,
 	}, nil
 }
 
-func durationToUint32(dur time.Duration) uint32 {
+func millisecondsToUint32(dur time.Duration) uint32 {
 	ms := dur.Milliseconds()
 	if ms > int64(math.MaxUint32) {
 		return math.MaxUint32

@@ -1,37 +1,93 @@
-package changeset
+package changeset_test
 
 import (
+	"bytes"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
-	env := memory.NewMemoryEnvironment(t, logger.Test(t), zapcore.DebugLevel, memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
+	env := test.SetupTestEnv(t, test.TestConfig{
+		WFDonConfig:     test.DonConfig{N: 4},
+		AssetDonConfig:  test.DonConfig{N: 4},
+		WriterDonConfig: test.DonConfig{N: 4},
+		NumChains:       1,
 	})
-	registryChain := env.AllChainSelectors()[0]
-	resp, err := DeployCapabilityRegistry(env, registryChain)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-	resp, err = DeployOCR3(env, registryChain)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
-	resp, err = DeployForwarder(env, DeployForwarderRequest{})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.ExistingAddresses.Merge(resp.AddressBook))
+	registryChain := env.Env.AllChainSelectors()[0]
 
-	a, err := ViewKeystone(env)
+	resp, err := changeset.DeployCapabilityRegistry(env.Env, registryChain)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+
+	addrs, err := env.Env.ExistingAddresses.AddressesForChain(registryChain)
+	require.NoError(t, err)
+
+	var newOCR3Addr string
+	for addr, tv := range addrs {
+		if tv.Type == internal.OCR3Capability {
+			newOCR3Addr = addr
+			break
+		}
+	}
+
+	var wfNodes []string
+	for id := range env.WFNodes {
+		wfNodes = append(wfNodes, id)
+	}
+
+	oracleConfig := changeset.OracleConfig{
+		DeltaProgressMillis:               30000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              []int{len(wfNodes)},
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxOutcomeLengthBytes:             1000000,
+		MaxReportCount:                    20,
+		MaxBatchSize:                      1000,
+		OutcomePruningThreshold:           3600,
+		UniqueReports:                     true,
+		RequestTimeout:                    30 * time.Second,
+	}
+
+	w := &bytes.Buffer{}
+	na := common.HexToAddress(newOCR3Addr)
+	cfg := changeset.ConfigureOCR3Config{
+		ChainSel:             env.RegistrySelector,
+		NodeIDs:              wfNodes,
+		Address:              &na,
+		OCR3Config:           &oracleConfig,
+		WriteGeneratedConfig: w,
+	}
+	_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
+	require.NoError(t, err)
+
+	resp, err = changeset.DeployForwarder(env.Env, changeset.DeployForwarderRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+
+	a, err := changeset.ViewKeystone(env.Env)
 	require.NoError(t, err)
 	b, err := a.MarshalJSON()
 	require.NoError(t, err)
