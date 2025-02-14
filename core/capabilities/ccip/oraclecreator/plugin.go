@@ -268,8 +268,6 @@ type Plugin struct {
 	) (types.ContractWriter, error)
 }
 
-var plugins = map[string]Plugin{}
-
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
