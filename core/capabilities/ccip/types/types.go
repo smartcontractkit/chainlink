@@ -4,6 +4,7 @@ import (
 	"context"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 )
 
 // OCR3ConfigWithMeta is a type alias in order to generate correct mocks for the OracleCreator interface.
@@ -53,4 +54,30 @@ type OracleCreator interface {
 	// Type returns the type of oracle that this creator creates.
 	// The only valid values are OracleTypePlugin and OracleTypeBootstrap.
 	Type() OracleType
+}
+
+type OffChainConfig struct {
+	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
+	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
+}
+
+func (ofc OffChainConfig) CommitEmpty() bool {
+	return ofc.CommitOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) ExecEmpty() bool {
+	return ofc.ExecOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
+	return ofc.CommitOffchainConfig
+}
+
+func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
+	return ofc.ExecOffchainConfig
+}
+
+// Exactly one of both plugins should be empty at any given time.
+func (ofc OffChainConfig) IsValid() bool {
+	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
 }
