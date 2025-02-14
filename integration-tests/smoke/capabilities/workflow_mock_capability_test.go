@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -35,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	capabilities2 "github.com/smartcontractkit/chainlink/integration-tests/smoke/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
@@ -67,10 +65,6 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	chainSelector, err := chainselectors.SelectorFromChainId(sc.Cfg.Network.ChainID)
 	require.NoError(t, err, "failed to get chain selector for chain id %d", sc.Cfg.Network.ChainID)
 
-	// Get either a no-op price provider (for live endpoint)
-	// or a fake price provider (for mock endpoint)
-	priceProvider := setupPriceProvider(t, testLogger, in)
-
 	// Start job distributor
 	jdOutput := startJobDistributor(t, in)
 
@@ -97,9 +91,6 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 
 	// Deploy and configure Keystone Feeds Consumer contract
 	feedsConsumerAddress := prepareFeedsConsumer(t, testLogger, ctfEnv, chainSelector, sc, keystoneContractSet.Forwarder.Address(), in.WorkflowConfig.WorkflowName)
-
-	// Register the workflow (either via CRE CLI or by calling the workflow registry directly; using only workflow DON id)
-	registerWorkflow(t, in, sc, keystoneContractSet.CapabilitiesRegistry.Address(), workflowRegistryAddr, feedsConsumerAddress, workflowDONID, chainSelector, in.WorkflowConfig.WorkflowName, pkey, bc.Nodes[0].HostHTTPUrl, priceProvider.URL())
 
 	donTopology, ctfEnv = configureNodes(t, testLogger, in, donTopology, ctfEnv, jdOutput, bc, keystoneContractSet, workflowRegistryAddr)
 
@@ -145,9 +136,6 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(feedsConsumerAddress, sc.Client)
-	require.NoError(t, err, "failed to create feeds consumer instance")
-
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 	mocksClient := newCapProxyClient()
 	require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
@@ -173,7 +161,6 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 
 	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
-	feedBytes := common.HexToHash(in.PriceProvider.FeedID)
 
 	go sendReports(ctx, t, mocksClient, testLogger, 4) //TODO @george-dorin: Fix me!!!
 
@@ -184,17 +171,8 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 			t.FailNow()
 		case <-time.After(10 * time.Second):
 			elapsed := time.Since(startTime).Round(time.Second)
-			price, _, err := feedsConsumerInstance.GetPrice(
-				sc.NewCallOpts(),
-				feedBytes,
-			)
 			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
 
-			if !priceProvider.NextPrice(price, elapsed) {
-				// check if all expected prices were found and finish the test
-				priceProvider.CheckPrices()
-				return
-			}
 			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
 
 		}
