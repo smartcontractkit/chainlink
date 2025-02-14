@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -254,8 +255,13 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	for i := 0; i < maxRetries; i++ {
 		port := freeport.GetOne(t)
 
+		image := ""
+		if runtime.GOOS == "linux" {
+			image = "solanalabs/solana:v1.18.26" // TODO: workaround on linux
+		}
+
 		bcInput := &blockchain.Input{
-			Image:          "solanalabs/solana:v1.18.26", // TODO: workaround on linux
+			Image:          image,
 			Type:           "solana",
 			ChainID:        strconv.FormatUint(chainID, 10),
 			PublicKey:      adminKey.PublicKey().String(),
