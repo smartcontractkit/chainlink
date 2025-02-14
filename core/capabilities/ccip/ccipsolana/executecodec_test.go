@@ -9,6 +9,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
@@ -149,7 +150,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := ccipocr3.NewMockExtraDataCodec(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)

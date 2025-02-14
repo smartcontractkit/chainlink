@@ -9,10 +9,9 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -28,7 +27,7 @@ import (
 
 func TestMessageHasher_Any2Solana(t *testing.T) {
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createAny2SolanaMessages(t)
-	mockExtraDataCodec := ccipocr3.NewMockExtraDataCodec(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)

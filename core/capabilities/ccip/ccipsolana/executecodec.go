@@ -10,6 +10,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -19,10 +20,10 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
-	extraDataCodec cciptypes.ExtraDataCodec
+	extraDataCodec common.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1(extraDataCodec cciptypes.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
 	return &ExecutePluginCodecV1{
 		extraDataCodec: extraDataCodec,
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -21,7 +22,7 @@ import (
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec cciptypes.ExtraDataCodec
+	extraDataCodec common.ExtraDataCodec
 }
 
 func NewMessageHasherV1(lggr logger.Logger, extraDataCodec cciptypes.ExtraDataCodec) *MessageHasherV1 {

@@ -53,12 +53,12 @@ import (
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
-var extraDataCodec = ccipcommon.NewExtraDataCodec()
+var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
 var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
+		ExtraArgsCodec:      extraDataCodec,
 		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
 		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
 		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
@@ -85,7 +85,7 @@ const (
 type plugin struct {
 	CommitPluginCodec   cciptypes.CommitPluginCodec
 	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	ExtraArgsCodec      cciptypes.ExtraDataCodec
+	ExtraArgsCodec      ccipcommon.ExtraDataCodec
 	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
 	TokenDataEncoder    cciptypes.TokenDataEncoder
 	GasEstimateProvider cciptypes.EstimateProvider

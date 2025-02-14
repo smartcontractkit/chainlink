@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 )
@@ -26,8 +27,10 @@ var (
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
 
+type ExtraDataDecoder struct{}
+
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any, which will be saved in ocr report.message.ExtraArgsDecoded
-func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -67,7 +70,7 @@ func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
 	return outputMap, nil
 }
 
-func DecodeDestExecDataToMap(destExecData []byte) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
 	return map[string]interface{}{
 		svmDestExecDataKey: bytesToUint32LE(destExecData),
 	}, nil

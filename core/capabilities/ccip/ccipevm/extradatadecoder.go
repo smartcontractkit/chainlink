@@ -6,8 +6,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-func DecodeDestExecDataToMap(DestExecData cciptypes.Bytes) (map[string]interface{}, error) {
-	destGasAmount, err := abiDecodeUint32(DestExecData)
+type ExtraDataDecoder struct{}
+
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
 	}
@@ -17,7 +19,7 @@ func DecodeDestExecDataToMap(DestExecData cciptypes.Bytes) (map[string]interface
 	}, nil
 }
 
-func DecodeExtraArgsToMap(extraArgs []byte) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
