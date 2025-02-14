@@ -138,6 +138,7 @@ func millisecondsToUint32(dur time.Duration) uint32 {
 	if ms > int64(math.MaxUint32) {
 		return math.MaxUint32
 	}
+	//nolint:gosec // disable G115 as it is practically impossible to overflow here
 	return uint32(ms)
 }
 
