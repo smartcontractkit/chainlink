@@ -146,29 +146,56 @@ func (c SolChain) UpgradeProgram(logger logger.Logger, programName string, progr
 	}
 	tempFile.Close() // Close before passing to external command
 
-	cmd := exec.Command("solana", "program", "deploy", programFile,
-		"--program-id", programID.String(),
-		"--upgrade-authority", tempFile.Name(),
-		"--keypair", tempFile.Name(),
-		"--fee-payer", tempFile.Name(),
-		"--url", c.URL)
+	// Step 1: Get the current program account size
+	currentSize, err := getProgramAccountSize(programID.String())
+	if err != nil {
+		return "", fmt.Errorf("error getting current program account size: %w", err)
+	}
+	logger.Debugw("Current program account size", "size", currentSize)
 
-	// Capture the command output
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	// Step 2: Get the size of the new program binary
+	newSize, err := getFileSize(programFile)
+	if err != nil {
+		return "", fmt.Errorf("error getting new program binary size: %w", err)
+	}
+	logger.Debugw("New program binary size", "size", newSize)
 
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error running command: %s: %s: %s", cmd.String(), err.Error(), stderr.String())
+	// Step 3: Check if additional space is needed
+	if newSize > currentSize {
+		additionalSpace := newSize - currentSize
+		logger.Debugw("Additional space required", "size", additionalSpace)
+
+		// Step 4: Extend the program account
+		err = extendProgramAccount(programID.String(), additionalSpace, tempFile.Name())
+		if err != nil {
+			return "", fmt.Errorf("error extending program account: %w", err)
+		}
+		logger.Debug("Program account extended successfully")
+	} else {
+		logger.Debug("No additional space needed for program account")
 	}
 
-	// Parse and return the program ID
-	output := stdout.String()
+	// Step 5: Write the new program binary to a buffer account
+	bufferAddress, err := writeBuffer(programFile, tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("error writing buffer: %w", err)
+	}
+	logger.Debugw("Buffer account created", "address", bufferAddress)
 
-	// TODO: obviously need to do this better
-	time.Sleep(5 * time.Second)
-	return parseProgramID(output)
+	// Step 6: Upgrade the program using the buffer
+	newProgramID, err := upgradeProgram(programID.String(), bufferAddress, tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("error upgrading program: %w", err)
+	}
+	logger.Debug("Program upgraded successfully")
+
+	// Step 7: Close the buffer account to reclaim SOL
+	err = closeBuffer(bufferAddress, tempFile.Name())
+	if err != nil {
+		return "", fmt.Errorf("error closing buffer account: %w", err)
+	}
+	logger.Debug("Buffer account closed successfully")
+	return newProgramID, nil
 }
 
 func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
@@ -194,4 +221,105 @@ func parseProgramID(output string) (string, error) {
 		endIdx = len(output)
 	}
 	return output[startIdx : startIdx+endIdx], nil
+}
+
+// getProgramAccountSize retrieves the current size of the program account
+func getProgramAccountSize(programID string) (int, error) {
+	cmd := exec.Command("solana", "program", "show", programID)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return 0, err
+	}
+
+	// Parse the output to find the data length
+	output := out.String()
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Data Length:") {
+			parts := strings.Split(line, ":")
+			if len(parts) < 2 {
+				return 0, fmt.Errorf("invalid data length line: %s", line)
+			}
+			sizeStr := strings.TrimSpace(parts[1])
+			size, err := strconv.Atoi(sizeStr)
+			if err != nil {
+				return 0, fmt.Errorf("failed to parse data length: %v", err)
+			}
+			return size, nil
+		}
+	}
+	return 0, fmt.Errorf("data length not found in program account info")
+}
+
+// getFileSize returns the size of a file in bytes
+func getFileSize(filePath string) (int, error) {
+	cmd := exec.Command("stat", "-c%s", filePath)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return 0, err
+	}
+	sizeStr := strings.TrimSpace(out.String())
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse file size: %v", err)
+	}
+	return size, nil
+}
+
+// extendProgramAccount extends the program account by the specified additional space
+func extendProgramAccount(programID string, additionalSpace int, upgradeAuthorityKey string) error {
+	cmd := exec.Command("solana", "program", "extend", "--keypair", upgradeAuthorityKey, programID, strconv.Itoa(additionalSpace))
+	return cmd.Run()
+}
+
+// writeBuffer writes the new program binary to a buffer account and returns the buffer address
+func writeBuffer(newProgramBinary, upgradeAuthorityKey string) (string, error) {
+	cmd := exec.Command("solana", "program", "write-buffer", newProgramBinary, "--keypair", upgradeAuthorityKey)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the output to extract the buffer address
+	output := out.String()
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Buffer:") {
+			parts := strings.Split(line, ":")
+			if len(parts) < 2 {
+				return "", fmt.Errorf("invalid buffer address line: %s", line)
+			}
+			bufferAddress := strings.TrimSpace(parts[1])
+			return bufferAddress, nil
+		}
+	}
+	return "", fmt.Errorf("buffer address not found in output")
+}
+
+// upgradeProgram upgrades the program using the buffer account
+func upgradeProgram(programID, bufferAddress, upgradeAuthorityKey string) (string, error) {
+	cmd := exec.Command("solana", "program", "upgrade", "--keypair", upgradeAuthorityKey, programID, bufferAddress)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the output to find the new program ID
+	output := out.String()
+	fmt.Println(output)
+	return parseProgramID(output)
+}
+
+// closeBuffer closes the buffer account and reclaims the SOL
+func closeBuffer(bufferAddress, upgradeAuthorityKey string) error {
+	cmd := exec.Command("solana", "program", "close", "--keypair", upgradeAuthorityKey, "--buffers", bufferAddress)
+	return cmd.Run()
 }

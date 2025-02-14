@@ -18,8 +18,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-// This test will not work locally on Mac because the arm64 validator we use does not support upgrades
-// https://solana.stackexchange.com/questions/17478/solana-localnet-error-while-upgrading-a-program-loaded-at-genesis-using-solan
 func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
