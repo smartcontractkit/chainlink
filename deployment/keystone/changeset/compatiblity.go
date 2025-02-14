@@ -19,21 +19,6 @@ type TopLevelConfigSource = internal.TopLevelConfigSource
 // GenerateOCR3Config generates an OCR3 config
 var GenerateOCR3Config = internal.GenerateOCR3Config
 
-// FeedConsumer is a feed consumer contract type
-var FeedConsumer = internal.FeedConsumer
-
-// KeystoneForwarder is a keystone forwarder contract type
-var KeystoneForwarder = internal.KeystoneForwarder
-
-// GetContractSetsRequest is a request to get contract sets
-type GetContractSetsRequest = internal.GetContractSetsRequest
-
-// GetContractSetsResponse is a response to get contract sets
-type GetContractSetsResponse = internal.GetContractSetsResponse
-
-// GetContractSets gets contract sets
-var GetContractSets = internal.GetContractSets
-
 // RegisterNOPSRequest is a request to register NOPS
 type RegisterNOPSRequest = internal.RegisterNOPSRequest
 
@@ -87,5 +72,3 @@ type DONCapabilityWithConfig = internal.DONCapabilityWithConfig
 
 type DeployRequest = internal.DeployRequest
 type DeployResponse = internal.DeployResponse
-
-type ContractSet = internal.ContractSet

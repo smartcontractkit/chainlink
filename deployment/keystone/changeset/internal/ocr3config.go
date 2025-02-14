@@ -84,6 +84,17 @@ func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (oc OracleConfig) MarshalJSON() ([]byte, error) {
+	type aliasT OracleConfig
+	return json.Marshal(&struct {
+		RequestTimeout string `json:"RequestTimeout"`
+		*aliasT
+	}{
+		RequestTimeout: oc.RequestTimeout.String(),
+		aliasT:         (*aliasT)(&oc),
+	})
+}
+
 type NodeKeys struct {
 	EthAddress            string `json:"EthAddress"`
 	AptosAccount          string `json:"AptosAccount"`

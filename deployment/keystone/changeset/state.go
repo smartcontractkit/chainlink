@@ -1,4 +1,4 @@
-package internal
+package changeset
 
 import (
 	"errors"
@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -17,10 +19,15 @@ import (
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
-// ContractSet is a set of contracts for a single chain
-// It is a mirror of changeset.ContractSet, and acts an an adapter to the internal package
-//
-// TODO: remove after CRE-227
+type GetContractSetsRequest struct {
+	Chains      map[uint64]deployment.Chain
+	AddressBook deployment.AddressBook
+}
+
+type GetContractSetsResponse struct {
+	ContractSets map[uint64]ContractSet
+}
+
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
@@ -29,21 +36,78 @@ type ContractSet struct {
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
 
-type getContractSetsRequest struct {
-	Chains      map[uint64]deployment.Chain
-	AddressBook deployment.AddressBook
+func (cs ContractSet) Convert() internal.ContractSet {
+	return internal.ContractSet{
+		MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
+			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
+		},
+		Forwarder:            cs.Forwarder,
+		WorkflowRegistry:     cs.WorkflowRegistry,
+		OCR3:                 cs.OCR3,
+		CapabilitiesRegistry: cs.CapabilitiesRegistry,
+	}
 }
 
-type getContractSetsResponse struct {
-	ContractSets map[uint64]ContractSet
+func (cs ContractSet) TransferableContracts() []common.Address {
+	var out []common.Address
+	if cs.OCR3 != nil {
+		for _, ocr := range cs.OCR3 {
+			out = append(out, ocr.Address())
+		}
+	}
+	if cs.Forwarder != nil {
+		out = append(out, cs.Forwarder.Address())
+	}
+	if cs.CapabilitiesRegistry != nil {
+		out = append(out, cs.CapabilitiesRegistry.Address())
+	}
+	if cs.WorkflowRegistry != nil {
+		out = append(out, cs.WorkflowRegistry.Address())
+	}
+	return out
 }
 
-func (cs ContractSet) getOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+// View is a view of the keystone chain
+// It is best effort and logs errors
+func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
+	out := NewKeystoneChainView()
+	var allErrs error
+	if cs.CapabilitiesRegistry != nil {
+		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+		if err != nil {
+			allErrs = errors.Join(allErrs, err)
+			lggr.Warn("failed to generate capability registry view: %w", err)
+		}
+		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+	}
+
+	if cs.OCR3 != nil {
+		for addr, ocr3Cap := range cs.OCR3 {
+			oc := *ocr3Cap
+			addrCopy := addr
+			ocrView, err := GenerateOCR3ConfigView(oc)
+			if err != nil {
+				allErrs = errors.Join(allErrs, err)
+				// don't block view on single OCR3 not being configured
+				if errors.Is(err, ErrOCR3NotConfigured) {
+					lggr.Warnf("ocr3 not configured for address %s", addr)
+				} else {
+					lggr.Errorf("failed to generate OCR3 config view: %v", err)
+				}
+			}
+			out.OCR3ConfigView[addrCopy.String()] = ocrView
+		}
+	}
+
+	return out, allErrs
+}
+
+func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
 
-func getContractSets(lggr logger.Logger, req *getContractSetsRequest) (*getContractSetsResponse, error) {
-	resp := &getContractSetsResponse{
+func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
+	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}
 	for id, chain := range req.Chains {

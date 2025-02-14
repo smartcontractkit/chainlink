@@ -72,7 +72,7 @@ type ConfigureForwarderContractsResponse struct {
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {
-	contractSetsResp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	contractSetsResp, err := getContractSets(env.Logger, &getContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
