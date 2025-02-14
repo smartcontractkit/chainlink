@@ -867,7 +867,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 		// set wrong chain config with incorrect value of FChain
 		wrongChainConfigs[chain] = changeset.ChainConfig{
 			Readers: envNodes.NonBootstraps().PeerIDs(),
-			//nolint:gosec it can never cause integer overflow conversion`
+			//nolint:gosec // disable G115
 			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
