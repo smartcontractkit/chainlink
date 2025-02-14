@@ -175,7 +175,7 @@ func Test_CCIPMessaging(t *testing.T) {
 	monitorCancel()
 	wg.Wait()
 	// there should be no re-executions.
-	require.Equal(t, uint32(0), ms.reExecutionsObserved.Load())
+	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
 type monitorState struct {
