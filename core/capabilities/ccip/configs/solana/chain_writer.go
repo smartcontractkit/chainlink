@@ -95,7 +95,7 @@ func buildCommitAccountsList(fromAddress, offrampProgramAddress string, destChai
 		getSystemProgramConstant(),
 		getSysVarInstructionConstant(),
 		getFeeBillingSignerConfig(offrampProgramAddress),
-		getFeeQuoterConfig(offrampProgramAddress),
+		getFeeQuoterProgramAccount(offrampProgramAddress),
 		getFeeQuoterAllowedPriceUpdater(offrampProgramAddress),
 		getFeeQuoterConfigLookup(offrampProgramAddress),
 		getGlobalStateConfig(offrampProgramAddress),
@@ -125,7 +125,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					Accounts: chainwriter.Lookup{
 						PDALookups: &chainwriter.PDALookups{
 							Name:      "TokenAdminRegistry",
-							PublicKey: getRouterConfig(offrampProgramAddress),
+							PublicKey: getRouterProgramAccount(offrampProgramAddress),
 							Seeds: []chainwriter.Seed{
 								{Static: []byte("token_admin_registry")},
 								{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
@@ -194,7 +194,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			{
 				PDALookups: &chainwriter.PDALookups{
 					Name:      "AllowedOfframp",
-					PublicKey: getRouterConfig(offrampProgramAddress),
+					PublicKey: getRouterProgramAccount(offrampProgramAddress),
 					Seeds: []chainwriter.Seed{
 						{Static: []byte("allowed_offramp")},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
@@ -265,7 +265,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			{
 				PDALookups: &chainwriter.PDALookups{
 					Name:      "PerChainTokenConfig",
-					PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+					PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 					Seeds: []chainwriter.Seed{
 						{Static: []byte("per_chain_per_token_config")},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
@@ -376,7 +376,7 @@ func getAddressConstant(address string) chainwriter.Lookup {
 	}
 }
 
-func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.Lookup {
+func getFeeQuoterProgramAccount(offrampProgramAddress string) chainwriter.Lookup {
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
 			Name:      ccipconsts.ContractNameFeeQuoter,
@@ -396,7 +396,7 @@ func getFeeQuoterConfig(offrampProgramAddress string) chainwriter.Lookup {
 	}
 }
 
-func getRouterConfig(offrampProgramAddress string) chainwriter.Lookup {
+func getRouterProgramAccount(offrampProgramAddress string) chainwriter.Lookup {
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
 			Name:      ccipconsts.ContractNameRouter,
@@ -449,7 +449,7 @@ func getFeeQuoterAllowedPriceUpdater(offrampProgramAddress string) chainwriter.L
 		PDALookups: &chainwriter.PDALookups{
 			Name: "FeeQuoterAllowedPriceUpdater",
 			// Fetch fee quoter public key to use as program ID for PDA
-			PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("allowed_price_updater")},
 				{Dynamic: getFeeBillingSignerConfig(offrampProgramAddress)},
@@ -465,7 +465,7 @@ func getFeeQuoterConfigLookup(offrampProgramAddress string) chainwriter.Lookup {
 		PDALookups: &chainwriter.PDALookups{
 			Name: "FeeQuoterConfig",
 			// Fetch fee quoter public key to use as program ID for PDA
-			PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("config")},
 			},
@@ -494,7 +494,7 @@ func getBillingTokenConfig(offrampProgramAddress string) chainwriter.Lookup {
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
 			Name:      "BillingTokenConfig",
-			PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("fee_billing_token_config")},
 				{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}}},
@@ -510,7 +510,7 @@ func getChainConfigGasPriceConfig(offrampProgramAddress string, destChainSelecto
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
 			Name:      "ChainConfigGasPrice",
-			PublicKey: getFeeQuoterConfig(offrampProgramAddress),
+			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("dest_chain")},
 				{Static: destChainSelector},
