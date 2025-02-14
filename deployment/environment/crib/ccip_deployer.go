@@ -151,6 +151,10 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets: %w", err)
 	}
 
+	_, err = setupOCROnRemoteChains(e, homeChainSel)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR on remote chains: %w", err)
+	}
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
@@ -410,6 +414,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+	fmt.Println("granting mint and burn roles for link pools")
 	eg := errgroup.Group{}
 	for _, chain := range chainSelectors {
 		chain := chain
@@ -621,6 +626,12 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 				},
 			},
 		),
+	)
+}
+
+func setupOCROnRemoteChains(e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
+	chainSelectors := e.AllChainSelectorsExcluding([]uint64{homeChainSel})
+	return commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains
 			deployment.CreateLegacyChangeSet(changeset.SetOCR3OffRampChangeset),
