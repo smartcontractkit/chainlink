@@ -33,7 +33,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
 
-	config := proposalutils.SingleGroupTimelockConfig(t)
+	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
@@ -41,8 +41,8 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 			[]uint64{chainSelector},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: config,
 			},
 		),

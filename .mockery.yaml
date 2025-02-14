@@ -6,13 +6,11 @@ packages:
   github.com/smartcontractkit/chainlink-framework/chains/txmgr:
     config:
       dir: common/txmgr/mocks
-      outpkg: mocks
     interfaces:
       TxManager:
   github.com/smartcontractkit/chainlink-framework/chains/txmgr/types:
     config:
       dir: common/txmgr/types/mocks
-      outpkg: mocks
     interfaces:
       ReaperChainConfig:
         config:
@@ -41,7 +39,9 @@ packages:
       Broadcaster:
       Broadcast:
       AbigenContract:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
+  github.com/smartcontractkit/chainlink-integrations/evm/logpoller:
+    config:
+      dir: core/chains/evm/logpoller/mocks
     interfaces:
       LogPoller:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:

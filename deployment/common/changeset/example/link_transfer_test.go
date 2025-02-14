@@ -32,7 +32,7 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := proposalutils.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMSV2(t)
 
 	// Deploy MCMS and Timelock
 	env, err := changeset.Apply(t, env, nil,
@@ -41,8 +41,8 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 			[]uint64{chainSelector},
 		),
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
 					Bypasser:         config,

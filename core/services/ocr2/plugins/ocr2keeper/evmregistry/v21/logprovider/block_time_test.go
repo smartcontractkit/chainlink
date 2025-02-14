@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -21,7 +21,7 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 		blockSampleSize int64
 		latestBlock     int64
 		latestBlockErr  error
-		blocksRange     []logpoller.LogPollerBlock
+		blocksRange     []logpoller.Block
 		blocksRangeErr  error
 		blockTime       time.Duration
 		blockTimeErr    error
@@ -51,7 +51,7 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			4,
 			20,
 			nil,
-			[]logpoller.LogPollerBlock{
+			[]logpoller.Block{
 				{BlockTimestamp: now.Add(-time.Second * (2 * 4)), BlockNumber: 16},
 				{BlockTimestamp: now, BlockNumber: 20},
 			},
@@ -68,7 +68,7 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			lp := new(lpmocks.LogPoller)
 			resolver := newBlockTimeResolver(lp)
 
-			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: tc.latestBlock}, tc.latestBlockErr)
 			lp.On("GetBlocksRange", mock.Anything, mock.Anything).Return(tc.blocksRange, tc.blocksRangeErr)
 
 			blockTime, err := resolver.BlockTime(ctx, tc.blockSampleSize)

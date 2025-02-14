@@ -30,12 +30,12 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := proposalutils.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMSV2(t)
 
 	env, err := changeset.Apply(t, env, nil,
 		changeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelock),
-			map[uint64]types2.MCMSWithTimelockConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			map[uint64]types2.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
 					Bypasser:         config,

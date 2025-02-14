@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -177,11 +178,11 @@ func TestKeeperEthIntegration(t *testing.T) {
 			nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 			// setup blockchain
-			sergey := testutils.MustNewSimTransactor(t) // owns all the link
-			steve := testutils.MustNewSimTransactor(t)  // registry owner
-			carrol := testutils.MustNewSimTransactor(t) // client
-			nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
-			nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
+			sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+			steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+			carrol := evmtestutils.MustNewSimTransactor(t) // client
+			nelly := evmtestutils.MustNewSimTransactor(t)  // other keeper operator 1
+			nick := evmtestutils.MustNewSimTransactor(t)   // other keeper operator 2
 			genesisData := types.GenesisAlloc{
 				sergey.From: {Balance: assets.Ether(1000).ToInt()},
 				steve.From:  {Balance: assets.Ether(1000).ToInt()},
@@ -332,11 +333,11 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 		// setup blockchain
-		sergey := testutils.MustNewSimTransactor(t) // owns all the link
-		steve := testutils.MustNewSimTransactor(t)  // registry owner
-		carrol := testutils.MustNewSimTransactor(t) // client
-		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
-		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
+		sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+		steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+		carrol := evmtestutils.MustNewSimTransactor(t) // client
+		nelly := evmtestutils.MustNewSimTransactor(t)  // other keeper operator 1
+		nick := evmtestutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := types.GenesisAlloc{
 			sergey.From: {Balance: assets.Ether(1000).ToInt()},
 			steve.From:  {Balance: assets.Ether(1000).ToInt()},
@@ -493,11 +494,11 @@ func TestMaxPerformDataSize(t *testing.T) {
 		nodeAddressEIP55 := evmtypes.EIP55AddressFromAddress(nodeAddress)
 
 		// setup blockchain
-		sergey := testutils.MustNewSimTransactor(t) // owns all the link
-		steve := testutils.MustNewSimTransactor(t)  // registry owner
-		carrol := testutils.MustNewSimTransactor(t) // client
-		nelly := testutils.MustNewSimTransactor(t)  // other keeper operator 1
-		nick := testutils.MustNewSimTransactor(t)   // other keeper operator 2
+		sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+		steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+		carrol := evmtestutils.MustNewSimTransactor(t) // client
+		nelly := evmtestutils.MustNewSimTransactor(t)  // other keeper operator 1
+		nick := evmtestutils.MustNewSimTransactor(t)   // other keeper operator 2
 		genesisData := types.GenesisAlloc{
 			sergey.From: {Balance: assets.Ether(1000).ToInt()},
 			steve.From:  {Balance: assets.Ether(1000).ToInt()},
