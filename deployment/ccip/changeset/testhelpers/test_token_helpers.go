@@ -44,9 +44,9 @@ func SetupTwoChainEnvironmentWithTokens(
 		}
 	}
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, selector := range selectors {
-		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfig(t)
+		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 
 	// Deploy one burn-mint token per chain to use in the tests
@@ -76,18 +76,16 @@ func SetupTwoChainEnvironmentWithTokens(
 	}
 
 	// Deploy MCMS setup & prerequisite contracts
-	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(commoncs.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-	})
+	e, err := commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+			mcmsCfg,
+		),
+	)
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(e)
@@ -110,15 +108,15 @@ func SetupTwoChainEnvironmentWithTokens(
 
 	if transferToTimelock {
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.ApplyChangesets(t, e, timelockContracts, []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
-				Config: commoncs.TransferToMCMSWithTimelockConfig{
+		e, err = commoncs.Apply(t, e, timelockContracts,
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MinDelay:         0,
 				},
-			},
-		})
+			),
+		)
 		require.NoError(t, err)
 	}
 
@@ -147,15 +145,15 @@ func DeployTestTokenPools(
 ) deployment.Environment {
 	selectors := e.AllChainSelectors()
 
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			Config: changeset.DeployTokenPoolContractsConfig{
+	e, err := commonchangeset.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployTokenPoolContractsChangeset),
+			changeset.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,
 				NewPools:    newPools,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(e)
@@ -188,15 +186,15 @@ func DeployTestTokenPools(
 		}
 
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.ApplyChangesets(t, e, timelockContracts, []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
-				Config: commoncs.TransferToMCMSWithTimelockConfig{
+		e, err = commoncs.Apply(t, e, timelockContracts,
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MinDelay:         0,
 				},
-			},
-		})
+			),
+		)
 		require.NoError(t, err)
 	}
 

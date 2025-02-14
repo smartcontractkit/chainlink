@@ -31,6 +31,10 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
 
+.PHONY: tidy
+tidy: gomodtidy ## Tidy all modules and add to git.
+	git add '**go.*'
+
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
 	go install golang.org/x/pkgsite/cmd/pkgsite@latest
@@ -138,15 +142,15 @@ setup-testdb: ## Setup the test database.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run . local db preparetest
+	go run ./core/store/cmd/preparetest
 
 .PHONY: testdb-force
 testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
-	go run . local db preparetest --force
+	go run ./core/store/cmd/preparetest --force
 
 .PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
-	go run . local db preparetest --user-only
+	go run ./core/store/cmd/preparetest --user-only
 
 .PHONY: gomods
 gomods: ## Install gomods

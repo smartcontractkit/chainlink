@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import {VRFCoordinatorV2_5_Optimism} from "../VRFCoordinatorV2_5_Optimism.sol";
 
-// solhint-disable-next-line contract-name-camelcase
 contract ExposedVRFCoordinatorV2_5_Optimism is VRFCoordinatorV2_5_Optimism {
   constructor(address blockhashStore) VRFCoordinatorV2_5_Optimism(blockhashStore) {}
 

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 )
 
@@ -41,7 +41,7 @@ type ConfigPollerService interface {
 }
 
 type LogPoller interface {
-	LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error)
+	LatestBlock(ctx context.Context) (logpoller.Block, error)
 	FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error)
 }
 

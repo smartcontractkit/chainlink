@@ -18,6 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -25,11 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 const (
@@ -74,8 +75,11 @@ type NonceManagerUpdate struct {
 type PreviousRampCfg struct {
 	RemoteChainSelector uint64
 	OverrideExisting    bool
-	EnableOnRamp        bool
-	EnableOffRamp       bool
+	// Set these only if the prevOnRamp or prevOffRamp addresses are not required to be in nonce manager.
+	// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+	// it will not be possible to update the previous ramps later unless OverrideExisting is set to true.
+	AllowEmptyOnRamp  bool // If true, the prevOnRamp address can be 0x0.
+	AllowEmptyOffRamp bool // If true, the prevOffRamp address can be 0x0.
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
@@ -105,21 +109,24 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
-			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
-				return errors.New("must specify either onramp or offramp")
-			}
-			if prevRamp.EnableOnRamp {
-				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
-					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
-				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
+			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+			// it will not be possible to update the previous ramps later.
+			// Allow blank onRamp or offRamp only if AllowEmptyOnRamp or AllowEmptyOffRamp is set to true.
+			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
+			if !prevRamp.AllowEmptyOnRamp {
+				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d, "+
+						"If you want to set zero address for onRamp, set AllowEmptyOnRamp to true", sourceSel, prevRamp.RemoteChainSelector)
 				}
 			}
-			if prevRamp.EnableOffRamp {
-				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
-					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
-				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			if !prevRamp.AllowEmptyOffRamp {
+				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d"+
+						"If you want to set zero address for offRamp, set AllowEmptyOffRamp to true", prevRamp.RemoteChainSelector, sourceSel)
 				}
 			}
 		}
@@ -165,10 +172,10 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range updates.PreviousRampsArgs {
 				var onRamp, offRamp common.Address
-				if prevRamp.EnableOnRamp {
+				if !prevRamp.AllowEmptyOnRamp {
 					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
 				}
-				if prevRamp.EnableOffRamp {
+				if !prevRamp.AllowEmptyOffRamp {
 					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				}
 				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
@@ -1094,7 +1101,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
 				// TODO: how would this work when the onRamp is nonEVM?
-				OnRamp: common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				OnRamp:                    common.LeftPadBytes(onRamp.Address().Bytes(), 32),
 				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}

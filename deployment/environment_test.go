@@ -3,10 +3,12 @@ package deployment
 import (
 	"encoding/hex"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"testing"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -300,4 +302,160 @@ func test32Byte(t *testing.T, s string) [32]byte {
 func hexFrom32Byte(t *testing.T, s string) string {
 	b := test32Byte(t, s)
 	return hex.EncodeToString(b[:])
+}
+
+func Test_isValidMultiAddr(t *testing.T) {
+	// Generate a p2p piece using p2pkey.MustNewV2XXXTestingOnly()
+	seed := big.NewInt(123)
+	p2p := p2pkey.MustNewV2XXXTestingOnly(seed).PeerID().String()
+
+	// Create valid and invalid multi-address strings
+	validMultiAddr := p2p[4:] + "@example.com:12345" // Remove "p2p_" prefix from p2p
+	invalidMultiAddr1 := "invalid@address:12345"
+	invalidMultiAddr2 := p2p[4:] + "@example.com:notanumber"
+	invalidMultiAddr3 := "missingatsign.com:12345"
+	invalidMultiAddr4 := p2p[4:] + "@example.com"
+	invalidMultiAddr5 := "@missingp2p:123"
+
+	// Test cases
+	tests := []struct {
+		name     string
+		addr     string
+		expected bool
+	}{
+		{"Valid MultiAddr", validMultiAddr, true},
+		{"Invalid MultiAddr - Invalid Address", invalidMultiAddr1, false},
+		{"Invalid MultiAddr - Non-numeric Port", invalidMultiAddr2, false},
+		{"Invalid MultiAddr - Missing @", invalidMultiAddr3, false},
+		{"Invalid MultiAddr - Missing Port", invalidMultiAddr4, false},
+		{"Invalid MultiAddr - Missing p2p", invalidMultiAddr5, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidMultiAddr(tt.addr)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+func TestNewNodeFromJD(t *testing.T) {
+	type args struct {
+		jdNode       *nodev1.Node
+		chainConfigs []*nodev1.ChainConfig
+	}
+	tests := []struct {
+		name     string
+		args     args
+		want     *Node
+		checkErr func(t *testing.T, err error)
+	}{
+		{
+			name: "ok",
+			args: args{
+				jdNode: &nodev1.Node{
+					Id:        "node-id1",
+					Name:      "node1",
+					PublicKey: "node-pub-key",
+				},
+				chainConfigs: []*nodev1.ChainConfig{
+					{
+
+						Chain: &nodev1.Chain{
+							Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+							Id:   strconv.FormatUint(chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID, 10),
+						},
+						NodeId: "node-id1",
+						Ocr2Config: &nodev1.OCR2Config{
+							OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+								BundleId:              "bundle1",
+								OffchainPublicKey:     hexFrom32Byte(t, "offchain-pub-key1"),
+								OnchainSigningAddress: gethcommon.HexToAddress("0x1").Hex(),
+								ConfigPublicKey:       hexFrom32Byte(t, "config-encryption-pub-key1"),
+							},
+							P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+								PeerId: testPeerID(t, "peer-id1").String(),
+							},
+						},
+					},
+				},
+			},
+			want: &Node{
+				NodeID: "node-id1",
+				Name:   "node1",
+				CSAKey: "node-pub-key",
+				SelToOCRConfig: map[chain_selectors.ChainDetails]OCRConfig{
+					{
+						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
+						ChainName:     chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Name,
+					}: {
+						KeyBundleID:               "bundle1",
+						OffchainPublicKey:         test32Byte(t, "offchain-pub-key1"),
+						OnchainPublicKey:          types2.OnchainPublicKey(gethcommon.HexToAddress("0x1").Bytes()),
+						ConfigEncryptionPublicKey: types3.ConfigEncryptionPublicKey(test32Byte(t, "config-encryption-pub-key1")),
+
+						PeerID: testPeerID(t, "peer-id1"),
+					},
+				},
+				PeerID: testPeerID(t, "peer-id1"),
+			},
+		},
+		{
+			name: "no evm chain",
+			args: args{
+				jdNode: &nodev1.Node{
+					Id:        "node-id1",
+					Name:      "node1",
+					PublicKey: "node-pub-key",
+				},
+				chainConfigs: []*nodev1.ChainConfig{
+					{
+						Chain: &nodev1.Chain{
+							Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+							Id:   strconv.FormatUint(chain_selectors.APTOS_TESTNET.ChainID, 10),
+						},
+						NodeId: "node-id1",
+						Ocr2Config: &nodev1.OCR2Config{
+							OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+								BundleId:              "bundle1",
+								OffchainPublicKey:     hexFrom32Byte(t, "offchain-pub-key1"),
+								OnchainSigningAddress: gethcommon.HexToAddress("0x1").Hex(),
+								ConfigPublicKey:       hexFrom32Byte(t, "config-encryption-pub-key1"),
+							},
+							P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+								PeerId: testPeerID(t, "peer-id1").String(),
+							},
+						},
+					},
+				},
+			},
+			checkErr: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, ErrMissingEVMChain)
+			},
+			want: &Node{
+				NodeID:         "node-id1",
+				Name:           "node1",
+				CSAKey:         "node-pub-key",
+				SelToOCRConfig: map[chain_selectors.ChainDetails]OCRConfig{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewNodeFromJD(tt.args.jdNode, tt.args.chainConfigs)
+			if tt.checkErr != nil {
+				tt.checkErr(t, err)
+				return
+			}
+			assert.Equal(t, tt.want.PeerID, got.PeerID)
+			assert.Equal(t, tt.want.CSAKey, got.CSAKey)
+			assert.Equal(t, tt.want.NodeID, got.NodeID)
+			assert.Equal(t, tt.want.Name, got.Name)
+			for k, v := range tt.want.SelToOCRConfig {
+				assert.Equal(t, v, got.SelToOCRConfig[k])
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewNodeFromJD() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

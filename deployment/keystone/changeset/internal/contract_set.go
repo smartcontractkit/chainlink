@@ -112,3 +112,21 @@ func DeployFeedsConsumer(chain deployment.Chain, ab deployment.AddressBook) (*De
 	}
 	return consumerResp, nil
 }
+
+// DeployForwarder deploys the BalanceReader contract to the chain
+// and saves the address in the address book. This mutates the address book.
+func DeployBalanceReader(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+	balanceReaderDeployer, err := NewBalanceReaderDeployer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create BalanceReaderDeployer: %w", err)
+	}
+	balanceReaderResp, err := balanceReaderDeployer.deploy(DeployRequest{Chain: chain})
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy BalanceReader: %w", err)
+	}
+	err = ab.Save(chain.Selector, balanceReaderResp.Address.String(), balanceReaderResp.Tv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save BalanceReader: %w", err)
+	}
+	return balanceReaderResp, nil
+}

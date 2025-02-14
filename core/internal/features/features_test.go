@@ -299,7 +299,7 @@ type OperatorContracts struct {
 }
 
 func setupOperatorContracts(t *testing.T) OperatorContracts {
-	user := testutils.MustNewSimTransactor(t)
+	user := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
 		user.From: {Balance: assets.Ether(1000).ToInt()},
 	}
@@ -649,7 +649,7 @@ observationSource   = """
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
 	genesisData := gethtypes.GenesisAlloc{
