@@ -3,11 +3,13 @@ package changeset
 import (
 	"encoding/json"
 	"errors"
+	"math"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"google.golang.org/protobuf/proto"
 
+	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -92,20 +94,20 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
 		RequestTimeout:            cfg.RequestTimeout.AsDuration(),
 
-		DeltaProgressMillis:               uint32(publicConfig.DeltaProgress.Milliseconds()),
-		DeltaResendMillis:                 uint32(publicConfig.DeltaResend.Milliseconds()),
-		DeltaInitialMillis:                uint32(publicConfig.DeltaInitial.Milliseconds()),
-		DeltaRoundMillis:                  uint32(publicConfig.DeltaRound.Milliseconds()),
-		DeltaGraceMillis:                  uint32(publicConfig.DeltaGrace.Milliseconds()),
-		DeltaCertifiedCommitRequestMillis: uint32(publicConfig.DeltaCertifiedCommitRequest.Milliseconds()),
-		DeltaStageMillis:                  uint32(publicConfig.DeltaStage.Milliseconds()),
+		DeltaProgressMillis:               durationToUint32(publicConfig.DeltaProgress),
+		DeltaResendMillis:                 durationToUint32(publicConfig.DeltaResend),
+		DeltaInitialMillis:                durationToUint32(publicConfig.DeltaInitial),
+		DeltaRoundMillis:                  durationToUint32(publicConfig.DeltaRound),
+		DeltaGraceMillis:                  durationToUint32(publicConfig.DeltaGrace),
+		DeltaCertifiedCommitRequestMillis: durationToUint32(publicConfig.DeltaCertifiedCommitRequest),
+		DeltaStageMillis:                  durationToUint32(publicConfig.DeltaStage),
 		MaxRoundsPerEpoch:                 publicConfig.RMax,
 		TransmissionSchedule:              publicConfig.S,
 
-		MaxDurationQueryMillis:          uint32(publicConfig.MaxDurationQuery.Milliseconds()),
-		MaxDurationObservationMillis:    uint32(publicConfig.MaxDurationObservation.Milliseconds()),
-		MaxDurationShouldAcceptMillis:   uint32(publicConfig.MaxDurationShouldAcceptAttestedReport.Milliseconds()),
-		MaxDurationShouldTransmitMillis: uint32(publicConfig.MaxDurationShouldTransmitAcceptedReport.Milliseconds()),
+		MaxDurationQueryMillis:          durationToUint32(publicConfig.MaxDurationQuery),
+		MaxDurationObservationMillis:    durationToUint32(publicConfig.MaxDurationObservation),
+		MaxDurationShouldAcceptMillis:   durationToUint32(publicConfig.MaxDurationShouldAcceptAttestedReport),
+		MaxDurationShouldTransmitMillis: durationToUint32(publicConfig.MaxDurationShouldTransmitAcceptedReport),
 
 		MaxFaultyOracles: publicConfig.F,
 	}
@@ -118,6 +120,14 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		OffchainConfigVersion: config.Event.OffchainConfigVersion,
 		OffchainConfig:        oracleConfig,
 	}, nil
+}
+
+func durationToUint32(dur time.Duration) uint32 {
+	ms := dur.Milliseconds()
+	if ms > int64(math.MaxUint32) {
+		return math.MaxUint32
+	}
+	return uint32(ms)
 }
 
 func NewKeystoneChainView() KeystoneChainView {
