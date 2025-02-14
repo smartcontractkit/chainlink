@@ -23,46 +23,55 @@ type ToCalldataFunc func(
 	report ocr3types.ReportWithInfo[[]byte],
 	rs, ss [][32]byte,
 	vs [32]byte,
-) (any, error)
+) (string, string, any, error)
 
-func ToCommitCalldata(
-	rawReportCtx [2][32]byte,
-	report ocr3types.ReportWithInfo[[]byte],
-	rs, ss [][32]byte,
-	vs [32]byte,
-) (any, error) {
-	// Note that the name of the struct field is very important, since the encoder used
-	// by the chainwriter uses mapstructure, which will use the struct field name to map
-	// to the argument name in the function call.
-	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
-	// for that field.
-	var info ccipocr3.CommitReportInfo
-	if len(report.Info) != 0 {
-		var err error
-		info, err = ccipocr3.DecodeCommitReportInfo(report.Info)
-		if err != nil {
-			return nil, err
+func NewToCommitCalldata(defaultMethod, priceOnlyMethod string) ToCalldataFunc {
+	return func(
+		rawReportCtx [2][32]byte,
+		report ocr3types.ReportWithInfo[[]byte],
+		rs, ss [][32]byte,
+		vs [32]byte,
+	) (string, string, any, error) {
+		// Note that the name of the struct field is very important, since the encoder used
+		// by the chainwriter uses mapstructure, which will use the struct field name to map
+		// to the argument name in the function call.
+		// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
+		// for that field.
+		var info ccipocr3.CommitReportInfo
+		if len(report.Info) != 0 {
+			var err error
+			info, err = ccipocr3.DecodeCommitReportInfo(report.Info)
+			if err != nil {
+				return "", "", nil, err
+			}
 		}
-	}
 
-	// WARNING: Be careful if you change the data types.
-	// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
-	// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
-	return struct {
-		ReportContext [2][32]byte
-		Report        []byte
-		Rs            [][32]byte
-		Ss            [][32]byte
-		RawVs         [32]byte
-		Info          ccipocr3.CommitReportInfo
-	}{
-		ReportContext: rawReportCtx,
-		Report:        report.Report,
-		Rs:            rs,
-		Ss:            ss,
-		RawVs:         vs,
-		Info:          info,
-	}, nil
+		method := defaultMethod
+		if len(priceOnlyMethod) > 0 && len(info.MerkleRoots) == 0 && len(info.TokenPrices) > 0 {
+			method = priceOnlyMethod
+		}
+
+		// WARNING: Be careful if you change the data types.
+		// Using a different type e.g. `type Foo [32]byte` instead of `[32]byte`
+		// will trigger undefined chainWriter behavior, e.g. transactions submitted with wrong arguments.
+		return consts.ContractNameOffRamp,
+			method,
+			struct {
+				ReportContext [2][32]byte
+				Report        []byte
+				Rs            [][32]byte
+				Ss            [][32]byte
+				RawVs         [32]byte
+				Info          ccipocr3.CommitReportInfo
+			}{
+				ReportContext: rawReportCtx,
+				Report:        report.Report,
+				Rs:            rs,
+				Ss:            ss,
+				RawVs:         vs,
+				Info:          info,
+			}, nil
+	}
 }
 
 func ToExecCalldata(
@@ -70,7 +79,7 @@ func ToExecCalldata(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-) (any, error) {
+) (string, string, any, error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
@@ -85,19 +94,21 @@ func ToExecCalldata(
 		var err error
 		info, err = ccipocr3.DecodeExecuteReportInfo(report.Info)
 		if err != nil {
-			return nil, err
+			return "", "", nil, err
 		}
 	}
 
-	return struct {
-		ReportContext [2][32]byte
-		Report        []byte
-		Info          ccipocr3.ExecuteReportInfo
-	}{
-		ReportContext: rawReportCtx,
-		Report:        report.Report,
-		Info:          info,
-	}, nil
+	return consts.ContractNameOffRamp,
+		consts.MethodExecute,
+		struct {
+			ReportContext [2][32]byte
+			Report        []byte
+			Info          ccipocr3.ExecuteReportInfo
+		}{
+			ReportContext: rawReportCtx,
+			Report:        report.Report,
+			Info:          info,
+		}, nil
 }
 
 var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
@@ -105,8 +116,6 @@ var _ ocr3types.ContractTransmitter[[]byte] = &ccipTransmitter{}
 type ccipTransmitter struct {
 	cw             commontypes.ContractWriter
 	fromAccount    ocrtypes.Account
-	contractName   string
-	method         string
 	offrampAddress string
 	toCalldataFn   ToCalldataFunc
 }
@@ -114,16 +123,12 @@ type ccipTransmitter struct {
 func XXXNewContractTransmitterTestsOnly(
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
-	contractName string,
-	method string,
 	offrampAddress string,
 	toCalldataFn ToCalldataFunc,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
-		contractName:   contractName,
-		method:         method,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   toCalldataFn,
 	}
@@ -133,14 +138,13 @@ func NewCommitContractTransmitter(
 	cw commontypes.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
+	defaultMethod, priceOnlyMethod string,
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
-		contractName:   consts.ContractNameOffRamp,
-		method:         consts.MethodCommit,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   ToCommitCalldata,
+		toCalldataFn:   NewToCommitCalldata(defaultMethod, priceOnlyMethod),
 	}
 }
 
@@ -152,8 +156,6 @@ func NewExecContractTransmitter(
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
-		contractName:   consts.ContractNameOffRamp,
-		method:         consts.MethodExecute,
 		offrampAddress: offrampAddress,
 		toCalldataFn:   ToExecCalldata,
 	}
@@ -198,7 +200,7 @@ func (c *ccipTransmitter) Transmit(
 	}
 
 	// chain writer takes in the raw calldata and packs it on its own.
-	args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs)
+	contract, method, args, err := c.toCalldataFn(rawReportCtx, reportWithInfo, rs, ss, vs)
 	if err != nil {
 		return fmt.Errorf("failed to generate call data: %w", err)
 	}
@@ -211,7 +213,7 @@ func (c *ccipTransmitter) Transmit(
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)
-	if err := c.cw.SubmitTransaction(ctx, c.contractName, c.method, args, fmt.Sprintf("%s-%s-%s", c.contractName, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero); err != nil {
+	if err := c.cw.SubmitTransaction(ctx, contract, method, args, fmt.Sprintf("%s-%s-%s", contract, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero); err != nil {
 		return fmt.Errorf("failed to submit transaction thru chainwriter: %w", err)
 	}
 
