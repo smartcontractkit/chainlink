@@ -6,8 +6,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+// ExtraDataDecoder is a concrete implementation of ExtraDataDecoder
 type ExtraDataDecoder struct{}
 
+// DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
 func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
@@ -19,6 +21,7 @@ func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) 
 	}, nil
 }
 
+// DecodeExtraArgsToMap reformats bytes into a chain agnostic map[string]any representation for extra args
 func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))

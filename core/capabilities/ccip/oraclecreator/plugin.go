@@ -53,7 +53,13 @@ import (
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
-var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
+var extraDataCodec = ccipcommon.NewExtraDataCodec(
+	ccipcommon.NewExtraDataCodecParams(
+		ccipevm.ExtraDataDecoder{},
+		ccipsolana.ExtraDataDecoder{},
+	),
+)
+
 var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
