@@ -5,6 +5,8 @@ import (
 	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -27,7 +29,7 @@ type OCR3ConfigView struct {
 	F                     uint8               `json:"f"`
 	OnchainConfig         []byte              `json:"onchainConfig"`
 	OffchainConfigVersion uint64              `json:"offchainConfigVersion"`
-	OffchainConfig        interface{}         `json:"offchainConfig"` // TODO: we need a struct here to hold the values
+	OffchainConfig        OracleConfig        `json:"offchainConfig"`
 }
 
 var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
@@ -63,7 +65,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}
 	// `PublicConfigFromContractConfig` returns the `ocr2types.PublicConfig` that contains all the `OracleConfig` fields we need, including the
 	// report plugin config.
-	_, err = ocr3confighelper.PublicConfigFromContractConfig(true, ocr2types.ContractConfig{
+	publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(true, ocr2types.ContractConfig{
 		ConfigDigest:          config.Event.ConfigDigest,
 		ConfigCount:           config.Event.ConfigCount,
 		Signers:               signers,
@@ -76,15 +78,45 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	if err != nil {
 		return OCR3ConfigView{}, err
 	}
+	var cfg capocr3types.ReportingPluginConfig
+	if err = proto.Unmarshal(publicConfig.ReportingPluginConfig, &cfg); err != nil {
+		return OCR3ConfigView{}, err
+	}
+	oracleConfig := OracleConfig{
+		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
+		MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
+		MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
+		MaxReportCount:            cfg.MaxReportCount,
+		MaxBatchSize:              cfg.MaxBatchSize,
+		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
+		RequestTimeout:            cfg.RequestTimeout.AsDuration(),
 
-	// TODO: make human readable
+		DeltaProgressMillis:               uint32(publicConfig.DeltaProgress.Milliseconds()),
+		DeltaResendMillis:                 uint32(publicConfig.DeltaResend.Milliseconds()),
+		DeltaInitialMillis:                uint32(publicConfig.DeltaInitial.Milliseconds()),
+		DeltaRoundMillis:                  uint32(publicConfig.DeltaRound.Milliseconds()),
+		DeltaGraceMillis:                  uint32(publicConfig.DeltaGrace.Milliseconds()),
+		DeltaCertifiedCommitRequestMillis: uint32(publicConfig.DeltaCertifiedCommitRequest.Milliseconds()),
+		DeltaStageMillis:                  uint32(publicConfig.DeltaStage.Milliseconds()),
+		MaxRoundsPerEpoch:                 publicConfig.RMax,
+		TransmissionSchedule:              publicConfig.S,
+
+		MaxDurationQueryMillis:          uint32(publicConfig.MaxDurationQuery.Milliseconds()),
+		MaxDurationObservationMillis:    uint32(publicConfig.MaxDurationObservation.Milliseconds()),
+		MaxDurationShouldAcceptMillis:   uint32(publicConfig.MaxDurationShouldAcceptAttestedReport.Milliseconds()),
+		MaxDurationShouldTransmitMillis: uint32(publicConfig.MaxDurationShouldTransmitAcceptedReport.Milliseconds()),
+
+		MaxFaultyOracles: publicConfig.F,
+	}
+
 	return OCR3ConfigView{
 		Signers:               readableSigners,
 		Transmitters:          transmitters,
 		F:                     config.Event.F,
 		OnchainConfig:         nil, // empty onChain config
 		OffchainConfigVersion: config.Event.OffchainConfigVersion,
-		OffchainConfig:        config.Event.OffchainConfig,
+		OffchainConfig:        oracleConfig,
 	}, nil
 }
 

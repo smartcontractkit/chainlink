@@ -92,7 +92,7 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 				if errors.Is(err, ErrOCR3NotConfigured) {
 					lggr.Warnf("ocr3 not configured for address %s", addr)
 				} else {
-					lggr.Errorf("failed to generate OCR3 config view: %w", err)
+					lggr.Errorf("failed to generate OCR3 config view: %v", err)
 				}
 			}
 			out.OCR3ConfigView[addrCopy.String()] = ocrView
