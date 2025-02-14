@@ -93,7 +93,6 @@ type BuildSolanaConfig struct {
 	ChainSelector        uint64
 	GitCommitSha         string
 	DestinationDir       string
-	IsUpgrade            bool
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 }
@@ -116,11 +115,8 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
 	}
 
-	// Upgrades don't need to generate keys, we upgrade the program in place
-	if !config.IsUpgrade {
-		if err := replaceKeys(e); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
-		}
+	if err := replaceKeys(e); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
 	}
 
 	// Build the project with Anchor

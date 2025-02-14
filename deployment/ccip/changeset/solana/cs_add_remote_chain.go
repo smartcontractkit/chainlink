@@ -198,10 +198,15 @@ func doAddRemoteChainToSolana(
 		}
 	}
 
+	addressLookupTable, err := s.SolChains[chainSel].FetchOfframpLookupTable(e.GetContext(), chain)
+	if err != nil {
+		return fmt.Errorf("failed to get offramp reference addresses: %w", err)
+	}
+
 	if err := solCommonUtil.ExtendLookupTable(
 		e.GetContext(),
 		chain.Client,
-		s.SolChains[chainSel].OfframpAddressLookupTable,
+		addressLookupTable,
 		*chain.DeployerKey,
 		lookUpTableEntries,
 	); err != nil {

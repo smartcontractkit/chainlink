@@ -3,6 +3,7 @@ package solana
 import (
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -21,6 +22,15 @@ import (
 )
 
 var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
+var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
+
+type UpgradeConfigSolana struct {
+	NewFeeQuoterVersion *semver.Version
+	NewRouterVersion    *semver.Version
+	UpgradeAuthority    solana.PrivateKey
+	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
+	NewOffRampVersion *semver.Version
+}
 
 func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
@@ -170,7 +180,7 @@ func initializeFeeQuoter(
 	return nil
 }
 
-func intializeOffRamp(
+func initializeOffRamp(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ccipRouterProgram solana.PublicKey,
@@ -244,32 +254,12 @@ func deployChainContractsSolana(
 		return fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
+	// gather lookup table keys from other deploys
 	// initialize this last with every address we need
 	var addressLookupTable solana.PublicKey
-	if chainState.OfframpAddressLookupTable.IsZero() {
-		addressLookupTable, err = solCommonUtil.SetupLookupTable(
-			e.GetContext(),
-			chain.Client,
-			*chain.DeployerKey,
-			[]solana.PublicKey{
-				// system
-				solana.SystemProgramID,
-				solana.ComputeBudget,
-				solana.SysVarInstructionsPubkey,
-				// token
-				solana.Token2022ProgramID,
-				solana.TokenProgramID,
-				solana.SPLAssociatedTokenAccountProgramID,
-			})
-
-		if err != nil {
-			return fmt.Errorf("failed to create lookup table: %w", err)
-		}
-		err = ab.Save(chain.Selector, addressLookupTable.String(), deployment.NewTypeAndVersion(changeset.OfframpAddressLookupTable, deployment.Version1_0_0))
-		if err != nil {
-			return fmt.Errorf("failed to save address: %w", err)
-		}
-	}
+	lookupTableKeys := make([]solana.PublicKey, 0)
+	needFQinLookupTable := false
+	needRouterinLookupTable := false
 
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
@@ -343,6 +333,7 @@ func deployChainContractsSolana(
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), feeQuoterConfigPDA, &fqConfig)
 	if err != nil {
+		needFQinLookupTable = true
 		if err2 := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress); err2 != nil {
 			return err2
 		}
@@ -356,6 +347,7 @@ func deployChainContractsSolana(
 	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
+		needRouterinLookupTable = true
 		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress); err2 != nil {
 			return err2
 		}
@@ -368,11 +360,46 @@ func deployChainContractsSolana(
 	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), offRampConfigPDA, &offRampConfigAccount)
 	if err != nil {
-		if err2 := intializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, addressLookupTable); err2 != nil {
+		addressLookupTable, err = solCommonUtil.SetupLookupTable(
+			e.GetContext(),
+			chain.Client,
+			*chain.DeployerKey,
+			[]solana.PublicKey{
+				// system
+				solana.SystemProgramID,
+				solana.ComputeBudget,
+				solana.SysVarInstructionsPubkey,
+				// token
+				solana.Token2022ProgramID,
+				solana.TokenProgramID,
+				solana.SPLAssociatedTokenAccountProgramID,
+			})
+
+		if err != nil {
+			return fmt.Errorf("failed to create lookup table: %w", err)
+		}
+		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, addressLookupTable); err2 != nil {
 			return err2
 		}
+		// Initializing a new offramp means we need a new lookup table and need to fully populate it
+		needFQinLookupTable = true
+		needRouterinLookupTable = true
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// offramp
+			offRampAddress,
+			offRampConfigPDA,
+			offRampReferenceAddressesPDA,
+			offRampBillingSignerPDA,
+		}...)
 	} else {
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
+		addressLookupTable, err = chainState.FetchOfframpLookupTable(e.GetContext(), chain)
+		if err != nil {
+			return fmt.Errorf("failed to get offramp reference addresses: %w", err)
+		}
 	}
 
 	// TOKEN POOL DEPLOY
@@ -391,39 +418,46 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to save address: %w", err)
 		}
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// token pools
+			tokenPoolProgram,
+		}...)
 	} else {
 		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
 		tokenPoolProgram = chainState.TokenPool
 	}
 
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
-	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
-	feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
-	linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
-	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	if needFQinLookupTable {
+		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
+		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// fee quoter
+			feeQuoterConfigPDA,
+			feeQuoterAddress,
+			linkFqBillingConfigPDA,
+		}...)
+	}
 
-	if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey,
-		[]solana.PublicKey{
-			// token pools
-			tokenPoolProgram,
-			// offramp
-			offRampAddress,
-			offRampConfigPDA,
-			offRampReferenceAddressesPDA,
-			offRampBillingSignerPDA,
+	if needRouterinLookupTable {
+		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
+		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
+		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			// router
 			ccipRouterProgram,
 			routerConfigPDA,
 			externalExecutionConfigPDA,
 			externalTokenPoolsSignerPDA,
-			// fee quoter
 			feeBillingSignerPDA,
-			feeQuoterConfigPDA,
-			feeQuoterAddress,
-			linkFqBillingConfigPDA,
-		}); err != nil {
-		return fmt.Errorf("failed to extend lookup table: %w", err)
+		}...)
+	}
+
+	if len(lookupTableKeys) > 0 {
+		e.Logger.Debugw("Populating lookup table", "lookupTable", addressLookupTable.String(), "keys", lookupTableKeys)
+		if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey, lookupTableKeys); err != nil {
+			return fmt.Errorf("failed to extend lookup table: %w", err)
+		}
 	}
 
 	return nil

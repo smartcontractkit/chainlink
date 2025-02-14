@@ -48,7 +48,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		})
 	}
 
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
@@ -86,6 +85,27 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solana.BuildSolanaChangeset),
+			solana.BuildSolanaConfig{
+				ChainSelector:       solChainSelectors[0],
+				GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+				DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+				CleanDestinationDir: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
+			changeset.DeployChainContractsConfig{
+				HomeChainSelector: homeChainSel,
+				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+					solChainSelectors[0]: {
+						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+						OffRampParams:   changeset.DefaultOffRampParams(),
+					},
+				},
 			},
 		),
 		commonchangeset.Configure(
