@@ -61,7 +61,6 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 
 		config = configIterator.Event
 	}
-	// TODO: maybe we don't do this check? If we didn't get an event above, we are already returning an error
 	if config == nil {
 		return OCR3ConfigView{}, ErrOCR3NotConfigured
 	}
@@ -84,7 +83,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 		Signers:               signers,
 		Transmitters:          transmitters,
 		F:                     config.F,
-		OnchainConfig:         nil, // empty onChain config
+		OnchainConfig:         nil, // empty onChain config, currently we always use a nil onchain config when calling SetConfig
 		OffchainConfigVersion: config.OffchainConfigVersion,
 		OffchainConfig:        config.OffchainConfig,
 	})

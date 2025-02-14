@@ -7,13 +7,40 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
+
+var oracleConfig = changeset.OracleConfig{
+	DeltaProgressMillis:               30000,
+	DeltaResendMillis:                 5000,
+	DeltaInitialMillis:                5000,
+	DeltaRoundMillis:                  2000,
+	DeltaGraceMillis:                  500,
+	DeltaCertifiedCommitRequestMillis: 1000,
+	DeltaStageMillis:                  30000,
+	MaxRoundsPerEpoch:                 10,
+	TransmissionSchedule:              []int{},
+	MaxDurationQueryMillis:            1000,
+	MaxDurationObservationMillis:      1000,
+	MaxDurationShouldAcceptMillis:     1000,
+	MaxDurationShouldTransmitMillis:   1000,
+	MaxFaultyOracles:                  1,
+	MaxQueryLengthBytes:               1000000,
+	MaxObservationLengthBytes:         1000000,
+	MaxReportLengthBytes:              1000000,
+	MaxOutcomeLengthBytes:             1000000,
+	MaxReportCount:                    20,
+	MaxBatchSize:                      1000,
+	OutcomePruningThreshold:           3600,
+	UniqueReports:                     true,
+	RequestTimeout:                    30 * time.Second,
+}
 
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
@@ -24,11 +51,11 @@ func TestKeystoneView(t *testing.T) {
 		NumChains:       1,
 	})
 	registryChain := env.Env.AllChainSelectors()[0]
-
-	resp, err := changeset.DeployCapabilityRegistry(env.Env, registryChain)
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+	var wfNodes []string
+	for id := range env.WFNodes {
+		wfNodes = append(wfNodes, id)
+	}
+	oracleConfig.TransmissionSchedule = []int{len(wfNodes)}
 
 	addrs, err := env.Env.ExistingAddresses.AddressesForChain(registryChain)
 	require.NoError(t, err)
@@ -41,72 +68,72 @@ func TestKeystoneView(t *testing.T) {
 		}
 	}
 
-	var wfNodes []string
-	for id := range env.WFNodes {
-		wfNodes = append(wfNodes, id)
-	}
+	t.Run("successfully generates a view of the keystone state", func(t *testing.T) {
+		oracleConfigCopy := oracleConfig
 
-	oracleConfig := changeset.OracleConfig{
-		DeltaProgressMillis:               30000,
-		DeltaResendMillis:                 5000,
-		DeltaInitialMillis:                5000,
-		DeltaRoundMillis:                  2000,
-		DeltaGraceMillis:                  500,
-		DeltaCertifiedCommitRequestMillis: 1000,
-		DeltaStageMillis:                  30000,
-		MaxRoundsPerEpoch:                 10,
-		TransmissionSchedule:              []int{len(wfNodes)},
-		MaxDurationQueryMillis:            1000,
-		MaxDurationObservationMillis:      1000,
-		MaxDurationShouldAcceptMillis:     1000,
-		MaxDurationShouldTransmitMillis:   1000,
-		MaxFaultyOracles:                  1,
-		MaxQueryLengthBytes:               1000000,
-		MaxObservationLengthBytes:         1000000,
-		MaxReportLengthBytes:              1000000,
-		MaxOutcomeLengthBytes:             1000000,
-		MaxReportCount:                    20,
-		MaxBatchSize:                      1000,
-		OutcomePruningThreshold:           3600,
-		UniqueReports:                     true,
-		RequestTimeout:                    30 * time.Second,
-	}
+		w := &bytes.Buffer{}
+		na := common.HexToAddress(newOCR3Addr)
+		cfg := changeset.ConfigureOCR3Config{
+			ChainSel:             env.RegistrySelector,
+			NodeIDs:              wfNodes,
+			Address:              &na,
+			OCR3Config:           &oracleConfigCopy,
+			WriteGeneratedConfig: w,
+		}
+		_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
+		require.NoError(t, err)
 
-	w := &bytes.Buffer{}
-	na := common.HexToAddress(newOCR3Addr)
-	cfg := changeset.ConfigureOCR3Config{
-		ChainSel:             env.RegistrySelector,
-		NodeIDs:              wfNodes,
-		Address:              &na,
-		OCR3Config:           &oracleConfig,
-		WriteGeneratedConfig: w,
-	}
-	_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
-	require.NoError(t, err)
+		a, err := changeset.ViewKeystone(env.Env)
+		require.NoError(t, err)
+		b, err := a.MarshalJSON()
+		require.NoError(t, err)
+		require.NotEmpty(t, b)
 
-	resp, err = changeset.DeployForwarder(env.Env, changeset.DeployForwarderRequest{})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
+		var outView changeset.KeystoneView
+		require.NoError(t, json.Unmarshal(b, &outView))
 
-	a, err := changeset.ViewKeystone(env.Env)
-	require.NoError(t, err)
-	b, err := a.MarshalJSON()
-	require.NoError(t, err)
-	require.NotEmpty(t, b)
-	t.Log(string(b))
+		chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
+		require.NoError(t, err)
+		chainName, err := chain_selectors.NameFromChainId(chainID)
+		require.NoError(t, err)
 
-	var outView changeset.KeystoneView
-	require.NoError(t, json.Unmarshal(b, &outView))
+		viewChain, ok := outView.Chains[chainName]
+		require.True(t, ok)
+		viewOCR3Config, ok := viewChain.OCR3ConfigView[newOCR3Addr]
+		require.True(t, ok)
+		require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
+	})
 
-	chainID, err := chain_selectors.ChainIdFromSelector(registryChain)
-	require.NoError(t, err)
-	chainName, err := chain_selectors.NameFromChainId(chainID)
-	require.NoError(t, err)
+	t.Run("fails to generate a view of the keystone state with OCR3 not configured", func(t *testing.T) {
+		// Deploy a new OCR3 contract
+		resp, err := changeset.DeployOCR3(env.Env, registryChain)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 
-	viewChain, ok := outView.Chains[chainName]
-	require.True(t, ok)
-	viewOCR3Config, ok := viewChain.OCR3ConfigView[newOCR3Addr]
-	require.True(t, ok)
-	require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
+		_, err = changeset.ViewKeystone(env.Env)
+		require.ErrorContains(t, err, "failed to view chain")
+		require.ErrorContains(t, err, "OCR3 not configured")
+	})
+
+	t.Run("fails to generate a view of the keystone state with a bad OracleConfig", func(t *testing.T) {
+		oracleConfigCopy := oracleConfig
+		oracleConfigCopy.DeltaRoundMillis = 0
+		oracleConfigCopy.DeltaProgressMillis = 0
+
+		w := &bytes.Buffer{}
+		na := common.HexToAddress(newOCR3Addr)
+		cfg := changeset.ConfigureOCR3Config{
+			ChainSel:             env.RegistrySelector,
+			NodeIDs:              wfNodes,
+			Address:              &na,
+			OCR3Config:           &oracleConfigCopy,
+			WriteGeneratedConfig: w,
+		}
+		_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
+		require.NoError(t, err)
+		_, err = changeset.ViewKeystone(env.Env)
+		require.ErrorContains(t, err, "failed to view chain")
+		require.ErrorContains(t, err, "DeltaRound (0s) must be less than DeltaProgress (0s)")
+	})
 }
