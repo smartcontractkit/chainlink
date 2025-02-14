@@ -292,6 +292,7 @@ type PoRWorkflowConfig struct {
 const (
 	CRECLISettingsFileName             = ".cre-cli-settings.yaml"
 	cronCapabilityAssetFile            = "amd64_cron"
+	mockCapabilityAssetFile            = "amd64_mock"
 	e2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	e2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
@@ -995,6 +996,7 @@ const (
 	CustomComputeCapability
 	WriteEVMCapability
 	// Add more capabilities as needed here
+	MockCapability
 )
 
 const (
@@ -1010,6 +1012,20 @@ var flagMap = map[string]uint{
 	"custom-compute": CustomComputeCapability,
 	"write-evm":      WriteEVMCapability,
 	// Add more capabilities as needed here
+	"mock-capability": MockCapability,
+}
+
+var mockCapabilities = []kcr.CapabilitiesRegistryCapability{
+	{
+		LabelledName:   "streams-trigger",
+		Version:        "1.1.0",
+		CapabilityType: 0, // Trigger
+	},
+	{
+		LabelledName:   "write_ethereum-testnet-sepolia-arbitrum-1",
+		Version:        "1.0.0",
+		CapabilityType: 3, // Target
+	},
 }
 
 // StringsToFlags converts a list of strings to a bitmap of flags
@@ -1592,6 +1608,32 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 					errCh <- errors.Wrapf(consErr, "failed to propose consensus job for node %s ", node.NodeID)
 				}
 			}
+
+			// create mock capability job, if DON has custom mock capability
+			if hasFlag(flags, MockCapability) {
+				mockJobSpec := fmt.Sprintf(`
+					type = "standardcapabilities"
+					schemaVersion = 1
+					externalJobID = "%s"
+					name = "mock-capabilitie"
+					forwardingAllowed = false
+					command = "/home/capabilities/%s"
+					config = ""
+				`,
+					uuid.NewString(),
+					mockCapabilityAssetFile)
+
+				mockJobRequest := &jobv1.ProposeJobRequest{
+					NodeId: node.NodeID,
+					Spec:   mockJobSpec,
+				}
+
+				_, mockErr := ctfEnv.Offchain.ProposeJob(context.Background(), mockJobRequest)
+				if mockErr != nil {
+					errCh <- errors.Wrapf(mockErr, "failed to propose mock-capability job for node %s", node.NodeID)
+					return
+				}
+			}
 		}()
 	}
 	wg.Wait()
@@ -1608,29 +1650,24 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 }
 
 func reinitialiseJDClients(t *testing.T, ctfEnv *deployment.Environment, jdOutput *jd.Output, nodeOutputs ...*WrappedNodeOutput) *deployment.Environment {
-	offchainClients := make([]deployment.OffchainClient, len(nodeOutputs))
-
-	for i, nodeOutput := range nodeOutputs {
+	nodeInfos := make([]devenv.NodeInfo, 0)
+	for _, nodeOutput := range nodeOutputs {
 		nodeInfo, err := getNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
 		require.NoError(t, err, "failed to get node info")
 
-		jdConfig := devenv.JDConfig{
-			GRPC:     jdOutput.HostGRPCUrl,
-			WSRPC:    jdOutput.DockerWSRPCUrl,
-			Creds:    insecure.NewCredentials(),
-			NodeInfo: nodeInfo,
-		}
-
-		offChain, err := devenv.NewJDClient(context.Background(), jdConfig)
-		require.NoError(t, err, "failed to create JD client")
-
-		offchainClients[i] = offChain
+		nodeInfos = append(nodeInfos, nodeInfo...)
 	}
 
-	// we don't really care, which instance we set here, since there's only one
-	// what's important is that we create a new JD client for each DON, because
-	// that authenticates JD with each node
-	ctfEnv.Offchain = offchainClients[0]
+	jdConfig := devenv.JDConfig{
+		GRPC:     jdOutput.HostGRPCUrl,
+		WSRPC:    jdOutput.DockerWSRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: nodeInfos,
+	}
+
+	offChain, err := devenv.NewJDClient(context.Background(), jdConfig)
+	require.NoError(t, err, "failed to create JD client")
+	ctfEnv.Offchain = offChain
 
 	return ctfEnv
 }
@@ -1732,6 +1769,16 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 		}
 
 		// Add support for new capabilities here as needed
+
+		if hasFlag(donTopology.Flags, MockCapability) {
+			for _, c := range mockCapabilities {
+				capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+					Capability: c,
+					Config:     &capabilitiespb.CapabilityConfig{},
+				})
+			}
+
+		}
 
 		donPeerIds := make([]string, len(donTopology.DON.Nodes)-1)
 		for i, node := range donTopology.DON.Nodes {

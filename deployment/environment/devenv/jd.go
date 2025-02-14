@@ -115,7 +115,8 @@ type JobDistributor struct {
 	nodev1.NodeServiceClient
 	jobv1.JobServiceClient
 	csav1.CSAServiceClient
-	don *DON
+	don   *DON
+	nodes []*Node
 }
 
 func NewJDClient(ctx context.Context, cfg JDConfig) (deployment.OffchainClient, error) {
