@@ -117,6 +117,7 @@ func initializeRouter(
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 ) error {
+	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
 	programData, err := solProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -156,6 +157,7 @@ func initializeFeeQuoter(
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
 ) error {
+	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
 	programData, err := solProgramData(e, chain, feeQuoterAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -202,6 +204,7 @@ func initializeOffRamp(
 	offRampAddress solana.PublicKey,
 	addressLookupTable solana.PublicKey,
 ) error {
+	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
 	programData, err := solProgramData(e, chain, offRampAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
@@ -591,11 +594,11 @@ func deployChainContractsSolana(
 
 	// set upgrade authority
 	if config.NewUpgradeAuthority != nil {
-		if err := setUpgradeAuthority(&e, &chain, ccipRouterProgram, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
-			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
-		}
-		if err := setUpgradeAuthority(&e, &chain, feeQuoterAddress, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
-			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
+		for _, programID := range []solana.PublicKey{ccipRouterProgram, feeQuoterAddress} {
+			if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
+				return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+			}
 		}
 	}
 
