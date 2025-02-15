@@ -35,7 +35,7 @@ func ValidateMessage(msg p2ptypes.Message, expectedReceiver p2ptypes.PeerID) (*r
 	if !ed25519.Verify(body.Sender, topLevelMessage.Body, topLevelMessage.Signature) {
 		return &body, errors.New("failed to verify message signature")
 	}
-	// NOTE we currently don't support relaying messages so the p2p message sender needs to be the message author
+	// NOTE: we currently don't support relaying messages so the p2p message sender needs to be the message author
 	if !bytes.Equal(body.Sender, msg.Sender[:]) {
 		return &body, errors.New("sender in message body does not match sender of p2p message")
 	}
