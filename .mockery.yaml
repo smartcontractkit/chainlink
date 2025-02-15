@@ -27,6 +27,9 @@ packages:
     interfaces:
       CCIPOracle:
       OracleCreator:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common:
+    interfaces:
+      ExtraDataCodec:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
     interfaces:
       Dispatcher:

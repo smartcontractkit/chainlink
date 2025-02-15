@@ -53,11 +53,52 @@ import (
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
+var extraDataCodec = ccipcommon.NewExtraDataCodec(
+	ccipcommon.NewExtraDataCodecParams(
+		ccipevm.ExtraDataDecoder{},
+		ccipsolana.ExtraDataDecoder{},
+	),
+)
+
+var plugins = map[string]plugin{
+	chainsel.FamilyEVM: {
+		CommitPluginCodec:  ccipevm.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: ccipevm.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraArgsCodec:     extraDataCodec,
+		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
+			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
+		},
+		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
+		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
+		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+	},
+	chainsel.FamilySolana: {
+		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
+		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(extraDataCodec),
+		ExtraArgsCodec:     extraDataCodec,
+		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
+			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
+		},
+		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
+		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
+		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+	},
+}
 
 const (
 	defaultCommitGasLimit = 500_000
 	defaultExecGasLimit   = 6_500_000
 )
+
+type plugin struct {
+	CommitPluginCodec   cciptypes.CommitPluginCodec
+	ExecutePluginCodec  cciptypes.ExecutePluginCodec
+	ExtraArgsCodec      ccipcommon.ExtraDataCodec
+	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder    cciptypes.TokenDataEncoder
+	GasEstimateProvider cciptypes.EstimateProvider
+	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+}
 
 // pluginOracleCreator creates oracles that reference plugins running
 // in the same process as the chainlink node, i.e not LOOPPs.
@@ -236,37 +277,6 @@ func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
 	}
 
 	return offRampAddr
-}
-
-type plugin struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	ExtraArgsCodec      cciptypes.ExtraDataCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
-}
-
-var plugins = map[string]plugin{
-	chainsel.FamilyEVM: {
-		CommitPluginCodec:   ccipevm.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  ccipevm.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipevm.NewMessageHasherV1(lggr) },
-		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
-		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
-	},
-	chainsel.FamilySolana: {
-		CommitPluginCodec:   ccipsolana.NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  ccipsolana.NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return ccipsolana.NewMessageHasherV1(lggr) },
-		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-	},
 }
 
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
