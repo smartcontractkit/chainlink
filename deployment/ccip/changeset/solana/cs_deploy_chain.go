@@ -26,14 +26,19 @@ var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContra
 type DeployChainContractsConfigSolana struct {
 	DeployChainContractsConfig changeset.DeployChainContractsConfig
 	UpgradeConfig              UpgradeConfigSolana
+	NewUpgradeAuthority        *solana.PublicKey // if set, sets router and fee quoter upgrade authority
 }
 
 type UpgradeConfigSolana struct {
 	NewFeeQuoterVersion *semver.Version
 	NewRouterVersion    *semver.Version
-	UpgradeAuthority    solana.PrivateKey
 	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
 	NewOffRampVersion *semver.Version
+	// SpillAddress and UpgradeAuthority must be set
+	SpillAddress     solana.PublicKey
+	UpgradeAuthority solana.PublicKey
+	// We assume if the signer key is set, we're not using MCMS
+	SignerKey *solana.PrivateKey
 }
 
 func DeployChainContractsChangesetSolana(e deployment.Environment, config DeployChainContractsConfigSolana) (deployment.ChangesetOutput, error) {
@@ -66,10 +71,14 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		if existingState.SolChains[chainSel].LinkToken.IsZero() {
 			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		_, err = deployChainContractsSolana(e, chain, newAddresses, config)
+		ixns, err := deployChainContractsSolana(e, chain, newAddresses, config)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 			return deployment.ChangesetOutput{}, err
+		}
+		// create proposals for ixns
+		if len(ixns) > 0 {
+			e.Logger.Infow("Deployed contracts", "chain", chain.String(), "instructions", ixns)
 		}
 	}
 
@@ -133,7 +142,7 @@ func initializeRouter(
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return fmt.Errorf("failed to confirm instructions: %w", err)
+		return fmt.Errorf("failed to confirm initializeRouter: %w", err)
 	}
 	e.Logger.Infow("Initialized router", "chain", chain.String())
 	return nil
@@ -179,7 +188,7 @@ func initializeFeeQuoter(
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
-		return fmt.Errorf("failed to confirm instructions: %w", err)
+		return fmt.Errorf("failed to confirm initializeFeeQuoter: %w", err)
 	}
 	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
 	return nil
@@ -235,7 +244,7 @@ func initializeOffRamp(
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{initIx, initConfigIx}); err != nil {
-		return fmt.Errorf("failed to confirm instructions: %w", err)
+		return fmt.Errorf("failed to confirm initializeOffRamp: %w", err)
 	}
 	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
 	return nil
@@ -266,7 +275,7 @@ func deployChainContractsSolana(
 	var feeQuoterAddress solana.PublicKey
 	if chainState.FeeQuoter.IsZero() {
 		// deploy fee quoter
-		programID, err := chain.DeployProgram(e.Logger, "fee_quoter")
+		programID, err := chain.DeployProgram(e.Logger, "fee_quoter", false)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -280,18 +289,32 @@ func deployChainContractsSolana(
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
-		programID, err := chain.UpgradeProgram(e.Logger, "fee_quoter", chainState.FeeQuoter, config.UpgradeConfig.UpgradeAuthority)
+		bufferID, err := chain.DeployProgram(e.Logger, "fee_quoter", true)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to upgrade program: %w", err)
 		}
-		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
-		// collision with the existing fee quoter in AB
-		// tv := deployment.NewTypeAndVersion(changeset.FeeQuoter, *config.UpgradeConfig.NewFeeQuoterVersion)
-		// e.Logger.Infow("Upgraded contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		// err = ab.Save(chain.Selector, programID, tv)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to save address: %w", err)
-		// }
+		bufferProgram := solana.MustPublicKeyFromBase58(bufferID)
+		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
+			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+		upgradeIxn, err := generateUpgradeIxn(
+			&e,
+			chainState.FeeQuoter,
+			bufferProgram,
+			config.UpgradeConfig.SpillAddress,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		feeQuoterAddress = chainState.FeeQuoter
+		if config.UpgradeConfig.SignerKey != nil {
+			// if we're not using MCMS to upgrade, we only support the configured deployer key as the signer
+			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
+				return ixns, fmt.Errorf("failed to confirm upgradeFeeQuoter: %w", err)
+			}
+			e.Logger.Infow("Upgraded FeeQuoter", "addr", chainState.FeeQuoter.String(), "chain", chain.String())
+
+		} else {
+			ixns = append(ixns, upgradeIxn)
+		}
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -302,7 +325,7 @@ func deployChainContractsSolana(
 	var ccipRouterProgram solana.PublicKey
 	if chainState.Router.IsZero() {
 		// deploy router
-		programID, err := chain.DeployProgram(e.Logger, "ccip_router")
+		programID, err := chain.DeployProgram(e.Logger, "ccip_router", false)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -316,18 +339,32 @@ func deployChainContractsSolana(
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
-		programID, err := chain.UpgradeProgram(e.Logger, "ccip_router", chainState.Router, config.UpgradeConfig.UpgradeAuthority)
+		bufferID, err := chain.DeployProgram(e.Logger, "ccip_router", true)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to upgrade program: %w", err)
 		}
-		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
-		// collision with the existing router in AB
-		// tv := deployment.NewTypeAndVersion(changeset.Router, *config.UpgradeConfig.NewRouterVersion)
-		// e.Logger.Infow("Upgraded contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		// err = ab.Save(chain.Selector, programID, tv)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to save address: %w", err)
-		// }
+		bufferProgram := solana.MustPublicKeyFromBase58(bufferID)
+		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
+			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+		upgradeIxn, err := generateUpgradeIxn(
+			&e,
+			chainState.Router,
+			solana.MustPublicKeyFromBase58(bufferID),
+			config.UpgradeConfig.SpillAddress,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		ccipRouterProgram = chainState.Router
+		if config.UpgradeConfig.SignerKey != nil {
+			// if we're not using MCMS to upgrade, we only support the configured deployer key as the signer
+			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
+				return ixns, fmt.Errorf("failed to confirm upgradeRouter: %w", err)
+			}
+			e.Logger.Infow("Upgraded Router", "addr", chainState.Router.String(), "chain", chain.String())
+
+		} else {
+			ixns = append(ixns, upgradeIxn)
+		}
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
@@ -343,7 +380,7 @@ func deployChainContractsSolana(
 	needTokenPoolinLookupTable := false
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp")
+		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp", false)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -361,10 +398,10 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		offRampAddress := changeset.FindSolanaAddress(tv, existingAddresses)
+		offRampAddress = changeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp
-			programID, err := chain.DeployProgram(e.Logger, "ccip_offramp")
+			programID, err := chain.DeployProgram(e.Logger, "ccip_offramp", false)
 			if err != nil {
 				return ixns, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -486,7 +523,7 @@ func deployChainContractsSolana(
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
-		programID, err := chain.DeployProgram(e.Logger, "test_token_pool")
+		programID, err := chain.DeployProgram(e.Logger, "test_token_pool", false)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -548,5 +585,84 @@ func deployChainContractsSolana(
 		}
 	}
 
+	// set upgrade authority
+	if config.NewUpgradeAuthority != nil {
+		if err := setUpgradeAuthority(&e, &chain, ccipRouterProgram, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
+			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+		if err := setUpgradeAuthority(&e, &chain, feeQuoterAddress, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
+			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+	}
+
 	return ixns, nil
+}
+
+// setUpgradeAuthority creates a transaction to set the upgrade authority for a program
+func setUpgradeAuthority(
+	e *deployment.Environment,
+	chain *deployment.SolChain,
+	programID solana.PublicKey,
+	currentUpgradeAuthority *solana.PrivateKey,
+	newUpgradeAuthority *solana.PublicKey,
+	isBuffer bool,
+) error {
+	slice1 := solana.NewAccountMeta(programID, true, false)
+	if !isBuffer {
+		// Derive the program data address
+		programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+		slice1 = solana.NewAccountMeta(programDataAddress, true, false)
+	}
+
+	// Accounts involved in the transaction
+	keys := solana.AccountMetaSlice{
+		slice1, // Program account (writable)
+		solana.NewAccountMeta(currentUpgradeAuthority.PublicKey(), false, true), // Current upgrade authority (signer)
+		solana.NewAccountMeta(*newUpgradeAuthority, false, false),               // New upgrade authority
+	}
+
+	// Create the instruction
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		[]byte{4, 0, 0, 0}, // 4-byte SetAuthority instruction identifier
+	)
+
+	if err := chain.Confirm([]solana.Instruction{instruction}, solCommonUtil.AddSigners(*currentUpgradeAuthority)); err != nil {
+		return fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
+	}
+	e.Logger.Infow("Set upgrade authority", "programID", programID.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
+
+	return nil
+}
+
+func generateUpgradeIxn(
+	e *deployment.Environment,
+	programID solana.PublicKey,
+	bufferAddress solana.PublicKey,
+	spillAddress solana.PublicKey,
+	upgradeAuthority solana.PublicKey,
+) (solana.Instruction, error) {
+	// Derive the program data address
+	programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+
+	// Accounts involved in the transaction
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(programDataAddress, true, false), // Program account (writable)
+		solana.NewAccountMeta(programID, true, false),
+		solana.NewAccountMeta(bufferAddress, true, false),             // Buffer account (writable)
+		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
+		solana.NewAccountMeta(solana.SysVarRentPubkey, false, false),  // System program
+		solana.NewAccountMeta(solana.SysVarClockPubkey, false, false), // System program
+		solana.NewAccountMeta(upgradeAuthority, false, true),          // Current upgrade authority (signer)
+	}
+
+	// Create the instruction
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		[]byte{3, 0, 0, 0}, // 4-byte Upgrade instruction identifier
+	)
+
+	return instruction, nil
 }

@@ -3,7 +3,6 @@ package deployment
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,12 +23,17 @@ import (
 )
 
 var (
-	SolDefaultCommitment        = rpc.CommitmentConfirmed
 	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
-	SPL2022Tokens               = "SPL2022Tokens"
-	SPLTokens                   = "SPLTokens"
-	EnableExecutionAfter        = int64(1800) // 30min
+)
+
+const (
+	ProgramIdPrefix      = "Program Id: "
+	BufferIdPrefix       = "Buffer: "
+	SolDefaultCommitment = rpc.CommitmentConfirmed
+	SPL2022Tokens        = "SPL2022Tokens"
+	SPLTokens            = "SPLTokens"
+	EnableExecutionAfter = int64(1800) // 30min
 )
 
 // SolChain represents a Solana chain.
@@ -70,23 +74,30 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
+func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgrade bool) (string, error) {
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
 	if _, err := os.Stat(programFile); err != nil {
 		return "", fmt.Errorf("program file not found: %w", err)
 	}
 	programKeyPair := filepath.Join(c.ProgramsPath, programName+"-keypair.json")
 
+	cliCommand := "deploy"
+	prefix := ProgramIdPrefix
+	if isUpgrade {
+		cliCommand = "write-buffer"
+		prefix = BufferIdPrefix
+	}
+
 	// Base command with required args
 	baseArgs := []string{
-		"program", "deploy",
+		"program", cliCommand,
 		programFile,                // .so file
 		"--keypair", c.KeypairPath, // deployer keypair
 		"--url", c.URL, // rpc url
 	}
 
 	var cmd *exec.Cmd
-	if _, err := os.Stat(programKeyPair); err == nil {
+	if !isUpgrade {
 		// Keypair exists, include program-id
 		logger.Infow("Deploying program with existing keypair",
 			"programFile", programFile,
@@ -114,61 +125,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 
 	// TODO: obviously need to do this better
 	time.Sleep(5 * time.Second)
-	return parseProgramID(output)
-}
-
-func (c SolChain) UpgradeProgram(logger logger.Logger, programName string, programID solana.PublicKey, upgradeAuthority solana.PrivateKey) (string, error) {
-	programFile := filepath.Join(c.ProgramsPath, programName+".so")
-	if _, err := os.Stat(programFile); err != nil {
-		return "", fmt.Errorf("program file not found: %w", err)
-	}
-
-	// Create a temporary file for the upgrade authority keypair
-	tempFile, err := os.CreateTemp("", "upgrade-authority-*.json")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer os.Remove(tempFile.Name()) // Ensure cleanup
-
-	keypairInts := make([]int, len(upgradeAuthority))
-	for i, b := range upgradeAuthority {
-		keypairInts[i] = int(b) // Convert to int slice to ensure JSON array format
-	}
-
-	keypairJSON, err := json.Marshal(keypairInts)
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize private key: %w", err)
-	}
-
-	if _, err := tempFile.Write(keypairJSON); err != nil {
-		tempFile.Close()
-		return "", fmt.Errorf("failed to write to temp file: %w", err)
-	}
-	tempFile.Close() // Close before passing to external command
-
-	cmd := exec.Command("solana", "program", "deploy", programFile,
-		"--program-id", programID.String(),
-		"--upgrade-authority", tempFile.Name(),
-		"--keypair", tempFile.Name(),
-		"--fee-payer", tempFile.Name(),
-		"--url", c.URL)
-
-	// Capture the command output
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	// Run the command
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error running command: %s: %s: %s", cmd.String(), err.Error(), stderr.String())
-	}
-
-	// Parse and return the program ID
-	output := stdout.String()
-
-	// TODO: obviously need to do this better
-	time.Sleep(5 * time.Second)
-	return parseProgramID(output)
+	return parseProgramID(output, prefix)
 }
 
 func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
@@ -180,10 +137,9 @@ func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.Pub
 }
 
 // parseProgramID parses the program ID from the deploy output.
-func parseProgramID(output string) (string, error) {
+func parseProgramID(output string, prefix string) (string, error) {
 	// Look for the program ID in the CLI output
 	// Example output: "Program Id: <PROGRAM_ID>"
-	const prefix = "Program Id: "
 	startIdx := strings.Index(output, prefix)
 	if startIdx == -1 {
 		return "", errors.New("failed to find program ID in output")
