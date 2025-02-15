@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -12,7 +11,7 @@ import (
 
 func TestContractReaderConfigRaw(t *testing.T) {
 	cfg, err := DestContractReaderConfig()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	raw, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -22,7 +21,7 @@ func TestContractReaderConfigRaw(t *testing.T) {
 	require.EqualValues(t, cfg, result)
 
 	cfg, err = SourceContractReaderConfig()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	raw, err = json.Marshal(cfg)
 	require.NoError(t, err)
