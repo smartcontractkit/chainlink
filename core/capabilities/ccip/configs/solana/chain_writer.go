@@ -332,8 +332,8 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 		Programs: map[string]chainwriter.ProgramConfig{
 			ccipconsts.ContractNameOffRamp: {
 				Methods: map[string]chainwriter.MethodConfig{
-					ccipconsts.MethodExecute: getExecuteMethodConfig(fromAddress, offrampProgramAddress),
-					ccipconsts.MethodCommit:  getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector, false),
+					ccipconsts.MethodExecute:         getExecuteMethodConfig(fromAddress, offrampProgramAddress),
+					ccipconsts.MethodCommit:          getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector, false),
 					ccipconsts.MethodCommitPriceOnly: getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector, true),
 				},
 				IDL: ccipOfframpIDL,

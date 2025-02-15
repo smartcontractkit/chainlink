@@ -540,12 +540,18 @@ func getChainReaderConfig(
 
 		return marshaledConfig, nil
 	case relay.NetworkSolana:
-		// TODO update chain reader config in contract_reader.go
+		var err error
 		var cfg config.ContractReader
 		if chainID == destChainID {
-			cfg = solanaconfig.DestReaderConfig
+			cfg, err = solanaconfig.DestContractReaderConfig()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Solana dest contract reader config: %w", err)
+			}
 		} else {
-			cfg = solanaconfig.SourceReaderConfig
+			cfg, err = solanaconfig.SourceContractReaderConfig()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Solana source contract reader config: %w", err)
+			}
 		}
 
 		marshaledConfig, err := json.Marshal(cfg)
