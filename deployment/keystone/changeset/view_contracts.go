@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -69,7 +70,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	var readableSigners []string
 	for _, s := range config.Signers {
 		signers = append(signers, s)
-		readableSigners = append(readableSigners, string(s))
+		readableSigners = append(readableSigners, hex.EncodeToString(s[:]))
 	}
 	var transmitters []ocr2types.Account
 	for _, t := range config.Transmitters {
