@@ -306,7 +306,7 @@ func deployChainContractsSolana(
 		)
 		feeQuoterAddress = chainState.FeeQuoter
 		if config.UpgradeConfig.SignerKey != nil {
-			// if we're not using MCMS to upgrade, we only support the configured deployer key as the signer
+			// if we're not using MCMS to upgrade, confirm txn with the signer key
 			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
 				return ixns, fmt.Errorf("failed to confirm upgradeFeeQuoter: %w", err)
 			}
@@ -356,7 +356,7 @@ func deployChainContractsSolana(
 		)
 		ccipRouterProgram = chainState.Router
 		if config.UpgradeConfig.SignerKey != nil {
-			// if we're not using MCMS to upgrade, we only support the configured deployer key as the signer
+			// if we're not using MCMS to upgrade, confirm txn with the signer key
 			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
 				return ixns, fmt.Errorf("failed to confirm upgradeRouter: %w", err)
 			}

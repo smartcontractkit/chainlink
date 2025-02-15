@@ -29,7 +29,7 @@ func deployTimelockProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(log, "timelock")
+		deployedProgramID, err := chain.DeployProgram(log, "timelock", false)
 		if err != nil {
 			return fmt.Errorf("failed to deploy timelock program: %w", err)
 		}
