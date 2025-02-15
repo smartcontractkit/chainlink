@@ -168,3 +168,13 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 	state.WSOL = solana.SolMint
 	return state, nil
 }
+
+func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deployment.TypeAndVersion) solana.PublicKey {
+	for address, tvStr := range addresses {
+		if tv.String() == tvStr.String() {
+			pub := solana.MustPublicKeyFromBase58(address)
+			return pub
+		}
+	}
+	return solana.PublicKey{}
+}

@@ -22,9 +22,10 @@ import (
 )
 
 var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
-var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
+var _ deployment.ChangeSet[UpgradeConfigSolana] = UpgradeChainContractsChangesetSolana
 
 type UpgradeConfigSolana struct {
+	ChainSelector       uint64
 	NewFeeQuoterVersion *semver.Version
 	NewRouterVersion    *semver.Version
 	UpgradeAuthority    solana.PrivateKey
@@ -45,6 +46,40 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.D
 
 	err = changeset.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	for chainSel := range c.ContractParamsPerChain {
+		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not supported", chainSel)
+		}
+		// already validated family
+		family, _ := chainsel.GetSelectorFamily(chainSel)
+		if family != chainsel.FamilySolana {
+			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", chainSel)
+		}
+		chain := e.SolChains[chainSel]
+		if existingState.SolChains[chainSel].LinkToken.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
+		}
+		err = deployChainContractsSolana(e, chain, newAddresses)
+		if err != nil {
+			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
+			return deployment.ChangesetOutput{}, err
+		}
+	}
+
+	return deployment.ChangesetOutput{
+		Proposals:   []timelock.MCMSWithTimelockProposal{},
+		AddressBook: newAddresses,
+	}, nil
+}
+
+func UpgradeChainContractsChangesetSolana(e deployment.Environment, c UpgradeConfigSolana) (deployment.ChangesetOutput, error) {
+	newAddresses := deployment.NewMemoryAddressBook()
+	existingState, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
@@ -234,6 +269,75 @@ func initializeOffRamp(
 	}
 	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
 	return nil
+}
+
+// Because OffRamp is not upgraded in place, we need to update the Router and FeeQuoter
+// to point to the new OffRamp program. However, because this is a sensitive operation
+// we need to wrap this via MCMS
+func handleOffRampUpgrade(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	chainSelector uint64,
+	ccipRouterProgram solana.PublicKey,
+	feeQuoterAddress solana.PublicKey,
+	ab deployment.AddressBook,
+	offRampVersion semver.Version,
+) ([]solana.Instruction, error) {
+	ixns := make([]solana.Instruction, 0)
+	tv := deployment.NewTypeAndVersion(changeset.OffRamp, offRampVersion)
+	existingAddresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if err != nil {
+		return ixns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	offRampAddress := changeset.FindSolanaAddress(tv, existingAddresses)
+	if offRampAddress.IsZero() {
+		// deploy offramp
+		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp")
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
+		tv := deployment.NewTypeAndVersion(changeset.OffRamp, offRampVersion)
+		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
+		offRampAddress = solana.MustPublicKeyFromBase58(programID)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+
+	allowedOfframpSvmPDA, _ := solState.FindAllowedOfframpPDA(chainSelector, offRampAddress, ccipRouterProgram)
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+
+	addIxn, err := solRouter.NewAddOfframpInstruction(
+		chainSelector,
+		offRampAddress,
+		allowedOfframpSvmPDA,
+		routerConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return ixns, fmt.Errorf("failed to build instruction: %w", err)
+	}
+	ixns = append(ixns, []solana.Instruction{addIxn}...)
+
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
+
+	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+		offRampBillingSignerPDA,
+		fqAllowedPriceUpdaterOfframpPDA,
+		feeQuoterConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return ixns, fmt.Errorf("failed to build instruction: %w", err)
+	}
+	ixns = append(ixns, []solana.Instruction{priceUpdaterix}...)
+
+	return ixns, nil
 }
 
 func deployChainContractsSolana(
