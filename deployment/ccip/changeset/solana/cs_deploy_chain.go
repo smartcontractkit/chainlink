@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -48,10 +49,10 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 	}
 	if config.UpgradeConfig.NewFeeQuoterVersion != nil || config.UpgradeConfig.NewRouterVersion != nil {
 		if config.UpgradeConfig.SpillAddress.IsZero() {
-			return deployment.ChangesetOutput{}, fmt.Errorf("spill address must be set for fee quoter and router upgrades")
+			return deployment.ChangesetOutput{}, errors.New("spill address must be set for fee quoter and router upgrades")
 		}
 		if config.UpgradeConfig.UpgradeAuthority.IsZero() {
-			return deployment.ChangesetOutput{}, fmt.Errorf("upgrade authority must be set for fee quoter and router upgrades")
+			return deployment.ChangesetOutput{}, errors.New("upgrade authority must be set for fee quoter and router upgrades")
 		}
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
