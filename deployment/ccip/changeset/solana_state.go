@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -9,16 +10,17 @@ import (
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
-	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
-	TokenPool                 deployment.ContractType = "TokenPool"
-	Receiver                  deployment.ContractType = "Receiver"
-	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
-	WSOL                      deployment.ContractType = "WSOL"
+	TokenPool     deployment.ContractType = "TokenPool"
+	Receiver      deployment.ContractType = "Receiver"
+	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
+	WSOL          deployment.ContractType = "WSOL"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -30,16 +32,15 @@ var (
 // SolChainState holds a Go binding for all the currently deployed CCIP programs
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type SolCCIPChainState struct {
-	LinkToken                 solana.PublicKey
-	Router                    solana.PublicKey
-	Timelock                  solana.PublicKey
-	OfframpAddressLookupTable solana.PublicKey
-	Receiver                  solana.PublicKey // for tests only
-	SPL2022Tokens             []solana.PublicKey
-	TokenPool                 solana.PublicKey
-	WSOL                      solana.PublicKey
-	FeeQuoter                 solana.PublicKey
-	OffRamp                   solana.PublicKey
+	LinkToken     solana.PublicKey
+	Router        solana.PublicKey
+	Timelock      solana.PublicKey
+	Receiver      solana.PublicKey // for tests only
+	SPL2022Tokens []solana.PublicKey
+	TokenPool     solana.PublicKey
+	WSOL          solana.PublicKey
+	FeeQuoter     solana.PublicKey
+	OffRamp       solana.PublicKey
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
@@ -48,6 +49,16 @@ type SolCCIPChainState struct {
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
+}
+
+func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
+	var referenceAddresses solOffRamp.ReferenceAddresses
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
+	err := chain.GetAccountDataBorshInto(ctx, offRampReferenceAddressesPDA, &referenceAddresses)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+	}
+	return referenceAddresses.OfframpLookupTable, nil
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {
@@ -150,13 +161,20 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.OffRampStatePDA = offRampStatePDA
-		case OfframpAddressLookupTable:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.OfframpAddressLookupTable = pub
 		default:
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
 	state.WSOL = solana.SolMint
 	return state, nil
+}
+
+func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deployment.TypeAndVersion) solana.PublicKey {
+	for address, tvStr := range addresses {
+		if tv.String() == tvStr.String() {
+			pub := solana.MustPublicKeyFromBase58(address)
+			return pub
+		}
+	}
+	return solana.PublicKey{}
 }

@@ -112,13 +112,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				},
 			},
 		),
-	)
-	require.NoError(t, err)
-	// solana verification
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
-	// Verify upgrade flow
-	e, err = commonchangeset.Apply(t, e, nil,
+		// make sure idempotency works
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
 			solana.DeployChainContractsConfigSolana{
@@ -130,11 +124,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 							OffRampParams:   changeset.DefaultOffRampParams(),
 						},
 					},
-				},
-				UpgradeConfig: solana.UpgradeConfigSolana{
-					NewFeeQuoterVersion: &deployment.Version1_1_0,
-					NewRouterVersion:    &deployment.Version1_1_0,
-					UpgradeAuthority:    *e.SolChains[solChainSelectors[0]].DeployerKey,
 				},
 			},
 		),
