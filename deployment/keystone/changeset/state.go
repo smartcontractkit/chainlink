@@ -99,6 +99,16 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 		}
 	}
 
+	// Process the workflow registry and print if WorkflowRegistryError errors.
+	if cs.WorkflowRegistry != nil {
+		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+		for _, err := range wrErrs {
+			allErrs = errors.Join(allErrs, err)
+			lggr.Errorf("WorkflowRegistry error: %v", err)
+		}
+		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+	}
+
 	return out, allErrs
 }
 
