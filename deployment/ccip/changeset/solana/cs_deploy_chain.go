@@ -304,6 +304,9 @@ func deployChainContractsSolana(
 			config.UpgradeConfig.SpillAddress,
 			config.UpgradeConfig.UpgradeAuthority,
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
+		}
 		feeQuoterAddress = chainState.FeeQuoter
 		if config.UpgradeConfig.SignerKey != nil {
 			// if we're not using MCMS to upgrade, confirm txn with the signer key
@@ -311,7 +314,6 @@ func deployChainContractsSolana(
 				return ixns, fmt.Errorf("failed to confirm upgradeFeeQuoter: %w", err)
 			}
 			e.Logger.Infow("Upgraded FeeQuoter", "addr", chainState.FeeQuoter.String(), "chain", chain.String())
-
 		} else {
 			ixns = append(ixns, upgradeIxn)
 		}
@@ -354,6 +356,9 @@ func deployChainContractsSolana(
 			config.UpgradeConfig.SpillAddress,
 			config.UpgradeConfig.UpgradeAuthority,
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
+		}
 		ccipRouterProgram = chainState.Router
 		if config.UpgradeConfig.SignerKey != nil {
 			// if we're not using MCMS to upgrade, confirm txn with the signer key
@@ -361,7 +366,6 @@ func deployChainContractsSolana(
 				return ixns, fmt.Errorf("failed to confirm upgradeRouter: %w", err)
 			}
 			e.Logger.Infow("Upgraded Router", "addr", chainState.Router.String(), "chain", chain.String())
-
 		} else {
 			ixns = append(ixns, upgradeIxn)
 		}

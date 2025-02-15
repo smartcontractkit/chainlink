@@ -28,8 +28,8 @@ var (
 )
 
 const (
-	ProgramIdPrefix      = "Program Id: "
-	BufferIdPrefix       = "Buffer: "
+	ProgramIDPrefix      = "Program Id: "
+	BufferIDPrefix       = "Buffer: "
 	SolDefaultCommitment = rpc.CommitmentConfirmed
 	SPL2022Tokens        = "SPL2022Tokens"
 	SPLTokens            = "SPLTokens"
@@ -82,10 +82,10 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 	programKeyPair := filepath.Join(c.ProgramsPath, programName+"-keypair.json")
 
 	cliCommand := "deploy"
-	prefix := ProgramIdPrefix
+	prefix := ProgramIDPrefix
 	if isUpgrade {
 		cliCommand = "write-buffer"
-		prefix = BufferIdPrefix
+		prefix = BufferIDPrefix
 	}
 
 	// Base command with required args
