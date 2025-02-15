@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -20,22 +19,20 @@ func TestUpdateNodes(t *testing.T) {
 	t.Parallel()
 
 	t.Run("no mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 		})
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
+		for _, id := range te.GetP2PIDs("wfDon") {
 			pubKey := [32]byte{31: i + 1}
 			// don't set capabilities or nop b/c those must already exist in the contract
 			// those ops must be a different proposal when using MCMS
-			updates[k] = changeset.NodeUpdate{
+			updates[id] = changeset.NodeUpdate{
 				EncryptionPublicKey: hex.EncodeToString(pubKey[:]),
 				Signer:              [32]byte{0: i + 1},
 			}
@@ -56,23 +53,21 @@ func TestUpdateNodes(t *testing.T) {
 	})
 
 	t.Run("with mcms", func(t *testing.T) {
-		te := test.SetupTestEnv(t, test.TestConfig{
-			WFDonConfig:     test.DonConfig{N: 4},
-			AssetDonConfig:  test.DonConfig{N: 4},
-			WriterDonConfig: test.DonConfig{N: 4},
+		te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+			WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+			AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+			WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 			NumChains:       1,
 			UseMCMS:         true,
 		})
 
 		updates := make(map[p2pkey.PeerID]changeset.NodeUpdate)
 		i := uint8(0)
-		for id := range te.WFNodes {
-			k, err := p2pkey.MakePeerID(id)
-			require.NoError(t, err)
+		for _, id := range te.GetP2PIDs("wfDon") {
 			pubKey := [32]byte{31: i + 1}
 			// don't set capabilities or nop b/c those must already exist in the contract
 			// those ops must be a different proposal when using MCMS
-			updates[k] = changeset.NodeUpdate{
+			updates[id] = changeset.NodeUpdate{
 				EncryptionPublicKey: hex.EncodeToString(pubKey[:]),
 				Signer:              [32]byte{0: i + 1},
 			}
@@ -115,9 +110,9 @@ func TestUpdateNodes(t *testing.T) {
 }
 
 // validateUpdate checks reads nodes from the registry and checks they have the expected updates
-func validateUpdate(t *testing.T, te test.TestEnv, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
+func validateUpdate(t *testing.T, te test.EnvWrapper, expected map[p2pkey.PeerID]changeset.NodeUpdate) {
 	registry := te.ContractSets()[te.RegistrySelector].CapabilitiesRegistry
-	wfP2PIDs := p2pIDs(t, maps.Keys(te.WFNodes))
+	wfP2PIDs := te.GetP2PIDs("wfDon").Bytes32()
 	nodes, err := registry.GetNodesByP2PIds(nil, wfP2PIDs)
 	require.NoError(t, err)
 	require.Len(t, nodes, len(wfP2PIDs))

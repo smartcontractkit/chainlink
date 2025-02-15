@@ -622,6 +622,7 @@ func AddDonAndSetCandidateChangeset(
 			return deployment.ChangesetOutput{}, err
 		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
+			state.Chains[cfg.HomeChainSelector].CCIPHome,
 			e.OCRSecrets,
 			offRampAddress,
 			chainSelector,
@@ -726,7 +727,7 @@ func newDonWithCandidateOp(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, addDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcms.Operation{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
@@ -813,6 +814,7 @@ func SetCandidateChangeset(
 				return deployment.ChangesetOutput{}, err
 			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
+				state.Chains[cfg.HomeChainSelector].CCIPHome,
 				e.OCRSecrets,
 				offRampAddress,
 				chainSelector,
@@ -916,7 +918,7 @@ func setCandidateOnExistingDon(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
 		}
@@ -973,7 +975,7 @@ func promoteCandidateOp(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcms.Operation{},
 				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)

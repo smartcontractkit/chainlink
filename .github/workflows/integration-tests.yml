@@ -52,7 +52,7 @@ jobs:
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -87,7 +87,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -148,7 +148,7 @@ jobs:
     needs: [changes, enforce-ctf-version]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -452,7 +452,7 @@ jobs:
     steps:
       - name: Checkout repo
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -473,13 +473,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           path: cl_node_coverage_data
           pattern: cl_node_coverage_data_*
@@ -498,7 +498,7 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -519,7 +519,7 @@ jobs:
           echo "short sha is: ${short_sha}"
           echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
       - name: Checkout solana
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
@@ -547,7 +547,7 @@ jobs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
@@ -596,7 +596,7 @@ jobs:
       ]
     steps:
       - name: Checkout the solana repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
@@ -631,14 +631,14 @@ jobs:
     steps:
       - name: Checkout the repo
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Download Artifacts
         if: (needs.changes.outputs.core_changes == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           name: artifacts
           path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
@@ -680,7 +680,7 @@ jobs:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
@@ -774,7 +774,7 @@ jobs:
           CHAINLINK_USER_TEAM: "BIX"
 
       - name: Upload Coverage Data
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         timeout-minutes: 2
         continue-on-error: true
         with:

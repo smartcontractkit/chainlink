@@ -13,7 +13,7 @@ jobs:
         - `#added` For any new functionality added.
         - `#breaking_change` For any functionality that requires manual action for the node to boot.
         - `#bugfix` For bug fixes.
-        - `#changed` For any change to the existing functionality. 
+        - `#changed` For any change to the existing functionality.
         - `#db_update` For any feature that introduces updates to database schema.
         - `#deprecation_notice` For any upcoming deprecation functionality.
         - `#internal` For changesets that need to be excluded from the final changelog.
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -70,7 +70,7 @@ jobs:
           version: ^9.0.0
 
       - name: Setup node
-        uses: actions/setup-node@v4.0.4
+        uses: actions/setup-node@v4
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
           node-version: 20
@@ -94,7 +94,7 @@ jobs:
         run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
 
       - name: Checkout .Github repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
@@ -170,7 +170,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0

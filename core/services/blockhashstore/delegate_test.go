@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -58,7 +58,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 
 	legacyChains := evmtest.NewLegacyChains(
 		t,
