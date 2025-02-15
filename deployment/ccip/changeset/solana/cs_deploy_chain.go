@@ -46,6 +46,14 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
+	if config.UpgradeConfig.NewFeeQuoterVersion != nil || config.UpgradeConfig.NewRouterVersion != nil {
+		if config.UpgradeConfig.SpillAddress.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("spill address must be set for fee quoter and router upgrades")
+		}
+		if config.UpgradeConfig.UpgradeAuthority.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("upgrade authority must be set for fee quoter and router upgrades")
+		}
+	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	existingState, err := changeset.LoadOnchainState(e)
 	if err != nil {
