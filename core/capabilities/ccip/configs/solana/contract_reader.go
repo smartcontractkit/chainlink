@@ -157,7 +157,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							//	  // OnRamp addresses supported from the source chain, each of them has a 64 byte address. So this can hold 2 addresses.
 							//    // If only one address is configured, then the space for the second address must be zeroed.
 							//    // Each address must be right padded with zeros if it is less than 64 bytes.
-							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
+							&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
 						},
 						MultiReader: &config.MultiReader{
 							ReuseParams: true,
