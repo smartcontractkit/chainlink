@@ -14,10 +14,6 @@ ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b)
 library CallWithExactGasZKSync {
   error NoContract();
   error NotEnoughGasForPubdata();
-  error NotEnoughGasForCall();
-  /// @notice We assume that no more than `CALL_ENTRY_OVERHEAD` ergs are used for the O(1) operations at the start
-  /// of execution of the contract, such as abi decoding the parameters, jumping to the correct function, etc.
-  uint256 internal constant CALL_ENTRY_OVERHEAD = 800;
   /// @notice We assume that no more than `CALL_RETURN_OVERHEAD` ergs are used for the O(1) operations at the end of the execution,
   /// as such relaying the return.
   uint256 internal constant CALL_RETURN_OVERHEAD = 400;
@@ -54,22 +50,14 @@ library CallWithExactGasZKSync {
         revert(0x0, 0x4)
       }
     }
-    // At the start of the execution we deduce how much gas be spent on things that will be
-    // paid for later on by the transaction.
-    // The `expectedForCompute` variable is an upper bound of how much this contract can spend on compute and
-    // MUST be higher or equal to the `gas` passed into the call.
-    uint256 expectedForCompute = gasleft() + CALL_ENTRY_OVERHEAD;
 
     // We expect that the `_maxTotalGas` at least includes the `gas` required for the call.
     // This require is more of a safety protection for the users that call this function with incorrect parameters.
     //
     // Ultimately, the entire `gas` sent to this call can be spent on compute regardless of the `_maxTotalGas` parameter.
     if (_maxTotalGas > gasleft()) {
-      revert NotEnoughGasForCall();
+      return (false, new bytes(0), 0);
     }
-
-    // This is the amount of gas that can be spent *exclusively* on pubdata in addition to the `gas` provided to this function.
-    uint256 pubdataAllowance = _maxTotalGas > expectedForCompute ? _maxTotalGas - expectedForCompute : 0;
 
     uint256 pubdataPublishedBefore = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
 
@@ -107,7 +95,7 @@ library CallWithExactGasZKSync {
     if (pubdataGasSpent != 0) {
       // Here we double check that the additional cost is not higher than the maximum allowed.
       // Note, that the `gasleft()` can be spent on pubdata too.
-      if (pubdataAllowance + gasleft() < pubdataGasSpent + CALL_RETURN_OVERHEAD) {
+      if (gasleft() < pubdataGasSpent + CALL_RETURN_OVERHEAD) {
         revert NotEnoughGasForPubdata();
       }
     }
