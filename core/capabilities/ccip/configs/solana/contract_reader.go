@@ -102,9 +102,10 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Account,
 						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("state")},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{"LatestPriceSequenceNumber": "LatestSeqNr"},
-							}},
+							&codec.PropertyExtractorConfig{
+								FieldName: "LatestPriceSequenceNumber",
+							},
+						},
 					},
 					consts.MethodNameOffRampGetStaticConfig: {
 						ChainSpecificName: "Config",
