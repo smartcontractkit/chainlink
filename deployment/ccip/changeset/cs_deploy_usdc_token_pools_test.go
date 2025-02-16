@@ -11,13 +11,72 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func deployUSDCPrerequisites(
+	t *testing.T,
+	logger logger.Logger,
+	chain deployment.Chain,
+	addressBook deployment.AddressBook,
+) (*deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677], *deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]) {
+	usdcToken, err := deployment.DeployContract(logger, chain, addressBook,
+		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+			tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				"USDC",
+				"USDC",
+				6,
+				big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+			)
+			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+				Address:  tokenAddress,
+				Contract: token,
+				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tx:       tx,
+				Err:      err,
+			}
+		},
+	)
+	require.NoError(t, err)
+
+	transmitter, err := deployment.DeployContract(logger, chain, addressBook,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter] {
+			transmitterAddress, tx, transmitter, err := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(chain.DeployerKey, chain.Client, 0, 1, usdcToken.Address)
+			return deployment.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
+				Address:  transmitterAddress,
+				Contract: transmitter,
+				Tv:       deployment.NewTypeAndVersion(changeset.USDCMockTransmitter, deployment.Version1_0_0),
+				Tx:       tx,
+				Err:      err,
+			}
+		},
+	)
+	require.NoError(t, err)
+
+	messenger, err := deployment.DeployContract(logger, chain, addressBook,
+		func(chain deployment.Chain) deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger] {
+			messengerAddress, tx, messenger, err := mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(chain.DeployerKey, chain.Client, 0, transmitter.Address)
+			return deployment.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
+				Address:  messengerAddress,
+				Contract: messenger,
+				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenMessenger, deployment.Version1_0_0),
+				Tx:       tx,
+				Err:      err,
+			}
+		},
+	)
+	require.NoError(t, err)
+
+	return usdcToken, messenger
+}
 
 func TestValidateDeployUSDCTokenPoolContractsConfig(t *testing.T) {
 	t.Parallel()
@@ -80,7 +139,7 @@ func TestValidateDeployUSDCTokenPoolInput(t *testing.T) {
 	chain := e.Chains[selector]
 	addressBook := deployment.NewMemoryAddressBook()
 
-	usdcToken, tokenMessenger := testhelpers.DeployUSDCPrerequisites(t, lggr, chain, addressBook)
+	usdcToken, tokenMessenger := deployUSDCPrerequisites(t, lggr, chain, addressBook)
 
 	nonUsdcToken, err := deployment.DeployContract(e.Logger, chain, addressBook,
 		func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
@@ -200,7 +259,7 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 
 			newUSDCTokenPools := make(map[uint64]changeset.DeployUSDCTokenPoolInput, len(selectors))
 			for _, selector := range selectors {
-				usdcToken, tokenMessenger := testhelpers.DeployUSDCPrerequisites(t, lggr, e.Chains[selector], addressBook)
+				usdcToken, tokenMessenger := deployUSDCPrerequisites(t, lggr, e.Chains[selector], addressBook)
 
 				newUSDCTokenPools[selector] = changeset.DeployUSDCTokenPoolInput{
 					TokenAddress:   usdcToken.Address,
