@@ -28,11 +28,17 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	encoder := agbinary.NewBorshEncoder(&buf)
 	combinedRoots := report.BlessedMerkleRoots
 	combinedRoots = append(combinedRoots, report.UnblessedMerkleRoots...)
-	if len(combinedRoots) != 1 {
+	var merkleRoot cciptypes.MerkleRootChain
+	switch len(combinedRoots) {
+	case 0:
+		// price updates only, zero the root
+	case 1:
+		// valid
+		merkleRoot = combinedRoots[0]
+	default:
 		return nil, fmt.Errorf("unexpected merkle root length in report: %d", len(combinedRoots))
 	}
 
-	merkleRoot := combinedRoots[0]
 	mr := &ccip_offramp.MerkleRoot{
 		SourceChainSelector: uint64(merkleRoot.ChainSel),
 		OnRampAddress:       merkleRoot.OnRampAddress,
