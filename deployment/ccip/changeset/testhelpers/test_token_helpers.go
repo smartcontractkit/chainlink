@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
@@ -24,6 +25,22 @@ const (
 	LocalTokenDecimals                       = 18
 	TestTokenSymbol    changeset.TokenSymbol = "TEST"
 )
+
+// CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
+func CreateSymmetricRateLimits(rate int64, capacity int64) changeset.RateLimiterConfig {
+	return changeset.RateLimiterConfig{
+		Inbound: token_pool.RateLimiterConfig{
+			IsEnabled: rate != 0 || capacity != 0,
+			Rate:      big.NewInt(rate),
+			Capacity:  big.NewInt(capacity),
+		},
+		Outbound: token_pool.RateLimiterConfig{
+			IsEnabled: rate != 0 || capacity != 0,
+			Rate:      big.NewInt(rate),
+			Capacity:  big.NewInt(capacity),
+		},
+	}
+}
 
 // SetupTwoChainEnvironmentWithTokens preps the environment for token pool deployment testing.
 func SetupTwoChainEnvironmentWithTokens(
