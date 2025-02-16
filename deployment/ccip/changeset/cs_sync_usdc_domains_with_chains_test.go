@@ -297,7 +297,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Empty(t, output.Proposals)
+			require.Empty(t, output.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
 		})
 	}
 }
