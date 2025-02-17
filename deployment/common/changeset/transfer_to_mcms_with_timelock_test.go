@@ -29,9 +29,9 @@ func TestTransferToMCMSWithTimelock(t *testing.T) {
 			[]uint64{chain1},
 		),
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
-				chain1: proposalutils.SingleGroupTimelockConfig(t),
+			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
+				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
 		),
 	)
@@ -94,9 +94,9 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 			[]uint64{chain1},
 		),
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
-				chain1: proposalutils.SingleGroupTimelockConfig(t),
+			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
+				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
 		),
 	)
@@ -156,9 +156,9 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
-				chain1: proposalutils.SingleGroupTimelockConfig(t),
+			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
+				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
 		),
 	)
@@ -230,9 +230,9 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	chain1 := e.AllChainSelectors()[0]
 	e, err := Apply(t, e, nil,
 		Configure(
-			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelock),
-			map[uint64]types.MCMSWithTimelockConfig{
-				chain1: proposalutils.SingleGroupTimelockConfig(t),
+			deployment.CreateLegacyChangeSet(DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
+				chain1: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
 		),
 	)

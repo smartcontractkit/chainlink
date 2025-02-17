@@ -22,7 +22,7 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 

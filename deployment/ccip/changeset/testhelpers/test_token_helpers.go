@@ -44,9 +44,9 @@ func SetupTwoChainEnvironmentWithTokens(
 		}
 	}
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, selector := range selectors {
-		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfig(t)
+		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 
 	// Deploy one burn-mint token per chain to use in the tests
@@ -82,7 +82,7 @@ func SetupTwoChainEnvironmentWithTokens(
 			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelock),
+			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 			mcmsCfg,
 		),
 	)

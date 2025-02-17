@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
@@ -179,8 +179,8 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{
-					{EvmChainId: ubig.New(big.NewInt(5)), LogIndex: 1},
-					{EvmChainId: ubig.New(big.NewInt(6)), LogIndex: 2},
+					{EVMChainID: ubig.New(big.NewInt(5)), LogIndex: 1},
+					{EVMChainID: ubig.New(big.NewInt(6)), LogIndex: 2},
 				},
 				OutputErr: nil,
 			},
@@ -194,7 +194,7 @@ func TestPollLogs(t *testing.T) {
 
 			if test.LatestBlock != nil {
 				mp.On("LatestBlock", mock.Anything).
-					Return(logpoller.LogPollerBlock{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
+					Return(logpoller.Block{BlockNumber: test.LatestBlock.OutputBlock}, test.LatestBlock.OutputErr)
 			}
 
 			if test.LogsWithSigs != nil {
