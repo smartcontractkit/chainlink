@@ -190,7 +190,7 @@ runner-test-matrix:
     triggers:
       - PR Workflow Engine E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/capabilities_test -v -run "^(TestKeystoneWithOCR3Workflow)$" -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow)$" -timeout 30m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
