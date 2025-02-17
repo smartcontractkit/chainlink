@@ -348,7 +348,12 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 			// Add logging to verify the URL
-			r.lggr.Debugw("INITIALIZE_PIPELINE_CALL: BridgeTask initialized", "bridgeName", task.(*BridgeTask).Name, "url", task.(*BridgeTask).URL)
+			url, err := task.(*BridgeTask).getBridgeURLFromName(context.Background(), StringParam(task.(*BridgeTask).Name))
+			if err != nil {
+					r.lggr.Errorw("Failed to get BridgeTask URL", "bridgeName", task.(*BridgeTask).Name, "error", err)
+			} else {
+					r.lggr.Debugw("INITIALIZE_PIPELINE_CALL: BridgeTask initialized", "bridgeName", task.(*BridgeTask).Name, "url", url.String())
+			}
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
