@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 // ADD REMOTE CHAIN
@@ -55,8 +56,19 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-
-	if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+	chain, ok := e.SolChains[cfg.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
+	if err != nil {
+		return err
+	}
+	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return fmt.Errorf("error loading MCMS state for chain %d: %w", cfg.ChainSelector, err)
+	}
+	if err := commoncs.ValidateOwnershipSolana(e.GetContext(), cfg.MCMS != nil, e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey(), mcmState.TimelockProgram, mcmState.TimelockSeed, chainState.Router); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	var routerConfigAccount solRouter.Config

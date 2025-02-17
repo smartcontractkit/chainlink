@@ -3,10 +3,10 @@ package changeset
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/rs/zerolog/log"
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -32,15 +32,14 @@ var (
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
-	LinkToken     solana.PublicKey
-	Router        solana.PublicKey
-	Timelock      solana.PublicKey
-	Receiver      solana.PublicKey // for tests only
-	SPL2022Tokens []solana.PublicKey
-	TokenPool     solana.PublicKey
-	WSOL          solana.PublicKey
-	FeeQuoter     solana.PublicKey
-	OffRamp       solana.PublicKey
+	LinkToken                 solana.PublicKey
+	Router                    solana.PublicKey
+	Receiver                  solana.PublicKey // for tests only
+	SPL2022Tokens             []solana.PublicKey
+	TokenPool                 solana.PublicKey
+	WSOL                      solana.PublicKey
+	FeeQuoter                 solana.PublicKey
+	OffRamp                   solana.PublicKey
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
@@ -162,7 +161,8 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.OffRampStatePDA = offRampStatePDA
 		default:
-			return state, fmt.Errorf("unknown contract %s", tvStr)
+			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
+			continue
 		}
 	}
 	state.WSOL = solana.SolMint
