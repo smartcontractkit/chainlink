@@ -153,14 +153,6 @@ func (c *capabilitiesWorkflowRegistry) MaxConfigSize() utils.FileSize {
 	return *c.c.MaxConfigSize
 }
 
-func (c *capabilitiesWorkflowRegistry) WorkflowsGlobal() int32 {
-	return *c.c.Limits.WorkflowsGlobal
-}
-
-func (c *capabilitiesWorkflowRegistry) WorkflowsPerOwner() int32 {
-	return *c.c.Limits.WorkflowsPerOwner
-}
-
 type gatewayConnector struct {
 	c toml.GatewayConnector
 }

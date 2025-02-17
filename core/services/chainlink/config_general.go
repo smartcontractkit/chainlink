@@ -417,6 +417,10 @@ func (g *generalConfig) Capabilities() config.Capabilities {
 	return &capabilitiesConfig{c: g.c.Capabilities}
 }
 
+func (g *generalConfig) Workflows() config.Workflows {
+	return &workflowsConfig{c: g.c.Workflows}
+}
+
 func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }

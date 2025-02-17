@@ -57,6 +57,7 @@ type Core struct {
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
+	Workflows        Workflows        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -87,6 +88,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
+	c.Workflows.setFrom(&f.Workflows)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1487,18 +1489,26 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 	}
 }
 
-type WorkflowLimits struct {
-	WorkflowsGlobal   *int32
-	WorkflowsPerOwner *int32
+type Workflows struct {
+	Limits Limits
 }
 
-func (r *WorkflowLimits) setFrom(f *WorkflowLimits) {
-	if f.WorkflowsGlobal != nil {
-		r.WorkflowsGlobal = f.WorkflowsGlobal
+type Limits struct {
+	Global   *int32
+	PerOwner *int32
+}
+
+func (r *Workflows) setFrom(f *Workflows) {
+	r.Limits.setFrom(&f.Limits)
+}
+
+func (r *Limits) setFrom(f *Limits) {
+	if f.Global != nil {
+		r.Global = f.Global
 	}
 
-	if f.WorkflowsPerOwner != nil {
-		r.WorkflowsPerOwner = f.WorkflowsPerOwner
+	if f.PerOwner != nil {
+		r.PerOwner = f.PerOwner
 	}
 }
 
@@ -1509,7 +1519,6 @@ type WorkflowRegistry struct {
 	MaxBinarySize           *utils.FileSize
 	MaxEncryptedSecretsSize *utils.FileSize
 	MaxConfigSize           *utils.FileSize
-	Limits                  WorkflowLimits
 }
 
 func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
@@ -1536,8 +1545,6 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	if f.MaxConfigSize != nil {
 		r.MaxConfigSize = f.MaxConfigSize
 	}
-
-	r.Limits.setFrom(&f.Limits)
 }
 
 type Dispatcher struct {

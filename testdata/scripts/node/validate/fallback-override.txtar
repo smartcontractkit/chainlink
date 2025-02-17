@@ -437,9 +437,10 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 
-[Capabilities.WorkflowRegistry.Limits]
-WorkflowsGlobal = 50
-WorkflowsPerOwner = 5
+[Workflows]
+[Workflows.Limits]
+Global = 50
+PerOwner = 5
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''

@@ -35,6 +35,11 @@ GasPriceBufferPercent = 10
 [AutoPprof]
 CPUProfileRate = 7
 
+[Workflows]
+[Workflows.Limits]
+Global = 50
+PerOwner = 5
+
 [[EVM]]
 ChainID = '1'
 FinalityDepth = 26

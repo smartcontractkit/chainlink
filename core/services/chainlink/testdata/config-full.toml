@@ -297,10 +297,6 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 
-[Capabilities.WorkflowRegistry.Limits]
-WorkflowsGlobal = 50
-WorkflowsPerOwner = 5
-
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'
 NodeAddress = '0x68902d681c28119f9b2531473a417088bf008e59'
@@ -325,6 +321,11 @@ EmitterExportTimeout = '1s'
 [Telemetry.ResourceAttributes]
 Baz = 'test'
 Foo = 'bar'
+
+[Workflows]
+[Workflows.Limits]
+Global = 50
+PerOwner = 5
 
 [[EVM]]
 ChainID = '1'
