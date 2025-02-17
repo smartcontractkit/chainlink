@@ -131,6 +131,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
+	lggr.Debugw("Bridge task: resolved URL", "url", url.String())
 
 	var metaMap MapParam
 
