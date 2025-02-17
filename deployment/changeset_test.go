@@ -19,8 +19,6 @@ func (m MyChangeSet) VerifyPreconditions(e Environment, config uint64) error {
 	return nil
 }
 
-//trigger
-
 func TestChangeSetNormalType(t *testing.T) {
 	t.Parallel()
 	e := NewNoopEnvironment(t)
