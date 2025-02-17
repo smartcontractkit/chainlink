@@ -111,7 +111,7 @@ func Test_Cleanup(t *testing.T) {
 	})
 }
 
-func Test_TransmissionReaper(t *testing.T) {
+func Test_StaleTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
@@ -133,13 +133,40 @@ WHERE transmission_hash IN (
 `)
 
 	// test batching
-	d, err := tr.reapStale(ctx, n/3)
+	d, err := tr.reap(ctx, n/3, "stale")
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), d)
 
 	pgtest.MustExec(t, ds, "UPDATE llo_mercury_transmit_queue SET inserted_at = NOW() - INTERVAL '48 hours'")
 
-	d, err = tr.reapStale(ctx, n/3)
+	d, err = tr.reap(ctx, n/3, "stale")
 	require.NoError(t, err)
 	assert.Equal(t, int64(n-5), d)
+}
+
+func Test_OrphanedTransmissionReaper(t *testing.T) {
+	ds := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
+	ctx := testutils.Context(t)
+
+	const n = 13
+
+	transmissions := makeSampleTransmissions(n)
+	torm := mercurytransmitter.NewORM(ds, 1)
+	err := torm.Insert(testutils.Context(t), transmissions)
+	require.NoError(t, err)
+	pgtest.MustExec(t, ds, `
+UPDATE llo_mercury_transmit_queue 
+SET inserted_at = NOW() - INTERVAL '48 hours'
+WHERE transmission_hash IN (
+    SELECT transmission_hash FROM llo_mercury_transmit_queue 
+    LIMIT 5
+);
+`)
+
+	// test no cleanup
+	d, err := tr.reap(ctx, n, "orphaned")
+	require.NoError(t, err)
+	assert.Equal(t, int64(13), d)
 }
