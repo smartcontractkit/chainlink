@@ -52,13 +52,13 @@ type SolCCIPChainState struct {
 }
 
 func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
-	var referenceAddresses solOffRamp.ReferenceAddresses
+	var referenceAddressesAccount solOffRamp.ReferenceAddresses
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
-	err := chain.GetAccountDataBorshInto(ctx, offRampReferenceAddressesPDA, &referenceAddresses)
+	err := chain.GetAccountDataBorshInto(ctx, offRampReferenceAddressesPDA, &referenceAddressesAccount)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 	}
-	return referenceAddresses.OfframpLookupTable, nil
+	return referenceAddressesAccount.OfframpLookupTable, nil
 }
 
 func LoadOnchainStateSolana(e deployment.Environment) (CCIPOnChainState, error) {

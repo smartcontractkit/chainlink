@@ -192,6 +192,31 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		)
 	}
 	require.NoError(t, err)
+	// Verify router and fee quoter upgraded in place
+	// and offramp had 2nd address added
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	numRouters := 0
+	numFeeQuoters := 0
+	numOffRamps := 0
+	for _, address := range addresses {
+		if address.Type == changeset.Router {
+			numRouters++
+		}
+		if address.Type == changeset.FeeQuoter {
+			numFeeQuoters++
+		}
+		if address.Type == changeset.OffRamp {
+			numOffRamps++
+		}
+	}
+	require.Equal(t, 1, numRouters)
+	require.Equal(t, 1, numFeeQuoters)
+	if ci {
+		require.Equal(t, 2, numOffRamps)
+	} else {
+		require.Equal(t, 1, numOffRamps)
+	}
+	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }

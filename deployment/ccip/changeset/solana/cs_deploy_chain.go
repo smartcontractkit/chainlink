@@ -319,15 +319,24 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
 		}
+		closeIxn, err := generateCloseBufferIxn(
+			&e,
+			bufferProgram,
+			config.UpgradeConfig.SpillAddress,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+		}
 		feeQuoterAddress = chainState.FeeQuoter
 		if config.UpgradeConfig.SignerKey != nil {
 			// if we're not using MCMS to upgrade, confirm txn with the signer key
-			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
+			if err := chain.Confirm([]solana.Instruction{upgradeIxn, closeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
 				return ixns, fmt.Errorf("failed to confirm upgradeFeeQuoter: %w", err)
 			}
 			e.Logger.Infow("Upgraded FeeQuoter", "addr", chainState.FeeQuoter.String(), "chain", chain.String())
 		} else {
-			ixns = append(ixns, upgradeIxn)
+			ixns = append(ixns, upgradeIxn, closeIxn)
 		}
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
@@ -371,15 +380,24 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
 		}
+		closeIxn, err := generateCloseBufferIxn(
+			&e,
+			bufferProgram,
+			config.UpgradeConfig.SpillAddress,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+		}
 		ccipRouterProgram = chainState.Router
 		if config.UpgradeConfig.SignerKey != nil {
 			// if we're not using MCMS to upgrade, confirm txn with the signer key
-			if err := chain.Confirm([]solana.Instruction{upgradeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
+			if err := chain.Confirm([]solana.Instruction{upgradeIxn, closeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
 				return ixns, fmt.Errorf("failed to confirm upgradeRouter: %w", err)
 			}
 			e.Logger.Infow("Upgraded Router", "addr", chainState.Router.String(), "chain", chain.String())
 		} else {
-			ixns = append(ixns, upgradeIxn)
+			ixns = append(ixns, upgradeIxn, closeIxn)
 		}
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
@@ -623,24 +641,24 @@ func setUpgradeAuthority(
 	newUpgradeAuthority *solana.PublicKey,
 	isBuffer bool,
 ) error {
-	slice1 := solana.NewAccountMeta(programID, true, false)
+	// Buffers use the program account as the program data account
+	programDataSlice := solana.NewAccountMeta(programID, true, false)
 	if !isBuffer {
-		// Derive the program data address
+		// Actual program accounts use the program data account
 		programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		slice1 = solana.NewAccountMeta(programDataAddress, true, false)
+		programDataSlice = solana.NewAccountMeta(programDataAddress, true, false)
 	}
 
-	// Accounts involved in the transaction
 	keys := solana.AccountMetaSlice{
-		slice1, // Program account (writable)
+		programDataSlice, // Program account (writable)
 		solana.NewAccountMeta(currentUpgradeAuthority.PublicKey(), false, true), // Current upgrade authority (signer)
 		solana.NewAccountMeta(*newUpgradeAuthority, false, false),               // New upgrade authority
 	}
 
-	// Create the instruction
 	instruction := solana.NewInstruction(
 		solana.BPFLoaderUpgradeableProgramID,
 		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L72
 		[]byte{4, 0, 0, 0}, // 4-byte SetAuthority instruction identifier
 	)
 
@@ -660,11 +678,11 @@ func generateUpgradeIxn(
 	upgradeAuthority solana.PublicKey,
 ) (solana.Instruction, error) {
 	// Derive the program data address
-	programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
 	// Accounts involved in the transaction
 	keys := solana.AccountMetaSlice{
-		solana.NewAccountMeta(programDataAddress, true, false), // Program account (writable)
+		solana.NewAccountMeta(programDataAccount, true, false), // Program account (writable)
 		solana.NewAccountMeta(programID, true, false),
 		solana.NewAccountMeta(bufferAddress, true, false),             // Buffer account (writable)
 		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
@@ -673,11 +691,34 @@ func generateUpgradeIxn(
 		solana.NewAccountMeta(upgradeAuthority, false, true),          // Current upgrade authority (signer)
 	}
 
-	// Create the instruction
 	instruction := solana.NewInstruction(
 		solana.BPFLoaderUpgradeableProgramID,
 		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L66
 		[]byte{3, 0, 0, 0}, // 4-byte Upgrade instruction identifier
+	)
+
+	return instruction, nil
+}
+
+func generateCloseBufferIxn(
+	e *deployment.Environment,
+	bufferAddress solana.PublicKey,
+	recipient solana.PublicKey,
+	upgradeAuthority solana.PublicKey,
+) (solana.Instruction, error) {
+
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(bufferAddress, true, false),
+		solana.NewAccountMeta(recipient, false, false),
+		solana.NewAccountMeta(upgradeAuthority, false, true),
+	}
+
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L78
+		[]byte{5, 0, 0, 0}, // 4-byte Close instruction identifier
 	)
 
 	return instruction, nil
