@@ -233,11 +233,11 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 
 	chainSelector := env.AllChainSelectorsSolana()[0]
 	solChain := env.SolChains[chainSelector]
-	addreses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	addresses, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 
 	// Check balances of MCM Signer PDAS
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 	require.NoError(t, err)
 
 	accounts := []solana.PublicKey{
