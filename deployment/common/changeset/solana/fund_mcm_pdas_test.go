@@ -33,6 +33,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	chainSelector := env.AllChainSelectorsSolana()[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	testhelpers.SavePreloadedSolAddresses(t, env, chainSelector)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
 	env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	// Deploy MCMS and Timelock
@@ -45,6 +46,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 		),
 	)
 	require.NoError(t, err)
+
 	return env
 }
 
@@ -206,8 +208,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 
 	// Set up the test environment
 	env := setupFundingTestEnv(t)
-	solChainSelectors := env.AllChainSelectorsSolana()
-	testhelpers.SavePreloadedSolAddresses(t, env, solChainSelectors[0])
+
 	// Build a funding configuration.
 	// Here, we assume that we want to fund each chain with an amount equal to 1000 SOL per MCMS signer.
 	// There are 4 signers (bypasser, canceller, proposer, timelock).
