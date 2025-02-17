@@ -3,7 +3,7 @@ package clients
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 )
@@ -31,17 +31,17 @@ type EntityToolClient interface {
 }
 
 type EntityToolClientImpl struct {
-	baseUrl string
+	baseURL string
 	client  *http.Client
 }
 
 // If client is nil, http.DefaultClient is used.
-func NewEntityToolClient(baseUrl string, client *http.Client) EntityToolClient {
+func NewEntityToolClient(baseURL string, client *http.Client) EntityToolClient {
 	if client == nil {
 		client = http.DefaultClient
 	}
 	return &EntityToolClientImpl{
-		baseUrl: baseUrl,
+		baseURL: baseURL,
 		client:  client,
 	}
 }
@@ -54,7 +54,7 @@ type feedBuildObjectResponse struct {
 }
 
 func (c *EntityToolClientImpl) GetOverrides(ctx context.Context, in *GetOverridesRequest) (*GetOverridesResponse, error) {
-	endpoint := fmt.Sprintf("%s/api/feed-build-object", c.baseUrl)
+	endpoint := c.baseURL + "/api/feed-build-object"
 
 	// Default product to "crypto" if not provided.
 	product := "crypto"
@@ -68,30 +68,30 @@ func (c *EntityToolClientImpl) GetOverrides(ctx context.Context, in *GetOverride
 	values.Add("product", product)
 	values.Add("configType", "DATA_STREAMS")
 
-	reqURL := fmt.Sprintf("%s?%s", endpoint, values.Encode())
+	reqURL := endpoint + "?" + values.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GetOverrides request: %w", err)
+		return nil, errors.New("failed to create GetOverrides request: " + err.Error())
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("GetOverrides request failed: %w", err)
+		return nil, errors.New("GetOverrides request failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GetOverrides unexpected status code: %d", resp.StatusCode)
+		return nil, errors.New("GetOverrides unexpected status code: " + http.StatusText(resp.StatusCode))
 	}
 
 	var result feedBuildObjectResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode GetOverrides response: %w", err)
+		return nil, errors.New("failed to decode GetOverrides response: " + err.Error())
 	}
 
 	if result.ExternalAdapterRequestParams.Overrides == nil {
-		return nil, fmt.Errorf("no APIs found for the given asset and quote")
+		return nil, errors.New("no APIs found for the given asset and quote")
 	}
 
 	overrides := GetOverridesResponse(result.ExternalAdapterRequestParams.Overrides)
@@ -99,7 +99,7 @@ func (c *EntityToolClientImpl) GetOverrides(ctx context.Context, in *GetOverride
 }
 
 func (c *EntityToolClientImpl) GetAssetEAs(ctx context.Context, in *GetAssetEAsRequest) (*GetAssetEAsResponse, error) {
-	endpoint := fmt.Sprintf("%s/api/feed-build-object", c.baseUrl)
+	endpoint := c.baseURL + "/api/feed-build-object"
 
 	product := "crypto"
 	if in.product != nil {
@@ -112,30 +112,30 @@ func (c *EntityToolClientImpl) GetAssetEAs(ctx context.Context, in *GetAssetEAsR
 	values.Add("product", product)
 	values.Add("configType", "DATA_STREAMS")
 
-	reqURL := fmt.Sprintf("%s?%s", endpoint, values.Encode())
+	reqURL := endpoint + "?" + values.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GetAssetEAs request: %w", err)
+		return nil, errors.New("failed to create GetAssetEAs request: " + err.Error())
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("GetAssetEAs request failed: %w", err)
+		return nil, errors.New("GetAssetEAs request failed: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GetAssetEAs unexpected status code: %d", resp.StatusCode)
+		return nil, errors.New("GetAssetEAs unexpected status code: " + http.StatusText(resp.StatusCode))
 	}
 
 	var result feedBuildObjectResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode GetAssetEAs response: %w", err)
+		return nil, errors.New("failed to decode GetAssetEAs response: " + err.Error())
 	}
 
 	if len(result.APIs) == 0 {
-		return nil, fmt.Errorf("no APIs found for the given asset and quote")
+		return nil, errors.New("no APIs found for the given asset and quote")
 	}
 
 	eas := GetAssetEAsResponse(result.APIs)

@@ -67,7 +67,9 @@ func TestExternalAdapterClient_Query(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.responseStatus)
-				w.Write([]byte(tc.responseBody))
+				if _, err := w.Write([]byte(tc.responseBody)); err != nil {
+					return
+				}
 			}))
 			defer server.Close()
 
