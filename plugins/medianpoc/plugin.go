@@ -51,7 +51,8 @@ type pipelineSpec struct {
 }
 
 type jsonConfig struct {
-	Pipelines []pipelineSpec `json:"pipelines"`
+	Pipelines     []pipelineSpec               `json:"pipelines"`
+	DeviationFunc *DeviationFunctionDefinition `json:"deviationFunc"`
 }
 
 func (j jsonConfig) defaultPipeline() (string, error) {
@@ -142,6 +143,11 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 		includeGasPriceSubunitsInObservation = true
 	}
 
+	var deviationFunc median.DeviationFunc
+	if jc.DeviationFunc != nil {
+		deviationFunc = jc.DeviationFunc.Func()
+	}
+
 	factory := &median.NumericalMedianFactory{
 		ContractTransmitter:                  provider.MedianContract(),
 		DataSource:                           ds,
@@ -155,6 +161,7 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 		),
 		OnchainConfigCodec: provider.OnchainConfigCodec(),
 		ReportCodec:        provider.ReportCodec(),
+		DeviationFunc:      deviationFunc,
 	}
 	return factory, nil
 }

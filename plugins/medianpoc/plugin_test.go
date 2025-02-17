@@ -1,8 +1,11 @@
 package medianpoc
 
 import (
+	"context"
 	"fmt"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,30 +88,75 @@ func TestNewPlugin(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	p := NewPlugin(lggr)
 
-	defaultSpec := "default-spec"
-	juelsPerFeeCoinSpec := "jpfc-spec"
-	config := core.ReportingPluginServiceConfig{
-		PluginConfig: fmt.Sprintf(
-			`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
-			defaultSpec,
-			juelsPerFeeCoinSpec,
-		),
-	}
-	pr := &mockPipelineRunner{}
-	prov := provider{}
+	t.Run("default deviation func", func(t *testing.T) {
+		defaultSpec := "default-spec"
+		juelsPerFeeCoinSpec := "jpfc-spec"
+		config := core.ReportingPluginServiceConfig{
+			PluginConfig: fmt.Sprintf(
+				`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}]}`,
+				defaultSpec,
+				juelsPerFeeCoinSpec,
+			),
+		}
+		pr := &mockPipelineRunner{}
+		prov := provider{}
 
-	f, err := p.newFactory(
-		tests.Context(t),
-		config,
-		prov,
-		pr,
-		nil,
-		mockErrorLog{},
-	)
-	require.NoError(t, err)
+		f, err := p.newFactory(
+			tests.Context(t),
+			config,
+			prov,
+			pr,
+			nil,
+			mockErrorLog{},
+		)
+		require.NoError(t, err)
 
-	ds := f.DataSource.(*DataSource)
-	assert.Equal(t, defaultSpec, ds.spec)
-	jpfcDs := f.JuelsPerFeeCoinDataSource.(*DataSource)
-	assert.Equal(t, juelsPerFeeCoinSpec, jpfcDs.spec)
+		ds := f.DataSource.(*DataSource)
+		assert.Equal(t, defaultSpec, ds.spec)
+		jpfcDs := f.JuelsPerFeeCoinDataSource.(*DataSource)
+		assert.Equal(t, juelsPerFeeCoinSpec, jpfcDs.spec)
+	})
+	t.Run("'pendle' deviation func", func(t *testing.T) {
+		defaultSpec := "default-spec"
+		juelsPerFeeCoinSpec := "jpfc-spec"
+		expiresAt := float64(13857541.0) + float64(time.Now().Unix())
+		config := core.ReportingPluginServiceConfig{
+			PluginConfig: fmt.Sprintf(
+				`{"pipelines": [{"name": "__DEFAULT_PIPELINE__", "spec": "%s"},{"name": "juelsPerFeeCoinPipeline", "spec": "%s"}],"deviationFunc":{"type":"pendle","expiresAt":%f}}`,
+				defaultSpec,
+				juelsPerFeeCoinSpec,
+				expiresAt,
+			),
+		}
+		pr := &mockPipelineRunner{}
+		prov := provider{}
+
+		f, err := p.newFactory(
+			tests.Context(t),
+			config,
+			prov,
+			pr,
+			nil,
+			mockErrorLog{},
+		)
+		require.NoError(t, err)
+
+		ds := f.DataSource.(*DataSource)
+		assert.Equal(t, defaultSpec, ds.spec)
+		jpfcDs := f.JuelsPerFeeCoinDataSource.(*DataSource)
+		assert.Equal(t, juelsPerFeeCoinSpec, jpfcDs.spec)
+		assert.NotNil(t, f.DeviationFunc)
+
+		// Test the actual deviation function behavior
+
+		// DEVIATES
+		deviates, err := f.DeviationFunc(context.Background(), 1e7, big.NewInt(0.187152977881070687*1e18), big.NewInt(0.160000000000000000*1e18))
+		require.NoError(t, err)
+		assert.True(t, deviates)
+
+		// DOES NOT DEVIATE
+		deviates, err = f.DeviationFunc(context.Background(), 1e7, big.NewInt(0.187152977881070687*1e18), big.NewInt(0.177777777777777777*1e18))
+		require.NoError(t, err)
+		assert.False(t, deviates)
+	})
 }
